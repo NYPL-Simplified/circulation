@@ -5,8 +5,11 @@ import os
 import json
 import logging
 import copy
-from facets import FacetConstants as Facets
 from util import LanguageCodes
+from sqlalchemy.engine.url import make_url
+from flask.ext.babel import lazy_gettext as _
+
+from facets import FacetConstants
 
 class CannotLoadConfiguration(Exception):
     pass
@@ -37,21 +40,16 @@ class Configuration(object):
 
     instance = None
 
+    # Environment variables that contain URLs to the database
+    DATABASE_TEST_ENVIRONMENT_VARIABLE = 'SIMPLIFIED_TEST_DATABASE'
+    DATABASE_PRODUCTION_ENVIRONMENT_VARIABLE = 'SIMPLIFIED_PRODUCTION_DATABASE'
+
     # Logging stuff
-    LOGGING = "logging"
     LOGGING_LEVEL = "level"
     LOGGING_FORMAT = "format"
     LOG_FORMAT_TEXT = "text"
     LOG_FORMAT_JSON = "json"
 
-    # Links
-    LINKS = "links"
-    PRIVACY_POLICY = "privacy_policy"
-    TERMS_OF_SERVICE = "terms_of_service"
-    COPYRIGHT = "copyright"
-    ABOUT = "about"
-    LICENSE = "license"
-    
     # Logging
     LOGGING = "logging"
     LOG_LEVEL = "level"
@@ -61,51 +59,16 @@ class Configuration(object):
 
     DATA_DIRECTORY = "data_directory"
 
+    # ConfigurationSetting key for the base url of the app.
+    BASE_URL_KEY = u'base_url'
+
     # Policies, mostly circulation specific
     POLICIES = "policies"
-
-    HOLD_POLICY = "holds"
-    HOLD_POLICY_ALLOW = "allow"
-    HOLD_POLICY_HIDE = "hide"
-
+   
     LANES_POLICY = "lanes"
-
-    # Facet policies
-    FACET_POLICY = 'facets'
-    ENABLED_FACETS_KEY = 'enabled'
-    DEFAULT_FACET_KEY = 'default'
-
-    DEFAULT_ENABLED_FACETS = {
-        Facets.ORDER_FACET_GROUP_NAME : [
-            Facets.ORDER_AUTHOR, Facets.ORDER_TITLE, Facets.ORDER_ADDED_TO_COLLECTION
-        ],
-        Facets.AVAILABILITY_FACET_GROUP_NAME : [
-            Facets.AVAILABLE_ALL, Facets.AVAILABLE_NOW, Facets.AVAILABLE_OPEN_ACCESS
-        ],
-        Facets.COLLECTION_FACET_GROUP_NAME : [
-            Facets.COLLECTION_FULL, Facets.COLLECTION_MAIN, Facets.COLLECTION_FEATURED
-        ]
-    }
-
-    DEFAULT_FACET = {
-        Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_AUTHOR,
-        Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
-        Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_MAIN,
-    }
 
     # Lane policies
     DEFAULT_OPDS_FORMAT = "verbose_opds_entry"
-    CACHE_FOREVER = 'forever'
-
-    PAGE_MAX_AGE_POLICY = "default_page_max_age" 
-    DEFAULT_PAGE_MAX_AGE = 1200
-
-    GROUPS_MAX_AGE_POLICY = "default_groups_max_age" 
-    DEFAULT_GROUPS_MAX_AGE = CACHE_FOREVER
-
-    # Loan policies
-    DEFAULT_LOAN_PERIOD = "default_loan_period"
-    DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
 
     ANALYTICS_POLICY = "analytics"
 
@@ -116,51 +79,136 @@ class Configuration(object):
     NAME = "name"
     TYPE = "type"
     INTEGRATIONS = "integrations"
-    DATABASE_INTEGRATION = "Postgres"
+    DATABASE_INTEGRATION = u"Postgres"
     DATABASE_PRODUCTION_URL = "production_url"
     DATABASE_TEST_URL = "test_url"
 
-    ELASTICSEARCH_INTEGRATION = "Elasticsearch"
-    ELASTICSEARCH_INDEX_KEY = "works_index"
-
-    METADATA_WRANGLER_INTEGRATION = "Metadata Wrangler"
-    METADATA_WRANGLER_CLIENT_ID = "client_id"
-    METADATA_WRANGLER_CLIENT_SECRET = "client_secret"
-    CONTENT_SERVER_INTEGRATION = "Content Server"
-    CIRCULATION_MANAGER_INTEGRATION = "Circulation Manager"
-
-    NYT_INTEGRATION = "New York Times"
-    NYT_BEST_SELLERS_API_KEY = "best_sellers_api_key"
-
-    NOVELIST_INTEGRATION = "NoveList Select"
-    NOVELIST_PROFILE = "profile"
-    NOVELIST_PASSWORD = "password"
+    CONTENT_SERVER_INTEGRATION = u"Content Server"
 
     AXIS_INTEGRATION = "Axis 360"
     ONECLICK_INTEGRATION = "OneClick"
     OVERDRIVE_INTEGRATION = "Overdrive"
     THREEM_INTEGRATION = "3M"
 
-    MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
-    FEATURED_LANE_SIZE = "featured_lane_size"
+    # ConfigurationSetting key for a CDN's mirror domain
+    CDN_MIRRORED_DOMAIN_KEY = u'mirrored_domain'
 
-    S3_INTEGRATION = "S3"
-    S3_ACCESS_KEY = "access_key"
-    S3_SECRET_KEY = "secret_key"
-    S3_OPEN_ACCESS_CONTENT_BUCKET = "open_access_content_bucket"
-    S3_BOOK_COVERS_BUCKET = "book_covers_bucket"
-
-    CDN_INTEGRATION = "CDN"
+    UNINITIALIZED_CDNS = object()
 
     BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
-    SHOW_STAFF_PICKS_ON_TOP_LEVEL = "show_staff_picks_on_top_level"
 
+
+    # The names of the site-wide configuration settings that determine
+    # feed cache time.
+    NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age" 
+    GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age" 
+
+    # The name of the per-library configuration policy that controls whether
+    # books may be put on hold.
+    ALLOW_HOLDS = "allow_holds"
+
+    # Each library may set a minimum quality for the books that show
+    # up in the 'featured' lanes that show up on the front page.
+    MINIMUM_FEATURED_QUALITY = "minimum_featured_quality"
+
+    # Each library may configure the maximum number of books in the
+    # 'featured' lanes.
+    FEATURED_LANE_SIZE = "featured_lane_size"
+
+    # Each facet group has two associated per-library keys: one
+    # configuring which facets are enabled for that facet group, and
+    # one configuring which facet is the default.
+    ENABLED_FACETS_KEY_PREFIX = "facets_enabled_"
+    DEFAULT_FACET_KEY_PREFIX = "facets_default_"
+
+    # The name of the per-library per-patron authentication integration
+    # regular expression used to derive a patron's external_type from
+    # their authorization_identifier.
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
+
+    WEBSITE_URL = u'website'
+    
+    SITEWIDE_SETTINGS = [
+        {
+            "key": NONGROUPED_MAX_AGE_POLICY,
+            "label": _("Cache time for paginated OPDS feeds"),
+        },
+        {
+            "key": GROUPED_MAX_AGE_POLICY,
+            "label": _("Cache time for grouped OPDS feeds"),
+        },
+        {
+            "key": BASE_URL_KEY,
+            "label": _("Base url of the application"),
+        },
+    ]
+
+    LIBRARY_SETTINGS = [
+        {
+            "key": WEBSITE_URL,
+            "label": _("URL of the library's website"),
+            "description": _("The library's main website, e.g. \"https://www.nypl.org/\" (not this Circulation Manager's URL).")
+        },
+        {
+            "key": ALLOW_HOLDS,
+            "label": _("Allow books to be put on hold"),
+            "type": "select",
+            "options": [
+                { "key": "true", "label": _("Allow holds") },
+                { "key": "false", "label": _("Disable holds") },
+            ],
+            "default": "true",
+        },
+        {
+            "key": FEATURED_LANE_SIZE,
+            "label": _("Maximum number of books in the 'featured' lanes"),
+            "type": "number",
+            "default": 15,
+        },
+        {
+            "key": MINIMUM_FEATURED_QUALITY,
+            "label": _("Minimum quality for books that show up in 'featured' lanes"),
+            "description": _("Between 0 and 1."),
+            "default": 0.65,
+        },
+    ] + [
+        { "key": ENABLED_FACETS_KEY_PREFIX + group,
+          "label": description,
+          "type": "list",
+          "options": [
+              { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }
+              for facet in FacetConstants.FACETS_BY_GROUP.get(group)
+          ],
+          "default": FacetConstants.FACETS_BY_GROUP.get(group),
+        } for group, description in FacetConstants.GROUP_DESCRIPTIONS.iteritems()
+    ] + [
+        { "key": DEFAULT_FACET_KEY_PREFIX + group,
+          "label": _("Default %(group)s", group=display_name),
+          "type": "select",
+          "options": [
+              { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }
+              for facet in FacetConstants.FACETS_BY_GROUP.get(group)
+          ],
+        } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
+    ]
+
+    # This is set once data is loaded from the database and inserted into
+    # the Configuration object.
+    LOADED_FROM_DATABASE = 'loaded_from_database'
+
+    @classmethod
+    def loaded_from_database(cls):
+        """Has the site configuration been loaded from the database yet?"""
+        return cls.instance and cls.instance.get(
+            cls.LOADED_FROM_DATABASE, False
+        )
+    
     # General getters
 
     @classmethod
     def get(cls, key, default=None):
-        if not cls.instance:
-            raise ValueError("No configuration file loaded!")
+        if cls.instance is None:
+            raise ValueError("No configuration object loaded!")
         return cls.instance.get(key, default)
 
     @classmethod
@@ -172,11 +220,6 @@ class Configuration(object):
         raise ValueError(
             "Required configuration variable %s was not defined!" % key
         )
-
-    @classmethod
-    def link(cls, name):
-        """Find a link by name."""
-        return cls.get(cls.LINKS, {}).get(name, None)
 
     @classmethod
     def integration(cls, name, required=False):
@@ -204,12 +247,13 @@ class Configuration(object):
 
     @classmethod
     def cdns(cls):
-        return cls.integration(cls.CDN_INTEGRATION)
-
-    @classmethod
-    def s3_bucket(cls, bucket_name):
-        integration = cls.integration(cls.S3_INTEGRATION)
-        return integration[bucket_name]
+        from model import ExternalIntegration
+        cdns = cls.integration(ExternalIntegration.CDN)
+        if cdns == cls.UNINITIALIZED_CDNS:
+            raise CannotLoadConfiguration(
+                'CDN configuration has not been loaded from the database'
+            )
+        return cdns
 
     @classmethod
     def policy(cls, name, default=None, required=False):
@@ -225,73 +269,67 @@ class Configuration(object):
 
     @classmethod
     def database_url(cls, test=False):
+        """Find the database URL configured for this site.
+
+        For compatibility with old configurations, we will look in the
+        site configuration first. 
+        
+        If it's not there, we will look in the appropriate environment
+        variable.
+        """
+        # To avoid expensive mistakes, test and production databases
+        # are always configured with separate keys.
         if test:
-            key = cls.DATABASE_TEST_URL
+            config_key = cls.DATABASE_TEST_URL
+            environment_variable = cls.DATABASE_TEST_ENVIRONMENT_VARIABLE
         else:
-            key = cls.DATABASE_PRODUCTION_URL
-        return cls.integration(cls.DATABASE_INTEGRATION)[key]
+            config_key = cls.DATABASE_PRODUCTION_URL
+            environment_variable = cls.DATABASE_PRODUCTION_ENVIRONMENT_VARIABLE
+
+        # Check the legacy location (the config file) first.
+        url = None
+        database_integration = cls.integration(cls.DATABASE_INTEGRATION)
+        if database_integration:
+            url = database_integration.get(config_key)
+
+        # If that didn't work, check the new location (the environment
+        # variable).
+        if not url:
+            url = os.environ.get(environment_variable)
+        if not url:
+            raise CannotLoadConfiguration(
+                "Database URL was not defined in environment variable (%s) or configuration file." % environment_variable
+            )
+
+        url_obj = None
+        try:
+            url_obj = make_url(url)
+        except ArgumentError, e:
+            # Improve the error message by giving a guide as to what's
+            # likely to work.
+            raise ArgumentError(
+                "Bad format for database URL (%s). Expected something like postgres://[username]:[password]@[hostname]:[port]/[database name]" %
+                url
+            )
+
+        # Calling __to_string__ will hide the password.
+        logging.info("Connecting to database: %s" % url_obj.__to_string__())
+        return url
 
     @classmethod
     def data_directory(cls):
         return cls.get(cls.DATA_DIRECTORY)
 
     @classmethod
-    def terms_of_service_url(cls):
-        return cls.link(cls.TERMS_OF_SERVICE)
+    def load_cdns(cls, _db, config_instance=None):
+        from model import ExternalIntegration as EI
+        cdns = _db.query(EI).filter(EI.goal==EI.CDN_GOAL).all()
+        cdn_integration = dict()
+        for cdn in cdns:
+            cdn_integration[cdn.setting(cls.CDN_MIRRORED_DOMAIN_KEY).value] = cdn.url
 
-    @classmethod
-    def acknowledgements_url(cls):
-        return cls.link(cls.COPYRIGHT)
-
-    @classmethod
-    def about_url(cls):
-        return cls.link(cls.ABOUT)
-
-    @classmethod
-    def privacy_policy_url(cls):
-        return cls.link(cls.PRIVACY_POLICY)
-
-    @classmethod
-    def license_url(cls):
-        return cls.link(cls.LICENSE)
-    
-    @classmethod
-    def hold_policy(cls):
-        return cls.policy(cls.HOLD_POLICY, cls.HOLD_POLICY_ALLOW)
-
-    @classmethod
-    def enabled_facets(cls, group_name):
-        """Look up the enabled facets for a given facet group."""
-        policy = cls.policy(cls.FACET_POLICY)
-        if not policy or not cls.ENABLED_FACETS_KEY in policy:
-            return cls.DEFAULT_ENABLED_FACETS[group_name]
-        return policy[cls.ENABLED_FACETS_KEY][group_name]
-
-    @classmethod
-    def default_facet(cls, group_name):
-        """Look up the default facet for a given facet group."""
-        policy = cls.policy(cls.FACET_POLICY)
-        if not policy or not cls.DEFAULT_FACET_KEY in policy:
-            return cls.DEFAULT_FACET[group_name]
-        return policy[cls.DEFAULT_FACET_KEY][group_name]
-
-    @classmethod
-    def page_max_age(cls):
-        value = cls.policy(
-            cls.PAGE_MAX_AGE_POLICY, cls.DEFAULT_PAGE_MAX_AGE
-        )
-        if value == cls.CACHE_FOREVER:
-            return value
-        return datetime.timedelta(seconds=int(value))
-
-    @classmethod
-    def groups_max_age(cls):
-        value = cls.policy(
-            cls.GROUPS_MAX_AGE_POLICY, cls.DEFAULT_GROUPS_MAX_AGE
-        )
-        if value == cls.CACHE_FOREVER:
-            return value
-        return datetime.timedelta(seconds=int(value))
+        config_instance = config_instance or cls.instance
+        config_instance[EI.CDN] = cdn_integration
 
     @classmethod
     def base_opds_authentication_document(cls):
@@ -303,41 +341,136 @@ class Configuration(object):
         return cls.get(cls.LOGGING, default_logging)
 
     @classmethod
-    def minimum_featured_quality(cls):
-        return float(cls.policy(cls.MINIMUM_FEATURED_QUALITY, 0.65))
-
-    @classmethod
-    def featured_lane_size(cls):
-        return int(cls.policy(cls.FEATURED_LANE_SIZE, 15))
-
-    @classmethod
-    def show_staff_picks_on_top_level(cls):
-        return cls.policy(cls.SHOW_STAFF_PICKS_ON_TOP_LEVEL, default=True)
-
-    @classmethod
     def localization_languages(cls):
         languages = cls.policy(cls.LOCALIZATION_LANGUAGES, default=["eng"])
         return [LanguageCodes.three_to_two[l] for l in languages]
+
+    # The last time the database configuration is known to have changed.
+    SITE_CONFIGURATION_LAST_UPDATE = "site_configuration_last_update"
+
+    # The last time we *checked* whether the database configuration had
+    # changed.
+    LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE = "last_checked_for_site_configuration_update"
+
+    # The name of the service associated with a Timestamp that tracks
+    # the last time the site's configuration changed in the database.
+    SITE_CONFIGURATION_CHANGED = "Site Configuration Changed"
+            
+    @classmethod
+    def last_checked_for_site_configuration_update(cls):
+        """When was the last time we actually checked when the database
+        was updated?
+        """
+        return cls.instance.get(
+            cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE, None
+        )
+
+    @classmethod
+    def site_configuration_last_update(cls, _db, known_value=None,
+                                       timeout=60):
+        """Check when the site configuration was last updated.
+
+        Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE]. 
+        It's the application's responsibility to periodically check
+        this value and reload the configuration if appropriate.
+
+        :param known_value: We know when the site configuration was
+        last updated--it's this timestamp. Use it instead of checking
+        with the database.
+
+        :param timeout: We will only call out to the database once in
+        this number of seconds. If we are asked again before this
+        number of seconds elapses, we will assume site configuration
+        has not changed.
+
+        :return: a datetime object.
+        """
+        now = datetime.datetime.utcnow()
+
+        last_check = cls.instance.get(
+            cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
+        )
+
+        if (not known_value
+            and last_check and (now - last_check).total_seconds() < timeout):
+            # We went to the database less than [timeout] seconds ago.
+            # Assume there has been no change.
+            logging.error("Assuming that %s is still valid.", cls._site_configuration_last_update())
+            logging.error("Known value: %s", known_value)
+            logging.error("Last check: %.2f sec ago.", (now-last_check).total_seconds())
+            logging.error("Timeout: %s", timeout)
+            return cls._site_configuration_last_update()
+        
+        # Ask the database when was the last time the site
+        # configuration changed. Specifically, this is the last time
+        # site_configuration_was_changed() (defined in model.py) was
+        # called.
+        if not known_value:
+            from model import Timestamp
+            known_value = Timestamp.value(
+                _db, cls.SITE_CONFIGURATION_CHANGED, None
+            )
+            logging.error("Retrieved known value %s from database.", known_value)
+        if not known_value:
+            # The site configuration has never changed.
+            last_update = None
+        else:
+            last_update = known_value
+
+        logging.debug(
+            "Updating Configuration last update time to %s", last_update
+        )
+        # Update the Configuration object's record of the last update time.
+        cls.instance[cls.SITE_CONFIGURATION_LAST_UPDATE] = last_update
+        
+        # Whether that record changed or not, the time at which we
+        # _checked_ is going to be set to the current time.
+        cls.instance[cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE] = now
+
+        return last_update
+
+    @classmethod
+    def _site_configuration_last_update(cls):
+        """Get the raw SITE_CONFIGURATION_LAST_UPDATE value,
+        without any attempt to find a fresher value from the database.
+        """
+        return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
     
     @classmethod
-    def load(cls):
+    def load(cls, _db=None):
+        """Load additional site configuration from a config file.
+
+        This is being phased out in favor of taking all configuration from a
+        database.
+        """
         cfv = 'SIMPLIFIED_CONFIGURATION_FILE'
-        if not cfv in os.environ:
-            raise CannotLoadConfiguration(
-                "No configuration file defined in %s." % cfv)
-
-        config_path = os.environ[cfv]
-        try:
-            cls.log.info("Loading configuration from %s", config_path)
-            configuration = cls._load(open(config_path).read())
-        except Exception, e:
-            raise CannotLoadConfiguration(
-                "Error loading configuration file %s: %s" % (
-                    config_path, e)
-            )
+        config_path = os.environ.get(cfv)
+        if config_path:
+            try:
+                cls.log.info("Loading configuration from %s", config_path)
+                configuration = cls._load(open(config_path).read())
+            except Exception, e:
+                raise CannotLoadConfiguration(
+                    "Error loading configuration file %s: %s" % (
+                        config_path, e)
+                )
+        else:
+            configuration = cls._load('{}')
         cls.instance = configuration
-        return configuration
 
+        if _db:
+            cls.load_cdns(_db)
+            cls.instance[cls.LOADED_FROM_DATABASE] = True
+            for parent in cls.__bases__:
+                if parent.__name__.endswith('Configuration'):
+                    parent.load(_db)
+        else:
+            if not cls.integration('CDN'):
+                cls.instance.setdefault(cls.INTEGRATIONS, {})[
+                    'CDN'] = cls.UNINITIALIZED_CDNS
+                
+        return configuration
+    
     @classmethod
     def _load(cls, str):
         lines = [x for x in str.split("\n")

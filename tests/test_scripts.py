@@ -20,41 +20,58 @@ from config import (
     Configuration, 
     temp_config,
 )
+from external_search import DummyExternalSearchIndex
 
 from model import (
     create,
     get_one,
+    CachedFeed,
     Collection,
     Complaint, 
+    ConfigurationSetting,
     Contributor, 
     CustomList,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier,
     Library,
     LicensePool,
     Timestamp, 
     Work,
 )
+from oneclick import MockOneClickAPI
 
 from scripts import (
     AddClassificationScript,
     CheckContributorNamesInDB, 
+    CollectionInputScript,
     ConfigureCollectionScript,
+    ConfigureIntegrationScript,
     ConfigureLibraryScript,
+    ConfigureSiteScript,
     CustomListManagementScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
     IdentifierInputScript,
+    FixInvisibleWorksScript,
+    LibraryInputScript,
     MockStdin,
     OneClickDeltaScript,
     OneClickImportScript, 
+    OPDSImportScript,
     PatronInputScript,
+    RunCollectionMonitorScript,
     RunCoverageProviderScript,
+    RunMonitorScript,
     Script,
     ShowCollectionsScript,
+    ShowIntegrationsScript,
     ShowLibrariesScript,
     WorkProcessingScript,
+)
+from monitor import (
+    CollectionMonitor,
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -211,6 +228,88 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
+class OPDSCollectionMonitor(CollectionMonitor):
+    """Mock Monitor for use in tests of Run*MonitorScript."""
+    SERVICE_NAME = "Test Monitor"
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
+
+    def __init__(self, _db, test_argument=None, **kwargs):
+        self.test_argument = test_argument
+        super(OPDSCollectionMonitor, self).__init__(_db, **kwargs)
+
+    def run_once(self, start, cutoff):
+        self.collection.ran_with_argument = self.test_argument
+
+
+class DoomedCollectionMonitor(CollectionMonitor):
+    """Mock CollectionMonitor that always raises an exception."""
+    SERVICE_NAME = "Doomed Monitor"
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
+    def run_once(self, *args, **kwargs):
+        self.collection.doomed = True
+        raise Exception("Doomed!")
+        
+        
+class TestRunMonitorScript(DatabaseTest):
+
+    def test_run_with_collection_monitor(self):
+        """It's not ideal, but you can run a CollectionMonitor script from
+        RunMonitorScript. This will run the monitor on every
+        appropriate Collection.
+        """
+        c1 = self._collection()
+        c2 = self._collection()
+        script = RunMonitorScript(
+            OPDSCollectionMonitor, self._db, test_argument="test value"
+        )
+        script.run()
+        for c in [c1, c2]:
+            eq_("test value", c.ran_with_argument)
+        
+        
+class TestRunCollectionMonitorScript(DatabaseTest):
+
+    def test_all(self):
+        # Here we have three OPDS import Collections...
+        o1 = self._collection()
+        o2 = self._collection()
+        o3 = self._collection()
+
+        # ...and a Bibliotheca collection.
+        b1 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
+
+        script = RunCollectionMonitorScript(
+            OPDSCollectionMonitor, self._db, test_argument="test value"
+        )
+        script.run()
+
+        # Running the script instantiates an OPDSCollectionMonitor for
+        # every Collection and calls run_once() on each one. This
+        # propagates a value sent into the script constructor to the
+        # Collection object.
+        for i in [o1, o2, o3]:
+            eq_("test value", i.ran_with_argument)
+
+        # Nothing happened to the Bibliotheca collection.
+        assert not hasattr(b1, 'ran_with_argument')
+
+    def test_keep_going_on_failure(self):
+        # Here we have two Collections that are going to be run
+        # through a CollectionMonitor that always fails.
+        o1 = self._collection()
+        o2 = self._collection()
+        script = RunCollectionMonitorScript(
+            DoomedCollectionMonitor, self._db
+        )
+        script.run()
+
+        # Even though run_once() raised an exception, it didn't stop
+        # the script from calling run_once() again for the second
+        # collection.
+        assert(True, o1.doomed)
+        assert(True, o2.doomed)
+        
+
 class TestPatronInputScript(DatabaseTest):
 
     def test_parse_patron_list(self):
@@ -271,7 +370,57 @@ class TestPatronInputScript(DatabaseTest):
         eq_(True, p1.processed)
         eq_(True, p2.processed)
         eq_(False, p3.processed)
-        
+
+
+class TestLibraryInputScript(DatabaseTest):
+
+    def test_parse_library_list(self):
+        """Test that libraries can be identified with their full name or short name."""
+        l1 = self._library()
+        l2 = self._library()
+        args = [l1.name, 'no-such-library', '', l2.short_name]
+        libraries = LibraryInputScript.parse_library_list(
+            self._db, args
+        )
+        eq_([l1, l2], libraries)
+
+        eq_([], LibraryInputScript.parse_library_list(self._db, []))
+
+    def test_parse_command_line(self):
+        l1 = self._library()
+        # We pass in one library identifier on the command line...
+        cmd_args = [l1.name]
+        parsed = LibraryInputScript.parse_command_line(self._db, cmd_args)
+
+        # And here it is.
+        eq_([l1], parsed.libraries)
+
+    def test_parse_command_line_no_identifiers(self):
+        """If you don't specify any libraries on the command
+        line, we will process all libraries in the system.
+        """
+        parsed =LibraryInputScript.parse_command_line(
+            self._db, []
+        )
+        eq_(self._db.query(Library).all(), parsed.libraries)
+
+
+    def test_do_run(self):
+        """Test that LibraryInputScript.do_run() calls process_library()
+        for every library designated by the command-line arguments.
+        """
+        class MockLibraryInputScript(LibraryInputScript):
+            def process_library(self, library):
+                library.processed = True
+        l1 = self._library()
+        l2 = self._library()
+        l2.processed = False
+        cmd_args = [l1.name]
+        script = MockLibraryInputScript(self._db)
+        script.do_run(cmd_args=cmd_args)
+        eq_(True, l1.processed)
+        eq_(False, l2.processed)
+
         
 class TestRunCoverageProviderScript(DatabaseTest):
 
@@ -674,18 +823,17 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
 
     def test_accurate_timestamp_created(self):
-        timestamps = self._db.query(Timestamp).all()
-        eq_(timestamps, [])
+        eq_(None, Timestamp.value(self._db, self.script.name, collection=None))
 
         self.script.do_run()
         self.assert_matches_latest_migration()
 
     def test_error_raised_when_timestamp_exists(self):
-        Timestamp.stamp(self._db, self.script.name)
+        Timestamp.stamp(self._db, self.script.name, None)
         assert_raises(RuntimeError, self.script.do_run)
 
     def test_error_not_raised_when_timestamp_forced(self):
-        Timestamp.stamp(self._db, self.script.name)
+        Timestamp.stamp(self._db, self.script.name, None)
         self.script.do_run(['-f'])
         self.assert_matches_latest_migration()
 
@@ -791,33 +939,15 @@ class TestOneClickImportScript(DatabaseTest):
         data = open(path).read()
         return data, json.loads(data)
 
-
-    def test_parse_command_line(self):
-        cmd_args = ["--mock"]
-        parsed = OneClickImportScript.parse_command_line(
-            _db=self._db, cmd_args=cmd_args
-        )
-        eq_(True, parsed.mock)
-
-
     def test_import(self):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : '1931',
-                'username' : 'username_123',
-                'password' : 'password_123',
-                'remote_stage' : 'qa', 
-                'base_url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm', 
-                "ebook_loan_length" : '21', 
-                "eaudio_loan_length" : '21'
-            }
-            cmd_args = ["--mock"]
-            importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
-
-            datastr, datadict = self.get_data("response_catalog_all_sample.json")
-            importer.api.queue_response(status_code=200, content=datastr)
-            importer.run()
+        base_path = os.path.split(__file__)[0]
+        collection = MockOneClickAPI.mock_collection(self._db)
+        importer = OneClickImportScript(
+            collection, api_class=MockOneClickAPI, base_path=base_path
+        )
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        importer.api.queue_response(status_code=200, content=datastr)
+        importer.run()
 
         # verify that we created Works, Editions, LicensePools
         works = self._db.query(Work).all()
@@ -828,7 +958,6 @@ class TestOneClickImportScript(DatabaseTest):
             "Challenger Deep"]
         eq_(set(expected_titles), set(work_titles))
 
-
         # make sure we created some Editions
         edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727", create_if_not_exists=False)
         assert(edition is not None)
@@ -836,17 +965,20 @@ class TestOneClickImportScript(DatabaseTest):
         assert(edition is not None)
 
         # make sure we created some LicensePools
-        pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727")
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9780062231727", collection=collection
+        )
         eq_(False, made_new)
-        pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186")
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9781615730186", collection=collection
+        )
         eq_(False, made_new)
 
         # make sure there are 8 LicensePools
         pools = self._db.query(LicensePool).all()
         eq_(8, len(pools))
-
-        # make sure we created some Identifiers
-
 
 
 class TestOneClickDeltaScript(DatabaseTest):
@@ -862,40 +994,34 @@ class TestOneClickDeltaScript(DatabaseTest):
 
 
     def test_delta(self):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : '1931',
-                'username' : 'username_123',
-                'password' : 'password_123',
-                'remote_stage' : 'qa', 
-                'base_url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm', 
-                "ebook_loan_length" : '21', 
-                "eaudio_loan_length" : '21'
-            }
-            cmd_args = ["--mock"]
-            # first, load a sample library
-            importer = OneClickImportScript(_db=self._db, cmd_args=cmd_args)
+        # First, load a collection.
+        base_path = os.path.split(__file__)[0]
+        collection = MockOneClickAPI.mock_collection(self._db)
+        importer = OneClickImportScript(
+            collection, api_class=MockOneClickAPI, base_path=base_path
+        )
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        importer.api.queue_response(status_code=200, content=datastr)
+        importer.run()
 
-            datastr, datadict = self.get_data("response_catalog_all_sample.json")
-            importer.api.queue_response(status_code=200, content=datastr)
-            importer.run()
+        # set license numbers on test pool
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9781615730186", collection=collection
+        )
+        eq_(False, made_new)
+        pool.licenses_owned = 10
+        pool.licenses_available = 9
+        pool.licenses_reserved = 2
+        pool.patrons_in_hold_queue = 1
 
-            # set license numbers on test pool
-            pool, made_new = LicensePool.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186")
-            eq_(False, made_new)
-            pool.licenses_owned = 10
-            pool.licenses_available = 9
-            pool.licenses_reserved = 2
-            pool.patrons_in_hold_queue = 1
-
-            # now update that library with a sample delta            
-            cmd_args = ["--mock"]
-            delta_runner = OneClickDeltaScript(_db=self._db, cmd_args=cmd_args)
-
-            datastr, datadict = self.get_data("response_catalog_delta.json")
-            delta_runner.api.queue_response(status_code=200, content=datastr)
-            delta_runner.run()
+        # now update that library with a sample delta            
+        delta_runner = OneClickDeltaScript(
+            collection, api_class=MockOneClickAPI, base_path=base_path
+        )
+        datastr, datadict = self.get_data("response_catalog_delta.json")
+        delta_runner.api.queue_response(status_code=200, content=datastr)
+        delta_runner.run()
 
         # "Tricks" did not get deleted, but did get its pools set to "nope".
         # "Emperor Mage: The Immortals" got new metadata.
@@ -944,8 +1070,8 @@ class TestShowLibrariesScript(DatabaseTest):
         # on both libraries.
         output = StringIO()
         ShowLibrariesScript().do_run(self._db, output=output)
-        expect_1 = "\n".join(l1.explain(include_library_registry_shared_secret=False))
-        expect_2 = "\n".join(l2.explain(include_library_registry_shared_secret=False))
+        expect_1 = "\n".join(l1.explain(include_secrets=False))
+        expect_2 = "\n".join(l2.explain(include_secrets=False))
         
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
@@ -964,12 +1090,77 @@ class TestShowLibrariesScript(DatabaseTest):
         output = StringIO()
         ShowLibrariesScript().do_run(
             self._db,
-            cmd_args=["--show-registry-shared-secret"],
+            cmd_args=["--show-secrets"],
             output=output
         )
-        expect_1 = "\n".join(l1.explain(include_library_registry_shared_secret=True))
-        expect_2 = "\n".join(l2.explain(include_library_registry_shared_secret=True))
+        expect_1 = "\n".join(l1.explain(include_secrets=True))
+        expect_2 = "\n".join(l2.explain(include_secrets=True))
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+
+
+class TestConfigureSiteScript(DatabaseTest):
+
+    def test_unknown_setting(self):
+        script = ConfigureSiteScript()
+        assert_raises_regexp(
+            ValueError,
+            "'setting1' is not a known site-wide setting. Use --force to set it anyway.",
+            script.do_run, self._db, [
+                "--setting=setting1=value1"
+            ]
+        )
+
+        eq_(None, ConfigurationSetting.sitewide(self._db, "setting1").value)
+
+        # Running with --force sets the setting.
+        script.do_run(
+            self._db, [
+                "--setting=setting1=value1",
+                "--force",
+            ]
+        )
+
+        eq_("value1", ConfigurationSetting.sitewide(self._db, "setting1").value)
+
+    def test_settings(self):
+        class TestConfig(object):
+            SITEWIDE_SETTINGS = [
+                { "key": "setting1" },
+                { "key": "setting2" },
+                { "key": "secret_setting" },
+            ]
+
+        script = ConfigureSiteScript(config=TestConfig)
+        output = StringIO()
+        script.do_run(
+            self._db, [
+                "--setting=setting1=value1",
+                "--setting=setting2=[1,2,\"3\"]",
+                "--setting=secret_setting=secretvalue",
+            ],
+            output
+        )
+        # The secret was set, but is not shown.
+        eq_("""Current site-wide settings:
+setting1='value1'
+setting2='[1,2,"3"]'
+""",
+            output.getvalue()
+        )
+        eq_("value1", ConfigurationSetting.sitewide(self._db, "setting1").value)
+        eq_('[1,2,"3"]', ConfigurationSetting.sitewide(self._db, "setting2").value)
+        eq_("secretvalue", ConfigurationSetting.sitewide(self._db, "secret_setting").value)
+
+        # If we run again with --show-secrets, the secret is shown.
+        output = StringIO()
+        script.do_run(self._db, ["--show-secrets"], output)
+        eq_("""Current site-wide settings:
+secret_setting='secretvalue'
+setting1='value1'
+setting2='[1,2,"3"]'
+""",
+            output.getvalue()
+        )
 
 
 class TestConfigureLibraryScript(DatabaseTest):
@@ -992,14 +1183,6 @@ class TestConfigureLibraryScript(DatabaseTest):
             "Could not locate library 'foo'",
             script.do_run, self._db, ["--short-name=foo"]
         )
-        assert_raises_regexp(
-            ValueError,
-            "Cowardly refusing to overwrite an existing shared secret with a random value.",
-            script.do_run, self._db, [
-                "--short-name=L1",
-                "--random-library-registry-shared-secret"
-            ]
-        )
 
     def test_create_library(self):
         # There is no library.
@@ -1011,8 +1194,7 @@ class TestConfigureLibraryScript(DatabaseTest):
             self._db, [
                 "--short-name=L1",
                 "--name=Library 1",
-                "--library-registry-shared-secret=foo",
-                "--library-registry-short-name=nyl1",
+                '--setting=customkey=value',
             ],
             output
         )
@@ -1021,8 +1203,7 @@ class TestConfigureLibraryScript(DatabaseTest):
         [library] = self._db.query(Library).all()
         eq_("Library 1", library.name)
         eq_("L1", library.short_name)
-        eq_("foo", library.library_registry_shared_secret)
-        eq_("NYL1", library.library_registry_short_name)
+        eq_("value", library.setting("customkey").value)
         expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
         eq_(expect_output, output.getvalue())
 
@@ -1034,25 +1215,18 @@ class TestConfigureLibraryScript(DatabaseTest):
         script = ConfigureLibraryScript()
         output = StringIO()
 
-        # We're going to change one value and add some more.
+        # We're going to change one value and add a setting.
         script.do_run(
             self._db, [
                 "--short-name=L1",
                 "--name=Library 1 New Name",
-                "--random-library-registry-shared-secret",
-                "--library-registry-short-name=nyl1",
+                '--setting=customkey=value',
             ],
             output
         )
 
         eq_("Library 1 New Name", library.name)
-        eq_("NYL1", library.library_registry_short_name)
-
-        # The shared secret was randomly generated, so we can't test
-        # its exact value, but we do know it's a string that can be
-        # converted into a hexadecimal number.
-        assert library.library_registry_shared_secret != None
-        int(library.library_registry_shared_secret, 16)
+        eq_("value", library.setting("customkey").value)
         
         expect_output = "Configuration settings stored.\n" + "\n".join(library.explain()) + "\n"
         eq_(expect_output, output.getvalue())
@@ -1066,19 +1240,19 @@ class TestShowCollectionsScript(DatabaseTest):
         eq_("No collections found.\n", output.getvalue())
 
     def test_with_multiple_collections(self):
-        c1, ignore = create(self._db, Collection, name="Collection 1",
-                            protocol=Collection.OVERDRIVE)
+        c1 = self._collection(name="Collection 1",
+                              protocol=ExternalIntegration.OVERDRIVE)
         c1.collection_password="a"
-        c2, ignore = create(self._db, Collection, name="Collection 2",
-                            protocol=Collection.BIBLIOTHECA)
+        c2 = self._collection(name="Collection 2",
+                              protocol=ExternalIntegration.BIBLIOTHECA)
         c2.collection_password="b"
 
         # The output of this script is the result of running explain()
         # on both collections.
         output = StringIO()
         ShowCollectionsScript().do_run(self._db, output=output)
-        expect_1 = "\n".join(c1.explain(include_password=False))
-        expect_2 = "\n".join(c2.explain(include_password=False))
+        expect_1 = "\n".join(c1.explain(include_secrets=False))
+        expect_2 = "\n".join(c2.explain(include_secrets=False))
         
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
@@ -1096,11 +1270,11 @@ class TestShowCollectionsScript(DatabaseTest):
         output = StringIO()
         ShowCollectionsScript().do_run(
             self._db,
-            cmd_args=["--show-password"],
+            cmd_args=["--show-secrets"],
             output=output
         )
-        expect_1 = "\n".join(c1.explain(include_password=True))
-        expect_2 = "\n".join(c2.explain(include_password=True))
+        expect_1 = "\n".join(c1.explain(include_secrets=True))
+        expect_2 = "\n".join(c2.explain(include_secrets=True))
         eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
 
 
@@ -1183,8 +1357,9 @@ class TestConfigureCollectionScript(DatabaseTest):
         eq_([collection], l2.collections)
         eq_([], l3.collections)
 
-        # One CollectionSetting was set on the collection.
-        [setting] = collection.external_integration.settings
+        # One CollectionSetting was set on the collection, in addition
+        # to url, username, and password.
+        setting = collection.external_integration.setting("library_id")
         eq_("library_id", setting.key)
         eq_("1234", setting.value)
 
@@ -1195,9 +1370,9 @@ class TestConfigureCollectionScript(DatabaseTest):
 
     def test_reconfigure_collection(self):
         # The collection exists.
-        collection, ignore = create(
-            self._db, Collection, name="Collection 1",
-            protocol=Collection.OVERDRIVE
+        collection = self._collection(
+            name="Collection 1",
+            protocol=ExternalIntegration.OVERDRIVE
         )
         script = ConfigureCollectionScript()
         output = StringIO()
@@ -1207,16 +1382,456 @@ class TestConfigureCollectionScript(DatabaseTest):
             self._db, [
                 "--name=Collection 1",
                 "--url=foo",
-                "--protocol=%s" % Collection.BIBLIOTHECA
+                "--protocol=%s" % ExternalIntegration.BIBLIOTHECA
             ],
             output
         )
 
         # The collection has been changed.
         eq_("foo", collection.external_integration.url)
-        eq_(Collection.BIBLIOTHECA, collection.protocol)
+        eq_(ExternalIntegration.BIBLIOTHECA, collection.protocol)
         
         expect = ("Configuration settings stored.\n"
                   + "\n".join(collection.explain()) + "\n")
         
         eq_(expect, output.getvalue())
+
+
+class TestShowIntegrationsScript(DatabaseTest):
+
+    def test_with_no_integrations(self):
+        output = StringIO()
+        ShowIntegrationsScript().do_run(self._db, output=output)
+        eq_("No integrations found.\n", output.getvalue())
+
+    def test_with_multiple_integrations(self):
+        i1 = self._external_integration(
+            name="Integration 1",
+            goal="Goal",
+            protocol=ExternalIntegration.OVERDRIVE
+        )
+        i1.password="a"
+        i2 = self._external_integration(
+            name="Integration 2",
+            goal="Goal",
+            protocol=ExternalIntegration.BIBLIOTHECA
+        )
+        i2.password="b"
+
+        # The output of this script is the result of running explain()
+        # on both integrations.
+        output = StringIO()
+        ShowIntegrationsScript().do_run(self._db, output=output)
+        expect_1 = "\n".join(i1.explain(include_secrets=False))
+        expect_2 = "\n".join(i2.explain(include_secrets=False))
+        
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+
+
+        # We can tell the script to only list a single integration.
+        output = StringIO()
+        ShowIntegrationsScript().do_run(
+            self._db,
+            cmd_args=["--name=Integration 2"],
+            output=output
+        )
+        eq_(expect_2 + "\n", output.getvalue())
+        
+        # We can tell the script to include the integration secrets
+        output = StringIO()
+        ShowIntegrationsScript().do_run(
+            self._db,
+            cmd_args=["--show-secrets"],
+            output=output
+        )
+        expect_1 = "\n".join(i1.explain(include_secrets=True))
+        expect_2 = "\n".join(i2.explain(include_secrets=True))
+        eq_(expect_1 + "\n" + expect_2 + "\n", output.getvalue())
+        
+
+class TestConfigureIntegrationScript(DatabaseTest):
+    
+    def test_load_integration(self):
+        m = ConfigureIntegrationScript._integration
+
+        assert_raises_regexp(
+            ValueError,
+            "An integration must by identified by either ID, name, or the combination of protocol and goal.",
+            m, self._db, None, None, "protocol", None
+        )
+
+        assert_raises_regexp(
+            ValueError,
+            "No integration with ID notanid.",
+            m, self._db, "notanid", None, None, None
+        )
+
+        assert_raises_regexp(
+            ValueError,
+            'No integration with name "Unknown integration". To create it, you must also provide protocol and goal.',
+            m, self._db, None, "Unknown integration", None, None
+        )
+        
+        integration = self._external_integration(
+            protocol="Protocol", goal="Goal"
+        )
+        integration.name = "An integration"
+        eq_(integration,
+            m(self._db, integration.id, None, None, None)
+        )
+
+        eq_(integration,
+            m(self._db, None, integration.name, None, None)
+        )
+
+        eq_(integration,
+            m(self._db, None, None, "Protocol", "Goal")
+        )
+
+        # An integration may be created given a protocol and goal.
+        integration2 = m(self._db, None, "I exist now", "Protocol", "Goal2")
+        assert integration2 != integration
+        eq_("Protocol", integration2.protocol)
+        eq_("Goal2", integration2.goal)
+        eq_("I exist now", integration2.name)
+        
+    def test_add_settings(self):
+        script = ConfigureIntegrationScript()
+        output = StringIO()
+
+        script.do_run(
+            self._db, [
+                "--protocol=aprotocol",
+                "--goal=agoal",
+                "--setting=akey=avalue",
+            ],
+            output
+        )
+
+        # An ExternalIntegration was created and configured.
+        integration = get_one(self._db, ExternalIntegration,
+                              protocol="aprotocol", goal="agoal")
+
+        expect_output = "Configuration settings stored.\n" + "\n".join(integration.explain()) + "\n"
+        eq_(expect_output, output.getvalue())
+       
+
+class TestCollectionInputScript(DatabaseTest):
+    """Test the ability to name collections on the command line."""
+
+    def test_parse_command_line(self):
+
+        def collections(cmd_args):
+            parsed = CollectionInputScript.parse_command_line(
+                self._db, cmd_args
+            )
+            return parsed.collections
+
+        # No collections named on command line -> no collections
+        eq_([], collections([]))
+
+        # Nonexistent collection -> ValueError
+        assert_raises_regexp(
+            ValueError,
+            'Unknown collection: "no such collection"',
+            collections, ['--collection="no such collection"']
+        )
+
+        # Collections are presented in the order they were encountered
+        # on the command line.
+        c2 = self._collection()
+        expect = [c2, self._default_collection]
+        args = ["--collection=" + c.name for c in expect]
+        actual = collections(args)
+        eq_(expect, actual)
+
+
+# Mock classes used by TestOPDSImportScript
+class MockOPDSImportMonitor(object):
+    """Pretend to monitor an OPDS feed for new titles."""
+    INSTANCES = []
+    
+    def __init__(self, _db, collection, *args, **kwargs):
+        self.collection = collection
+        self.args = args
+        self.kwargs = kwargs
+        self.INSTANCES.append(self)
+        self.was_run = False
+        
+    def run(self):
+        self.was_run = True
+
+class MockOPDSImporter(object):
+    """Pretend to import titles from an OPDS feed."""
+    pass
+
+class MockOPDSImportScript(OPDSImportScript):
+    """Actually instantiate a monitor that will pretend to do something."""
+    MONITOR_CLASS = MockOPDSImportMonitor
+    IMPORTER_CLASS = MockOPDSImporter
+
+        
+class TestOPDSImportScript(DatabaseTest):  
+
+    def test_do_run(self):
+        self._default_collection.external_integration.setting(Collection.DATA_SOURCE_NAME_SETTING).value = (
+            DataSource.OA_CONTENT_SERVER
+        )
+
+        script = MockOPDSImportScript(self._db)
+        script.do_run([])
+
+        # Since we provided no collection, a MockOPDSImportMonitor
+        # was instantiated for each OPDS Import collection in the database.
+        monitor = MockOPDSImportMonitor.INSTANCES.pop()
+        eq_(self._default_collection, monitor.collection)
+
+        args = ['--collection=%s' % self._default_collection.name]
+        script.do_run(args)
+
+        # If we provide the collection name, a MockOPDSImportMonitor is
+        # also instantiated.
+        monitor = MockOPDSImportMonitor.INSTANCES.pop()
+        eq_(self._default_collection, monitor.collection)
+        eq_(True, monitor.was_run)
+
+        # Our replacement OPDS importer class was passed in to the
+        # monitor constructor. If this had been a real monitor, that's the
+        # code we would have used to import OPDS feeds.
+        eq_(MockOPDSImporter, monitor.kwargs['import_class'])
+        eq_(False, monitor.kwargs['force_reimport'])
+
+        # Setting --force changes the 'force_reimport' argument
+        # passed to the monitor constructor.
+        args.append('--force')
+        script.do_run(args)
+        monitor = MockOPDSImportMonitor.INSTANCES.pop()
+        eq_(self._default_collection, monitor.collection)
+        eq_(True, monitor.kwargs['force_reimport'])
+
+
+class TestFixInvisibleWorksScript(DatabaseTest):
+
+    def test_no_presentation_ready_works(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        eq_("""0 presentation-ready works.
+0 works not presentation-ready.
+Here's your problem: there are no presentation-ready works.
+""", output.getvalue())
+
+    def test_no_materialized_view(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # This work is marked as presentation-ready, but it has no
+        # LicensePools, and will not show up in the materialized view.
+        work = self._work(with_license_pool=False)
+        work.presentation_ready=True
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        eq_("""1 presentation-ready works.
+0 works not presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+0 works in materialized view after refresh.
+Here's your problem: your presentation-ready works are not making it into the materialized view.
+""", output.getvalue())
+
+    def test_no_delivery_mechanism(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # This work has a license pool, but no delivery mechanisms.
+        work = self._work(with_license_pool=True)
+        work.presentation_ready=True
+        for lpdm in work.license_pools[0].delivery_mechanisms:
+            self._db.delete(lpdm)
+
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        eq_("""1 presentation-ready works.
+0 works not presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+Here's your problem: your works don't have delivery mechanisms.
+""", output.getvalue())
+
+    def test_suppressed_pool(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # This work has a license pool, but it's suppressed.
+        work = self._work(with_license_pool=True)
+        work.presentation_ready=True
+        work.license_pools[0].suppressed = True
+
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        eq_("""1 presentation-ready works.
+0 works not presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+Here's your problem: your works' license pools are suppressed.
+""", output.getvalue())
+
+    def test_no_licenses(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # This work has a license pool, but no licenses owned.
+        work = self._work(with_license_pool=True)
+        work.presentation_ready=True
+        work.license_pools[0].licenses_owned = 0
+
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        eq_("""1 presentation-ready works.
+0 works not presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+Here's your problem: your works aren't open access and have no licenses owned.
+""", output.getvalue())
+
+    def test_success(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        # Let's add a work that's not presentation-ready for a stupid
+        # reason.
+        work = self._work(with_license_pool=True)
+        work.presentation_ready = False
+
+        # It's not in the materialized view.
+        from model import MaterializedWork
+        mw_query = self._db.query(MaterializedWork)
+        eq_(0, mw_query.count())
+        
+        # Let's also add a CachedFeed which might be clogging things up.
+        feed = create(self._db, CachedFeed, type=CachedFeed.PAGE_TYPE,
+                      pagination="")
+        
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        eq_("""0 presentation-ready works.
+1 works not presentation-ready.
+Attempting to make 1 works presentation-ready based on their metadata.
+1 works are now presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+1 page-type feeds in cachedfeeds table.
+Deleting them all.
+I would now expect you to be able to find 1 works.
+""", output.getvalue())
+
+        # The Work was made presentation-ready
+        eq_(True, work.presentation_ready)
+
+        # The CachedFeed was deleted.
+        eq_(0, self._db.query(CachedFeed).count())
+
+        # The materialized view was refreshed.
+        eq_(1, mw_query.count())
+
+    def test_with_collections(self):
+        search = DummyExternalSearchIndex()
+
+        c1 = self._collection()
+        c2 = self._collection()
+
+        # One collection has a work that's not presentation-ready.
+        work = self._work(with_license_pool=True, collection=c2)
+        work.presentation_ready = False
+
+        # It's not in the materialized view.
+        from model import MaterializedWork
+        mw_query = self._db.query(MaterializedWork)
+        eq_(0, mw_query.count())
+
+        output = StringIO()
+
+        # Running the script on a different collection won't help.
+        FixInvisibleWorksScript(self._db, output, search=search).do_run(collections=[c1])
+        eq_("""0 presentation-ready works.
+0 works not presentation-ready.
+Here's your problem: there are no presentation-ready works.
+""", output.getvalue())
+
+        # The Work is still not presentation-ready
+        eq_(False, work.presentation_ready)
+
+        # It's still not in the materialized view.
+        eq_(0, mw_query.count())
+
+
+        output = StringIO()
+
+        # But running it with the right collection fixes the work.
+        FixInvisibleWorksScript(self._db, output, search=search).do_run(collections=[c2])
+        eq_("""0 presentation-ready works.
+1 works not presentation-ready.
+Attempting to make 1 works presentation-ready based on their metadata.
+1 works are now presentation-ready.
+0 works in materialized view.
+Refreshing the materialized views.
+1 works in materialized view after refresh.
+0 page-type feeds in cachedfeeds table.
+I would now expect you to be able to find 1 works.
+""", output.getvalue())
+
+        # The Work was made presentation-ready
+        eq_(True, work.presentation_ready)
+
+        # The materialized view was refreshed.
+        eq_(1, mw_query.count())
+        
+
+class TestWorkConsolidationScript(object):
+    """TODO"""
+    pass
+
+
+class TestWorkPresentationScript(object):
+    """TODO"""
+    pass
+
+
+class TestWorkClassificationScript(object):
+    """TODO"""
+    pass
+
+
+class TestWorkOPDSScript(object):
+    """TODO"""
+    pass
+
+
+class TestCustomListManagementScript(object):
+    """TODO"""
+    pass
+
+
+class TestSubjectAssignmentScript(object):
+    """TODO"""
+    pass
+
+
+class TestBibliographicRefreshScript(object):
+    """TODO"""
+    pass
+
+        
+class TestNYTBestSellerListsScript(object):
+    """TODO"""
+    pass
+
+
+class TestRefreshMaterializedViewsScript(object):
+    """TODO"""
+    pass
+
+
+class TestExplain(object):
+    """TODO"""
+    pass

@@ -18,13 +18,12 @@ class JSONFormatter(logging.Formatter):
     if len(fqdn) > len(hostname):
         hostname = fqdn
     def format(self, record):
-        try:
-            message = record.msg % record.args
-        except TypeError, e:
-            if record.args:
+        message = record.msg
+        if record.args:
+            try:
+                message = record.msg % record.args
+            except TypeError, e:
                 raise e
-            else:
-                message = record.msg
         data = dict(
             host=self.hostname,
             app="simplified",

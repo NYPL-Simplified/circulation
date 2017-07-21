@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+from sqlalchemy.orm.session import Session
 
 from config import (
     Configuration, 
@@ -18,10 +19,12 @@ from coverage import BibliographicCoverageProvider, CoverageFailure
 from model import (
     Collection,
     Contributor,
+    get_one,
     get_one_or_create,
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     Library,
@@ -50,7 +53,7 @@ from util.http import (
     HTTP,
 )
 
-
+from testing import DatabaseTest
 
 class OneClickAPI(object):
 
@@ -71,15 +74,14 @@ class OneClickAPI(object):
    
     log = logging.getLogger("OneClick API")
 
-    def __init__(self, _db, collection):
-        self._db = _db
-
-        if collection.protocol != collection.ONE_CLICK:
+    def __init__(self, collection):
+        if collection.protocol != ExternalIntegration.ONE_CLICK:
             raise ValueError(
                 "Collection protocol is %s, but passed into OneClickAPI!" %
                 collection.protocol
             )
-        
+        self._db = Session.object_session(collection)
+        self.collection_id = collection.id
         self.library_id = collection.external_account_id.encode("utf8")
         self.token = collection.external_integration.password.encode("utf8")
 
@@ -88,11 +90,6 @@ class OneClickAPI(object):
         if base_url in self.SERVER_NICKNAMES:
             base_url = self.SERVER_NICKNAMES[base_url]
         self.base_url = (base_url + self.API_VERSION).encode("utf8")
-
-        # expiration defaults are OneClick-general
-        self.ebook_loan_length = collection.external_integration.setting('ebook_loan_length').value or '21'
-        self.eaudio_loan_length = collection.external_integration.setting('eaudio_loan_length').value or '21'
-
 
     @classmethod
     def create_identifier_strings(cls, identifiers):
@@ -106,31 +103,13 @@ class OneClickAPI(object):
 
         return identifier_strings
 
-
-    @classmethod
-    def from_config(cls, _db):
-        """Load a OneClickAPI instance for the 'default' OneClick
-        collection.
-        """
-        library = Library.instance(_db)
-        collections = [x for x in library.collections
-                       if x.protocol == Collection.ONE_CLICK]
-        if len(collections) == 0:
-            # There are no OneClick collections configured.
-            return None
-
-        if len(collections) > 1:
-            raise ValueError(
-                "Multiple OneClick collections found for one library. This is not yet supported."
-            )
-        [collection] = collections 
-
-        return cls(_db, collection)
-
     @property
     def source(self):
         return DataSource.lookup(self._db, DataSource.ONECLICK)
 
+    @property
+    def collection(self):
+        return get_one(self._db, Collection, id=self.collection_id)
 
     @property
     def authorization_headers(self):
@@ -382,13 +361,20 @@ class OneClickAPI(object):
         catalog_list = self.get_all_catalog()
         items_transmitted = len(catalog_list)
         items_created = 0
-        coverage_provider = OneClickBibliographicCoverageProvider(_db=self._db)
+
         # the default policy doesn't update delivery mechanisms, which we do want to do
         metadata_replacement_policy = ReplacementPolicy.from_metadata_source()
         metadata_replacement_policy.formats = True
 
+        coverage_provider = OneClickBibliographicCoverageProvider(
+            self.collection, api_class=self,
+            replacement_policy=metadata_replacement_policy
+        )
+
         for catalog_item in catalog_list:
-            result = coverage_provider.update_metadata(catalog_item=catalog_item, metadata_replacement_policy=metadata_replacement_policy)
+            result = coverage_provider.update_metadata(
+                catalog_item=catalog_item
+            )
             if not isinstance(result, CoverageFailure):
                 items_created += 1
 
@@ -421,12 +407,13 @@ class OneClickAPI(object):
         if not delta or len(delta) < 1:
             return None, None
 
-        items_added = delta[0].get("addedTitles", None)
-        items_removed = delta[0].get("removedTitles", None)
-
+        items_added = delta[0].get("addedTitles", 0)
+        items_removed = delta[0].get("removedTitles", 0)
         items_transmitted = len(items_added) + len(items_removed)
         items_updated = 0
-        coverage_provider = OneClickBibliographicCoverageProvider(_db=self._db)
+        coverage_provider = OneClickBibliographicCoverageProvider(
+            collection=self.collection, api_class=self
+        )
         for catalog_item in items_added:
             result = coverage_provider.update_metadata(catalog_item)
             if not isinstance(result, CoverageFailure):
@@ -444,29 +431,29 @@ class OneClickAPI(object):
                 # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
                 # check that re-processing that coverage would generate the work.
                 e = "Could not extract metadata from OneClick data: %r" % catalog_item
-                make_note = CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+                make_note = CoverageFailure(identifier, e, data_source=self.data_source, transient=True)
 
             # convert IdentifierData into Identifier, if can
             identifier, made_new = metadata.primary_identifier.load(_db=self._db)
             if identifier and not made_new:
                 # Don't delete works from the database.  Set them to "not ours anymore".
-                pool = identifier.licensed_through
-                if not pool:
-                    continue
-                if pool.licenses_owned > 0:
-                    if pool.presentation_edition:
-                        self.log.warn("Removing %s (%s) from circulation",
-                                      pool.presentation_edition.title, pool.presentation_edition.author)
-                    else:
-                        self.log.warn(
-                            "Removing unknown work %s from circulation.",
-                            identifier.identifier
-                        )
-                pool.licenses_owned = 0
-                pool.licenses_available = 0
-                pool.licenses_reserved = 0
-                pool.patrons_in_hold_queue = 0
-                pool.last_checked = today
+                # TODO: This was broken but it didn't cause any test failures,
+                # which means it needs a test.
+                for pool in identifier.licensed_through:
+                    if pool.licenses_owned > 0:
+                        if pool.presentation_edition:
+                            self.log.warn("Removing %s (%s) from circulation",
+                                          pool.presentation_edition.title, pool.presentation_edition.author)
+                        else:
+                            self.log.warn(
+                                "Removing unknown work %s from circulation.",
+                                identifier.identifier
+                            )
+                    pool.licenses_owned = 0
+                    pool.licenses_available = 0
+                    pool.licenses_reserved = 0
+                    pool.patrons_in_hold_queue = 0
+                    pool.last_checked = today
 
                 items_updated += 1
 
@@ -524,32 +511,43 @@ class OneClickAPI(object):
 
 class MockOneClickAPI(OneClickAPI):
 
-    def __init__(self, _db, collection=None, base_path=None):
-        if not collection:
-            # OneClickAPI needs a Collection, but none was provided.
-            # Just create a basic one.
-            library = Library.instance(_db)
-            collection, ignore = get_one_or_create(
-                _db, Collection,
-                name="Test OneClick Collection",
-                protocol=Collection.ONE_CLICK, create_method_kwargs=dict(
-                    external_account_id=u'library_id_123',
-                )
+    @classmethod
+    def mock_collection(self, _db):
+        library = DatabaseTest.make_default_library(_db)
+        collection, ignore = get_one_or_create(
+            _db, Collection,
+            name="Test OneClick Collection",
+            create_method_kwargs=dict(
+                external_account_id=u'library_id_123',
             )
-            collection.external_integration.password = u'abcdef123hijklm'
-
+        )
+        integration = collection.create_external_integration(
+            protocol=ExternalIntegration.ONE_CLICK
+        )        
+        integration.password = u'abcdef123hijklm'
+        library.collections.append(collection)
+        return collection
+    
+    def __init__(self, collection, base_path=None, **kwargs):
+        self._collection = collection
         self.responses = []
         self.requests = []
         base_path = base_path or os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
-        return super(MockOneClickAPI, self).__init__(_db, collection)
+        return super(MockOneClickAPI, self).__init__(collection, **kwargs)
 
+    @property
+    def collection(self):
+        """We can store the actual Collection object with a mock API,
+        so there's no need to store the ID and do lookups.
+        """
+        return self._collection
+    
     def queue_response(self, status_code, headers={}, content=None):
         from testing import MockRequestsResponse
         self.responses.insert(
             0, MockRequestsResponse(status_code, headers, content)
         )
-
 
     def _make_request(self, url, *args, **kwargs):
         self.requests.append([url, args, kwargs])
@@ -818,23 +816,39 @@ class OneClickRepresentationExtractor(object):
 class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for OneClick records."""
 
-    def __init__(self, _db, metadata_replacement_policy=None, oneclick_api=None,
-                 input_identifier_types=None, input_identifiers=None, **kwargs):
-        """
-        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.  
-            Ignored, as we can assume we only want OneClick identifiers.
-        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
-            Ex: '9781449880927', '9781449878955', etc..
-        """
-        
-        oneclick_api = oneclick_api or OneClickAPI.from_config(_db)
-        super(OneClickBibliographicCoverageProvider, self).__init__(
-            _db, oneclick_api, DataSource.ONECLICK,
-            batch_size=25, 
-            metadata_replacement_policy=metadata_replacement_policy,
-            **kwargs
-        )
+    SERVICE_NAME = "OneClick Bibliographic Coverage Provider"
+    DATA_SOURCE_NAME = DataSource.ONECLICK
+    PROTOCOL = ExternalIntegration.ONE_CLICK
+    INPUT_IDENTIFIER_TYPES = Identifier.ONECLICK_ID
+    DEFAULT_BATCH_SIZE = 25
 
+    def __init__(self, collection, api_class=OneClickAPI, api_class_kwargs={},
+                 **kwargs):
+        """Constructor.
+
+        :param collection: Provide bibliographic coverage to all
+            One Click books in the given Collection.
+        :param api_class: Instantiate this class with the given Collection,
+            rather than instantiating OneClickAPI.
+        """
+        super(OneClickBibliographicCoverageProvider, self).__init__(
+            collection, **kwargs
+        )
+        if isinstance(api_class, OneClickAPI):
+            # We were passed in a specific API object. This is not
+            # generally the done thing, but it is necessary when a
+            # OneClickAPI object itself wants a
+            # OneClickBibliographicCoverageProvider.
+            if api_class.collection_id != collection.id:
+                raise ValueError(
+                    "Coverage provider and its API are scoped to different collections! (%s vs. %s)" % (
+                        api_class.collection_id, collection.id
+                    )
+                )
+            else:
+                self.api = api_class
+        else:
+            self.api = api_class(collection, **api_class_kwargs)
 
     def process_item(self, identifier):
         """ OneClick availability information is served separately from 
@@ -848,15 +862,15 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         try:
             response_dictionary = self.api.get_metadata_by_isbn(identifier)
         except BadResponseException as error:
-            return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
+            return self.failure(identifier, error.message)
         except IOError as error:
-            return CoverageFailure(identifier, error.message, data_source=self.output_source, transient=True)
+            return self.failure(identifier, error.message)
 
         if not response_dictionary:
             message = "Cannot find OneClick metadata for %r" % identifier
-            return CoverageFailure(identifier, message, data_source=self.output_source, transient=True)
+            return self.failure(identifier, message)
 
-        result = self.update_metadata(response_dictionary, identifier, self.metadata_replacement_policy)
+        result = self.update_metadata(response_dictionary, identifier)
 
         if isinstance(result, Identifier):
             # calls work.set_presentation_ready() for us
@@ -865,7 +879,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         return result
 
 
-    def update_metadata(self, catalog_item, identifier=None, metadata_replacement_policy=None):
+    def update_metadata(self, catalog_item, identifier=None):
         """
         Creates db objects corresponding to the book info passed in.
 
@@ -882,7 +896,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             # TODO:  if did not create a Work, but have a CoverageFailure for the isbn, 
             # check that re-processing that coverage would generate the work.
             e = "Could not extract metadata from OneClick data: %r" % catalog_item
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+            return self.failure(identifier, e)
 
         # convert IdentifierData into Identifier, if can
         if not identifier:
@@ -890,13 +904,9 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
 
         if not identifier:
             e = "Could not create identifier for OneClick data: %r" % catalog_item
-            return CoverageFailure(identifier, e, data_source=self.output_source, transient=True)
+            return self.failure(identifier, e)
 
-        result = self.set_metadata(
-            identifier, metadata, metadata_replacement_policy=metadata_replacement_policy
-        )
-
-        return result
+        return self.set_metadata(identifier, metadata)
 
 
 

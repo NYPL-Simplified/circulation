@@ -5,6 +5,7 @@ import datetime
 import os
 import sys
 import site
+import random
 import re
 import tempfile
 
@@ -34,6 +35,7 @@ from config import (
     temp_config,
 )
 
+import model
 from model import (
     Admin,
     Annotation,
@@ -41,7 +43,9 @@ from model import (
     CirculationEvent,
     Classification,
     Collection,
+    CollectionMissing,
     Complaint,
+    ConfigurationSetting,
     Contributor,
     CoverageRecord,
     Credential,
@@ -58,9 +62,11 @@ from model import (
     IntegrationClient,
     Library,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Measurement,
     Patron,
     PatronProfileStorage,
+    PolicyException,
     Representation,
     Resource,
     RightsStatus,
@@ -75,6 +81,7 @@ from model import (
     create,
     get_one,
     get_one_or_create,
+    site_configuration_has_changed,
 )
 from external_search import (
     DummyExternalSearchIndex,
@@ -94,10 +101,6 @@ from . import (
     DummyHTTPClient,
 )
 
-from analytics import (
-    Analytics,
-    temp_analytics
-)
 from mock_analytics_provider import MockAnalyticsProvider
 
 class TestDatabaseInterface(DatabaseTest):
@@ -1174,11 +1177,13 @@ class TestEdition(DatabaseTest):
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
-        """Verify we can get a LicensePool for a data source and an 
-        appropriate work identifier."""
+        """Verify we can get a LicensePool for a data source, an 
+        appropriate work identifier, and a Collection."""
         now = datetime.datetime.utcnow()
         pool, was_new = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
+            collection=self._collection()
+        )
         assert (pool.availability_time - now).total_seconds() < 2
         eq_(True, was_new)
         eq_(DataSource.GUTENBERG, pool.data_source.name)
@@ -1189,35 +1194,83 @@ class TestLicensePool(DatabaseTest):
         eq_(0, pool.licenses_reserved)
         eq_(0, pool.patrons_in_hold_queue)
 
-    def test_no_license_pool_for_data_source_that_offers_no_licenses(self):
-        """OCLC doesn't offer licenses. It only provides metadata. We can get
-        a Edition for OCLC's view of a book, but we cannot get a
-        LicensePool for OCLC's view of a book.
+    def test_for_foreign_id_fails_when_no_collection_provided(self):
+        """We cannot create a LicensePool that is not associated
+        with some Collection.
         """
-        assert_raises_regexp(
-            ValueError, 
-            'Data source "OCLC Classify" does not offer licenses',
+        assert_raises(
+            CollectionMissing,
             LicensePool.for_foreign_id,
-            self._db, DataSource.OCLC, "1015", 
-            Identifier.OCLC_WORK)
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "541",
+            collection=None
+        )
 
     def test_no_license_pool_for_non_primary_identifier(self):
         """Overdrive offers licenses, but to get an Overdrive license pool for
         a book you must identify the book by Overdrive's primary
         identifier, not some other kind of identifier.
         """
+        collection = self._collection()
         assert_raises_regexp(
             ValueError, 
             "License pools for data source 'Overdrive' are keyed to identifier type 'Overdrive ID' \(not 'ISBN', which was provided\)",
             LicensePool.for_foreign_id,
-            self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}")
+            self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}",
+            collection=collection
+        )
 
+    def test_licensepools_for_same_identifier_have_same_presentation_edition(self):
+        """Two LicensePools for the same Identifier will get the same
+        presentation edition.
+        """
+        identifier = self._identifier()
+        edition1, pool1 = self._edition(
+            with_license_pool=True, data_source_name=DataSource.GUTENBERG,
+            identifier_type=identifier.type, identifier_id=identifier.identifier
+        )
+        edition2, pool2 = self._edition(
+            with_license_pool=True, data_source_name=DataSource.UNGLUE_IT,
+            identifier_type=identifier.type, identifier_id=identifier.identifier
+        )
+        pool1.set_presentation_edition()
+        pool2.set_presentation_edition()
+        eq_(pool1.presentation_edition, pool2.presentation_edition)
+        
+    def test_collection_datasource_identifier_must_be_unique(self):
+        """You can't have two LicensePools with the same Collection,
+        DataSource, and Identifier.
+        """
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        identifier = self._identifier()
+        collection = self._default_collection
+        pool = create(
+            self._db,
+            LicensePool,
+            data_source=data_source,
+            identifier=identifier,
+            collection=collection
+        )
+
+        assert_raises(
+            IntegrityError,
+            create,
+            self._db,
+            LicensePool,
+            data_source=data_source,
+            identifier=identifier,
+            collection=collection
+        )        
+        
     def test_with_no_work(self):
         p1, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+            collection=self._default_collection
+        )
 
         p2, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, "2")
+            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, "2",
+            collection=self._default_collection
+        )
 
         work = self._work(title="Foo")
         p1.work = work
@@ -1241,18 +1294,17 @@ class TestLicensePool(DatabaseTest):
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
     def test_update_availability_triggers_analytics(self):
-        with temp_analytics("mock_analytics_provider", {}):
-            work = self._work(with_license_pool=True)
-            [pool] = work.license_pools
-            pool.update_availability(30, 20, 2, 0)
-            provider = Analytics.instance().providers[0]
-            count = provider.count
-            pool.update_availability(30, 21, 2, 0)
-            eq_(count + 1, provider.count)
-            eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, provider.event_type)
-            pool.update_availability(30, 21, 2, 1)
-            eq_(count + 2, provider.count)
-            eq_(CirculationEvent.DISTRIBUTOR_HOLD_PLACE, provider.event_type)
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        provider = MockAnalyticsProvider()
+        pool.update_availability(30, 20, 2, 0, analytics=provider)
+        count = provider.count
+        pool.update_availability(30, 21, 2, 0, analytics=provider)
+        eq_(count + 1, provider.count)
+        eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, provider.event_type)
+        pool.update_availability(30, 21, 2, 1, analytics=provider)
+        eq_(count + 2, provider.count)
+        eq_(CirculationEvent.DISTRIBUTOR_HOLD_PLACE, provider.event_type)
 
     def test_update_availability_does_nothing_if_given_no_data(self):
         """Passing an empty set of data into update_availability is
@@ -1306,14 +1358,14 @@ class TestLicensePool(DatabaseTest):
         media_type = Representation.EPUB_MEDIA_TYPE
         link2, new = pool.identifier.add_link(
             Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
-            source, pool
+            source, media_type
         )
         oa2 = link2.resource
 
         # And let's add a link that's not an open-access download.
         url = self._url
         image, new = pool.identifier.add_link(
-            Hyperlink.IMAGE, url, source, pool
+            Hyperlink.IMAGE, url, source, Representation.JPEG_MEDIA_TYPE
         )
         self._db.commit()
 
@@ -1389,10 +1441,12 @@ class TestLicensePool(DatabaseTest):
             data_source_name=DataSource.STANDARD_EBOOKS,
             with_open_access_download=False,
         )
+        no_resource.open_access = True
         eq_(True, better(no_resource, None))
         eq_(False, better(no_resource, gutenberg_1))
 
     def test_with_complaint(self):
+        library = self._default_library
         type = iter(Complaint.VALID_TYPES)
         type1 = next(type)
         type2 = next(type)
@@ -1464,7 +1518,7 @@ class TestLicensePool(DatabaseTest):
             with_open_access_download=True)
 
         # excludes resolved complaints by default
-        results = LicensePool.with_complaint(self._db).all()
+        results = LicensePool.with_complaint(library).all()
 
         eq_(2, len(results))
         eq_(lp1.id, results[0][0].id)
@@ -1473,7 +1527,7 @@ class TestLicensePool(DatabaseTest):
         eq_(1, results[1][1])
 
         # include resolved complaints this time
-        more_results = LicensePool.with_complaint(self._db, resolved=None).all()
+        more_results = LicensePool.with_complaint(library, resolved=None).all()
 
         eq_(3, len(more_results))
         eq_(lp1.id, more_results[0][0].id)
@@ -1484,13 +1538,24 @@ class TestLicensePool(DatabaseTest):
         eq_(1, more_results[2][1])
 
         # show only resolved complaints
-        resolved_results = LicensePool.with_complaint(self._db, resolved=True).all()
+        resolved_results = LicensePool.with_complaint(
+            library, resolved=True).all()
         lp_ids = set([result[0].id for result in resolved_results])
         counts = set([result[1] for result in resolved_results])
         
         eq_(3, len(resolved_results))
         eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
         eq_(counts, set([1]))
+
+        # This library has none of the license pools that have complaints,
+        # so passing it in to with_complaint() gives no results.
+        library2 = self._library()
+        eq_(0, LicensePool.with_complaint(library2).count())
+
+        # If we add the default library's collection to this new library,
+        # we start getting the same results.
+        library2.collections.extend(library.collections)
+        eq_(3, LicensePool.with_complaint(library2, resolved=None).count())
 
     def test_editions_in_priority_order(self):
         edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
@@ -1549,7 +1614,7 @@ class TestLicensePool(DatabaseTest):
 
         # make sure data not present in the higher-precedence editions didn't overwrite the lower-precedented editions' fields
         eq_(edition_composite.subtitle, u"MetadataWranglerSubTitle1")
-        license_pool = edition_composite.is_presentation_for
+        [license_pool] = edition_composite.is_presentation_for
         eq_(license_pool, pool)
 
         # Change the admin interface's opinion about who the author
@@ -1612,10 +1677,49 @@ class TestLicensePool(DatabaseTest):
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
+    def test_lpdm_change_may_change_open_access_status(self):
+        # Here's a book that's not open access.
+        edition, pool = self._edition(with_license_pool=True)
+        eq_(False, pool.open_access)
+
+        # We're going to use LicensePoolDeliveryMechanism.set to
+        # to give it a non-open-access LPDM.
+        data_source = pool.data_source
+        identifier = pool.identifier
+        content_type = Representation.EPUB_MEDIA_TYPE
+        drm_scheme = DeliveryMechanism.NO_DRM
+        LicensePoolDeliveryMechanism.set(
+            data_source, identifier, content_type, drm_scheme,
+            RightsStatus.IN_COPYRIGHT
+        )
+
+        # Now there's a way to get the book, but it's not open access.
+        eq_(False, pool.open_access)
+
+        # Now give it an open-access LPDM.
+        link, new = pool.identifier.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
+            data_source, content_type
+        )
+        oa_lpdm = LicensePoolDeliveryMechanism.set(
+            data_source, identifier, content_type, drm_scheme,
+            RightsStatus.GENERIC_OPEN_ACCESS, link.resource
+        )
+        
+        # Now it's open access.
+        eq_(True, pool.open_access)
+
+        # Delete the open-access LPDM, and it stops being open access.
+        oa_lpdm.delete()
+        eq_(False, pool.open_access)
+        
     def test_set_rights_status(self):
+        # Here's a non-open-access book.
         edition, pool = self._edition(with_license_pool=True)
         pool.open_access = False
-        lpdm = pool.delivery_mechanisms[0]
+        [lpdm] = pool.delivery_mechanisms
+
+        # We set its rights status to 'in copyright', and nothing changes.
         uri = RightsStatus.IN_COPYRIGHT
         status = lpdm.set_rights_status(uri)
         eq_(status, lpdm.rights_status)
@@ -1623,30 +1727,38 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         eq_(RightsStatus.NAMES.get(uri), status.name)
         eq_(False, pool.open_access)
 
+        # Setting it again won't change anything.
         status2 = lpdm.set_rights_status(uri)
         eq_(status, status2)
 
+        # Set the rights status to a different URL, we change to a different
+        # RightsStatus object.
         uri2 = "http://unknown"
         status3 = lpdm.set_rights_status(uri2)
         assert status != status3
         eq_(RightsStatus.UNKNOWN, status3.uri)
         eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status3.name)
 
+        # Set the rights status to a URL that implies open access,
+        # and the status of the LicensePool is changed.
         open_access_uri = RightsStatus.GENERIC_OPEN_ACCESS
         open_access_status = lpdm.set_rights_status(open_access_uri)
         eq_(open_access_uri, open_access_status.uri)
         eq_(RightsStatus.NAMES.get(open_access_uri), open_access_status.name)
         eq_(True, pool.open_access)
 
+        # Set it back to a URL that does not imply open access, and
+        # the status of the LicensePool is changed back.
         non_open_access_status = lpdm.set_rights_status(uri)
         eq_(False, pool.open_access)
 
-        # Add a second license pool, so the pool has one open-access
-        # and one commercial delivery mechanism.
+        # Now add a second delivery mechanism, so the pool has one
+        # open-access and one commercial delivery mechanism.
         lpdm2 = pool.set_delivery_mechanism(
             Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             RightsStatus.CC_BY, None)
-        eq_(2, len(pool.delivery_mechanisms))
+        
+        eq_(2, pool.delivery_mechanisms.count())
 
         # Now the pool is open access again
         eq_(True, pool.open_access)
@@ -1656,7 +1768,58 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         lpdm2.set_rights_status(uri)
         eq_(False, pool.open_access)
 
+    def test_uniqueness_constraint(self):
+        # with_open_access_download will create a LPDM
+        # for the open-access download.
+        edition, pool = self._edition(with_license_pool=True,
+                                      with_open_access_download=True)
+        [lpdm] = pool.delivery_mechanisms
+        
+        # We can create a second LPDM with the same data type and DRM status,
+        # so long as the resource is different.
+        link, new = pool.identifier.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
+            pool.data_source, "text/html"
+        )
+        pool.set_delivery_mechanism(
+            lpdm.delivery_mechanism.content_type,
+            lpdm.delivery_mechanism.drm_scheme,
+            lpdm.rights_status.uri,
+            link.resource,
+        )
+        [lpdm2] = [x for x in pool.delivery_mechanisms if x != lpdm]
+        eq_(lpdm2.delivery_mechanism, lpdm.delivery_mechanism)
+        assert lpdm2.resource != lpdm.resource
+
+
 class TestWork(DatabaseTest):
+
+    def test_complaints(self):
+        work = self._work(with_license_pool=True)
+
+        [lp1] = work.license_pools
+        lp2 = self._licensepool(
+            edition=work.presentation_edition,
+            data_source_name=DataSource.OVERDRIVE
+        )
+        lp2.work = work
+
+        complaint_type = random.choice(list(Complaint.VALID_TYPES))
+        complaint1, ignore = Complaint.register(
+            lp1, complaint_type, "blah", "blah"
+        )
+        complaint2, ignore = Complaint.register(
+            lp2, complaint_type, "blah", "blah"
+        )
+
+        # Create a complaint with no association with the work.
+        _edition, lp3 = self._edition(with_license_pool=True)
+        complaint3, ignore = Complaint.register(
+            lp3, complaint_type, "blah", "blah"
+        )
+
+        eq_([complaint1, complaint2], work.complaints)
+        assert complaint3 not in work.complaints
 
     def test_all_identifier_ids(self):
         work = self._work(with_license_pool=True)
@@ -2478,9 +2641,11 @@ class TestCirculationEvent(DatabaseTest):
         # Identify which LicensePool the event is talking about.
         foreign_id = data['id']
         identifier_type = source.primary_identifier_type
-
+        collection = data['collection']
+        
         license_pool, was_new = LicensePool.for_foreign_id(
-            _db, source, identifier_type, foreign_id)
+            _db, source, identifier_type, foreign_id, collection=collection
+        )
 
         # Finally, gather some information about the event itself.
         type = data.get("type")
@@ -2504,10 +2669,12 @@ class TestCirculationEvent(DatabaseTest):
     def test_new_title(self):
 
         # Here's a new title.
+        collection = self._collection()
         data = self._event_data(
             source=DataSource.OVERDRIVE,
             id="{1-2-3}",
             type=CirculationEvent.DISTRIBUTOR_LICENSE_ADD,
+            collection=collection,
             old_value=0,
             delta=2,
             new_value=2,
@@ -2520,9 +2687,10 @@ class TestCirculationEvent(DatabaseTest):
         eq_(DataSource.OVERDRIVE, event.license_pool.data_source.name)
 
         # The event identifies a work by its ID plus the data source's
-        # primary identifier.
+        # primary identifier and its collection.
         eq_(Identifier.OVERDRIVE_ID, event.license_pool.identifier.type)
         eq_("{1-2-3}", event.license_pool.identifier.identifier)
+        eq_(collection, event.license_pool.collection)
 
         # The number of licenses has not been set to the new value.
         # The creator of a circulation event is responsible for also
@@ -2626,8 +2794,14 @@ class TestWorkConsolidation(DatabaseTest):
         edition1, ignore = self._edition(with_license_pool=True)
         edition2, ignore = self._edition(
             title=edition1.title, authors=edition1.author,
-            with_license_pool=True)
+            with_license_pool=True
+        )
 
+        # For purposes of this test, let's pretend these books are
+        # open-access.
+        edition1.license_pool.open_access = True
+        edition2.license_pool.open_access = True
+        
         # Calling calculate_work() on the first edition creates a Work.
         work1, created = edition1.license_pool.calculate_work()
         eq_(created, True)
@@ -2662,10 +2836,14 @@ class TestWorkConsolidation(DatabaseTest):
 
 
     def test_calculate_work_does_nothing_unless_edition_has_title_and_author(self):
+        collection=self._collection()
         edition, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+        )
         pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+            collection=collection
+        )
         work, created = pool.calculate_work()
         eq_(None, work)
 
@@ -2685,10 +2863,14 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(u"bar", work.author)
 
     def test_calculate_work_can_be_forced_to_work_with_no_author(self):
+        collection = self._collection()
         edition, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+        )
         pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
+            collection=collection
+        )
         work, created = pool.calculate_work()
         eq_(None, work)
 
@@ -2700,42 +2882,39 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(u"foo", work.title)
         eq_(Edition.UNKNOWN_AUTHOR, work.author)
 
-    def test_calculate_work_for_new_work(self):
-        # TODO: This test doesn't actually test
-        # anything. calculate_work() is too complicated and needs to
-        # be refactored.
+    def test_calculate_work_fails_when_presentation_edition_identifier_does_not_match_license_pool(self):
 
-        # This work record is unique to the existing work.
-        edition1, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1")
+        # Here's a LicensePool with an Edition.
+        edition1, pool = self._edition(
+            data_source_name=DataSource.GUTENBERG, with_license_pool=True
+        )
+        
+        # Here's a second Edition that's talking about a different Identifier
+        # altogether, and has no LicensePool.
+        edition2 = self._edition()
+        assert edition1.primary_identifier != edition2.primary_identifier
 
-        # This work record is shared by the existing work and the new
+        # Here's a third Edition that's tied to a totally different
         # LicensePool.
-        edition2, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "2")
+        edition3, pool2 = self._edition(with_license_pool=True)
+        assert edition1.primary_identifier != edition3.primary_identifier
+        
+        # When we calculate a Work for a LicensePool, we can pass in
+        # any Edition as the presentation edition, so long as that
+        # Edition's primary identifier matches the LicensePool's
+        # identifier.
+        work, is_new = pool.calculate_work(known_edition=edition1)
 
-        # These work records are unique to the new LicensePool.
-
-        edition3, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "3")
-
-        edition4, ignore = Edition.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
-
-        # Make edition4's primary identifier equivalent to edition3's and edition1's
-        # primaries.
-        data_source = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
-        for make_equivalent in edition3, edition1:
-            edition4.primary_identifier.equivalent_to(
-                data_source, make_equivalent.primary_identifier, 1)
-        preexisting_work = self._work(presentation_edition=edition1)
-
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "4")
-        self._db.commit()
-
-        pool.calculate_work()
-
+        # But we can't pass in an Edition that's the presentation
+        # edition for a LicensePool with a totally different Identifier.
+        for edition in (edition2, edition3):
+            assert_raises_regexp(
+                ValueError,
+                "Alleged presentation edition is not the presentation edition for the license pool for which work is being calculated!",
+                pool.calculate_work,
+                known_edition=edition
+            )
+        
     def test_open_access_pools_grouped_together(self):
 
         # We have four editions with exactly the same title and author.
@@ -2744,6 +2923,8 @@ class TestWorkConsolidation(DatabaseTest):
         author = "Single Author"
         ed1, open1 = self._edition(title=title, authors=author, with_license_pool=True)
         ed2, open2 = self._edition(title=title, authors=author, with_license_pool=True)
+        open1.open_access = True
+        open2.open_access = True
         ed3, restricted3 = self._edition(
             title=title, authors=author, data_source_name=DataSource.OVERDRIVE,
             with_license_pool=True)
@@ -2779,7 +2960,41 @@ class TestWorkConsolidation(DatabaseTest):
         # Each restricted-access pool is completely isolated.
         assert restricted3.work != restricted4.work
         assert restricted3.work != open1.work
+       
+    def test_all_licensepools_with_same_identifier_get_same_work(self):
 
+        # Here are two LicensePools for the same Identifier and
+        # DataSource, but different Collections.
+        edition1, pool1 = self._edition(with_license_pool=True)
+        identifier = pool1.identifier
+        collection2 = self._collection()
+
+        edition2, pool2 = self._edition(
+            with_license_pool=True,
+            identifier_type=identifier.type,
+            identifier_id=identifier.identifier,
+            collection=collection2
+        )
+
+        eq_(pool1.identifier, pool2.identifier)
+        eq_(pool1.data_source, pool2.data_source)
+        eq_(self._default_collection, pool1.collection)
+        eq_(collection2, pool2.collection)
+
+        # The two LicensePools have the same Edition (since a given
+        # DataSource has only one opinion about an Identifier's
+        # bibliographic information).
+        eq_(edition1, edition2)
+
+        # Because the two LicensePools have the same Identifier, they
+        # have the same Work.
+        work1, is_new_1 = pool1.calculate_work()
+        work2, is_new_2 = pool2.calculate_work()
+        eq_(work1, work2)
+        eq_(True, is_new_1)
+        eq_(False, is_new_2)
+        eq_(edition1, work1.presentation_edition)
+        
     def test_calculate_work_fixes_work_in_invalid_state(self):
         # Here's a Work with a commercial edition of "abcd".
         work = self._work(with_license_pool=True)
@@ -2872,11 +3087,13 @@ class TestWorkConsolidation(DatabaseTest):
         # Here's a Work with an open-access edition of "abcd".
         work = self._work(with_license_pool=True)
         [book] = work.license_pools
+        book.open_access = True
         book.presentation_edition.permanent_work_id = "abcd"
-
+        
         # Due to a earlier error, the Work also contains an
         # open-access _audiobook_ of "abcd".
         edition, audiobook = self._edition(with_license_pool=True)
+        audiobook.open_access = True
         audiobook.presentation_edition.medium=Edition.AUDIO_MEDIUM
         audiobook.presentation_edition.permanent_work_id = "abcd"
         work.license_pools.append(audiobook)
@@ -3065,6 +3282,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Here's a LicensePool with no corresponding Work.
         edition, lp = self._edition(with_license_pool=True)
+        lp.open_access = True
         edition.permanent_work_id="abcd"
 
         # open_access_for_permanent_work_id creates the Work.
@@ -3456,26 +3674,34 @@ class TestHold(DatabaseTest):
         patron = self._patron()
         edition = self._edition()
         pool = self._licensepool(edition)
+        self._default_library.setting(Library.ALLOW_HOLDS).value = True
+        hold, is_new = pool.on_hold_to(patron, now, later, 4)
+        eq_(True, is_new)
+        eq_(now, hold.start)
+        eq_(None, hold.end)
+        eq_(4, hold.position)
 
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
-            }
-            hold, is_new = pool.on_hold_to(patron, now, later, 4)
-            eq_(True, is_new)
-            eq_(now, hold.start)
-            eq_(None, hold.end)
-            eq_(4, hold.position)
+        # Now update the position to 0. It's the patron's turn
+        # to check out the book.
+        hold, is_new = pool.on_hold_to(patron, now, later, 0)
+        eq_(False, is_new)
+        eq_(now, hold.start)
+        # The patron has until `hold.end` to actually check out the book.
+        eq_(later, hold.end)
+        eq_(0, hold.position)
 
-            # Now update the position to 0. It's the patron's turn
-            # to check out the book.
-            hold, is_new = pool.on_hold_to(patron, now, later, 0)
-            eq_(False, is_new)
-            eq_(now, hold.start)
-            # The patron has until `hold.end` to actually check out the book.
-            eq_(later, hold.end)
-            eq_(0, hold.position)
+    def test_holds_not_allowed(self):
+        patron = self._patron()
+        edition = self._edition()
+        pool = self._licensepool(edition)
 
+        self._default_library.setting(Library.ALLOW_HOLDS).value = False
+        assert_raises_regexp(
+            PolicyException,
+            "Holds are disabled for this library.",
+            pool.on_hold_to, patron, datetime.datetime.now(), 4
+        )
+        
     def test_work(self):
         # We don't need to test the functionality--that's tested in
         # Loan--just that Hold also has access to .work.
@@ -3595,18 +3821,7 @@ class TestHyperlink(DatabaseTest):
         eq_("text/plain", rep.media_type)
         eq_("The content", rep.content)
         eq_(Hyperlink.DESCRIPTION, hyperlink.rel)
-        eq_(pool, hyperlink.license_pool)
         eq_(identifier, hyperlink.identifier)
-
-    def test_add_link_fails_if_license_pool_and_identifier_dont_match(self):
-        edition, pool = self._edition(with_license_pool=True)
-        data_source = pool.data_source
-        identifier = self._identifier()
-        assert_raises_regexp(
-            ValueError, re.compile("License pool is associated with .*, not .*!"),
-            identifier.add_link,
-            Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
-            pool, "text/plain", "The content")
 
     def test_default_filename(self):
         m = Hyperlink._default_filename
@@ -4599,34 +4814,7 @@ class TestDRMDeviceIdentifier(DatabaseTest):
         eq_([], self._db.query(DRMDeviceIdentifier).all())
         
 class TestPatron(DatabaseTest):
-
-    def test_external_type_regular_expression(self):
-        patron = self._patron("234")
-        patron.authorization_identifier = "A123"
-        key = Patron.EXTERNAL_TYPE_REGULAR_EXPRESSION
-        with temp_config() as config:
-
-            config[Configuration.POLICIES] = {}
-
-            config[Configuration.POLICIES][key] = None
-            eq_(None, patron.external_type)
-
-            config[Configuration.POLICIES][key] = "([A-Z])"
-            eq_("A", patron.external_type)
-            patron._external_type = None
-
-            config[Configuration.POLICIES][key] = "([0-9]$)"
-            eq_("3", patron.external_type)
-            patron._external_type = None
-
-            config[Configuration.POLICIES][key] = "A"
-            eq_(None, patron.external_type)
-            patron._external_type = None
-
-            config[Configuration.POLICIES][key] = "(not a valid regexp"
-            assert_raises(TypeError, lambda x: patron.external_type)
-            patron._external_type = None
-
+        
     def test_set_synchronize_annotations(self):
         # Two patrons.
         p1 = self._patron()
@@ -4913,6 +5101,18 @@ class TestComplaint(DatabaseTest):
         super(TestComplaint, self).setup()
         self.edition, self.pool = self._edition(with_license_pool=True)
         self.type = "http://librarysimplified.org/terms/problem/wrong-genre"
+
+    def test_for_license_pool(self):
+        work_complaint, is_new = Complaint.register(
+            self.pool, self.type, "yes", "okay"
+        )
+
+        lp_type = self.type.replace('wrong-genre', 'cannot-render')
+        lp_complaint, is_new = Complaint.register(
+            self.pool, lp_type, "yes", "okay")
+
+        eq_(False, work_complaint.for_license_pool)
+        eq_(True, lp_complaint.for_license_pool)
 
     def test_success(self):
         complaint, is_new = Complaint.register(
@@ -5302,18 +5502,8 @@ class TestCustomListEntry(DatabaseTest):
 
 class TestLibrary(DatabaseTest):
 
-    def test_instance(self):
-
-        # There are no Library objects until we call instance().
-        eq_(0, self._db.query(Library).count())
-
-        # In the current release there will only ever be one library.
-        instance = Library.instance(self._db)
-        instance2 = Library.instance(self._db)
-        eq_(instance, instance2)
-
     def test_library_registry_short_name(self):
-        library = Library.instance(self._db)
+        library = self._default_library
 
         # Short name is always uppercased.
         library.library_registry_short_name = "foo"
@@ -5328,37 +5518,160 @@ class TestLibrary(DatabaseTest):
         # recommended, but it's not an error.
         library.library_registry_short_name = None
 
+    def test_default(self):
+        # We start off with no libraries.
+        eq_(None, Library.default(self._db))
+
+        # Let's make a couple libraries.
+        l1 = self._default_library
+        l2 = self._library()
+
+        # None of them are the default according to the database.
+        eq_(False, l1.is_default)
+        eq_(False, l2.is_default)
+
+        # If we call Library.default, the library with the lowest database
+        # ID is made the default.
+        eq_(l1, Library.default(self._db))
+        eq_(True, l1.is_default)
+        eq_(False, l2.is_default)
+
+        # We can set is_default to change the default library.
+        l2.is_default = True
+        eq_(False, l1.is_default)
+        eq_(True, l2.is_default)
+
+        # If ever there are multiple default libraries, calling default()
+        # will set the one with the lowest database ID to the default.
+        l1._is_default = True
+        l2._is_default = True
+        eq_(l1, Library.default(self._db))
+        eq_(True, l1.is_default)
+        eq_(False, l2.is_default)
+
+        def assign_false():
+            l1.is_default = False
+        assert_raises_regexp(
+            ValueError,
+            "You cannot stop a library from being the default library; you must designate a different library as the default.",
+            assign_false
+        )
+
+    def test_all_collections(self):
+        library = self._default_library
+
+        parent = self._collection()
+        self._default_collection.parent_id = parent.id
+
+        eq_([self._default_collection], library.collections)
+        eq_(set([self._default_collection, parent]),
+            set(library.all_collections))
+
+    def test_estimated_holdings_by_language(self):
+        library = self._default_library
+        
+        # Here's an open-access English book.
+        english = self._work(language="eng", with_open_access_download=True)
+
+        # Here's a non-open-access Tagalog book with a delivery mechanism.
+        tagalog = self._work(language="tgl", with_license_pool=True)
+        [pool] = tagalog.license_pools
+        self._add_generic_delivery_mechanism(pool)
+        
+        # estimated_holdings_by_language counts the English and the
+        # Tagalog works.
+        estimate = library.estimated_holdings_by_language()
+        eq_(dict(eng=1, tgl=1), estimate)
+        
+        # If we disqualify open-access works, it only counts the Tagalog.
+        estimate = library.estimated_holdings_by_language(
+            include_open_access=False)
+        eq_(dict(tgl=1), estimate)
+
+        # If we remove the default collection from the default library,
+        # it loses all its works.
+        self._default_library.collections = []
+        estimate = library.estimated_holdings_by_language(
+            include_open_access=False)
+        eq_(dict(), estimate)        
+        
     def test_explain(self):
         """Test that Library.explain gives all relevant information
         about a Library.
         """
-        library = Library.instance(self._db)
+        library = self._default_library
         library.uuid = "uuid"
         library.name = "The Library"
         library.short_name = "Short"
         library.library_registry_short_name = "SHORT"
         library.library_registry_shared_secret = "secret"
 
-        data = library.explain()
-        eq_(
-            ['UUID: "uuid"',
-             'Name: "The Library"',
-             'Short name: "Short"',
-             'Short name (for library registry): "SHORT"'],
-            data
+        integration = self._external_integration(
+            "protocol", "goal"
         )
+        integration.url = "http://url/"
+        integration.username = "someuser"
+        integration.password = "somepass"
+        integration.setting("somesetting").value = "somevalue"
 
+        # Different libraries specialize this integration differently.
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", library, integration
+        ).value = "value for library1"
         
-        with_secret = library.explain(True)
-        assert 'Shared secret (for library registry): "secret"' in with_secret
+        library2 = self._library()
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", library2, integration
+        ).value = "value for library2"
+        
+        library.integrations.append(integration)
+        
+        expect = """Library UUID: "uuid"
+Name: "The Library"
+Short name: "Short"
+Short name (for library registry): "SHORT"
+
+External integrations:
+----------------------
+ID: %s
+Protocol/Goal: protocol/goal
+library-specific='value for library1' (applies only to The Library)
+somesetting='somevalue'
+url='http://url/'
+username='someuser'
+""" % integration.id
+        actual = library.explain()
+        eq_(expect, "\n".join(actual))
+        
+        with_secrets = library.explain(True)
+        assert 'Shared secret (for library registry): "secret"' in with_secrets
+        assert "password='somepass'" in with_secrets
 
 
 class TestExternalIntegration(DatabaseTest):
 
     def setup(self):
         super(TestExternalIntegration, self).setup()
-        self.external_integration, ignore = create(self._db, ExternalIntegration)
+        self.external_integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
 
+    def test_data_source(self):
+        # For most collections, the protocol determines the
+        # data source.
+        collection = self._collection(protocol=ExternalIntegration.OVERDRIVE)
+        eq_(DataSource.OVERDRIVE, collection.data_source.name)
+
+        # For OPDS Import collections, data source is a setting which
+        # might not be present.
+        eq_(None, self._default_collection.data_source)
+
+        # data source will be automatically created if necessary.
+        self._default_collection.external_integration.setting(
+            Collection.DATA_SOURCE_NAME_SETTING
+        ).value = "New Data Source"
+        eq_("New Data Source", self._default_collection.data_source.name)
+        
     def test_set_key_value_pair(self):
         """Test the ability to associate extra key-value pairs with
         an ExternalIntegration.
@@ -5377,20 +5690,566 @@ class TestExternalIntegration(DatabaseTest):
 
         eq_(setting2, self.external_integration.setting("website_id"))
 
+    def test_explain(self):
+        integration = self._external_integration(
+            "protocol", "goal"
+        )
+        integration.name = "The Integration"
+        integration.url = "http://url/"
+        integration.username = "someuser"
+        integration.password = "somepass"
+        integration.setting("somesetting").value = "somevalue"
+
+        # Two different libraries have slightly different
+        # configurations for this integration.
+        self._default_library.name = "First Library"
+        self._default_library.integrations.append(integration)
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", self._default_library, integration
+        ).value = "value1"
+        
+        library2 = self._library()
+        library2.name = "Second Library"
+        library2.integrations.append(integration)
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-specific", library2, integration
+        ).value = "value2"
+
+        # If we decline to pass in a library, we get information about how
+        # each library in the system configures this integration.
+
+        expect = """ID: %s
+Name: The Integration
+Protocol/Goal: protocol/goal
+library-specific='value1' (applies only to First Library)
+library-specific='value2' (applies only to Second Library)
+somesetting='somevalue'
+url='http://url/'
+username='someuser'""" % integration.id
+        actual = integration.explain()
+        eq_(expect, "\n".join(actual))
+
+        # If we pass in a library, we only get information about
+        # how that specific library configures the integration.
+        for_library_2 = "\n".join(integration.explain(library=library2))
+        assert "applies only to First Library" not in for_library_2
+        assert "applies only to Second Library" in for_library_2
+        
+        # If we pass in True for include_secrets, we see the passwords.
+        with_secrets = integration.explain(include_secrets=True)
+        assert "password='somepass'" in with_secrets
+        
+
+class TestConfigurationSetting(DatabaseTest):
+
+    def test_is_secret(self):
+        """Some configuration settings are considered secrets, 
+        and some are not.
+        """
+        m = ConfigurationSetting._is_secret
+        eq_(True, m('secret'))
+        eq_(True, m('password'))
+        eq_(True, m('its_a_secret_to_everybody'))
+        eq_(True, m('the_password'))
+        eq_(True, m('password_for_the_account'))
+        eq_(False, m('public_information'))
+
+        eq_(True,
+            ConfigurationSetting.sitewide(self._db, "secret_key").is_secret)
+        eq_(False,
+            ConfigurationSetting.sitewide(self._db, "public_key").is_secret)
+
+    def test_value_or_default(self):
+        integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
+        setting = integration.setting("key")
+        eq_(None, setting.value)
+        
+        # If the setting has no value, value_or_default sets the value to
+        # the default, and returns the default.
+        eq_("default value", setting.value_or_default("default value"))
+        eq_("default value", setting.value)
+
+        # Once the value is set, value_or_default returns the value.
+        eq_("default value", setting.value_or_default("new default"))
+        
+        # If the setting has any value at all, even the empty string,
+        # it's returned instead of the default.
+        setting.value = ""
+        eq_("", setting.value_or_default("default"))
+
+    def test_value_inheritance(self):
+
+        key = "SomeKey"
+
+        # Here's a sitewide configuration setting.
+        sitewide_conf = ConfigurationSetting.sitewide(self._db, key)
+
+        # Its value is not set.
+        eq_(None, sitewide_conf.value)
+
+        # Set it.
+        sitewide_conf.value = "Sitewide value"
+        eq_("Sitewide value", sitewide_conf.value)
+        
+        # Here's an integration, let's say the SIP2 authentication mechanism
+        sip, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL, protocol="SIP2"
+        )
+
+        # It happens to a ConfigurationSetting for the same key used
+        # in the sitewide configuration.
+        sip_conf = ConfigurationSetting.for_externalintegration(key, sip)
+
+        # But because the meaning of a configuration key differ so
+        # widely across integrations, the SIP2 integration does not
+        # inherit the sitewide value for the key.
+        eq_(None, sip_conf.value)
+        sip_conf.value = "SIP2 value"
+        
+        # Here's a library which has a ConfigurationSetting for the same
+        # key used in the sitewide configuration.
+        library = self._default_library
+        library_conf = ConfigurationSetting.for_library(key, library)
+        
+        # Since all libraries use a given ConfigurationSetting to mean
+        # the same thing, a library _does_ inherit the sitewide value
+        # for a configuration setting.
+        eq_("Sitewide value", library_conf.value)
+
+        # Change the site-wide configuration, and the default also changes.
+        sitewide_conf.value = "New site-wide value"
+        eq_("New site-wide value", library_conf.value)
+
+        # The per-library value takes precedence over the site-wide
+        # value.
+        library_conf.value = "Per-library value"
+        eq_("Per-library value", library_conf.value)
+        
+        # Now let's consider a setting like the patron identifier
+        # prefix.  This is set on the combination of a library and a
+        # SIP2 integration.
+        key = "patron_identifier_prefix"
+        library_patron_prefix_conf = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, key, library, sip
+        )
+        eq_(None, library_patron_prefix_conf.value)
+
+        # If the SIP2 integration has a value set for this
+        # ConfigurationSetting, that value is inherited for every
+        # individual library that uses the integration.
+        generic_patron_prefix_conf = ConfigurationSetting.for_externalintegration(
+            key, sip
+        )
+        eq_(None, generic_patron_prefix_conf.value)
+        generic_patron_prefix_conf.value = "Integration-specific value"
+        eq_("Integration-specific value", library_patron_prefix_conf.value)
+
+        # Change the value on the integration, and the default changes
+        # for each individual library.
+        generic_patron_prefix_conf.value = "New integration-specific value"
+        eq_("New integration-specific value", library_patron_prefix_conf.value)
+
+        # The library+integration setting takes precedence over the
+        # integration setting.
+        library_patron_prefix_conf.value = "Library-specific value"
+        eq_("Library-specific value", library_patron_prefix_conf.value)
+        
+    def test_duplicate(self):
+        """You can't have two ConfigurationSettings for the same key,
+        library, and external integration.
+
+        (test_relationships shows that you can have two settings for the same
+        key as long as library or integration is different.)
+        """
+        key = self._str
+        integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
+        library = self._default_library
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, key, library, integration
+        )
+        setting2 = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, key, library, integration
+        )
+        eq_(setting, setting2)
+        assert_raises(
+            IntegrityError,
+            create, self._db, ConfigurationSetting,
+            key=key,
+            library=library, external_integration=integration
+        )
+    
+    def test_relationships(self):
+        integration, ignore = create(
+            self._db, ExternalIntegration, goal=self._str, protocol=self._str
+        )
+        eq_([], integration.settings)
+        
+        library = self._default_library
+        eq_([], library.settings)
+        
+        # Create four different ConfigurationSettings with the same key.
+        cs = ConfigurationSetting
+        key = self._str
+
+        for_neither = cs.sitewide(self._db, key)
+        eq_(None, for_neither.library)
+        eq_(None, for_neither.external_integration)
+        
+        for_library = cs.for_library(key, library)
+        eq_(library, for_library.library)
+        eq_(None, for_library.external_integration)
+
+        for_integration = cs.for_externalintegration(key, integration)
+        eq_(None, for_integration.library)
+        eq_(integration, for_integration.external_integration)
+
+        for_both = cs.for_library_and_externalintegration(
+            self._db, key, library, integration
+        )
+        eq_(library, for_both.library)
+        eq_(integration, for_both.external_integration)
+        
+        # We got four distinct objects with the same key.
+        objs = [for_neither, for_library, for_integration, for_both]
+        eq_(4, len(set(objs)))
+        for o in objs:
+            eq_(o.key, key)
+
+        eq_([for_library, for_both], library.settings)
+        eq_([for_integration, for_both], integration.settings)
+        eq_(library, for_both.library)
+        eq_(integration, for_both.external_integration)
+        
+        # If we delete the integration, all configuration settings
+        # associated with it are deleted, even the one that's also
+        # associated with the library.
+        self._db.delete(integration)
+        self._db.commit()
+        eq_([for_library], library.settings)
+
+    def test_int_value(self):
+        number = ConfigurationSetting.sitewide(self._db, "number")
+        eq_(None, number.int_value)
+        
+        number.value = "1234"
+        eq_(1234, number.int_value)
+
+        number.value = "tra la la"
+        assert_raises(ValueError, lambda: number.int_value)
+
+    def test_float_value(self):
+        number = ConfigurationSetting.sitewide(self._db, "number")
+        eq_(None, number.int_value)
+        
+        number.value = "1234.5"
+        eq_(1234.5, number.float_value)
+
+        number.value = "tra la la"
+        assert_raises(ValueError, lambda: number.float_value)
+        
+    def test_json_value(self):
+        jsondata = ConfigurationSetting.sitewide(self._db, "json")
+        eq_(None, jsondata.int_value)
+
+        jsondata.value = "[1,2]"
+        eq_([1,2], jsondata.json_value)
+
+        jsondata.value = "tra la la"
+        assert_raises(ValueError, lambda: jsondata.json_value)
+        
+    def test_explain(self):
+        """Test that ConfigurationSetting.explain gives information
+        about all site-wide configuration settings.
+        """
+        ConfigurationSetting.sitewide(self._db, "a_secret").value = "1"
+        ConfigurationSetting.sitewide(self._db, "nonsecret_setting").value = "2"
+
+        integration = self._external_integration("a protocol", "a goal")
+        
+        actual = ConfigurationSetting.explain(self._db, include_secrets=True)
+        expect = """Site-wide configuration settings:
+---------------------------------
+a_secret='1'
+nonsecret_setting='2'"""
+        eq_(expect, "\n".join(actual))
+        
+        without_secrets = "\n".join(ConfigurationSetting.explain(
+            self._db, include_secrets=False
+        ))
+        assert 'a_secret' not in without_secrets
+        assert 'nonsecret_setting' in without_secrets
+
+
+
+        
+class TestSiteConfigurationHasChanged(DatabaseTest):
+
+    class MockSiteConfigurationHasChanged(object):
+        """Keep track of whether site_configuration_has_changed was
+        ever called.
+        """
+        def __init__(self):
+            self.was_called = False
+
+        def run(self, _db):
+            self.was_called = True
+            site_configuration_has_changed(_db)
+
+        def assert_was_called(self):
+            "Assert that `was_called` is True, then reset it for the next assertion."
+            assert self.was_called
+            self.was_called = False
+            
+    def setup(self):
+        super(TestSiteConfigurationHasChanged, self).setup()
+
+        # Mock model.site_configuration_has_changed
+        self.old_site_configuration_has_changed = model.site_configuration_has_changed
+        self.mock = self.MockSiteConfigurationHasChanged()
+        model.site_configuration_has_changed = self.mock.run
+
+    def teardown(self):
+        super(TestSiteConfigurationHasChanged, self).teardown()
+        model.site_configuration_has_changed = self.old_site_configuration_has_changed
+        
+    def test_site_configuration_has_changed(self):
+        """Test the site_configuration_has_changed() function and its
+        effects on the Configuration object.
+        """
+        # The database configuration timestamp is initialized as part
+        # of the default data. In that case, it happened during the
+        # package_setup() for this test run.
+        last_update = Configuration.site_configuration_last_update(self._db)
+        
+        timestamp_value = Timestamp.value(
+            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
+        )
+        eq_(timestamp_value, last_update)
+        
+        # Now let's call site_configuration_has_changed().
+        time_of_update = datetime.datetime.utcnow()
+        site_configuration_has_changed(self._db, timeout=0)
+        
+        # The Timestamp has changed in the database.
+        new_timestamp_value = Timestamp.value(
+            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
+        )
+        assert new_timestamp_value > timestamp_value
+        
+        # The locally-stored last update value has been updated.
+        new_last_update_time = Configuration.site_configuration_last_update(
+            self._db, timeout=0
+        )
+        assert new_last_update_time > last_update
+        assert (new_last_update_time - time_of_update).total_seconds() < 1
+                
+        # Let's be sneaky and update the timestamp directly,
+        # without calling site_configuration_has_changed(). This
+        # simulates another process on a different machine calling
+        # site_configuration_has_changed() -- they will know about the
+        # change but we won't be informed.
+        timestamp = Timestamp.stamp(
+            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
+        )
+        last_update_after_sneaky_change = timestamp.timestamp
+
+        # Calling Configuration.check_for_site_configuration_update
+        # doesn't detect the change because by default we only go to
+        # the database once a minute.
+        eq_(new_last_update_time,
+            Configuration.site_configuration_last_update(self._db))
+
+        # Passing in a different timeout value forces the method to go
+        # to the database and find the correct answer.
+        newer_update = Configuration.site_configuration_last_update(
+            self._db, timeout=0
+        )
+        assert newer_update > last_update
+        
+        # If ConfigurationSettings are updated twice within the
+        # timeout period (default 1 second), the last update time is
+        # only set once, to avoid spamming the Timestamp with updates.
+        
+        # The high value for 'timeout' saves this code. If we decided
+        # that the timeout had expired and tried to check the
+        # Timestamp, the code would crash because we're not passing
+        # a database connection in.
+        site_configuration_has_changed(None, timeout=100)
+
+        # Nothing has changed -- how could it, with no database connection
+        # to modify anything?
+        eq_(newer_update, Configuration.site_configuration_last_update(self._db))
+
+    # We don't test every event listener, but we do test one of each type.
+    def test_configuration_relevant_lifecycle_event_updates_configuration(self):
+        """When you create or modify a relevant item such as a
+        ConfigurationSetting, site_configuration_has_changed is called.
+        """                
+        ConfigurationSetting.sitewide(self._db, "setting").value = "value"
+        self.mock.assert_was_called()
+        
+        ConfigurationSetting.sitewide(self._db, "setting").value = "value2"
+        self.mock.assert_was_called()
+
+    def test_configuration_relevant_collection_change_updates_configuration(self):
+        """When you add a relevant item to a SQLAlchemy collection, such as
+        adding a Collection to library.collections,
+        site_configuration_has_changed is called.
+        """                
+
+        # Creating a library calls the method.
+        library = self._default_library
+        collection = self._collection()
+        self.mock.assert_was_called()
+        
+        # Add the collection to the library, and
+        # site_configuration_has_changed() is called.
+        library.collections.append(collection)
+        self.mock.assert_was_called()
+        
+    
 class TestCollection(DatabaseTest):
 
     def setup(self):
         super(TestCollection, self).setup()
         self.collection = self._collection(
-            name="test collection", protocol=Collection.OVERDRIVE
+            name="test collection", protocol=ExternalIntegration.OVERDRIVE
         )
 
+    def test_by_name_and_protocol(self):
+        # You'll get an exception if you look up an existing name
+        # but the protocol doesn't match.
+        name = "A name"
+        collection1, is_new = Collection.by_name_and_protocol(
+            self._db, name, ExternalIntegration.OVERDRIVE
+        )
+        eq_(True, is_new)
+
+        collection2, is_new = Collection.by_name_and_protocol(
+            self._db, name, ExternalIntegration.OVERDRIVE
+        )
+        eq_(collection1, collection2)
+        eq_(False, is_new)
+
+        assert_raises_regexp(
+            ValueError,
+            'Collection "A name" does not use protocol "Bibliotheca".',
+            Collection.by_name_and_protocol,
+            self._db, name, ExternalIntegration.BIBLIOTHECA
+        )
+
+    def test_by_protocol(self):
+        """Verify the ability to find all collections that implement
+        a certain protocol.
+        """
+        overdrive = ExternalIntegration.OVERDRIVE
+        bibliotheca = ExternalIntegration.BIBLIOTHECA
+        c1 = self._collection(self._str, protocol=overdrive)
+        c1.parent = self.collection
+        c2 = self._collection(self._str, protocol=bibliotheca)
+        eq_(set([self.collection, c1]),
+            set(Collection.by_protocol(self._db, overdrive).all()))
+        eq_(([c2]),
+            Collection.by_protocol(self._db, bibliotheca).all())
+        eq_(set([self.collection, c1, c2]),
+            set(Collection.by_protocol(self._db, None).all()))
+
+    def test_by_datasource(self):
+        """Collections can be found by their associated DataSource"""
+        c1 = self._collection(data_source_name=DataSource.GUTENBERG)
+        c2 = self._collection(data_source_name=DataSource.OVERDRIVE)
+
+        # Using the DataSource name
+        eq_(set([c1]),
+            set(Collection.by_datasource(self._db, DataSource.GUTENBERG).all()))
+
+        # Using the DataSource itself
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        eq_(set([c2]),
+            set(Collection.by_datasource(self._db, overdrive).all()))
+
+    def test_parents(self):
+        # Collections can return all their parents recursively.
+        c1 = self._collection()
+        eq_([], list(c1.parents))
+
+        c2 = self._collection()
+        c2.parent_id = c1.id
+        eq_([c1], list(c2.parents))
+
+        c3 = self._collection()
+        c3.parent_id = c2.id
+        eq_([c2, c1], list(c3.parents))
+
+    def test_create_external_integration(self):
+        # A newly created Collection has no associated ExternalIntegration.
+        collection, ignore = get_one_or_create(
+            self._db, Collection, name=self._str
+        )
+        eq_(None, collection.external_integration_id)
+        assert_raises_regexp(
+            ValueError,
+            "No known external integration for collection",
+            getattr, collection, 'external_integration'
+        )
+        
+        # We can create one with create_external_integration().
+        overdrive = ExternalIntegration.OVERDRIVE
+        integration = collection.create_external_integration(protocol=overdrive)
+        eq_(integration.id, collection.external_integration_id)
+        eq_(overdrive, integration.protocol)
+
+        # If we call create_external_integration() again we get the same
+        # ExternalIntegration as before.
+        integration2 = collection.create_external_integration(protocol=overdrive)
+        eq_(integration, integration2)
+        
+        
+        # If we try to initialize an ExternalIntegration with a different
+        # protocol, we get an error.
+        assert_raises_regexp(
+            ValueError,
+            "Located ExternalIntegration, but its protocol \(Overdrive\) does not match desired protocol \(blah\).",
+            collection.create_external_integration,
+            protocol="blah"
+        )
+        
+    def test_change_protocol(self):
+        overdrive = ExternalIntegration.OVERDRIVE
+        bibliotheca = ExternalIntegration.BIBLIOTHECA
+
+        # Create a parent and a child collection, both with
+        # protocol=Overdrive.
+        child = self._collection(self._str, protocol=overdrive)
+        child.parent = self.collection
+
+        # We can't change the child's protocol to a value that contradicts
+        # the parent's protocol.
+        child.protocol = overdrive
+        def set_child_protocol():
+            child.protocol = bibliotheca
+        assert_raises_regexp(
+            ValueError,
+            "Proposed new protocol \(Bibliotheca\) contradicts parent collection's protocol \(Overdrive\).",
+            set_child_protocol
+        )
+
+        # If we change the parent's protocol, the children are
+        # automatically updated.
+        self.collection.protocol = bibliotheca
+        eq_(bibliotheca, child.protocol)
+        
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
         about a Collection.
         """
-        library = Library.instance(self._db)
-        library.name = "The only library"
+        library = self._default_library
+        library.name="The only library"
         library.short_name = "only one"
         library.collections.append(self.collection)
         
@@ -5405,20 +6264,23 @@ class TestCollection(DatabaseTest):
              'Protocol: "Overdrive"',
              'Used by library: "only one"',
              'External account ID: "id"',
-             'URL: "url"',
-             'Username: "username"',
-             'Setting "setting": "value"'
+             'Setting "setting": "value"',
+             'Setting "url": "url"',
+             'Setting "username": "username"',
         ],
             data
         )
 
-        with_password = self.collection.explain(include_password=True)
-        assert 'Password: "password"' in with_password
+        with_password = self.collection.explain(include_secrets=True)
+        assert 'Setting "password": "password"' in with_password
 
         # If the collection is the child of another collection,
         # its parent is mentioned.
         child = Collection(
-            name="Child", parent=self.collection, protocol=self.collection.protocol, external_account_id="id2"
+            name="Child", parent=self.collection, external_account_id="id2"
+        )
+        child.create_external_integration(
+            protocol=ExternalIntegration.OVERDRIVE
         )
         data = child.explain()
         eq_(['Name: "Child"',
@@ -5440,14 +6302,16 @@ class TestCollection(DatabaseTest):
 
         # With a unique identifier, we get back the expected identifier.
         self.collection.external_account_id = 'id'
-        expected = build_expected(Collection.OVERDRIVE, 'id')
+        expected = build_expected(ExternalIntegration.OVERDRIVE, 'id')
         eq_(expected, self.collection.metadata_identifier)
 
         # If there's a parent, its unique id is incorporated into the result.
         child = self._collection(
-            name="Child", protocol=Collection.OPDS_IMPORT, external_account_id=self._url)
+            name="Child", protocol=ExternalIntegration.OPDS_IMPORT,
+            external_account_id=self._url
+        )
         child.parent = self.collection
-        expected = build_expected(Collection.OPDS_IMPORT, 'id+%s' % child.external_account_id)
+        expected = build_expected(ExternalIntegration.OPDS_IMPORT, 'id+%s' % child.external_account_id)
         eq_(expected, child.metadata_identifier)
 
     def test_from_metadata_identifier(self):
@@ -5458,14 +6322,13 @@ class TestCollection(DatabaseTest):
         )
         eq_(True, is_new)
         eq_(self.collection.metadata_identifier, mirror_collection.name)
-        eq_(self.collection.protocol, mirror_collection.protocol)
+        eq_(self.collection.external_integration.protocol, mirror_collection.external_integration.protocol)
 
         # If the mirrored collection already exists, it is returned.
         collection = self._collection(external_account_id=self._url)
         mirror_collection = create(
             self._db, Collection,
             name=collection.metadata_identifier,
-            protocol=collection.protocol
         )[0]
 
         result, is_new = Collection.from_metadata_identifier(
@@ -5514,12 +6377,12 @@ class TestCollectionForMetadataWrangler(DatabaseTest):
     metadata wrangler to meet the needs of the new Collection class.
     """
 
-    def test_only_name_and_protocol_are_required(self):
-        """Test that only name and protocol are required fields on
+    def test_only_name_is_required(self):
+        """Test that only name is a required field on
         the Collection class.
         """
         collection = create(
-            self._db, Collection, name='banana', protocol=Collection.OVERDRIVE
+            self._db, Collection, name='banana'
         )[0]
         eq_(True, isinstance(collection, Collection))
 
@@ -5700,6 +6563,22 @@ class TestAdmin(DatabaseTest):
     def test_password_hashed(self):
         assert_raises(NotImplementedError, lambda: self.admin.password)
         assert self.admin.password_hashed.startswith('$2a$')
+
+    def test_with_password(self):
+        self._db.delete(self.admin)
+        eq_([], Admin.with_password(self._db).all())
+
+        admin, ignore = create(self._db, Admin, email="admin@nypl.org")
+        eq_([], Admin.with_password(self._db).all())
+
+        admin.password = "password"
+        eq_([admin], Admin.with_password(self._db).all())
+
+        admin2, ignore = create(self._db, Admin, email="admin2@nypl.org")
+        eq_([admin], Admin.with_password(self._db).all())
+
+        admin2.password = "password2"
+        eq_(set([admin, admin2]), set(Admin.with_password(self._db).all()))
 
     def test_has_password(self):
         eq_(True, self.admin.has_password(u"password"))

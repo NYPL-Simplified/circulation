@@ -21,7 +21,12 @@ from collections import defaultdict
 from external_search import ExternalSearchIndex
 import json
 from nose.tools import set_trace
-from sqlalchemy import create_engine
+from sqlalchemy import (
+    create_engine,
+    exists,
+    and_,
+    or_,
+)
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -39,15 +44,18 @@ from model import (
     production_session,
     CachedFeed,
     Collection,
-    Complaint, 
+    Complaint,
+    ConfigurationSetting,
     Contributor, 
     CoverageRecord, 
     CustomList,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier,
     Library,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Patron,
     PresentationCalculationPolicy,
     SessionManager,
@@ -56,14 +64,16 @@ from model import (
     Work,
     WorkCoverageRecord,
     WorkGenre,
+    site_configuration_has_changed,
 )
-from external_search import ExternalSearchIndex
 from monitor import SubjectAssignmentMonitor
-from nyt import NYTBestSellerAPI
-from opds_import import OPDSImportMonitor
+from monitor import CollectionMonitor
+from opds_import import (
+    OPDSImportMonitor,
+    OPDSImporter,
+)
 from oneclick import OneClickAPI, MockOneClickAPI
 from overdrive import OverdriveBibliographicCoverageProvider
-from threem import ThreeMBibliographicCoverageProvider
 from util.opds_writer import OPDSFeed
 from util.personal_names import (
     contributor_name_match_ratio, 
@@ -71,6 +81,9 @@ from util.personal_names import (
     is_corporate_name
 )
 
+from bibliotheca import (
+    BibliothecaBibliographicCoverageProvider,
+)
 
 
 class Script(object):
@@ -140,20 +153,77 @@ class Script(object):
             raise e
 
     def load_configuration(self):
-        if not Configuration.instance:
-            Configuration.load()
+        if not Configuration.loaded_from_database():
+            Configuration.load(self._db)
 
 
 class RunMonitorScript(Script):
 
-    def __init__(self, monitor, **kwargs):
-        if callable(monitor):
-            monitor = monitor(self._db, **kwargs)
-        self.monitor = monitor
-        self.name = self.monitor.service_name
-
+    def __init__(self, monitor, _db=None, **kwargs):
+        super(RunMonitorScript, self).__init__(_db)
+        if issubclass(monitor, CollectionMonitor):
+            self.collection_monitor = monitor
+            self.collection_monitor_kwargs = kwargs
+            self.monitor = None
+        else:
+            self.collection_monitor = None
+            if callable(monitor):
+                monitor = monitor(self._db, **kwargs)
+            self.monitor = monitor
+            self.name = self.monitor.service_name
+            
     def do_run(self):
-        self.monitor.run()
+        if self.monitor:
+            self.monitor.run()
+        elif self.collection_monitor:
+            logging.warn(
+                "Running a CollectionMonitor by delegating to RunCollectionMonitorScript. "
+                "It would be better if you used RunCollectionMonitorScript directly."
+            )
+            RunCollectionMonitorScript(
+                self.collection_monitor, self._db, **self.collection_monitor_kwargs
+            ).run()
+
+
+class RunCollectionMonitorScript(Script):
+    """Run a CollectionMonitor on every Collection that comes through a
+    certain protocol.
+
+    Currently the Monitors are run one at a time. It should be
+    possible to take a command-line argument that runs all the
+    Monitors in batches, each in its own thread. Unfortunately, it's
+    tough to know in a given situation that the system configuration
+    and the Collection protocol are tough enough to handle this, and
+    won't be overloaded.
+    """
+    def __init__(self, monitor_class, _db=None, **kwargs):
+        """Constructor.
+        
+        :param monitor_class: A class object that derives from 
+            CollectionMonitor.
+        :param kwargs: Keyword arguments to pass into the `monitor_class`
+            constructor each time it's called.
+        """
+        super(RunCollectionMonitorScript, self).__init__(_db)
+        self.monitor_class = monitor_class
+        self.name = self.monitor_class.SERVICE_NAME
+        self.kwargs = kwargs
+        
+    def do_run(self):
+        """Instantiate a Monitor for every appropriate Collection,
+        and run them, in order.
+        """
+        for monitor in self.monitor_class.all(self._db, **self.kwargs):
+            try:
+                monitor.run()
+            except Exception, e:
+                # This is bad, but not so bad that we should give up trying
+                # to run the other Monitors.
+                self.log.error(
+                    "Error running monitor %s for collection %s: %s",
+                    self.name, monitor.collection.name,
+                    e, exc_info=e
+                )
 
 
 class RunCoverageProvidersScript(Script):
@@ -166,28 +236,30 @@ class RunCoverageProvidersScript(Script):
             self.providers.append(i)
 
     def do_run(self):
-        offsets = dict()
         providers = list(self.providers)
         while providers:
             random.shuffle(providers)
             for provider in providers:
-                offset = offsets.get(provider, 0)
                 self.log.debug(
-                    "Running %s with offset %s", provider.service_name, offset
+                    "Running %s", provider.service_name
                 )
-                offset = provider.run_once_and_update_timestamp(offset)
+                provider.run_once_and_update_timestamp()
                 self.log.debug(
-                    "Completed %s, new offset is %s", provider.service_name, offset
+                    "Completed %s", provider.service_name
                 )
-                if offset is None:
-                    # We're done with this provider for now.
-                    if provider in offsets:
-                        del offsets[provider]
-                    if provider in providers:
-                        providers.remove(provider)
-                else:
-                    offsets[provider] = offset
+                providers.remove(provider)
 
+
+class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
+    """Run the same CoverageProvider code for all Collections that
+    get their licenses from the appropriate place.
+    """
+    def __init__(self, provider_class, _db=None, **kwargs):
+        _db = _db or self._db
+        providers = list(provider_class.all(_db, **kwargs))
+        super(RunCollectionCoverageProviderScript, self).__init__(providers)
+
+                    
 class InputScript(Script):
     @classmethod
     def read_stdin_lines(self, stdin):
@@ -386,6 +458,91 @@ class PatronInputScript(InputScript):
         raise NotImplementedError()
 
 
+class LibraryInputScript(InputScript):
+    """A script that operates on one or more Libraries."""
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None, 
+                           *args, **kwargs):
+        parser = cls.arg_parser(_db)
+        parsed = parser.parse_args(cmd_args)
+        return cls.look_up_libraries(_db, parsed, *args, **kwargs)
+
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        library_names = sorted(l.short_name for l in _db.query(Library))
+        library_names = '"' + '", "'.join(library_names) + '"'
+        parser.add_argument(
+            'libraries',
+            help='Name of a specific library to process. Libraries on this system: %s' % library_names,
+            metavar='SHORT_NAME', nargs='*'
+        )
+        return parser
+
+    @classmethod
+    def look_up_libraries(cls, _db, parsed, *args, **kwargs):
+        """Turn library names as specified on the command line into real
+        Library objects.
+        """
+        if _db:
+            library_strings = parsed.libraries
+            if library_strings:
+                parsed.libraries = cls.parse_library_list(
+                    _db, library_strings, *args, **kwargs
+                )
+            else:
+                # No libraries are specified. We will be processing
+                # every library.
+                parsed.libraries = _db.query(Library).all()
+        else:
+            # Database is not active yet. The script can call
+            # parse_library_list later if it wants to.
+            parsed.libraries = None
+        return parsed
+
+    @classmethod
+    def parse_library_list(cls, _db, arguments):
+        """Turn a list of library short names into a list of Library objects.
+
+        The list of arguments is probably derived from a command-line
+        parser such as the one defined in
+        LibraryInputScript.arg_parser().
+        """
+        if len(arguments) == 0:
+            return []
+        libraries = []
+        for arg in arguments:
+            if not arg:
+                continue
+            for field in (Library.short_name, Library.name):
+                try:
+                    library = _db.query(Library).filter(field==arg).one()
+                except NoResultFound:
+                    continue
+                except MultipleResultsFound:
+                    continue
+                if library:
+                    libraries.append(library)
+                    break
+            else:
+                logging.warn(
+                    "Could not find library %s", arg
+                )
+        return libraries
+
+    def do_run(self, *args, **kwargs):
+        parsed = self.parse_command_line(self._db, *args, **kwargs)
+        self.process_libraries(parsed.libraries)
+
+    def process_libraries(self, libraries):
+        for library in libraries:
+            self.process_library(library)
+
+    def process_library(self, library):
+        raise NotImplementedError()
+
+
 class SubjectInputScript(Script):
     """A script whose command line filters the set of Subjects.
 
@@ -430,7 +587,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
             parsed.cutoff_time = cls.parse_time(parsed.cutoff_time)
         return parsed
 
-    def __init__(self, provider, _db=None, cmd_args=None, **provider_arguments):
+    def __init__(self, provider, _db=None, cmd_args=None, *provider_args, **provider_kwargs):
 
         super(RunCoverageProviderScript, self).__init__(_db)
         parsed_args = self.parse_command_line(self._db, cmd_args)
@@ -448,10 +605,10 @@ class RunCoverageProviderScript(IdentifierInputScript):
                 self.identifiers = []
 
             kwargs = self.extract_additional_command_line_arguments()
-            kwargs.update(provider_arguments)
+            kwargs.update(provider_kwargs)
 
             provider = provider(
-                self._db, 
+                self._db, *provider_args,
                 cutoff_time=parsed_args.cutoff_time,
                 **kwargs
             )
@@ -469,7 +626,6 @@ class RunCoverageProviderScript(IdentifierInputScript):
         (as opposed to WorkCoverageProvider).
         """
         return {
-            "input_identifier_types" : self.identifier_types, 
             "input_identifiers" : self.identifiers, 
         }
 
@@ -509,7 +665,7 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
             # so we'll only recalculate OPDS feeds and reindex the work
             # if something actually changes.
             for provider_class in (
-                    ThreeMBibliographicCoverageProvider,
+                    BibliothecaBibliographicCoverageProvider,
                     OverdriveBibliographicCoverageProvider,
                     Axis360BibliographicCoverageProvider
             ):
@@ -536,8 +692,8 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
 
     def refresh_metadata(self, identifier):
         provider = None
-        if identifier.type==Identifier.THREEM_ID:
-            provider = ThreeMBibliographicCoverageProvider
+        if identifier.type==Identifier.BIBLIOTHECA_ID:
+            provider = BibliothecaBibliographicCoverageProvider
         elif identifier.type==Identifier.OVERDRIVE_ID:
             provider = OverdriveBibliographicCoverageProvider
         elif identifier.type==Identifier.AXIS_360_ID:
@@ -564,8 +720,8 @@ class ShowLibrariesScript(Script):
             help='Only display information for the library with the given short name',
         )
         parser.add_argument(
-            '--show-registry-shared-secret',
-            help='Print out the secret shared with the library registry.',
+            '--show-secrets',
+            help='Print out secrets associated with the library.',
             action='store_true'
         )
         return parser
@@ -586,15 +742,100 @@ class ShowLibrariesScript(Script):
             output.write(
                 "\n".join(
                     library.explain(
-                        include_library_registry_shared_secret=
-                        args.show_registry_shared_secret
+                        include_secrets=args.show_secrets
                     )
                 )
             )
-            output.write("\n")
+            output.write("\n")            
+                    
 
+class ConfigurationSettingScript(Script):
+
+    @classmethod
+    def _parse_setting(self, setting):
+        """Parse a command-line setting option into a key-value pair."""
+        if not '=' in setting:
+            raise ValueError(
+                'Incorrect format for setting: "%s". Should be "key=value"'
+                % setting
+            )
+        return setting.split('=', 1)
+
+    @classmethod
+    def add_setting_argument(self, parser, help):
+        """Modify an ArgumentParser to indicate that the script takes 
+        command-line settings.
+        """
+        parser.add_argument('--setting', help=help, action="append")
+    
+    def apply_settings(self, settings, obj):
+        """Treat `settings` as a list of command-line argument settings,
+        and apply each one to `obj`.
+        """
+        if not settings:
+            return None
+        for setting in settings:
+            key, value = self._parse_setting(setting)
+            obj.setting(key).value = value
+            
+            
+class ConfigureSiteScript(ConfigurationSettingScript):
+    """View or update site-wide configuration."""
+
+    def __init__(self, _db=None, config=Configuration):
+        self.config = config
+        super(ConfigureSiteScript, self).__init__(_db=_db)
+
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+    
+        parser.add_argument(
+            '--show-secrets',
+            help="Include secrets when displaying site settings.",
+            action="store_true",
+            default=False
+        )
+    
+        cls.add_setting_argument(
+            parser,
+            'Set a site-wide setting, such as default_nongrouped_feed_max_age. Format: --setting="default_nongrouped_feed_max_age=1200"'
+        )
+
+        parser.add_argument(
+            '--force', 
+            help="Set a site-wide setting even if the key isn't a known setting.",
+            dest='force', action='store_true'
+        )
+
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.setting:
+            for setting in args.setting:
+                key, value = self._parse_setting(setting)
+                if not args.force and not key in [s.get("key") for s in self.config.SITEWIDE_SETTINGS]:
+                    raise ValueError(
+                        "'%s' is not a known site-wide setting. Use --force to set it anyway."
+                        % key
+                    )
+                else:
+                    ConfigurationSetting.sitewide(_db, key).value = value
+        settings = _db.query(ConfigurationSetting).filter(
+            ConfigurationSetting.library==None).filter(
+                ConfigurationSetting.external_integration==None
+            ).order_by(ConfigurationSetting.key)
+        output.write("Current site-wide settings:\n")
+        for setting in settings:
+            if args.show_secrets or not setting.is_secret:
+                output.write("%s='%s'\n" % (setting.key, setting.value))
+        site_configuration_has_changed(_db)
+        _db.commit()
         
-class ConfigureLibraryScript(Script):
+class ConfigureLibraryScript(ConfigurationSettingScript):
     """Create a library or change its settings."""
     name = "Change a library's settings"
 
@@ -609,30 +850,15 @@ class ConfigureLibraryScript(Script):
             '--short-name',
             help='Short name of the library',
         )
-        parser.add_argument(
-            '--library-registry-short-name',
-            help='Short name of the library, as used on the library registry',
-        )
-        parser.add_argument(
-            '--library-registry-shared-secret',
-            help='Set the library registry shared secret to a specific value.',
-        )
-        parser.add_argument(
-            '--random-library-registry-shared-secret',
-            help='Set the library registry shared secret to a random value.',
-            action='store_true',
+        cls.add_setting_argument(
+            parser,
+            'Set a per-library setting, such as terms-of-service. Format: --setting="terms-of-service=https://example.library/tos"',
         )
         return parser
 
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
-        if (args.random_library_registry_shared_secret
-            and args.library_registry_shared_secret):
-            raise ValueError(
-                "You can't set the shared secret to a random value and a specific value at the same time."
-            )
-       
         if not args.short_name:
             raise ValueError(
                 "You must identify the library by its short name."
@@ -650,28 +876,17 @@ class ConfigureLibraryScript(Script):
             # No existing library. Make one.
             library, ignore = get_one_or_create(
                 _db, Library, create_method_kwargs=dict(
-                    uuid=str(uuid.uuid4())
+                    uuid=str(uuid.uuid4()),
+                    short_name=args.short_name,
                 )
             )
 
-        if args.random_library_registry_shared_secret:
-            if library.library_registry_shared_secret:
-                raise ValueError(
-                    "Cowardly refusing to overwrite an existing shared secret with a random value."
-                )
-            else:
-                args.library_registry_shared_secret = "".join(
-                    [random.choice('1234567890abcdef') for x in range(32)]
-                )
-            
         if args.name:
             library.name = args.name
         if args.short_name:
             library.short_name = args.short_name
-        if args.library_registry_short_name:
-            library.library_registry_short_name = args.library_registry_short_name
-        if args.library_registry_shared_secret:
-            library.library_registry_shared_secret = args.library_registry_shared_secret
+        self.apply_settings(args.setting, library)
+        site_configuration_has_changed(_db)
         _db.commit()
         output.write("Configuration settings stored.\n")
         output.write("\n".join(library.explain()))
@@ -690,8 +905,8 @@ class ShowCollectionsScript(Script):
             help='Only display information for the collection with the given name',
         )
         parser.add_argument(
-            '--show-password',
-            help='Display collection passwords.',
+            '--show-secrets',
+            help='Display secret values such as passwords.',
             action='store_true'
         )
         return parser
@@ -700,8 +915,15 @@ class ShowCollectionsScript(Script):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
         if args.name:
-            collection = get_one(_db, Collection, name=args.name)
-            collections = [collection]
+            name = args.name
+            collection = get_one(_db, Collection, name=name)
+            if collection:
+                collections = [collection]
+            else:
+                output.write(
+                    "Could not locate collection by name: %s" % name
+                )
+                collections = []
         else:
             collections = _db.query(Collection).order_by(Collection.name).all()
         if not collections:
@@ -709,13 +931,60 @@ class ShowCollectionsScript(Script):
         for collection in collections:
             output.write(
                 "\n".join(
-                    collection.explain(include_password=args.show_password)
+                    collection.explain(include_secrets=args.show_secrets)
                 )
             )
             output.write("\n")
 
 
-class ConfigureCollectionScript(Script):
+class ShowIntegrationsScript(Script):
+    """Show information about the external integrations on a server."""
+    
+    name = "List the external integrations on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Only display information for the integration with the given name or ID',
+        )
+        parser.add_argument(
+            '--show-secrets',
+            help='Display secret values such as passwords.',
+            action='store_true'
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.name:
+            name = args.name
+            integration = get_one(_db, ExternalIntegration, name=name)
+            if not integration:
+                integration = get_one(_db, ExternalIntegration, id=name)
+            if integration:
+                integrations = [integration]
+            else:
+                output.write(
+                    "Could not locate integration by name or ID: %s\n" % args
+                )
+                integrations = []
+        else:
+            integrations = _db.query(ExternalIntegration).order_by(
+                ExternalIntegration.name, ExternalIntegration.id).all()
+        if not integrations:
+            output.write("No integrations found.\n")
+        for integration in integrations:
+            output.write(
+                "\n".join(
+                    integration.explain(include_secrets=args.show_secrets)
+                )
+            )
+            output.write("\n")
+
+
+class ConfigureCollectionScript(ConfigurationSettingScript):
     """Create a collection or change its settings."""
     name = "Change a collection's settings"
 
@@ -734,8 +1003,8 @@ class ConfigureCollectionScript(Script):
         )
         parser.add_argument(
             '--protocol',
-            help='Protocol used to get licenses. Possible values: "%s"' % (
-                '", "'.join(Collection.PROTOCOLS)
+            help='Protocol to use to get the licenses. Possible values: "%s"' % (
+                '", "'.join(ExternalIntegration.LICENSE_PROTOCOLS)
             )
         )
         parser.add_argument(
@@ -748,16 +1017,15 @@ class ConfigureCollectionScript(Script):
         )
         parser.add_argument(
             '--username',
-            help='Use this username to authenticate with the acquisition protocol. Sometimes called a "key".',
+            help='Use this username to authenticate with the license protocol. Sometimes called a "key".',
         )
         parser.add_argument(
             '--password',
-            help='Use this password to authenticate with the acquisition protocol. Sometimes called a "secret".',
+            help='Use this password to authenticate with the license protocol. Sometimes called a "secret".',
         )
-        parser.add_argument(
-            '--setting',
-            help='Set a protocol-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
-            action="append",
+        cls.add_setting_argument(
+            parser,
+            'Set a protocol-specific setting on the collection, such as Overdrive\'s "website_id". Format: --setting="website_id=89"',
         )
         library_names = cls._library_names(_db)
         if library_names:
@@ -785,40 +1053,33 @@ class ConfigureCollectionScript(Script):
 
         # Find or create the collection
         protocol = None
-        if args.protocol:
-            protocol = args.protocol
-            
-        collection = get_one(_db, Collection, name=args.name)
+        name = args.name
+        protocol = args.protocol
+        collection = get_one(_db, Collection, Collection.name==name)
         if not collection:
             if protocol:
-                collection, is_new = get_one_or_create(
-                    _db, Collection, name=args.name, protocol=protocol
+                collection, is_new = Collection.by_name_and_protocol(
+                    _db, name, protocol
                 )
             else:
+                # We didn't find a Collection, and we don't have a protocol,
+                # so we can't create a new Collection.
                 raise ValueError(
-                    'No collection called "%s". You can create it, but you must specify a protocol.' % args.name
+                    'No collection called "%s". You can create it, but you must specify a protocol.' % name
                 )
+        integration = collection.external_integration
         if protocol:
-            collection.protocol = protocol
+            integration.protocol = protocol
         if args.external_account_id:
             collection.external_account_id = args.external_account_id
 
-        integration = collection.external_integration
         if args.url:
             integration.url = args.url
         if args.username:
             integration.username = args.username
         if args.password:
             integration.password = args.password
-        if args.setting:
-            for setting in args.setting:
-                if not '=' in setting:
-                    raise ValueError(
-                        'Incorrect format for setting: "%s". Should be "key=value"'
-                        % setting
-                    )
-                key, value = setting.split('=', 1)
-                integration.setting(key).value = value
+        self.apply_settings(args.setting, integration)
 
         if hasattr(args, 'library'):
             for name in args.library:
@@ -831,12 +1092,92 @@ class ConfigureCollectionScript(Script):
                     raise ValueError(message)
                 if collection not in library.collections:
                     library.collections.append(collection)
+        site_configuration_has_changed(_db)
         _db.commit()
         output.write("Configuration settings stored.\n")
         output.write("\n".join(collection.explain()))
         output.write("\n")
 
 
+class ConfigureIntegrationScript(ConfigurationSettingScript):
+    """Create a integration or change its settings."""
+    name = "Create a site-wide integration or change an integration's settings"
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None):
+        parser = cls.arg_parser(_db)
+        return parser.parse_known_args(cmd_args)[0]
+    
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--name',
+            help='Name of the integration',
+        )
+        parser.add_argument(
+            '--id',
+            help='ID of the integration, if it has no name',
+        )
+        parser.add_argument(
+            '--protocol', help='Protocol used by the integration.',
+        )
+        parser.add_argument(
+            '--goal', help='Goal of the integration',
+        )
+        cls.add_setting_argument(
+            parser,
+            'Set a configuration value on the integration. Format: --setting="key=value"'
+        )        
+        return parser
+
+    @classmethod
+    def _integration(self, _db, id, name, protocol, goal):
+        """Find or create the ExternalIntegration referred to."""
+        if not id and not name and not (protocol and goal):
+            raise ValueError(
+                "An integration must by identified by either ID, name, or the combination of protocol and goal."
+            )
+        integration = None
+        if id:
+            integration = get_one(
+                _db, ExternalIntegration, ExternalIntegration.id==id
+            )
+            if not integration:
+                raise ValueError("No integration with ID %s." % id)
+        if name:
+            integration = get_one(_db, ExternalIntegration, name=name)
+            if not integration and not (protocol and goal):
+                raise ValueError(
+                    'No integration with name "%s". To create it, you must also provide protocol and goal.' % name
+                )
+        if not integration and (protocol and goal):
+            integration, is_new = get_one_or_create(
+                _db, ExternalIntegration, protocol=protocol, goal=goal
+            )
+        if name:
+            integration.name = name
+        return integration
+        
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+
+        # Find or create the integration
+        protocol = None
+        id = args.id
+        name = args.name
+        protocol = args.protocol
+        goal = args.goal
+        integration = self._integration(_db, id, name, protocol, goal)
+        self.apply_settings(args.setting, integration)
+        site_configuration_has_changed(_db)
+        _db.commit()
+        output.write("Configuration settings stored.\n")
+        output.write("\n".join(integration.explain()))
+        output.write("\n")
+
+        
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
 
@@ -913,9 +1254,9 @@ class AddClassificationScript(IdentifierInputScript):
                     self.subject.identifier, self.subject.name,
                     self.weight
                 )
-                pool = identifier.licensed_through
-                if pool and pool.work:
-                    pool.work.calculate_presentation(policy=policy)
+                work = identifier.work
+                if work:
+                    work.calculate_presentation(policy=policy)
         else:
             self.log.warn("Could not locate subject, doing nothing.")
 
@@ -945,7 +1286,7 @@ class WorkProcessingScript(IdentifierInputScript):
         self.force = force
 
     @classmethod
-    def make_query(self, _db, identifier_type, identifiers, data_source, log=None):
+    def make_query(cls, _db, identifier_type, identifiers, data_source, log=None):
         query = _db.query(Work)
         if identifiers or identifier_type:
             query = query.join(Work.license_pools).join(
@@ -1008,7 +1349,7 @@ class WorkConsolidationScript(WorkProcessingScript):
 
     name = "Work consolidation script"
 
-    def make_query(self, _db, identifier_type, identifiers, log=None):
+    def make_query(self, _db, identifier_type, identifiers, data_source, log=None):
         # We actually process LicensePools, not Works.
         qu = _db.query(LicensePool).join(LicensePool.identifier)
         if identifier_type:
@@ -1111,39 +1452,11 @@ class CustomListManagementScript(Script):
 class OneClickImportScript(Script):
     """Import all books from a OneClick-subscribed library catalog."""
 
-    @classmethod
-    def arg_parser(cls):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--mock', 
-            help='If turned on, will use the MockOneClickAPI client.', 
-            action='store_true'
-        )
-        return parser
-
-
-    def __init__(self, _db=None, cmd_args=None):
+    def __init__(self, collection=None, api_class=OneClickAPI,
+                 **api_class_kwargs):
+        _db = Session.object_session(collection)
         super(OneClickImportScript, self).__init__(_db=_db)
-
-        # get database connection passed in from test or establish a prod one
-        if _db:
-            db = _db
-        else:
-            db = self._db
-
-        parsed_args = self.parse_command_line(cmd_args=cmd_args)
-        self.mock_mode = parsed_args.mock
-
-        if self.mock_mode:
-            self.log.debug(
-                "This is mocked run, with metadata coming from test files, rather than live OneClick connection."
-            )
-            base_path = os.path.split(__file__)[0]
-            base_path = os.path.join(base_path, "tests")
-            self.api = MockOneClickAPI(_db=db, base_path=base_path)
-        else:
-            self.api = OneClickAPI.from_config(_db=db)
-
+        self.api = api_class(collection, **api_class_kwargs)
 
     def do_run(self):
         self.log.info("OneClickImportScript.do_run().")
@@ -1152,94 +1465,78 @@ class OneClickImportScript(Script):
         self.log.info(result_string)
 
 
-
-
 class OneClickDeltaScript(OneClickImportScript):
     """Import book deletions, additions, and metadata changes for a 
     OneClick-subscribed library catalog.
     """
-
-    def __init__(self, _db=None, cmd_args=None):
-        super(OneClickDeltaScript, self).__init__(_db=_db, cmd_args=cmd_args)
-
 
     def do_run(self):
         self.log.info("OneClickDeltaScript.do_run().")
         items_transmitted, items_updated = self.api.populate_delta()
 
 
+class CollectionInputScript(Script):
+    """A script that takes collection names as command line inputs."""
 
-class OPDSImportScript(Script):
-    """Import all books from an OPDS feed."""
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None, *args, **kwargs):
+        parser = cls.arg_parser()
+        parsed = parser.parse_args(cmd_args)
+        return cls.look_up_collections(_db, parsed, *args, **kwargs)
 
+    @classmethod
+    def look_up_collections(cls, _db, parsed, *args, **kwargs):
+        """Turn collection names as specified on the command line into
+        real database Collection objects.
+        """
+        parsed.collections = []
+        for name in parsed.collection_names:
+            collection = get_one(_db, Collection, name=name)
+            if not collection:
+                raise ValueError("Unknown collection: %s" % name)
+            parsed.collections.append(collection)
+        return parsed    
+    
     @classmethod
     def arg_parser(cls):
         parser = argparse.ArgumentParser()
         parser.add_argument(
-            '--url', 
-            help='URL of the OPDS feed to be imported'
+            '--collection', 
+            help='Collection to use',
+            dest='collection_names',            
+            metavar='NAME', action='append', default=[]
         )
-        parser.add_argument(
-            '--data-source', 
-            help='The name of the data source providing the OPDS feed.'
-        )
+        return parser
+    
+    
+class OPDSImportScript(CollectionInputScript):
+    """Import all books from the OPDS feed associated with a collection."""
+
+    IMPORTER_CLASS = OPDSImporter
+    MONITOR_CLASS = OPDSImportMonitor
+    
+    @classmethod
+    def arg_parser(cls):
+        parser = CollectionInputScript.arg_parser()
         parser.add_argument(
             '--force', 
             help='Import the feed from scratch, even if it seems like it was already imported.',
             dest='force', action='store_true'
         )
         return parser
+    
+    def do_run(self, cmd_args=None):
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
+        collections = parsed.collections or Collection.by_protocol(self._db, ExternalIntegration.OPDS_IMPORT)
+        for collection in collections:
+            self.run_monitor(collection, force=parsed.force)
 
-    def __init__(self, feed_url, opds_data_source, importer_class, 
-                 immediately_presentation_ready=False, cmd_args=None,
-                 _db=None):
-        if _db:
-            self._session = _db
-
-        args = self.parse_command_line(cmd_args)
-        self.force_reimport = args.force
-        self.feed_url = args.url or feed_url
-        self.opds_data_source = args.data_source or opds_data_source
-        self.importer_class = importer_class
-        self.immediately_presentation_ready = immediately_presentation_ready
-
-    def do_run(self):
-        monitor = OPDSImportMonitor(
-            self._db, self.feed_url, self.opds_data_source, 
-            self.importer_class, 
-            immediately_presentation_ready = self.immediately_presentation_ready,
-            force_reimport=self.force_reimport
+    def run_monitor(self, collection, force=None):
+        monitor = self.MONITOR_CLASS(
+            self._db, collection, import_class=self.IMPORTER_CLASS,
+            force_reimport=force
         )
         monitor.run()
-
-
-class NYTBestSellerListsScript(Script):
-
-    def __init__(self, include_history=False):
-        super(NYTBestSellerListsScript, self).__init__()
-        self.include_history = include_history
-    
-    def do_run(self):
-        self.api = NYTBestSellerAPI(self._db)
-        self.data_source = DataSource.lookup(self._db, DataSource.NYT)
-        # For every best-seller list...
-        names = self.api.list_of_lists()
-        for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
-
-            name = l['list_name_encoded']
-            self.log.info("Handling list %s" % name)
-            best = self.api.best_seller_list(l)
-
-            if self.include_history:
-                self.api.fill_in_history(best)
-            else:
-                self.api.update(best)
-
-            # Mirror the list to the database.
-            customlist = best.to_customlist(self._db)
-            self.log.info(
-                "Now %s entries in the list.", len(customlist.entries))
-            self._db.commit()
 
 
 class RefreshMaterializedViewsScript(Script):
@@ -1367,6 +1664,11 @@ class DatabaseMigrationScript(Script):
         # schema. Server migrations generally fix bugs or otherwise update
         # the data itself.
         return [core, server]
+
+    def load_configuration(self):
+        # TODO: Remove after 2.0.0 release, when CDNs are loaded from
+        # the database before the ExternalIntegration has been uploaded.
+        Configuration.load(None)
 
     def do_run(self):
         parsed = self.parse_command_line()
@@ -1534,7 +1836,10 @@ class DatabaseMigrationScript(Script):
 
         if migration_path.endswith('.sql'):
             with open(migration_path) as clause:
-                sql = clause.read()
+                # By wrapping the action in a transation, we can avoid
+                # rolling over errors and losing data in files
+                # with multiple interrelated SQL actions.
+                sql = 'BEGIN;\n%s\nCOMMIT;' % clause.read()
                 self._db.execute(sql)
         if migration_path.endswith('.py'):
             module_name = migration_filename[:-3]
@@ -1599,7 +1904,9 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
                     "%s timestamp already exists: %r. Use --force to update." %
                     (self.name, existing_timestamp))
 
-        timestamp = existing_timestamp or Timestamp.stamp(self._db, self.name)
+        timestamp = existing_timestamp or Timestamp.stamp(
+            self._db, service=self.name, collection=None
+        )
         if last_run_date:
             submitted_time = self.parse_time(last_run_date)
             timestamp.timestamp = submitted_time
@@ -1610,7 +1917,9 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         migrations = self.fetch_migration_files()[0]
         most_recent_migration = self.sort_migrations(migrations)[-1]
 
-        initial_timestamp = Timestamp.stamp(self._db, self.name)
+        initial_timestamp = Timestamp.stamp(
+            self._db, service=self.name, collection=None
+        )
         self.update_timestamp(initial_timestamp, most_recent_migration)
 
 
@@ -1776,9 +2085,9 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         success = True
         contributor = contribution.contributor
 
-        pool = contribution.edition.is_presentation_for
+        pools = contribution.edition.is_presentation_for
         try:
-            complaint, is_new = Complaint.register(pool, cls.COMPLAINT_TYPE, source, error_message_detail)
+            complaint, is_new = Complaint.register(pools[0], cls.COMPLAINT_TYPE, source, error_message_detail)
             output = "%s|\t%s|\t%s|\t%s|\tcomplain|\t%s" % (contributor.id, contributor.sort_name, contributor.display_name, computed_sort_name, source)
             print output.encode("utf8")
         except ValueError, e:
@@ -1934,19 +2243,32 @@ class Explain(IdentifierInputScript):
             print "  %s: %r" % (active, pool.identifier)
 
 
-class FixInvisibleWorksScript(Script):
+class FixInvisibleWorksScript(CollectionInputScript):
     """Try to figure out why Works aren't showing up.
 
     This is a common problem on a new installation.
     """
     def __init__(self, _db=None, output=None, search=None):
+        _db = _db or self._db
         super(FixInvisibleWorksScript, self).__init__(_db)
         self.output = output or sys.stdout
         self.search = search or ExternalSearchIndex(_db)
     
-    def run(self):
+    def run(self, cmd_args=None):
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
+        self.do_run(parsed.collections)
+
+    def do_run(self, collections=None):
+        if collections:
+            collection_ids = [c.id for c in collections]
+
         ready = self._db.query(Work).filter(Work.presentation_ready==True)
         unready = self._db.query(Work).filter(Work.presentation_ready==False)
+
+        if collections:
+            ready = ready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
+            unready = unready.join(LicensePool).filter(LicensePool.collection_id.in_(collection_ids))
+
         ready_count = ready.count()
         unready_count = unready.count()
         self.output.write("%d presentation-ready works.\n" % ready_count)
@@ -1975,6 +2297,10 @@ class FixInvisibleWorksScript(Script):
         # See how many works are in the materialized view.
         from model import MaterializedWork
         mv_works = self._db.query(MaterializedWork)
+
+        if collections:
+            mv_works = mv_works.filter(MaterializedWork.collection_id.in_(collection_ids))
+
         mv_works_count = mv_works.count()
         self.output.write(
             "%d works in materialized view.\n" % mv_works_count
@@ -1993,6 +2319,39 @@ class FixInvisibleWorksScript(Script):
         if mv_works_count == 0:
             self.output.write(
                 "Here's your problem: your presentation-ready works are not making it into the materialized view.\n"
+            )
+            return
+
+        # Check if the works have delivery mechanisms.
+        LPDM = LicensePoolDeliveryMechanism
+        mv_works = mv_works.filter(
+            exists().where(
+                and_(MaterializedWork.data_source_id==LPDM.data_source_id,
+                     MaterializedWork.primary_identifier_id==LPDM.identifier_id)
+            )
+        )
+        if mv_works.count() == 0:
+            self.output.write(
+                "Here's your problem: your works don't have delivery mechanisms.\n"
+            )
+            return
+
+        # Check if the license pools are suppressed.
+        mv_works = mv_works.join(LicensePool).filter(
+            LicensePool.suppressed==False)
+        if mv_works.count() == 0:
+            self.output.write(
+                "Here's your problem: your works' license pools are suppressed.\n"
+            )
+            return
+
+        # Check if the pools have available licenses.
+        mv_works = mv_works.filter(
+            or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+        )
+        if mv_works.count() == 0:
+            self.output.write(
+                "Here's your problem: your works aren't open access and have no licenses owned.\n"
             )
             return
             

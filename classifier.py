@@ -832,7 +832,7 @@ class GenreData(object):
             cls.add_genre(namespace, genres, sub, [], fiction,
                           genre_data, audience_restriction)
 
-    def to_lane(self, _db, **args):
+    def to_lane(self, _db, library, **args):
         """Turn this GenreData object into a Lane that matches
         every book in the genre.
         """
@@ -847,7 +847,7 @@ class GenreData(object):
             args['subgenre_behavior'] = Lane.IN_SUBLANES
         args['genres'] = self
 
-        return Lane(_db, **args)
+        return Lane(_db, library, **args)
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)

@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import tempfile
+import uuid
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from config import Configuration
@@ -25,10 +26,13 @@ from model import (
     DeliveryMechanism,
     DelegatedPatronIdentifier,
     Edition,
+    ExternalIntegration,
     Genre,
     Hyperlink,
     Identifier,
+    Library,
     LicensePool,
+    LicensePoolDeliveryMechanism,
     Patron,
     Representation,
     Resource,
@@ -42,14 +46,16 @@ from model import (
 )
 from classifier import Classifier
 from coverage import (
-    CoverageProvider,
+    BibliographicCoverageProvider,
+    CollectionCoverageProvider,
+    IdentifierCoverageProvider,
     CoverageFailure,
     WorkCoverageProvider,
 )
 
 from external_search import DummyExternalSearchIndex
+import external_search
 import mock
-import model
 import inspect
 
 
@@ -72,7 +78,7 @@ def package_setup():
 
     # Initialize basic database data needed by the application.
     _db = Session(connection)
-    SessionManager.initialize_data(_db)
+    SessionManager.initialize_data(_db)    
     _db.commit()
     connection.close()
     engine.dispose()
@@ -97,8 +103,11 @@ class DatabaseTest(object):
         cls.tmp_data_dir = tempfile.mkdtemp(dir="/tmp")
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.tmp_data_dir
 
-        os.environ['TESTING'] = 'true'
+        # Avoid CannotLoadConfiguration errors related to CDN integrations.
+        Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {}
 
+        os.environ['TESTING'] = 'true'
+        
     @classmethod
     def teardown_class(cls):
         # Destroy the database connection and engine.
@@ -108,6 +117,7 @@ class DatabaseTest(object):
         if cls.tmp_data_dir.startswith("/tmp"):
             logging.debug("Removing temporary directory %s" % cls.tmp_data_dir)
             shutil.rmtree(cls.tmp_data_dir)
+
         else:
             logging.warn("Cowardly refusing to remove 'temporary' directory %s" % cls.tmp_data_dir)
 
@@ -115,18 +125,21 @@ class DatabaseTest(object):
         if 'TESTING' in os.environ:
             del os.environ['TESTING']
 
-    def setup(self):
+    def setup(self, mock_search=True):
         # Create a new connection to the database.
         self._db = Session(self.connection)
         self.transaction = self.connection.begin_nested()
-
+        
         # Start with a high number so it won't interfere with tests that search for an age or grade
         self.counter = 2000
 
         self.time_counter = datetime(2014, 1, 1)
         self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
-        self.search_mock = mock.patch(model.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
-        self.search_mock.start()
+        if mock_search:
+            self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
+            self.search_mock.start()
+        else:
+            self.search_mock = None
 
         # TODO:  keeping this for now, but need to fix it bc it hits _isbn, 
         # which pops an isbn off the list and messes tests up.  so exclude 
@@ -145,7 +158,18 @@ class DatabaseTest(object):
         # test, whether in the session that was just closed or some
         # other session.
         self.transaction.rollback()
-        self.search_mock.stop()
+
+        # Also roll back any record of those changes in the
+        # Configuration instance.
+        for key in [
+                Configuration.SITE_CONFIGURATION_LAST_UPDATE,
+                Configuration.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
+        ]:
+            if key in Configuration.instance:
+                del(Configuration.instance[key])
+
+        if self.search_mock:
+            self.search_mock.stop()
 
     def shortDescription(self):
         return None # Stop nosetests displaying docstrings instead of class names when verbosity level >= 2.
@@ -173,10 +197,13 @@ class DatabaseTest(object):
     def _url(self):
         return "http://foo.com/" + self._str
 
-    def _patron(self, external_identifier=None):
+    def _patron(self, external_identifier=None, library=None):
         external_identifier = external_identifier or self._str
+        library = library or self._default_library
         return get_one_or_create(
-            self._db, Patron, external_identifier=external_identifier)[0]
+            self._db, Patron, external_identifier=external_identifier,
+            library=library
+        )[0]
 
     def _contributor(self, sort_name=None, name=None, **kw_args):
         name = sort_name or name or self._str
@@ -190,10 +217,11 @@ class DatabaseTest(object):
         return Identifier.for_foreign_id(self._db, identifier_type, id)[0]
 
     def _edition(self, data_source_name=DataSource.GUTENBERG,
-                    identifier_type=Identifier.GUTENBERG_ID,
-                    with_license_pool=False, with_open_access_download=False,
-                    title=None, language="eng", authors=None, identifier_id=None,
-                    series=None):
+                 identifier_type=Identifier.GUTENBERG_ID,
+                 with_license_pool=False, with_open_access_download=False,
+                 title=None, language="eng", authors=None, identifier_id=None,
+                 series=None, collection=None
+    ):
         id = identifier_id or self._str
         source = DataSource.lookup(self._db, data_source_name)
         wr = Edition.for_foreign_id(
@@ -216,8 +244,11 @@ class DatabaseTest(object):
             wr.add_contributor(unicode(author), Contributor.AUTHOR_ROLE)
 
         if with_license_pool or with_open_access_download:
-            pool = self._licensepool(wr, data_source_name=data_source_name,
-                                     with_open_access_download=with_open_access_download)  
+            pool = self._licensepool(
+                wr, data_source_name=data_source_name,
+                with_open_access_download=with_open_access_download,
+                collection=collection
+            )
 
             pool.set_presentation_edition()
             return wr, pool
@@ -226,7 +257,7 @@ class DatabaseTest(object):
     def _work(self, title=None, authors=None, genre=None, language=None,
               audience=None, fiction=True, with_license_pool=False, 
               with_open_access_download=False, quality=0.5, series=None,
-              presentation_edition=None):
+              presentation_edition=None, collection=None):
         pool = None
         if with_open_access_download:
             with_license_pool = True
@@ -251,13 +282,12 @@ class DatabaseTest(object):
                 with_open_access_download=with_open_access_download,
                 data_source_name=data_source_name,
                 series=series,
+                collection=collection,
             )
             if with_license_pool:
                 presentation_edition, pool = presentation_edition
         else:
             pool = presentation_edition.license_pool
-        if with_open_access_download:
-            pool.open_access = True
         if new_edition:
             presentation_edition.calculate_presentation()
         work, ignore = get_one_or_create(
@@ -286,10 +316,26 @@ class DatabaseTest(object):
             # fake that the work is presentation ready.
             work.presentation_ready = True
             work.calculate_opds_entries(verbose=False)
+
+        if with_open_access_download:
+            pool.open_access = True
+
         return work
 
+    def _add_generic_delivery_mechanism(self, license_pool):
+        """Give a license pool a generic non-open-access delivery mechanism."""
+        data_source = license_pool.data_source
+        identifier = license_pool.identifier
+        content_type = Representation.EPUB_MEDIA_TYPE
+        drm_scheme = DeliveryMechanism.NO_DRM
+        LicensePoolDeliveryMechanism.set(
+            data_source, identifier, content_type, drm_scheme,
+            RightsStatus.IN_COPYRIGHT
+        )
+
+        
     def _coverage_record(self, edition, coverage_source, operation=None,
-                         status=CoverageRecord.SUCCESS):
+                         status=CoverageRecord.SUCCESS, collection=None):
         if isinstance(edition, Identifier):
             identifier = edition
         else:
@@ -299,6 +345,7 @@ class DatabaseTest(object):
             identifier=identifier,
             data_source=coverage_source,
             operation=operation,
+            collection=collection,
             create_method_kwargs = dict(
                 timestamp=datetime.utcnow(),
                 status=status,
@@ -322,16 +369,19 @@ class DatabaseTest(object):
     def _licensepool(self, edition, open_access=True, 
                      data_source_name=DataSource.GUTENBERG,
                      with_open_access_download=False, 
-                     set_edition_as_presentation=False):
+                     set_edition_as_presentation=False,
+                     collection=None):
         source = DataSource.lookup(self._db, data_source_name)
         if not edition:
             edition = self._edition(data_source_name)
-
+        collection = collection or self._default_collection
         pool, ignore = get_one_or_create(
             self._db, LicensePool,
             create_method_kwargs=dict(
                 open_access=open_access),
-            identifier=edition.primary_identifier, data_source=source,
+            identifier=edition.primary_identifier,
+            data_source=source,
+            collection=collection,
             availability_time=datetime.utcnow()
         )
 
@@ -344,11 +394,12 @@ class DatabaseTest(object):
             media_type = Representation.EPUB_MEDIA_TYPE
             link, new = pool.identifier.add_link(
                 Hyperlink.OPEN_ACCESS_DOWNLOAD, url,
-                source, pool)
+                source, media_type
+            )
 
             # Add a DeliveryMechanism for this download
             pool.set_delivery_mechanism(
-                Representation.EPUB_MEDIA_TYPE,
+                media_type,
                 DeliveryMechanism.NO_DRM,
                 RightsStatus.GENERIC_OPEN_ACCESS,
                 link.resource,
@@ -438,6 +489,45 @@ class DatabaseTest(object):
         )
         return credential
     
+    def _external_integration(self, protocol, goal=None, settings=None,
+                              libraries=None, **kwargs
+    ):
+        integration = None
+        if not libraries:
+            integration, ignore = get_one_or_create(
+                self._db, ExternalIntegration, protocol=protocol, goal=goal
+            )
+        else:
+            if not isinstance(libraries, list):
+                libraries = [libraries]
+
+            # Try to find an existing integration for one of the given
+            # libraries.
+            for library in libraries:
+                integration = ExternalIntegration.lookup(
+                    self._db, protocol, goal, library=libraries[0]
+                )
+                if integration:
+                    break
+
+            if not integration:
+                # Otherwise, create a brand new integration specifically
+                # for the library.
+                integration = ExternalIntegration(
+                    protocol=protocol, goal=goal,
+                )
+                integration.libraries.extend(libraries)
+                self._db.add(integration)
+
+        for attr, value in kwargs.items():
+            setattr(integration, attr, value)
+
+        settings = settings or dict()
+        for key, value in settings.items():
+            integration.set_setting(key, value)
+
+        return integration
+
     def _delegated_patron_identifier(
             self, library_uri=None, patron_identifier=None,
             identifier_type=DelegatedPatronIdentifier.ADOBE_ACCOUNT_ID,
@@ -641,18 +731,84 @@ class DatabaseTest(object):
         return
 
 
-    def _collection(self, name=None, protocol=Collection.OPDS_IMPORT,
+    def _library(self, name=None, short_name=None):
+        name=name or self._str
+        short_name = short_name or self._str
+        library, ignore = get_one_or_create(
+            self._db, Library, name=name, short_name=short_name,
+            create_method_kwargs=dict(uuid=str(uuid.uuid4())),
+        )
+        return library
+    
+    def _collection(self, name=None, protocol=ExternalIntegration.OPDS_IMPORT,
                     external_account_id=None, url=None, username=None,
-                    password=None):
+                    password=None, data_source_name=None):
         name = name or self._str
         collection, ignore = get_one_or_create(
-            self._db, Collection, name=name, protocol=protocol
+            self._db, Collection, name=name
         )
         collection.external_account_id = external_account_id
-        collection.external_integration.url = url
-        collection.external_integration.username = username
-        collection.external_integration.password = password
+        integration = collection.create_external_integration(protocol)
+        integration.url = url
+        integration.username = username
+        integration.password = password
+
+        if data_source_name:
+            integration.set_setting(
+                Collection.DATA_SOURCE_NAME_SETTING, data_source_name
+            )
         return collection
+        
+    @property
+    def _default_library(self):
+        """A Library that will only be created once throughout a given test.
+
+        By default, the `_default_collection` will be associated with
+        the default library.
+        """
+        if not hasattr(self, '_default__library'):
+            self._default__library = self.make_default_library(self._db)
+        return self._default__library
+        
+    @property
+    def _default_collection(self):
+        """A Collection that will only be created once throughout
+        a given test.
+
+        For most tests there's no need to create a different
+        Collection for every LicensePool. Using
+        self._default_collection instead of calling self.collection()
+        saves time.
+        """
+        if not hasattr(self, '_default__collection'):
+            self._default__collection = self._default_library.collections[0]
+        return self._default__collection
+
+    @classmethod
+    def make_default_library(cls, _db):
+        """Ensure that the default library exists in the given database.
+
+        This can be called by code intended for use in testing but not actually
+        within a DatabaseTest subclass.
+        """
+        library, ignore = get_one_or_create(
+            _db, Library, create_method_kwargs=dict(
+                uuid=unicode(uuid.uuid4()),
+                name="default",
+            ), short_name="default"
+        )
+        collection, ignore = get_one_or_create(
+            _db, Collection, name="Default Collection"
+        )
+        integration = collection.create_external_integration(
+            ExternalIntegration.OPDS_IMPORT
+        )
+        if collection not in library.collections:
+            library.collections.append(collection)
+        return library
+            
+    def _catalog(self, name=u"Faketown Public Library"):
+        source, ignore = get_one_or_create(self._db, DataSource, name=name)
         
     def _integration_client(self, url=None):
         url = url or self._url
@@ -672,10 +828,30 @@ class DatabaseTest(object):
             data_source=data_source, weight=weight
         )[0]
 
-class InstrumentedCoverageProvider(CoverageProvider):
+
+class MockCoverageProvider(object):
+    """Mixin class for mock CoverageProviders that defines common constants."""
+    SERVICE_NAME = "Generic mock CoverageProvider"
+    
+    # Whenever a CoverageRecord is created, the data_source of that
+    # record will be Project Gutenberg.
+    DATA_SOURCE_NAME = DataSource.GUTENBERG
+    
+    # For testing purposes, this CoverageProvider will try to cover
+    # every identifier in the database.
+    INPUT_IDENTIFIER_TYPES = None
+
+    # This CoverageProvider can work with any Collection that supports
+    # the OPDS import protocol (e.g. DatabaseTest._default_collection).
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
+
+
+class InstrumentedCoverageProvider(MockCoverageProvider,
+                                   IdentifierCoverageProvider):
     """A CoverageProvider that keeps track of every item it tried
     to cover.
     """
+    
     def __init__(self, *args, **kwargs):
         super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
         self.attempts = []
@@ -684,8 +860,10 @@ class InstrumentedCoverageProvider(CoverageProvider):
         self.attempts.append(item)
         return item
 
-class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
-    """A CoverageProvider that keeps track of every item it tried
+
+class InstrumentedWorkCoverageProvider(MockCoverageProvider,
+                                       WorkCoverageProvider):
+    """A WorkCoverageProvider that keeps track of every item it tried
     to cover.
     """
     def __init__(self, _db, *args, **kwargs):
@@ -696,48 +874,85 @@ class InstrumentedWorkCoverageProvider(WorkCoverageProvider):
         self.attempts.append(item)
         return item
 
+class AlwaysSuccessfulCollectionCoverageProvider(MockCoverageProvider,
+                                                 CollectionCoverageProvider):
+    """A CollectionCoverageProvider that does nothing and always succeeds."""
+    SERVICE_NAME = "Always successful (collection)"
+    
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
+    SERVICE_NAME = "Always successful"
 
 class AlwaysSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
     """A WorkCoverageProvider that does nothing and always succeeds."""
+    SERVICE_NAME = "Always successful (works)"
+
+
+class AlwaysSuccessfulBibliographicCoverageProvider(
+        MockCoverageProvider, BibliographicCoverageProvider):
+    """A BibliographicCoverageProvider that does nothing and is always
+    successful.
+
+    Note that this only works if you've put a working Edition and
+    LicensePool in place beforehand. Otherwise the process will fail
+    during handle_success().
+    """
+    SERVICE_NAME = "Always successful (bibliographic)"
+    
+    def process_item(self, identifier):
+        return identifier
+
 
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always fails."""
-
-    def __init__(self, _db, *args, **kwargs):
+    SERVICE_NAME = "Never successful"
+    
+    def __init__(self, *args, **kwargs):
         super(NeverSuccessfulCoverageProvider, self).__init__(
-            _db, *args, **kwargs
+            *args, **kwargs
         )
         self.transient = kwargs.get('transient') or False
 
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(
-            item, "What did you expect?", self.output_source, self.transient
-        )
+        return self.failure(item, "What did you expect?", self.transient)
 
 class NeverSuccessfulWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    SERVICE_NAME = "Never successful (works)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "What did you expect?", None, False)
+        return self.failure(item, "What did you expect?", False)
 
+class NeverSuccessfulBibliographicCoverageProvider(
+        MockCoverageProvider, BibliographicCoverageProvider):
+    """Simulates a BibliographicCoverageProvider that's never successful."""
+
+    SERVICE_NAME = "Never successful (bibliographic)"
+    
+    def process_item(self, identifier):
+        return self.failure(identifier, "Bitter failure", transient=True)
+
+    
 class BrokenCoverageProvider(InstrumentedCoverageProvider):
+    SERVICE_NAME = "Broken"
     def process_item(self, item):
         raise Exception("I'm too broken to even return a CoverageFailure.")
 
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
+    SERVICE_NAME = "Never successful (transient)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "Oops!", self.output_source, True)
+        return self.failure(item, "Oops!", True)
 
 class TransientFailureWorkCoverageProvider(InstrumentedWorkCoverageProvider):
+    SERVICE_NAME = "Never successful (transient, works)"
     def process_item(self, item):
         self.attempts.append(item)
-        return CoverageFailure(item, "Oops!", None, True)
+        return self.failure(item, "Oops!", True)
 
 class TaskIgnoringCoverageProvider(InstrumentedCoverageProvider):
     """A coverage provider that ignores all work given to it."""
+    SERVICE_NAME = "I ignore all work."
     def process_batch(self, batch):
         return []
 

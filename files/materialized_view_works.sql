@@ -29,7 +29,8 @@ as
     works.verbose_opds_entry,
     licensepools.id AS license_pool_id,
     licensepools.open_access_download_url,
-    licensepools.availability_time
+    licensepools.availability_time,
+    licensepools.collection_id
 
    FROM works
      JOIN editions ON editions.id = works.presentation_edition_id

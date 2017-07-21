@@ -1,4 +1,5 @@
 import datetime
+import json
 
 from nose.tools import (
     eq_,
@@ -36,6 +37,7 @@ from model import (
     Edition,
     Genre,
     Identifier,
+    Library,
     LicensePool,
     SessionManager,
     Work,
@@ -43,11 +45,19 @@ from model import (
 )
 
 
-class TestFacets(object):
+class TestFacets(DatabaseTest):
 
+    def _configure_facets(self, library, enabled, default):
+        """Set facet configuration for the given Library."""
+        for key, values in enabled.items():
+            library.enabled_facets_setting(key).value = json.dumps(values)
+        for key, value in default.items():
+            library.default_facet_setting(key).value = value
+    
     def test_facet_groups(self):
 
         facets = Facets(
+            self._default_library,
             Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE
         )
         all_groups = list(facets.facet_groups)
@@ -63,34 +73,33 @@ class TestFacets(object):
             selected
         )
 
-        test_facet_policy = {
-            "enabled" : {
+        test_enabled_facets = {
                 Facets.ORDER_FACET_GROUP_NAME : [
                     Facets.ORDER_WORK_ID, Facets.ORDER_TITLE
                 ],
                 Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_FULL],
                 Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_ALL],
-            },
-            "default" : {
-                Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE,
-                Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FULL,
-                Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
-            }
         }
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.FACET_POLICY : test_facet_policy
-            }
-            facets = Facets(None, None, Facets.ORDER_TITLE)
-            all_groups = list(facets.facet_groups)
-
-            # We have disabled almost all the facets, so the list of
-            # facet transitions includes only two items.
-            #
-            # 'Sort by title' was selected, and it shows up as the selected
-            # item in this facet group.
-            expect = [['order', 'title', True], ['order', 'work_id', False]]
-            eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
+        test_default_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : Facets.ORDER_TITLE,
+            Facets.COLLECTION_FACET_GROUP_NAME : Facets.COLLECTION_FULL,
+            Facets.AVAILABILITY_FACET_GROUP_NAME : Facets.AVAILABLE_ALL,
+        }
+        library = self._default_library
+        self._configure_facets(
+            library, test_enabled_facets, test_default_facets
+        )
+            
+        facets = Facets(self._default_library,
+                        None, None, Facets.ORDER_TITLE)
+        all_groups = list(facets.facet_groups)
+        # We have disabled almost all the facets, so the list of
+        # facet transitions includes only two items.
+        #
+        # 'Sort by title' was selected, and it shows up as the selected
+        # item in this facet group.
+        expect = [['order', 'title', True], ['order', 'work_id', False]]
+        eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
     def test_facets_can_be_enabled_at_initialization(self):
         enabled_facets = {
@@ -100,10 +109,13 @@ class TestFacets(object):
             Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
             Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
         }
-
+        library = self._default_library
+        self._configure_facets(library, enabled_facets, {})
+        
         # Create a new Facets object with these facets enabled,
         # no matter the Configuration.
         facets = Facets(
+            self._default_library,
             Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
             Facets.ORDER_TITLE, enabled_facets=enabled_facets
         )
@@ -155,6 +167,7 @@ class TestFacets(object):
 
         def order(facet, work, edition, ascending=None):
             f = Facets(
+                self._default_library,
                 collection=Facets.COLLECTION_FULL, 
                 availability=Facets.AVAILABLE_ALL,
                 order=facet,
@@ -239,85 +252,76 @@ class TestFacetsApply(DatabaseTest):
                      available=Facets.AVAILABLE_ALL,
                      order=Facets.ORDER_TITLE
         ):
-            f = Facets(collection, available, order)
+            f = Facets(self._default_library, collection, available, order)
             return f.apply(self._db, qu)
 
         # When holds are allowed, we can find all works by asking
         # for everything.
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
-            }
-
-            everything = facetify()
-            eq_(4, everything.count())
+        library = self._default_library
+        library.setting(Library.ALLOW_HOLDS).value = "True"
+        everything = facetify()
+        eq_(4, everything.count())
 
         # If we disallow holds, we lose one book even when we ask for
         # everything.
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
-            }
-            everything = facetify()
-            eq_(3, everything.count())
-            assert licensed_high not in everything
+        library.setting(Library.ALLOW_HOLDS).value = "False"
+        everything = facetify()
+        eq_(3, everything.count())
+        assert licensed_high not in everything
 
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_ALLOW
-            }
-            # Even when holds are allowed, if we restrict to books
-            # currently available we lose the unavailable book.
-            available_now = facetify(available=Facets.AVAILABLE_NOW)
-            eq_(3, available_now.count())
-            assert licensed_high not in available_now
+        library.setting(Library.ALLOW_HOLDS).value = "True"
+        # Even when holds are allowed, if we restrict to books
+        # currently available we lose the unavailable book.
+        available_now = facetify(available=Facets.AVAILABLE_NOW)
+        eq_(3, available_now.count())
+        assert licensed_high not in available_now
 
-            # If we restrict to open-access books we lose two books.
-            open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
-            eq_(2, open_access.count())
-            assert licensed_high not in open_access
-            assert licensed_low not in open_access
+        # If we restrict to open-access books we lose two books.
+        open_access = facetify(available=Facets.AVAILABLE_OPEN_ACCESS)
+        eq_(2, open_access.count())
+        assert licensed_high not in open_access
+        assert licensed_low not in open_access
 
-            # If we restrict to the main collection we lose the low-quality
-            # open-access book.
-            main_collection = facetify(collection=Facets.COLLECTION_MAIN)
-            eq_(3, main_collection.count())
-            assert open_access_low not in main_collection
+        # If we restrict to the main collection we lose the low-quality
+        # open-access book.
+        main_collection = facetify(collection=Facets.COLLECTION_MAIN)
+        eq_(3, main_collection.count())
+        assert open_access_low not in main_collection
 
-            # If we restrict to the featured collection we lose both
-            # low-quality books.
-            featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
-            eq_(2, featured_collection.count())
-            assert open_access_low not in featured_collection
-            assert licensed_low not in featured_collection
+        # If we restrict to the featured collection we lose both
+        # low-quality books.
+        featured_collection = facetify(collection=Facets.COLLECTION_FEATURED)
+        eq_(2, featured_collection.count())
+        assert open_access_low not in featured_collection
+        assert licensed_low not in featured_collection
 
-            title_order = facetify(order=Facets.ORDER_TITLE)
-            eq_([open_access_high, open_access_low, licensed_high, licensed_low],
-                title_order.all())
+        title_order = facetify(order=Facets.ORDER_TITLE)
+        eq_([open_access_high, open_access_low, licensed_high, licensed_low],
+            title_order.all())
 
-            random_order = facetify(order=Facets.ORDER_RANDOM)
-            eq_([licensed_low, open_access_high, licensed_high, open_access_low],
-                random_order.all())
+        random_order = facetify(order=Facets.ORDER_RANDOM)
+        eq_([licensed_low, open_access_high, licensed_high, open_access_low],
+            random_order.all())
 
 
 class TestLane(DatabaseTest):
 
     def test_depth(self):
-        child = Lane(self._db, "sublane")
-        parent = Lane(self._db, "parent", sublanes=[child])
+        child = Lane(self._db, self._default_library, "sublane")
+        parent = Lane(self._db, self._default_library, "parent", sublanes=[child])
         eq_(0, parent.depth)
         eq_(1, child.depth)
 
     def test_includes_language(self):
-        english_lane = Lane(self._db, self._str, languages=['eng'])
+        english_lane = Lane(self._db, self._default_library, self._str, languages=['eng'])
         eq_(True, english_lane.includes_language('eng'))
         eq_(False, english_lane.includes_language('fre'))
 
-        no_english_lane = Lane(self._db, self._str, exclude_languages=['eng'])
+        no_english_lane = Lane(self._db, self._default_library, self._str, exclude_languages=['eng'])
         eq_(False, no_english_lane.includes_language('eng'))
         eq_(True, no_english_lane.includes_language('fre'))
 
-        all_language_lane = Lane(self._db, self._str)
+        all_language_lane = Lane(self._db, self._default_library, self._str)
         eq_(True, all_language_lane.includes_language('eng'))
         eq_(True, all_language_lane.includes_language('fre'))
 
@@ -329,18 +333,18 @@ class TestLane(DatabaseTest):
 
         # Because this lane has no list-related information, the
         # RuntimeError shouldn't pop up at all.
-        lane = SetCustomListErrorLane(self._db, self._str)
+        lane = SetCustomListErrorLane(self._db, self._default_library, self._str)
 
         # The minute we put in some list information, it does!
         assert_raises(
-            RuntimeError, SetCustomListErrorLane, self._db, self._str,
-            list_data_source=DataSource.NYT
+            RuntimeError, SetCustomListErrorLane, self._db, self._default_library,
+            self._str, list_data_source=DataSource.NYT
         )
 
         # It can be a DataSource, or a CustomList identifier. World == oyster.
         assert_raises(
-            RuntimeError, SetCustomListErrorLane, self._db, self._str,
-            list_identifier=u"Staff Picks"
+            RuntimeError, SetCustomListErrorLane, self._db, self._default_library,
+            self._str, list_identifier=u"Staff Picks"
         )
 
 
@@ -359,7 +363,7 @@ class TestLanes(DatabaseTest):
 
     def test_nonexistent_list_raises_exception(self):
         assert_raises(
-            UndefinedLane, Lane, self._db, 
+            UndefinedLane, Lane, self._db, self._default_library, 
             u"This Will Fail", list_identifier=u"No Such List"
         )
 
@@ -375,7 +379,7 @@ class TestLanes(DatabaseTest):
             num_entries=0
         )
         lane = Lane(
-            self._db, "Everything", 
+            self._db, self._default_library, "Everything", 
             include_staff_picks=True, include_best_sellers=True
         )
 
@@ -408,7 +412,7 @@ class TestLanes(DatabaseTest):
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
-        lane = Lane(self._db, u'My Lane', list_identifier=my_list.foreign_identifier)
+        lane = Lane(self._db, self._default_library, u'My Lane', list_identifier=my_list.foreign_identifier)
 
         result = lane.list_featured_works_query.all()
         eq_(sorted(featured_works), sorted(result))
@@ -417,12 +421,10 @@ class TestLanes(DatabaseTest):
                                    sampled_works=None):
             featured_works = None
             featured_materialized_works = None
-            with temp_config() as config:
-                config[Configuration.POLICIES] = {
-                    Configuration.FEATURED_LANE_SIZE : size
-                }
-                featured_works = lane.featured_works(use_materialized_works=False)
-                featured_materialized_works = lane.featured_works()
+            library = self._default_library
+            library.setting(library.FEATURED_LANE_SIZE).value = size
+            featured_works = lane.featured_works(use_materialized_works=False)
+            featured_materialized_works = lane.featured_works()
 
             expected_length = expected_length
             if expected_length == None:
@@ -522,7 +524,7 @@ class TestLanes(DatabaseTest):
     def test_subgenres_become_sublanes(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         lane = Lane(
-            self._db, "YA Fantasy", genres=fantasy, 
+            self._db, self._default_library, "YA Fantasy", genres=fantasy, 
             languages='eng',
             audiences=Lane.AUDIENCE_YOUNG_ADULT,
             age_range=[15,16],
@@ -541,7 +543,7 @@ class TestLanes(DatabaseTest):
     def test_get_search_target(self):
         fantasy, ig = Genre.lookup(self._db, classifier.Fantasy)
         lane = Lane(
-            self._db, "YA Fantasy", genres=fantasy, 
+            self._db, self._default_library, "YA Fantasy", genres=fantasy, 
             languages='eng',
             audiences=Lane.AUDIENCE_YOUNG_ADULT,
             age_range=[15,16],
@@ -569,10 +571,10 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         urban_fantasy_lane = Lane(
-            self._db, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         fantasy_lane = Lane(
-            self._db, "Fantasy", fantasy, 
+            self._db, self._default_library, "Fantasy", fantasy, 
             genres=fantasy,
             subgenre_behavior=Lane.IN_SAME_LANE,
             sublanes=[urban_fantasy_lane]
@@ -582,7 +584,7 @@ class TestLanes(DatabaseTest):
         # You can just give the name of a genre as a sublane and it
         # will work.
         fantasy_lane = Lane(
-            self._db, "Fantasy", fantasy, 
+            self._db, self._default_library, "Fantasy", fantasy, 
             genres=fantasy,
             subgenre_behavior=Lane.IN_SAME_LANE,
             sublanes="Urban Fantasy"
@@ -595,10 +597,10 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         urban_fantasy_lane = Lane(
-            self._db, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         assert_raises(UndefinedLane, Lane,
-            self._db, "Fantasy", fantasy, 
+            self._db, self._default_library, "Fantasy", fantasy, 
             genres=fantasy,
             audiences=Lane.AUDIENCE_YOUNG_ADULT,
             subgenre_behavior=Lane.IN_SUBLANES,
@@ -609,7 +611,7 @@ class TestLanes(DatabaseTest):
         """The appropriate opds entry is deferred during querying.
         """
         original_setting = Configuration.DEFAULT_OPDS_FORMAT
-        lane = Lane(self._db, "Everything")
+        lane = Lane(self._db, self._default_library, "Everything")
 
         # Verbose config doesn't query simple OPDS entries.
         Configuration.DEFAULT_OPDS_FORMAT = "verbose_opds_entry"
@@ -638,14 +640,14 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         sublane = Lane(
-            self._db, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         invisible_parent = Lane(
-            self._db, "Fantasy", invisible=True, genres=fantasy, 
+            self._db, self._default_library, "Fantasy", invisible=True, genres=fantasy, 
             sublanes=[sublane], subgenre_behavior=Lane.IN_SAME_LANE)
 
         visible_grandparent = Lane(
-            self._db, "English", sublanes=[invisible_parent],
+            self._db, self._default_library, "English", sublanes=[invisible_parent],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         eq_(sublane.visible_parent(), visible_grandparent)
@@ -657,18 +659,18 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         lane = Lane(
-            self._db, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         visible_parent = Lane(
-            self._db, "Fantasy", genres=fantasy,
+            self._db, self._default_library, "Fantasy", genres=fantasy,
             sublanes=[lane], subgenre_behavior=Lane.IN_SAME_LANE)
 
         invisible_grandparent = Lane(
-            self._db, "English", invisible=True, sublanes=[visible_parent],
+            self._db, self._default_library, "English", invisible=True, sublanes=[visible_parent],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         visible_ancestor = Lane(
-            self._db, "Books With Words", sublanes=[invisible_grandparent],
+            self._db, self._default_library, "Books With Words", sublanes=[invisible_grandparent],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         eq_(lane.visible_ancestors(), [visible_parent, visible_ancestor])
@@ -678,15 +680,15 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
 
         sublane = Lane(
-            self._db, "Urban Fantasy", genres=urban_fantasy,
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy,
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         invisible_parent = Lane(
-            self._db, "Fantasy", invisible=True, genres=fantasy,
+            self._db, self._default_library, "Fantasy", invisible=True, genres=fantasy,
             sublanes=[sublane], subgenre_behavior=Lane.IN_SAME_LANE)
 
         visible_grandparent = Lane(
-            self._db, "English", sublanes=[invisible_parent],
+            self._db, self._default_library, "English", sublanes=[invisible_parent],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         eq_(False, visible_grandparent.has_visible_sublane())
@@ -698,17 +700,17 @@ class TestLanes(DatabaseTest):
         urban_fantasy, ig = Genre.lookup(self._db, classifier.Urban_Fantasy)
         humorous, ig = Genre.lookup(self._db, classifier.Humorous_Fiction)
 
-        visible_sublane = Lane(self._db, "Humorous Fiction", genres=humorous)
+        visible_sublane = Lane(self._db, self._default_library, "Humorous Fiction", genres=humorous)
 
         visible_grandchild = Lane(
-            self._db, "Urban Fantasy", genres=urban_fantasy)
+            self._db, self._default_library, "Urban Fantasy", genres=urban_fantasy)
 
         invisible_sublane = Lane(
-            self._db, "Fantasy", invisible=True, genres=fantasy,
+            self._db, self._default_library, "Fantasy", invisible=True, genres=fantasy,
             sublanes=[visible_grandchild], subgenre_behavior=Lane.IN_SAME_LANE)
 
         lane = Lane(
-            self._db, "English", sublanes=[visible_sublane, invisible_sublane],
+            self._db, self._default_library, "English", sublanes=[visible_sublane, invisible_sublane],
             subgenre_behavior=Lane.IN_SAME_LANE)
 
         eq_(2, len(lane.visible_sublanes))
@@ -848,24 +850,24 @@ class TestLanesQuery(DatabaseTest):
 
         # The 'everything' lane contains 18 works -- everything except
         # the music.
-        lane = Lane(self._db, "Everything")
+        lane = Lane(self._db, self._default_library, "Everything")
         w, mw = _assert_expectations(lane, 18, lambda x: True)
 
         # The 'Spanish' lane contains 1 book.
-        lane = Lane(self._db, "Spanish", languages='spa')
+        lane = Lane(self._db, self._default_library, "Spanish", languages='spa')
         eq_(['spa'], lane.languages)
         w, mw = _assert_expectations(lane, 1, lambda x: True)
         eq_([self.spanish], w)
 
         # The 'everything except English' lane contains that same book.
-        lane = Lane(self._db, "Not English", exclude_languages='eng')
+        lane = Lane(self._db, self._default_library, "Not English", exclude_languages='eng')
         eq_(None, lane.languages)
         eq_(['eng'], lane.exclude_languages)
         w, mw = _assert_expectations(lane, 1, lambda x: True)
         eq_([self.spanish], w)
 
         # The 'music' lane contains 1 work of music
-        lane = Lane(self._db, "Music", media=Edition.MUSIC_MEDIUM)
+        lane = Lane(self._db, self._default_library, "Music", media=Edition.MUSIC_MEDIUM)
         w, mw = _assert_expectations(
             lane, 1, 
             lambda x: x.presentation_edition.medium==Edition.MUSIC_MEDIUM,
@@ -873,14 +875,14 @@ class TestLanesQuery(DatabaseTest):
         )
         
         # The 'English fiction' lane contains ten fiction books.
-        lane = Lane(self._db, "English Fiction", fiction=True, languages='eng')
+        lane = Lane(self._db, self._default_library, "English Fiction", fiction=True, languages='eng')
         w, mw = _assert_expectations(
             lane, 10, lambda x: x.fiction
         )
 
         # The 'nonfiction' lane contains seven nonfiction books.
         # It does not contain the music.
-        lane = Lane(self._db, "Nonfiction", fiction=False)
+        lane = Lane(self._db, self._default_library, "Nonfiction", fiction=False)
         w, mw = _assert_expectations(
             lane, 7, 
             lambda x: x.presentation_edition.medium==Edition.BOOK_MEDIUM and not x.fiction,
@@ -888,7 +890,7 @@ class TestLanesQuery(DatabaseTest):
         )
 
         # The 'adults' lane contains five books for adults.
-        lane = Lane(self._db, "Adult English",
+        lane = Lane(self._db, self._default_library, "Adult English",
                     audiences=Lane.AUDIENCE_ADULT, languages='eng')
         w, mw = _assert_expectations(
             lane, 5, lambda x: x.audience==Lane.AUDIENCE_ADULT
@@ -897,7 +899,7 @@ class TestLanesQuery(DatabaseTest):
         # This lane contains those five books plus two adults-only
         # books.
         audiences = [Lane.AUDIENCE_ADULT, Lane.AUDIENCE_ADULTS_ONLY]
-        lane = Lane(self._db, "Adult + Adult Only",
+        lane = Lane(self._db, self._default_library, "Adult + Adult Only",
                     audiences=audiences, languages='eng'
         )
         w, mw = _assert_expectations(
@@ -907,7 +909,7 @@ class TestLanesQuery(DatabaseTest):
         eq_(2, len([x for x in mw if x.audience==Lane.AUDIENCE_ADULTS_ONLY]))
 
         # The 'Young Adults' lane contains five books.
-        lane = Lane(self._db, "Young Adults", 
+        lane = Lane(self._db, self._default_library, "Young Adults", 
                     audiences=Lane.AUDIENCE_YOUNG_ADULT)
         w, mw = _assert_expectations(
             lane, 5, lambda x: x.audience==Lane.AUDIENCE_YOUNG_ADULT
@@ -915,7 +917,7 @@ class TestLanesQuery(DatabaseTest):
 
         # There is one book suitable for seven-year-olds.
         lane = Lane(
-            self._db, "If You're Seven", audiences=Lane.AUDIENCE_CHILDREN,
+            self._db, self._default_library, "If You're Seven", audiences=Lane.AUDIENCE_CHILDREN,
             age_range=7
         )
         w, mw = _assert_expectations(
@@ -924,7 +926,7 @@ class TestLanesQuery(DatabaseTest):
 
         # There are four books suitable for ages 10-12.
         lane = Lane(
-            self._db, "10-12", audiences=Lane.AUDIENCE_CHILDREN,
+            self._db, self._default_library, "10-12", audiences=Lane.AUDIENCE_CHILDREN,
             age_range=(10,12)
         )
         w, mw = _assert_expectations(
@@ -938,7 +940,7 @@ class TestLanesQuery(DatabaseTest):
         # Here's an 'adult fantasy' lane, in which the subgenres of Fantasy
         # are kept in the same place as generic Fantasy.
         lane = Lane(
-            self._db, "Adult Fantasy",
+            self._db, self._default_library, "Adult Fantasy",
             genres=[self.fantasy], 
             subgenre_behavior=Lane.IN_SAME_LANE,
             fiction=Lane.FICTION_DEFAULT_FOR_GENRE,
@@ -955,7 +957,7 @@ class TestLanesQuery(DatabaseTest):
         # Here's a 'YA fantasy' lane in which urban fantasy is explicitly
         # excluded (maybe because it has its own separate lane).
         lane = Lane(
-            self._db, full_name="Adult Fantasy",
+            self._db, self._default_library, full_name="Adult Fantasy",
             genres=[self.fantasy], 
             exclude_genres=[self.urban_fantasy],
             subgenre_behavior=Lane.IN_SAME_LANE,
@@ -979,7 +981,7 @@ class TestLanesQuery(DatabaseTest):
 
         # Try a lane based on license source.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        lane = Lane(self._db, full_name="Overdrive Books",
+        lane = Lane(self._db, self._default_library, full_name="Overdrive Books",
                     license_source=overdrive)
         w, mw = _assert_expectations(
             lane, 10, lambda x: True
@@ -1014,7 +1016,7 @@ class TestLanesQuery(DatabaseTest):
 
         # Create a lane for one specific list
         fiction_best_sellers = Lane(
-            self._db, full_name="Fiction Best Sellers",
+            self._db, self._default_library, full_name="Fiction Best Sellers",
             list_identifier=fic_name
         )
         w, mw = _assert_expectations(
@@ -1024,7 +1026,7 @@ class TestLanesQuery(DatabaseTest):
 
         # Create a lane for all best-sellers.
         all_best_sellers = Lane(
-            self._db, full_name="All Best Sellers",
+            self._db, self._default_library, full_name="All Best Sellers",
             list_data_source=best_seller_list_1.data_source.name
         )
         w, mw = _assert_expectations(
@@ -1036,7 +1038,7 @@ class TestLanesQuery(DatabaseTest):
 
         # Combine list membership with another criteria (nonfiction)
         all_nonfiction_best_sellers = Lane(
-            self._db, full_name="All Nonfiction Best Sellers",
+            self._db, self._default_library, full_name="All Nonfiction Best Sellers",
             fiction=False,
             list_data_source=best_seller_list_1.data_source.name
         )
@@ -1048,7 +1050,7 @@ class TestLanesQuery(DatabaseTest):
         # Apply a cutoff date to a best-seller list,
         # excluding the work that was last seen a year ago.
         best_sellers_past_week = Lane(
-            self._db, full_name="Best Sellers - The Past Week",
+            self._db, self._default_library, full_name="Best Sellers - The Past Week",
             list_data_source=best_seller_list_1.data_source.name,
             list_seen_in_previous_days=7
         )
@@ -1061,6 +1063,7 @@ class TestLanesQuery(DatabaseTest):
         """Create a LaneList from a simple description."""
         lanes = LaneList.from_description(
             self._db,
+            self._default_library,
             None,
             [dict(
                 full_name="Fiction",
@@ -1114,31 +1117,37 @@ class TestFilters(DatabaseTest):
         # w1 has licenses but no available copies. It's available
         # unless site policy is to hide books like this.
         w1 = self._work(with_license_pool=True)
+        w1.presentation_edition.title = 'I have no available copies'
         w1.license_pools[0].open_access = False
         w1.license_pools[0].licenses_owned = 10
         w1.license_pools[0].licenses_available = 0
 
         # w2 has no delivery mechanisms.
         w2 = self._work(with_license_pool=True, with_open_access_download=False)
+        w2.presentation_edition.title = 'I have no delivery mechanisms'
         for dm in w2.license_pools[0].delivery_mechanisms:
             self._db.delete(dm)
 
         # w3 is not presentation ready.
         w3 = self._work(with_license_pool=True)
+        w3.presentation_edition.title = "I'm not presentation ready"
         w3.presentation_ready = False
 
         # w4's only license pool is suppressed.
         w4 = self._work(with_open_access_download=True)
+        w4.presentation_edition.title = "I am suppressed"
         w4.license_pools[0].suppressed = True
 
         # w5 has no licenses.
         w5 = self._work(with_license_pool=True)
+        w5.presentation_edition.title = "I have no owned licenses."
         w5.license_pools[0].open_access = False
         w5.license_pools[0].licenses_owned = 0
 
         # w6 is an open-access book, so it's available even though
         # licenses_owned and licenses_available are zero.
         w6 = self._work(with_open_access_download=True)
+        w6.presentation_edition.title = "I'm open-access."
         w6.license_pools[0].open_access = True
         w6.license_pools[0].licenses_owned = 0
         w6.license_pools[0].licenses_available = 0
@@ -1146,41 +1155,70 @@ class TestFilters(DatabaseTest):
         # w7 is not open-access. We own licenses for it, and there are
         # licenses available right now. It's available.
         w7 = self._work(with_license_pool=True)
+        w7.presentation_edition.title = "I have available licenses."
         w7.license_pools[0].open_access = False
         w7.license_pools[0].licenses_owned = 9
         w7.license_pools[0].licenses_available = 5
 
+        # w8 has a delivery mechanism that can't be rendered by the
+        # default client.
+        w8 = self._work(with_license_pool=True)
+        w8.presentation_edition.title = "I have a weird delivery mechanism"
+        [pool] = w8.license_pools
+        for dm in pool.delivery_mechanisms:
+            self._db.delete(dm)
+        self._db.commit()
+        pool.set_delivery_mechanism(
+            "weird content type", "weird DRM scheme", "weird rights URI",
+            None
+        )
+
+        # w9 is in a collection not associated with the default library.
+        w9 = self._work(with_license_pool=True)
+        collection2 = self._collection()
+        w9.license_pools[0].collection = collection2
+        w9.presentation_edition.title = "I'm in a different collection"
+        
         # A normal query against Work/LicensePool finds all works.
         orig_q = self._db.query(Work).join(Work.license_pools)
-        eq_(7, orig_q.count())
+        eq_(9, orig_q.count())
 
         # only_show_ready_deliverable_works filters out everything but
-        # w1 (owned licenses), w6 (open-access), and w7 (available
-        # licenses)
-        q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-        eq_(set([w1, w6, w7]), set(q.all()))
+        # w1 (owned licenses), w6 (open-access), w7 (available
+        # licenses), and w8 (available licenses, weird delivery mechanism).
+        library = self._default_library
+        lane = Lane(self._db, library, self._str)
+        q = lane.only_show_ready_deliverable_works(orig_q, Work)
+        eq_(set([w1, w6, w7, w8]), set(q.all()))
 
         # If we decide to show suppressed works, w4 shows up as well.
-        q = Lane.only_show_ready_deliverable_works(
+        q = lane.only_show_ready_deliverable_works(
             orig_q, Work, show_suppressed=True
         )
-        eq_(set([w1, w4, w6, w7]), set(q.all()))
+        eq_(set([w1, w4, w6, w7, w8]), set(q.all()))
 
         # Change site policy to hide books that can't be borrowed.
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.HOLD_POLICY : Configuration.HOLD_POLICY_HIDE
-            }
+        library.setting(Library.ALLOW_HOLDS).value = "False"
+        # w1 no longer shows up, because although we own licenses, 
+        #  no copies are available.
+        # w4 is open-access but it's suppressed, so it still doesn't 
+        #  show up.
+        # w6 still shows up because it's an open-access work.
+        # w7 and w8 show up because we own licenses and copies are
+        #  available.
+        q = lane.only_show_ready_deliverable_works(orig_q, Work)
+        eq_(set([w6, w7, w8]), set(q.all()))
 
-            # w1 no longer shows up, because although we own licenses, 
-            #  no copies are available.
-            # w4 is open-access but it's suppressed, so it still doesn't 
-            #  show up.
-            # w6 still shows up because it's an open-access work.
-            # w7 shows up because we own licenses and copies are available.
-            q = Lane.only_show_ready_deliverable_works(orig_q, Work)
-            eq_(set([w6, w7]), set(q.all()))
-
+        # If we add the second collection to the library, its works
+        # start showing up. (But we have to recreate the Lane object
+        # because it only looks at the library's collections during
+        # construction.)
+        library.setting(Library.ALLOW_HOLDS).value = "True"
+        library.collections.append(collection2)
+        lane = Lane(self._db, library, self._str)
+        q = lane.only_show_ready_deliverable_works(orig_q, Work)
+        eq_(set([w1, w6, w7, w8, w9]), set(q.all()))
+        
     def test_lane_subclass_queries(self):
         """Subclasses of Lane can effectively retrieve all of a Work's
         LicensePools
@@ -1206,7 +1244,7 @@ class TestFilters(DatabaseTest):
 
         # When the work is queried, both of the LicensePools are
         # available in the database session, despite the filtering.
-        subclass = LaneSubclass(self._db, "Lane Subclass")
+        subclass = LaneSubclass(self._db, self._default_library, "Lane Subclass")
         [subclass_work] = subclass.works().all()
         eq_(2, len(subclass_work.license_pools))
 

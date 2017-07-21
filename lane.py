@@ -17,6 +17,7 @@ from classifier import (
 )
 
 from sqlalchemy import (
+    and_,
     or_,
     not_,
 )
@@ -34,7 +35,11 @@ from model import (
     DeliveryMechanism,
     Edition,
     Genre,
+    get_one,
+    Library,
     LicensePool,
+    LicensePoolDeliveryMechanism,
+    Session,
     Work,
     WorkGenre,
 )
@@ -45,39 +50,41 @@ import elasticsearch
 class Facets(FacetConstants):
 
     @classmethod
-    def default(cls):
+    def default(cls, library):
         return cls(
+            library,
             collection=cls.COLLECTION_MAIN,
             availability=cls.AVAILABLE_ALL,
             order=cls.ORDER_AUTHOR
         )
-
-    def __init__(self, collection, availability, order,
+    
+    def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None):
+        """
+        :param collection: This is not a Collection object; it's a value for
+        the 'collection' facet, e.g. 'main' or 'featured'.
+        """
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
             else:
                 order_ascending = self.ORDER_ASCENDING
 
-        collection = collection or Configuration.default_facet(
+        collection = collection or library.default_facet(
             self.COLLECTION_FACET_GROUP_NAME
         )
-        availability = availability or Configuration.default_facet(
+        availability = availability or library.default_facet(
             self.AVAILABILITY_FACET_GROUP_NAME
         )
-        order = order or Configuration.default_facet(
-            self.ORDER_FACET_GROUP_NAME
-        )
+        order = order or library.default_facet(self.ORDER_FACET_GROUP_NAME)
 
-        hold_policy = Configuration.hold_policy()
-        if (availability == self.AVAILABLE_ALL and 
-            hold_policy == Configuration.HOLD_POLICY_HIDE):
+        if (availability == self.AVAILABLE_ALL and not library.allow_holds):
             # Under normal circumstances we would show all works, but
-            # site configuration says to hide books that aren't
+            # library configuration says to hide books that aren't
             # available.
             availability = self.AVAILABLE_NOW
 
+        self.library = library
         self.collection = collection
         self.availability = availability
         self.order = order
@@ -90,7 +97,8 @@ class Facets(FacetConstants):
 
     def navigate(self, collection=None, availability=None, order=None):
         """Create a slightly different Facets object from this one."""
-        return Facets(collection or self.collection, 
+        return Facets(self.library,
+                      collection or self.collection, 
                       availability or self.availability, 
                       order or self.order,
                       enabled_facets=self.facets_enabled_at_init)
@@ -123,17 +131,17 @@ class Facets(FacetConstants):
             for facet_type in facet_types:
                 yield self.facets_enabled_at_init.get(facet_type, [])
         else:
-            order_facets = Configuration.enabled_facets(
+            order_facets = self.library.enabled_facets(
                 Facets.ORDER_FACET_GROUP_NAME
             )
             yield order_facets
 
-            availability_facets = Configuration.enabled_facets(
+            availability_facets = self.library.enabled_facets(
                 Facets.AVAILABILITY_FACET_GROUP_NAME
             )
             yield availability_facets
 
-            collection_facets = Configuration.enabled_facets(
+            collection_facets = self.library.enabled_facets(
                 Facets.COLLECTION_FACET_GROUP_NAME
             )
             yield collection_facets
@@ -277,10 +285,10 @@ class Facets(FacetConstants):
             )
             q = q.filter(or_clause)
         elif self.collection == self.COLLECTION_FEATURED:
-            # Exclude books with a quality of less than
-            # MINIMUM_FEATURED_QUALITY.
+            # Exclude books with a quality of less than the library's
+            # minimum featured quality.
             q = q.filter(
-                work_model.quality >= Configuration.minimum_featured_quality()
+                work_model.quality >= self.library.minimum_featured_quality
             )
 
         # Set the ORDER BY clause.
@@ -419,6 +427,10 @@ class Lane(object):
     MINIMUM_SAMPLE_SIZE = None
 
     @property
+    def library(self):
+        return get_one(self._db, Library, id=self.library_id)
+    
+    @property
     def url_name(self):
         """Return the name of this lane to be used in URLs.
 
@@ -493,7 +505,8 @@ class Lane(object):
             lane.debug(level+1)
 
     def __init__(self, 
-                 _db, 
+                 _db,
+                 library,
                  full_name,
                  display_name=None,
 
@@ -528,15 +541,21 @@ class Lane(object):
                  searchable=False,
                  invisible=False,
                  ):
+        if not isinstance(library, Library):
+            raise ValueError("Expected Library in Lane constructor, got %r" % library)
         self.name = full_name
         self.display_name = display_name or self.name
         self.parent = parent
         self._db = _db
+        self.library_id = library.id
+        self.collection_ids = [
+            collection.id for collection in library.all_collections
+        ]
         self.default_for_language = False
         self.searchable = searchable
         self.invisible = invisible
         self.license_source = license_source
-
+        
         self.log = logging.getLogger("Lane %s" % self.name)
 
         # This controls which feeds to display when showing this lane
@@ -592,7 +611,7 @@ class Lane(object):
 
         # Best-seller and staff pick lanes go at the top.
         base_args = dict(
-            _db=self._db, parent=self, include_all=False, genres=genres,
+            library=self.library, parent=self, include_all=False, genres=genres,
             exclude_genres=exclude_genres, fiction=fiction, 
             audiences=audiences, age_range=age_range,
             appeals=appeals, languages=languages, 
@@ -763,7 +782,7 @@ class Lane(object):
                     if subgenre in full_exclude_genres:
                         continue
                     sublane = Lane(
-                            self._db, full_name=subgenre.name,
+                            self._db, self.library, full_name=subgenre.name,
                             parent=self, genres=[subgenre],
                             subgenre_behavior=self.IN_SUBLANES
                     )
@@ -781,10 +800,10 @@ class Lane(object):
                 self.sublanes.add(sl)
         elif sublanes:
             self.sublanes = LaneList.from_description(
-                _db, self, sublanes
+                self._db, self.library, self, sublanes
             )
         else:
-            self.sublanes = LaneList.from_description(_db, self, [])
+            self.sublanes = LaneList.from_description(self._db, self.library, self, [])
 
     def include_staff_picks(self, **base_args):
         """Includes a Staff Picks sublane to the base/top of this lane."""
@@ -792,6 +811,7 @@ class Lane(object):
         full_name = "%s - Staff Picks" % self.name
         try:
             staff_picks_lane = Lane(
+                self._db,
                 full_name=full_name, display_name="Staff Picks",
                 list_identifier="Staff Picks",
                 searchable=False,
@@ -809,6 +829,7 @@ class Lane(object):
         full_name = "%s - Best Sellers" % self.name
         try:
             best_seller_lane = Lane(
+                self._db,
                 full_name=full_name, display_name="Best Sellers",
                 list_data_source=DataSource.NYT,
                 list_seen_in_previous_days=365*2,
@@ -874,8 +895,10 @@ class Lane(object):
         return audiences      
 
     @classmethod
-    def from_description(cls, _db, parent, description):
+    def from_description(cls, _db, library, parent, description):
         genre = None
+        if not isinstance(library, Library):
+            raise ValueError("Expected library, got %r" % library)
         if isinstance(description, Lane):
             # The lane has already been created.
             description.parent = parent
@@ -884,11 +907,11 @@ class Lane(object):
             if description.get('suppress_lane'):
                 return None
             # Invoke the constructor
-            return Lane(_db, parent=parent, **description)
+            return Lane(_db, library, parent=parent, **description)
         else:
             # This is a lane for a specific genre.
             genre, genredata = Lane.load_genre(_db, description)
-            return Lane(_db, genre.name, parent=parent, genres=genre)
+            return Lane(_db, library, genre.name, parent=parent, genres=genre)
 
     @classmethod
     def load_genre(cls, _db, descriptor):
@@ -1024,7 +1047,8 @@ class Lane(object):
         * Have a delivery mechanism that can be rendered by the
           default client.
 
-        * Have an unsuppressed license pool.
+        * Have an unsuppressed license pool that belongs to one of the
+          available collections.
         """
 
         q = self._db.query(Work).join(Work.presentation_edition)
@@ -1203,47 +1227,20 @@ class Lane(object):
 
         return q
 
-    @classmethod
     def only_show_ready_deliverable_works(
-            cls, query, work_model, show_suppressed=False
+            self, query, work_model, show_suppressed=False
     ):
-        """Restrict a query to show only presentation-ready
-        works which the default client can fulfill.
+        """Restrict a query to show only presentation-ready works present in
+        an appropriate collection which the default client can
+        fulfill.
 
         Note that this assumes the query has an active join against
         LicensePool.
         """
-        # Only find presentation-ready works.
-        #
-        # Such works are automatically filtered out of 
-        # the materialized view.
-        if work_model == Work:
-            query = query.filter(
-                work_model.presentation_ready == True,
-            )
-
-        # Only find books the default client can fulfill.
-        query = query.filter(LicensePool.delivery_mechanisms.any(
-            DeliveryMechanism.default_client_can_fulfill==True)
+        return self.library.restrict_to_ready_deliverable_works(
+            query, work_model, show_suppressed=show_suppressed,
+            collection_ids=self.collection_ids
         )
-
-        # Only find books with unsuppressed LicensePools.
-        if not show_suppressed:
-            query = query.filter(LicensePool.suppressed==False)
-
-        # Only find books with available licenses.
-        query = query.filter(
-                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
-        )
-
-        # If we don't allow holds, hide any books with no available copies.
-        hold_policy = Configuration.hold_policy()
-        if hold_policy == Configuration.HOLD_POLICY_HIDE:
-            query = query.filter(
-                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
-            )
-
-        return query
 
     @property
     def search_target(self):
@@ -1384,8 +1381,7 @@ class Lane(object):
         """
         books = []
         featured_subquery = None
-        target_size = Configuration.featured_lane_size()
-
+        target_size = self.library.featured_lane_size
         # If this lane (or its ancestors) is a CustomList, look for any
         # featured works that were set on the list itself.
         list_books, work_id_column = self.list_featured_works(
@@ -1408,8 +1404,10 @@ class Lane(object):
                 (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL),
                 (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL),
         ):
-            facets = Facets(collection=collection, availability=availability,
-                            order=Facets.ORDER_RANDOM)
+            facets = Facets(
+                self.library, collection=collection, availability=availability,
+                order=Facets.ORDER_RANDOM
+            )
             if use_materialized_works:
                 query = self.materialized_works(facets=facets)
             else:
@@ -1445,7 +1443,7 @@ class Lane(object):
         """Returns the featured books for a lane descended from CustomList(s)"""
         books = list()
         work_id_column = None
-        target_size = target_size or Configuration.featured_lane_size()
+        target_size = target_size or self.library.featured_lane_size
 
         if self.list_featured_works_query:
             subquery = self.list_featured_works_query.with_labels().subquery()
@@ -1533,11 +1531,11 @@ class LaneList(object):
         )       
 
     @classmethod
-    def from_description(cls, _db, parent_lane, description):
+    def from_description(cls, _db, library, parent_lane, description):
         lanes = LaneList(parent_lane)
         description = description or []
         for lane_description in description:
-            lane = Lane.from_description(_db, parent_lane, lane_description)
+            lane = Lane.from_description(_db, library, parent_lane, lane_description)
 
             def _add_recursively(l):
                 lanes.add(l)
@@ -1632,7 +1630,7 @@ class QueryGeneratedLane(Lane):
         """Find a random sample of books for the feed"""
 
         # Lane.featured_works searches for books along a variety of facets.
-        # Because LicensePoolBasedLanes are created for individual works as
+        # Because WorkBasedLanes are created for individual works as
         # needed (instead of at app start), we need to avoid the relative
         # slowness of those queries.
         #
@@ -1644,7 +1642,7 @@ class QueryGeneratedLane(Lane):
         if not query:
             return []
 
-        target_size = Configuration.featured_lane_size()
+        target_size = self.library.featured_lane_size
         return self.randomized_sample_works(
             query, target_size=target_size, use_min_size=True
         )
@@ -1656,7 +1654,7 @@ class QueryGeneratedLane(Lane):
         """
         raise NotImplementedError()
 
-def make_lanes(_db, definitions=None):
+def make_lanes(_db, library, definitions=None):
 
     definitions = definitions or Configuration.policy(
         Configuration.LANES_POLICY
@@ -1664,6 +1662,5 @@ def make_lanes(_db, definitions=None):
     if not definitions:
         # A lane arrangement is required for lane making.
         return None
-
-    lanes = [Lane(_db=_db, **definition) for definition in definitions]
-    return LaneList.from_description(_db, None, lanes)
+    lanes = [Lane(_db, library, **definition) for definition in definitions]
+    return LaneList.from_description(_db, library, None, lanes)

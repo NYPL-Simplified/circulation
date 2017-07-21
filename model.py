@@ -32,13 +32,16 @@ from PIL import (
 )
 
 from psycopg2.extras import NumericRange
-from sqlalchemy.engine.url import URL
+from sqlalchemy.engine.base import Connection
 from sqlalchemy import exc as sa_exc
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (
+    event,
+    exists,
     func,
     MetaData,
     Table,
+    text,
 )
 from sqlalchemy.sql import select
 from sqlalchemy.orm import (
@@ -99,7 +102,6 @@ from sqlalchemy import (
 
 import log # Make sure logging is set up properly.
 from config import Configuration
-from external_search import ExternalSearchIndex
 import classifier
 from classifier import (
     Classifier,
@@ -108,6 +110,7 @@ from classifier import (
     GenreData,
     WorkClassifier,
 )
+from facets import FacetConstants
 from user_profile import ProfileStorage
 from util import (
     LanguageCodes,
@@ -131,7 +134,6 @@ from sqlalchemy.dialects.postgresql import (
     INT4RANGE,
 )
 from s3 import S3Uploader
-from analytics import Analytics
 
 
 DEBUG = False
@@ -145,6 +147,13 @@ def production_session():
 
 class PolicyException(Exception):
     pass
+
+
+class CollectionMissing(Exception):
+    """An operation was attempted that can only happen within the context
+    of a Collection, but there was no Collection available.
+    """
+
 
 class BaseMaterializedWork(object):
     """A mixin class for materialized views that incorporate Work and Edition."""
@@ -284,11 +293,11 @@ class SessionManager(object):
             warnings.simplefilter("ignore", category=sa_exc.SAWarning)
             engine, connection = cls.initialize(url)
         session = Session(connection)
-        cls.initialize_data(session)
+        session = cls.initialize_data(session)
         return session
 
     @classmethod
-    def initialize_data(cls, session):
+    def initialize_data(cls, session, set_site_configuration=True):
         # Create initial data sources.
         list(DataSource.well_known_sources(session))
 
@@ -304,7 +313,71 @@ class SessionManager(object):
             )
             mechanism.default_client_can_fulfill = True
 
+        # TODO: Remove this exception catch after version 2.0.0. See
+        # SessionManager.update_timestamps_table for more details.
+        update_configuration_timestamp = lambda: Timestamp.stamp(
+            session, Configuration.SITE_CONFIGURATION_CHANGED,
+            collection=None
+        )
+        try:
+            # Set the timestamp to track site configuration changes.
+            update_configuration_timestamp()
+        except sa_exc.ProgrammingError as e:
+            message = str(e)
+            if ('timestamps.id does not exist' in message or
+                'timestamps.collection_id does not exist' in message
+            ):
+                session = cls.update_timestamps_table(session)
+                update_configuration_timestamp()
+            else:
+                raise e
+
+        site_configuration_has_changed(session)
         session.commit()
+
+        # Return a potentially-new Session object in case
+        # it was updated by cls.update_timestamps_table
+        return session
+
+    @classmethod
+    def update_timestamps_table(cls, session):
+        """Adds required columns 'id' and 'collection_id' to the Timestamp table.
+
+        TODO: Remove this after version 2.0.0. This is a stopgap measure
+        to keep database initialization and migrations working before
+        changes to Timestamps have taken place in migration [20170713-1].
+
+        :return: updated Session object
+        """
+        logging.warning(
+            'Timestamp schema has been altered without db migration.'
+            ' Running migration [20170713-1] schema change in advance.'
+        )
+
+        # Get the SQL to run.
+        migration = '20170713-1-timestamp-has-numeric-primary-key.sql'
+        base_path = os.path.split(__file__)[0]
+        migration_filename = os.path.join(base_path, 'migration', migration)
+
+        sql_statement = 'BEGIN;\n%s\nCOMMIT;'
+        with open(migration_filename) as f:
+            sql_statement = sql_statement % f.read()
+
+        # Go back up to engine-level to make the schema change.
+        connection = session.get_bind()
+        engine = connection.engine
+
+        # Close the Session so it benefits from the changes.
+        session.close()
+        connection.close()
+
+        # Run the migration.
+        engine.execute(sql_statement)
+
+        # Create a new Session that has the changed schema.
+        session = Session(engine.connect())
+        session = cls.initialize_data(session)
+        return session
 
 def get_one(db, model, on_multiple='error', constraint=None, **kwargs):
     """Gets an object from the database based on its attributes.
@@ -378,13 +451,21 @@ class Patron(Base):
     __tablename__ = 'patrons'
     id = Column(Integer, primary_key=True)
 
+    # Each patron is the patron _of_ one particular library.  An
+    # individual human being may patronize multiple libraries, but
+    # they will have a different patron account at each one.
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True,
+        nullable=False
+    )
+    
     # The patron's permanent unique identifier in an external library
     # system, probably never seen by the patron.
     #
     # This is not stored as a ForeignIdentifier because it corresponds
     # to the patron's identifier in the library responsible for the
     # Simplified instance, not a third party.
-    external_identifier = Column(Unicode, unique=True, index=True)
+    external_identifier = Column(Unicode)
 
     # The patron's account type, as reckoned by an external library
     # system. Different account types may be subject to different
@@ -393,16 +474,16 @@ class Patron(Base):
     # Depending on library policy it may be possible to automatically
     # derive the patron's account type from their authorization
     # identifier.
-    _external_type = Column(Unicode, index=True, name="external_type")
+    external_type = Column(Unicode, index=True)
 
     # An identifier used by the patron that gives them the authority
     # to borrow books. This identifier may change over time.
-    authorization_identifier = Column(Unicode, unique=True, index=True)
+    authorization_identifier = Column(Unicode)
 
     # An identifier used by the patron that authenticates them,
     # but does not give them the authority to borrow books. i.e. their
     # website username.
-    username = Column(Unicode, unique=True, index=True)
+    username = Column(Unicode)
 
     # The last time this record was synced up with an external library
     # system.
@@ -443,9 +524,14 @@ class Patron(Base):
 
     # One Patron can have many associated Credentials.
     credentials = relationship("Credential", backref="patron")
+
+    __table_args__ = (
+        UniqueConstraint('library_id', 'username'),
+        UniqueConstraint('library_id', 'authorization_identifier'),
+        UniqueConstraint('library_id', 'external_identifier'),
+    )
     
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
-    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
     
     def works_on_loan(self):
         db = Session.object_session(self)
@@ -458,20 +544,6 @@ class Patron(Base):
         holds = [hold.work for hold in self.holds if hold.work]
         loans = self.works_on_loan()
         return set(holds + loans)
-
-    @property
-    def external_type(self):
-        if self.authorization_identifier and not self._external_type:
-            policy = Configuration.policy(
-                self.EXTERNAL_TYPE_REGULAR_EXPRESSION)
-            if policy:
-                match = re.compile(policy).search(
-                    self.authorization_identifier)
-                if match:
-                    groups = match.groups()
-                    if groups:
-                        self._external_type = groups[0]
-        return self._external_type
 
     def can_borrow(self, work, policy):
         """Return true if the given policy allows this patron to borrow the
@@ -515,6 +587,11 @@ class Patron(Base):
                 _db.delete(annotation)
         self._synchronize_annotations = value
 
+Index("ix_patron_library_id_external_identifier", Patron.library_id, Patron.external_identifier)
+Index("ix_patron_library_id_authorization_identifier", Patron.library_id, Patron.authorization_identifier)
+Index("ix_patron_library_id_username", Patron.library_id, Patron.username)
+
+        
 class PatronProfileStorage(ProfileStorage):
     """Interface between a Patron object and the User Profile Management
     Protocol.
@@ -863,6 +940,15 @@ class DataSource(Base):
     # One DataSource can generate many CustomLists.
     custom_lists = relationship("CustomList", backref="data_source")
 
+    # One DataSource can have provide many LicensePoolDeliveryMechanisms.
+    delivery_mechanisms = relationship(
+        "LicensePoolDeliveryMechanism", backref="data_source",
+        foreign_keys=lambda: [LicensePoolDeliveryMechanism.data_source_id]
+    )
+    
+    def __repr__(self):
+        return '<DataSource: name="%s">' % (self.name)
+    
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
@@ -896,35 +982,6 @@ class DataSource(Base):
     @property
     def uri(self):
         return self.URI_PREFIX + urllib.quote(self.name)
-
-    # These are pretty standard values but each library needs to
-    # define the policy they've negotiated in their configuration.
-    default_default_loan_period = datetime.timedelta(days=21)
-    default_default_reservation_period = datetime.timedelta(days=3)
-
-    def _datetime_config_value(self, key, default):
-        integration = Configuration.integration(self.name)
-        if not integration:
-            return default
-        value = integration.get(key)
-        if not value:
-            return default
-        value = int(value)
-        return datetime.timedelta(days=value)
-
-    @property
-    def default_loan_period(self):
-        return self._datetime_config_value(
-            Configuration.DEFAULT_LOAN_PERIOD,
-            self.default_default_loan_period
-        )
-
-    @property
-    def default_reservation_period(self):
-        return self._datetime_config_value(
-            Configuration.DEFAULT_RESERVATION_PERIOD,
-            self.default_default_reservation_period
-        )
 
     @classmethod
     def license_source_for(cls, _db, identifier):
@@ -1102,21 +1159,36 @@ class CoverageRecord(Base, BaseCoverageRecord):
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True)
+
     # If applicable, this is the ID of the data source that took the
     # Identifier as input.
     data_source_id = Column(
         Integer, ForeignKey('datasources.id')
     )
     operation = Column(String(255), default=None)
-        
+
     timestamp = Column(DateTime, index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
     
+    # If applicable, this is the ID of the collection for which
+    # coverage has taken place. This is currently only applicable
+    # for Metadata Wrangler coverage.
+    collection_id = Column(
+        Integer, ForeignKey('collections.id'), nullable=True
+    )
 
     __table_args__ = (
-        UniqueConstraint('identifier_id', 'data_source_id', 'operation'),
+        Index(
+            'ix_identifier_id_data_source_id_operation',
+            identifier_id, data_source_id, operation,
+            unique=True, postgresql_where=collection_id.is_(None)),
+        Index(
+            'ix_identifier_id_data_source_id_operation_collection_id',
+            identifier_id, data_source_id, operation, collection_id,
+            unique=True
+        ),
     )
 
     def __repr__(self):
@@ -1158,7 +1230,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
 
     @classmethod
     def add_for(self, edition, data_source, operation=None, timestamp=None,
-                status=BaseCoverageRecord.SUCCESS):
+                status=BaseCoverageRecord.SUCCESS, collection=None):
         _db = Session.object_session(edition)
         if isinstance(edition, Identifier):
             identifier = edition
@@ -1173,6 +1245,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             identifier=identifier,
             data_source=data_source,
             operation=operation,
+            collection=collection,
             on_multiple='interchangeable'
         )
         coverage_record.status = status
@@ -1377,10 +1450,10 @@ class Identifier(Base):
         "Edition", backref="primary_identifier"
     )
 
-    # One Identifier may serve as the identifier for
-    # a single LicensePool.
+    # One Identifier may serve as the identifier for many
+    # LicensePools, through different Collections.
     licensed_through = relationship(
-        "LicensePool", backref="identifier", uselist=False, lazy='joined',
+        "LicensePool", backref="identifier", lazy='joined',
     )
 
     # One Identifier may have many Links.
@@ -1403,6 +1476,12 @@ class Identifier(Base):
         "Annotation", backref="identifier"
     )
 
+    # One Identifier can have have many LicensePoolDeliveryMechanisms.
+    delivery_mechanisms = relationship(
+        "LicensePoolDeliveryMechanism", backref="identifier",
+        foreign_keys=lambda: [LicensePoolDeliveryMechanism.identifier_id]
+    )
+    
     # Type + identifier is unique.
     __table_args__ = (
         UniqueConstraint('type', 'identifier'),
@@ -1504,6 +1583,17 @@ class Identifier(Base):
             return self.URN_SCHEME_PREFIX + "%s/%s" % (
                 identifier_type, identifier_text)
 
+    @property
+    def work(self):
+        """Find the Work, if any, associated with this Identifier.
+
+        Although one Identifier may be associated with multiple LicensePools,
+        all of them must share a Work.
+        """
+        for lp in self.licensed_through:
+            if lp.work:
+                return lp.work
+        
     class UnresolvableIdentifierException(Exception):
         # Raised when an identifier that can't be resolved into a LicensePool
         # is provided in a context that requires a resolvable identifier
@@ -1623,8 +1713,8 @@ class Identifier(Base):
         return Identifier.recursively_equivalent_identifier_ids(
             _db, [self.id], levels, threshold)
 
-    def add_link(self, rel, href, data_source, license_pool=None,
-                 media_type=None, content=None, content_path=None):
+    def add_link(self, rel, href, data_source, media_type=None, content=None,
+                 content_path=None):
         """Create a link between this Identifier and a (potentially new)
         Resource.
 
@@ -1633,11 +1723,6 @@ class Identifier(Base):
         created. It might be good to move that code into here.
         """
         _db = Session.object_session(self)
-
-        if license_pool and license_pool.identifier != self:
-            raise ValueError(
-                "License pool is associated with %r, not %r!" % (
-                    license_pool.identifier, self))
         
         # Find or create the Resource.
         if not href:
@@ -1651,7 +1736,6 @@ class Identifier(Base):
         link, new_link = get_one_or_create(
             _db, Hyperlink, rel=rel, data_source=data_source,
             identifier=self, resource=resource,
-            create_method_kwargs=dict(license_pool=license_pool)
         )
 
         if content or content_path:
@@ -2365,7 +2449,7 @@ class Edition(Base):
 
     # An Edition may be the presentation edition for many LicensePools.
     is_presentation_for = relationship(
-        "LicensePool", uselist=False, backref="presentation_edition"
+        "LicensePool", backref="presentation_edition"
     )
 
     title = Column(Unicode, index=True)
@@ -3125,12 +3209,15 @@ class Work(Base):
     # But this Edition is a composite of provider, metadata wrangler, admin interface, etc.-derived Editions.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
 
-    # One Work may have many asosciated WorkCoverageRecords.
+    # One Work may have many associated WorkCoverageRecords.
     coverage_records = relationship("WorkCoverageRecord", backref="work")
 
     # One Work may be associated with many CustomListEntries.
     custom_list_entries = relationship('CustomListEntry', backref='work')
     
+    # One Work may have multiple CachedFeeds.
+    cached_feeds = relationship('CachedFeed', backref='work')
+
     # One Work may participate in many WorkGenre assignments.
     genres = association_proxy('work_genres', 'genre',
                                creator=WorkGenre.from_genre)
@@ -3294,6 +3381,12 @@ class Work(Base):
     @property
     def has_open_access_license(self):
         return any(x.open_access for x in self.license_pools)
+
+    @property
+    def complaints(self):
+        complaints = list()
+        [complaints.extend(pool.complaints) for pool in self.license_pools]
+        return complaints
 
     def __repr__(self):
         return (u'<Work #%s "%s" (by %s) %s lang=%s (%s lp)>' % (
@@ -3695,9 +3788,10 @@ class Work(Base):
 
         self.presentation_edition = new_presentation_edition
 
-        # if the edition has a license pool, let the pool know it has a work.
-        if self.presentation_edition.is_presentation_for:
-            self.presentation_edition.is_presentation_for.work = self
+        # if the edition is the presentation edition for any license
+        # pools, let them know they have a Work.
+        for pool in self.presentation_edition.is_presentation_for:
+            pool.work = self
 
     def calculate_presentation_edition(self, policy=None):
         """ Which of this Work's Editions should be used as the default?
@@ -3990,7 +4084,10 @@ class Work(Base):
 
 
     def update_external_index(self, client, add_coverage_record=True):
-        client = client or ExternalSearchIndex()
+        if not client:
+            from external_search import ExternalSearchIndex
+            _db = Session.object_session(self)
+            client = ExternalSearchIndex(_db)
         args = dict(index=client.works_index,
                     doc_type=client.work_document_type,
                     id=self.id)
@@ -4667,9 +4764,13 @@ class Measurement(Base):
 
 
 class LicensePoolDeliveryMechanism(Base):
-    """A mechanism for delivering a specific book.
+    """A mechanism for delivering a specific book from a specific
+    distributor.
 
-    This is mostly an association class between LicensePool and
+    It's presumed that all LicensePools for a given DataSource and
+    Identifier have the same set of LicensePoolDeliveryMechanisms.
+
+    This is mostly an association class between DataSource, Identifier and
     DeliveryMechanism, but it also may incorporate a specific Resource
     (i.e. a static link to a downloadable file) which explains exactly
     where to go for delivery.
@@ -4678,11 +4779,14 @@ class LicensePoolDeliveryMechanism(Base):
 
     id = Column(Integer, primary_key=True)
 
-    license_pool_id = Column(
-        Integer, ForeignKey('licensepools.id'), index=True,
-        nullable=False
+    data_source_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True, nullable=False
     )
 
+    identifier_id = Column(
+        Integer, ForeignKey('identifiers.id'), index=True, nullable=False
+    )
+    
     delivery_mechanism_id = Column(
         Integer, ForeignKey('deliverymechanisms.id'), 
         index=True,
@@ -4698,29 +4802,95 @@ class LicensePoolDeliveryMechanism(Base):
     rightsstatus_id = Column(
         Integer, ForeignKey('rightsstatus.id'), index=True)
 
+    @classmethod
+    def set(cls, data_source, identifier, content_type, drm_scheme, rights_uri,
+            resource=None):
+        """Register the fact that a distributor makes a title available in a
+        certain format.
 
+        :param data_source: A DataSource identifying the distributor.
+        :param identifier: An Identifier identifying the title.
+        :param content_type: The title is available in this media type.
+        :param drm_scheme: Access to the title is confounded by this
+            DRM scheme.
+        :param rights_uri: A URI representing the public's rights to the
+            title.
+        :param resource: A Resource representing the book itself in
+            a freely redistributable form.
+        """
+        _db = Session.object_session(data_source)
+        delivery_mechanism, ignore = DeliveryMechanism.lookup(
+            _db, content_type, drm_scheme
+        )
+        rights_status = RightsStatus.lookup(_db, rights_uri)
+        lpdm, ignore = get_one_or_create(
+            _db, LicensePoolDeliveryMechanism,
+            identifier=identifier,
+            data_source=data_source,
+            delivery_mechanism=delivery_mechanism,
+            resource=resource
+        )
+        lpdm.rights_status = rights_status
+
+        # Creating or modifying a LPDM might change the open-access status
+        # of all LicensePools for that DataSource/Identifier.
+        for pool in lpdm.license_pools:
+            pool.set_open_access_status()
+        return lpdm
+
+    @property
+    def is_open_access(self):
+        """Is this an open-access delivery mechanism?"""
+        return (self.rights_status
+                and self.rights_status.uri in RightsStatus.OPEN_ACCESS)
+    
+    def delete(self):
+        """Delete a LicensePoolDeliveryMechanism."""
+        _db = Session.object_session(self)
+        pools = list(self.license_pools)
+        _db.delete(self)        
+        # The deletion of a LicensePoolDeliveryMechanism might affect
+        # the open-access status of its associated LicensePools.
+        for pool in pools:
+            pool.set_open_access_status()
+        
     def set_rights_status(self, uri):
         _db = Session.object_session(self)
         status = RightsStatus.lookup(_db, uri)
         self.rights_status = status
-        if status.uri in RightsStatus.OPEN_ACCESS:
-            self.license_pool.open_access = True
-        elif self.license_pool.open_access:
-            # If we're setting the rights status to
-            # non-open access, we might have removed
-            # the last open-access delivery mechanism
-            # for the pool. We need to check all of them
-            # to see if there's an open-access one.
-            self.license_pool.open_access = False
-            for lpdm in self.license_pool.delivery_mechanisms:
-                if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
-                    self.license_pool.open_access = True
-                    break
+        # A change to a LicensePoolDeliveryMechanism's rights status
+        # might affect the open-access status of its associated
+        # LicensePools.
+        for pool in self.license_pools:
+            pool.set_open_access_status()
         return status
 
+    @property
+    def license_pools(self):
+        """Find all LicensePools for this LicensePoolDeliveryMechanism.
+        """
+        _db = Session.object_session(self)
+        return _db.query(LicensePool).filter(
+            LicensePool.data_source==self.data_source).filter(
+                LicensePool.identifier==self.identifier)
+    
     def __repr__(self):
-        return "%r %r" % (self.license_pool, self.delivery_mechanism)
+        return "<LicensePoolDeliveryMechanism: data_source=%s, identifier=%r, mechanism=%r>" % (self.data_source, self.identifier, self.delivery_mechanism)
 
+    __table_args__ = (
+        UniqueConstraint('data_source_id', 'identifier_id',
+                         'delivery_mechanism_id', 'resource_id'),
+    )
+
+Index(
+    "ix_licensepooldeliveries_datasource_identifier_mechanism",
+    LicensePoolDeliveryMechanism.data_source_id,
+    LicensePoolDeliveryMechanism.identifier_id,
+    LicensePoolDeliveryMechanism.delivery_mechanism_id,
+    LicensePoolDeliveryMechanism.resource_id,
+)
+
+    
 class Hyperlink(Base):
     """A link between an Identifier and a Resource."""
 
@@ -4757,11 +4927,6 @@ class Hyperlink(Base):
     # The DataSource through which this link was discovered.
     data_source_id = Column(
         Integer, ForeignKey('datasources.id'), index=True, nullable=False)
-
-    # A Resource may also be associated with some LicensePool which
-    # controls scarce access to it.
-    license_pool_id = Column(
-        Integer, ForeignKey('licensepools.id'), index=True)
 
     # The link relation between the Identifier and the Resource.
     rel = Column(Unicode, index=True, nullable=False)
@@ -5565,9 +5730,15 @@ class Classification(Base):
 
     @property
     def comes_from_license_source(self):
+        """Does this Classification come from a data source that also
+        provided a license for this book?
+        """
         if not self.identifier.licensed_through:
             return False
-        return self.identifier.licensed_through.data_source == self.data_source
+        for pool in self.identifier.licensed_through:
+            if self.data_source == pool.data_source:
+                return True
+        return False
 
 
 class WillNotGenerateExpensiveFeed(Exception):
@@ -5604,8 +5775,13 @@ class CachedFeed(Base):
     # The content of the feed.
     content = Column(Unicode, nullable=True)
 
-    # A feed may be associated with a LicensePool.
-    license_pool_id = Column(Integer, ForeignKey('licensepools.id'),
+    # Every feed is associated with a Library.
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True
+    )
+    
+    # A feed may be associated with a Work.
+    work_id = Column(Integer, ForeignKey('works.id'),
         nullable=True, index=True)
 
     GROUPS_TYPE = u'groups'
@@ -5619,21 +5795,20 @@ class CachedFeed(Base):
     @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
+        from opds import AcquisitionFeed
         if max_age is None:
             if lane and hasattr(lane, 'MAX_CACHE_AGE'):
                 max_age = lane.MAX_CACHE_AGE
             elif type == cls.GROUPS_TYPE:
-                max_age = Configuration.groups_max_age()
+                max_age = AcquisitionFeed.grouped_max_age(_db)
             elif type == cls.PAGE_TYPE:
-                max_age = Configuration.page_max_age()
+                max_age = AcquisitionFeed.nongrouped_max_age(_db)
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
-
-        license_pool = None
+        work = None
         if lane:
             lane_name = unicode(lane.name)
-            if hasattr(lane, 'license_pool'):
-                license_pool = lane.license_pool
+            work = getattr(lane, 'work', None)
         else:
             lane_name = None
 
@@ -5660,7 +5835,8 @@ class CachedFeed(Base):
             on_multiple='interchangeable',
             constraint=constraint_clause,
             lane_name=lane_name,
-            license_pool=license_pool,
+            library=lane.library,
+            work=work,
             type=type,
             languages=languages_key,
             facets=facets_key,
@@ -5671,7 +5847,7 @@ class CachedFeed(Base):
             # cached feed as stale.
             return feed, False
 
-        if max_age is Configuration.CACHE_FOREVER:
+        if max_age is AcquisitionFeed.CACHE_FOREVER:
             # This feed is so expensive to generate that it must be cached
             # forever (unless force_refresh is True).
             if not is_new and feed.content:
@@ -5722,7 +5898,8 @@ class CachedFeed(Base):
 
 
 Index(
-    "ix_cachedfeeds_lane_name_type_facets_pagination", CachedFeed.lane_name, CachedFeed.type,
+    "ix_cachedfeeds_library_id_lane_name_type_facets_pagination",
+    CachedFeed.library_id, CachedFeed.lane_name, CachedFeed.type,
     CachedFeed.facets, CachedFeed.pagination
 )
 
@@ -5743,6 +5920,10 @@ class LicensePool(Base):
     data_source_id = Column(Integer, ForeignKey('datasources.id'), index=True)
     identifier_id = Column(Integer, ForeignKey('identifiers.id'), index=True)
 
+    # Each LicensePool belongs to one Collection.
+    collection_id = Column(Integer, ForeignKey('collections.id'),
+                           index=True, nullable=False)
+    
     # Each LicensePool has an Edition which contains the metadata used
     # to describe this book.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
@@ -5757,24 +5938,12 @@ class LicensePool(Base):
     circulation_events = relationship(
         "CirculationEvent", backref="license_pool")
 
-    # One LicensePool may have many associated Hyperlinks.
-    links = relationship("Hyperlink", backref="license_pool")
-
     # One LicensePool can be associated with many Complaints.
     complaints = relationship('Complaint', backref='license_pool')
 
     # The date this LicensePool was first created in our db
     # (the date we first discovered that ​we had that book in ​our collection).
     availability_time = Column(DateTime, index=True)
-
-    # One LicensePool may have multiple DeliveryMechanisms, and vice
-    # versa.
-    delivery_mechanisms = relationship(
-        "LicensePoolDeliveryMechanism", backref="license_pool"
-    )
-
-    # One LicensePool may have multiple CachedFeeds.
-    cached_feeds = relationship('CachedFeed', backref='license_pool')
 
     # A LicensePool may be superceded by some other LicensePool
     # associated with the same Work. This may happen if it's an
@@ -5801,11 +5970,22 @@ class LicensePool(Base):
     # link for this LicensePool.
     _open_access_download_url = Column(Unicode, name="open_access_download_url")
     
-    # A Identifier should have at most one LicensePool.
+    # A Collection can not have more than one LicensePool for a given
+    # Identifier from a given DataSource.
     __table_args__ = (
-        UniqueConstraint('identifier_id'),
+        UniqueConstraint('identifier_id', 'data_source_id', 'collection_id'),
     )
 
+    @property
+    def delivery_mechanisms(self):
+        """Find all LicensePoolDeliveryMechanisms for this LicensePool.        
+        """
+        _db = Session.object_session(self)
+        LPDM = LicensePoolDeliveryMechanism
+        return _db.query(LPDM).filter(
+            LPDM.data_source==self.data_source).filter(
+                LPDM.identifier==self.identifier)
+    
     def __repr__(self):
         if self.identifier:
             identifier = "%s/%s" % (self.identifier.type, 
@@ -5818,17 +5998,16 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id, rights_status=None):
-        """Create a LicensePool for the given foreign ID."""
+    def for_foreign_id(self, _db, data_source, foreign_id_type, foreign_id,
+                       rights_status=None, collection=None, autocreate=True):
+        """Find or create a LicensePool for the given foreign ID."""
 
+        if not collection:
+            raise CollectionMissing()
+        
         # Get the DataSource.
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
-
-        # The data source must be one that offers licenses.
-        if not data_source.offers_licenses:
-            raise ValueError(
-                'Data source "%s" does not offer licenses.' % data_source.name)
 
         # The type of the foreign ID must be the primary identifier
         # type for the data source.
@@ -5849,14 +6028,19 @@ class LicensePool(Base):
             _db, foreign_id_type, foreign_id
             )
 
-        kw = dict(data_source=data_source, identifier=identifier)
+        kw = dict(data_source=data_source, identifier=identifier,
+                  collection=collection)
         if rights_status:
             kw['rights_status'] = rights_status
 
-        # Get the LicensePool that corresponds to the DataSource and
-        # the Identifier.
-        license_pool, was_new = get_one_or_create(
-            _db, LicensePool, **kw)
+        # Get the LicensePool that corresponds to the
+        # DataSource/Identifier/Collection.
+        if autocreate:
+            license_pool, was_new = get_one_or_create(_db, LicensePool, **kw)
+        else:
+            license_pool = get_one(_db, LicensePool, **kw)
+            was_new = False
+            
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now
@@ -5890,15 +6074,21 @@ class LicensePool(Base):
         )
 
     @classmethod
-    def with_complaint(cls, _db, resolved=False):
+    def with_complaint(cls, library, resolved=False):
         """Return query for LicensePools that have at least one Complaint."""
+        _db = Session.object_session(library)
         subquery = _db.query(
                 LicensePool.id,
                 func.count(LicensePool.id).label("complaint_count")
-            ).\
-            select_from(LicensePool).\
-            join(LicensePool.complaints).\
-            group_by(LicensePool.id)
+            ).select_from(LicensePool).join(
+                LicensePool.collection).join(
+                    Collection.libraries).filter(
+                        Library.id==library.id
+                    ).join(
+                        LicensePool.complaints
+                    ).group_by(
+                        LicensePool.id
+                    )
 
         if resolved == False:
             subquery = subquery.filter(Complaint.resolved == None)
@@ -6014,6 +6204,16 @@ class LicensePool(Base):
 
         return sorted(self.identifier.primarily_identifies, key=sort_key)
 
+    def set_open_access_status(self):
+        """Set .open_access based on whether there is currently
+        an open-access LicensePoolDeliveryMechanism for this LicensePool.
+        """
+        for dm in self.delivery_mechanisms:
+            if dm.is_open_access:
+                self.open_access = True
+                break
+        else:
+            self.open_access = False
 
     def set_presentation_edition(self):
         """Create or update the presentation Edition for this LicensePool.
@@ -6059,7 +6259,7 @@ class LicensePool(Base):
 
             policy = ReplacementPolicy.from_metadata_source()
             self.presentation_edition, edition_core_changed = metadata.apply(
-                edition, replace=policy
+                edition, collection=self.collection, replace=policy
             )
             changed = changed or edition_core_changed
 
@@ -6092,7 +6292,7 @@ class LicensePool(Base):
                representation associated with the resource.
         """
         return self.identifier.add_link(
-            rel, href, data_source, self, media_type, content, content_path)
+            rel, href, data_source, media_type, content, content_path)
 
     def needs_update(self):
         """Is it time to update the circulation info for this license pool?"""
@@ -6110,7 +6310,8 @@ class LicensePool(Base):
 
     def update_availability(
             self, new_licenses_owned, new_licenses_available, 
-            new_licenses_reserved, new_patrons_in_hold_queue, as_of=None):
+            new_licenses_reserved, new_patrons_in_hold_queue,
+            analytics=None, as_of=None):
         """Update the LicensePool with new availability information.
         Log the implied changes as CirculationEvents.
         """
@@ -6148,9 +6349,11 @@ class LicensePool(Base):
             if not event_name:
                 continue
 
-            Analytics.collect_event(
-                _db, self, event_name, as_of,
-                old_value=old_value, new_value=new_value)
+            if analytics:
+                for library in self.collection.libraries:
+                    analytics.collect_event(
+                        library, self, event_name, as_of,
+                        old_value=old_value, new_value=new_value)
 
         # Update the license pool with the latest information.
         any_data = False
@@ -6245,9 +6448,8 @@ class LicensePool(Base):
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
         _db = Session.object_session(patron)
-        if (Configuration.hold_policy() 
-            != Configuration.HOLD_POLICY_ALLOW):
-            raise PolicyException("Holds are disabled on this system.")
+        if not patron.library.allow_holds:
+            raise PolicyException("Holds are disabled for this library.")
         start = start or datetime.datetime.utcnow()
         hold, new = get_one_or_create(
             _db, Hold, patron=patron, license_pool=self)
@@ -6291,17 +6493,29 @@ class LicensePool(Base):
         or author. But sometimes a book just has no known author. If
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
+
+        TODO: I think known_edition is mostly useless. We should
+        either remove it or replace it with a boolean that stops us
+        from calling set_presentation_edition() and assumes we've
+        already done that work.
         """
         if not self.identifier:
             # A LicensePool with no Identifier should never have a Work.
             self.work = None
             return None, False
+       
         if known_edition:
             presentation_edition = known_edition
         else:
             self.set_presentation_edition()
             presentation_edition = self.presentation_edition
-
+            
+        if presentation_edition:
+            if self not in presentation_edition.is_presentation_for:
+                raise ValueError(
+                    "Alleged presentation edition is not the presentation edition for the license pool for which work is being calculated!"
+                )
+                    
         logging.info("Calculating work for %r", presentation_edition)
         if not presentation_edition:
             # We don't have any information about the identifier
@@ -6313,10 +6527,6 @@ class LicensePool(Base):
             # it was by mistake. Remove it.
             self.work = None
             return None, False
-
-        if presentation_edition.is_presentation_for != self:
-            raise ValueError(
-                "Presentation edition's license pool is not the license pool for which work is being calculated!")
 
         if not presentation_edition.title or not presentation_edition.author:
             presentation_edition.calculate_presentation()
@@ -6379,6 +6589,20 @@ class LicensePool(Base):
             self.work = work
             licensepools_changed = True
 
+        # All LicensePools with a given Identifier must share a work.
+        existing_works = set([x.work for x in self.identifier.licensed_through])
+        if len(existing_works) > 1:
+            logging.warn(
+                "LicensePools for %r have more than one Work between them. Removing them all and starting over."
+            )
+            for lp in self.identifier.licensed_through:
+                lp.work = None
+                if lp.presentation_edition:
+                    lp.presentation_edition.work = None
+        else:
+            # There is a consensus Work for this Identifier.
+            [self.work] = existing_works
+
         if self.work:
             # This pool is already associated with a Work. Use that
             # Work.
@@ -6440,6 +6664,12 @@ class LicensePool(Base):
         # call points first.
         work.calculate_presentation()
 
+        # Ensure that all LicensePools with this Identifier share
+        # the same Work. (We may have wiped out their .work earlier
+        # in this method.)
+        for lp in self.identifier.licensed_through:
+            lp.work = work
+        
         if is_new:
             logging.info("Created a new work: %r", work)
 
@@ -6547,38 +6777,16 @@ class LicensePool(Base):
                 return pool, link
         return self, None
 
-
-    def set_delivery_mechanism(
-            self, content_type, drm_scheme, rights_uri, resource):
+    def set_delivery_mechanism(self, *args, **kwargs):
+        """Ensure that this LicensePool (and any other LicensePools for the same
+        book) have a LicensePoolDeliveryMechanism for this media type,
+        DRM scheme, rights status, and resource.
         """
-        Additive, unless have more than one version of a book, in the same format, 
-        on the same license (ex.:  book with images and book without images in Gutenberg, 
-        Unglue.it has same open license book in same format from both Gutenberg and Gitenberg.
-
-        TODO:  Support having 2 or more delivery mechanisms with same drm and media type, 
-        so long as they have different resources.
-        """
-        _db = Session.object_session(self)
-        delivery_mechanism, ignore = DeliveryMechanism.lookup(
-            _db, content_type, drm_scheme)
-        rights_status = RightsStatus.lookup(_db, rights_uri)
-        lpdm, ignore = get_one_or_create(
-            _db, LicensePoolDeliveryMechanism,
-            license_pool=self,
-            delivery_mechanism=delivery_mechanism,
-            rights_status=rights_status,
+        return LicensePoolDeliveryMechanism.set(
+            self.data_source, self.identifier, *args, **kwargs
         )
-        lpdm.resource = resource
-        # If we're adding an open access lpdm, it makes the pool
-        # open access. If we're adding a non-open access lpdm, it
-        # doesn't change anything because the pool might have another
-        # lpdm that is open access.
-        if lpdm.rights_status.uri in RightsStatus.OPEN_ACCESS:
-            self.open_access = True
-        return lpdm
 
-
-Index("ix_licensepools_data_source_id_identifier_id", LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
+Index("ix_licensepools_data_source_id_identifier_id_collection_id", LicensePool.collection_id, LicensePool.data_source_id, LicensePool.identifier_id, unique=True)
 
 
 class RightsStatus(Base):
@@ -7016,30 +7224,59 @@ class DRMDeviceIdentifier(Base):
 
     
 class Timestamp(Base):
-    """A general-purpose timestamp for external services."""
+    """A general-purpose timestamp for Monitors."""
 
     __tablename__ = 'timestamps'
-    service = Column(String(255), primary_key=True)
+    id = Column(Integer, primary_key=True)
+    service = Column(String(255), index=True, nullable=False)
+    collection_id = Column(Integer, ForeignKey('collections.id'),
+                           index=True, nullable=True)
     timestamp = Column(DateTime)
     counter = Column(Integer)
 
     def __repr__(self):
-        timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        if self.timestamp:
+            timestamp = self.timestamp.strftime('%b %d, %Y at %H:%M')
+        else:
+            timestamp = None
         if self.counter:
             timestamp += (' %d' % self.counter)
-        return (u"<Timestamp %s: %s>" % (self.service, timestamp)).encode("utf8")
+        if self.collection:
+            collection = self.collection.name
+        else:
+            collection = None
+
+        message = u"<Timestamp %s: collection=%s, timestamp=%s>" % (
+            self.service, collection, timestamp
+        )
+        return message.encode("utf8")
 
     @classmethod
-    def stamp(self, _db, service):
-        now = datetime.datetime.utcnow()
+    def value(cls, _db, service, collection):
+        """Return the current value of the given Timestamp, if it exists.
+        """
+        stamp = get_one(_db, Timestamp, service=service, collection=collection)
+        if not stamp:
+            return None
+        return stamp.timestamp
+    
+    @classmethod
+    def stamp(cls, _db, service, collection, date=None):
+        date = date or datetime.datetime.utcnow()
         stamp, was_new = get_one_or_create(
             _db, Timestamp,
             service=service,
-            create_method_kwargs=dict(timestamp=now))
+            collection=collection,
+            create_method_kwargs=dict(timestamp=date))
         if not was_new:
-            stamp.timestamp = now
+            stamp.timestamp = date
         return stamp
 
+    __table_args__ = (
+        UniqueConstraint('service', 'collection_id'),
+    )
+
+    
 class Representation(Base):
     """A cached document obtained from (and possibly mirrored to) the Web
     at large.
@@ -8357,6 +8594,13 @@ class Complaint(Base):
               ]
     ])
 
+    LICENSE_POOL_TYPES = [
+        'cannot-fulfill-loan',
+        'cannot-issue-loan',
+        'cannot-render',
+        'cannot-return',
+    ]
+
     id = Column(Integer, primary_key=True)
 
     # One LicensePool can have many complaints lodged against it.
@@ -8414,6 +8658,10 @@ class Complaint(Base):
             )
         return complaint, is_new
 
+    @property
+    def for_license_pool(self):
+        return any(self.type.endswith(t) for t in self.LICENSE_POOL_TYPES)
+
     def resolve(self):
         self.resolved = datetime.datetime.utcnow()
         return self.resolved
@@ -8436,13 +8684,18 @@ class Library(Base):
 
     # A short name of this library, to use when identifying it in
     # scripts. e.g. "NYPL" for NYPL.
-    short_name = Column(Unicode, unique=True)
+    short_name = Column(Unicode, unique=True, nullable=False)
     
     # A UUID that uniquely identifies the library among all libraries
     # in the world. This is used to serve the library's Authentication
     # for OPDS document, and it also goes to the library registry.
     uuid = Column(Unicode, unique=True)
 
+    # One, and only one, library may be the default. The default
+    # library is the one chosen when an incoming request does not
+    # designate a library.
+    _is_default = Column(Boolean, index=True, default=False, name='is_default')
+    
     # The name of this library to use when signing short client tokens
     # for consumption by the library registry. e.g. "NYNYPL" for NYPL.
     # This name must be unique across the library registry.
@@ -8454,22 +8707,74 @@ class Library(Base):
     # consumption by the library registry.
     library_registry_shared_secret = Column(Unicode, unique=True)
 
+    # A library may have many Patrons.
+    patrons = relationship(
+        'Patron', backref='library', cascade="all, delete, delete-orphan"
+    )
+
+    # A Library may have many CachedFeeds.
+    cachedfeeds = relationship(
+        "CachedFeed", backref="library",
+        cascade="save-update, merge, delete, delete-orphan",
+    )
+    
+    # A Library may have many ExternalIntegrations.
+    integrations = relationship(
+        "ExternalIntegration", secondary=lambda: externalintegrations_libraries,
+        backref="libraries"
+    )
+    
+    # Any additional configuration information is stored as
+    # ConfigurationSettings.
+    settings = relationship(
+        "ConfigurationSetting", backref="library",
+        lazy="joined", cascade="save-update, merge, delete, delete-orphan",
+    )
+    
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
             self.name, self.short_name, self.uuid, self.library_registry_short_name
         )
 
     @classmethod
-    def instance(cls, _db):
-        """Find the one and only library."""
-        library, is_new = get_one_or_create(
-            _db, Library, create_method_kwargs=dict(
-                uuid=str(uuid.uuid4()),
-                name=u'Default Library',
-                short_name=u'default',
+    def default(cls, _db):
+        """Find the default Library."""
+        # If for some reason there are multiple default libraries in
+        # the database, they're not actually interchangeable, but
+        # raising an error here might make it impossible to fix the
+        # problem.
+        defaults = _db.query(Library).filter(
+            Library._is_default==True).order_by(Library.id.asc()).all()
+        if len(defaults) == 1:
+            # This is the normal case.
+            return defaults[0]
+
+        default_library = None
+        if not defaults:
+            # There is no current default. Find the library with the
+            # lowest ID and make it the default.
+            libraries = _db.query(Library).order_by(Library.id.asc()).limit(1)
+            if not libraries.count():
+                # There are no libraries in the system, so no default.
+                return None
+            [default_library] = libraries
+            logging.warn(
+                "No default library, setting %s as default." % (
+                    default_library.short_name
+                )
             )
-        )
-        return library
+        else:
+            # There is more than one default, probably caused by a
+            # race condition. Fix it by arbitrarily designating one
+            # of the libraries as the default.
+            default_library = defaults[0]
+            logging.warn(
+                "Multiple default libraries, setting %s as default." % (
+                    default_library.short_name
+                )
+            )
+        default_library.is_default = True
+        return default_library
 
     @hybrid_property
     def library_registry_short_name(self):
@@ -8485,36 +8790,257 @@ class Library(Base):
                 raise ValueError(
                     "Library registry short name cannot contain the pipe character."
                 )
+            value = unicode(value)
         self._library_registry_short_name = value
+        
+    def setting(self, key):
+        """Find or create a ConfigurationSetting on this Library.
 
-    def explain(self, include_library_registry_shared_secret=False):
+        :param key: Name of the setting.
+        :return: A ConfigurationSetting
+        """
+        return ConfigurationSetting.for_library(
+            key, self
+        )
+
+    @property
+    def all_collections(self):
+        for collection in self.collections:
+            yield collection
+            for parent in collection.parents:
+                yield parent
+
+    # Some specific per-library configuration settings.
+
+    # The name of the per-library regular expression used to derive a patron's
+    # external_type from their authorization_identifier.
+    EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
+
+    # The name of the per-library configuration policy that controls whether
+    # books may be put on hold.
+    ALLOW_HOLDS = Configuration.ALLOW_HOLDS
+    
+    # Each facet group has two associated per-library keys: one
+    # configuring which facets are enabled for that facet group, and
+    # one configuring which facet is the default.
+    ENABLED_FACETS_KEY_PREFIX = Configuration.ENABLED_FACETS_KEY_PREFIX
+    DEFAULT_FACET_KEY_PREFIX = Configuration.DEFAULT_FACET_KEY_PREFIX
+
+    # Each library may set a minimum quality for the books that show
+    # up in the 'featured' lanes that show up on the front page.
+    MINIMUM_FEATURED_QUALITY = Configuration.MINIMUM_FEATURED_QUALITY
+
+    # Each library may configure the maximum number of books in the
+    # 'featured' lanes.
+    FEATURED_LANE_SIZE = Configuration.FEATURED_LANE_SIZE
+    
+    @property
+    def allow_holds(self):
+        """Does this library allow patrons to put items on hold?"""
+        value = self.setting(self.ALLOW_HOLDS).bool_value
+        if value is None:
+            # If the library has not set a value for this setting,
+            # holds are allowed.
+            value = True
+        return value
+
+    @property
+    def minimum_featured_quality(self):
+        """The minimum quality a book must have to be 'featured'."""
+        value = self.setting(self.MINIMUM_FEATURED_QUALITY).float_value
+        if value is None:
+            value = 0.65
+        return value
+            
+    @property
+    def featured_lane_size(self):
+        """The minimum quality a book must have to be 'featured'."""
+        value = self.setting(self.FEATURED_LANE_SIZE).int_value
+        if value is None:
+            value = 15
+        return value
+        
+    def enabled_facets(self, group_name):
+        """Look up the enabled facets for a given facet group."""
+        setting = self.enabled_facets_setting(group_name)
+        try:
+            value = setting.json_value
+        except ValueError, e:
+            logging.error("Invalid list of enabled facets for %s: %s",
+                          group_name, setting.value)
+        if value is None:
+            value = list(
+                FacetConstants.DEFAULT_ENABLED_FACETS.get(group_name, [])
+            )
+        return value
+
+    def enabled_facets_setting(self, group_name):
+        key = self.ENABLED_FACETS_KEY_PREFIX + group_name
+        return self.setting(key)
+
+    def restrict_to_ready_deliverable_works(
+        self, query, work_model, show_suppressed=False, collection_ids=None
+    ):
+        """Restrict a query to show only presentation-ready works present in
+        an appropriate collection which the default client can
+        fulfill.
+
+        Note that this assumes the query has an active join against
+        LicensePool.
+
+        :param query: The query to restrict.
+
+        :param work_model: Either Work or one of the MaterializedWork
+        materialized view classes.
+
+        :param show_suppressed: Include titles that have nothing but
+        suppressed LicensePools.
+
+        :param collection_ids: Only include titles in the given
+        collections.
+        """
+        collection_ids = collection_ids or [x.id for x in self.all_collections]
+        # Only find presentation-ready works.
+        #
+        # Such works are automatically filtered out of 
+        # the materialized view, but we need to filter them out of Work.
+        if work_model == Work:
+            query = query.filter(
+                work_model.presentation_ready == True,
+            )
+
+        # Only find books that have some kind of DeliveryMechanism.
+        LPDM = LicensePoolDeliveryMechanism
+        exists_clause = exists().where(
+            and_(LicensePool.data_source_id==LPDM.data_source_id,
+                LicensePool.identifier_id==LPDM.identifier_id)
+        )
+        query = query.filter(exists_clause)
+            
+        # Only find books with unsuppressed LicensePools.
+        if not show_suppressed:
+            query = query.filter(LicensePool.suppressed==False)
+
+        # Only find books with available licenses.
+        query = query.filter(
+                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+        )
+
+        # Only find books in an appropriate collection.
+        query = query.filter(
+            LicensePool.collection_id.in_(collection_ids)
+        )
+        
+        # If we don't allow holds, hide any books with no available copies.
+        if not self.allow_holds:
+            query = query.filter(
+                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
+            )
+        return query
+    
+    def estimated_holdings_by_language(self, include_open_access=True):
+        """Estimate how many titles this library has in various languages.
+
+        The estimate is pretty good but should not be relied upon as
+        exact.
+
+        :return: A Counter mapping languages to the estimated number
+        of titles in that language.
+        """
+        _db = Session.object_session(self)
+        qu = _db.query(
+            Edition.language, func.count(Work.id).label("work_count")
+        ).select_from(Work).join(Work.license_pools).join(
+            Work.presentation_edition
+        ).group_by(Edition.language)
+        qu = self.restrict_to_ready_deliverable_works(qu, Work)
+        if not include_open_access:
+            qu = qu.filter(LicensePool.open_access==False)
+        counter = Counter()
+        for language, count in qu:
+            counter[language] = count
+        return counter
+    
+    def default_facet(self, group_name):
+        """Look up the default facet for a given facet group."""
+        value = self.default_facet_setting(group_name).value
+        if not value:
+            value = FacetConstants.DEFAULT_FACET.get(group_name)
+        return value
+
+    def default_facet_setting(self, group_name):
+        key = self.DEFAULT_FACET_KEY_PREFIX + group_name
+        return self.setting(key)
+    
+    def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.
 
-        :param include_library_registry_shared_secret: For security reasons,
-           the shared secret is not displayed by default.
+        :param include_secrets: For security reasons, secrets are not
+            displayed by default.
 
         :return: A list of explanatory strings.
         """
         lines = []
         if self.uuid:
-            lines.append('UUID: "%s"' % self.uuid)
+            lines.append('Library UUID: "%s"' % self.uuid)
         if self.name:
             lines.append('Name: "%s"' % self.name)
         if self.short_name:
             lines.append('Short name: "%s"' % self.short_name)
+
         if self.library_registry_short_name:
             lines.append(
                 'Short name (for library registry): "%s"' %
                 self.library_registry_short_name
             )
-        if (self.library_registry_shared_secret and
-            include_library_registry_shared_secret):
+        if (self.library_registry_shared_secret and include_secrets):
             lines.append(
                 'Shared secret (for library registry): "%s"' %
                 self.library_registry_shared_secret
             )
+
+        # Find all ConfigurationSettings that are set on the library
+        # itself and are not on the library + an external integration.
+        settings = [x for x in self.settings if not x.external_integration]
+        if settings:
+            lines.append("")
+            lines.append("Configuration settings:")
+            lines.append("-----------------------")
+        for setting in settings:
+            if include_secrets or not setting.is_secret:
+                lines.append("%s='%s'" % (setting.key, setting.value))
+            
+        integrations = list(self.integrations)
+        if integrations:
+            lines.append("")
+            lines.append("External integrations:")
+            lines.append("----------------------")
+        for integration in integrations:
+            lines.extend(
+                integration.explain(self, include_secrets=include_secrets)
+            )
+            lines.append("")
         return lines
+
+    @property
+    def is_default(self):
+        return self._is_default
+
+    @is_default.setter
+    def is_default(self, new_is_default):
+        """Set this library, and only this library, as the default."""
+        if self._is_default and not new_is_default:
+            raise ValueError(
+                "You cannot stop a library from being the default library; you must designate a different library as the default."
+            )            
+        
+        _db = Session.object_session(self)
+        for library in _db.query(Library):
+            if library == self:
+                library._is_default = True
+            else:
+                library._is_default = False
 
 
 class Admin(Base):
@@ -8558,6 +9084,11 @@ class Admin(Base):
             match = None
         return match
 
+    @classmethod
+    def with_password(cls, _db):
+        """Get Admins that have a password."""
+        return _db.query(Admin).filter(Admin.password_hashed != None)
+
 
 class ExternalIntegration(Base):
 
@@ -8565,25 +9096,177 @@ class ExternalIntegration(Base):
     to a third-party API.
     """
 
-    __tablename__ = 'externalintegrations'
-    id = Column(Integer, primary_key=True)
+    # Possible goals of ExternalIntegrations.
+    #
+    # These integrations are associated with external services such as
+    # Google Enterprise which authenticate library administrators.
+    ADMIN_AUTH_GOAL = u'admin_auth'
+
+    # These integrations are associated with external services such as
+    # SIP2 which authenticate library patrons. Other constants related
+    # to this are defined in the circulation manager.
+    PATRON_AUTH_GOAL = u'patron_auth'
+
+    # These integrations are associated with external services such
+    # as Overdrive which provide access to books.
+    LICENSE_GOAL = u'licenses'
+
+    # These integrations are associated with external services such as
+    # the metadata wrangler, which provide information about books,
+    # but not the books themselves.
+    METADATA_GOAL = u'metadata'
+
+    # These integrations are associated with external services such as
+    # S3 that provide access to book covers.
+    STORAGE_GOAL = u'storage'
+
+    # These integrations are associated with external services like
+    # Cloudfront or other CDNs that mirror and/or cache certain domains.
+    CDN_GOAL = u'CDN'
+
+    # These integrations are associated with external services such as
+    # Elasticsearch that provide indexed search.
+    SEARCH_GOAL = u'search'
+
+    # These integrations are associated with external services such as
+    # Google Analytics, which receive analytics events.
+    ANALYTICS_GOAL = u'analytics'
+
+    # These integrations are associated with external services such as
+    # Adobe Vendor ID, which manage access to DRM-dependent content.
+    DRM_GOAL = u'drm'
+
+    # These integrations are associated with external services that
+    # help patrons find libraries.
+    DISCOVERY_GOAL = u'discovery'
+
+    # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
+    OPDS_IMPORT = u'OPDS Import'
+    OVERDRIVE = DataSource.OVERDRIVE
+    BIBLIOTHECA = DataSource.BIBLIOTHECA
+    AXIS_360 = DataSource.AXIS_360
+    ONE_CLICK = DataSource.ONECLICK
+
+    # These protocols are only used on the Content Server when mirroring
+    # content from a given directory or directly from Project
+    # Gutenberg, respectively. These protocols aren't intended for use
+    # with LicensePools on the Circulation Manager.
+    DIRECTORY_IMPORT = u'Directory Import'
+    GUTENBERG = DataSource.GUTENBERG
+
+    LICENSE_PROTOCOLS = [
+        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK,
+        DIRECTORY_IMPORT, GUTENBERG,
+    ]
+
+    # Some integrations with LICENSE_GOAL imply that the data and
+    # licenses come from a specific data source.
+    DATA_SOURCE_FOR_LICENSE_PROTOCOL = {
+        OVERDRIVE : DataSource.OVERDRIVE,
+        BIBLIOTHECA : DataSource.BIBLIOTHECA,
+        AXIS_360 : DataSource.AXIS_360,
+        ONE_CLICK : DataSource.ONECLICK
+    }
+
+    # Integrations with METADATA_GOAL
+    BIBBLIO = u'Bibblio'
+    CONTENT_CAFE = u'Content Cafe'
+    NOVELIST = u'NoveList Select'
+    NYPL_SHADOWCAT = u'Shadowcat'
+    NYT = u'New York Times'
+    METADATA_WRANGLER = u'Metadata Wrangler'
+    CONTENT_SERVER = u'Content Server'
+
+    # Integrations with STORAGE_GOAL
+    S3 = u'S3'
+
+    # Integrations with CDN_GOAL
+    CDN = u'CDN'
+
+    # Integrations with SEARCH_GOAL
+    ELASTICSEARCH = u'Elasticsearch'
+
+    # Integrations with DRM_GOAL
+    ADOBE_VENDOR_ID = u'Adobe Vendor ID'
+    SHORT_CLIENT_TOKEN = u'Short Client Token'
+
+    # Integrations with DISCOVERY_GOAL
+    OPDS_REGISTRATION = u'OPDS Registration'
+
+    # Integrations with ANALYTICS_GOAL
+    GOOGLE_ANALYTICS = u'Google Analytics'
+
+    # Integrations with ADMIN_AUTH_GOAL
+    GOOGLE_OAUTH = u'Google OAuth'
+
+    # List of such ADMIN_AUTH_GOAL integrations
+    ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
+
+    # Keys for common configuration settings
 
     # If there is a special URL to use for access to this API,
     # put it here.
-    url = Column(Unicode, nullable=True)
+    URL = u"url"
 
-    # If access requires authentication, these fields represent the
+    # If access requires authentication, these settings represent the
     # username/password or key/secret combination necessary to
     # authenticate. If there's a secret but no key, it's stored in
     # 'password'.
-    username = Column(Unicode, nullable=True)
-    password = Column(Unicode, nullable=True)
+    USERNAME = u"username"
+    PASSWORD = u"password"
 
-    # Any additional configuration information goes into the
-    # externalintegrationsettings table.
+    __tablename__ = 'externalintegrations'
+    id = Column(Integer, primary_key=True)
+
+    # Each integration should have a protocol (explaining what type of
+    # code or network traffic we need to run to get things done) and a
+    # goal (explaining the real-world goal of the integration).
+    #
+    # Basically, the protocol is the 'how' and the goal is the 'why'.
+    protocol = Column(Unicode, nullable=False)
+    goal = Column(Unicode, nullable=True)
+
+    # A unique name for this ExternalIntegration. This is primarily
+    # used to identify ExternalIntegrations from command-line scripts.
+    name = Column(Unicode, nullable=True, unique=True)
+    
+    # Any additional configuration information goes into
+    # ConfigurationSettings.
     settings = relationship(
-        "ExternalIntegrationSetting", backref="external_integration"
+        "ConfigurationSetting", backref="external_integration",
+        lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
+
+    def __repr__(self):
+        return u"<ExternalIntegration: protocol=%s goal='%s' settings=%d ID=%d>" % (
+            self.protocol, self.goal, len(self.settings), self.id)
+
+    @classmethod
+    def lookup(cls, _db, protocol, goal, library=None):
+        integrations = _db.query(cls).outerjoin(cls.libraries).filter(
+            cls.protocol==protocol, cls.goal==goal
+        )
+
+        if library:
+            integrations = integrations.filter(Library.id==library.id)
+
+        integrations = integrations.all()
+        if len(integrations) > 1:
+            logging.warn("Multiple integrations found for '%s'/'%s'" % (protocol, goal))
+
+        if filter(lambda i: i.libraries, integrations) and not library:
+            raise ValueError(
+                'This ExternalIntegration requires a library and none was provided.'
+            )
+
+        if not integrations:
+            return None
+        return integrations[0]
+
+    @classmethod
+    def admin_authentication(cls, _db):
+        admin_auth = get_one(_db, cls, goal=cls.ADMIN_AUTH_GOAL)
+        return admin_auth
 
     def set_setting(self, key, value):
         """Create or update a key-value setting for this ExternalIntegration."""
@@ -8592,64 +9275,287 @@ class ExternalIntegration(Base):
         return setting
     
     def setting(self, key):
-        """Find or create a ExternalIntegrationSetting on this ExternalIntegration.
+        """Find or create a ConfigurationSetting on this ExternalIntegration.
 
         :param key: Name of the setting.
-        :return: A ExternalIntegrationSetting
+        :return: A ConfigurationSetting
         """
-        _db = Session.object_session(self)
-        setting, is_new = get_one_or_create(
-            _db, ExternalIntegrationSetting, external_integration=self, key=key
+        return ConfigurationSetting.for_externalintegration(
+            key, self
+        )
+
+    @hybrid_property
+    def url(self):
+        return self.setting(self.URL).value
+
+    @url.setter
+    def set_url(self, new_url):
+        self.set_setting(self.URL, new_url)
+
+    @hybrid_property
+    def username(self):
+        return self.setting(self.USERNAME).value
+
+    @username.setter
+    def set_username(self, new_username):
+        self.set_setting(self.USERNAME, new_username)
+
+    @hybrid_property
+    def password(self):
+        return self.setting(self.PASSWORD).value
+
+    @password.setter
+    def set_password(self, new_password):
+        return self.set_setting(self.PASSWORD, new_password)
+
+    def explain(self, library=None, include_secrets=False):
+        """Create a series of human-readable strings to explain an
+        ExternalIntegration's settings.
+
+        :param library: Include additional settings imposed upon this
+           ExternalIntegration by the given Library.
+        :param include_secrets: For security reasons,
+           sensitive settings such as passwords are not displayed by default.
+
+        :return: A list of explanatory strings.
+        """
+        lines = []
+        lines.append("ID: %s" % self.id)
+        if self.name:
+            lines.append("Name: %s" % self.name)
+        lines.append("Protocol/Goal: %s/%s" % (self.protocol, self.goal))
+
+        def key(setting):
+            if setting.library:
+                return setting.key, setting.library.name
+            return (setting.key, None)
+        for setting in sorted(self.settings, key=key):
+            if library and setting.library and setting.library != library:
+                # This is a different library's specialization of
+                # this integration. Ignore it.
+                continue
+            explanation = "%s='%s'" % (setting.key, setting.value)
+            if setting.library:
+                explanation = "%s (applies only to %s)" % (
+                    explanation, setting.library.name
+                )
+            if include_secrets or not setting.is_secret:
+                lines.append(explanation)
+        return lines
+
+
+class ConfigurationSetting(Base):
+    """An extra piece of site configuration.
+
+    A ConfigurationSetting may be associated with an
+    ExternalIntegration, a Library, both, or neither.
+
+    * The secret used by the circulation manager to sign OAuth bearer
+      tokens is not associated with an ExternalIntegration or with a
+      Library.
+
+    * The link to a library's privacy policy is associated with the
+      Library, but not with any particular ExternalIntegration.
+
+    * The "website ID" for an Overdrive collection is associated with
+      an ExternalIntegration (the Overdrive integration), but not with
+      any particular Library (since multiple libraries might share an
+      Overdrive collection).
+
+    * The "identifier prefix" used to determine which library a patron
+      is a patron of, is associated with both a Library and an
+      ExternalIntegration.
+    """
+    __tablename__ = 'configurationsettings'
+    id = Column(Integer, primary_key=True)
+    external_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), index=True
+    )
+    library_id = Column(
+        Integer, ForeignKey('libraries.id'), index=True
+    )
+    key = Column(Unicode, index=True)
+    _value = Column(Unicode, name="value")
+
+    __table_args__ = (
+        UniqueConstraint('external_integration_id', 'library_id', 'key'),
+    )
+
+    def __repr__(self):
+        return u'<ConfigurationSetting: key=%s, ID=%d>' % (
+            self.key, self.id)
+
+    @classmethod
+    def sitewide_secret(cls, _db, key):
+        """Find or create a sitewide shared secret.
+
+        The value of this setting doesn't matter, only that it's
+        unique across the site and that it's always available.
+        """
+        secret = ConfigurationSetting.sitewide(_db, key)
+        if not secret.value:
+            secret.value = os.urandom(24).encode('hex')
+            # Commit to get this in the database ASAP.
+            _db.commit()
+        return secret.value
+
+    @classmethod
+    def explain(cls, _db, include_secrets=False):
+        """Explain all site-wide ConfigurationSettings."""
+        lines = []
+        site_wide_settings = []
+        
+        for setting in _db.query(ConfigurationSetting).filter(
+                ConfigurationSetting.library==None).filter(
+                    ConfigurationSetting.external_integration==None):
+            if not include_secrets and setting.key.endswith("_secret"):
+                continue
+            site_wide_settings.append(setting)
+        if site_wide_settings:
+            lines.append("Site-wide configuration settings:")
+            lines.append("---------------------------------")
+        for setting in sorted(site_wide_settings, key=lambda s: s.key):
+            lines.append("%s='%s'" % (setting.key, setting.value))
+        return lines
+
+    @classmethod
+    def sitewide(cls, _db, key):
+        """Find or create a sitewide ConfigurationSetting."""
+        return cls.for_library_and_externalintegration(_db, key, None, None)
+
+    @classmethod
+    def for_library(cls, key, library):
+        """Find or create a ConfigurationSetting for the given Library."""
+        _db = Session.object_session(library)
+        return cls.for_library_and_externalintegration(_db, key, library, None)
+
+    @classmethod
+    def for_externalintegration(cls, key, externalintegration):
+        """Find or create a ConfigurationSetting for the given
+        ExternalIntegration.
+        """
+        _db = Session.object_session(externalintegration)
+        return cls.for_library_and_externalintegration(
+            _db, key, None, externalintegration
+        )
+    
+    @classmethod
+    def for_library_and_externalintegration(
+            cls, _db, key, library, external_integration
+    ):
+        """Find or create a ConfigurationSetting associated with a Library
+        and an ExternalIntegration.
+        """
+        setting, ignore = get_one_or_create(
+            _db, ConfigurationSetting,
+            library=library, external_integration=external_integration,
+            key=key
         )
         return setting
 
-class ExternalIntegrationSetting(Base):
-    """An extra piece of information associated with an ExternalIntegration.
+    @hybrid_property
+    def value(self):
+        """What's the current value of this configuration setting?
+        
+        If not present, the value may be inherited from some other
+        ConfigurationSetting.
+        """
+        if self._value:
+            # An explicitly set value always takes precedence.
+            return self._value
+        elif self.library and self.external_integration:
+            # This is a library-specific specialization of an
+            # ExternalIntegration. Treat the value set on the
+            # ExternalIntegration as a default.
+            return self.for_externalintegration(
+                self.key, self.external_integration).value
+        elif self.library:
+            # This is a library-specific setting. Treat the site-wide
+            # value as a default.
+            _db = Session.object_session(self)
+            return self.sitewide(_db, self.key).value
+        return self._value
+    
+    @value.setter
+    def set_value(self, new_value):
+        self._value = new_value
 
-    e.g. the "website ID" associated with an Overdrive collection, or the
-    JSON credentials for Google OAuth.
-    """
-    __tablename__ = 'externalintegrationsettings'
-    id = Column(Integer, primary_key=True)
-    external_integration_id = Column(Integer, ForeignKey('externalintegrations.id'), index=True)
-    key = Column(Unicode, index=True)
-    value = Column(Unicode)
+    @classmethod
+    def _is_secret(self, key):
+        """Should the value of the given key be treated as secret?
 
-    __table_args__ = (
-        UniqueConstraint('external_integration_id', 'key'),
-    )
-
-
-class AdminAuthenticationService(Base):
-    """An AdminAuthenticationService contains configuration for a third-party
-    service that can authenticate admins.
-    """
-
-    __tablename__ = "adminauthenticationservices"
-
-    id = Column(Integer, primary_key=True)
-
-    name = Column(Unicode, unique=True, nullable=False, index=True)
-
-    provider = Column(Unicode, nullable=False, index=True)
-
-    # Supported values for the 'provider' field
-    GOOGLE_OAUTH = 'Google OAuth'
-    LOCAL_PASSWORD = 'Local Password'
-
-    PROVIDERS = [GOOGLE_OAUTH, LOCAL_PASSWORD]
-
-    external_integration_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), index=True)
+        This will have to do, in the absence of programmatic ways of
+        saying that a specific setting should be treated as secret.
+        """
+        return any(
+            key == x or
+            key.startswith('%s_' % x) or
+            key.endswith('_%s' % x) or
+            ("_%s_" %x) in key
+            for x in ('secret', 'password')
+        )
 
     @property
-    def external_integration(self):
-        _db = Session.object_session(self)
-        external_integration, ignore = get_one_or_create(
-            _db, ExternalIntegration, id=self.external_integration_id,
-        )
-        self.external_integration_id = external_integration.id
-        return external_integration
+    def is_secret(self):
+        """Should the value of this key be treated as secret?"""
+        return self._is_secret(self.key)
+
+    def value_or_default(self, default):
+        """Return the value of this setting. If the value is None,
+        set it to `default` and return that instead.
+        """
+        if self.value is None:
+            self.value = default
+        return self.value
+    
+    MEANS_YES = set(['true', 't', 'yes', 'y'])
+    @property
+    def bool_value(self):
+        """Turn the value into a boolean if possible.
+
+        :return: A boolean, or None if there is no value.
+        """
+        if self.value:
+            if self.value.lower() in self.MEANS_YES:
+                return True
+            return False
+        return None
+        
+    @property
+    def int_value(self):
+        """Turn the value into an int if possible.
+
+        :return: An integer, or None if there is no value.
+
+        :raise ValueError: If the value cannot be converted to an int.
+        """
+        if self.value:
+            return int(self.value)
+        return None
+
+    @property
+    def float_value(self):
+        """Turn the value into an float if possible.
+
+        :return: A float, or None if there is no value.
+
+        :raise ValueError: If the value cannot be converted to a float.
+        """
+        if self.value:
+            return float(self.value)
+        return None
+    
+    @property
+    def json_value(self):
+        """Interpret the value as JSON if possible.
+
+        :return: An object, or None if there is no value.
+
+        :raise ValueError: If the value cannot be parsed as JSON.
+        """
+        if self.value:
+            return json.loads(self.value)
+        return None
 
 
 class Collection(Base):
@@ -8662,29 +9568,24 @@ class Collection(Base):
 
     name = Column(Unicode, unique=True, nullable=False, index=True)
 
-    # What piece of code do we run to find out about changes to this
-    # collection?
-    protocol = Column(Unicode, nullable=False, index=True)
+    DATA_SOURCE_NAME_SETTING = u'data_source'
 
-    # Supported values for the 'protocol' field.
-    OPDS_IMPORT = 'OPDS Import'
-    OVERDRIVE = DataSource.OVERDRIVE
-    BIBLIOTHECA = DataSource.BIBLIOTHECA
-    AXIS_360 = DataSource.AXIS_360
-    ONE_CLICK = DataSource.ONECLICK
+    # For use in forms that edit Collections.
+    EXTERNAL_ACCOUNT_ID_KEY = u'external_account_id'
 
-    PROTOCOLS = [OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK]
-    
     # How does the provider of this collection distinguish it from
     # other collections it provides? On the other side this is usually
     # called a "library ID".
     external_account_id = Column(Unicode, nullable=True)
 
-    # How do we connect to the provider of this collection? Any
-    # url, authentication information, or additional configuration
-    # goes into the external integration.
+    # How do we connect to the provider of this collection? Any url,
+    # authentication information, or additional configuration goes
+    # into the external integration, as does the 'protocol', which
+    # designates the integration technique we will use to actually get
+    # the metadata and licenses. Each Collection has a distinct
+    # ExternalIntegration.
     external_integration_id = Column(
-        Integer, ForeignKey('externalintegrations.id'), index=True)
+        Integer, ForeignKey('externalintegrations.id'), unique=True, index=True)
 
     # A Collection may specialize some other Collection. For instance,
     # an Overdrive Advantage collection is a specialization of an
@@ -8698,7 +9599,7 @@ class Collection(Base):
     # to Overdrive Advantage collections.
     children = relationship(
         "Collection", backref=backref("parent", remote_side = [id]),
-        uselist=False
+        uselist=True
     )
     
     # A Collection can provide books to many Libraries.
@@ -8709,23 +9610,203 @@ class Collection(Base):
     
     # A Collection can include many LicensePools.
     licensepools = relationship(
-        "LicensePool", secondary=lambda: collections_licensepools,
-        backref="collections"
+        "LicensePool", backref="collection",
+        cascade="save-update, merge, delete"
     )
 
+    # A Collection can be monitored by many Monitors, each of which
+    # will have its own Timestamp.
+    timestamps = relationship("Timestamp", backref="collection")
+    
     catalog = relationship(
         "Identifier", secondary=lambda: collections_identifiers,
         backref="collections"
     )
 
-    @property
-    def external_integration(self):
-        _db = Session.object_session(self)
-        external_integration, ignore = get_one_or_create(
-            _db, ExternalIntegration, id=self.external_integration_id,
+    # A Collection can be associated with multiple CoverageRecords
+    # for Identifiers in its catalog.
+    coverage_records = relationship(
+        "CoverageRecord", backref="collection",
+        cascade="save-update, merge, delete"
+    )
+
+    def __repr__(self):
+        return (u'<Collection "%s"/"%s" ID=%d>' %
+                (self.name, self.protocol, self.id)).encode('utf8')        
+
+    @classmethod
+    def by_name_and_protocol(cls, _db, name, protocol):
+        """Find or create a Collection with the given name and the given
+        protocol.
+
+        We can't use get_one_or_create because the protocol is kept in
+        a separate database object, (an ExternalIntegration).
+
+        :return: A 2-tuple (collection, is_new)
+        """
+        qu = cls.by_protocol(_db, protocol)
+        qu = qu.filter(Collection.name==name)
+        try:
+            collection = qu.one()                    
+            is_new = False
+        except NoResultFound, e:
+            # Make a new Collection.
+            collection, is_new = get_one_or_create(_db, Collection, name=name)
+            if not is_new and collection.protocol != protocol:
+                # The collection already exists, it just uses a different
+                # protocol than the one we asked about.
+                raise ValueError(
+                    'Collection "%s" does not use protocol "%s".' % (
+                        name, protocol
+                    )
+                )
+            integration = collection.create_external_integration(
+                protocol=protocol
+            )
+            collection.external_integration.protocol=protocol           
+        return collection, is_new
+    
+    @classmethod
+    def by_protocol(cls, _db, protocol):
+        """Query collections that get their licenses through the given protocol.
+
+        :param protocol: Protocol to use. If this is None, all
+        Collections will be returned.
+        """
+        qu = _db.query(Collection)
+        if protocol:
+            qu = qu.join(
+            ExternalIntegration,
+            ExternalIntegration.id==Collection.external_integration_id).filter(
+                ExternalIntegration.goal==ExternalIntegration.LICENSE_GOAL
+            ).filter(ExternalIntegration.protocol==protocol)
+        return qu
+
+    @classmethod
+    def by_datasource(cls, _db, data_source):
+        """Query collections that are associated with the given DataSource."""
+        if isinstance(data_source, DataSource):
+            data_source = data_source.name
+
+        qu = _db.query(cls).join(ExternalIntegration,
+                cls.external_integration_id==ExternalIntegration.id)\
+            .join(ExternalIntegration.settings)\
+            .filter(ConfigurationSetting.key==Collection.DATA_SOURCE_NAME_SETTING)\
+            .filter(ConfigurationSetting.value==data_source)
+        return qu
+
+    @hybrid_property
+    def protocol(self):
+        """What protocol do we need to use to get licenses for this 
+        collection?
+        """
+        return self.external_integration.protocol
+    
+    @protocol.setter
+    def set_protocol(self, new_protocol):
+        """Modify the protocol in use by this Collection."""
+        if self.parent and self.parent.protocol != new_protocol:
+            raise ValueError(
+                "Proposed new protocol (%s) contradicts parent collection's protocol (%s)." % (
+                    new_protocol, self.parent.protocol
+                )
+            )
+        self.external_integration.protocol = new_protocol
+        for child in self.children:
+            child.protocol = new_protocol
+
+    # TODO: The default loan period needs to be expanded to handle
+    # different defaults for different media types (e.g. on Overdrive
+    # the default loan period for audiobooks is 14 days, and for video
+    # it's 5 days). This isn't a high priority because the license
+    # source generally tells us when each loan will end.
+    DEFAULT_LOAN_PERIOD_KEY = 'default_loan_period'
+    STANDARD_DEFAULT_LOAN_PERIOD = 21
+        
+    @hybrid_property
+    def default_loan_period(self):
+        """Until we hear otherwise from the license provider, we assume
+        that someone who borrows a non-open-access item from this
+        collection has it for this number of days.
+        """
+        return (
+            self.external_integration.setting(
+                self.DEFAULT_LOAN_PERIOD_KEY).int_value
+            or self.STANDARD_DEFAULT_LOAN_PERIOD
         )
+
+    @default_loan_period.setter
+    def set_default_loan_period(self, new_value):
+        new_value = int(new_value)
+        self.external_integration.setting(
+            self.DEFAULT_LOAN_PERIOD_KEY).value = str(new_value)
+
+    DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
+    STANDARD_DEFAULT_RESERVATION_PERIOD = 3
+            
+    @hybrid_property
+    def default_reservation_period(self):
+        """Until we hear otherwise from the license provider, we assume
+        that someone who puts an item on hold has this many days to
+        check it out before it goes to the next person in line.
+        """
+        return (
+            self.external_integration.setting(
+                self.DEFAULT_RESERVATION_PERIOD_KEY).int_value
+            or self.STANDARD_DEFAULT_RESERVATION_PERIOD
+        )
+
+    @default_reservation_period.setter
+    def set_default_reservation_period(self, new_value):
+        new_value = int(new_value)
+        self.external_integration.setting(
+            self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
+            
+    def create_external_integration(self, protocol):
+        """Create an ExternalIntegration for this Collection.
+
+        To be used immediately after creating a new Collection,
+        e.g. in by_name_and_protocol, from_metadata_identifier, and
+        various test methods that create mock Collections.
+
+        If an external integration already exists, return it instead
+        of creating another one.
+
+        :param protocol: The protocol known to be in use when getting
+        licenses for this collection.
+        """
+        _db = Session.object_session(self)
+        goal = ExternalIntegration.LICENSE_GOAL
+        external_integration, is_new = get_one_or_create(
+            _db, ExternalIntegration, id=self.external_integration_id,
+            create_method_kwargs=dict(protocol=protocol, goal=goal)
+        )
+        if external_integration.protocol != protocol:
+            raise ValueError(
+                "Located ExternalIntegration, but its protocol (%s) does not match desired protocol (%s)." % (
+                    external_integration.protocol, protocol
+                )
+            )
         self.external_integration_id = external_integration.id
         return external_integration
+            
+    @property
+    def external_integration(self):
+        """Find the external integration for this Collection, assuming
+        it already exists.
+
+        This is generally a safe assumption since by_name_and_protocol and 
+        from_metadata_identifier both create ExternalIntegrations for the
+        Collections they create.
+        """
+        if not self.external_integration_id:
+            raise ValueError(
+                "No known external integration for collection %s" % self.name
+            )
+        _db = Session.object_session(self)
+        return get_one(
+            _db, ExternalIntegration, id=self.external_integration_id
+        )
 
     @property
     def unique_account_id(self):
@@ -8737,7 +9818,44 @@ class Collection(Base):
 
         if self.parent:
             return self.parent.unique_account_id + '+' + unique_account_id
-        return unique_account_id
+        return unique_account_id        
+    
+    @property
+    def data_source(self):
+        """Find the data source associated with this Collection.
+
+        Bibliographic metadata obtained through the collection
+        protocol is recorded as coming from this data source. A
+        LicensePool inserted into this collection will be associated
+        with this data source, unless its bibliographic metadata
+        indicates some other data source.
+
+        For most Collections, the integration protocol sets the data
+        source.  For collections that use the OPDS import protocol,
+        the data source is a Collection-specific setting.
+        """
+        data_source = None
+        protocol = self.external_integration.protocol
+        name = ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROTOCOL.get(
+            protocol
+        )
+        if not name:
+            name = self.external_integration.setting(
+                Collection.DATA_SOURCE_NAME_SETTING
+            ).value
+        _db = Session.object_session(self)
+        if name:
+            data_source = DataSource.lookup(_db, name, autocreate=True)
+        return data_source
+    
+    @property
+    def parents(self):
+        if self.parent_id:
+            _db = Session.object_session(self)
+            parent = get_one(_db, Collection, id=self.parent_id)
+            yield parent
+            for collection in parent.parents:
+                yield collection
 
     @property
     def metadata_identifier(self):
@@ -8749,7 +9867,9 @@ class Collection(Base):
         name of the collection.
         """
         account_id = base64.b64encode(unicode(self.unique_account_id), '-_')
-        protocol = base64.b64encode(unicode(self.protocol), '-_')
+        protocol = base64.b64encode(
+            unicode(self.external_integration.protocol), '-_'
+        )
 
         metadata_identifier = protocol + ':' + account_id
         return base64.b64encode(metadata_identifier, '-_')
@@ -8766,16 +9886,22 @@ class Collection(Base):
             details = base64.b64decode(metadata_identifier, '-_')
             protocol = base64.b64decode(details.split(':', 1)[0], '-_')
             collection, is_new = create(_db, Collection,
-                name=metadata_identifier, protocol=protocol)
+                name=metadata_identifier)
+
+            integration = collection.create_external_integration(protocol)
+            collection.external_integration.goal = (
+                ExternalIntegration.LICENSE_GOAL
+            )
+            collection.external_integration.protocol = protocol
 
         return collection, is_new
 
-    def explain(self, include_password=False):
+    def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a collection's
         settings.
 
-        :param include_password: For security reasons,
-           the password (if any) is not displayed by default.
+        :param include_secrets: For security reasons,
+           sensitive settings such as passwords are not displayed by default.
 
         :return: A list of explanatory strings.
         """
@@ -8784,23 +9910,16 @@ class Collection(Base):
             lines.append('Name: "%s"' % self.name)
         if self.parent:
             lines.append('Parent: %s' % self.parent.name)
-        if self.protocol:
-            lines.append('Protocol: "%s"' % self.protocol)
+        integration = self.external_integration
+        if integration.protocol:
+            lines.append('Protocol: "%s"' % integration.protocol)
         for library in self.libraries:
-            lines.append('Used by library: "%s"' % (
-                library.short_name or library.name
-            ))
+            lines.append('Used by library: "%s"' % library.short_name)
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
-        integration = self.external_integration
-        if integration.url:
-            lines.append('URL: "%s"' % integration.url)
-        if integration.username:
-            lines.append('Username: "%s"' % integration.username)
-        if integration.password and include_password:
-            lines.append('Password: "%s"' % integration.password)
-        for setting in integration.settings:
-            lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
+        for setting in sorted(integration.settings, key=lambda x: x.key):
+            if include_secrets or not setting.is_secret:
+                lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
     def catalog_identifier(self, _db, identifier):
@@ -8839,18 +9958,18 @@ collections_libraries = Table(
      UniqueConstraint('collection_id', 'library_id'),
  )
 
-collections_licensepools = Table(
-    'collections_licensepools', Base.metadata,
+externalintegrations_libraries = Table(
+    'externalintegrations_libraries', Base.metadata,
      Column(
-         'collection_id', Integer, ForeignKey('collections.id'),
+         'externalintegration_id', Integer, ForeignKey('externalintegrations.id'),
          index=True, nullable=False
      ),
      Column(
-         'licensepool_id', Integer, ForeignKey('licensepools.id'),
+         'library_id', Integer, ForeignKey('libraries.id'),
          index=True, nullable=False
      ),
-     UniqueConstraint('collection_id', 'licensepool_id'),
-)
+     UniqueConstraint('externalintegration_id', 'library_id'),
+ )
 
 collections_identifiers = Table(
     'collections_identifiers', Base.metadata,
@@ -8994,4 +10113,84 @@ def numericrange_to_tuple(r):
 def tuple_to_numericrange(t):
     """Helper method to convert a tuple to an inclusive NumericRange."""
     return NumericRange(t[0], t[1], '[]')
+
+def site_configuration_has_changed(_db, timeout=1):
+    """Call this whenever you want to indicate that the site configuration
+    has changed and needs to be reloaded.
+
+    This is automatically triggered on relevant changes to the data
+    model, but you also should call it whenever you change an aspect
+    of what you consider "site configuration", just to be safe.
+
+    :param _db: Either a Session or (to save time in a common case) an
+    ORM object that can turned into a Session.
+
+    :param timeout: Nothing will happen if it's been fewer than this
+    number of seconds since the last site configuration change was
+    recorded.
+    """
+    now = datetime.datetime.utcnow()
+    last_update = Configuration._site_configuration_last_update()
+    if not last_update or (now - last_update).total_seconds() > timeout:
+        # The configuration last changed more than `timeout` ago, which
+        # means it's time to reset the Timestamp that says when the
+        # configuration last changed.
+
+        # Convert something that might not be a Connection object into
+        # a Connection object.
+        if isinstance(_db, Base):
+            _db = Session.object_session(_db)
+
+        # Update the timestamp.
+        now = datetime.datetime.utcnow()
+        sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL;"
+        _db.execute(
+            text(sql),
+            dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
+                 timestamp=now)
+        )
         
+        # Update the Configuration's record of when the configuration
+        # was updated. This will update our local record immediately
+        # without requiring a trip to the database.
+        Configuration.site_configuration_last_update(
+            _db, known_value=now
+        )
+
+            
+# Most of the time, we can know whether a change to the database is
+# likely to require that the application reload the portion of the
+# configuration it gets from the database. These hooks will call
+# site_configuration_has_changed() whenever such a change happens.
+#
+# This is not supposed to be a comprehensive list of changes that
+# should trigger a ConfigurationSetting reload -- that needs to be
+# handled on the application level -- but it should be good enough to
+# catch most that slip through the cracks.
+@event.listens_for(Collection.children, 'append')
+@event.listens_for(Collection.children, 'remove')
+@event.listens_for(Collection.libraries, 'append')
+@event.listens_for(Collection.libraries, 'remove')
+@event.listens_for(ExternalIntegration.settings, 'append')
+@event.listens_for(ExternalIntegration.settings, 'remove')
+@event.listens_for(Library.integrations, 'append')
+@event.listens_for(Library.integrations, 'remove')
+@event.listens_for(Library.settings, 'append')
+@event.listens_for(Library.settings, 'remove')
+def configuration_relevant_collection_change(target, value, initiator):
+    site_configuration_has_changed(target)
+
+@event.listens_for(Library, 'after_insert')
+@event.listens_for(Library, 'after_delete')
+@event.listens_for(Library, 'after_update')
+@event.listens_for(ExternalIntegration, 'after_insert')
+@event.listens_for(ExternalIntegration, 'after_delete')
+@event.listens_for(ExternalIntegration, 'after_update')
+@event.listens_for(Collection, 'after_insert')
+@event.listens_for(Collection, 'after_delete')
+@event.listens_for(Collection, 'after_update')
+@event.listens_for(ConfigurationSetting, 'after_insert')
+@event.listens_for(ConfigurationSetting, 'after_delete')
+@event.listens_for(ConfigurationSetting, 'after_update')
+def configuration_relevant_lifecycle_event(mapper, connection, target):
+    site_configuration_has_changed(target)

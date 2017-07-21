@@ -19,9 +19,11 @@ from config import (
 )
 from model import (
     CachedFeed,
+    ConfigurationSetting,
     Contributor,
     DataSource,
     DeliveryMechanism,
+    ExternalIntegration,
     Genre,
     Measurement,
     Representation,
@@ -349,6 +351,7 @@ class TestOPDS(DatabaseTest):
 
         self.lanes = LaneList.from_description(
             self._db,
+            self._default_library,
             None,
             [dict(full_name="Fiction",
                   fiction=True,
@@ -371,8 +374,8 @@ class TestOPDS(DatabaseTest):
         )
 
         mock_top_level = Lane(
-            self._db, '', display_name='', sublanes=self.lanes.lanes,
-            include_all=False, invisible=True
+            self._db, self._default_library, '', display_name='',
+            sublanes=self.lanes.lanes, include_all=False, invisible=True
         )
 
         class FakeConf(object):
@@ -451,8 +454,8 @@ class TestOPDS(DatabaseTest):
     def test_lane_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
 
-        lane = Lane(self._db, "lane")
-        facets = Facets.default()
+        lane = Lane(self._db, self._default_library, "lane")
+        facets = Facets.default(self._default_library)
 
         cached_feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
                                     lane, TestAnnotator, facets=facets)
@@ -465,20 +468,21 @@ class TestOPDS(DatabaseTest):
         eq_("http://the-url.com/", self_link['href'])
         facet_links = self.links(by_title, AcquisitionFeed.FACET_REL)
         
-        order_facets = Configuration.enabled_facets(
+        library = self._default_library
+        order_facets = library.enabled_facets(
             Facets.ORDER_FACET_GROUP_NAME
         )
-        availability_facets = Configuration.enabled_facets(
+        availability_facets = library.enabled_facets(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
-        collection_facets = Configuration.enabled_facets(
+        collection_facets = library.enabled_facets(
             Facets.COLLECTION_FACET_GROUP_NAME
         )        
 
         def link_for_facets(facets):
             return [x for x in facet_links if facets.query_string in x['href']]
 
-        facets = Facets(None, None, None)
+        facets = Facets(library, None, None, None)
         for i1, i2, new_facets, selected in facets.facet_groups:            
             links = link_for_facets(new_facets)
             if selected:
@@ -707,6 +711,7 @@ class TestOPDS(DatabaseTest):
         work = self._work(title="open access", with_open_access_download=True)
         no_license_pool = self._work(title="no license pool", with_license_pool=False)
         no_download = self._work(title="no download", with_license_pool=True)
+        no_download.license_pools[0].open_access = True
         not_open_access = self._work("not open access", with_license_pool=True)
         not_open_access.license_pools[0].open_access = False
         self._db.commit()
@@ -736,13 +741,11 @@ class TestOPDS(DatabaseTest):
         work.presentation_edition.cover_thumbnail_url = "http://thumbnail/b"
         work.presentation_edition.cover_full_url = "http://full/a"
 
-        with temp_config() as config:
-            config['integrations'][Configuration.CDN_INTEGRATION] = {}
-            work.calculate_opds_entries(verbose=False)
-            feed = feedparser.parse(unicode(work.simple_opds_entry))
-            links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
-                            'image' in x['rel']])
-            eq_(['http://full/a', 'http://thumbnail/b'], links)
+        work.calculate_opds_entries(verbose=False)
+        feed = feedparser.parse(unicode(work.simple_opds_entry))
+        links = sorted([x['href'] for x in feed['entries'][0]['links'] if
+                        'image' in x['rel']])
+        eq_(['http://full/a', 'http://thumbnail/b'], links)
 
     def test_acquisition_feed_image_links_respect_cdn(self):
         work = self._work(genre=Fantasy, language="eng",
@@ -750,15 +753,18 @@ class TestOPDS(DatabaseTest):
         work.presentation_edition.cover_thumbnail_url = "http://thumbnail.com/b"
         work.presentation_edition.cover_full_url = "http://full.com/a"
 
+        # Create some CDNS.
         with temp_config() as config:
-            config['integrations'][Configuration.CDN_INTEGRATION] = {}
-            config['integrations'][Configuration.CDN_INTEGRATION]['thumbnail.com'] = "http://foo/"
-            config['integrations'][Configuration.CDN_INTEGRATION]['full.com'] = "http://bar/"
+            config[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
+                'thumbnail.com' : 'http://foo/',
+                'full.com' : 'http://bar/'
+            }
             work.calculate_opds_entries(verbose=False)
-            feed = feedparser.parse(work.simple_opds_entry)
-            links = sorted([x['href'] for x in feed['entries'][0]['links'] if 
-                            'image' in x['rel']])
-            eq_(['http://bar/a', 'http://foo/b'], links)
+
+        feed = feedparser.parse(work.simple_opds_entry)
+        links = sorted([x['href'] for x in feed['entries'][0]['links'] if
+                        'image' in x['rel']])
+        eq_(['http://bar/a', 'http://foo/b'], links)
 
     def test_messages(self):
         """Test the ability to include OPDSMessage objects for a given URN in
@@ -795,7 +801,7 @@ class TestOPDS(DatabaseTest):
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
 
-        facets = Facets.default()
+        facets = Facets.default(self._default_library)
         pagination = Pagination(size=1)
 
         def make_page(pagination):
@@ -868,115 +874,103 @@ class TestOPDS(DatabaseTest):
         work1.quality = 0.75
         work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
         work2.quality = 0.75
-        with temp_config() as config:
-            config['policies'] = {}
-            config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
-            config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
-            annotator = TestAnnotatorWithGroup()
 
-            # By policy, group feeds are cached forever, which means
-            # an attempt to generate them will fail. You'll get a
-            # page-type feed as a consolation prize.
+        library = self._default_library
+        library.setting(library.FEATURED_LANE_SIZE).value = 2
 
-            feed = AcquisitionFeed.groups(
-                self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=False, use_materialized_works=False
-            )
-            eq_(CachedFeed.PAGE_TYPE, feed.type)
-            cached_groups = AcquisitionFeed.groups(
-                self._db, "test", self._url, fantasy_lane, annotator, 
-                force_refresh=True, use_materialized_works=False
-            )
-            parsed = feedparser.parse(cached_groups.content)
+        annotator = TestAnnotatorWithGroup()
 
-            # There are two entries, one for each work.
-            e1, e2 = parsed['entries']
+        cached_groups = AcquisitionFeed.groups(
+            self._db, "test", self._url, fantasy_lane, annotator, 
+            force_refresh=True, use_materialized_works=False
+        )
+        parsed = feedparser.parse(cached_groups.content)
+            
+        # There are two entries, one for each work.
+        e1, e2 = parsed['entries']
 
-            # Each entry has one and only one link.
-            [l1], [l2] = e1['links'], e2['links']
+        # Each entry has one and only one link.
+        [l1], [l2] = e1['links'], e2['links']
+            
+        # Those links are 'collection' links that classify the
+        # works under their subgenres.
+        assert all([l['rel'] == 'collection' for l in (l1, l2)])
 
-            # Those links are 'collection' links that classify the
-            # works under their subgenres.
-            assert all([l['rel'] == 'collection' for l in (l1, l2)])
+        eq_(l1['href'], 'http://group/Epic Fantasy')
+        eq_(l1['title'], 'Group Title for Epic Fantasy!')
+        eq_(l2['href'], 'http://group/Urban Fantasy')
+        eq_(l2['title'], 'Group Title for Urban Fantasy!')
 
-            eq_(l1['href'], 'http://group/Epic Fantasy')
-            eq_(l1['title'], 'Group Title for Epic Fantasy!')
-            eq_(l2['href'], 'http://group/Urban Fantasy')
-            eq_(l2['title'], 'Group Title for Urban Fantasy!')
+        # The feed itself has an 'up' link which points to the
+        # groups for Fiction, and a 'start' link which points to
+        # the top-level groups feed.
+        [up_link] = self.links(parsed['feed'], 'up')
+        eq_("http://groups/Fiction", up_link['href'])
+        eq_("Fiction", up_link['title'])
 
-            # The feed itself has an 'up' link which points to the
-            # groups for Fiction, and a 'start' link which points to
-            # the top-level groups feed.
-            [up_link] = self.links(parsed['feed'], 'up')
-            eq_("http://groups/Fiction", up_link['href'])
-            eq_("Fiction", up_link['title'])
+        [start_link] = self.links(parsed['feed'], 'start')
+        eq_("http://groups/", start_link['href'])
+        eq_(annotator.top_level_title(), start_link['title'])
 
-            [start_link] = self.links(parsed['feed'], 'start')
-            eq_("http://groups/", start_link['href'])
-            eq_(annotator.top_level_title(), start_link['title'])
+        # The feed has breadcrumb links
+        ancestors = fantasy_lane.visible_ancestors()
+        root = ET.fromstring(cached_groups.content)
+        breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
+        links = breadcrumbs.getchildren()
+        eq_(len(ancestors) + 1, len(links))
+        eq_(annotator.top_level_title(), links[0].get("title"))
+        eq_(annotator.default_lane_url(), links[0].get("href"))
+        for i, lane in enumerate(reversed(ancestors)):
+            eq_(lane.display_name, links[i+1].get("title"))
+            eq_(annotator.lane_url(lane), links[i+1].get("href"))
 
-            # The feed has breadcrumb links
-            ancestors = fantasy_lane.visible_ancestors()
-            root = ET.fromstring(cached_groups.content)
-            breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
-            links = breadcrumbs.getchildren()
-            eq_(len(ancestors) + 1, len(links))
-            eq_(annotator.top_level_title(), links[0].get("title"))
-            eq_(annotator.default_lane_url(), links[0].get("href"))
-            for i, lane in enumerate(reversed(ancestors)):
-                eq_(lane.display_name, links[i+1].get("title"))
-                eq_(annotator.lane_url(lane), links[i+1].get("href"))
+        # When a feed is created without a cache_type of NO_CACHE,
+        # CachedFeeds aren't used.
+        old_cache_count = self._db.query(CachedFeed).count()
+        raw_groups = AcquisitionFeed.groups(
+            self._db, "test", self._url, fantasy_lane, annotator,
+            cache_type=AcquisitionFeed.NO_CACHE, use_materialized_works=False
+        )
 
-            # When a feed is created without a cache_type of NO_CACHE,
-            # CachedFeeds aren't used.
-            old_cache_count = self._db.query(CachedFeed).count()
-            raw_groups = AcquisitionFeed.groups(
-                self._db, "test", self._url, fantasy_lane, annotator,
-                cache_type=AcquisitionFeed.NO_CACHE, use_materialized_works=False
-            )
-
-            # Unicode is returned instead of a CachedFeed object.
-            eq_(True, isinstance(raw_groups, unicode))
-            # No new CachedFeeds have been created.
-            eq_(old_cache_count, self._db.query(CachedFeed).count())
-            # The entries in the feed are the same as they were when
-            # they were cached before.
-            eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_groups).entries))
+        # Unicode is returned instead of a CachedFeed object.
+        eq_(True, isinstance(raw_groups, unicode))
+        # No new CachedFeeds have been created.
+        eq_(old_cache_count, self._db.query(CachedFeed).count())
+        # The entries in the feed are the same as they were when
+        # they were cached before.
+        eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_groups).entries))
 
     def test_groups_feed_with_empty_sublanes_is_page_feed(self):
         """Test that a page feed is returned when the requested groups
         feed has no books in the groups.
         """
-        
-        test_lane = Lane(self._db, "Test Lane", genres=['Mystery'])
+        library = self._default_library
+        test_lane = Lane(self._db, library, "Test Lane", genres=['Mystery'])
 
         work1 = self._work(genre=Mystery, with_open_access_download=True)
         work1.quality = 0.75
         work2 = self._work(genre=Mystery, with_open_access_download=True)
         work2.quality = 0.75
 
-        with temp_config() as config:
-            config['policies'] = {}
-            config['policies'][Configuration.FEATURED_LANE_SIZE] = 2
-            config['policies'][Configuration.GROUPS_MAX_AGE_POLICY] = Configuration.CACHE_FOREVER
-            annotator = TestAnnotator()
+        library.setting(library.FEATURED_LANE_SIZE).value = 2
+        annotator = TestAnnotator()
 
-            feed = AcquisitionFeed.groups(
-                self._db, "test", self._url, test_lane, annotator,
-                force_refresh=True, use_materialized_works=False
-            )
+        feed = AcquisitionFeed.groups(
+            self._db, "test", self._url, test_lane, annotator,
+            force_refresh=True, use_materialized_works=False
+        )
 
-            # The feed is filed as a groups feed, even though in
-            # form it is a page feed.
-            eq_(CachedFeed.GROUPS_TYPE, feed.type)
+        # The feed is filed as a groups feed, even though in
+        # form it is a page feed.
+        eq_(CachedFeed.GROUPS_TYPE, feed.type)
 
-            parsed = feedparser.parse(feed.content)
+        parsed = feedparser.parse(feed.content)
 
-            # There are two entries, one for each work.
-            e1, e2 = parsed['entries']
+        # There are two entries, one for each work.
+        e1, e2 = parsed['entries']
 
-            # The entries have no links (no collection links).
-            assert all('links' not in entry for entry in [e1, e2])
+        # The entries have no links (no collection links).
+        assert all('links' not in entry for entry in [e1, e2])
 
     def test_search_feed(self):
         """Test the ability to create a paginated feed of works for a given
@@ -1055,33 +1049,33 @@ class TestOPDS(DatabaseTest):
                 pagination=Pagination.default(), use_materialized_works=False
             )
 
-        with temp_config() as config:
-            config['policies'] = {
-                Configuration.PAGE_MAX_AGE_POLICY : 10
-            }
+        af = AcquisitionFeed
+        policy = ConfigurationSetting.sitewide(
+            self._db, af.NONGROUPED_MAX_AGE_POLICY)
+        policy.value = "10"
 
-            cached1 = make_page()
-            assert work1.title in cached1.content
-            old_timestamp = cached1.timestamp
+        cached1 = make_page()
+        assert work1.title in cached1.content
+        old_timestamp = cached1.timestamp
 
-            work2 = self._work(
-                title="A Brand New Title", 
-                genre=Epic_Fantasy, with_open_access_download=True
-            )
+        work2 = self._work(
+            title="A Brand New Title", 
+            genre=Epic_Fantasy, with_open_access_download=True
+        )
 
-            # The new work does not show up in the feed because 
-            # we get the old cached version.
-            cached2 = make_page()
-            assert work2.title not in cached2.content
-            assert cached2.timestamp == old_timestamp
+        # The new work does not show up in the feed because 
+        # we get the old cached version.
+        cached2 = make_page()
+        assert work2.title not in cached2.content
+        assert cached2.timestamp == old_timestamp
             
-            # Change the policy to disable caching, and we get
-            # a brand new page with the new work.
-            config['policies'][Configuration.PAGE_MAX_AGE_POLICY] = 0
+        # Change the policy to disable caching, and we get
+        # a brand new page with the new work.
+        policy.value = "0"
 
-            cached3 = make_page()
-            assert cached3.timestamp > old_timestamp
-            assert work2.title in cached3.content
+        cached3 = make_page()
+        assert cached3.timestamp > old_timestamp
+        assert work2.title in cached3.content
 
 
 class TestAcquisitionFeed(DatabaseTest):
@@ -1292,28 +1286,28 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         """
         work = self._work(with_open_access_download=True)
 
-        # Here's an identifier not associated with any LicensePool.
+        # Here's an identifier not associated with any LicensePool or
+        # Work.
         identifier = self._identifier()
 
+        # It doesn't make sense to make an OPDS feed out of that
+        # Identifier and a totally random Work.
+        expect_error = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.'
         feed, entry = self.entry(identifier, work)
-
-        # We were not successful at creating an <entry> for this
-        # lookup. We got a OPDSMessage instead of an entry
-        eq_(entry,
-            OPDSMessage(identifier.urn, 404,
-                              "Identifier not found in collection")
+        eq_(
+            entry,OPDSMessage(
+                identifier.urn, 500, expect_error  % identifier.urn
+            )
         )
 
-        # We also get an error if we use an Identifier that is
-        # associated with a LicensePool, but that LicensePool is not
-        # associated with the Work.
+        # Even if the Identifier does have a Work, if the Works don't
+        # match, we get the same error.
         edition, lp = self._edition(with_license_pool=True)
-        identifier = lp.identifier
-        feed, entry = self.entry(identifier, work)
+        work2 = lp.calculate_work()
+        feed, entry = self.entry(lp.identifier, work)
         eq_(entry,
             OPDSMessage(
-                identifier.urn, 500,
-                'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
+                lp.identifier.urn, 500, expect_error % lp.identifier.urn
             )
         )
 
@@ -1326,7 +1320,6 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         work = self._work(title=u"Hello, World!", with_license_pool=False)
         identifier = work.presentation_edition.primary_identifier
         feed, entry = self.entry(identifier, work)
-
         # By default, a work is treated as 'not in the collection' if
         # there is no LicensePool for it.
         isinstance(entry, OPDSMessage)
