@@ -422,6 +422,18 @@ def sitewide_settings():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/library_registrations", methods=['POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def library_registrations():
+    data = app.manager.admin_settings_controller.library_registrations()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in

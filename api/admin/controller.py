@@ -18,6 +18,7 @@ from flask.ext.babel import lazy_gettext as _
 from sqlalchemy.exc import ProgrammingError
 from PIL import Image
 from StringIO import StringIO
+import feedparser
 
 from core.model import (
     create,
@@ -47,6 +48,7 @@ from core.model import (
     WorkGenre,
 )
 from core.util.problem_detail import ProblemDetail
+from core.util.http import HTTP
 from problem_details import *
 
 from api.config import (
@@ -1906,4 +1908,34 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
+    def library_registrations(self, do_get=HTTP.get_with_timeout, do_post=HTTP.post_with_timeout):
+        if flask.request.method == "POST":
+
+            integration_id = flask.request.form.get("integration_id")
+            library_short_name = flask.request.form.get("library_short_name")
+
+            integration = get_one(self._db, ExternalIntegration,
+                                  goal=ExternalIntegration.DISCOVERY_GOAL,
+                                  id=integration_id)
+            if not integration:
+                return MISSING_SERVICE
+
+            library = get_one(self._db, Library, short_name=library_short_name)
+            if not library:
+                return NO_SUCH_LIBRARY
+
+            auth_document_url = self.url_for("acquisition_groups", library_short_name=library.short_name)
+            response = do_get(integration.url, allowed_response_codes=["2xx", "3xx"])
+            feed = feedparser.parse(response.content)
+            links = feed.get("feed", {}).get("links", [])
+            register_url = None
+            for link in links:
+                if link.get("rel") == "register":
+                    register_url = link.get("href")
+                    break
+            if not register_url:
+                return REMOTE_INTEGRATION_FAILED.detailed(_("The discovery service did not provide a register link."))
+            do_post(register_url, dict(url=auth_document_url), allowed_response_codes=["2xx"])
+
+        return Response(unicode(_("Success")), 200)
 
