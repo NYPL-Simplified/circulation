@@ -1924,7 +1924,6 @@ class SettingsController(CirculationManagerController):
             if not library:
                 return NO_SUCH_LIBRARY
 
-            auth_document_url = self.url_for("acquisition_groups", library_short_name=library.short_name)
             response = do_get(integration.url, allowed_response_codes=["2xx", "3xx"])
             feed = feedparser.parse(response.content)
             links = feed.get("feed", {}).get("links", [])
@@ -1935,6 +1934,8 @@ class SettingsController(CirculationManagerController):
                     break
             if not register_url:
                 return REMOTE_INTEGRATION_FAILED.detailed(_("The discovery service did not provide a register link."))
+
+            auth_document_url = self.url_for("acquisition_groups", library_short_name=library.short_name)
             do_post(register_url, dict(url=auth_document_url), allowed_response_codes=["2xx"])
 
         return Response(unicode(_("Success")), 200)
