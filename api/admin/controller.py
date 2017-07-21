@@ -1935,8 +1935,8 @@ class SettingsController(CirculationManagerController):
             if not register_url:
                 return REMOTE_INTEGRATION_FAILED.detailed(_("The discovery service did not provide a register link."))
 
-            auth_document_url = self.url_for("acquisition_groups", library_short_name=library.short_name)
-            do_post(register_url, dict(url=auth_document_url), allowed_response_codes=["2xx"])
+            library_url = self.url_for("acquisition_groups", library_short_name=library.short_name)
+            do_post(register_url, dict(url=library_url), allowed_response_codes=["2xx"])
 
         return Response(unicode(_("Success")), 200)
 
