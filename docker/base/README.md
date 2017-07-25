@@ -1,6 +1,7 @@
 # Supported tags and respective `Dockerfile` links
 
-- `1.1.23`, `1.1`, `latest` [(1.1.23/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/master/base/Dockerfile)
+- `2.0.0` **(untested)** [(2.0.0/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/2ca39e4/base/Dockerfile)
+- `1.1.23`, `1.1`, `latest` [(1.1.23/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/2ca39e4/base/Dockerfile)
 
 Older versions of the Circulation Manager are not currently supported.
 
