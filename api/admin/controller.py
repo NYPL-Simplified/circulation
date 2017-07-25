@@ -1925,8 +1925,18 @@ class SettingsController(CirculationManagerController):
                 return NO_SUCH_LIBRARY
 
             response = do_get(integration.url, allowed_response_codes=["2xx", "3xx"])
-            feed = feedparser.parse(response.content)
-            links = feed.get("feed", {}).get("links", [])
+            type = response.headers.get("Content-Type")
+            if type == 'application/opds+json':
+                # This is an OPDS 2 catalog.
+                catalog = json.loads(response.content)
+                links = catalog.get("links", [])
+            elif type and type.startswith("application/atom+xml;profile=opds-catalog"):
+                # This is an OPDS 1 feed.
+                feed = feedparser.parse(response.content)
+                links = feed.get("feed", {}).get("links", [])
+            else:
+                return REMOTE_INTEGRATION_FAILED.detailed("The discovery service did not return OPDS.")
+
             register_url = None
             for link in links:
                 if link.get("rel") == "register":

@@ -3414,9 +3414,26 @@ class TestSettingsController(AdminControllerTest):
             ])
             self.responses.append(MockRequestsResponse(200))
             feed = '<feed><link rel="register" href="register url"/></feed>'
-            self.responses.append(MockRequestsResponse(200, content=feed))
+            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
+            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
             response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request)
             
             eq_(200, response.status_code)
             eq_(["registry url", "register url"], self.requests)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("integration_id", discovery_service.id),
+                ("library_short_name", library.short_name),
+            ])
+            self.responses.append(MockRequestsResponse(200))
+            link = { 'rel': 'register', 'href': 'register url' }
+            feed = json.dumps(dict(links=[link]))
+            headers = { 'Content-Type': 'application/opds+json' }
+            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
+
+            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request)
+            
+            eq_(200, response.status_code)
+            eq_(["registry url", "register url"], self.requests[2:])
