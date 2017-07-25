@@ -44,6 +44,7 @@ class Configuration(CoreConfiguration):
     SECRET_KEY = "secret_key"
 
     MILLENIUM_INTEGRATION = "Millenium"
+    MILLENIUM_MODE = "auth_mode"
     AUTHORIZATION_IDENTIFIER_BLACKLIST = "authorization_identifier_blacklist"
     STAFF_PICKS_INTEGRATION = "Staff Picks"
     PATRON_WEB_CLIENT_INTEGRATION = "Patron Web Client"

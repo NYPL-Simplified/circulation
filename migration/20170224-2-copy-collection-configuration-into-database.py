@@ -13,6 +13,7 @@ from api.config import Configuration
 from core.model import (
     get_one_or_create,
     production_session,
+    DataSource,
     Library,
     Collection,
 )
@@ -28,6 +29,7 @@ def copy_library_registry_information(_db, library):
     config = Configuration.integration("Adobe Vendor ID")
     if not config:
         print u"No Adobe Vendor ID configuration, not setting short name or secret."
+        return
     library.short_name = config.get("library_short_name")
     library.library_registry_short_name = config.get("library_short_name")
     library.library_registry_shared_secret = config.get("authdata_secret")
@@ -37,6 +39,7 @@ def convert_overdrive(_db, library):
     config = Configuration.integration('Overdrive')
     if not config:
         print u"No Overdrive configuration, not creating a Collection for it."
+        return
     print u"Creating Collection object for Overdrive collection."
     username = config.get('client_key')
     password = config.get('client_secret')
@@ -49,10 +52,10 @@ def convert_overdrive(_db, library):
         name="Overdrive"
     )
     library.collections.append(collection)
-    collection.username = username
-    collection.password = password
+    collection.external_integration.username = username
+    collection.external_integration.password = password
     collection.external_account_id = library_id
-    collection.set_setting("website_id", website_id)
+    collection.external_integration.set_setting("website_id", website_id)
 
 def convert_bibliotheca(_db, library):
     config = Configuration.integration('3M')
@@ -69,8 +72,8 @@ def convert_bibliotheca(_db, library):
         name="Bibliotheca"
     )
     library.collections.append(collection)
-    collection.username = username
-    collection.password = password
+    collection.external_integration.username = username
+    collection.external_integration.password = password
     collection.external_account_id = library_id
 
 def convert_axis(_db, library):
@@ -91,15 +94,16 @@ def convert_axis(_db, library):
         name="Axis 360"
     )
     library.collections.append(collection)
-    collection.username = username
-    collection.password = password
+    collection.external_integration.username = username
+    collection.external_integration.password = password
     collection.external_account_id = library_id
-    collection.url = url
+    collection.external_integration.url = url
 
 def convert_one_click(_db, library):
     config = Configuration.integration('OneClick')
     if not config:
         print u"No OneClick configuration, not creating a Collection for it."
+        return
     print u"Creating Collection object for OneClick collection."
     basic_token = config.get('basic_token')
     library_id = config.get('library_id')
@@ -113,11 +117,11 @@ def convert_one_click(_db, library):
         name="OneClick"
     )
     library.collections.append(collection)
-    collection.password = basic_token
+    collection.external_integration.password = basic_token
     collection.external_account_id = library_id
-    collection.url = url
-    collection.set_setting("ebook_loan_length", ebook_loan_length)
-    collection.set_setting("eaudio_loan_length", eaudio_loan_length)
+    collection.external_integration.url = url
+    collection.external_integration.set_setting("ebook_loan_length", ebook_loan_length)
+    collection.external_integration.set_setting("eaudio_loan_length", eaudio_loan_length)
     
 def convert_content_server(_db, library):
     config = Configuration.integration("Content Server")
@@ -130,8 +134,9 @@ def convert_content_server(_db, library):
         protocol=Collection.OPDS_IMPORT,
         name="Open Access Content Server"
     )
+    collection.external_integration.setting("data_source").value = DataSource.OA_CONTENT_SERVER
     library.collections.append(collection)
-    collection.url = url
+    collection.external_account_id = url
     
 library = Library.instance(_db)
 copy_library_registry_information(_db, library)

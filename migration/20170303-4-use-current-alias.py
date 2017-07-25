@@ -13,11 +13,11 @@ from core.external_search import ExternalSearchIndex
 
 C.load()
 config_index = C.integration(C.ELASTICSEARCH_INTEGRATION).get(C.ELASTICSEARCH_INDEX_KEY)
+if not config_index:
+    print "No action taken. Elasticsearch not configured."
+    sys.exit()
 
 search = ExternalSearchIndex()
-if not search:
-    print "No action taken. Elasticsearch not configured."
-
 update_required_text = (
     "\n\tConfiguration update required for given alias \"%s\".\n"
     "\t============================================\n"
@@ -35,7 +35,7 @@ misplaced_alias_text = (
 alias_not_used = search.works_alias == search.works_index
 if config_index == search.works_index:
     # The configuration doesn't have the alias in its configuration.
-    current_alias = search._base_works_index(config_index)+search.CURRENT_ALIAS_SUFFIX
+    current_alias = search.base_index_name(config_index)+search.CURRENT_ALIAS_SUFFIX
 
     if alias_not_used:
         # The current_alias wasn't set during initialization, indicating
@@ -67,7 +67,7 @@ elif 'error' not in search.indices.get_alias(name=config_index, ignore=[404]):
         # The alias doesn't use the naming convention we expect. Try to create one
         # that does.
         index = search.indices.get_alias(name=config_index).keys()[0]
-        current_alias = search._base_works_index(index)+search.CURRENT_ALIAS_SUFFIX
+        current_alias = search.base_index_name(index)+search.CURRENT_ALIAS_SUFFIX
         current_alias_index = ','.join(search.indices.get_alias(name=current_alias).keys())
 
         if (current_alias_index != search.works_index or alias_not_used):

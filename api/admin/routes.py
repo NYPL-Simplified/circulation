@@ -23,9 +23,14 @@ from templates import (
 import csv, codecs, cStringIO
 from StringIO import StringIO
 import urllib
+from datetime import timedelta
 
 # The secret key is used for signing cookies for admin login
 app.secret_key = Configuration.get(Configuration.SECRET_KEY)
+
+# An admin's session will expire after this amount of time and
+# the admin will have to log in again.
+app.permanent_session_lifetime = timedelta(hours=9)
 
 @app.before_first_request
 def setup_admin():
@@ -43,7 +48,14 @@ def requires_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'setting_up' in kwargs:
-            setting_up = kwargs.pop('setting_up')
+            # If the function also requires a CSRF token,
+            # setting_up needs to stay in the arguments for
+            # the next decorator. Otherwise, it should be
+            # removed before the route function.
+            if f.func_dict.get("requires_csrf_token"):
+                setting_up = kwargs.get('setting_up')
+            else:
+                setting_up = kwargs.pop('setting_up')
         else:
             setting_up = False
 
@@ -58,10 +70,11 @@ def requires_admin(f):
     return decorated
 
 def requires_csrf_token(f):
+    f.func_dict["requires_csrf_token"] = True
     @wraps(f)
     def decorated(*args, **kwargs):
         if 'setting_up' in kwargs:
-            setting_up = kwargs.get('setting_up')
+            setting_up = kwargs.pop('setting_up')
         else:
             setting_up = False
         if not setting_up and flask.request.method in ["POST", "PUT", "DELETE"]:
@@ -74,7 +87,12 @@ def requires_csrf_token(f):
 @app.route('/admin/GoogleAuth/callback')
 @returns_problem_detail
 def google_auth_callback():
-    return app.manager.admin_sign_in_controller.redirect_after_sign_in()
+    return app.manager.admin_sign_in_controller.redirect_after_google_sign_in()
+
+@app.route("/admin/sign_in_with_password", methods=["GET", "POST"])
+@returns_problem_detail
+def password_auth():
+    return app.manager.admin_sign_in_controller.password_sign_in()
 
 @app.route('/admin/sign_in')
 @returns_problem_detail
@@ -113,22 +131,22 @@ def edit(data_source, identifier_type, identifier):
 
 @app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/suppress', methods=['POST'])
 @returns_problem_detail
-@requires_csrf_token
 @requires_admin
+@requires_csrf_token
 def suppress(data_source, identifier_type, identifier):
     return app.manager.admin_work_controller.suppress(data_source, identifier_type, identifier)
 
 @app.route('/admin/works/<data_source>/<identifier_type>/<path:identifier>/unsuppress', methods=['POST'])
 @returns_problem_detail
-@requires_csrf_token
 @requires_admin
+@requires_csrf_token
 def unsuppress(data_source, identifier_type, identifier):
     return app.manager.admin_work_controller.unsuppress(data_source, identifier_type, identifier)
 
 @app.route('/works/<data_source>/<identifier_type>/<path:identifier>/refresh', methods=['POST'])
 @returns_problem_detail
-@requires_csrf_token
 @requires_admin
+@requires_csrf_token
 def refresh(data_source, identifier_type, identifier):
     return app.manager.admin_work_controller.refresh_metadata(data_source, identifier_type, identifier)
 
@@ -238,8 +256,8 @@ def stats():
 
 @app.route('/admin/libraries', methods=['GET', 'POST'])
 @returns_problem_detail
-@requires_csrf_token
 @requires_admin
+@requires_csrf_token
 def libraries():
     data = app.manager.admin_settings_controller.libraries()
     if isinstance(data, ProblemDetail):
@@ -250,8 +268,8 @@ def libraries():
 
 @app.route("/admin/collections", methods=['GET', 'POST'])
 @returns_problem_detail
-@requires_csrf_token
 @requires_admin
+@requires_csrf_token
 def collections():
     data = app.manager.admin_settings_controller.collections()
     if isinstance(data, ProblemDetail):
@@ -263,8 +281,8 @@ def collections():
 @app.route("/admin/admin_auth_services", methods=['GET', 'POST'])
 @returns_problem_detail
 @allows_admin_auth_setup
-@requires_csrf_token
 @requires_admin
+@requires_csrf_token
 def admin_auth_services():
     data = app.manager.admin_settings_controller.admin_auth_services()
     if isinstance(data, ProblemDetail):
@@ -295,8 +313,7 @@ def admin_view(collection=None, book=None, **kwargs):
     setting_up = (app.manager.admin_sign_in_controller.auth == None)
     if not setting_up:
         admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
-        csrf_token = app.manager.admin_sign_in_controller.get_csrf_token()
-        if isinstance(admin, ProblemDetail) or csrf_token is None or isinstance(csrf_token, ProblemDetail):
+        if isinstance(admin, ProblemDetail):
             redirect_url = flask.request.url
             if (collection):
                 quoted_collection = urllib.quote(collection)
@@ -309,18 +326,26 @@ def admin_view(collection=None, book=None, **kwargs):
                     quoted_book,
                     quoted_book.replace("/", "%2F"))
             return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
-    else:
-        csrf_token = None
+
+    csrf_token = app.manager.admin_sign_in_controller.generate_csrf_token()
+
     show_circ_events_download = (
         "core.local_analytics_provider" in (Configuration.policy("analytics") or [])
     )
-    return flask.render_template_string(
+    response = Response(flask.render_template_string(
         admin_template,
         csrf_token=csrf_token,
         home_url=app.manager.url_for('acquisition_groups'),
         show_circ_events_download=show_circ_events_download,
         setting_up=setting_up,
-    )
+    ))
+
+    # The CSRF token is in its own cookie instead of the session cookie,
+    # because if your session expires and you log in again, you should
+    # be able to submit a form you already had open. The CSRF token lasts
+    # until the user closes the browser window.
+    response.set_cookie("csrf_token", csrf_token, httponly=True)
+    return response
 
 @app.route('/admin')
 @app.route('/admin/')
