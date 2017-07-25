@@ -50,11 +50,13 @@ class Configuration(CoreConfiguration):
     PATRON_WEB_CLIENT_INTEGRATION = "Patron Web Client"
 
     LIST_FIELDS = "fields"
-   
+
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = "default_notification_email_address"
 
     IDENTIFIER_REGULAR_EXPRESSION = "identifier_regular_expression"
     PASSWORD_REGULAR_EXPRESSION = "password_regular_expression"
+
+    ENKI_INTEGRATION = "Enki"
 
     @classmethod
     def lending_policy(cls):
@@ -121,7 +123,7 @@ class Configuration(CoreConfiguration):
             Configuration.MAX_OUTSTANDING_FINES
         )
         return MoneyUtility.parse(max_fines)
-    
+
     @classmethod
     def load(cls):
         CoreConfiguration.load()
@@ -145,7 +147,7 @@ class FacetConfig(object):
     Configuration, and allows modifications to the enabled
     and default facets. For use when a controller needs to
     use a facet configuration different from the site-wide
-    facets. 
+    facets.
     """
     @classmethod
     def from_config(cls):
@@ -174,5 +176,3 @@ class FacetConfig(object):
     def set_default_facet(self, group_name, facet):
         self.enable_facet(group_name, facet)
         self._default_facets[group_name] = facet
-
-

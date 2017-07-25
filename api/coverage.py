@@ -205,7 +205,8 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
                 Identifier.THREEM_ID,
                 Identifier.GUTENBERG_ID, 
                 Identifier.AXIS_360_ID,
-                Identifier.ONECLICK_ID, 
+                Identifier.ONECLICK_ID,
+                Identifier.ENKI_ID,
             ]
         output_source = DataSource.lookup(
             _db, DataSource.METADATA_WRANGLER
@@ -266,7 +267,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         """
         mapping = dict()
         for identifier in batch:
-            if identifier.type in [Identifier.AXIS_360_ID, Identifier.THREEM_ID, Identifier.ONECLICK_ID]:
+            if identifier.type in [Identifier.AXIS_360_ID, Identifier.THREEM_ID, Identifier.ONECLICK_ID, Identifier.ENKI_ID]:
                 for e in identifier.equivalencies:
                     if e.output.type == Identifier.ISBN:
                         mapping[e.output] = identifier

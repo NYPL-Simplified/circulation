@@ -1187,8 +1187,12 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.get("collections"), [])
 
             # All the protocols in Collection.PROTOCOLS are supported by the admin interface.
+            expect = sorted(Collection.PROTOCOLS)
+            # Except for Enki, which we haven't added interface support for
+            # yet.
+            expect.remove(Collection.ENKI)
             eq_(sorted([p.get("name") for p in response.get("protocols")]),
-                sorted(Collection.PROTOCOLS))
+                expect)
 
     def test_collections_get_with_multiple_collections(self):
         c1, ignore = create(
