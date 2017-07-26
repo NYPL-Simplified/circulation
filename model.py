@@ -2732,6 +2732,33 @@ class Edition(Base):
         q2 = q.filter(CoverageRecord.id==None)
         return q2
 
+    @classmethod
+    def sort_by_priority(self, editions):
+        """Return all Editions that describe the Identifier associated with
+        this LicensePool, in the order they should be used to create a
+        presentation Edition for the LicensePool.
+        """
+        def sort_key(edition):
+            """Return a numeric ordering of this edition."""
+            source = edition.data_source
+            if not source:
+                # This shouldn't happen. Give this edition the
+                # lowest priority.
+                return -100
+
+            if source == self.data_source:
+                # This Edition contains information from the same data
+                # source as the LicensePool itself. Put it below any
+                # Edition from one of the data sources in
+                # PRESENTATION_EDITION_PRIORITY, but above all other
+                # Editions.
+                return -1
+            if source.name in DataSource.PRESENTATION_EDITION_PRIORITY:
+                return DataSource.PRESENTATION_EDITION_PRIORITY.index(source.name)
+            else:
+                return -2
+
+        return sorted(editions, key=sort_key)
 
     @classmethod
     def _content(cls, content, is_html=False):
@@ -6176,34 +6203,6 @@ class LicensePool(Base):
                 return True
         return False
 
-
-    def editions_in_priority_order(self):
-        """Return all Editions that describe the Identifier associated with
-        this LicensePool, in the order they should be used to create a
-        presentation Edition for the LicensePool.
-        """
-        def sort_key(edition):
-            """Return a numeric ordering of this edition."""
-            source = edition.data_source
-            if not source:
-                # This shouldn't happen. Give this edition the
-                # lowest priority.
-                return -100
-
-            if source == self.data_source:
-                # This Edition contains information from the same data
-                # source as the LicensePool itself. Put it below any
-                # Edition from one of the data sources in
-                # PRESENTATION_EDITION_PRIORITY, but above all other
-                # Editions.
-                return -1
-            if source.name in DataSource.PRESENTATION_EDITION_PRIORITY:
-                return DataSource.PRESENTATION_EDITION_PRIORITY.index(source.name)
-            else:
-                return -2
-
-        return sorted(self.identifier.primarily_identifies, key=sort_key)
-
     def set_open_access_status(self):
         """Set .open_access based on whether there is currently
         an open-access LicensePoolDeliveryMechanism for this LicensePool.
@@ -6215,19 +6214,28 @@ class LicensePool(Base):
         else:
             self.open_access = False
 
-    def set_presentation_edition(self):
+    def set_presentation_edition(self, equivalent_editions=None):
         """Create or update the presentation Edition for this LicensePool.
 
         The presentation Edition is made of metadata from all Editions
         associated with the LicensePool's identifier.
+
+        :param equivalent_editions: An optional list of Edition objects
+        that don't share this LicensePool's identifier but are associated
+        with its equivalent identifiers in some way. This option is used
+        to create Works on the Metadata Wrangler.
 
         :return: A boolean explaining whether any of the presentation
         information associated with this LicensePool actually changed.
         """
         _db = Session.object_session(self)
         old_presentation_edition = self.presentation_edition
-        all_editions = list(self.editions_in_priority_order())
         changed = False
+
+        editions = equivalent_editions
+        if not editions:
+            editions = self.identifier.primarily_identifies
+        all_editions = list(Edition.sort_by_priority(editions))
 
         # Note: We can do a cleaner solution, if we refactor to not use metadata's 
         # methods to update editions.  For now, we're choosing to go with the below approach.
@@ -6275,7 +6283,6 @@ class LicensePool(Base):
             self.presentation_edition != old_presentation_edition 
             or changed
         )
-
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
