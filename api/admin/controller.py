@@ -1935,7 +1935,7 @@ class SettingsController(CirculationManagerController):
                 feed = feedparser.parse(response.content)
                 links = feed.get("feed", {}).get("links", [])
             else:
-                return REMOTE_INTEGRATION_FAILED.detailed("The discovery service did not return OPDS.")
+                return REMOTE_INTEGRATION_FAILED.detailed(_("The discovery service did not return OPDS."))
 
             register_url = None
             for link in links:
