@@ -343,8 +343,8 @@ class CirculationManager(object):
         # information for the calling code to have so it knows
         # whether or not we should support the Device Management Protocol.
         registry = ExternalIntegration.lookup(
-            _db, ExternalIntegration.SHORT_CLIENT_TOKEN,
-            ExternalIntegration.DRM_GOAL, library=library
+            _db, ExternalIntegration.OPDS_REGISTRATION,
+            ExternalIntegration.DISCOVERY_GOAL, library=library
         )
         authdata = None
         if registry:

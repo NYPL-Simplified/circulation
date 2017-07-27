@@ -10,6 +10,8 @@ from werkzeug import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
 from StringIO import StringIO
 import base64
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
@@ -3427,7 +3429,7 @@ class TestSettingsController(AdminControllerTest):
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
             ])
-            self.responses.append(MockRequestsResponse(200))
+            self.responses.append(MockRequestsResponse(200, content='{}'))
             feed = '<feed><link rel="register" href="register url"/></feed>'
             headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
@@ -3437,18 +3439,42 @@ class TestSettingsController(AdminControllerTest):
             eq_(200, response.status_code)
             eq_(["registry url", "register url"], self.requests)
 
+            # This registry doesn't support short client tokens and doesn't have a vendor id,
+            # so no settings were added to it.
+            eq_(None, discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
+            eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
+            eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)
+
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
             ])
-            self.responses.append(MockRequestsResponse(200))
+            # Generate a key in advance so we can mock the registry's encrypted response.
+            key = RSA.generate(1024)
+            encryptor = PKCS1_OAEP.new(key)
+            encrypted_secret = encryptor.encrypt("secret")
+
+            # This registry support short client tokens, and has a vendor id.
+            metadata = dict(short_name="SHORT", shared_secret=base64.b64encode(encrypted_secret))
+            catalog = dict(metadata=metadata)
+            self.responses.append(MockRequestsResponse(200, content=json.dumps(catalog)))
             link = { 'rel': 'register', 'href': 'register url' }
-            feed = json.dumps(dict(links=[link]))
+            metadata = { 'adobe_vendor_id': 'vendorid' }
+            feed = json.dumps(dict(links=[link], metadata=metadata))
             headers = { 'Content-Type': 'application/opds+json' }
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
-            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request)
+            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
             
             eq_(200, response.status_code)
             eq_(["registry url", "register url"], self.requests[2:])
+
+            # The vendor id and short client token settings were stored.
+            eq_("vendorid", discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
+            eq_("SHORT", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
+            eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)

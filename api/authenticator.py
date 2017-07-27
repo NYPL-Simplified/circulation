@@ -709,6 +709,12 @@ class LibraryAuthenticator(object):
             Configuration.LIBRARY_DESCRIPTION, library).value
         if description:
             doc['service_description'] = description
+
+        # Add the library's public key, if it has one.
+        public_key = ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, library).value
+        if public_key:
+            doc["public_key"] = dict(type="RSA", value=public_key)
         
         # Add feature flags to signal to clients what features they should
         # offer.

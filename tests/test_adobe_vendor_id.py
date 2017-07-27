@@ -597,16 +597,16 @@ class TestAuthdataUtility(VendorIDTest):
         
         utility = AuthdataUtility.from_config(library)
 
-        short_client_token = ExternalIntegration.lookup(
-            self._db, ExternalIntegration.SHORT_CLIENT_TOKEN,
-            ExternalIntegration.DRM_GOAL, library=library
+        registry = ExternalIntegration.lookup(
+            self._db, ExternalIntegration.OPDS_REGISTRATION,
+            ExternalIntegration.DISCOVERY_GOAL, library=library
         )
         eq_(library.short_name + "token",
             ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.USERNAME, library, short_client_token).value)
+                self._db, ExternalIntegration.USERNAME, library, registry).value)
         eq_(library.short_name + " token secret",
             ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.PASSWORD, library, short_client_token).value)
+                self._db, ExternalIntegration.PASSWORD, library, registry).value)
 
         eq_(self.TEST_VENDOR_ID, utility.vendor_id)
         eq_(library_url, utility.library_uri)
@@ -625,7 +625,7 @@ class TestAuthdataUtility(VendorIDTest):
         # If an integration is set up but incomplete, from_config
         # raises CannotLoadConfiguration.
         setting = ConfigurationSetting.for_library_and_externalintegration(
-            self._db, ExternalIntegration.USERNAME, library, short_client_token)
+            self._db, ExternalIntegration.USERNAME, library, registry)
         old_short_name = setting.value
         setting.value = None
         assert_raises(
@@ -643,7 +643,7 @@ class TestAuthdataUtility(VendorIDTest):
         setting.value = old_value
 
         setting = ConfigurationSetting.for_library_and_externalintegration(
-            self._db, ExternalIntegration.PASSWORD, library, short_client_token)
+            self._db, ExternalIntegration.PASSWORD, library, registry)
         old_secret = setting.value
         setting.value = None
         assert_raises(
@@ -676,7 +676,7 @@ class TestAuthdataUtility(VendorIDTest):
 
         # If there is no Adobe Vendor ID integration set up,
         # from_config() returns None.
-        self._db.delete(short_client_token)
+        self._db.delete(registry)
         eq_(None, AuthdataUtility.from_config(library))
             
     def test_decode_round_trip(self):        

@@ -56,16 +56,15 @@ class VendorIDTest(DatabaseTest):
             libraries=[vendor_id_library]
         )
 
-        # The other libraries will share a short client token
-        # integration.
-        self.short_client_token = self._external_integration(
-            ExternalIntegration.SHORT_CLIENT_TOKEN,
-            ExternalIntegration.DRM_GOAL,
+        # The other libraries will share a registry integration.
+        self.registry = self._external_integration(
+            ExternalIntegration.OPDS_REGISTRATION,
+            ExternalIntegration.DISCOVERY_GOAL,
             libraries=short_token_libraries
         )
         # The integration knows which Adobe Vendor ID server it
         # gets its Adobe IDs from.
-        self.short_client_token.set_setting(
+        self.registry.set_setting(
             AuthdataUtility.VENDOR_ID_KEY,
             self.adobe_vendor_id.username
         )
@@ -84,10 +83,10 @@ class VendorIDTest(DatabaseTest):
             short_name = library.short_name + "token"
             secret = library.short_name + " token secret"
             ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.USERNAME, library, self.short_client_token
+                self._db, ExternalIntegration.USERNAME, library, self.registry
             ).value = short_name
             ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.PASSWORD, library, self.short_client_token
+                self._db, ExternalIntegration.PASSWORD, library, self.registry
             ).value = secret
 
             library.setting(Configuration.WEBSITE_URL).value = library_uri

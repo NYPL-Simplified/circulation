@@ -566,7 +566,7 @@ class TestOPDS(VendorIDTest):
             licensor.attrib['{http://librarysimplified.org/terms/drm}vendor'])
         [client_token, device_management_link] = licensor.getchildren()
         expected = ConfigurationSetting.for_library_and_externalintegration(
-            self._db, ExternalIntegration.USERNAME, self._default_library, self.short_client_token
+            self._db, ExternalIntegration.USERNAME, self._default_library, self.registry
         ).value.upper()
         assert client_token.text.startswith(expected)
         assert adobe_patron_identifier in client_token.text

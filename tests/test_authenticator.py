@@ -968,6 +968,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             Configuration.HELP_WEB, library).value = "http://library.help/"
         ConfigurationSetting.for_library(
             Configuration.HELP_URI, library).value = "custom:uri"
+
+        # Set up a public key.
+        ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, library).value = "public key"
         
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://circulation-manager/'
@@ -1023,6 +1027,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://library.help/", web['href'])
             eq_("text/html", web['type'])
             eq_("mailto:help@library", email['href'])
+
+            # The public key is correct.
+            eq_("public key", doc['public_key']['value'])
+            eq_("RSA", doc['public_key']['type'])
+            
 
             # The library's web page shows up as an HTML alternate
             # to the OPDS server.
