@@ -1662,68 +1662,6 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def drm_services(self):
-        provider_apis = [AuthdataUtility,
-                        ]
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
-
-        if flask.request.method == 'GET':
-            services = self._get_integration_info(ExternalIntegration.DRM_GOAL, protocols)
-            return dict(
-                drm_services=services,
-                protocols=protocols,
-            )
-
-        id = flask.request.form.get("id")
-
-        protocol = flask.request.form.get("protocol")
-        if protocol and protocol not in [p.get("name") for p in protocols]:
-            return UNKNOWN_PROTOCOL
-
-        is_new = False
-        if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.DRM_GOAL)
-            if not service:
-                return MISSING_SERVICE
-            if protocol != service.protocol:
-                return CANNOT_CHANGE_PROTOCOL
-        else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.DRM_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
-
-        name = flask.request.form.get("name")
-        if name:
-            if service.name != name:
-                service_with_name = get_one(self._db, ExternalIntegration, name=name)
-                if service_with_name:
-                    self._db.rollback()
-                    return INTEGRATION_NAME_ALREADY_IN_USE
-            service.name = name
-
-        [protocol] = [p for p in protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(service, protocol)
-        if isinstance(result, ProblemDetail):
-            return result
-
-        if protocol.get("name") == AuthdataUtility.NAME:
-            for library in service.libraries:
-                short_name_setting = ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.USERNAME, library, service)
-                if "|" in short_name_setting.value:
-                    self._db.rollback()
-                    return INVALID_CONFIGURATION_OPTION.detailed(
-                        _("Short name for library registry must not contain the pipe character (|)."))
-
-        if is_new:
-            return Response(unicode(_("Success")), 201)
-        else:
-            return Response(unicode(_("Success")), 200)
-
     def cdn_services(self):
         protocols = [
             {

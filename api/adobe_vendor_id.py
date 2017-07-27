@@ -668,17 +668,6 @@ class AuthdataUtility(object):
     VENDOR_ID_KEY = u'vendor_id'
     OTHER_LIBRARIES_KEY = u'other_libraries'
 
-    NAME = ExternalIntegration.SHORT_CLIENT_TOKEN
-
-    SETTINGS = [
-        { "key": VENDOR_ID_KEY, "label": _("Vendor ID") },
-    ]
-
-    LIBRARY_SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Short name for library registry") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Shared secret for library registry"), "randomizable": True },
-    ]
-
     @classmethod
     def from_config(cls, library):
         """Initialize an AuthdataUtility from site configuration.

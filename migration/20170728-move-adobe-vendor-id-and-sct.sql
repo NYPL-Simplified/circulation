@@ -8,6 +8,10 @@ BEGIN
         VALUES ('discovery', 'OPDS Registration', 'Library Simplified Registry')
         RETURNING id into registry_id;
 
+        -- Create the registry's url setting.
+        INSERT INTO configurationsettings (key, value, external_integration_id)
+        VALUES ('url', 'https://registry.librarysimplified.org', registry_id);
+
         -- Find the short client token integration and store its id.
         SELECT id INTO sct_id FROM externalintegrations
         WHERE protocol='Short Client Token' AND GOAL='drm' LIMIT 1;
