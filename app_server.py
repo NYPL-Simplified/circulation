@@ -82,7 +82,7 @@ def _make_response(content, content_type, cache_for):
         # as long as the end-user.
         client_cache = cache_for
         cdn_cache = cache_for / 2
-        cache_control = "public, no-transform, max-age: %d, s-maxage: %d" % (
+        cache_control = "public, no-transform, max-age=%d, s-maxage=%d" % (
             client_cache, cdn_cache)
     else:
         cache_control = "private, no-cache"
