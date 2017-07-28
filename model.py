@@ -3889,7 +3889,9 @@ class Work(Base):
         return changed
 
 
-    def calculate_presentation(self, policy=None, search_index_client=None):
+    def calculate_presentation(
+        self, policy=None, search_index_client=None, exclude_search=False
+    ):
         """Make a Work ready to show to patrons.
 
         Call calculate_presentation_edition() to find the best-quality presentation edition 
@@ -4003,7 +4005,7 @@ class Work(Base):
         if changed or policy.regenerate_opds_entries:
             self.calculate_opds_entries()
 
-        if changed or policy.update_search_index:
+        if (changed or policy.update_search_index) and not exclude_search:
             # Ensure new changes are reflected in database queries
             _db = Session.object_session(self)
             _db.flush()
@@ -4148,13 +4150,16 @@ class Work(Base):
             )
         return present_in_index
 
-    def set_presentation_ready(self, as_of=None, search_index_client=None):
+    def set_presentation_ready(
+        self, as_of=None, search_index_client=None, exclude_search=False
+    ):
         as_of = as_of or datetime.datetime.utcnow()
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
         self.random = random.random()
-        self.update_external_index(search_index_client)
+        if not exclude_search:
+            self.update_external_index(search_index_client)
 
     def set_presentation_ready_based_on_content(self, search_index_client=None):
         """Set this work as presentation ready, if it appears to
@@ -6487,7 +6492,9 @@ class LicensePool(Base):
         _db.commit()
 
 
-    def calculate_work(self, even_if_no_author=False, known_edition=None):
+    def calculate_work(
+        self, even_if_no_author=False, known_edition=None, exclude_search=False
+    ):
         """Find or create a Work for this LicensePool.
 
         A pool that is not open-access will always have its own
@@ -6669,7 +6676,7 @@ class LicensePool(Base):
         # under the assumption that it always calls
         # calculate_presentation(), so we'd need to evaluate those
         # call points first.
-        work.calculate_presentation()
+        work.calculate_presentation(exclude_search=exclude_search)
 
         # Ensure that all LicensePools with this Identifier share
         # the same Work. (We may have wiped out their .work earlier
@@ -9670,7 +9677,7 @@ class Collection(Base):
             integration = collection.create_external_integration(
                 protocol=protocol
             )
-            collection.external_integration.protocol=protocol           
+            collection.external_integration.protocol=protocol
         return collection, is_new
     
     @classmethod
