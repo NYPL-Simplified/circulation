@@ -889,8 +889,8 @@ class DataSource(Base):
     # LicensePool, editions are processed based on their data source,
     # in the following order:
     #
-    # [all other sources] < [source of the license pool] < [metadata
-    # wrangler] < [library staff] < [manual intervention]
+    # [all other sources] < [metadata wrangler] < [source of the license
+    # pool] < [library staff] < [manual intervention]
     #
     # This list keeps track of the high-priority portion of that
     # ordering.
@@ -898,9 +898,7 @@ class DataSource(Base):
     # "LIBRARY_STAFF" comes from the Admin Interface.
     # "MANUAL" is not currently used, but will give the option of putting in 
     # software engineer-created system overrides.
-    PRESENTATION_EDITION_PRIORITY = [
-        METADATA_WRANGLER, LIBRARY_STAFF, MANUAL
-    ]
+    PRESENTATION_EDITION_PRIORITY = [LIBRARY_STAFF, MANUAL]
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
