@@ -9200,7 +9200,6 @@ class ExternalIntegration(Base):
 
     # Integrations with DRM_GOAL
     ADOBE_VENDOR_ID = u'Adobe Vendor ID'
-    SHORT_CLIENT_TOKEN = u'Short Client Token'
 
     # Integrations with DISCOVERY_GOAL
     OPDS_REGISTRATION = u'OPDS Registration'

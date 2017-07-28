@@ -45,7 +45,10 @@ from metadata_layer import (
     Metadata,
 )
 
-from config import Configuration
+from config import (
+    CannotLoadConfiguration,
+    Configuration,
+)
 from coverage import BibliographicCoverageProvider
 
 from testing import DatabaseTest
