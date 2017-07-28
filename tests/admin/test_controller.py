@@ -10,6 +10,8 @@ from werkzeug import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
 from StringIO import StringIO
 import base64
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
@@ -2814,204 +2816,6 @@ class TestSettingsController(AdminControllerTest):
         eq_("l2id", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, l2, ga_service).value)
 
-    def test_drm_services_get_with_no_services(self):
-        with self.app.test_request_context("/"):
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response.get("drm_services"), [])
-            protocols = response.get("protocols")
-            assert AuthdataUtility.NAME in [p.get("name") for p in protocols]
-            assert "settings" in protocols[0]
-        
-    def test_drm_services_get_with_one_service(self):
-        drm_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
-            goal=ExternalIntegration.DRM_GOAL,
-        )
-        vendor_id = self._str
-        drm_service.setting(AuthdataUtility.VENDOR_ID_KEY).value = vendor_id
-
-        with self.app.test_request_context("/"):
-            response = self.manager.admin_settings_controller.drm_services()
-            [service] = response.get("drm_services")
-
-            eq_(drm_service.id, service.get("id"))
-            eq_(drm_service.protocol, service.get("protocol"))
-            eq_(vendor_id, service.get("settings").get(AuthdataUtility.VENDOR_ID_KEY))
-
-        drm_service.libraries += [self._default_library]
-        username = self._str
-        ConfigurationSetting.for_library_and_externalintegration(
-            self._db, ExternalIntegration.USERNAME, self._default_library, drm_service
-        ).value = username
-        with self.app.test_request_context("/"):
-            response = self.manager.admin_settings_controller.drm_services()
-            [service] = response.get("drm_services")
-
-            [library] = service.get("libraries")
-            eq_(self._default_library.short_name, library.get("short_name"))
-            eq_(username, library.get(ExternalIntegration.USERNAME))
-
-    def test_drm_services_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("protocol", "Unknown"),
-            ])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response, UNKNOWN_PROTOCOL)
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("id", "123"),
-            ])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response, MISSING_SERVICE)
-
-        service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
-            goal=ExternalIntegration.DRM_GOAL,
-            name="name",
-        )
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("name", service.name),
-                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
-            ])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
-
-        service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
-            goal=ExternalIntegration.DRM_GOAL,
-        )
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("id", service.id),
-                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
-            ])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-
-        service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
-            goal=ExternalIntegration.DRM_GOAL,
-        )
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("id", service.id),
-                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
-                (AuthdataUtility.VENDOR_ID_KEY, "vendor id"),
-                ("libraries", json.dumps([{"short_name": "not-a-library"}])),
-            ])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response.uri, NO_SUCH_LIBRARY.uri)
-
-        service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
-            goal=ExternalIntegration.DRM_GOAL,
-        )
-        library, ignore = create(
-            self._db, Library, name="Library", short_name="L",
-        )
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("id", service.id),
-                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
-                (AuthdataUtility.VENDOR_ID_KEY, "vendor id"),
-                ("libraries", json.dumps([{"short_name": library.short_name}])),
-            ])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-
-        service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
-            goal=ExternalIntegration.DRM_GOAL,
-        )
-        library, ignore = create(
-            self._db, Library, name="Library", short_name="L",
-        )
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("id", service.id),
-                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
-                (AuthdataUtility.VENDOR_ID_KEY, "vendor id"),
-                ("libraries", json.dumps([{"short_name": library.short_name, "username": "L|", "password": "secret"}])),
-            ])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
-
-    def test_drm_services_post_create(self):
-        library, ignore = create(
-            self._db, Library, name="Library", short_name="L",
-        )
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
-                (AuthdataUtility.VENDOR_ID_KEY, "vendor id"),
-                ("libraries", json.dumps([{"short_name": "L", "username": "short name", "password": "secret"}])),
-            ])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response.status_code, 201)
-
-        service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.DRM_GOAL)
-        eq_(ExternalIntegration.SHORT_CLIENT_TOKEN, service.protocol)
-        eq_("vendor id", service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
-        eq_([library], service.libraries)
-        eq_("short name", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.USERNAME, library, service).value)
-        eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.PASSWORD, library, service).value)
-
-    def test_drm_services_post_edit(self):
-        l1, ignore = create(
-            self._db, Library, name="Library 1", short_name="L1",
-        )
-        l2, ignore = create(
-            self._db, Library, name="Library 2", short_name="L2",
-        )
-
-        drm_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
-            goal=ExternalIntegration.DRM_GOAL,
-        )
-        drm_service.setting(AuthdataUtility.VENDOR_ID_KEY).value = "vendor id"
-        drm_service.libraries = [l1]
-
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("id", drm_service.id),
-                ("protocol", ExternalIntegration.SHORT_CLIENT_TOKEN),
-                (AuthdataUtility.VENDOR_ID_KEY, "new vendor id"),
-                ("libraries", json.dumps([{"short_name": "L2", "username": "l2", "password": "secret"}])),
-            ])
-            response = self.manager.admin_settings_controller.drm_services()
-            eq_(response.status_code, 200)
-
-        eq_(ExternalIntegration.SHORT_CLIENT_TOKEN, drm_service.protocol)
-        eq_("new vendor id", drm_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
-        eq_([l2], drm_service.libraries)
-        eq_("l2", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.USERNAME, l2, drm_service).value)
-        eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.PASSWORD, l2, drm_service).value)
-
-
     def test_cdn_services_get_with_no_services(self):
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.cdn_services()
@@ -3427,7 +3231,7 @@ class TestSettingsController(AdminControllerTest):
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
             ])
-            self.responses.append(MockRequestsResponse(200))
+            self.responses.append(MockRequestsResponse(200, content='{}'))
             feed = '<feed><link rel="register" href="register url"/></feed>'
             headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
@@ -3437,18 +3241,42 @@ class TestSettingsController(AdminControllerTest):
             eq_(200, response.status_code)
             eq_(["registry url", "register url"], self.requests)
 
+            # This registry doesn't support short client tokens and doesn't have a vendor id,
+            # so no settings were added to it.
+            eq_(None, discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
+            eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
+            eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)
+
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
             ])
-            self.responses.append(MockRequestsResponse(200))
+            # Generate a key in advance so we can mock the registry's encrypted response.
+            key = RSA.generate(1024)
+            encryptor = PKCS1_OAEP.new(key)
+            encrypted_secret = encryptor.encrypt("secret")
+
+            # This registry support short client tokens, and has a vendor id.
+            metadata = dict(short_name="SHORT", shared_secret=base64.b64encode(encrypted_secret))
+            catalog = dict(metadata=metadata)
+            self.responses.append(MockRequestsResponse(200, content=json.dumps(catalog)))
             link = { 'rel': 'register', 'href': 'register url' }
-            feed = json.dumps(dict(links=[link]))
+            metadata = { 'adobe_vendor_id': 'vendorid' }
+            feed = json.dumps(dict(links=[link], metadata=metadata))
             headers = { 'Content-Type': 'application/opds+json' }
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
-            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request)
+            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
             
             eq_(200, response.status_code)
             eq_(["registry url", "register url"], self.requests[2:])
+
+            # The vendor id and short client token settings were stored.
+            eq_("vendorid", discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
+            eq_("SHORT", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
+            eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)

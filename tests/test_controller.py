@@ -316,10 +316,10 @@ class TestCirculationManager(CirculationControllerTest):
         self.library_setup(library)
 
         # In addition to the setup performed by library_set(), give it
-        # a Short Client Token integration so we can verify that the
-        # DeviceManagementProtocolController is recreated.
+        # a registry integration with short client tokens so we can verify
+        # that the DeviceManagementProtocolController is recreated.
         self.initialize_adobe(library, [library])
-        
+
         # Then reload the CirculationManager...
         self.manager.load_settings()
         
@@ -375,13 +375,14 @@ class TestCirculationManager(CirculationControllerTest):
 
     def test_exception_during_short_client_token_initialization_is_stored(self):
 
-        # Create an incomplete Short ClientToken integration for our
+        # Create an incomplete Short Client Token setup for our
         # library.
-        short_client_token_integration = self._external_integration(
-            protocol=ExternalIntegration.SHORT_CLIENT_TOKEN,
-            goal=ExternalIntegration.DRM_GOAL, libraries=[self.library]
+        registry_integration = self._external_integration(
+            protocol=ExternalIntegration.OPDS_REGISTRATION,
+            goal=ExternalIntegration.DISCOVERY_GOAL, libraries=[self.library]
         )
-        short_client_token_integration.username = "something"
+        registry_integration.username = "something"
+        registry_integration.set_setting(AuthdataUtility.VENDOR_ID_KEY, "vendorid")
 
         # Then try to set up the Adobe Vendor ID configuration for
         # that library.

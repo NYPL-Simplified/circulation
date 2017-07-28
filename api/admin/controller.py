@@ -19,6 +19,8 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image
 from StringIO import StringIO
 import feedparser
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 
 from core.model import (
     create,
@@ -1660,68 +1662,6 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def drm_services(self):
-        provider_apis = [AuthdataUtility,
-                        ]
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
-
-        if flask.request.method == 'GET':
-            services = self._get_integration_info(ExternalIntegration.DRM_GOAL, protocols)
-            return dict(
-                drm_services=services,
-                protocols=protocols,
-            )
-
-        id = flask.request.form.get("id")
-
-        protocol = flask.request.form.get("protocol")
-        if protocol and protocol not in [p.get("name") for p in protocols]:
-            return UNKNOWN_PROTOCOL
-
-        is_new = False
-        if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.DRM_GOAL)
-            if not service:
-                return MISSING_SERVICE
-            if protocol != service.protocol:
-                return CANNOT_CHANGE_PROTOCOL
-        else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.DRM_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
-
-        name = flask.request.form.get("name")
-        if name:
-            if service.name != name:
-                service_with_name = get_one(self._db, ExternalIntegration, name=name)
-                if service_with_name:
-                    self._db.rollback()
-                    return INTEGRATION_NAME_ALREADY_IN_USE
-            service.name = name
-
-        [protocol] = [p for p in protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(service, protocol)
-        if isinstance(result, ProblemDetail):
-            return result
-
-        if protocol.get("name") == AuthdataUtility.NAME:
-            for library in service.libraries:
-                short_name_setting = ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.USERNAME, library, service)
-                if "|" in short_name_setting.value:
-                    self._db.rollback()
-                    return INVALID_CONFIGURATION_OPTION.detailed(
-                        _("Short name for library registry must not contain the pipe character (|)."))
-
-        if is_new:
-            return Response(unicode(_("Success")), 201)
-        else:
-            return Response(unicode(_("Success")), 200)
-
     def cdn_services(self):
         protocols = [
             {
@@ -1908,7 +1848,7 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def library_registrations(self, do_get=HTTP.get_with_timeout, do_post=HTTP.post_with_timeout):
+    def library_registrations(self, do_get=HTTP.get_with_timeout, do_post=HTTP.post_with_timeout, key=None):
         if flask.request.method == "POST":
 
             integration_id = flask.request.form.get("integration_id")
@@ -1930,10 +1870,12 @@ class SettingsController(CirculationManagerController):
                 # This is an OPDS 2 catalog.
                 catalog = json.loads(response.content)
                 links = catalog.get("links", [])
+                vendor_id = catalog.get("metadata", {}).get("adobe_vendor_id")
             elif type and type.startswith("application/atom+xml;profile=opds-catalog"):
                 # This is an OPDS 1 feed.
                 feed = feedparser.parse(response.content)
                 links = feed.get("feed", {}).get("links", [])
+                vendor_id = None
             else:
                 return REMOTE_INTEGRATION_FAILED.detailed(_("The discovery service did not return OPDS."))
 
@@ -1945,8 +1887,44 @@ class SettingsController(CirculationManagerController):
             if not register_url:
                 return REMOTE_INTEGRATION_FAILED.detailed(_("The discovery service did not provide a register link."))
 
+            # Store the vendor id as a ConfigurationSetting on the registry.
+            if vendor_id:
+                ConfigurationSetting.for_externalintegration(
+                    AuthdataUtility.VENDOR_ID_KEY, integration).value = vendor_id
+
+            # Generate a public key for the library.
+            if not key:
+                key = RSA.generate(2048)
+            public_key = key.publickey().exportKey()
+            encryptor = PKCS1_OAEP.new(key)
+
+            ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = public_key
+            # Commit so the public key will be there when the registry gets the
+            # OPDS Authentication document.
+            self._db.commit()
+
             library_url = self.url_for("acquisition_groups", library_short_name=library.short_name)
-            do_post(register_url, dict(url=library_url), allowed_response_codes=["2xx"])
+            response = do_post(register_url, dict(url=library_url), allowed_response_codes=["2xx"])
+            catalog = json.loads(response.content)
+
+            # Since we generated a public key, the catalog should have the short name
+            # and shared secret for Short Client Tokens.
+            short_name = catalog.get("metadata", {}).get("short_name")
+            shared_secret = catalog.get("metadata", {}).get("shared_secret")
+
+            if short_name and shared_secret:
+                shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+
+                ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.USERNAME, library, integration
+                ).value = short_name
+                ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.PASSWORD, library, integration
+                ).value = shared_secret
+                integration.libraries += [library]
+
+                # We're done with the key, so remove the setting.
+                ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = None
 
         return Response(unicode(_("Success")), 200)
 

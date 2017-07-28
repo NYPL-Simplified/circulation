@@ -88,6 +88,11 @@ class Configuration(CoreConfiguration):
     # Features of an OPDS client which a library may want to enable or
     # disable.
     RESERVATIONS_FEATURE = "https://librarysimplified.org/rel/policy/reservations"
+
+    # Name of the library-wide public key configuration setting for negotiating
+    # a shared secret with a library registry. The setting is automatically generated
+    # and not editable by admins.
+    PUBLIC_KEY = "public-key"
     
     SITEWIDE_SETTINGS = CoreConfiguration.SITEWIDE_SETTINGS + [
         {

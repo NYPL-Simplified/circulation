@@ -35,6 +35,7 @@ oauth2client
 pyjwt==1.4.2
 flask-cors
 PyLD
+pycryptodome
 
 # A NYPL-specific requirement
 newrelic

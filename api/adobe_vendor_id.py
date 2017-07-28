@@ -668,17 +668,6 @@ class AuthdataUtility(object):
     VENDOR_ID_KEY = u'vendor_id'
     OTHER_LIBRARIES_KEY = u'other_libraries'
 
-    NAME = ExternalIntegration.SHORT_CLIENT_TOKEN
-
-    SETTINGS = [
-        { "key": VENDOR_ID_KEY, "label": _("Vendor ID") },
-    ]
-
-    LIBRARY_SETTINGS = [
-        { "key": ExternalIntegration.USERNAME, "label": _("Short name for library registry") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Shared secret for library registry"), "randomizable": True },
-    ]
-
     @classmethod
     def from_config(cls, library):
         """Initialize an AuthdataUtility from site configuration.
@@ -690,23 +679,38 @@ class AuthdataUtility(object):
         incompletely configured.
         """
         _db = Session.object_session(library)
-        short_client_token = ExternalIntegration.lookup(
-            _db, ExternalIntegration.SHORT_CLIENT_TOKEN,
-            ExternalIntegration.DRM_GOAL, library=library
+
+        # Try to find an external integration with a configured Vendor ID.
+        integrations = _db.query(
+            ExternalIntegration
+        ).outerjoin(
+            ExternalIntegration.libraries
+        ).filter(
+            ExternalIntegration.protocol==ExternalIntegration.OPDS_REGISTRATION,
+            ExternalIntegration.goal==ExternalIntegration.DISCOVERY_GOAL,
+            Library.id==library.id
         )
+
+        integration = None
+        for possible_integration in integrations:
+            vendor_id = ConfigurationSetting.for_externalintegration(
+                cls.VENDOR_ID_KEY, possible_integration).value
+            if vendor_id:
+                integration = possible_integration
+                break
 
         library_uri = ConfigurationSetting.for_library(
             Configuration.WEBSITE_URL, library).value
 
-        if not short_client_token:
+        if not integration:
             return None
 
-        vendor_id = short_client_token.setting(cls.VENDOR_ID_KEY).value
+        vendor_id = integration.setting(cls.VENDOR_ID_KEY).value
         library_short_name = ConfigurationSetting.for_library_and_externalintegration(
-            _db, ExternalIntegration.USERNAME, library, short_client_token
+            _db, ExternalIntegration.USERNAME, library, integration
         ).value
         secret = ConfigurationSetting.for_library_and_externalintegration(
-            _db, ExternalIntegration.PASSWORD, library, short_client_token
+            _db, ExternalIntegration.PASSWORD, library, integration
         ).value
 
         other_libraries = None
