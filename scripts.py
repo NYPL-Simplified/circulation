@@ -76,7 +76,10 @@ from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from core.util import LanguageCodes
 
-from api.config import Configuration
+from api.config import (
+    CannotLoadConfiguration,
+    Configuration,
+)
 from api.adobe_vendor_id import (
     AdobeVendorIDModel,
     AuthdataUtility,
@@ -758,7 +761,11 @@ class InstanceInitializationScript(Script):
     def do_run(self, ignore_search=False):
         # Creates a "-current" alias on the Elasticsearch client.
         if not ignore_search:
-            search_client = ExternalSearchIndex(self._db)
+            try:
+                search_client = ExternalSearchIndex(self._db)
+            except CannotLoadConfiguration as e:
+                # Elasticsearch isn't configured, so do nothing.
+                pass
 
         # Set a timestamp that represents the new database's version.
         db_init_script = DatabaseMigrationInitializationScript(_db=self._db)
