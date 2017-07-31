@@ -76,18 +76,10 @@ class OverdriveTestWithAPI(OverdriveTest):
 class TestOverdriveAPI(OverdriveTestWithAPI):
 
     def test_default_ils_name(self):
-
         # The 'ils_name' setting (defined in
         # MockOverdriveAPI.mock_collection) becomes
         # OverdriveAPI.ils_name.
         eq_("e", self.api.ils_name)
-
-        # If we remove the value for the ils_name setting, the literal
-        # string 'default' is used.  used.
-        self.collection.external_integration.setting(
-            OverdriveAPI.ILS_NAME).value = None
-        api = MockOverdriveAPI(self.collection)
-        eq_("default", api.ils_name)
         
     def test_make_link_safe(self):
         eq_("http://foo.com?q=%2B%3A%7B%7D",
