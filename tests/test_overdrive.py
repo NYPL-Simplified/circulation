@@ -75,6 +75,12 @@ class OverdriveTestWithAPI(OverdriveTest):
 
 class TestOverdriveAPI(OverdriveTestWithAPI):
 
+    def test_default_ils_name(self):
+        # The 'ils_name' setting (defined in
+        # MockOverdriveAPI.mock_collection) becomes
+        # OverdriveAPI.ils_name.
+        eq_("e", self.api.ils_name)
+        
     def test_make_link_safe(self):
         eq_("http://foo.com?q=%2B%3A%7B%7D",
             OverdriveAPI.make_link_safe("http://foo.com?q=+:{}"))
@@ -205,6 +211,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         main.external_integration.username = "user"
         main.external_integration.password = "password"
         main.external_integration.setting('website_id').value = '100'
+        main.external_integration.setting('ils_name').value = 'default'
 
         # Here's an Overdrive API client for that collection.
         overdrive_main = MockOverdriveAPI(main)
