@@ -28,7 +28,7 @@ if ! [[ -z ${TRAVIS_TAG} ]] || [[ ${TRAVIS_BRANCH} == "run-docker-builds" ]]; th
     --name circ --rm nypl/circ-deploy;
 
   # Run the tests in the container.
-  docker exec circ /bin/bash -c "source env/bin/activate && ./verbose-test && cd core && ./test";
+  docker exec circ /bin/bash -c "source env/bin/activate && ./verbose-test && cd core && ./test -v";
 
   # Create a library so the app will start.
   docker exec -u postgres pg psql -U simplified -d docker_prod \
