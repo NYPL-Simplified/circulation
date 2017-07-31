@@ -490,14 +490,16 @@ class TestOverdriveAPI(OverdriveAPITest):
         url, payload, headers, kwargs = with_pin
         eq_("https://oauth-patron.overdrive.com/patrontoken", url)
         eq_("barcode", payload['username'])
-        eq_("websiteid:d authorizationname:default", payload['scope'])
+        expect_scope = "websiteid:%s authorizationname:%s" % (
+            self.api.website_id, self.api.ils_name
+        )
         eq_("a pin", payload['password'])
         assert not 'password_required' in payload
 
         url, payload, headers, kwargs = without_pin
         eq_("https://oauth-patron.overdrive.com/patrontoken", url)
         eq_("barcode", payload['username'])
-        eq_("websiteid:d authorizationname:default", payload['scope'])
+        eq_(expect_scope, payload['scope'])
         eq_("false", payload['password_required'])
         eq_("[ignore]", payload['password'])
         
