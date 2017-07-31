@@ -749,6 +749,7 @@ class DatabaseTest(object):
         )
         collection.external_account_id = external_account_id
         integration = collection.create_external_integration(protocol)
+        integration.goal = ExternalIntegration.LICENSE_GOAL
         integration.url = url
         integration.username = username
         integration.password = password
@@ -803,6 +804,7 @@ class DatabaseTest(object):
         integration = collection.create_external_integration(
             ExternalIntegration.OPDS_IMPORT
         )
+        integration.goal = ExternalIntegration.LICENSE_GOAL
         if collection not in library.collections:
             library.collections.append(collection)
         return library
