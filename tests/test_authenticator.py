@@ -993,7 +993,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # were placed in the document.
             eq_("A Fabulous Library", doc['name'])
             eq_("Just the best.", doc['service_description'])
-            eq_(url_for("acquisition_groups", library_short_name=self._default_library.short_name, _external=True), doc['id'])
+            eq_(url_for("index", library_short_name=self._default_library.short_name, _external=True), doc['id'])
 
             # The color scheme is correctly reported.
             eq_("plaid", doc['color_scheme'])
