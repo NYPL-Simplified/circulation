@@ -428,6 +428,7 @@ class MockOverdriveAPI(OverdriveAPI):
         integration.username = u'a'
         integration.password = u'b'
         integration.set_setting('website_id', 'd')
+        integration.set_setting(OverdriveAPI.ILS_NAME, 'e')
         library.collections.append(collection)
         return collection
     
