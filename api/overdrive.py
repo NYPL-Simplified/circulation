@@ -55,6 +55,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         { "key": BaseOverdriveAPI.WEBSITE_ID, "label": _("Website ID") },
         { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+        { "key": BaseOverdriveAPI.ILS_NAME, "label": _("ILS Name"),
+          "default": "default" },
     ] + BaseCirculationAPI.SETTINGS
 
     # An Overdrive Advantage collection inherits everything except the library id
@@ -152,7 +154,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             grant_type="password",
             username=patron.authorization_identifier,
             scope="websiteid:%s authorizationname:%s" % (
-                self.website_id, "default")
+                self.website_id, self.ils_name)
         )
         if pin:
             # A PIN was provided.
