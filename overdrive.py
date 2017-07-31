@@ -111,7 +111,12 @@ class OverdriveAPI(object):
 
     WEBSITE_ID = "website_id"
 
-   
+    # When setting up Patron authentication for an Overdrive account,
+    # it's necessary to specify an "ILS name" obtained from
+    # Overdrive. Components that don't authenticate patrons (such as
+    # the metadata wrangler) don't need to set this value.
+    ILS_NAME = "ils_name"
+    
     def __init__(self, collection):
         if collection.protocol != ExternalIntegration.OVERDRIVE:
             raise ValueError(
@@ -135,6 +140,10 @@ class OverdriveAPI(object):
         self.client_key = collection.external_integration.username.encode("utf8")
         self.client_secret = collection.external_integration.password.encode("utf8")
         self.website_id = collection.external_integration.setting(self.WEBSITE_ID).value.encode("utf8")
+        # 'default' works as an ILS name for many libraries, but not all.
+        ils_name = collection.external_integration.setting(
+            self.ILS_NAME).value or "default"
+        self.ils_name = ils_name.encode("utf8")
 
         if (not self.client_key or not self.client_secret or not self.website_id
             or not self.library_id):
