@@ -12,7 +12,7 @@ from . import (
     sample_data,
 )
 
-from core.scripts import RunCoverageProviderScript
+from core.scripts import RunCollectionCoverageProviderScript
 from core.testing import MockRequestsResponse
 
 from core.config import (
@@ -657,16 +657,21 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest
 class TestContentServerBibliographicCoverageProvider(DatabaseTest):
 
     def test_script_instantiation(self):
-        """Test that RunCoverageProviderScript can instantiate
+        """Test that RunCollectionCoverageProviderScript can instantiate
         the coverage provider.
         """
-        script = RunCoverageProviderScript(
-            ContentServerBibliographicCoverageProvider,
-            self._default_collection, lookup_client=object(),
-            cmd_args=[]
+        # Create a Collection to be found.
+        collection = self._collection(
+            name="OA Content", data_source_name=DataSource.OA_CONTENT_SERVER
         )
-        assert isinstance(script.provider, 
+
+        script = RunCollectionCoverageProviderScript(
+            ContentServerBibliographicCoverageProvider,
+            _db=self._db, lookup_client=object()
+        )
+        assert isinstance(script.providers[0],
                           ContentServerBibliographicCoverageProvider)
+        eq_(collection, script.providers[0].collection)
 
     def test_finalize_license_pool(self):
 
