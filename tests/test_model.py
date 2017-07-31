@@ -915,6 +915,27 @@ class TestEdition(DatabaseTest):
         eq_([g1.id, g2.id], sorted([x.id for x in Edition.missing_coverage_from(
             self._db, gutenberg, web)]))
 
+    def test_sort_by_priority(self):
+        edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
+        edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
+        edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
+
+        # Unset edition_no_data_source's data source
+        edition_no_data_source = self._edition(with_license_pool=False)
+        edition_no_data_source.data_source = None
+
+        editions_correct = (edition_no_data_source, edition_od, edition_mw, edition_admin)
+
+        # Give all the editions the same identifier and sort them.
+        identifier = pool.identifier
+        for edition in editions_correct:
+            edition.primary_identifier = identifier
+        editions_contender = Edition.sort_by_priority(identifier.primarily_identifies)
+
+        eq_(len(editions_correct), len(editions_contender))
+        for index, edition in enumerate(editions_correct):
+            eq_(editions_contender[index].title, edition.title)
+
     def test_equivalent_identifiers(self):
 
         edition = self._edition()
@@ -1556,27 +1577,6 @@ class TestLicensePool(DatabaseTest):
         # we start getting the same results.
         library2.collections.extend(library.collections)
         eq_(3, LicensePool.with_complaint(library2, resolved=None).count())
-
-    def test_editions_in_priority_order(self):
-        edition_admin = self._edition(data_source_name=DataSource.LIBRARY_STAFF, with_license_pool=False)
-        edition_od, pool = self._edition(data_source_name=DataSource.OVERDRIVE, with_license_pool=True)
-        edition_mw = self._edition(data_source_name=DataSource.METADATA_WRANGLER, with_license_pool=False)
-        # do not set edition_no_data_source's data source
-        edition_no_data_source = self._edition(with_license_pool=False)
-
-
-        edition_admin.primary_identifier = pool.identifier
-        edition_mw.primary_identifier = pool.identifier
-        edition_no_data_source.primary_identifier = pool.identifier
-
-        editions_correct = (edition_no_data_source, edition_od, edition_mw, edition_admin)
-        editions_contender = pool.editions_in_priority_order()
-
-        #eq_(editions_correct, editions_contender)
-        eq_(len(editions_correct), len(editions_contender))
-
-        for index, edition in enumerate(editions_correct):
-            eq_(editions_contender[index].title, editions_correct[index].title)
 
     def test_set_presentation_edition(self):
         """

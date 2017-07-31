@@ -898,9 +898,7 @@ class DataSource(Base):
     # "LIBRARY_STAFF" comes from the Admin Interface.
     # "MANUAL" is not currently used, but will give the option of putting in 
     # software engineer-created system overrides.
-    PRESENTATION_EDITION_PRIORITY = [
-        METADATA_WRANGLER, LIBRARY_STAFF, MANUAL
-    ]
+    PRESENTATION_EDITION_PRIORITY = [METADATA_WRANGLER, LIBRARY_STAFF, MANUAL]
 
     __tablename__ = 'datasources'
     id = Column(Integer, primary_key=True)
@@ -2732,6 +2730,41 @@ class Edition(Base):
         q2 = q.filter(CoverageRecord.id==None)
         return q2
 
+    @classmethod
+    def sort_by_priority(self, editions):
+        """Return all Editions that describe the Identifier associated with
+        this LicensePool, in the order they should be used to create a
+        presentation Edition for the LicensePool.
+        """
+        def sort_key(edition):
+            """Return a numeric ordering of this edition."""
+            source = edition.data_source
+            if not source:
+                # This shouldn't happen. Give this edition the
+                # lowest priority.
+                return -100
+
+            if source == self.data_source:
+                # This Edition contains information from the same data
+                # source as the LicensePool itself. Put it below any
+                # Edition from one of the data sources in
+                # PRESENTATION_EDITION_PRIORITY, but above all other
+                # Editions.
+                return -1
+
+            if source.name in DataSource.PRESENTATION_EDITION_PRIORITY:
+                id_type = edition.primary_identifier.type
+                if (id_type == Identifier.ISBN and
+                    source.name == DataSource.METADATA_WRANGLER):
+                    # This ISBN edition was pieced together from OCLC data.
+                    # To avoid overwriting better author and title data from
+                    # the license source, rank this edition lower.
+                    return -1.5
+                return DataSource.PRESENTATION_EDITION_PRIORITY.index(source.name)
+            else:
+                return -2
+
+        return sorted(editions, key=sort_key)
 
     @classmethod
     def _content(cls, content, is_html=False):
@@ -3862,7 +3895,9 @@ class Work(Base):
         return changed
 
 
-    def calculate_presentation(self, policy=None, search_index_client=None):
+    def calculate_presentation(
+        self, policy=None, search_index_client=None, exclude_search=False
+    ):
         """Make a Work ready to show to patrons.
 
         Call calculate_presentation_edition() to find the best-quality presentation edition 
@@ -3976,7 +4011,7 @@ class Work(Base):
         if changed or policy.regenerate_opds_entries:
             self.calculate_opds_entries()
 
-        if changed or policy.update_search_index:
+        if (changed or policy.update_search_index) and not exclude_search:
             # Ensure new changes are reflected in database queries
             _db = Session.object_session(self)
             _db.flush()
@@ -4121,13 +4156,16 @@ class Work(Base):
             )
         return present_in_index
 
-    def set_presentation_ready(self, as_of=None, search_index_client=None):
+    def set_presentation_ready(
+        self, as_of=None, search_index_client=None, exclude_search=False
+    ):
         as_of = as_of or datetime.datetime.utcnow()
         self.presentation_ready = True
         self.presentation_ready_exception = None
         self.presentation_ready_attempt = as_of
         self.random = random.random()
-        self.update_external_index(search_index_client)
+        if not exclude_search:
+            self.update_external_index(search_index_client)
 
     def set_presentation_ready_based_on_content(self, search_index_client=None):
         """Set this work as presentation ready, if it appears to
@@ -6176,34 +6214,6 @@ class LicensePool(Base):
                 return True
         return False
 
-
-    def editions_in_priority_order(self):
-        """Return all Editions that describe the Identifier associated with
-        this LicensePool, in the order they should be used to create a
-        presentation Edition for the LicensePool.
-        """
-        def sort_key(edition):
-            """Return a numeric ordering of this edition."""
-            source = edition.data_source
-            if not source:
-                # This shouldn't happen. Give this edition the
-                # lowest priority.
-                return -100
-
-            if source == self.data_source:
-                # This Edition contains information from the same data
-                # source as the LicensePool itself. Put it below any
-                # Edition from one of the data sources in
-                # PRESENTATION_EDITION_PRIORITY, but above all other
-                # Editions.
-                return -1
-            if source.name in DataSource.PRESENTATION_EDITION_PRIORITY:
-                return DataSource.PRESENTATION_EDITION_PRIORITY.index(source.name)
-            else:
-                return -2
-
-        return sorted(self.identifier.primarily_identifies, key=sort_key)
-
     def set_open_access_status(self):
         """Set .open_access based on whether there is currently
         an open-access LicensePoolDeliveryMechanism for this LicensePool.
@@ -6215,19 +6225,28 @@ class LicensePool(Base):
         else:
             self.open_access = False
 
-    def set_presentation_edition(self):
+    def set_presentation_edition(self, equivalent_editions=None):
         """Create or update the presentation Edition for this LicensePool.
 
         The presentation Edition is made of metadata from all Editions
         associated with the LicensePool's identifier.
+
+        :param equivalent_editions: An optional list of Edition objects
+        that don't share this LicensePool's identifier but are associated
+        with its equivalent identifiers in some way. This option is used
+        to create Works on the Metadata Wrangler.
 
         :return: A boolean explaining whether any of the presentation
         information associated with this LicensePool actually changed.
         """
         _db = Session.object_session(self)
         old_presentation_edition = self.presentation_edition
-        all_editions = list(self.editions_in_priority_order())
         changed = False
+
+        editions = equivalent_editions
+        if not editions:
+            editions = self.identifier.primarily_identifies
+        all_editions = list(Edition.sort_by_priority(editions))
 
         # Note: We can do a cleaner solution, if we refactor to not use metadata's 
         # methods to update editions.  For now, we're choosing to go with the below approach.
@@ -6275,7 +6294,6 @@ class LicensePool(Base):
             self.presentation_edition != old_presentation_edition 
             or changed
         )
-
 
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None):
@@ -6480,7 +6498,9 @@ class LicensePool(Base):
         _db.commit()
 
 
-    def calculate_work(self, even_if_no_author=False, known_edition=None):
+    def calculate_work(
+        self, even_if_no_author=False, known_edition=None, exclude_search=False
+    ):
         """Find or create a Work for this LicensePool.
 
         A pool that is not open-access will always have its own
@@ -6662,7 +6682,7 @@ class LicensePool(Base):
         # under the assumption that it always calls
         # calculate_presentation(), so we'd need to evaluate those
         # call points first.
-        work.calculate_presentation()
+        work.calculate_presentation(exclude_search=exclude_search)
 
         # Ensure that all LicensePools with this Identifier share
         # the same Work. (We may have wiped out their .work earlier
@@ -9662,7 +9682,7 @@ class Collection(Base):
             integration = collection.create_external_integration(
                 protocol=protocol
             )
-            collection.external_integration.protocol=protocol           
+            collection.external_integration.protocol=protocol
         return collection, is_new
     
     @classmethod
