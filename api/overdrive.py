@@ -55,7 +55,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         { "key": BaseOverdriveAPI.WEBSITE_ID, "label": _("Website ID") },
         { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
-        { "key": BaseOverdriveAPI.ILS_NAME, "label": _("ILS Name") },
+        { "key": BaseOverdriveAPI.ILS_NAME, "label": _("ILS Name"),
+          "default": "default" },
     ] + BaseCirculationAPI.SETTINGS
 
     # An Overdrive Advantage collection inherits everything except the library id
