@@ -1903,7 +1903,7 @@ class SettingsController(CirculationManagerController):
             # OPDS Authentication document.
             self._db.commit()
 
-            library_url = self.url_for("acquisition_groups", library_short_name=library.short_name)
+            library_url = self.url_for("index", library_short_name=library.short_name)
             response = do_post(register_url, dict(url=library_url), allowed_response_codes=["2xx"])
             catalog = json.loads(response.content)
 
