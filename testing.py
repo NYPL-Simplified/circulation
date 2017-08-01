@@ -104,6 +104,9 @@ class DatabaseTest(object):
         Configuration.instance[Configuration.DATA_DIRECTORY] = cls.tmp_data_dir
 
         # Avoid CannotLoadConfiguration errors related to CDN integrations.
+        Configuration.instance[Configuration.INTEGRATIONS] = Configuration.instance.get(
+            Configuration.INTEGRATIONS, {}
+        )
         Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {}
 
         os.environ['TESTING'] = 'true'
@@ -749,6 +752,7 @@ class DatabaseTest(object):
         )
         collection.external_account_id = external_account_id
         integration = collection.create_external_integration(protocol)
+        integration.goal = ExternalIntegration.LICENSE_GOAL
         integration.url = url
         integration.username = username
         integration.password = password
@@ -803,6 +807,7 @@ class DatabaseTest(object):
         integration = collection.create_external_integration(
             ExternalIntegration.OPDS_IMPORT
         )
+        integration.goal = ExternalIntegration.LICENSE_GOAL
         if collection not in library.collections:
             library.collections.append(collection)
         return library
@@ -1026,5 +1031,3 @@ class MockRequestsResponse(object):
     @property
     def text(self):
         return self.content.decode("utf8")
-
-

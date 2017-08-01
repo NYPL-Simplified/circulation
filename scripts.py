@@ -1216,9 +1216,11 @@ class AddClassificationScript(IdentifierInputScript):
         )     
         return parser
     
-    def __init__(self, _db=None, cmd_args=None):
-        _db = _db or self._db
-        args = self.parse_command_line(_db, cmd_args=cmd_args)
+    def __init__(self, _db=None, cmd_args=None, stdin=sys.stdin):
+        super(AddClassificationScript, self).__init__(_db=_db)
+        args = self.parse_command_line(
+            self._db, cmd_args=cmd_args, stdin=stdin
+        )
         self.identifier_type = args.identifier_type
         self.identifiers = args.identifiers
         subject_type = args.subject_type
@@ -1228,14 +1230,14 @@ class AddClassificationScript(IdentifierInputScript):
             raise ValueError(
                 "Either subject-name or subject-identifier must be provided."
             )
-        self.data_source = DataSource.lookup(_db, args.data_source)
+        self.data_source = DataSource.lookup(self._db, args.data_source)
         self.weight = args.weight
         self.subject, ignore = Subject.lookup(
-            _db, subject_type, subject_identifier, subject_name,
+            self._db, subject_type, subject_identifier, subject_name,
             autocreate=args.create_subject
         )
         
-    def run(self):
+    def do_run(self):
         policy = PresentationCalculationPolicy(
             choose_edition=False, 
             set_edition_metadata=False,
@@ -1265,11 +1267,14 @@ class WorkProcessingScript(IdentifierInputScript):
 
     name = "Work processing script"
 
-    def __init__(self, force=False, batch_size=10, _db=None):
-        if _db:
-            self._session = _db
+    def __init__(self, force=False, batch_size=10, _db=None,
+        cmd_args=None, stdin=sys.stdin
+    ):
+        super(WorkProcessingScript, self).__init__(_db=_db)
 
-        args = self.parse_command_line(self._db)
+        args = self.parse_command_line(
+            self._db, cmd_args=cmd_args, stdin=stdin
+        )
         self.identifier_type = args.identifier_type
         self.data_source = args.identifier_data_source
 
@@ -1943,10 +1948,12 @@ class CheckContributorNamesInDB(IdentifierInputScript):
     COMPLAINT_TYPE = "http://librarysimplified.org/terms/problem/wrong-author";
 
 
-    def __init__(self, _db=None, cmd_args=None):
+    def __init__(self, _db=None, cmd_args=None, stdin=sys.stdin):
         super(CheckContributorNamesInDB, self).__init__(_db=_db)
 
-        self.parsed_args = self.parse_command_line(_db=self._db, cmd_args=cmd_args)
+        self.parsed_args = self.parse_command_line(
+            _db=self._db, cmd_args=cmd_args, stdin=stdin
+        )
 
 
     @classmethod
@@ -1981,7 +1988,7 @@ class CheckContributorNamesInDB(IdentifierInputScript):
         return query.order_by(Edition.id)
 
 
-    def run(self, batch_size=10):
+    def do_run(self, batch_size=10):
         
         self.query = self.make_query(
             self._db, self.parsed_args.identifier_type, self.parsed_args.identifiers, self.log
@@ -2104,8 +2111,8 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
-    def run(self):
-        param_args = self.parse_command_line(self._db)
+    def do_run(self, cmd_args=None, stdin=sys.stdin):
+        param_args = self.parse_command_line(self._db, cmd_args=cmd_args, stdin=stdin)
         identifier_ids = [x.id for x in param_args.identifiers]
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
@@ -2372,7 +2379,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
 
 class SubjectAssignmentScript(SubjectInputScript):
 
-    def run(self):
+    def do_run(self):
         args = self.parse_command_line(self._db)
         monitor = SubjectAssignmentMonitor(
             self._db, args.subject_type, args.subject_filter
