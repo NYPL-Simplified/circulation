@@ -134,7 +134,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             grant_type="password",
             username=patron.authorization_identifier,
             scope="websiteid:%s authorizationname:%s" % (
-                self.website_id, "default")
+                self.website_id, self.ils_name)
         )
         if pin:
             # A PIN was provided.
