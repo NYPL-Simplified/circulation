@@ -84,6 +84,9 @@ class TestExternalSearch(ExternalSearchTest):
         eq_(False, self.search.indices.exists_alias('the_other_index', alias))
 
     def test_set_works_index_and_alias(self):
+        if not self.search:
+            return
+
         # If -current alias is given but doesn't exist, the appropriate
         # index and alias will be created.
         self.search.set_works_index_and_alias('banana-current')
@@ -892,7 +895,11 @@ class TestSearchFilterFromLane(DatabaseTest):
         eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))
 
 class TestSearchErrors(ExternalSearchTest):
+
     def test_search_connection_timeout(self):
+        if not self.search:
+            return
+
         attempts = []
 
         def bulk_with_timeout(docs, raise_on_error=False, raise_on_exception=False):
@@ -921,6 +928,9 @@ class TestSearchErrors(ExternalSearchTest):
             [docs[0]['_id'] for docs in attempts])
 
     def test_search_single_document_error(self):
+        if not self.search:
+            return
+
         successful_work = self._work()
         failing_work = self._work()
         
