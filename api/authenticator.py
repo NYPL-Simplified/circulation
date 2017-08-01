@@ -692,9 +692,10 @@ class LibraryAuthenticator(object):
             links["logo"] = dict(type="image/png", href=logo)
                 
         library_name = self.library_name or unicode(_("Library"))
+        library_url = url_for("index", library_short_name=library.short_name, _external=True)
         doc = OPDSAuthenticationDocument.fill_in(
             base_opds_document, list(self.providers),
-            _db=self._db, name=library_name, id=self.library_uuid, links=links
+            _db=self._db, name=library_name, id=library_url, links=links
         )
 
         # Add the library's color scheme, if it has one.
