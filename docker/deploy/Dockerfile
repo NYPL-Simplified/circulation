@@ -24,4 +24,4 @@ COPY libsimple_uwsgi.conf /etc/supervisor/conf.d/
 VOLUME /var/log
 
 EXPOSE 80
-CMD ["-c", "manage_simplified_database && supervisord"]
+CMD ["-c", "set_simplified_environment && manage_simplified_database && supervisord"]

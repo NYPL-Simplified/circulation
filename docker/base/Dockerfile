@@ -53,12 +53,16 @@ RUN rm /etc/supervisor/supervisord.conf
 COPY supervisord.conf /etc/supervisor/
 COPY cron.conf /etc/supervisor/conf.d
 
-# Copy over script to initialize database
+# Copy over script to initialize database and save environment variables.
 COPY manage_simplified_database /usr/local/bin
 RUN chmod +x /usr/local/bin/manage_simplified_database
+COPY set_simplified_environment /usr/local/bin
+RUN chmod +x /usr/local/bin/set_simplified_environment
 
 # Generate a virtual environment for the app.
-RUN virtualenv env
+RUN virtualenv env && touch environment.sh && \
+  SIMPLIFIED_ENVIRONMENT=/var/www/circulation/environment.sh && \
+  echo "if [[ -f $SIMPLIFIED_ENVIRONMENT ]]; then source $SIMPLIFIED_ENVIRONMENT; fi" >> env/bin/activate
 
 # Install required python libraries.
 RUN /bin/bash -c 'source env/bin/activate && \
