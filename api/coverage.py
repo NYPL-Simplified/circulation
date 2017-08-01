@@ -8,13 +8,15 @@ from core.coverage import (
     CollectionCoverageProvider,
     WorkCoverageProvider,
 )
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from sqlalchemy.orm import contains_eager
 from core.model import (
     Collection,
+    ConfigurationSetting,
     CoverageRecord,
     DataSource,
     Edition,
+    ExternalIntegration,
     Identifier,
     LicensePool,
     Session,
@@ -49,6 +51,20 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         """
         super(OPDSImportCoverageProvider, self).__init__(collection, **kwargs)
         self.lookup_client = lookup_client
+
+    @classmethod
+    def all(cls, _db, **kwargs):
+        if cls.PROTOCOL and cls.DATA_SOURCE_NAME:
+            qu = Collection.by_protocol(_db, cls.PROTOCOL)
+            qu = qu.join(ExternalIntegration.settings).filter(
+                ConfigurationSetting.key == Collection.DATA_SOURCE_NAME_SETTING,
+                ConfigurationSetting.value == cls.DATA_SOURCE_NAME
+            ).order_by(func.random())
+            for collection in qu:
+                yield cls(collection, **kwargs)
+        else:
+            for collection in super(OPDSImportCoverageProvider, cls).all(_db, **kwargs):
+                yield collection
 
     def process_batch(self, batch):
         """Perform a Simplified lookup and import the resulting OPDS feed."""
@@ -384,6 +400,8 @@ class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     SERVICE_NAME = "Open-access content server bibliographic coverage provider"
     DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
     INPUT_IDENTIFIER_TYPES = None
+
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
     
     def __init__(self, collection, lookup_client, *args, **kwargs):
         if not lookup_client:
