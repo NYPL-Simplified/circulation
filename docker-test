@@ -2,7 +2,7 @@
 
 set -ev
 
-if ! [[ -z ${TRAVIS_TAG} ]] || [[ ${TRAVIS_BRANCH} == "run-docker-builds" ]]; then
+if ! [[ -z ${TRAVIS_TAG} ]]; then
   # Create a container with test and production postgres databases.
   docker pull postgres:9.5;
   docker run -d --name pg postgres:9.5;
@@ -19,7 +19,7 @@ if ! [[ -z ${TRAVIS_TAG} ]] || [[ ${TRAVIS_BRANCH} == "run-docker-builds" ]]; th
 
   # Create a base and deployment container with this tag.
   git clone "https://github.com/NYPL-Simplified/circulation-docker" && cd "circulation-docker";
-  docker build --build-arg version=${TRAVIS_BRANCH} -t nypl/circ-base base/;
+  docker build --build-arg version=${TRAVIS_TAG} -t nypl/circ-base base/;
   docker build -t nypl/circ-deploy deploy/;
   docker run -d -p 80:80 \
     -e SIMPLIFIED_DB_TASK='init' \
