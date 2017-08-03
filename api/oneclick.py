@@ -758,7 +758,7 @@ class OneClickCirculationMonitor(Monitor):
             OneClickBibliographicCoverageProvider(self._db)
         )
 
-        self.api = OneClickAPI.from_config(self._db)
+        self.api = OneClickAPI.from_environment(self._db)
 
 
     def process_availability(self, media_type='ebook'):
@@ -792,9 +792,3 @@ class OneClickCirculationMonitor(Monitor):
         eaudio_count = self.process_availability(media_type='eaudio')
 
         self.log.info("Processed %d ebooks and %d audiobooks.", ebook_count, eaudio_count)
-
-
-
-
-
-
