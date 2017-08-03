@@ -66,13 +66,19 @@ from model import (
     WorkGenre,
     site_configuration_has_changed,
 )
-from monitor import SubjectAssignmentMonitor
-from monitor import CollectionMonitor
+from monitor import (
+    SubjectAssignmentMonitor,
+    CollectionMonitor,
+)
 from opds_import import (
     OPDSImportMonitor,
     OPDSImporter,
 )
-from oneclick import OneClickAPI, MockOneClickAPI
+from oneclick import (
+    OneClickAPI,
+    OneClickBibliographicCoverageProvider,
+    MockOneClickAPI,
+)
 from overdrive import OverdriveBibliographicCoverageProvider
 from util.opds_writer import OPDSFeed
 from util.personal_names import (
@@ -240,13 +246,17 @@ class RunCoverageProvidersScript(Script):
         while providers:
             random.shuffle(providers)
             for provider in providers:
-                self.log.debug(
-                    "Running %s", provider.service_name
-                )
-                provider.run_once_and_update_timestamp()
-                self.log.debug(
-                    "Completed %s", provider.service_name
-                )
+                self.log.debug("Running %s", provider.service_name)
+
+                try:
+                    provider.run_once_and_update_timestamp()
+                except Exception as e:
+                    self.log.error(
+                        "Error in %r, moving on to next CoverageProvider.",
+                        provider, exc_info=e
+                    )
+
+                self.log.debug("Completed %s", provider.service_name)
                 providers.remove(provider)
 
 
@@ -254,12 +264,18 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
     """Run the same CoverageProvider code for all Collections that
     get their licenses from the appropriate place.
     """
-    def __init__(self, provider_class, _db=None, **kwargs):
+    def __init__(self, provider_class, _db=None, providers=None, **kwargs):
         _db = _db or self._db
-        providers = list(provider_class.all(_db, **kwargs))
+        providers = providers or list()
+        if provider_class:
+            providers += self.get_providers(_db, provider_class, **kwargs)
+
         super(RunCollectionCoverageProviderScript, self).__init__(providers)
 
-                    
+    def get_providers(self, _db, provider_class, **kwargs):
+        return list(provider_class.all(_db, **kwargs))
+
+
 class InputScript(Script):
     @classmethod
     def read_stdin_lines(self, stdin):
@@ -637,25 +653,41 @@ class RunCoverageProviderScript(IdentifierInputScript):
             self.provider.run()
 
 
-class BibliographicRefreshScript(RunCoverageProviderScript):
+class BibliographicRefreshScript(RunCollectionCoverageProviderScript):
     """Refresh the core bibliographic data for Editions direct from the
     license source.
 
     This covers all known sources of licensed content.
     """
-    def __init__(self, **metadata_replacement_args):
-        
-        self.metadata_replacement_policy = ReplacementPolicy.from_metadata_source(
+
+    PROVIDER_CLASSES = (
+        Axis360BibliographicCoverageProvider,
+        BibliothecaBibliographicCoverageProvider,
+        OneClickBibliographicCoverageProvider,
+        OverdriveBibliographicCoverageProvider,
+    )
+
+    def __init__(self, _db=None, **metadata_replacement_args):
+        replacement_policy = ReplacementPolicy.from_metadata_source(
             **metadata_replacement_args
         )
+        kwargs = dict(replacement_policy=replacement_policy)
 
-    def do_run(self):
-        args = self.parse_command_line(self._db)
+        providers = list()
+        for provider_class in self.PROVIDER_CLASSES:
+            providers += self.get_providers(_db, provider_class, **kwargs)
+
+        super(BibliographicRefreshScript, self).__init__(
+            None, _db=_db, providers=providers
+        )
+
+    def do_run(self, cmd_args=None):
+        args = self.parse_command_line(self._db, cmd_args=cmd_args)
         if args.identifiers:
             # This script is being invoked to fix a problem.
             # Make sure to always recalculate OPDS feeds and reindex the
             # work.
-            self.metadata_replacement_policy.presentation_calculation_policy = (
+            self.replacement_policy.presentation_calculation_policy = (
                 PresentationCalculationPolicy.recalculate_everything()
             )
             for identifier in args.identifiers:
@@ -664,48 +696,40 @@ class BibliographicRefreshScript(RunCoverageProviderScript):
             # This script is being invoked to provide general coverage,
             # so we'll only recalculate OPDS feeds and reindex the work
             # if something actually changes.
-            for provider_class in (
-                    BibliothecaBibliographicCoverageProvider,
-                    OverdriveBibliographicCoverageProvider,
-                    Axis360BibliographicCoverageProvider
-            ):
-                try:
-                    provider = provider_class(
-                        self._db, 
-                        cutoff_time=args.cutoff_time
-                    )
-                except CannotLoadConfiguration, e:
-                    self.log.info(
-                        'Cannot create provider: "%s" Assuming this is intentional and proceeding.',
-                        str(e)
-                    )
-                    provider = None
-                try:
-                    if provider:
-                        provider.run()
-                except Exception, e:
-                    self.log.error(
-                        "Error in %r, moving on to next source.",
-                        provider, exc_info=e
-                    )
-        self._db.commit()
+            super(BibliographicRefreshScript, self).do_run()
 
     def refresh_metadata(self, identifier):
-        provider = None
-        if identifier.type==Identifier.BIBLIOTHECA_ID:
-            provider = BibliothecaBibliographicCoverageProvider
-        elif identifier.type==Identifier.OVERDRIVE_ID:
-            provider = OverdriveBibliographicCoverageProvider
-        elif identifier.type==Identifier.AXIS_360_ID:
-            provider = Axis360BibliographicCoverageProvider
-        else:
-            self.log.warn("Cannot update coverage for %r" % identifier)
-        if provider:
-            provider = provider(
-                self._db, 
-                metadata_replacement_policy=self.metadata_replacement_policy,
+        is_refreshed = False
+        collection_ids = set([lp.collection.id for lp in identifier.licensed_through])
+        if collection_ids:
+            providers = filter(
+                lambda p: p.collection_id in collection_ids, self.providers
             )
-            provider.ensure_coverage(identifier, force=True)
+
+            if not providers:
+                self.log.warn(
+                     'Cannot update coverage for %r. No BibliographicCoverageProvider found.',
+                     identifier
+                )
+                return is_refreshed
+
+            for provider in providers:
+                try:
+                    provider.ensure_coverage(identifier, force=True)
+                    is_refreshed = True
+                    return is_refreshed
+                except Exception as e:
+                    self.log.error(
+                        "Cannot update coverage for %r with %r: %r",
+                        identifier, provider, e, exc_info=e
+                    )
+                    return is_refreshed
+        else:
+            self.log.warn(
+                "Cannot update coverage for %r. No associated Collection.",
+                identifier
+            )
+            return is_refreshed
 
 
 class ShowLibrariesScript(Script):
