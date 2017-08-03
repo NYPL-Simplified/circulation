@@ -585,4 +585,3 @@ class BibliographicParser(Axis360Parser):
             availability = None
 
         return bibliographic, availability
-
