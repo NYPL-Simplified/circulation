@@ -95,9 +95,6 @@ class Configuration(object):
 
     UNINITIALIZED_CDNS = object()
 
-    BASE_OPDS_AUTHENTICATION_DOCUMENT = "base_opds_authentication_document"
-
-
     # The names of the site-wide configuration settings that determine
     # feed cache time.
     NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age" 
@@ -330,10 +327,6 @@ class Configuration(object):
 
         config_instance = config_instance or cls.instance
         config_instance[EI.CDN] = cdn_integration
-
-    @classmethod
-    def base_opds_authentication_document(cls):
-        return cls.get(cls.BASE_OPDS_AUTHENTICATION_DOCUMENT, {})
 
     @classmethod
     def logging_policy(cls):
