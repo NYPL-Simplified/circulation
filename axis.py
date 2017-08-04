@@ -79,9 +79,9 @@ class Axis360API(object):
                 collection.protocol
             )
         self._db = Session.object_session(collection)
-        self.library_id = collection.external_account_id.encode("utf8")
-        self.username = collection.external_integration.username.encode("utf8")
-        self.password = collection.external_integration.password.encode("utf8")
+        self.library_id = collection.external_account_id
+        self.username = collection.external_integration.username
+        self.password = collection.external_integration.password
 
         # Convert the nickname for a server into an actual URL.
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
@@ -94,7 +94,13 @@ class Axis360API(object):
             raise CannotLoadConfiguration(
                 "Axis 360 configuration is incomplete."
             )
-            
+
+        # Use utf8 instead of unicode encoding
+        settings = [self.library_id, self.username, self.password]
+        self.library_id, self.username, self.password = (
+            setting.encode('utf8') for setting in settings
+        )
+
         self.token = None
         self.collection_id = collection.id
 

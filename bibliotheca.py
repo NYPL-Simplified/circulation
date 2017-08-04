@@ -82,15 +82,21 @@ class BibliothecaAPI(object):
         self.version = (
             collection.external_integration.setting('version').value or self.DEFAULT_VERSION
         )
-        self.account_id = collection.external_integration.username.encode("utf8")
-        self.account_key = collection.external_integration.password.encode("utf8")
-        self.library_id = collection.external_account_id.encode("utf8")
+        self.account_id = collection.external_integration.username
+        self.account_key = collection.external_integration.password
+        self.library_id = collection.external_account_id
         self.base_url = collection.external_integration.url or self.DEFAULT_BASE_URL
         
         if not self.account_id or not self.account_key or not self.library_id:
             raise CannotLoadConfiguration(
                 "Bibliotheca configuration is incomplete."
             )
+
+        # Use utf8 instead of unicode encoding
+        settings = [self.account_id, self.account_key, self.library_id]
+        self.account_id, self.account_key, self.library_id = (
+            setting.encode('utf8') for setting in settings
+        )
 
         self.item_list_parser = ItemListParser()
         self.collection_id = collection.id
