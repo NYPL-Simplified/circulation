@@ -19,7 +19,10 @@ from core.util.problem_detail import (
     ProblemDetail,
     json as pd_json,
 )
-from core.util.opds_authentication_document import OPDSAuthenticationDocument
+from core.util.authentication_for_opds import (
+    AuthenticationForOPDSDocument,
+    OPDSAuthenticationFlow,
+)
 from sqlalchemy.ext.hybrid import hybrid_property
 from problem_details import *
 from util.patron import PatronUtility
@@ -649,12 +652,10 @@ class LibraryAuthenticator(object):
         return (provider_name, token)
 
     def create_authentication_document(self):
-        """Create the OPDS authentication document to be used when
+        """Create the Authentication For OPDS document to be used when
         a request comes in with no authentication.
         """
-        base_opds_document = Configuration.base_opds_authentication_document()
-
-        links = {}
+        links = []
         library = get_one(self._db, Library, id=self.library_id)
 
         # Add the same links that we would show in an OPDS feed, plus
@@ -665,38 +666,40 @@ class LibraryAuthenticator(object):
             value = ConfigurationSetting.for_library(rel, library).value
             if not value:
                 continue
-            links[rel] = dict(href=value)
+            link = dict(rel=rel, href=value)
             if any(value.startswith(x) for x in ('http:', 'https:')):
                 # We assume that HTTP URLs lead to HTML, but we don't
                 # assume anything about other URL schemes.
-                links[rel]['type'] = "text/html"
-
+                link['type'] = "text/html"
+            links.append(link)
+                
         # Add a rel="help" link for every type of URL scheme that
         # leads to library-specific help.
         for type, uri in Configuration.help_uris(library):
-            link = dict(href=uri)
-            links.setdefault("help", []).append(link)
-            if type:
-                link['type'] = type
+            links.append(dict(rel="help", href=uri, type=type))
 
         # Add a link to the web page of the library itself.
         library_uri = ConfigurationSetting.for_library(
             Configuration.WEBSITE_URL, library).value
         if library_uri:
-            links['alternate'] = dict(type="text/html", href=library_uri)
+            links.append(
+                dict(rel="alternate", type="text/html", href=library_uri)
+            )
 
         # Add the library's logo, if it has one.
         logo = ConfigurationSetting.for_library(
             Configuration.LOGO, library).value
         if logo:
-            links["logo"] = dict(type="image/png", href=logo)
+            links.append(dict(rel="logo", type="image/png", href=logo))
                 
         library_name = self.library_name or unicode(_("Library"))
-        library_url = url_for("index", library_short_name=library.short_name, _external=True)
-        doc = OPDSAuthenticationDocument.fill_in(
-            base_opds_document, list(self.providers),
-            _db=self._db, name=library_name, id=library_url, links=links
-        )
+        # TODO: This needs to be the URL of the authentication document itself
+        auth_doc_url = url_for("index", library_short_name=library.short_name, _external=True)
+        doc = AuthenticationForOPDSDocument(
+            id=auth_doc_url, title=library_name,
+            authentication_flows=list(self.providers),
+            links=links
+        ).to_dict(self._db)
 
         # Add the library's color scheme, if it has one.
         description = ConfigurationSetting.for_library(
@@ -748,7 +751,7 @@ class LibraryAuthenticator(object):
         return headers
 
 
-class AuthenticationProvider(object):
+class AuthenticationProvider(OPDSAuthenticationFlow):
     """Handle a specific patron authentication scheme.
     """
 
@@ -889,7 +892,7 @@ class AuthenticationProvider(object):
                 # The regex doesn't match.
                 return False
         return True
-        
+    
     def patron_identifier_restriction_matches(self, identifier):
         """Does the given patron identifier match the configured
         patron identifier restriction?
@@ -1007,21 +1010,24 @@ class AuthenticationProvider(object):
             patron_or_patrondata
         )       
     
-    def authentication_provider_document(self, _db):
-        """Create a stanza for use in an Authentication for OPDS document.
+    def _authentication_flow_document(self, _db):
+        """Create a Authentication Flow object for use in an Authentication for
+        OPDS document.
 
-        :return: A dictionary that can be associated with the
-        provider's .URI in an Authentication for OPDS document, e.g.:
-
-        { "providers": { [provider.URI] : [this document] } }
+        :return: A dictionary suitable for inclusion as one of the
+        'authentication' list in an Authentication for OPDS document.
 
         For example:
 
-
-
-        {"providers": {"http://librarysimplified.org/terms/auth/library-barcode": {"methods": {"http://opds-spec.org/auth/basic": {"labels": {"login": "Barcode", "password": "PIN"}}}}
+        {
+          "authentication": [
+            { "type": "http://opds-spec.org/auth/basic",
+              "labels": {"login": "Barcode", "password": "PIN"} }
+          ]
+        }
         """
         raise NotImplementedError()
+
 
 class BasicAuthenticationProvider(AuthenticationProvider):
     """Verify a username/password, obtained through HTTP Basic Auth, with
@@ -1055,7 +1061,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
 
     DISPLAY_NAME = _("Library Barcode")
     AUTHENTICATION_REALM = _("Library card")
-    METHOD = "http://opds-spec.org/auth/basic"
+    FLOW_TYPE = "http://opds-spec.org/auth/basic"
     URI = "http://librarysimplified.org/terms/auth/library-barcode"
     NAME = 'Generic Basic Authentication provider'
    
@@ -1453,18 +1459,9 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     def authentication_header(self):
         return 'Basic realm="%s"' % self.AUTHENTICATION_REALM
     
-    def authentication_provider_document(self, _db):
-        """Create a stanza for use in an Authentication for OPDS document.
-
-        Example:
-        {
-            'name': 'My Basic Provider',
-            'methods': {
-                'http://opds-spec.org/auth/basic': {
-                    'labels': {'login': 'Barcode', 'password': 'PIN'}
-                 }
-            }
-        }
+    def _authentication_flow_document(self, _db):
+        """Create a Authentication Flow object for use in an Authentication for
+        OPDS document.
         """
 
         login_inputs = dict(keyboard=self.identifier_keyboard)
@@ -1484,15 +1481,13 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             self.password_label,
             self.password_label
         )
-        method_doc = dict(
+        return dict(
+            description=unicode(self.DISPLAY_NAME),
             labels=dict(login=unicode(localized_identifier_label),
                         password=unicode(localized_password_label)),
             inputs = dict(login=login_inputs,
                           password=password_inputs)
         )
-        methods = {}
-        methods[self.METHOD] = method_doc
-        return dict(name=unicode(self.DISPLAY_NAME), methods=methods)
 
     
 class OAuthAuthenticationProvider(AuthenticationProvider):
@@ -1501,9 +1496,10 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     # AuthenticationProvider superclass. This is the URI used to
     # identify this particular authentication provider.
     #
-    # Each subclass MAY define a value for METHOD. This is the URI
-    # used to identify the authentication mechanism. The default is
-    # used to indicate the Library Simplified variant of OAuth.
+    # Each subclass MAY define a value for FLOW_TYPE. This is the URI
+    # used to identify the authentication mechanism in Authentication
+    # For OPDS documents. The default is used to indicate the Library
+    # Simplified variant of OAuth.
     #
     # Each subclass MUST define an attribute called
     # NAME, which is the name used to configure that
@@ -1536,7 +1532,7 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
     #
     # EXTERNAL_AUTHENTICATE_URL = "https://clever.com/oauth/authorize?response_type=code&client_id=%(client_id)s&redirect_uri=%(oauth_callback_url)s&state=%(state)s"
     
-    METHOD = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
+    FLOW_TYPE = "http://librarysimplified.org/authtype/OAuth-with-intermediary"
    
     # After verifying the patron's OAuth credentials, we send them a
     # token. This configuration setting controls how long they can use
@@ -1739,24 +1735,24 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
                        provider=self.NAME,
                        library_short_name=library.short_name)
 
-    def authentication_provider_document(self, _db):
-        """Create a stanza for use in an Authentication for OPDS document.
+    def _authentication_flow_document(self, _db):
+        """Create a Authentication Flow object for use in an Authentication for
+        OPDS document.
 
         Example:
         {
-            "name": "My OAuth Provider",
-            "methods": {
-                "http://librarysimplified.org/authtype/MyOAuthProvider" : {
-                "links": {
-                    "authenticate": "https://circulation.library.org/oauth_authenticate?provider=MyOAuth"
-                 }
+            "type": "http://librarysimplified.org/authtype/OAuth-with-intermediary"
+            "description": "My OAuth Provider",
+            "links": {
+                "authenticate": "https://circulation.library.org/oauth_authenticate?provider=MyOAuth"
             }
         }
         """
-        method_doc = dict(links=dict(authenticate=self._internal_authenticate_url(_db)))
-        methods = {}
-        methods[self.METHOD] = method_doc
-        return dict(name=self.NAME, methods=methods)
+        flow_doc = dict(
+            description=self.NAME,
+            links=dict(authenticate=self._internal_authenticate_url(_db))
+        )
+        return flow_doc
 
     def token_data_source(self, _db):
         return get_one_or_create(

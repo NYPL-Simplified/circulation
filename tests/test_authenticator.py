@@ -34,8 +34,8 @@ from core.model import (
 from core.util.problem_detail import (
     ProblemDetail,
 )
-from core.util.opds_authentication_document import (
-    OPDSAuthenticationDocument,
+from core.util.authentication_for_opds import (
+    AuthenticationForOPDSDocument,
 )
 from core.mock_analytics_provider import MockAnalyticsProvider
 
@@ -1052,7 +1052,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # provider, that provider's .authentication_header is used
             # for WWW-Authenticate.
             headers = authenticator.create_authentication_headers()
-            eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
+            eq_(AuthenticationForOPDSDocument.MEDIA_TYPE, headers['Content-Type'])
             eq_(basic.authentication_header, headers['WWW-Authenticate'])
 
             # If the authenticator does not include a basic auth provider,
@@ -1514,23 +1514,22 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(None, provider.get_credential_from_header(dict()))
         eq_("foo", provider.get_credential_from_header(dict(password="foo")))
         
-    def test_authentication_provider_document(self):
+    def test_authentication_flow_document(self):
         """Test the default authentication provider document."""
         provider = self.mock_basic()
-        doc = provider.authentication_provider_document(self._db)
-        eq_(_(provider.DISPLAY_NAME), doc['name'])
-        methods = doc['methods']
-        eq_([provider.METHOD], methods.keys())
-        method = methods[provider.METHOD]
-        eq_(['inputs', 'labels'], sorted(method.keys()))
-        login = method['labels']['login']
-        password = method['labels']['password']
-        eq_(provider.identifier_label, login)
-        eq_(provider.password_label, password)
+        doc = provider.authentication_flow_document(self._db)
+        eq_(_(provider.DISPLAY_NAME), doc['description'])
+        eq_(provider.FLOW_TYPE, doc['type'])
+
+        labels = doc['labels']
+        eq_(provider.identifier_label, labels['login'])
+        eq_(provider.password_label, labels['password'])
+
+        inputs = doc['inputs']
         eq_(provider.identifier_keyboard,
-            method['inputs']['login']['keyboard'])
+            inputs['login']['keyboard'])
         eq_(provider.password_keyboard,
-            method['inputs']['password']['keyboard'])
+            inputs['password']['keyboard'])
         
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""

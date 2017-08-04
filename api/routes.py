@@ -186,6 +186,14 @@ def library_dir_route(path, *args, **kwargs):
 def index():
     return app.manager.index_controller()
 
+@library_route('/authentication_document')
+@has_library
+@returns_problem_detail
+def authentication_document():
+    return app.manager.index_controller.authentication_document(
+        app.manager._db
+    )
+
 @library_dir_route('/groups', defaults=dict(lane_name=None, languages=None))
 @library_dir_route('/groups/<languages>', defaults=dict(lane_name=None))
 @library_route('/groups/<languages>/<lane_name>')
@@ -400,7 +408,6 @@ def oauth_authenticate():
 @returns_problem_detail
 def oauth_callback():
     return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
-
 
 # Controllers used for operations purposes
 @app.route('/heartbeat')

@@ -496,6 +496,11 @@ class IndexController(CirculationManagerController):
         # their type, and redirect them to an appropriate feed.
         return self.appropriate_index_for_patron_type()
 
+    def authentication_document(self):
+        """Serve this library's Authentication For OPDS document."""
+        set_trace()
+        self.library.authenticator.create_authentication_document()
+    
     def authenticated_patron_root_lane(self):
         patron = self.authenticated_patron_from_request()
         if isinstance(patron, ProblemDetail):
