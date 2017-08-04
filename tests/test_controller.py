@@ -780,6 +780,16 @@ class TestIndexController(CirculationControllerTest):
                 eq_(302, response.status_code)
                 eq_("http://cdn/default/groups/", response.headers['location'])
 
+    def test_authentication_document(self):
+        """Test the ability to retrieve an Authentication For OPDS document."""
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.invalid_auth)):
+            set_trace()
+            response = self.manager.index_controller.authentication_document()
+            eq_(200, response.status_code)
+            eq_(AuthenticationForOPDSDocument.MEDIA_TYPE, response.headers['Content-Type'])
+            eq_("", response.content)
+        
 
 class TestMultipleLibraries(CirculationControllerTest):
 
