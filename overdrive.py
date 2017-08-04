@@ -140,8 +140,11 @@ class OverdriveAPI(object):
         self.client_key = collection.external_integration.username.encode("utf8")
         self.client_secret = collection.external_integration.password.encode("utf8")
         self.website_id = collection.external_integration.setting(self.WEBSITE_ID).value.encode("utf8")
-        self.ils_name = collection.external_integration.setting(
-            self.ILS_NAME).value.encode("utf8")
+
+        self.ils_name = collection.external_integration.setting(self.ILS_NAME).value
+        if not self.ils_name:
+            self.ils_name = "default"
+        self.ils_name.encode("utf8")
 
         if (not self.client_key or not self.client_secret or not self.website_id
             or not self.library_id):
@@ -1038,7 +1041,8 @@ class OverdriveAdvantageAccount(object):
         # the library, just in case that name has changed.
         child.name = name
         return parent, child
-        
+
+
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records.
 
@@ -1090,4 +1094,3 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             return self.failure(identifier, e)
 
         return self.set_metadata(identifier, metadata)
-

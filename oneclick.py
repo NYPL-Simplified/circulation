@@ -907,10 +907,3 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             return self.failure(identifier, e)
 
         return self.set_metadata(identifier, metadata)
-
-
-
-
-
-
-

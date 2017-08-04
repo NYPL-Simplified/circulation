@@ -943,6 +943,12 @@ class BrokenCoverageProvider(InstrumentedCoverageProvider):
     def process_item(self, item):
         raise Exception("I'm too broken to even return a CoverageFailure.")
 
+
+class BrokenBibliographicCoverageProvider(
+        BrokenCoverageProvider, BibliographicCoverageProvider):
+    SERVICE_NAME = "Broken (bibliographic)"
+
+
 class TransientFailureCoverageProvider(InstrumentedCoverageProvider):
     SERVICE_NAME = "Never successful (transient)"
     def process_item(self, item):
