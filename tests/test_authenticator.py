@@ -1843,7 +1843,7 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         mock_patrondata.set_authorization_identifier("abcd")
         eq_(PATRON_OF_ANOTHER_LIBRARY, oauth.oauth_callback(self._db, "a code"))
         
-    def test_authentication_provider_document(self):
+    def test_authentication_flow_document(self):
         # We're about to call url_for, so we must create an
         # application context.
         os.environ['AUTOINITIALIZE'] = "False"
@@ -1852,16 +1852,14 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         del os.environ['AUTOINITIALIZE']
         provider = MockOAuth(self._default_library)
         with self.app.test_request_context("/"):
-            doc = provider.authentication_provider_document(self._db)
-
-            # There is only one way to authenticate with this type
-            # of authentication.
-            eq_([provider.METHOD], doc['methods'].keys())
-            method = doc['methods'][provider.METHOD]
-
-            # And it involves following the 'authenticate' link.
-            link = method['links']['authenticate']
-            eq_(link, provider._internal_authenticate_url(self._db))
+            doc = provider.authentication_flow_document(self._db)
+            eq_(provider.FLOW_TYPE, doc['type'])
+            eq_(provider.NAME, doc['description'])
+            
+            # To authenticate with this provider, you must follow the
+            # 'authenticate' link.
+            [link] = [x for x in doc['links'] if x['rel'] == 'authenticate']
+            eq_(link['href'], provider._internal_authenticate_url(self._db))
 
     def test_token_data_source_can_create_new_data_source(self):
         class OAuthWithUnusualDataSource(MockOAuth):

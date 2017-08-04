@@ -1743,14 +1743,16 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
         {
             "type": "http://librarysimplified.org/authtype/OAuth-with-intermediary"
             "description": "My OAuth Provider",
-            "links": {
-                "authenticate": "https://circulation.library.org/oauth_authenticate?provider=MyOAuth"
-            }
+            "links": [
+              { "rel" : "authenticate"
+                "href": "https://circulation.library.org/oauth_authenticate?provider=MyOAuth" }
+            ]
         }
         """
         flow_doc = dict(
             description=self.NAME,
-            links=dict(authenticate=self._internal_authenticate_url(_db))
+            links=[dict(rel="authenticate",
+                        href=self._internal_authenticate_url(_db))]
         )
         return flow_doc
 
