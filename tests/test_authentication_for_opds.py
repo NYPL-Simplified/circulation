@@ -4,7 +4,7 @@ from nose.tools import (
     assert_raises_regexp,
     set_trace,
 )
-from util.opds_authentication_document import (
+from util.authentication_for_opds import (
     AuthenticationForOPDSDocument as Doc,
     OPDSAuthenticationFlow as Flow,
 )
@@ -14,7 +14,7 @@ class MockFlow(Flow):
     def __init__(self, description):
         self.description=description
     
-    def to_dict(self, argument):
+    def _authentication_flow_document(self, argument):
         return { "description": self.description,
                  "arg": argument,
                  "type" : "http://mock1/"}
@@ -22,9 +22,9 @@ class MockFlow(Flow):
     
 class MockFlowWithURI(Flow):
     """A mock OPDSAuthenticationFlow that sets URI."""
-    URI = "http://mock2/"
+    FLOW_TYPE = "http://mock2/"
     
-    def to_dict(self, argument):
+    def _authentication_flow_document(self, argument):
         return {}
     
     
@@ -33,7 +33,7 @@ class MockFlowWithoutType(Flow):
 
     Calling authentication_flow_document() on this object will fail.
     """
-    def to_dict(self, argument):
+    def _authentication_flow_document(self, argument):
         return {}
     
 
@@ -102,7 +102,7 @@ class TestAuthenticationForOPDSDocument(object):
         wrong with the data.
         """
         def cannot_make(document):
-            assert_raises(ValueError, document.to_dict, self._db)
+            assert_raises(ValueError, document.to_dict, object())
 
         # Document must have ID and title.
         cannot_make(Doc(id=None, title="no id"))
