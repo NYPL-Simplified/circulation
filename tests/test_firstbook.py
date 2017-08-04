@@ -101,7 +101,7 @@ class TestFirstBook(DatabaseTest):
             api.remote_pin_test, "key", "pin"
         )
     
-    def test_authentication_provider_document(self):
-        doc = self.api.authentication_provider_document(self._db)
-        eq_(self.api.DISPLAY_NAME, doc['name'])
-        assert self.api.METHOD in doc['methods']
+    def test_authentication_flow_document(self):
+        doc = self.api.authentication_flow_document(self._db)
+        eq_(self.api.DISPLAY_NAME, doc['description'])
+        eq_(self.api.FLOW_TYPE, doc['type'])

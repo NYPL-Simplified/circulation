@@ -207,7 +207,7 @@ class CirculationManager(object):
         )
 
         self.setup_configuration_dependent_controllers()
-        self.opds_authentication_documents = {}
+        self.authentication_for_opds_documents = {}
     
     @property
     def external_search(self):

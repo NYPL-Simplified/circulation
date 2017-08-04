@@ -693,8 +693,10 @@ class LibraryAuthenticator(object):
             links.append(dict(rel="logo", type="image/png", href=logo))
                 
         library_name = self.library_name or unicode(_("Library"))
-        # TODO: This needs to be the URL of the authentication document itself
-        auth_doc_url = url_for("index", library_short_name=library.short_name, _external=True)
+        auth_doc_url = url_for(
+            "authentication_document", library_short_name=library.short_name,
+            _external=True
+        )
         doc = AuthenticationForOPDSDocument(
             id=auth_doc_url, title=library_name,
             authentication_flows=list(self.providers),
