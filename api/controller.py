@@ -76,6 +76,7 @@ from core.user_profile import ProfileController as CoreProfileController
 from core.util.flask_util import (
     problem,
 )
+from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 from core.util.problem_detail import ProblemDetail
 from core.util.http import (
     RemoteIntegrationException,
@@ -498,8 +499,15 @@ class IndexController(CirculationManagerController):
 
     def authentication_document(self):
         """Serve this library's Authentication For OPDS document."""
-        set_trace()
-        self.library.authenticator.create_authentication_document()
+        library = flask.request.library
+        content = self.manager.auth.create_authentication_document()
+        return Response(
+            content,
+            200,
+            {
+                "Content-Type" : AuthenticationForOPDSDocument.MEDIA_TYPE
+            }
+        )
     
     def authenticated_patron_root_lane(self):
         patron = self.authenticated_patron_from_request()

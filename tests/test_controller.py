@@ -113,6 +113,7 @@ import random
 import json
 import urllib
 from core.analytics import Analytics
+from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 
 
 class ControllerTest(VendorIDTest):
@@ -784,11 +785,11 @@ class TestIndexController(CirculationControllerTest):
         """Test the ability to retrieve an Authentication For OPDS document."""
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
-            set_trace()
             response = self.manager.index_controller.authentication_document()
             eq_(200, response.status_code)
             eq_(AuthenticationForOPDSDocument.MEDIA_TYPE, response.headers['Content-Type'])
-            eq_("", response.content)
+            eq_(self.manager.auth.create_authentication_document(),
+                response.data)
         
 
 class TestMultipleLibraries(CirculationControllerTest):
