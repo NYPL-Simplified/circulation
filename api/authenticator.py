@@ -736,7 +736,7 @@ class LibraryAuthenticator(object):
         """Create the HTTP headers to return with the OPDS
         authentication document."""
         headers = Headers()
-        headers.add('Content-Type', OPDSAuthenticationDocument.MEDIA_TYPE)
+        headers.add('Content-Type', AuthenticationForOPDSDocument.MEDIA_TYPE)
         # if requested from a web client, don't include WWW-Authenticate header,
         # which forces the default browser authentication prompt
         if self.basic_auth_provider and not flask.request.headers.get("X-Requested-With") == "XMLHttpRequest":

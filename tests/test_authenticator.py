@@ -980,18 +980,18 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # The main thing we need to test is that the
             # sub-documents are assembled properly and placed in the
             # right position.
-            providers = doc['providers']
-            basic_doc = providers[basic.URI]
-            expect_basic = basic.authentication_provider_document(library.short_name)
+            flows = doc['authentication']
+            oauth_doc, basic_doc = sorted(flows, key=lambda x: x['type'])
+
+            expect_basic = basic.authentication_flow_document(self._db)
             eq_(expect_basic, basic_doc)
 
-            oauth_doc = providers[oauth.URI]
-            expect_oauth = oauth.authentication_provider_document(self._db)
+            expect_oauth = oauth.authentication_flow_document(self._db)
             eq_(expect_oauth, oauth_doc)
 
             # We also need to test that the library's name and UUID
             # were placed in the document.
-            eq_("A Fabulous Library", doc['name'])
+            eq_("A Fabulous Library", doc['title'])
             eq_("Just the best.", doc['service_description'])
             eq_(url_for("index", library_short_name=self._default_library.short_name, _external=True), doc['id'])
 
@@ -1000,32 +1000,33 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             
             # We also need to test that the links got pulled in
             # from the configuration.
-            links = doc['links']
-            eq_("http://terms", links['terms-of-service']['href'])
-            eq_("http://privacy", links['privacy-policy']['href'])
-            eq_("http://copyright", links['copyright']['href'])
-            eq_("http://about", links['about']['href'])
-            eq_("http://license/", links['license']['href'])
-            eq_("image data", links['logo']['href'])
+            (about, alternate, copyright, help_uri, help_web, help_email,
+             license, logo, privacy_policy, register, terms_of_service) = sorted(
+                 doc['links'], key=lambda x: (x['rel'], x['href'])
+             )
+            eq_("http://terms", terms_of_service['href'])
+            eq_("http://privacy", privacy_policy['href'])
+            eq_("http://copyright", copyright['href'])
+            eq_("http://about", about['href'])
+            eq_("http://license/", license['href'])
+            eq_("image data", logo['href'])
 
             # Most of the links have type='text/html'
-            eq_("text/html", links['about']['type'])
+            eq_("text/html", about['type'])
 
             # The registration link doesn't have a type, because it
             # uses a non-HTTP URI scheme.
-            register = links['register']
-            eq_({'href': 'custom-registration-hook://library/'},
-                links['register'])
+            assert 'type' not in register
+            eq_('custom-registration-hook://library/', register['href'])
 
             # The logo link has type "image/png".
-            eq_("image/png", links["logo"]["type"])
+            eq_("image/png", logo["type"])
 
             # We have three help links.
-            uri, web, email = sorted(links['help'], key=lambda x: x['href'])
-            eq_("custom:uri", uri['href'])
-            eq_("http://library.help/", web['href'])
-            eq_("text/html", web['type'])
-            eq_("mailto:help@library", email['href'])
+            eq_("custom:uri", help_uri['href'])
+            eq_("http://library.help/", help_web['href'])
+            eq_("text/html", help_web['type'])
+            eq_("mailto:help@library", help_email['href'])
 
             # The public key is correct.
             eq_("public key", doc['public_key']['value'])
@@ -1035,8 +1036,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # The library's web page shows up as an HTML alternate
             # to the OPDS server.
             eq_(
-                dict(type="text/html", href="http://library/"),
-                links['alternate']
+                dict(rel="alternate", type="text/html", href="http://library/"),
+                alternate
             )
             
             # Features that are enabled for this library are communicated
