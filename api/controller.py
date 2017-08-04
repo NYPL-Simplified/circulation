@@ -500,7 +500,10 @@ class IndexController(CirculationManagerController):
     def authentication_document(self):
         """Serve this library's Authentication For OPDS document."""
         library = flask.request.library
-        content = self.manager.auth.create_authentication_document()
+        authenticator = self.manager.auth.library_authenticators[
+            library.short_name
+        ]
+        content = authenticator.create_authentication_document()
         return Response(
             content,
             200,

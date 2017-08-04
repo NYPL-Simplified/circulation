@@ -788,7 +788,8 @@ class TestIndexController(CirculationControllerTest):
             response = self.manager.index_controller.authentication_document()
             eq_(200, response.status_code)
             eq_(AuthenticationForOPDSDocument.MEDIA_TYPE, response.headers['Content-Type'])
-            eq_(self.manager.auth.create_authentication_document(),
+            eq_(self.manager.auth.library_authenticators[
+                self.library.short_name].create_authentication_document(),
                 response.data)
         
 

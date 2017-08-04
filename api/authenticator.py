@@ -364,9 +364,6 @@ class Authenticator(object):
     def authenticated_patron(self, _db, header):
         return self.invoke_authenticator_method("authenticated_patron", _db, header)
 
-    def create_authentication_document(self):
-        return self.invoke_authenticator_method("create_authentication_document")
-
     def create_authentication_headers(self):
         return self.invoke_authenticator_method("create_authentication_headers")
 
