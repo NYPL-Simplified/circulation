@@ -6548,10 +6548,10 @@ class TestMaterializedViews(DatabaseTest):
         eq_("staff chose this title", mw.sort_title)
 
         # And since the data_source_id is the ID of the data source
-        # associated with the presentation edition, we would expect it
-        # to be the data source ID of the presentation edition.
-        eq_(presentation_edition.data_source.id, mw.data_source_id)
-        eq_(presentation_edition.data_source.id, mwg.data_source_id)
+        # associated with the license pool, we would expect it to be
+        # the data source ID of the license pool.
+        eq_(pool.data_source.id, mw.data_source_id)
+        eq_(pool.data_source.id, mwg.data_source_id)
 
 
 class TestAdmin(DatabaseTest):
