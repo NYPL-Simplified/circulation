@@ -198,7 +198,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
                    item_id=bibliotheca_id, patron_id=patron_id)
         body = self.TEMPLATE % args 
         return self.request('GetItemACSM', body, method="PUT")
-
+    
     def checkin(self, patron, pin, licensepool):
         patron_id = patron.authorization_identifier
         item_id = licensepool.identifier.identifier

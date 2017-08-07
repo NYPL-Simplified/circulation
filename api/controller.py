@@ -76,6 +76,7 @@ from core.user_profile import ProfileController as CoreProfileController
 from core.util.flask_util import (
     problem,
 )
+from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 from core.util.problem_detail import ProblemDetail
 from core.util.http import (
     RemoteIntegrationException,
@@ -207,7 +208,7 @@ class CirculationManager(object):
         )
 
         self.setup_configuration_dependent_controllers()
-        self.opds_authentication_documents = {}
+        self.authentication_for_opds_documents = {}
     
     @property
     def external_search(self):
@@ -368,8 +369,18 @@ class CirculationManager(object):
             self.circulation_apis[library.id], lane, library,
             top_level_title='All Books', *args, **kwargs
         )
-        
-    
+
+    @property
+    def authentication_for_opds_document(self):
+        """Make sure the current request's library has an Authentication For
+        OPDS document in the cache, then return the cached version.
+        """
+        name = flask.request.library.short_name
+        if name not in self.authentication_for_opds_documents:
+            self.authentication_for_opds_documents[name] = self.auth.create_authentication_document()
+        return self.authentication_for_opds_documents[name]
+
+
 class CirculationManagerController(BaseCirculationManagerController):
 
     @property
@@ -496,6 +507,16 @@ class IndexController(CirculationManagerController):
         # their type, and redirect them to an appropriate feed.
         return self.appropriate_index_for_patron_type()
 
+    def authentication_document(self):
+        """Serve this library's Authentication For OPDS document."""
+        return Response(
+            self.manager.authentication_for_opds_document,
+            200,
+            {
+                "Content-Type" : AuthenticationForOPDSDocument.MEDIA_TYPE
+            }
+        )
+    
     def authenticated_patron_root_lane(self):
         patron = self.authenticated_patron_from_request()
         if isinstance(patron, ProblemDetail):

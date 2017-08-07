@@ -74,12 +74,8 @@ class BaseCirculationManagerController(object):
 
     def authenticate(self):
         """Sends a 401 response that demands authentication."""
-        library_short_name = flask.request.library.short_name
-        if library_short_name not in self.manager.opds_authentication_documents:
-            self.manager.opds_authentication_documents[library_short_name] = self.manager.auth.create_authentication_document()
-
-        data = self.manager.opds_authentication_documents[library_short_name]
         headers = self.manager.auth.create_authentication_headers()
+        data = self.manager.authentication_for_opds_document
         return Response(data, 401, headers)
 
     def library_for_request(self, library_short_name):

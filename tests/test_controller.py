@@ -113,6 +113,7 @@ import random
 import json
 import urllib
 from core.analytics import Analytics
+from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 
 
 class ControllerTest(VendorIDTest):
@@ -780,6 +781,19 @@ class TestIndexController(CirculationControllerTest):
                 eq_(302, response.status_code)
                 eq_("http://cdn/default/groups/", response.headers['location'])
 
+    def test_authentication_document(self):
+        """Test the ability to retrieve an Authentication For OPDS document."""
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.invalid_auth)):
+            response = self.manager.index_controller.authentication_document()
+            eq_(200, response.status_code)
+            eq_(AuthenticationForOPDSDocument.MEDIA_TYPE, response.headers['Content-Type'])
+            data = response.data
+            eq_(self.manager.auth.create_authentication_document(), data)
+
+            # Make sure we got the A4OPDS document for the right library.
+            doc = json.loads(data)
+            eq_(self.library.short_name, doc['title'])
 
 class TestMultipleLibraries(CirculationControllerTest):
 
