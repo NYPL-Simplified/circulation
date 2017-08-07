@@ -188,7 +188,7 @@ class TestCirculationMonitor(Axis360Test):
         )
 
         monitor = Axis360CirculationMonitor(
-            self.collection, api_class=MockAxis360API,
+            self._db, self.collection, api_class=MockAxis360API,
             metadata_client=MockMetadataWranglerOPDSLookup('url')
         )
         edition, license_pool = monitor.process_book(
@@ -262,7 +262,7 @@ class TestCirculationMonitor(Axis360Test):
         )
         metadata = Metadata(DataSource.AXIS_360, primary_identifier=identifier)
         monitor = Axis360CirculationMonitor(
-            self.collection, api_class=MockAxis360API,
+            self._db, self.collection, api_class=MockAxis360API,
             metadata_client=MockMetadataWranglerOPDSLookup('url')
         )
         edition, licensepool = monitor.process_book(
