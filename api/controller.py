@@ -369,8 +369,18 @@ class CirculationManager(object):
             self.circulation_apis[library.id], lane, library,
             top_level_title='All Books', *args, **kwargs
         )
-        
-    
+
+    @property
+    def authentication_for_opds_document(self):
+        """Make sure the current request's library has an Authentication For
+        OPDS document in the cache, then return the cached version.
+        """
+        name = flask.request.library.short_name
+        if name not in self.authentication_for_opds_documents:
+            self.authentication_for_opds_documents[name] = self.auth.create_authentication_document()
+        return self.authentication_for_opds_documents[name]
+
+
 class CirculationManagerController(BaseCirculationManagerController):
 
     @property
@@ -499,9 +509,8 @@ class IndexController(CirculationManagerController):
 
     def authentication_document(self):
         """Serve this library's Authentication For OPDS document."""
-        content = self.manager.auth.create_authentication_document()
         return Response(
-            content,
+            self.manager.authentication_for_opds_document,
             200,
             {
                 "Content-Type" : AuthenticationForOPDSDocument.MEDIA_TYPE
