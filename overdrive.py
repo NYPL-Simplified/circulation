@@ -137,17 +137,24 @@ class OverdriveAPI(object):
         else:
             self.parent_library_id = None
 
-        self.client_key = collection.external_integration.username.encode("utf8")
-        self.client_secret = collection.external_integration.password.encode("utf8")
-        self.website_id = collection.external_integration.setting(self.WEBSITE_ID).value.encode("utf8")
-        self.ils_name = collection.external_integration.setting(
-            self.ILS_NAME).value.encode("utf8")
+        self.client_key = collection.external_integration.username
+        self.client_secret = collection.external_integration.password
+        self.website_id = collection.external_integration.setting(self.WEBSITE_ID).value
+        self.ils_name = collection.external_integration.setting(self.ILS_NAME).value
+        if not self.ils_name:
+            self.ils_name = "default"
 
         if (not self.client_key or not self.client_secret or not self.website_id
             or not self.library_id):
             raise CannotLoadConfiguration(
                 "Overdrive configuration is incomplete."
             )
+
+        # Use utf8 instead of unicode encoding
+        settings = [self.client_key, self.client_secret, self.website_id, self.ils_name]
+        self.client_key, self.client_secret, self.website_id, self.ils_name = (
+            setting.encode('utf8') for setting in settings
+        )
 
         # Get set up with up-to-date credentials from the API.
         self.check_creds()
@@ -1038,7 +1045,8 @@ class OverdriveAdvantageAccount(object):
         # the library, just in case that name has changed.
         child.name = name
         return parent, child
-        
+
+
 class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Overdrive records.
 
@@ -1090,4 +1098,3 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             return self.failure(identifier, e)
 
         return self.set_metadata(identifier, metadata)
-

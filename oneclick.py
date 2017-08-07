@@ -10,7 +10,8 @@ import re
 from sqlalchemy.orm.session import Session
 
 from config import (
-    Configuration, 
+    CannotLoadConfiguration,
+    Configuration,
     temp_config,
 )
 
@@ -82,8 +83,17 @@ class OneClickAPI(object):
             )
         self._db = Session.object_session(collection)
         self.collection_id = collection.id
-        self.library_id = collection.external_account_id.encode("utf8")
-        self.token = collection.external_integration.password.encode("utf8")
+        self.library_id = collection.external_account_id
+        self.token = collection.external_integration.password
+
+        if not (self.library_id and self.token):
+            raise CannotLoadConfiguration(
+                "OneClick configuration is incomplete."
+            )
+
+        # Use utf8 instead of unicode encoding
+        self.library_id = self.library_id.encode('utf8')
+        self.token = self.token.encode('utf8')
 
         # Convert the nickname for a server into an actual URL.
         base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
@@ -907,10 +917,3 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             return self.failure(identifier, e)
 
         return self.set_metadata(identifier, metadata)
-
-
-
-
-
-
-
