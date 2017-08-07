@@ -3,9 +3,9 @@
 -- each had to be unique. Now, the *combination* of each of those fields
 -- with patrons.library_id must be unique.
 
-DROP INDEX ix_patrons_authorization_identifier;
-DROP INDEX ix_patrons_external_identifier;
-DROP INDEX ix_patrons_username;
+DROP INDEX IF EXISTS ix_patrons_authorization_identifier;
+DROP INDEX IF EXISTS ix_patrons_external_identifier;
+DROP INDEX IF EXISTS ix_patrons_username;
 
 ALTER TABLE patrons ADD COLUMN library_id integer;
 ALTER TABLE patrons ADD CONSTRAINT patrons_library_id_fkey FOREIGN KEY (library_id) REFERENCES libraries(id);
