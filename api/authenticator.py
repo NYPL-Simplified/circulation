@@ -768,10 +768,10 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     # the authentication provider.
     DESCRIPTION = ""
 
-    # Each subclass MUST define a value for URI. This is used in the
+    # Each subclass MUST define a value for FLOW_TYPE. This is used in the
     # Authentication for OPDS document to distinguish between
     # different types of authentication.
-    URI = None
+    FLOW_TYPE = None
 
     # Each authentication mechanism may have a list of SETTINGS that
     # must be configured for that mechanism, and may have a list of
@@ -1064,7 +1064,6 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     DISPLAY_NAME = _("Library Barcode")
     AUTHENTICATION_REALM = _("Library card")
     FLOW_TYPE = "http://opds-spec.org/auth/basic"
-    URI = "http://librarysimplified.org/terms/auth/library-barcode"
     NAME = 'Generic Basic Authentication provider'
    
     # By default, patron identifiers can only contain alphanumerics and
