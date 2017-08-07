@@ -99,7 +99,7 @@ try:
             log_import(integration)
 
         # Import short client token configuration.
-        integration = EI(protocol=EI.SHORT_CLIENT_TOKEN, goal=EI.DRM_GOAL)
+        integration = EI(protocol=u'Short Client Token', goal=EI.DRM_GOAL)
         _db.add(integration)
         integration.set_setting(
             AuthdataUtility.VENDOR_ID_KEY, vendor_id

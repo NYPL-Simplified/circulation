@@ -244,11 +244,12 @@ class Axis360CirculationMonitor(CollectionMonitor):
     INTERVAL_SECONDS = 60
     DEFAULT_BATCH_SIZE = 50
     
+    PROTOCOL = ExternalIntegration.AXIS_360
+
     DEFAULT_START_TIME = datetime(1970, 1, 1)
     FIVE_MINUTES = timedelta(minutes=5)
 
-    def __init__(self, collection, api_class=None, metadata_client=None):
-        _db = Session.object_session(collection)
+    def __init__(self, _db, collection, api_class=Axis360API, metadata_client=None):
         super(Axis360CirculationMonitor, self).__init__(_db, collection)
         if isinstance(api_class, Axis360API):
             # Use a preexisting Axis360API instance rather than
@@ -261,6 +262,7 @@ class Axis360CirculationMonitor(CollectionMonitor):
                 _db, collection=collection
             )
 
+        self.batch_size = self.DEFAULT_BATCH_SIZE
         self.metadata_client = metadata_client
         self.bibliographic_coverage_provider = (
             Axis360BibliographicCoverageProvider(collection, api_class=self.api)
