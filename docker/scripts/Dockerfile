@@ -20,4 +20,4 @@ WORKDIR ./bin
 # container crashes.
 VOLUME /var/log
 
-CMD ["-c", "manage_simplified_database && supervisord"]
+CMD ["-c", "set_simplified_environment && manage_simplified_database && supervisord"]

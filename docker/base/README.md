@@ -1,7 +1,7 @@
 # Supported tags and respective `Dockerfile` links
 
-- `2.0.0` **(untested)** [(2.0.0/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/2ca39e4/base/Dockerfile)
-- `1.1.23`, `1.1`, `latest` [(1.1.23/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/2ca39e4/base/Dockerfile)
+- `2.0.1`, `2.0` **(pre-production)** [(2.0.1/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/1856a25/base/Dockerfile)
+- `1.1.25`, `1.1`, `latest` [(1.1.25/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/d4fd6ea/base/Dockerfile)
 
 Older versions of the Circulation Manager are not currently supported.
 
@@ -35,7 +35,7 @@ With your PostgreSQL url, you are ready to run:
 # about the values listed here and their alternatives.
 $ docker run --name base -it \
     -e SIMPLIFIED_DB_TASK='init' \
-    -e SIMPLIFIED_PRODUCTION_DB='postgres://[username]:[password]@[host]:[port]/[database_name]' \
+    -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
     nypl/circ-base:2.0
 ```
 
