@@ -653,7 +653,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
             self.provider.run()
 
 
-class BibliographicRefreshScript(RunCollectionCoverageProviderScript):
+class BibliographicRefreshScript(RunCollectionCoverageProviderScript, IdentifierInputScript):
     """Refresh the core bibliographic data for Editions direct from the
     license source.
 
@@ -674,6 +674,7 @@ class BibliographicRefreshScript(RunCollectionCoverageProviderScript):
         kwargs = dict(replacement_policy=replacement_policy)
 
         providers = list()
+        _db = _db or self._db
         for provider_class in self.PROVIDER_CLASSES:
             providers += self.get_providers(_db, provider_class, **kwargs)
 
