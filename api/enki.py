@@ -90,7 +90,6 @@ class EnkiAPI(BaseCirculationAPI):
 
     NAME = u"Enki"
     ENKI = NAME
-    ENKI_DATASOURCE = NAME
     ENKI_EXTERNAL = NAME
     ENKI_ID = u"Enki ID"
 
@@ -294,7 +293,7 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
     """
 
     SERVICE_NAME = "Enki Bibliographic Coverage Provider"
-    DATA_SOURCE_NAME = EnkiAPI.ENKI_DATASOURCE
+    DATA_SOURCE_NAME = DataSource.ENKI
     PROTOCOL = EnkiAPI.ENKI
     INPUT_IDENTIFIER_TYPES = EnkiAPI.ENKI_ID
 
@@ -366,6 +365,9 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
         results = self.process_batch([identifier])
         return results[0]
 
+    def handle_success(self, identifier):
+        return self.set_presentation_ready(identifier)
+
 class BibliographicParser(object):
 
     """Helper function to parse JSON"""
@@ -401,8 +403,8 @@ class BibliographicParser(object):
         if not sort_name:
             sort_name = "Unknown"
         contributors.append(ContributorData(sort_name=sort_name))
-        primary_identifier = IdentifierData(api.ENKI_ID, element["id"])
-	metadata = Metadata(
+        primary_identifier = IdentifierData(EnkiAPI.ENKI_ID, element["id"])
+        metadata = Metadata(
         data_source=DataSource.ENKI,
         title=element["title"],
         language="ENGLISH",
@@ -423,7 +425,6 @@ class BibliographicParser(object):
         formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=DeliveryMechanism.ADOBE_DRM))
 
         circulationdata = CirculationData(
-            collection = Collection,
             data_source=DataSource.ENKI,
             primary_identifier=primary_identifier,
             formats=formats,
@@ -456,6 +457,7 @@ class EnkiCirculationMonitor(CollectionMonitor):
     INTERVAL_SECONDS = 500
     PROTOCOL = EnkiAPI.ENKI_EXTERNAL
     DEFAULT_BATCH_SIZE = 50
+    FIVE_MINUTES = datetime.timedelta(minutes=5)
 
     # Report successful completion upon finding this number of
     # consecutive books in the Overdrive results whose LicensePools
@@ -467,12 +469,15 @@ class EnkiCirculationMonitor(CollectionMonitor):
     def __init__(self, _db, collection, api_class=EnkiAPI):
         """Constructor."""
         super(EnkiCirculationMonitor, self).__init__(_db, collection)
-        self.api = api_class(collection)
+        self.api = api_class(_db, collection)
         self.maximum_consecutive_unchanged_books = (
             self.MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS
         )
         self.analytics = Analytics(_db)
-        
+        self.bibliographic_coverage_provider = (
+            EnkiBibliographicCoverageProvider(_db, collection, api_class=self.api)
+        )
+
     def recently_changed_ids(self, start, cutoff):
         return self.api.recently_changed_ids(start, cutoff)
 
@@ -499,8 +504,7 @@ class EnkiCirculationMonitor(CollectionMonitor):
             id_start += self.DEFAULT_BATCH_SIZE
 
     def process_book(self, bibliographic, availability):
-
-        license_pool, new_license_pool = availability.license_pool(self._db)
+        license_pool, new_license_pool = availability.license_pool(self._db, self.collection)
         edition, new_edition = bibliographic.edition(self._db)
         license_pool.edition = edition
         policy = ReplacementPolicy(
@@ -510,11 +514,12 @@ class EnkiCirculationMonitor(CollectionMonitor):
             formats=True,
         )
         availability.apply(
-            pool=license_pool,
+            self._db,
+            license_pool.collection,
             replace=policy,
         )
         if new_edition:
-            bibliographic.apply(edition, replace=policy)
+            bibliographic.apply(edition, self.collection, replace=policy)
 
         if new_license_pool or new_edition:
             # At this point we have done work equivalent to that done by
@@ -528,13 +533,11 @@ class EnkiCirculationMonitor(CollectionMonitor):
 
         return edition, license_pool
 
-
-
 class EnkiImport(CollectionMonitor):
     """Import Enki titles.
     """
     SERVICE_NAME = "Enki Import"
-    PROTOCOL = EnkiAPI.ENKI_DATASOURCE
+    PROTOCOL = DataSource.ENKI
     FIVE_MINUTES = datetime.timedelta(minutes=5)
     INTERVAL_SECONDS = 500
     DEFAULT_BATCH_SIZE = 50
