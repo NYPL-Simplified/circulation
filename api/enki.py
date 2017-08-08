@@ -512,9 +512,10 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
 
     SERVICE_NAME = "Enki Collection Reaper"
     INTERVAL_SECONDS = 3600*4
+    PROTOCOL = "Enki"
 
     def __init__(self, _db, collection, api_class=EnkiAPI):
-        self._db = Session.object_session(collection) or _db
+        self._db = _db
         super(EnkiCollectionReaper, self).__init__(self._db, collection)
         self.api = api_class(self._db, collection)
 
