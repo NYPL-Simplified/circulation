@@ -24,10 +24,11 @@ WORKDIR circulation
 # Build the requested version of the codebase.
 RUN git checkout "$version"
 
-# Use an https link for the server_core submodule to avoid and update
-# the submodule for this version.
+# Use an https link for submodules, and then initialize them.
 RUN /bin/bash -c 'git config submodule.core.url \
         https://github.com/NYPL-Simplified/server_core.git \
+        && git config submodule.docker.url \
+        https://github.com/NYPL-Simplified/circulation-docker.git \
         && git submodule update --init --recursive'
 
 # Add the logrotate.conf file.
