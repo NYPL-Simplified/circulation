@@ -86,6 +86,7 @@ class EnkiAPI(BaseCirculationAPI):
     PRODUCTION_BASE_URL = "http://enkilibrary.org/API/"
     availability_endpoint = "ListAPI"
     item_endpoint = "ItemAPI"
+    #TODO: get this from configurationsettings. Also make sure the value actually gets to the DB.
     lib = 1
 
     NAME = u"Enki"
@@ -284,7 +285,6 @@ class MockEnkiAPI(EnkiAPI):
         return response.status_code, response.headers, response.content
 
 class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
-    #TODO
     """Fill in bibliographic metadata for Enki records.
 
     Currently this is only used by BibliographicRefreshScript. It's
@@ -314,21 +314,6 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
         else:
             self.api = api_class(_db, collection)
         self.parser = BibliographicParser()
-
-    def fakeinit(self, _db, collection, metadata_replacement_policy=None, enki_api=None,
-                 input_identifier_types=None, input_identifiers=None, **kwargs):
-        """
-        :param input_identifier_types: Passed in by RunCoverageProviderScript, data sources to get coverage for.
-        :param input_identifiers: Passed in by RunCoverageProviderScript, specific identifiers to get coverage for.
-        """
-        enki_api = enki_api or EnkiAPI(_db, collection)
-        self.parser = BibliographicParser()
-        super(EnkiBibliographicCoverageProvider, self).__init__(
-            _db, enki_api, DataSource.ENKI,
-            batch_size=25,
-            metadata_replacement_policy=metadata_replacement_policy,
-            **kwargs
-        )
 
     def process_batch(self, identifiers):
         identifier_strings = self.api.create_identifier_strings(identifiers)
@@ -449,30 +434,19 @@ class BibliographicParser(object):
 
         return bibliographic, availability
 
-class EnkiCirculationMonitor(CollectionMonitor):
-    """Maintain LicensePools for recently changed Overdrive titles. Create
-    basic Editions for any new LicensePools that show up.
+class EnkiImport(CollectionMonitor):
+    """Import content from Enki that we don't yet have in our collection
     """
     SERVICE_NAME = "Enki Circulation Monitor"
     INTERVAL_SECONDS = 500
     PROTOCOL = EnkiAPI.ENKI_EXTERNAL
-    DEFAULT_BATCH_SIZE = 50
+    DEFAULT_BATCH_SIZE = 100 
     FIVE_MINUTES = datetime.timedelta(minutes=5)
-
-    # Report successful completion upon finding this number of
-    # consecutive books in the Overdrive results whose LicensePools
-    # haven't changed since last time. Overdrive results are not in
-    # strict chronological order, but if you see 100 consecutive books
-    # that haven't changed, you're probably done.
-    MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS = None
     
     def __init__(self, _db, collection, api_class=EnkiAPI):
         """Constructor."""
-        super(EnkiCirculationMonitor, self).__init__(_db, collection)
+        super(EnkiImport, self).__init__(_db, collection)
         self.api = api_class(_db, collection)
-        self.maximum_consecutive_unchanged_books = (
-            self.MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS
-        )
         self.analytics = Analytics(_db)
         self.bibliographic_coverage_provider = (
             EnkiBibliographicCoverageProvider(_db, collection, api_class=self.api)
@@ -520,75 +494,6 @@ class EnkiCirculationMonitor(CollectionMonitor):
         )
         if new_edition:
             bibliographic.apply(edition, self.collection, replace=policy)
-
-        if new_license_pool or new_edition:
-            # At this point we have done work equivalent to that done by
-            # the EnkiBibliographicCoverageProvider. Register that the
-            # work has been done so we don't have to do it again.
-            identifier = edition.primary_identifier
-            self.bibliographic_coverage_provider.handle_success(identifier)
-            self.bibliographic_coverage_provider.add_coverage_record_for(
-                identifier
-            )
-
-        return edition, license_pool
-
-class EnkiImport(CollectionMonitor):
-    """Import Enki titles.
-    """
-    SERVICE_NAME = "Enki Import"
-    PROTOCOL = DataSource.ENKI
-    FIVE_MINUTES = datetime.timedelta(minutes=5)
-    INTERVAL_SECONDS = 500
-    DEFAULT_BATCH_SIZE = 50
-
-    def __init__(self, _db, collection, name="Enki Import", api_class=EnkiAPI):
-	super(EnkiImport, self).__init__(_db, collection)
-        self.api = api_class(_db, collection)
-        self.analytics = Analytics(_db)
-        self.bibliographic_coverage_provider = (
-            EnkiBibliographicCoverageProvider(_db, self.collection, api_class=self.__class__)
-        )
-
-    def run_once(self, start, cutoff):
-        # Give us five minutes of overlap because it's very important
-        # we don't miss anything.
-        since = start-self.FIVE_MINUTES
-        id_start = 0
-        while True:
-            availability = self.api.availability(since=since, strt=id_start, qty=self.DEFAULT_BATCH_SIZE)
-            if availability.status_code != 200:
-                self.log.error(
-                    "Could not contact Enki server for content availability. Status: %d",
-                    availability.status_code
-                )
-            content = availability.content
-            count = 0
-            for bibliographic, circulation in BibliographicParser().process_all(content):
-                self.process_book(bibliographic, circulation)
-                count += 1
-            if count == 0:
-                break
-            self._db.commit()
-            id_start += self.DEFAULT_BATCH_SIZE
-
-    def process_book(self, bibliographic, availability):
-
-        license_pool, new_license_pool = availability.license_pool(self._db)
-        edition, new_edition = bibliographic.edition(self._db)
-        license_pool.edition = edition
-        policy = ReplacementPolicy(
-            identifiers=False,
-            subjects=True,
-            contributions=True,
-            formats=True,
-        )
-        availability.apply(
-            pool=license_pool,
-            replace=policy,
-        )
-        if new_edition:
-            bibliographic.apply(edition, replace=policy)
 
         if new_license_pool or new_edition:
             # At this point we have done work equivalent to that done by
