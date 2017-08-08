@@ -23,6 +23,7 @@ git:
 before_install:
   # Access the submodule via https instead of default SSH
   - git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
+  - git config submodule.docker.url https://github.com/NYPL-Simplified/circulation-docker.git
   - git submodule update --init --recursive
 
 install:
