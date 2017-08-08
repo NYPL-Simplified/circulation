@@ -863,7 +863,8 @@ class DataSource(Base):
     INTERNAL_PROCESSING = u"Library Simplified Internal Process"
     FEEDBOOKS = u"FeedBooks"
     BIBBLIO = u"Bibblio"
-    
+    ENKI = u"Enki"
+
     DEPRECATED_NAMES = {
         u"3M" : BIBLIOTHECA
     }
