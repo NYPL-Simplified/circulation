@@ -315,7 +315,7 @@ class ItemListParser(XMLParser):
         subjects = []
 
         primary_identifier = IdentifierData(
-            Identifier.THREEM_ID, value("ItemId")
+            Identifier.BIBLIOTHECA_ID, value("ItemId")
         )
 
         identifiers = []
@@ -395,7 +395,7 @@ class ItemListParser(XMLParser):
         formats = [format]
 
         metadata = Metadata(
-            data_source=DataSource.THREEM,
+            data_source=DataSource.BIBLIOTHECA,
             title=title,
             subtitle=subtitle,
             language=language,
@@ -412,7 +412,7 @@ class ItemListParser(XMLParser):
 
         # Also make a CirculationData so we can write the formats, 
         circulationdata = CirculationData(
-            data_source=DataSource.THREEM,
+            data_source=DataSource.BIBLIOTHECA,
             primary_identifier=primary_identifier,
             formats=formats,
             links=links,

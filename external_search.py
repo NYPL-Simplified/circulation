@@ -1,7 +1,7 @@
 from nose.tools import set_trace
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk as elasticsearch_bulk
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from config import (
     Configuration,
     CannotLoadConfiguration,

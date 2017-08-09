@@ -7,7 +7,7 @@ import logging
 import copy
 from util import LanguageCodes
 from sqlalchemy.engine.url import make_url
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from facets import FacetConstants
 
