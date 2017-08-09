@@ -1478,32 +1478,6 @@ class CustomListManagementScript(Script):
         self._db.commit()
 
 
-class OneClickImportScript(Script):
-    """Import all books from a OneClick-subscribed library catalog."""
-
-    def __init__(self, collection=None, api_class=OneClickAPI,
-                 **api_class_kwargs):
-        _db = Session.object_session(collection)
-        super(OneClickImportScript, self).__init__(_db=_db)
-        self.api = api_class(collection, **api_class_kwargs)
-
-    def do_run(self):
-        self.log.info("OneClickImportScript.do_run().")
-        items_transmitted, items_created = self.api.populate_all_catalog()
-        result_string = "OneClickImportScript: %s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
-        self.log.info(result_string)
-
-
-class OneClickDeltaScript(OneClickImportScript):
-    """Import book deletions, additions, and metadata changes for a 
-    OneClick-subscribed library catalog.
-    """
-
-    def do_run(self):
-        self.log.info("OneClickDeltaScript.do_run().")
-        items_transmitted, items_updated = self.api.populate_delta()
-
-
 class CollectionInputScript(Script):
     """A script that takes collection names as command line inputs."""
 

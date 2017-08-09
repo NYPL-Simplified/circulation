@@ -917,3 +917,34 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             return self.failure(identifier, e)
 
         return self.set_metadata(identifier, metadata)
+
+
+class OneClickMonitor(CollectionMonitor):
+
+    def __init__(self, _db, collection, api_class=OverdriveAPI,
+                 **api_class_kwargs):
+        """Constructor."""
+        super(OverdriveCirculationMonitor, self).__init__(_db, collection)
+        self.api = api_class(collection, **api_class_kwargs)
+
+    def run_once(self, start, cutoff):
+        items_transmitted, items_created = self.populate()
+        self._db.commit()
+        result_string = "%s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
+        self.log.info(result_string)
+        
+    def populate(self):
+        raise NotImplementedError()
+
+
+class OneClickImportMonitor(OneClickMonitor):
+
+    def populate(self):
+        return self.api.populate_all_catalog()
+
+
+class OneClickDeltaMonitor(CollectionMonitor):
+
+    def populate(self):
+        return self.api.populate_delta()
+
