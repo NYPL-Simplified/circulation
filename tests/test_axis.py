@@ -33,6 +33,7 @@ from core.opds_import import(
 )
 
 from api.axis import (
+    AxisCollectionReaper,
     Axis360CirculationMonitor,
     Axis360API,
     AvailabilityResponseParser,
@@ -272,6 +273,16 @@ class TestCirculationMonitor(Axis360Test):
         # Now we have information based on the CirculationData.
         eq_(9, licensepool.licenses_owned)
 
+
+class TestReaper(DatabaseTest):
+
+    def test_instantiate(self):
+        # Validate the standard CollectionMonitor interface.
+        monitor = AxisCollectionReaper(
+            self._db, self.collection,
+            api_class=MockAxis360API
+        )
+        
 
 class TestResponseParser(object):
 
