@@ -1,16 +1,11 @@
 #!/usr/bin/env python
-"""Add new books, change metadata, remove license pools for OneClick library catalog."""
+"""Make sure a OneClick collection is up to date."""
 import os
 import sys
 bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..")
 sys.path.append(os.path.abspath(package_dir))
-from core.scripts import OneClickDeltaScript
 
-from api.config import Configuration
-Configuration.load()
-library_id = Configuration.integration(Configuration.ONECLICK_INTEGRATION).get("library_id", None)
-
-print "Applying catalog delta of library #%s" % library_id
-OneClickDeltaScript().run()
-
+from core.scripts import RunCollectionMonitorScript
+from core.oneclick import OneClickDeltaMonitor
+RunCollectionMonitorScript(OneClickDeltaMonitor).run()
