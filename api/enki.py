@@ -107,6 +107,7 @@ class EnkiAPI(BaseCirculationAPI):
                 "Collection protocol is %s, but passed into EnkiAPI!" %
                 collection.protocol
             )
+        self.collection = collection
         self.library_id = collection.external_account_id.encode("utf8")
         self.base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
 
@@ -209,17 +210,17 @@ class EnkiAPI(BaseCirculationAPI):
         )
 
     def reaper_request(self, identifier):
-        self.log.debug ("Checking availability for " + str(identifier))
+        self.log.debug ("Checking availability for " + str(identifier.identifier))
         now = datetime.datetime.utcnow()
         url = str(self.base_url) + str(self.item_endpoint)
         args = dict()
         args['method'] = "getItem"
-        args['recordid'] = identifier
+        args['recordid'] = identifier.identifier
         args['size'] = "small"
         args['lib'] = self.lib
         response = self.request(url, method='get', params=args)
         if not(response.content.startswith("{\"result\":{\"id\":\"")):
-            pool = identifier.licensed_through
+            pool = identifier.licensed_through[0]
             if pool and (pool.licenses_owned > 0):
                 if pool.presentation_edition:
                     self.log.warn("Removing %s (%s) from circulation",
@@ -234,6 +235,24 @@ class EnkiAPI(BaseCirculationAPI):
             pool.licenses_reserved = 0
             pool.patrons_in_hold_queue = 0
             pool.last_checked = now
+
+            circulationdata = CirculationData(
+                data_source=DataSource.ENKI,
+                primary_identifier= IdentifierData(EnkiAPI.ENKI_ID, identifier.identifier),
+                licenses_owned = 0,
+                licenses_available = 0,
+                patrons_in_hold_queue = 0,
+                last_checked = now
+            )
+
+            circulationdata.apply(
+                self._db,
+                self.collection,
+                replace=ReplacementPolicy.from_license_source(self._db)
+            )
+
+            self._db.commit()
+
         else:
             self.log.debug ("Keeping existing book: " + str(identifier))
 
@@ -520,4 +539,4 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
         self.api = api_class(self._db, collection)
 
     def process_item(self, identifier):
-        self.api.reaper_request(identifier.identifier)
+        self.api.reaper_request(identifier)
