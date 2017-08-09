@@ -860,7 +860,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         else:
             # A web application should not use this option because it
             # will put a non-scoped session in the mix.
-            _db = Session.object.session(collection)
+            _db = Session.object_session(collection)
             self.api = api_class(_db, collection, **api_class_kwargs)
 
     def process_item(self, identifier):
