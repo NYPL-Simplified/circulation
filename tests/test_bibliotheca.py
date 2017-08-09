@@ -56,7 +56,7 @@ class BibliothecaAPITest(DatabaseTest):
     def setup(self):
         super(BibliothecaAPITest,self).setup()
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
-        self.api = MockBibliothecaAPI(self.collection)
+        self.api = MockBibliothecaAPI(self._db, self.collection)
 
     @classmethod
     def sample_data(self, filename):

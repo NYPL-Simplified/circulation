@@ -722,7 +722,7 @@ class BibliothecaEventMonitor(CollectionMonitor):
     
     def __init__(self, _db, collection, api_class=BibliothecaAPI):
         super(BibliothecaEventMonitor, self).__init__(_db, collection)
-        self.api = api_class(collection)
+        self.api = api_class(_db, collection)
         self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
             collection, self.api
         )
