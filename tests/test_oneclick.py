@@ -49,7 +49,9 @@ class OneClickTest(DatabaseTest):
         super(OneClickTest, self).setup()
         base_path = os.path.split(__file__)[0]
         self.collection = MockOneClickAPI.mock_collection(self._db)
-        self.api = MockOneClickAPI(self.collection, base_path=base_path)
+        self.api = MockOneClickAPI(
+            self._db, self.collection, base_path=base_path
+        )
 
 
 class TestOneClickAPI(OneClickTest):
