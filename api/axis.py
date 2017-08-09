@@ -326,8 +326,8 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
     SERVICE_NAME = "Axis Collection Reaper"
     INTERVAL_SECONDS = 3600*12
     
-    def __init__(self, collection, api_class=Axis360API):
-        super(AxisCollectionReaper, self).__init__(collection)
+    def __init__(self, _db, collection, api_class=Axis360API):
+        super(AxisCollectionReaper, self).__init__(_db, collection)
         if isinstance(api_class, Axis360API):
             # Use a preexisting Axis360API instance rather than
             # creating a new one.

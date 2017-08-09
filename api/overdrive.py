@@ -919,8 +919,7 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
     SERVICE_NAME = "Overdrive Collection Reaper"
     INTERVAL_SECONDS = 3600*4
     
-    def __init__(self, collection, api_class=OverdriveAPI):
-        _db = Session.object_session(collection)
+    def __init__(self, _db, collection, api_class=OverdriveAPI):
         super(OverdriveCollectionReaper, self).__init__(_db, collection)
         self.api = api_class(collection)
 

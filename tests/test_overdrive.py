@@ -11,6 +11,7 @@ from datetime import (
 )
 from api.overdrive import (
     MockOverdriveAPI,
+    OverdriveCollectionReaper,
 )
 
 from api.circulation import (
@@ -696,3 +697,13 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
         assert overdrive_hold in patron.holds
+
+
+class TestReaper(OverdriveAPITest):
+
+    def test_instantiate(self):
+        # Validate the standard CollectionMonitor interface.
+        monitor = OverdriveCollectionReaper(
+            self._db, self.collection,
+            api_class=MockOverdriveAPI
+        )
