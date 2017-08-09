@@ -72,13 +72,13 @@ class Axis360API(object):
 
     log = logging.getLogger("Axis 360 API")
 
-    def __init__(self, collection):
+    def __init__(self, _db, collection):
         if collection.protocol != ExternalIntegration.AXIS_360:
             raise ValueError(
                 "Collection protocol is %s, but passed into Axis360API!" %
                 collection.protocol
             )
-        self._db = Session.object_session(collection)
+        self._db = _db
         self.library_id = collection.external_account_id
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
@@ -221,7 +221,7 @@ class MockAxis360API(Axis360API):
         library.collections.append(collection)
         return collection
 
-    def __init__(self, collection, with_token=True, **kwargs):
+    def __init__(self, _db, collection, with_token=True, **kwargs):
         """Constructor.
 
         :param collection: Get Axis 360 credentials from this
@@ -231,7 +231,7 @@ class MockAxis360API(Axis360API):
             it already has a valid token, and will not go through
             the motions of negotiating one with the mock server.
         """
-        super(MockAxis360API, self).__init__(collection, **kwargs)
+        super(MockAxis360API, self).__init__(_db, collection, **kwargs)
         if with_token:
             self.token = "mock token"
         self.responses = []
@@ -282,7 +282,10 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
             # We were given a specific Axis360API instance to use.
             self.api = api_class
         else:
-            self.api = api_class(collection)
+            # A web application should not use this option because it
+            # will put a non-scoped session in the mix.
+            _db = Session.object_session(collection)
+            self.api = api_class(_db, collection)
         self.parser = BibliographicParser()
 
     def process_batch(self, identifiers):

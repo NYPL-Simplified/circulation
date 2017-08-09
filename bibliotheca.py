@@ -70,7 +70,7 @@ class BibliothecaAPI(object):
     DEFAULT_VERSION = "2.0"
     DEFAULT_BASE_URL = "https://partner.yourcloudlibrary.com/"
     
-    def __init__(self, collection):
+    def __init__(self, _db, collection):
         
         if collection.protocol != ExternalIntegration.BIBLIOTHECA:
             raise ValueError(
@@ -78,7 +78,7 @@ class BibliothecaAPI(object):
                 collection.protocol
             )
 
-        self._db = Session.object_session(collection)
+        self._db = _db
         self.version = (
             collection.external_integration.setting('version').value or self.DEFAULT_VERSION
         )
@@ -226,10 +226,12 @@ class MockBibliothecaAPI(BibliothecaAPI):
         library.collections.append(collection)
         return collection
         
-    def __init__(self, collection, *args, **kwargs):
+    def __init__(self, _db, collection, *args, **kwargs):
         self.responses = []
         self.requests = []
-        super(MockBibliothecaAPI, self).__init__(collection, *args, **kwargs)
+        super(MockBibliothecaAPI, self).__init__(
+            _db, collection, *args, **kwargs
+        )
 
     def now(self):
         """Return an unvarying time in the format Bibliotheca expects."""
@@ -455,7 +457,10 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
             # instead of creating a new one.
             self.api = api_class
         else:
-            self.api = api_class(collection)
+            # A web application should not use this option because it
+            # will put a non-scoped session in the mix.
+            _db = Session.object_session(collection)
+            self.api = api_class(_db, collection)
         
     def process_item(self, identifier):
         # We don't accept a representation from the cache because

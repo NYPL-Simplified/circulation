@@ -1486,7 +1486,7 @@ class OneClickImportScript(Script):
                  **api_class_kwargs):
         _db = Session.object_session(collection)
         super(OneClickImportScript, self).__init__(_db=_db)
-        self.api = api_class(collection, **api_class_kwargs)
+        self.api = api_class(_db, collection, **api_class_kwargs)
 
     def do_run(self):
         self.log.info("OneClickImportScript.do_run().")

@@ -8972,7 +8972,7 @@ class Library(Base):
             Edition.language, func.count(Work.id).label("work_count")
         ).select_from(Work).join(Work.license_pools).join(
             Work.presentation_edition
-        ).group_by(Edition.language)
+        ).filter(Edition.language != None).group_by(Edition.language)
         qu = self.restrict_to_ready_deliverable_works(qu, Work)
         if not include_open_access:
             qu = qu.filter(LicensePool.open_access==False)

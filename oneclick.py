@@ -75,13 +75,13 @@ class OneClickAPI(object):
    
     log = logging.getLogger("OneClick API")
 
-    def __init__(self, collection):
+    def __init__(self, _db, collection):
         if collection.protocol != ExternalIntegration.ONE_CLICK:
             raise ValueError(
                 "Collection protocol is %s, but passed into OneClickAPI!" %
                 collection.protocol
             )
-        self._db = Session.object_session(collection)
+        self._db = _db
         self.collection_id = collection.id
         self.library_id = collection.external_account_id
         self.token = collection.external_integration.password
@@ -538,13 +538,13 @@ class MockOneClickAPI(OneClickAPI):
         library.collections.append(collection)
         return collection
     
-    def __init__(self, collection, base_path=None, **kwargs):
+    def __init__(self, _db, collection, base_path=None, **kwargs):
         self._collection = collection
         self.responses = []
         self.requests = []
         base_path = base_path or os.path.split(__file__)[0]
         self.resource_path = os.path.join(base_path, "files", "oneclick")
-        return super(MockOneClickAPI, self).__init__(collection, **kwargs)
+        return super(MockOneClickAPI, self).__init__(_db, collection, **kwargs)
 
     @property
     def collection(self):
@@ -858,7 +858,10 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             else:
                 self.api = api_class
         else:
-            self.api = api_class(collection, **api_class_kwargs)
+            # A web application should not use this option because it
+            # will put a non-scoped session in the mix.
+            _db = Session.object_session(collection)
+            self.api = api_class(_db, collection, **api_class_kwargs)
 
     def process_item(self, identifier):
         """ OneClick availability information is served separately from 

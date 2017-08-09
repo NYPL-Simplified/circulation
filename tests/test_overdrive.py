@@ -70,7 +70,7 @@ class OverdriveTestWithAPI(OverdriveTest):
     """
     def setup(self):
         super(OverdriveTestWithAPI, self).setup()
-        self.api = MockOverdriveAPI(self.collection)
+        self.api = MockOverdriveAPI(self._db, self.collection)
 
 
 class TestOverdriveAPI(OverdriveTestWithAPI):
@@ -124,6 +124,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
             CannotLoadConfiguration,
             "Overdrive credentials are valid but could not fetch library: Some message.",
             MisconfiguredOverdriveAPI,
+            self._db,
             self.collection
         )
         
@@ -214,7 +215,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
         main.external_integration.setting('ils_name').value = 'default'
 
         # Here's an Overdrive API client for that collection.
-        overdrive_main = MockOverdriveAPI(main)
+        overdrive_main = MockOverdriveAPI(self._db, main)
         eq_("https://api.overdrive.com/v1/libraries/1",
             overdrive_main._library_endpoint)
 
@@ -224,7 +225,7 @@ class TestOverdriveAPI(OverdriveTestWithAPI):
             protocol=ExternalIntegration.OVERDRIVE, external_account_id="2",
         )
         child.parent = main
-        overdrive_child = MockOverdriveAPI(child)
+        overdrive_child = MockOverdriveAPI(self._db, child)
         eq_(
             'https://api.overdrive.com/v1/libraries/1/advantageAccounts/2',
             overdrive_child._library_endpoint
