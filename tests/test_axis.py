@@ -274,7 +274,7 @@ class TestCirculationMonitor(Axis360Test):
         eq_(9, licensepool.licenses_owned)
 
 
-class TestReaper(DatabaseTest):
+class TestReaper(Axis360Test):
 
     def test_instantiate(self):
         # Validate the standard CollectionMonitor interface.
