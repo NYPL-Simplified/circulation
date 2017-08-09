@@ -331,14 +331,14 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
 
 class TestOneClickSyncMonitor(DatabaseTest):
 
-    # TODO: This shouldn't test anything except that the monitors can
-    # be instantiated and run by RunCollectionMonitorScript, and that
-    # when they are run they call the appropriate method on their .api
-    # object.
+    # TODO: The only thing this should test is that the monitors can
+    # be instantiated using the constructor arguments used by
+    # RunCollectionMonitorScript, and that calling run_once() results
+    # in a call to the appropriate OneClickAPI method.
     #
-    # However, removing this code requires ensuring that
-    # populate_all_catalog() and populate_delta() are tested somewhere
-    # else.
+    # However, there's no other code that tests populate_all_catalog()
+    # or populate_delta(), so we can't just remove the code; we need to
+    # refactor the tests.
 
     def setup(self):
         super(TestOneClickSyncMonitor, self).setup()
@@ -396,8 +396,10 @@ class TestOneClickSyncMonitor(DatabaseTest):
         pools = self._db.query(LicensePool).all()
         eq_(8, len(pools))
 
+        #
         # Now we're going to run the delta monitor to change things
         # around a bit.
+        #
         
         # set license numbers on test pool to match what's in the
         # delta document.
