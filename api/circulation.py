@@ -213,7 +213,7 @@ class CirculationAPI(object):
             if collection.protocol in api_map:
                 api = None
                 try:
-                    api = api_map[collection.protocol](collection)
+                    api = api_map[collection.protocol](_db, collection)
                 except CannotLoadConfiguration, e:
                     self.log.error(
                         "Error loading configuration for %s: %s",

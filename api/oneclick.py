@@ -781,7 +781,7 @@ class OneClickCirculationMonitor(CollectionMonitor):
         super(OneClickCirculationMonitor, self).__init__(_db, collection)
         self.batch_size = batch_size or self.DEFAULT_BATCH_SIZE
 
-        self.api = api_class(self.collection, **api_class_kwargs)
+        self.api = api_class(_db, self.collection, **api_class_kwargs)
         self.bibliographic_coverage_provider = (
             OneClickBibliographicCoverageProvider(
                 collection=self.collection, api_class=self.api,

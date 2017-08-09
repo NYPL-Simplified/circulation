@@ -648,7 +648,7 @@ class TestConfigurationFailures(DatabaseTest):
 
     class MisconfiguredAPI(object):
 
-        def __init__(self, collection):
+        def __init__(self, _db, collection):
             raise CannotLoadConfiguration("doomed!")
 
     def test_configuration_exception_is_stored(self):

@@ -70,7 +70,7 @@ class Axis360Test(DatabaseTest):
     def setup(self):
         super(Axis360Test,self).setup()
         self.collection = MockAxis360API.mock_collection(self._db)
-        self.api = MockAxis360API(self.collection)
+        self.api = MockAxis360API(self._db, self.collection)
 
     @classmethod
     def sample_data(self, filename):

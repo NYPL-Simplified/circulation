@@ -92,8 +92,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     # displayed to a patron, so it doesn't matter much.
     DEFAULT_ERROR_URL = "http://librarysimplified.org/"
 
-    def __init__(self, collection):
-        super(OverdriveAPI, self).__init__(collection)
+    def __init__(self, _db, collection):
+        super(OverdriveAPI, self).__init__(_db, collection)
         self.overdrive_bibliographic_coverage_provider = (
             OverdriveBibliographicCoverageProvider(
                 collection, api_class=self
@@ -847,7 +847,7 @@ class OverdriveCirculationMonitor(CollectionMonitor):
     def __init__(self, _db, collection, api_class=OverdriveAPI):
         """Constructor."""
         super(OverdriveCirculationMonitor, self).__init__(_db, collection)
-        self.api = api_class(collection)
+        self.api = api_class(_db, collection)
         self.maximum_consecutive_unchanged_books = (
             self.MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS
         )
@@ -921,7 +921,7 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
     
     def __init__(self, _db, collection, api_class=OverdriveAPI):
         super(OverdriveCollectionReaper, self).__init__(_db, collection)
-        self.api = api_class(collection)
+        self.api = api_class(_db, collection)
 
     def process_item(self, identifier):
         self.api.update_licensepool(identifier.identifier)
@@ -944,7 +944,7 @@ class OverdriveFormatSweep(IdentifierSweepMonitor):
 
     def __init__(self, collection, api_class=OverdriveAPI):
         _db = Session.object_session(collection)
-        api = api_class(collection)
+        api = api_class(_db, collection)
         super(OverdriveFormatSweep, self).__init__(_db, collection)
 
     def process_identifier(self, identifier):
