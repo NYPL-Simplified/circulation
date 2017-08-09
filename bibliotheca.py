@@ -459,8 +459,8 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
         else:
             # A web application should not use this option because it
             # will put a non-scoped session in the mix.
-            _db = Session.object_session(Collection)
-            self.api = api_class(collection)
+            _db = Session.object_session(collection)
+            self.api = api_class(_db, collection)
         
     def process_item(self, identifier):
         # We don't accept a representation from the cache because

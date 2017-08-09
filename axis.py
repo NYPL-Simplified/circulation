@@ -285,7 +285,7 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
             # A web application should not use this option because it
             # will put a non-scoped session in the mix.
             _db = Session.object_session(collection)
-            self.api = api_class(collection)
+            self.api = api_class(_db, collection)
         self.parser = BibliographicParser()
 
     def process_batch(self, identifiers):

@@ -41,7 +41,7 @@ class TestBibliothecaAPI(DatabaseTest, BaseBibliothecaTest):
     def setup(self):
         super(TestBibliothecaAPI, self).setup()
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
-        self.api = MockBibliothecaAPI(self.collection)
+        self.api = MockBibliothecaAPI(self._db, self.collection)
 
     def test_full_path(self):
         id = self.api.library_id
