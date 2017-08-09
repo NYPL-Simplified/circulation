@@ -634,7 +634,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         if isinstance(api_class, BibliothecaAPI):
             self.api = api_class
         else:
-            self.api = api_class(collection)
+            self.api = api_class(_db, collection)
         self.analytics = Analytics(_db)
     
     def process_batch(self, identifiers):

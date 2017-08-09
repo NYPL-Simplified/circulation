@@ -333,7 +333,7 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
             # creating a new one.
             self.api = api_class
         else:
-            self.api = api_class(collection)
+            self.api = api_class(_db, collection)
 
     def process_batch(self, identifiers):
         self.api.update_licensepools_for_identifiers(identifiers)
