@@ -9885,13 +9885,13 @@ class Collection(Base):
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
-        account_id = base64.b64encode(unicode(self.unique_account_id), '-_')
-        protocol = base64.b64encode(
-            unicode(self.external_integration.protocol), '-_'
+        account_id = base64.urlsafe_b64encode(self.unique_account_id.encode('utf8'))
+        protocol = base64.urlsafe_b64encode(
+            self.external_integration.protocol.encode('utf8')
         )
 
         metadata_identifier = protocol + ':' + account_id
-        return base64.b64encode(metadata_identifier, '-_')
+        return base64.urlsafe_b64encode(metadata_identifier.encode('utf8'))
 
     @classmethod
     def from_metadata_identifier(cls, _db, metadata_identifier):
@@ -9902,8 +9902,10 @@ class Collection(Base):
         is_new = False
 
         if not collection:
-            details = base64.b64decode(metadata_identifier, '-_')
-            protocol = base64.b64decode(details.split(':', 1)[0], '-_')
+            details = base64.urlsafe_b64decode(metadata_identifier.encode('utf8'))
+            protocol = unicode(base64.urlsafe_b64decode(
+                details.split(':', 1)[0].encode('utf8')
+            ))
             collection, is_new = create(_db, Collection,
                 name=metadata_identifier)
 
