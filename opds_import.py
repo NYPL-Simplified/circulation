@@ -182,6 +182,8 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
     def _post(self, url, **kwargs):
         """Make an HTTP request. This method is overridden in the mock class."""
+        if self.authenticated:
+            kwargs['auth'] = (self.client_id, self.client_secret)
         kwargs['timeout'] = kwargs.get('timeout', 120)
         kwargs['allowed_response_codes'] = kwargs.get('allowed_response_codes', [])
         kwargs['allowed_response_codes'] += ['2xx', '3xx']
