@@ -435,7 +435,7 @@ class TestCirculationMonitor(OneClickAPITest):
 
     def test_process_availability(self):
         monitor = OneClickCirculationMonitor(
-            self.collection, api_class=MockOneClickAPI, 
+            self._db, self.collection, api_class=MockOneClickAPI, 
             api_class_kwargs=dict(base_path=self.base_path)
         )
 
