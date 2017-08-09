@@ -61,7 +61,9 @@ class OneClickAPITest(DatabaseTest):
 
         self.base_path = os.path.split(__file__)[0]
         self.collection = MockOneClickAPI.mock_collection(self._db)
-        self.api = MockOneClickAPI(self.collection, base_path=self.base_path)
+        self.api = MockOneClickAPI(
+            self._db, self.collection, base_path=self.base_path
+        )
 
         self.default_patron = self._patron(external_identifier="oneclick_testuser")
         self.default_patron.authorization_identifier="13057226"
