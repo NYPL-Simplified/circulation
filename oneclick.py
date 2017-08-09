@@ -45,6 +45,8 @@ from metadata_layer import (
     SubjectData,
 )
 
+from monitor import CollectionMonitor
+
 from util import LanguageCodes
 
 from util.personal_names import name_tidy, sort_name_to_display_name
@@ -922,32 +924,38 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
         return self.set_metadata(identifier, metadata)
 
 
-class OneClickMonitor(CollectionMonitor):
+class OneClickSyncMonitor(CollectionMonitor):
 
-    def __init__(self, _db, collection, api_class=OverdriveAPI,
-                 **api_class_kwargs):
+    PROTOCOL = ExternalIntegration.ONE_CLICK
+    
+    def __init__(self, _db, collection, api_class=OneClickAPI,
+                 api_class_kwargs={}):
         """Constructor."""
-        super(OverdriveCirculationMonitor, self).__init__(_db, collection)
-        self.api = api_class(collection, **api_class_kwargs)
+        super(OneClickSyncMonitor, self).__init__(_db, collection)
+        self.api = api_class(_db, collection, **api_class_kwargs)
 
     def run_once(self, start, cutoff):
-        items_transmitted, items_created = self.populate()
+        items_transmitted, items_created = self.invoke()
         self._db.commit()
         result_string = "%s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
         self.log.info(result_string)
         
-    def populate(self):
+    def invoke(self):
         raise NotImplementedError()
 
 
-class OneClickImportMonitor(OneClickMonitor):
+class OneClickImportMonitor(OneClickSyncMonitor):
 
-    def populate(self):
+    SERVICE_NAME = "OneClick Full Import"
+    
+    def invoke(self):
         return self.api.populate_all_catalog()
 
 
-class OneClickDeltaMonitor(CollectionMonitor):
+class OneClickDeltaMonitor(OneClickSyncMonitor):
 
-    def populate(self):
+    SERVICE_NAME = "OneClick Delta Sync"
+    
+    def invoke(self):
         return self.api.populate_delta()
 
