@@ -256,7 +256,7 @@ class Axis360CirculationMonitor(CollectionMonitor):
             # creating a new one.
             self.api = api_class
         else:
-            self.api = api_class(collection)
+            self.api = api_class(_db, collection)
         if not metadata_client:
             metadata_client = MetadataWranglerOPDSLookup.from_config(
                 _db, collection=collection
