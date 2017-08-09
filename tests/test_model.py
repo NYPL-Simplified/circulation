@@ -5577,9 +5577,13 @@ class TestLibrary(DatabaseTest):
         tagalog = self._work(language="tgl", with_license_pool=True)
         [pool] = tagalog.license_pools
         self._add_generic_delivery_mechanism(pool)
+
+        # Here's an open-access book that improperly has no language set.
+        no_language = self._work(with_open_access_download=True)
+        no_language.presentation_edition.language = None
         
         # estimated_holdings_by_language counts the English and the
-        # Tagalog works.
+        # Tagalog works. The work with no language is ignored.
         estimate = library.estimated_holdings_by_language()
         eq_(dict(eng=1, tgl=1), estimate)
         
