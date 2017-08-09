@@ -117,13 +117,13 @@ class OverdriveAPI(object):
     # the metadata wrangler) don't need to set this value.
     ILS_NAME = "ils_name"
     
-    def __init__(self, collection):
+    def __init__(self, _db, collection):
         if collection.protocol != ExternalIntegration.OVERDRIVE:
             raise ValueError(
                 "Collection protocol is %s, but passed into OverdriveAPI!" %
                 collection.protocol
             )
-        self._db = Session.object_session(collection)
+        self._db = _db
         self.library_id = collection.external_account_id
         self.collection_id = collection.id
         if collection.parent:
@@ -437,7 +437,7 @@ class MockOverdriveAPI(OverdriveAPI):
         library.collections.append(collection)
         return collection
     
-    def __init__(self, collection, *args, **kwargs):
+    def __init__(self, _db, collection, *args, **kwargs):
         self.access_token_requests = []
         self.requests = []
         self.responses = []
@@ -449,7 +449,7 @@ class MockOverdriveAPI(OverdriveAPI):
         self.access_token_response = self.mock_access_token_response(
             "bearer token"
         )
-        super(MockOverdriveAPI, self).__init__(collection, *args, **kwargs)
+        super(MockOverdriveAPI, self).__init__(_db, collection, *args, **kwargs)
         
     def token_post(self, url, payload, headers={}, **kwargs):
         """Mock the request for an OAuth token.
@@ -1076,7 +1076,10 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             # rather than creating a new one.
             self.api = api_class
         else:
-            self.api = api_class(collection)
+            # A web application should not use this option because it
+            # will put a non-scoped session in the mix.
+            _db = Session.object_session(collection)
+            self.api = api_class(_db, collection)
 
     def process_item(self, identifier):
         info = self.api.metadata_lookup(identifier)

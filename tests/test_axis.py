@@ -52,7 +52,7 @@ class AxisTestWithAPI(AxisTest):
     """Test against a mock Axis 360 Collection using a MockAxis360API."""
     def setup(self):
         super(AxisTestWithAPI, self).setup()
-        self.api = MockAxis360API(self.collection)
+        self.api = MockAxis360API(self._db, self.collection)
 
 
 class TestAxis360API(AxisTestWithAPI):
@@ -86,7 +86,7 @@ class TestAxis360API(AxisTestWithAPI):
         """Raise an exception if we don't get a 200 status code when
         refreshing the bearer token.
         """
-        api = MockAxis360API(self.collection, with_token=False)
+        api = MockAxis360API(self._db, self.collection, with_token=False)
         api.queue_response(412)
         assert_raises_regexp(
             RemoteIntegrationException, "Bad response from http://axis.test/accesstoken: Got status code 412 from external server, but can only continue on: 200.", 

@@ -3,8 +3,8 @@ as
  SELECT 
     works.id AS works_id,
     editions.id AS editions_id,
-    editions.data_source_id,
-    editions.primary_identifier_id,
+    licensepools.data_source_id,
+    licensepools.identifier_id,
     editions.sort_title,
     editions.permanent_work_id,
     editions.sort_author,
@@ -39,7 +39,7 @@ as
      JOIN editions ON editions.id = works.presentation_edition_id
      JOIN licensepools ON editions.id = licensepools.presentation_edition_id
      JOIN datasources ON licensepools.data_source_id = datasources.id
-     JOIN identifiers on editions.primary_identifier_id = identifiers.id
+     JOIN identifiers on licensepools.identifier_id = identifiers.id
      JOIN workgenres ON works.id = workgenres.work_id
   WHERE works.presentation_ready = true
     AND works.simple_opds_entry IS NOT NULL

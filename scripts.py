@@ -75,9 +75,7 @@ from opds_import import (
     OPDSImporter,
 )
 from oneclick import (
-    OneClickAPI,
     OneClickBibliographicCoverageProvider,
-    MockOneClickAPI,
 )
 from overdrive import OverdriveBibliographicCoverageProvider
 from util.opds_writer import OPDSFeed
@@ -653,7 +651,7 @@ class RunCoverageProviderScript(IdentifierInputScript):
             self.provider.run()
 
 
-class BibliographicRefreshScript(RunCollectionCoverageProviderScript):
+class BibliographicRefreshScript(RunCollectionCoverageProviderScript, IdentifierInputScript):
     """Refresh the core bibliographic data for Editions direct from the
     license source.
 
@@ -674,6 +672,7 @@ class BibliographicRefreshScript(RunCollectionCoverageProviderScript):
         kwargs = dict(replacement_policy=replacement_policy)
 
         providers = list()
+        _db = _db or self._db
         for provider_class in self.PROVIDER_CLASSES:
             providers += self.get_providers(_db, provider_class, **kwargs)
 
@@ -2332,7 +2331,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
         mv_works = mv_works.filter(
             exists().where(
                 and_(MaterializedWork.data_source_id==LPDM.data_source_id,
-                     MaterializedWork.primary_identifier_id==LPDM.identifier_id)
+                     MaterializedWork.identifier_id==LPDM.identifier_id)
             )
         )
         if mv_works.count() == 0:

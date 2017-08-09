@@ -41,7 +41,7 @@ class TestBibliothecaAPI(DatabaseTest, BaseBibliothecaTest):
     def setup(self):
         super(TestBibliothecaAPI, self).setup()
         self.collection = MockBibliothecaAPI.mock_collection(self._db)
-        self.api = MockBibliothecaAPI(self.collection)
+        self.api = MockBibliothecaAPI(self._db, self.collection)
 
     def test_full_path(self):
         id = self.api.library_id
@@ -218,7 +218,7 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         """Test the normal workflow where we ask 3M for data,
         3M provides it, and we create a presentation-ready work.
         """
-        identifier = self._identifier(identifier_type=Identifier.THREEM_ID)
+        identifier = self._identifier(identifier_type=Identifier.BIBLIOTHECA_ID)
         identifier.identifier = 'ddf4gr9'
 
         # This book has no LicensePools.

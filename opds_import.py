@@ -12,7 +12,7 @@ import urllib
 from urlparse import urlparse, urljoin
 from sqlalchemy.orm import aliased
 from sqlalchemy.orm.session import Session
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from lxml import builder, etree
 
