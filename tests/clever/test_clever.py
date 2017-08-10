@@ -4,6 +4,8 @@ from nose.tools import (
     set_trace,
 )
 import datetime
+import flask
+from flask import url_for
 from api.clever import (
     CleverAuthenticationAPI,
     UNSUPPORTED_CLEVER_USER_TYPE,
@@ -13,6 +15,7 @@ from api.problem_details import *
 from core.model import (
     Credential,
     DataSource,
+    ExternalIntegration,
     Patron,
     get_one,
     get_one_or_create,
@@ -42,13 +45,29 @@ class MockAPI(CleverAuthenticationAPI):
 
 class TestCleverAuthenticationAPI(DatabaseTest):
 
+    
     def setup(self):
         super(TestCleverAuthenticationAPI, self).setup()
-        self.api = MockAPI('fake_client_id', 'fake_client_secret', 2)
+        
+        self.api = MockAPI(self._default_library, self.mock_integration)
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
         self.app = app
+        
+    @property
+    def mock_integration(self):
+        """Make a fake ExternalIntegration that can be used to configure
+        a CleverAuthenticationAPI.
+        """
+        integration = self._external_integration(
+            protocol="OAuth",
+            goal=ExternalIntegration.PATRON_AUTH_GOAL,
+            username="fake_client_id",
+            password="fake_client_secret"
+        )
+        integration.setting(MockAPI.OAUTH_TOKEN_EXPIRATION_DAYS).value = 20
+        return integration
         
     def test_authenticated_patron(self):
         """An end-to-end test of authenticated_patron()."""
@@ -68,18 +87,18 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         self.api.queue_response(dict(access_token="a token"))
         with self.app.test_request_context("/"):
             eq_("a token",
-                self.api.remote_exchange_code_for_bearer_token("code")
+                self.api.remote_exchange_code_for_bearer_token(self._db, "code")
             )
 
         # Test failure.
         self.api.queue_response(None)
         with self.app.test_request_context("/"):
-            problem = self.api.remote_exchange_code_for_bearer_token("code")
+            problem = self.api.remote_exchange_code_for_bearer_token(self._db, "code")
         eq_(INVALID_CREDENTIALS.uri, problem.uri)
 
         self.api.queue_response(dict(something_else="not a token"))
         with self.app.test_request_context("/"):
-            problem = self.api.remote_exchange_code_for_bearer_token("code")
+            problem = self.api.remote_exchange_code_for_bearer_token(self._db, "code")
         eq_(INVALID_CREDENTIALS.uri, problem.uri)
         
     def test_remote_patron_lookup_unsupported_user_type(self):
@@ -181,8 +200,12 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         """
         # We're about to call url_for, so we must create an
         # application context.
-        my_api = CleverAuthenticationAPI("key", "secret", 2)
+        my_api = CleverAuthenticationAPI(
+            self._default_library, self.mock_integration
+        )
         with self.app.test_request_context("/"):
-            params = my_api.external_authenticate_url("state")
-            eq_('https://clever.com/oauth/authorize?response_type=code&client_id=key&redirect_uri=http://localhost/oauth_callback&state=state', params)
+            flask.request.library = self._default_library
+            params = my_api.external_authenticate_url("state", self._db)
+            expected_redirect_uri = url_for("oauth_callback", library_short_name=self._default_library.short_name, _external=True)
+            eq_('https://clever.com/oauth/authorize?response_type=code&client_id=fake_client_id&redirect_uri=%s&state=state' % expected_redirect_uri, params)
 

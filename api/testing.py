@@ -1,10 +1,20 @@
+import contextlib
+import json
 import logging
 from collections import defaultdict
+from nose.tools import set_trace
+
+from core.testing import DatabaseTest
+
 from core.model import (
+    ConfigurationSetting,
     DataSource,
+    ExternalIntegration,
     Identifier,
+    Library,
     Loan,
     Hold,
+    Session,
 )
 from api.circulation import (
     BaseCirculationAPI,
@@ -12,33 +22,86 @@ from api.circulation import (
     LoanInfo,
     HoldInfo,
 )
-from api.config import Configuration
+from api.config import (
+    Configuration,
+    temp_config,
+)
+
 from api.adobe_vendor_id import AuthdataUtility
 
-class MockAdobeConfiguration(object):
-    """Contains the constants necessary to set up an Adobe
-    AuthdataUtility.  This is used in test_adobe_vendor_id.py (to test
-    the basic functionality) and test_controller.py (to create an
-    AdobeVendorIDController for use in testing.)
+class VendorIDTest(DatabaseTest):
+    """A DatabaseTest that knows how to set up an Adobe Vendor ID
+    integration.
     """
+
+    TEST_VENDOR_ID = u"vendor id"
     
-    TEST_NODE_VALUE = 114740953091845
-    TEST_VENDOR_ID = "vendor id"
-    TEST_LIBRARY_URI = "http://me/"
-    TEST_LIBRARY_SHORT_NAME = "Lbry"
-    TEST_SECRET = "some secret"
-    TEST_OTHER_LIBRARY_URI = "http://you/"
-    TEST_OTHER_LIBRARIES  = {TEST_OTHER_LIBRARY_URI: ("you", "secret2")}
+    def initialize_adobe(self, vendor_id_library, short_token_libraries=[]):
+        """Initialize an Adobe Vendor ID integration and a
+        Short Client Token integration with a number of libraries.
 
-    MOCK_ADOBE_CONFIGURATION = {
-        Configuration.ADOBE_VENDOR_ID: TEST_VENDOR_ID,
-        Configuration.ADOBE_VENDOR_ID_NODE_VALUE: TEST_NODE_VALUE,
-        AuthdataUtility.LIBRARY_URI_KEY: TEST_LIBRARY_URI,
-        AuthdataUtility.LIBRARY_SHORT_NAME_KEY: TEST_LIBRARY_SHORT_NAME,
-        AuthdataUtility.AUTHDATA_SECRET_KEY: TEST_SECRET,
-        AuthdataUtility.OTHER_LIBRARIES_KEY: TEST_OTHER_LIBRARIES,
-    }
+        :param vendor_id_library: The Library that should have an
+        Adobe Vendor ID integration.
 
+        :param short_token_libraries: The Libraries that should have a
+        Short Client Token integration.
+        """
+        short_token_libraries = list(short_token_libraries)
+        if not vendor_id_library in short_token_libraries:
+            short_token_libraries.append(vendor_id_library)
+        # The first library acts as an Adobe Vendor ID server.
+        self.adobe_vendor_id = self._external_integration(
+            ExternalIntegration.ADOBE_VENDOR_ID,
+            ExternalIntegration.DRM_GOAL, username=self.TEST_VENDOR_ID,
+            libraries=[vendor_id_library]
+        )
+
+        # The other libraries will share a registry integration.
+        self.registry = self._external_integration(
+            ExternalIntegration.OPDS_REGISTRATION,
+            ExternalIntegration.DISCOVERY_GOAL,
+            libraries=short_token_libraries
+        )
+        # The integration knows which Adobe Vendor ID server it
+        # gets its Adobe IDs from.
+        self.registry.set_setting(
+            AuthdataUtility.VENDOR_ID_KEY,
+            self.adobe_vendor_id.username
+        )
+
+        # As we give libraries their Short Client Token settings,
+        # we build the 'other_libraries' setting we'll apply to the
+        # Adobe Vendor ID integration.
+        other_libraries = dict()
+            
+        # Every library in the system can generate Short Client
+        # Tokens.
+        for library in short_token_libraries:
+            # Each library will get a slightly different short
+            # name and secret for generating Short Client Tokens.
+            library_uri = self._url
+            short_name = library.short_name + "token"
+            secret = library.short_name + " token secret"
+            ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.USERNAME, library, self.registry
+            ).value = short_name
+            ConfigurationSetting.for_library_and_externalintegration(
+                self._db, ExternalIntegration.PASSWORD, library, self.registry
+            ).value = secret
+
+            library.setting(Configuration.WEBSITE_URL).value = library_uri
+
+            # Each library's Short Client Token configuration will be registered
+            # with that Adobe Vendor ID server.
+            if library != vendor_id_library:
+                other_libraries[library_uri] = (short_name, secret)
+
+        # Tell the Adobe Vendor ID server about the other libraries.
+        other_libraries = json.dumps(other_libraries)
+        self.adobe_vendor_id.set_setting(
+            AuthdataUtility.OTHER_LIBRARIES_KEY, other_libraries
+        )
+        
 
 class MockRemoteAPI(BaseCirculationAPI):
     def __init__(self, set_delivery_mechanism_at, can_revoke_hold_when_reserved):
@@ -107,21 +170,11 @@ class MockRemoteAPI(BaseCirculationAPI):
 
 class MockCirculationAPI(CirculationAPI):
 
-    def __init__(self, _db):
-        super(MockCirculationAPI, self).__init__(_db)
+    def __init__(self, *args, **kwargs):
+        super(MockCirculationAPI, self).__init__(*args, **kwargs)
         self.responses = defaultdict(list)
         self.remote_loans = []
         self.remote_holds = []
-        self.identifier_type_to_data_source_name = {
-            Identifier.GUTENBERG_ID: DataSource.GUTENBERG,
-            Identifier.OVERDRIVE_ID: DataSource.OVERDRIVE,
-            Identifier.THREEM_ID: DataSource.THREEM,
-            Identifier.AXIS_360_ID: DataSource.AXIS_360,
-        }
-        self.data_source_ids_for_sync = [
-            DataSource.lookup(self._db, name).id for name in 
-            self.identifier_type_to_data_source_name.values()
-        ]
         self.remotes = {}
 
     def local_loans(self, patron):
@@ -137,7 +190,7 @@ class MockCirculationAPI(CirculationAPI):
         self.remote_holds.append(HoldInfo(*args, **kwargs))
 
     def patron_activity(self, patron, pin):
-        """Return a 2-tuple (loans, holds)."""
+        """Return a 3-tuple (loans, holds, completeness)."""
         return self.remote_loans, self.remote_holds, True
 
     def queue_checkout(self, licensepool, response):

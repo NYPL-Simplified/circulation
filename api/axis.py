@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 from datetime import datetime, timedelta
-
+from flask.ext.babel import lazy_gettext as _
 from sqlalchemy.orm import contains_eager
 
 from lxml import etree
@@ -18,34 +18,38 @@ from core.metadata_layer import (
 )
 
 from core.monitor import (
-    Monitor,
+    CollectionMonitor,
     IdentifierSweepMonitor,
 )
 
 from core.opds_import import (
-    SimplifiedOPDSLookup,
+    MetadataWranglerOPDSLookup
 )
 
 from core.model import (
     CirculationEvent,
     get_one_or_create,
+    Collection,
     Contributor,
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Identifier,
     LicensePool,
     Representation,
     Subject,
+    Session,
 )
+
 
 from core.coverage import (
     BibliographicCoverageProvider,
     CoverageFailure,
 )
+from core.analytics import Analytics
 
 from authenticator import Authenticator
-from config import Configuration
 from circulation import (
     LoanInfo,
     FulfillmentInfo,
@@ -56,6 +60,14 @@ from circulation_exceptions import *
 
 
 class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
+
+    NAME = ExternalIntegration.AXIS_360
+    SETTINGS = [
+        { "key": ExternalIntegration.USERNAME, "label": _("Username") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
+        { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
+        { "key": ExternalIntegration.URL, "label": _("Server") },
+    ] + BaseCirculationAPI.SETTINGS
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
@@ -84,7 +96,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                     format=internal_format)
         response = self.request(url, data=args, method="POST")
         try:
-            return CheckoutResponseParser().process_all(response.content)
+            return CheckoutResponseParser(
+                licensepool.collection).process_all(response.content)
         except etree.XMLSyntaxError, e:
             raise RemoteInitiatedServerError(
                 response.content, self.SERVICE_NAME
@@ -129,7 +142,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         params = dict(titleId=title_id, patronId=patron_id,
                       email=hold_notification_email)
         response = self.request(url, params=params)
-        hold_info = HoldResponseParser().process_all(response.content)
+        hold_info = HoldResponseParser(licensepool.collection).process_all(
+            response.content)
         if not hold_info.identifier:
             # The Axis 360 API doesn't return the identifier of the 
             # item that was placed on hold, so we have to fill it in
@@ -146,7 +160,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         params = dict(titleId=title_id, patronId=patron_id)
         response = self.request(url, params=params)
         try:
-            HoldReleaseResponseParser().process_all(
+            HoldReleaseResponseParser(licensepool.collection).process_all(
                 response.content)
         except NotOnHold:
             # Fine, it wasn't on hold and now it's still not on hold.
@@ -162,7 +176,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         availability = self.availability(
             patron_id=patron.authorization_identifier, 
             title_ids=title_ids)
-        return list(AvailabilityResponseParser().process_all(
+        return list(AvailabilityResponseParser(self.collection).process_all(
             availability.content))
 
     def update_availability(self, licensepool):
@@ -183,14 +197,15 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         """
         identifier_strings = self.create_identifier_strings(identifiers)
         response = self.availability(title_ids=identifier_strings)
-        parser = BibliographicParser()
+        collection = self.collection
+        parser = BibliographicParser(collection)
         remainder = set(identifiers)
         for bibliographic, availability in parser.process_all(response.content):
             identifier, is_new = bibliographic.primary_identifier.load(self._db)
             if identifier in remainder:
                 remainder.remove(identifier)
-            pool, is_new = availability.license_pool(self._db)
-            availability.apply(pool)
+            pool, is_new = availability.license_pool(self._db, collection)
+            availability.apply(self._db, pool.collection)
 
         # We asked Axis about n books. It sent us n-k responses. Those
         # k books are the identifiers in `remainder`. These books have
@@ -218,39 +233,40 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                 licenses_reserved=0,
                 patrons_in_hold_queue=0,
             )
-            availability.apply(pool, ReplacementPolicy.from_license_source())
+            availability.apply(pool, ReplacementPolicy.from_license_source(self._db))
 
 
-class Axis360CirculationMonitor(Monitor):
+class Axis360CirculationMonitor(CollectionMonitor):
 
     """Maintain LicensePools for Axis 360 titles.
     """
+    SERVICE_NAME = "Axis 360 Circulation Monitor"
+    INTERVAL_SECONDS = 60
+    DEFAULT_BATCH_SIZE = 50
+    
+    PROTOCOL = ExternalIntegration.AXIS_360
 
-    VERY_LONG_AGO = datetime(1970, 1, 1)
+    DEFAULT_START_TIME = datetime(1970, 1, 1)
     FIVE_MINUTES = timedelta(minutes=5)
 
-    def __init__(self, _db, name="Axis 360 Circulation Monitor",
-                 interval_seconds=60, batch_size=50):
-        super(Axis360CirculationMonitor, self).__init__(
-            _db, name, interval_seconds=interval_seconds,
-            default_start_time = self.VERY_LONG_AGO
-        )
-        self.batch_size = batch_size
-        metadata_wrangler_url = Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION
-        )
-        if metadata_wrangler_url:
-            self.metadata_wrangler = SimplifiedOPDSLookup(metadata_wrangler_url)
+    def __init__(self, _db, collection, api_class=Axis360API, metadata_client=None):
+        super(Axis360CirculationMonitor, self).__init__(_db, collection)
+        if isinstance(api_class, Axis360API):
+            # Use a preexisting Axis360API instance rather than
+            # creating a new one.
+            self.api = api_class
         else:
-            # This should only happen during a test.
-            self.metadata_wrangler = None
-        self.bibliographic_coverage_provider = (
-            Axis360BibliographicCoverageProvider(self._db)
-        )
+            self.api = api_class(_db, collection)
+        if not metadata_client:
+            metadata_client = MetadataWranglerOPDSLookup.from_config(
+                _db, collection=collection
+            )
 
-    def run(self):
-        self.api = Axis360API(self._db)
-        super(Axis360CirculationMonitor, self).run()
+        self.batch_size = self.DEFAULT_BATCH_SIZE
+        self.metadata_client = metadata_client
+        self.bibliographic_coverage_provider = (
+            Axis360BibliographicCoverageProvider(collection, api_class=self.api)
+        )
 
     def run_once(self, start, cutoff):
         # Give us five minutes of overlap because it's very important
@@ -260,7 +276,7 @@ class Axis360CirculationMonitor(Monitor):
         status_code = availability.status_code
         content = availability.content
         count = 0
-        for bibliographic, circulation in BibliographicParser().process_all(
+        for bibliographic, circulation in BibliographicParser(self.collection).process_all(
                 content):
             self.process_book(bibliographic, circulation)
             count += 1
@@ -268,8 +284,11 @@ class Axis360CirculationMonitor(Monitor):
                 self._db.commit()
 
     def process_book(self, bibliographic, availability):
-        
-        license_pool, new_license_pool = availability.license_pool(self._db)
+
+        analytics = Analytics(self._db)
+        license_pool, new_license_pool = availability.license_pool(
+            self._db, self.collection, analytics
+        )
         edition, new_edition = bibliographic.edition(self._db)
         license_pool.edition = edition
         policy = ReplacementPolicy(
@@ -277,13 +296,11 @@ class Axis360CirculationMonitor(Monitor):
             subjects=True,
             contributions=True,
             formats=True,
+            analytics=analytics,
         )
-        availability.apply(
-            pool=license_pool, 
-            replace=policy,
-        )
+        availability.apply(self._db, self.collection, replace=policy)
         if new_edition:
-            bibliographic.apply(edition, replace=policy)
+            bibliographic.apply(edition, self.collection, replace=policy)
 
         if new_license_pool or new_edition:
             # At this point we have done work equivalent to that done by 
@@ -301,24 +318,22 @@ class Axis360CirculationMonitor(Monitor):
 class MockAxis360API(BaseMockAxis360API, Axis360API):
     pass
 
+
 class AxisCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left our
     Axis 360 collection.
     """
-
-    def __init__(self, _db, interval_seconds=3600*12):
-        super(AxisCollectionReaper, self).__init__(
-            _db, "Axis Collection Reaper", interval_seconds)
-
-    def run(self):
-        self.api = Axis360API(self._db)
-        super(AxisCollectionReaper, self).run()
-
-    def identifier_query(self):
-        return self._db.query(Identifier).join(
-            Identifier.licensed_through).filter(
-                Identifier.type==Identifier.AXIS_360_ID).options(
-                    contains_eager(Identifier.licensed_through))
+    SERVICE_NAME = "Axis Collection Reaper"
+    INTERVAL_SECONDS = 3600*12
+    
+    def __init__(self, _db, collection, api_class=Axis360API):
+        super(AxisCollectionReaper, self).__init__(_db, collection)
+        if isinstance(api_class, Axis360API):
+            # Use a preexisting Axis360API instance rather than
+            # creating a new one.
+            self.api = api_class
+        else:
+            self.api = api_class(_db, collection)
 
     def process_batch(self, identifiers):
         self.api.update_licensepools_for_identifiers(identifiers)
@@ -380,6 +395,18 @@ class ResponseParser(Axis360Parser):
         5000 : RemoteInitiatedServerError,
     }
 
+    def __init__(self, collection):
+        self.collection = collection
+
+    def process_all(self, *args, **kwargs):
+        """Annotate outgoing objects with the correct Collection."""
+        for i in super(ResponseParser, self).process_all(*args, **kwargs):
+            self.post_process(i)
+            yield i
+
+    def post_process(self, i):
+        i.collection = self.collection
+            
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
         """Raise an error if the given lxml node represents an Axis 360 error
         condition.
@@ -443,13 +470,17 @@ class CheckoutResponseParser(ResponseParser):
             expiration_date = expiration_date.text
             expiration_date = datetime.strptime(
                 expiration_date, self.FULL_DATE_FORMAT)
-            
+
+        # WTH??? Why is identifier None? Is this ever used?
         fulfillment = FulfillmentInfo(
+            collection=self.collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type,
             identifier=None, content_link=fulfillment_url,
-            content_type=None, content=None, content_expires=None)
+            content_type=None, content=None, content_expires=None
+        )
         loan_start = datetime.utcnow()
         loan = LoanInfo(
+            collection=self.collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type, identifier=None,
             start_date=loan_start,
             end_date=expiration_date,
@@ -484,7 +515,10 @@ class HoldResponseParser(ResponseParser):
                 queue_position = None
 
         hold_start = datetime.utcnow()
+        # NOTE: The caller needs to fill in Collection -- we have no idea
+        # what collection this is.
         hold = HoldInfo(
+            collection=self.collection, data_source_name=DataSource.AXIS_360,
             identifier_type=self.id_type, identifier=None,
             start_date=hold_start, end_date=None, hold_position=queue_position)
         return hold
@@ -496,6 +530,12 @@ class HoldReleaseResponseParser(ResponseParser):
                 string, "//axis:removeholdResult", self.NS):
             return i
 
+    def post_process(self, i):
+        """Unlike other ResponseParser subclasses, we don't return any type of
+        *Info object, so there's no need to do any post-processing.
+        """
+        return i
+        
     def process_one(self, e, namespaces):
         # There's no data to gather here. Either there was an error
         # or we were successful.
@@ -534,6 +574,8 @@ class AvailabilityResponseParser(ResponseParser):
                 availability, 'axis:downloadUrl', ns)
             if download_url:
                 fulfillment = FulfillmentInfo(
+                    collection=self.collection,
+                    data_source_name=DataSource.AXIS_360,
                     identifier_type=self.id_type,
                     identifier=axis_identifier,
                     content_link=download_url, content_type=None,
@@ -541,6 +583,8 @@ class AvailabilityResponseParser(ResponseParser):
             else:
                 fulfillment = None
             info = LoanInfo(
+                collection=self.collection,
+                data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=start_date, end_date=end_date,
@@ -550,6 +594,8 @@ class AvailabilityResponseParser(ResponseParser):
             end_date = self._xpath1_date(
                 availability, 'axis:reservedEndDate', ns)
             info = HoldInfo(
+                collection=self.collection,
+                data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=None, 
@@ -560,6 +606,8 @@ class AvailabilityResponseParser(ResponseParser):
             position = self.int_of_optional_subtag(
                 availability, 'axis:holdsQueuePosition', ns)
             info = HoldInfo(
+                collection=self.collection,
+                data_source_name=DataSource.AXIS_360,
                 identifier_type=self.id_type,
                 identifier=axis_identifier,
                 start_date=None, end_date=None,

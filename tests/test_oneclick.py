@@ -59,8 +59,11 @@ class OneClickAPITest(DatabaseTest):
     def setup(self):
         super(OneClickAPITest, self).setup()
 
-        base_path = os.path.split(__file__)[0]
-        self.api = MockOneClickAPI(_db=self._db, base_path=base_path)
+        self.base_path = os.path.split(__file__)[0]
+        self.collection = MockOneClickAPI.mock_collection(self._db)
+        self.api = MockOneClickAPI(
+            self._db, self.collection, base_path=self.base_path
+        )
 
         self.default_patron = self._patron(external_identifier="oneclick_testuser")
         self.default_patron.authorization_identifier="13057226"
@@ -397,7 +400,7 @@ class TestOneClickAPI(OneClickAPITest):
         edition, pool = self._edition(
             identifier_type=Identifier.ONECLICK_ID,
             data_source_name=DataSource.ONECLICK,
-            with_license_pool=True
+            with_license_pool=True, collection=self.collection
         )
 
         # We have never checked the circulation information for this
@@ -410,7 +413,11 @@ class TestOneClickAPI(OneClickAPITest):
 
         isbn = pool.identifier.identifier.encode("ascii")
 
-        self.api.update_licensepool_for_identifier(isbn, False)
+        pool, is_new, circulation_changed = self.api.update_licensepool_for_identifier(
+            isbn, False
+        )
+        eq_(False, is_new)
+        eq_(True, circulation_changed)
 
         # The availability information has been updated, as has the
         # date the availability information was last checked.
@@ -427,25 +434,16 @@ class TestOneClickAPI(OneClickAPITest):
 class TestCirculationMonitor(OneClickAPITest):
 
     def test_process_availability(self):
-        with temp_config() as config:
-            config[Configuration.INTEGRATIONS]['OneClick'] = {
-                'library_id' : 'library_id_123',
-                'username' : 'username_123',
-                'password' : 'password_123',
-                'remote_stage' : 'qa', 
-                'base_url' : 'www.oneclickapi.test', 
-                'basic_token' : 'abcdef123hijklm', 
-                "ebook_loan_length" : '21', 
-                "eaudio_loan_length" : '21'
-            }
-            monitor = OneClickCirculationMonitor(self._db)
-            monitor.api = MockOneClickAPI(self._db)
+        monitor = OneClickCirculationMonitor(
+            self._db, self.collection, api_class=MockOneClickAPI, 
+            api_class_kwargs=dict(base_path=self.base_path)
+        )
 
         # Create a LicensePool that needs updating.
         edition_ebook, pool_ebook = self._edition(
             identifier_type=Identifier.ONECLICK_ID,
             data_source_name=DataSource.ONECLICK,
-            with_license_pool=True
+            with_license_pool=True, collection=self.collection
         )
         pool_ebook.licenses_owned = 3
         pool_ebook.licenses_available = 2
@@ -453,7 +451,7 @@ class TestCirculationMonitor(OneClickAPITest):
         eq_(None, pool_ebook.last_checked)
 
         # Prepare availability information.
-        datastr, datadict = self.api.get_data("response_availability_single_ebook.json")
+        datastr, datadict = monitor.api.get_data("response_availability_single_ebook.json")
 
         # Modify the data so that it appears to be talking about the
         # book we just created.
@@ -464,8 +462,3 @@ class TestCirculationMonitor(OneClickAPITest):
         item_count = monitor.process_availability()
         eq_(1, item_count)
         pool_ebook.licenses_available = 0
-
-
-
-
-

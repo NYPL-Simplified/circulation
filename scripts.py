@@ -24,41 +24,39 @@ from sqlalchemy.orm import (
 )
 from psycopg2.extras import NumericRange
 
-from api.adobe_vendor_id import (
-    AdobeVendorIDModel,
-    AuthdataUtility,
-)
-from api.lanes import make_lanes
-from api.controller import CirculationManager
-from api.monitor import SearchIndexMonitor
-from api.threem import ThreeMCirculationSweep
-from api.overdrive import OverdriveAPI
 from core import log
 from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
     CirculationEvent,
+    ConfigurationSetting,
     Contribution,
     Credential,
     CustomList,
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
+    get_one,
     Hold,
     Hyperlink,
     Identifier,
+    Library,
     LicensePool,
     LicensePoolDeliveryMechanism,
     Loan,
     Representation,
     Subject,
+    Timestamp,
     Work,
 )
 from core.scripts import (
     Script as CoreScript,
+    DatabaseMigrationInitializationScript,
     RunCoverageProvidersScript,
     RunCoverageProviderScript,
     IdentifierInputScript,
+    LibraryInputScript,
     PatronInputScript,
     RunMonitorScript,
 )
@@ -66,9 +64,8 @@ from core.lane import (
     Pagination,
     Facets,
 )
-from api.config import Configuration
 from core.opds_import import (
-    SimplifiedOPDSLookup,
+    MetadataWranglerOPDSLookup,
     OPDSImporter,
 )
 from core.opds import (
@@ -80,26 +77,39 @@ from core.util.opds_writer import (
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from core.util import LanguageCodes
-from api.opds import CirculationManagerAnnotator
 
+from api.config import (
+    CannotLoadConfiguration,
+    Configuration,
+)
+from api.adobe_vendor_id import (
+    AdobeVendorIDModel,
+    AuthdataUtility,
+)
+from api.lanes import make_lanes
+from api.controller import CirculationManager
+from api.monitor import SearchIndexMonitor
+from api.overdrive import OverdriveAPI
 from api.circulation import CirculationAPI
+from api.opds import CirculationManagerAnnotator
 from api.overdrive import (
     OverdriveAPI,
     OverdriveBibliographicCoverageProvider,
 )
-from api.threem import (
-    ThreeMAPI,
-    ThreeMBibliographicCoverageProvider,
+from api.bibliotheca import (
+    BibliothecaBibliographicCoverageProvider,
+    BibliothecaCirculationSweep
 )
 from api.axis import (
     Axis360API,
 )
+from api.nyt import NYTBestSellerAPI
 from core.axis import Axis360BibliographicCoverageProvider
 
 class Script(CoreScript):
     def load_config(self):
         if not Configuration.instance:
-            Configuration.load()
+            Configuration.load(self._db)
 
 class CreateWorksForIdentifiersScript(Script):
 
@@ -113,12 +123,10 @@ class CreateWorksForIdentifiersScript(Script):
     name = "Create works for identifiers"
 
     def __init__(self, metadata_web_app_url=None):
-        self.metadata_url = (
-            metadata_web_app_url or Configuration.integration_url(
-                Configuration.METADATA_WRANGLER_INTEGRATION
-            )
-        )
-        self.lookup = SimplifiedOPDSLookup(self.metadata_url)
+        if metadata_web_app_url:
+            self.lookup = MetadataWranglerOPDSLookup(metadata_web_app_url)
+        else:
+            self.lookup = MetadataWranglerOPDSLookup.from_config(_db)
 
     def run(self):
 
@@ -191,7 +199,7 @@ class MetadataCalculationScript(Script):
 
     def run(self):
         q = self.q()
-        search_index_client = ExternalSearchIndex()
+        search_index_client = ExternalSearchIndex(self._db)
         self.log.info("Attempting to repair metadata for %d works" % q.count())
 
         success = 0
@@ -278,26 +286,26 @@ class UpdateStaffPicksScript(Script):
                              representation.media_type)
         return StringIO(representation.content)
 
-class LaneSweeperScript(Script):
-    """Do something to each lane in the application."""
+
+class LaneSweeperScript(LibraryInputScript):
+    """Do something to each lane in a library."""
 
     def __init__(self, _db=None, testing=False):
+        _db = _db or self._db
         super(LaneSweeperScript, self).__init__(_db)
         os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
         del os.environ['AUTOINITIALIZE']
-        app.manager = CirculationManager(self._db, testing=testing)
+        app.manager = CirculationManager(_db, testing=testing)
         self.app = app
-        self.base_url = Configuration.integration_url(
-            Configuration.CIRCULATION_MANAGER_INTEGRATION, required=True
-        )
+        self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
 
-    def run(self):
+    def process_library(self, library):
         begin = time.time()
         client = self.app.test_client()
         ctx = self.app.test_request_context(base_url=self.base_url)
         ctx.push()
-        queue = [self.app.manager.top_level_lane]
+        queue = [self.app.manager.top_level_lanes[library.id]]
         while queue:
             new_queue = []
             self.log.debug("Beginning of loop: %d lanes to process", len(queue))
@@ -324,8 +332,8 @@ class CacheRepresentationPerLane(LaneSweeperScript):
     name = "Cache one representation per lane"
 
     @classmethod
-    def arg_parser(cls):
-        parser = argparse.ArgumentParser()
+    def arg_parser(cls, _db):
+        parser = LaneSweeperScript.arg_parser(_db)
         parser.add_argument(
             '--language', 
             help='Process only lanes that include books in this language.',
@@ -350,7 +358,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         self.parse_args(cmd_args)
         
     def parse_args(self, cmd_args=None):
-        parser = self.arg_parser()
+        parser = self.arg_parser(self._db)
         parsed = parser.parse_args(cmd_args)
         self.languages = []
         if parsed.language:
@@ -426,23 +434,16 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         return cached_feeds
         
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
-    """Cache the first two pages of every facet list for this lane."""
+    """Cache the first two pages of every relevant facet list for this lane."""
 
     name = "Cache OPDS feeds"
-
-    @classmethod
-    def facet_settings(cls, group_name):
-        enabled = Configuration.enabled_facets(group_name)
-        default = Configuration.default_facet(group_name)
-        return enabled, default
     
     @classmethod
-    def arg_parser(cls):       
-        parser = CacheRepresentationPerLane.arg_parser()
-
-        enabled, default = cls.facet_settings(Facets.ORDER_FACET_GROUP_NAME)
-        order_help = 'Generate feeds for this ordering. Possible values: %s. Default: %s' % (
-            ", ".join(enabled), default
+    def arg_parser(cls, _db):
+        parser = CacheRepresentationPerLane.arg_parser(_db)
+        available = Facets.DEFAULT_ENABLED_FACETS[Facets.ORDER_FACET_GROUP_NAME]
+        order_help = 'Generate feeds for this ordering. Possible values: %s.' % (
+            ", ".join(available)
         )
         parser.add_argument(
             '--order',
@@ -451,11 +452,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             default=[],
         )
 
-        enabled, default = cls.facet_settings(
-            Facets.AVAILABILITY_FACET_GROUP_NAME
-        )
-        availability_help = 'Generate feeds for this availability setting. Possible values: %s. Default: %s' % (
-            ", ".join(enabled), default
+        available = Facets.DEFAULT_ENABLED_FACETS[Facets.AVAILABILITY_FACET_GROUP_NAME]
+        availability_help = 'Generate feeds for this availability setting. Possible values: %s.' % (
+            ", ".join(available)
         )
         parser.add_argument(
             '--availability',
@@ -464,11 +463,9 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             default=[],
         )
 
-        enabled, default = cls.facet_settings(
-            Facets.COLLECTION_FACET_GROUP_NAME
-        )
-        collection_help = 'Generate feeds for this collection within each lane. Possible values: %s. Default: %s' % (
-            ", ".join(enabled), default
+        available = Facets.DEFAULT_ENABLED_FACETS[Facets.COLLECTION_FACET_GROUP_NAME]
+        collection_help = 'Generate feeds for this collection within each lane. Possible values: %s.' % (
+            ", ".join(available)
         )
         parser.add_argument(
             '--collection',
@@ -476,44 +473,24 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             action='append',
             default=[],
         )
-
+        
         default_pages = 2
         parser.add_argument(
             '--pages',
-            help="Number of pages to cache for each collection. Default: %d" % default_pages,
+            help="Number of pages to cache for each facet. Default: %d" % default_pages,
             type=int,
             default=default_pages
         )
         return parser
-
-    def filter_facets(self, values, group_name):
-        allowable = Configuration.enabled_facets(group_name)
-        default = Configuration.default_facet(group_name)
-        if not values:
-            return [default]
-        
-        filtered = []
-        for v in values:
-            if v in allowable:
-                filtered.append(v)
-            else:
-                self.log.warn('Ignoring unrecognized value "%s"', v)
-        return filtered
-
+    
     def parse_args(self, cmd_args=None):
         parsed = super(CacheFacetListsPerLane, self).parse_args(cmd_args)
-        self.orders = self.filter_facets(
-            parsed.order, Facets.ORDER_FACET_GROUP_NAME
-        )
-        self.availabilities = self.filter_facets(
-            parsed.availability, Facets.AVAILABILITY_FACET_GROUP_NAME
-        )
-        self.collections = self.filter_facets(
-            parsed.collection, Facets.COLLECTION_FACET_GROUP_NAME
-        )
+        self.orders = parsed.order
+        self.availabilities = parsed.availability
+        self.collections = parsed.collection
         self.pages = parsed.pages
         return parsed
-        
+
     def do_generate(self, lane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
@@ -524,27 +501,48 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             languages = None
             lane_name = None
 
+        library = lane.library
         url = self.app.manager.cdn_url_for(
-            "feed", languages=lane.languages, lane_name=lane_name
+            "feed", languages=languages, lane_name=lane_name, library_short_name=library.short_name
         )
 
-        order_facets = Configuration.enabled_facets(
-            Facets.ORDER_FACET_GROUP_NAME
-        )
-        availability = Configuration.default_facet(
+        default_order = library.default_facet(Facets.ORDER_FACET_GROUP_NAME)
+        allowed_orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
+        chosen_orders = self.orders or [default_order]
+        
+        default_availability = library.default_facet(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
-        collection = Configuration.default_facet(
+        allowed_availabilities = library.enabled_facets(
+            Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        chosen_availabilities = self.availabilities or [default_availability]
+        
+        default_collection = library.default_facet(
+            Facets.COLLECTION_FACET_GROUP_NAME
+        )
+        allowed_collections = library.enabled_facets(
             Facets.COLLECTION_FACET_GROUP_NAME
         )        
-
-        for sort_order in self.orders:
-            for availability in self.availabilities:
-                for collection in self.collections:
+        chosen_collections = self.collections or [default_collection]
+        
+        for order in chosen_orders:
+            if order not in allowed_orders:
+                logging.warn("Ignoring unsupported ordering %s" % order)
+                continue
+            for availability in chosen_availabilities:
+                if availability not in allowed_availabilities:
+                    logging.warn("Ignoring unsupported availability %s" % availability)
+                    continue
+                for collection in chosen_collections:
+                    if collection not in allowed_collections:
+                        logging.warn("Ignoring unsupported collection %s" % collection)
+                        continue
                     pagination = Pagination.default()
                     facets = Facets(
-                        collection=collection, availability=availability,
-                        order=sort_order, order_ascending=True
+                        library=library, collection=collection,
+                        availability=availability,
+                        order=order, order_ascending=True
                     )
                     title = lane.display_name
                     for pagenum in range(0, self.pages):
@@ -578,8 +576,9 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         else:
             languages = None
             lane_name = None
+        library = lane.library
         url = self.app.manager.cdn_url_for(
-            "acquisition_groups", languages=languages, lane_name=lane_name
+            "acquisition_groups", languages=languages, lane_name=lane_name, library_short_name=library.short_name
         )
         yield AcquisitionFeed.groups(
             self._db, title, url, lane, annotator,
@@ -661,7 +660,7 @@ class BibliographicCoverageProvidersScript(RunCoverageProvidersScript):
 
         providers = []
         if Configuration.integration('3M'):
-            providers.append(ThreeMBibliographicCoverageProvider)
+            providers.append(BibliothecaBibliographicCoverageProvider)
         if Configuration.integration('Overdrive'):
             providers.append(OverdriveBibliographicCoverageProvider)
         if Configuration.integration('Axis 360'):
@@ -697,7 +696,7 @@ class AvailabilityRefreshScript(IdentifierInputScript):
         provider = None
         identifier = identifiers[0]
         if identifier.type==Identifier.THREEM_ID:
-            sweeper = ThreeMCirculationSweep(self._db)
+            sweeper = BibliothecaCirculationSweep(self._db)
             sweeper.process_batch(identifiers)
         elif identifier.type==Identifier.OVERDRIVE_ID:
             api = OverdriveAPI(self._db)
@@ -710,47 +709,24 @@ class AvailabilityRefreshScript(IdentifierInputScript):
             self.log.warn("Cannot update coverage for %r" % identifier.type)
 
     
-class LanguageListScript(Script):
+class LanguageListScript(LibraryInputScript):
     """List all the languages with at least one non-open access work
     in the collection.
     """
 
-    def do_run(self):
+    def process_library(self, library):
+        print library.short_name
+        for item in self.languages(library):
+            print item
 
-        query = self._db.query(Edition.language, func.count(Edition.language)).group_by(Edition.language)
-        query = query.join(Edition.primary_identifier).join(
-            Identifier.licensed_through
-        ).join(LicensePool.delivery_mechanisms).join(
-            LicensePoolDeliveryMechanism.delivery_mechanism
-        )
+    def languages(self, library):
+        ":yield: A list of output lines, one per language."
+        for abbreviation, count in library.estimated_holdings_by_language(
+            include_open_access=False
+        ).most_common():
+            display_name = LanguageCodes.name_for_languageset(abbreviation)
+            yield "%s %i (%s)" % (abbreviation, count, display_name)
 
-        # TODO: It would be more reliable to use
-        # Lane.only_show_ready_deliverable_works here, but that's
-        # geared towards operating on Work. It's not a big deal since
-        # this is just to get a general count.
-
-        query = query.filter(LicensePool.open_access==False).filter(
-            LicensePool.licenses_owned > 0
-        ).filter(
-            Edition.medium==Edition.BOOK_MEDIUM
-        ).filter(
-            Edition.language != None
-        ).filter(
-            DeliveryMechanism.default_client_can_fulfill==True
-        )
-        name = LanguageCodes.name_for_languageset
-        sorted_languages = sorted(
-            query.all(), key=lambda x: (
-                -x[1], name(x[0])
-            )
-        )
-        sorted_languages = [
-            (language, count, name(language))
-            for (language, count) in sorted_languages
-        ]
-
-        print "\n".join(["%s %i (%s)" % l for l in sorted_languages])
-        print json.dumps([l[0] for l in sorted_languages])
 
 class CompileTranslationsScript(Script):
     """A script to combine translation files for circulation, core
@@ -772,6 +748,39 @@ class CompileTranslationsScript(Script):
         
         os.system("pybabel compile -f -d translations")
 
+
+class InstanceInitializationScript(Script):
+    """An idempotent script to initialize an instance of the Circulation Manager.
+
+    This script is intended for use in servers, Docker containers, etc,
+    when the Circulation Manager app is being installed. It initializes
+    the database and sets an appropriate alias on the ElasticSearch index.
+
+    Because it's currently run every time a container is started, it must
+    remain idempotent.
+    """
+
+    def do_run(self, ignore_search=False):
+        # Creates a "-current" alias on the Elasticsearch client.
+        if not ignore_search:
+            try:
+                search_client = ExternalSearchIndex(self._db)
+            except CannotLoadConfiguration as e:
+                # Elasticsearch isn't configured, so do nothing.
+                pass
+
+        # Set a timestamp that represents the new database's version.
+        db_init_script = DatabaseMigrationInitializationScript(_db=self._db)
+        existing = get_one(self._db, Timestamp, service=db_init_script.name)
+        if existing:
+            # No need to run the script. We already have a timestamp.
+            return
+        db_init_script.run()
+
+        # Create a secret key if one doesn't already exist.
+        ConfigurationSetting.sitewide_secret(self._db, Configuration.SECRET_KEY)
+
+
 class UpdateSearchIndexScript(RunMonitorScript):
 
     def __init__(self):
@@ -786,6 +795,7 @@ class UpdateSearchIndexScript(RunMonitorScript):
             SearchIndexMonitor,
             index_name=parsed.works_index,
         )
+
 
 class LoanReaperScript(Script):
     """Remove expired loans and holds whose owners have not yet synced
@@ -974,3 +984,33 @@ class DisappearingBookReportScript(Script):
         data.append(", ".join(title_removals))
         
         print "\t".join([unicode(x).encode("utf8") for x in data])
+
+
+class NYTBestSellerListsScript(Script):
+
+    def __init__(self, include_history=False):
+        super(NYTBestSellerListsScript, self).__init__()
+        self.include_history = include_history
+
+    def do_run(self):
+        self.api = NYTBestSellerAPI.from_config(self._db)
+        self.data_source = DataSource.lookup(self._db, DataSource.NYT)
+        # For every best-seller list...
+        names = self.api.list_of_lists()
+        for l in sorted(names['results'], key=lambda x: x['list_name_encoded']):
+
+            name = l['list_name_encoded']
+            self.log.info("Handling list %s" % name)
+            best = self.api.best_seller_list(l)
+
+            if self.include_history:
+                self.api.fill_in_history(best)
+            else:
+                self.api.update(best)
+
+            # Mirror the list to the database.
+            customlist = best.to_customlist(self._db)
+            self.log.info(
+                "Now %s entries in the list.", len(customlist.entries))
+            self._db.commit()
+

@@ -253,3 +253,17 @@ NO_ANNOTATION = pd(
     title=_("No annotation."),
     detail=_("The annotation you requested does not exist."),
 )
+
+LIBRARY_NOT_FOUND = pd(
+    "http://librarysimplified.org/terms/problem/library-not-found",
+    status_code=404,
+    title=_("Library not found."),
+    detail=_("No library with the requested name on this server."),
+)
+
+PATRON_OF_ANOTHER_LIBRARY = pd(
+    "http://librarysimplified.org/terms/problem/patron-of-another-library",
+    status_code=404,
+    title=_("Wrong library"),
+    detail=_("You are not a patron of the selected library."),
+)

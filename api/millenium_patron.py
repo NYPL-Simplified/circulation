@@ -6,6 +6,7 @@ from urllib import urlencode
 import datetime
 import requests
 from money import Money
+from flask.ext.babel import lazy_gettext as _
 
 from core.util.xmlparser import XMLParser
 from authenticator import (
@@ -21,6 +22,7 @@ import re
 from core.model import (
     get_one,
     get_one_or_create,
+    ExternalIntegration,
     Patron,
 )
 from core.util.http import HTTP
@@ -44,33 +46,103 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
     
     MULTIVALUE_FIELDS = set(['NOTE[px]', BARCODE_FIELD])
 
-    REPORTED_LOST = re.compile("^CARD([0-9]{14})REPORTEDLOST")
-
     DEFAULT_CURRENCY = "USD"
 
+    # Identifiers that contain any of these strings are ignored when
+    # finding the "correct" identifier in a patron's record, even if
+    # it means they end up with no identifier at all.
+    IDENTIFIER_BLACKLIST = 'identifier_blacklist'
+    
     # A configuration value for whether or not to validate the SSL certificate
     # of the Millenium Patron API server.
     VERIFY_CERTIFICATE = "verify_certificate"
+
+    # The field to use when validating a patron's credential.
+    AUTHENTICATION_MODE = 'auth_mode'
+    PIN_AUTHENTICATION_MODE = 'pin'
+    FAMILY_NAME_AUTHENTICATION_MODE = 'family_name'
+
+    # The field to use when seeing which values of MBLOCK[p56] mean a patron
+    # is blocked. By default, any value other than '-' indicates a block.
+    BLOCK_TYPES = 'block_types'
     
-    def __init__(self, url=None, authorization_identifier_blacklist=[],
-                 verify_certificate=True, **kwargs):
+    AUTHENTICATION_MODES = [
+        PIN_AUTHENTICATION_MODE, FAMILY_NAME_AUTHENTICATION_MODE
+    ]
+
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": VERIFY_CERTIFICATE, "label": _("Certificate Verification"),
+          "type": "select", "options": [
+              { "key": "true", "label": _("Verify Certificate Normally (Required for production)") },
+              { "key": "false", "label": _("Ignore Certificate Problems (For temporary testing only)") },
+          ],
+          "default": "true"
+        },
+        { "key": BLOCK_TYPES, "label": _("Block types"),
+          "description": _("Values of MBLOCK[p56] which mean a patron is blocked. By default, any value other than '-' indicates a block."),
+          "optional": True },
+        { "key": IDENTIFIER_BLACKLIST, "label": _("Identifier Blacklist"),
+          "type": "list",
+          "description": _("Identifiers containing any of these strings are ignored when finding the 'correct' " +
+                           "identifier for a patron's record, even if it means they end up with no identifier at all. " +
+                           "If librarians invalidate library cards by adding strings like \"EXPIRED\" or \"INVALID\" " +
+                           "on to the beginning of the card number, put those strings here so the Circulation Manager " + 
+                           "knows they do not represent real card numbers."),
+          "optional": True },
+        { "key": AUTHENTICATION_MODE, "label": _("Authentication Mode"),
+          "type": "select",
+          "options": [
+              { "key": PIN_AUTHENTICATION_MODE, "label": _("PIN") },
+              { "key": FAMILY_NAME_AUTHENTICATION_MODE, "label": _("Family Name") },
+          ],
+          "default": PIN_AUTHENTICATION_MODE
+        }
+    ] + BasicAuthenticationProvider.SETTINGS
+    
+    def __init__(self, library, integration, analytics=None):
+        super(MilleniumPatronAPI, self).__init__(library, integration, analytics)
+        url = integration.url
         if not url:
             raise CannotLoadConfiguration(
                 "Millenium Patron API server not configured."
             )
 
-        super(MilleniumPatronAPI, self).__init__(**kwargs)
         if not url.endswith('/'):
             url = url + "/"
         self.root = url
-        self.verify_certificate=verify_certificate
+        self.verify_certificate = integration.setting(
+            self.VERIFY_CERTIFICATE).json_value
+        if self.verify_certificate is None:
+            self.verify_certificate = True
         self.parser = etree.HTMLParser()
+
+        # In a Sierra ILS, a patron may have a large number of
+        # identifiers, some of which are not real library cards. A
+        # blacklist allows us to exclude certain types of identifiers
+        # from being considered as library cards.
+        authorization_identifier_blacklist = integration.setting(
+            self.IDENTIFIER_BLACKLIST).json_value or []
         self.blacklist = [re.compile(x, re.I)
                           for x in authorization_identifier_blacklist]
 
+        auth_mode = integration.setting(
+            self.AUTHENTICATION_MODE).value or self.PIN_AUTHENTICATION_MODE
+        
+        if auth_mode not in self.AUTHENTICATION_MODES:
+            raise CannotLoadConfiguration(
+                "Unrecognized Millenium Patron API authentication mode: %s." % auth_mode
+            )
+        self.auth_mode = auth_mode
+
+        self.block_types = integration.setting(self.BLOCK_TYPES).value or None
+        
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
 
+    def _request(self, path):
+        """Make an HTTP request and parse the response."""
+    
     def remote_authenticate(self, username, password):
         """Does the Millenium Patron API approve of these credentials?
 
@@ -78,27 +150,59 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         valid, a PatronData that serves only to indicate which
         authorization identifier the patron prefers.
         """
-        path = "%(barcode)s/%(pin)s/pintest" % dict(
-            barcode=username, pin=password
-        )
-        url = self.root + path
-        response = self.request(url)
-        data = dict(self._extract_text_nodes(response.content))
-        if data.get('RETCOD') == '0':
-            return PatronData(authorization_identifier=username, complete=False)
+        if self.auth_mode == self.PIN_AUTHENTICATION_MODE:
+            path = "%(barcode)s/%(pin)s/pintest" % dict(
+                barcode=username, pin=password
+            )
+            url = self.root + path
+            response = self.request(url)
+            data = dict(self._extract_text_nodes(response.content))
+            if data.get('RETCOD') == '0':
+                return PatronData(authorization_identifier=username, complete=False)
+            return False
+        elif self.auth_mode == self.FAMILY_NAME_AUTHENTICATION_MODE:
+
+            patrondata = self._remote_patron_lookup(username)
+            if not patrondata:
+                # The patron doesn't even exist.
+                return False
+
+            # The patron exists; but do the last names match?
+            if self.family_name_match(patrondata.personal_name, password):
+                # Since this is a complete PatronData, we'll be able
+                # to update their account without making a separate
+                # call to /dump.
+                return patrondata
+        return False
+
+    @classmethod
+    def family_name_match(self, actual_name, supposed_family_name):
+        """Does `supposed_family_name` match `actual_name`?"""
+        if actual_name is None or supposed_family_name is None:
+            return False
+        if actual_name.find(',') != -1:
+            actual_family_name = actual_name.split(',')[0]
+        else:
+            actual_name_split = actual_name.split(' ')
+            actual_family_name = actual_name_split[-1]
+        if actual_family_name.upper() == supposed_family_name.upper():
+            return True
         return False
 
     def remote_patron_lookup(self, patron_or_patrondata):
         """Ask the remote for detailed information about a patron's account.
         """
         current_identifier = patron_or_patrondata.authorization_identifier
-        path = "%(barcode)s/dump" % dict(barcode=current_identifier)
+        return self._remote_patron_lookup(current_identifier)
+
+    def _remote_patron_lookup(self, identifier):
+        """Look up patron information for the given identifier."""
+        path = "%(barcode)s/dump" % dict(barcode=identifier)
         url = self.root + path
         response = self.request(url)
-        return self.patron_dump_to_patrondata(
-            current_identifier, response.content
-        )
-
+        return self.patron_dump_to_patrondata(identifier, response.content)
+        
+    
     # End implementation of BasicAuthenticationProvider abstract
     # methods.
     
@@ -114,7 +218,32 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         configuration, in a testable way.
         """
         kwargs['verify'] = self.verify_certificate
-    
+
+    @classmethod
+    def _patron_block_reason(cls, block_types, mblock_value):
+        """Turn a value of the MBLOCK[56] field into a block type."""
+
+        if block_types and mblock_value in block_types:
+            # We are looking for a specific value, and we found it
+            return PatronData.UNKNOWN_BLOCK
+
+        if not block_types:        
+            # Apply the default rules.
+            if not mblock_value or mblock_value.strip() in ('', '-'):
+                # This patron is not blocked at all.
+                return PatronData.NO_VALUE
+            else:
+                # This patron is blocked for an unknown reason.
+                return PatronData.UNKNOWN_BLOCK
+
+        # We have specific types that mean the patron is blocked.
+        if mblock_value in block_types:
+            # The patron has one of those types. They are blocked.
+            return PatronData.UNKNOWN_BLOCK
+
+        # The patron does not have one of those types, so is not blocked.
+        return PatronData.NO_VALUE
+        
     def patron_dump_to_patrondata(self, current_identifier, content):
         """Convert an HTML patron dump to a PatronData object.
         
@@ -163,12 +292,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                     )
                     fines = Money("0", "USD")
             elif k == self.BLOCK_FIELD:
-                if v != '-':
-                    # '-' always seems to mean the absence of a block
-                    # on a patron's record. Any other value for this
-                    # field means the patron is blocked for a
-                    # library-specific reason.
-                    block_reason = PatronData.UNKNOWN_BLOCK
+                block_reason = self._patron_block_reason(self.block_types, v)
             elif k == self.EXPIRATION_FIELD:
                 try:
                     expires = datetime.datetime.strptime(

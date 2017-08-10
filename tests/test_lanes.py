@@ -1,5 +1,6 @@
 # encoding: utf-8
 from nose.tools import set_trace, eq_, assert_raises
+import json
 
 from . import (
     DatabaseTest,
@@ -16,6 +17,7 @@ from core.model import (
     Contributor,
     SessionManager,
     DataSource,
+    ExternalIntegration,
 )
 
 from api.config import (
@@ -29,10 +31,10 @@ from api.lanes import (
     lane_for_small_collection,
     lane_for_other_languages,
     ContributorLane,
-    LicensePoolBasedLane,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
+    WorkBasedLane,
 )
 from api.novelist import MockNoveListAPI
 
@@ -41,7 +43,7 @@ class TestLaneCreation(DatabaseTest):
 
     def test_lanes_for_large_collection(self):
         languages = ['eng', 'spa']
-        lanes = lanes_for_large_collection(self._db, languages)
+        lanes = lanes_for_large_collection(self._db, self._default_library, languages)
         [lane] = lanes
 
         # We have one top-level lane for English & Spanish
@@ -91,7 +93,7 @@ class TestLaneCreation(DatabaseTest):
         eq_(True, children.searchable)
 
     def test_lane_for_small_collection(self):
-        lane = lane_for_small_collection(self._db, ['eng', 'spa', 'chi'])
+        lane = lane_for_small_collection(self._db, self._default_library, ['eng', 'spa', 'chi'])
         eq_(u"English/español/Chinese", lane.display_name)
         sublanes = lane.sublanes.lanes
         eq_(
@@ -110,90 +112,101 @@ class TestLaneCreation(DatabaseTest):
 
     def test_lane_for_other_languages(self):
 
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY: {
-                    Configuration.TINY_COLLECTION_LANGUAGES : 'ger,fre,ita'
-                }
-            }
+        library = self._default_library
+        library.setting(
+            Configuration.TINY_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['ger','fre','ita']
+        )
 
-            exclude = ['eng', 'spa']
-            lane = lane_for_other_languages(self._db, exclude)
-            eq_(None, lane.languages)
-            eq_(exclude, lane.exclude_languages)
-            eq_("Other Languages", lane.name)
-            eq_(
-                ['Deutsch', u'français', 'Italiano'],
-                [x.name for x in lane.sublanes.lanes]
-            )
-            eq_([['ger'], ['fre'], ['ita']],
-                [x.languages for x in lane.sublanes.lanes]
-            )
+        exclude = ['eng', 'spa']
+        lane = lane_for_other_languages(self._db, self._default_library, exclude)
+        eq_(None, lane.languages)
+        eq_(exclude, lane.exclude_languages)
+        eq_("Other Languages", lane.name)
+        eq_(
+            ['Deutsch', u'français', 'Italiano'],
+            [x.name for x in lane.sublanes.lanes]
+        )
+        eq_([['ger'], ['fre'], ['ita']],
+            [x.languages for x in lane.sublanes.lanes]
+        )
 
         # If no tiny languages are configured, the other languages lane
         # doesn't show up.
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.LANGUAGE_POLICY: {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng'
-                }
-            }
+        library.setting(Configuration.TINY_COLLECTION_LANGUAGES).value = '[]'
+        library.setting(
+            Configuration.LARGE_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['eng']
+        )
 
-            exclude = ['eng', 'spa']
-            lane = lane_for_other_languages(self._db, exclude)
-            eq_(None, lane)
+        exclude = ['eng', 'spa']
+        lane = lane_for_other_languages(
+            self._db, self._default_library, exclude
+        )
+        eq_(None, lane)
 
     def test_make_lanes_default(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.AUTHENTICATION_POLICY : "Millenium",
-                Configuration.LANGUAGE_POLICY : {
-                    Configuration.LARGE_COLLECTION_LANGUAGES : 'eng',
-                    Configuration.SMALL_COLLECTION_LANGUAGES : 'spa,chi',
-                    Configuration.TINY_COLLECTION_LANGUAGES : 'ger,fre,ita'
-                }
-            }
-            lane_list = make_lanes_default(self._db)
+        library = self._default_library
+        library.setting(
+            Configuration.LARGE_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['eng']
+        )
 
-            assert isinstance(lane_list, LaneList)
-            lanes = lane_list.lanes
+        library.setting(
+            Configuration.SMALL_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['spa', 'chi']
+        )
 
-            # We have a top-level lane for the large collections,
-            # a top-level lane for each small collection, and a lane
-            # for everything left over.
-            eq_(['English', u'español', 'Chinese', 'Other Languages'],
-                [x.name for x in lane_list.lanes]
-            )
+        library.setting(
+            Configuration.TINY_COLLECTION_LANGUAGES
+        ).value = json.dumps(
+            ['ger','fre','ita']
+        )
 
-            english_lane = lanes[0]
-            eq_(['English - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
-                [x.name for x in english_lane.sublanes.lanes]
-            )
-            eq_(['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
-                [x.display_name for x in english_lane.sublanes.lanes]
-            )
+        lane_list = make_lanes_default(self._db, self._default_library)
+
+        assert isinstance(lane_list, LaneList)
+        lanes = lane_list.lanes
+
+        # We have a top-level lane for the large collections,
+        # a top-level lane for each small collection, and a lane
+        # for everything left over.
+        eq_(['English', u'español', 'Chinese', 'Other Languages'],
+            [x.name for x in lane_list.lanes]
+        )
+
+        english_lane = lanes[0]
+        eq_(['English - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
+            [x.name for x in english_lane.sublanes.lanes]
+        )
+        eq_(['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
+            [x.display_name for x in english_lane.sublanes.lanes]
+        )
 
 
-class TestLicensePoolBasedLane(DatabaseTest):
+class TestWorkBasedLane(DatabaseTest):
 
     def test_initialization_sets_appropriate_audiences(self):
         work = self._work(with_license_pool=True)
-        lp = work.license_pools[0]
 
         work.audience = Classifier.AUDIENCE_CHILDREN
-        children_lane = LicensePoolBasedLane(self._db, lp, '')
+        children_lane = WorkBasedLane(self._db, self._default_library, work, '')
         eq_(set([Classifier.AUDIENCE_CHILDREN]), children_lane.audiences)
 
         work.audience = Classifier.AUDIENCE_YOUNG_ADULT
-        ya_lane = LicensePoolBasedLane(self._db, lp, '')
+        ya_lane = WorkBasedLane(self._db, self._default_library, work, '')
         eq_(sorted(Classifier.AUDIENCES_JUVENILE), sorted(ya_lane.audiences))
 
         work.audience = Classifier.AUDIENCE_ADULT
-        adult_lane = LicensePoolBasedLane(self._db, lp, '')
+        adult_lane = WorkBasedLane(self._db, self._default_library, work, '')
         eq_(sorted(Classifier.AUDIENCES), sorted(adult_lane.audiences))
 
         work.audience = Classifier.AUDIENCE_ADULTS_ONLY
-        adults_only_lane = LicensePoolBasedLane(self._db, lp, '')
+        adults_only_lane = WorkBasedLane(self._db, self._default_library, work, '')
         eq_(sorted(Classifier.AUDIENCES), sorted(adults_only_lane.audiences))
 
 
@@ -205,93 +218,89 @@ class TestRelatedBooksLane(DatabaseTest):
             with_license_pool=True, audience=Classifier.AUDIENCE_YOUNG_ADULT
         )
         [self.lp] = self.work.license_pools
-        self.edition = self.lp.presentation_edition
+        self.edition = self.work.presentation_edition
 
     def test_initialization(self):
         """Asserts that a RelatedBooksLane won't be initialized for a work
         without related books
         """
 
-        with temp_config() as config:
-            # A book without a series or a contributor on a circ manager without
-            # NoveList recommendations raises an error.
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
-            self._db.delete(self.edition.contributions[0])
-            self._db.commit()
+        # A book without a series or a contributor on a circ manager without
+        # NoveList recommendations raises an error.
+        self._db.delete(self.edition.contributions[0])
+        self._db.commit()
 
-            assert_raises(
-                ValueError, RelatedBooksLane, self._db, self.lp, ""
-            )
+        assert_raises(
+            ValueError, RelatedBooksLane, self._db, self._default_library, self.work, ""
+        )
 
-            # A book with a contributor initializes a RelatedBooksLane.
-            luthor, i = self._contributor('Luthor, Lex')
-            self.edition.add_contributor(luthor, [Contributor.EDITOR_ROLE])
+        # A book with a contributor initializes a RelatedBooksLane.
+        luthor, i = self._contributor('Luthor, Lex')
+        self.edition.add_contributor(luthor, [Contributor.EDITOR_ROLE])
 
-            result = RelatedBooksLane(self._db, self.lp, '')
-            eq_(self.lp, result.license_pool)
-            [sublane] = result.sublanes
-            eq_(True, isinstance(sublane, ContributorLane))
-            eq_(sublane.contributor, luthor)
+        result = RelatedBooksLane(self._db, self._default_library, self.work, '')
+        eq_(self.work, result.work)
+        [sublane] = result.sublanes
+        eq_(True, isinstance(sublane, ContributorLane))
+        eq_(sublane.contributors, [luthor])
 
-            # As does a book in a series.
-            self.edition.series = "All By Myself"
-            result = RelatedBooksLane(self._db, self.lp, "")
-            eq_(2, len(result.sublanes))
-            [contributor, series] = result.sublanes
-            eq_(True, isinstance(series, SeriesLane))
+        # As does a book in a series.
+        self.edition.series = "All By Myself"
+        result = RelatedBooksLane(self._db, self._default_library, self.work, "")
+        eq_(2, len(result.sublanes))
+        [contributor, series] = result.sublanes
+        eq_(True, isinstance(series, SeriesLane))
 
-        with temp_config() as config:
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {
-                Configuration.NOVELIST_PROFILE : 'library',
-                Configuration.NOVELIST_PASSWORD : 'sure'
-            }
-            # When NoveList is configured and recommendations are available,
-            # a RecommendationLane will be included.
-            mock_api = MockNoveListAPI()
-            response = Metadata(
-                self.lp.data_source, recommendations=[self._identifier()]
-            )
-            mock_api.setup(response)
-            result = RelatedBooksLane(self._db, self.lp, "", novelist_api=mock_api)
-            eq_(3, len(result.sublanes))
+        # When NoveList is configured and recommendations are available,
+        # a RecommendationLane will be included.
+        self._external_integration(
+            ExternalIntegration.NOVELIST,
+            goal=ExternalIntegration.METADATA_GOAL, username=u'library',
+            password=u'sure', libraries=[self._default_library]
+        )
+        mock_api = MockNoveListAPI()
+        response = Metadata(
+            self.edition.data_source, recommendations=[self._identifier()]
+        )
+        mock_api.setup(response)
+        result = RelatedBooksLane(self._db, self._default_library, self.work, "", novelist_api=mock_api)
+        eq_(3, len(result.sublanes))
 
-            # The book's language and audience list is passed down to all sublanes.
-            eq_(['eng'], result.languages)
-            for sublane in result.sublanes:
-                eq_(result.languages, sublane.languages)
-                if isinstance(sublane, SeriesLane):
-                    eq_(set([result.source_audience]), sublane.audiences)
-                else:
-                    eq_(sorted(list(result.audiences)), sorted(list(sublane.audiences)))
+        # The book's language and audience list is passed down to all sublanes.
+        eq_(['eng'], result.languages)
+        for sublane in result.sublanes:
+            eq_(result.languages, sublane.languages)
+            if isinstance(sublane, SeriesLane):
+                eq_(set([result.source_audience]), sublane.audiences)
+            else:
+                eq_(sorted(list(result.audiences)), sorted(list(sublane.audiences)))
 
-            contributor, recommendations, series = result.sublanes
-            eq_(True, isinstance(recommendations, RecommendationLane))
-            eq_(True, isinstance(series, SeriesLane))
-            eq_(True, isinstance(contributor, ContributorLane))
+        contributor, recommendations, series = result.sublanes
+        eq_(True, isinstance(recommendations, RecommendationLane))
+        eq_(True, isinstance(series, SeriesLane))
+        eq_(True, isinstance(contributor, ContributorLane))
 
     def test_contributor_lane_generation(self):
 
-        with temp_config() as config:
-            config['integrations'][Configuration.NOVELIST_INTEGRATION] = {}
+        original = self.edition.contributions[0].contributor
+        luthor, i = self._contributor('Luthor, Lex')
+        self.edition.add_contributor(luthor, Contributor.EDITOR_ROLE)
 
-            original = self.edition.contributions[0].contributor
-            luthor, i = self._contributor('Luthor, Lex')
-            self.edition.add_contributor(luthor, Contributor.EDITOR_ROLE)
-
-            # Lex Luthor doesn't show up because he's only an editor,
-            # and an author is listed.
-            result = RelatedBooksLane(self._db, self.lp, '')
-            eq_(1, len(result.sublanes))
-            [sublane] = result.sublanes
-            eq_(original, sublane.contributor)
+        # Lex Luthor doesn't show up because he's only an editor,
+        # and an author is listed.
+        result = RelatedBooksLane(self._db, self._default_library, self.work, '')
+        eq_(1, len(result.sublanes))
+        [sublane] = result.sublanes
+        eq_([original], sublane.contributors)
 
         # A book with multiple contributors results in multiple
         # ContributorLane sublanes.
         lane, i = self._contributor('Lane, Lois')
         self.edition.add_contributor(lane, Contributor.PRIMARY_AUTHOR_ROLE)
-        result = RelatedBooksLane(self._db, self.lp, '')
+        result = RelatedBooksLane(self._db, self._default_library, self.work, '')
         eq_(2, len(result.sublanes))
-        sublane_contributors = [c.contributor for c in result.sublanes]
+        sublane_contributors = list()
+        [sublane_contributors.extend(c.contributors) for c in result.sublanes]
         eq_(set([lane, original]), set(sublane_contributors))
 
         # When there are no AUTHOR_ROLES present, contributors in
@@ -301,16 +310,16 @@ class TestRelatedBooksLane(DatabaseTest):
                 self._db.delete(contribution)
         self._db.commit()
 
-        result = RelatedBooksLane(self._db, self.lp, '')
+        result = RelatedBooksLane(self._db, self._default_library, self.work, '')
         eq_(1, len(result.sublanes))
         [sublane] = result.sublanes
-        eq_(luthor, sublane.contributor)
+        eq_([luthor], sublane.contributors)
 
     def test_works_query(self):
         """RelatedBooksLane is an invisible, groups lane without works."""
 
-        self.work.presentation_edition.series = "All By Myself"
-        lane = RelatedBooksLane(self._db, self.lp, "")
+        self.edition.series = "All By Myself"
+        lane = RelatedBooksLane(self._db, self._default_library, self.work, "")
         eq_(None, lane.works())
         eq_(None, lane.materialized_works())
 
@@ -349,7 +358,7 @@ class TestRecommendationLane(LaneTest):
 
     def setup(self):
         super(TestRecommendationLane, self).setup()
-        self.lp = self._work(with_license_pool=True).license_pools[0]
+        self.work = self._work(with_license_pool=True)
 
     def generate_mock_api(self):
         """Prep an empty NoveList result."""
@@ -365,7 +374,7 @@ class TestRecommendationLane(LaneTest):
         mock_api = self.generate_mock_api()
 
         # With an empty recommendation result, the lane is empty.
-        lane = RecommendationLane(self._db, self.lp, '', novelist_api=mock_api)
+        lane = RecommendationLane(self._db, self._default_library, self.work, '', novelist_api=mock_api)
         eq_(None, lane.works())
         eq_(None, lane.materialized_works())
 
@@ -392,12 +401,12 @@ class TestRecommendationLane(LaneTest):
         }
 
         for audience, results in expected.items():
-            self.lp.work.audience = audience
+            self.work.audience = audience
             SessionManager.refresh_materialized_views(self._db)
 
             mock_api = self.generate_mock_api()
             lane = RecommendationLane(
-                self._db, self.lp, '', novelist_api=mock_api
+                self._db, self._default_library, self.work, '', novelist_api=mock_api
             )
             lane.recommendations = recommendations
             self.assert_works_queries(lane, results)
@@ -416,15 +425,15 @@ class TestRecommendationLane(LaneTest):
 
         # But only the work that matches the source work is included.
         mock_api = self.generate_mock_api()
-        lane = RecommendationLane(self._db, self.lp, '', novelist_api=mock_api)
+        lane = RecommendationLane(self._db, self._default_library, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
         self.assert_works_queries(lane, [eng])
 
         # It doesn't matter the language.
-        self.lp.presentation_edition.language = 'fre'
+        self.work.presentation_edition.language = 'fre'
         SessionManager.refresh_materialized_views(self._db)
         mock_api = self.generate_mock_api()
-        lane = RecommendationLane(self._db, self.lp, '', novelist_api=mock_api)
+        lane = RecommendationLane(self._db, self._default_library, self.work, '', novelist_api=mock_api)
         lane.recommendations = recommendations
         self.assert_works_queries(lane, [fre])
 
@@ -434,16 +443,16 @@ class TestSeriesLane(LaneTest):
     def test_initialization(self):
         # An error is raised if SeriesLane is created with an empty string.
         assert_raises(
-            ValueError, SeriesLane, self._db, ''
+            ValueError, SeriesLane, self._db, self._default_library, ''
         )
 
-        lane = SeriesLane(self._db, 'Alrighty Then')
+        lane = SeriesLane(self._db, self._default_library, 'Alrighty Then')
         eq_('Alrighty Then', lane.series)
 
     def test_works_query(self):
         # If there are no works with the series name, no works are returned.
         series_name = "Like As If Whatever Mysteries"
-        lane = SeriesLane(self._db, series_name)
+        lane = SeriesLane(self._db, self._default_library, series_name)
         self.assert_works_queries(lane, [])
 
         # Works in the series are returned as expected.
@@ -490,7 +499,7 @@ class TestSeriesLane(LaneTest):
 
         # SeriesLane only returns works that match a given audience.
         children_lane = SeriesLane(
-            self._db, series_name, audiences=[Classifier.AUDIENCE_CHILDREN]
+            self._db, self._default_library, series_name, audiences=[Classifier.AUDIENCE_CHILDREN]
         )
         self.assert_works_queries(children_lane, [children])
 
@@ -498,12 +507,12 @@ class TestSeriesLane(LaneTest):
         # A request for adult material, only returns Adult material, not
         # Adults Only material.
         adult_lane = SeriesLane(
-            self._db, series_name, audiences=[Classifier.AUDIENCE_ADULT]
+            self._db, self._default_library, series_name, audiences=[Classifier.AUDIENCE_ADULT]
         )
         self.assert_works_queries(adult_lane, [adult])
 
         adult_lane = SeriesLane(
-            self._db, series_name, audiences=[Classifier.AUDIENCE_ADULTS_ONLY]
+            self._db, self._default_library, series_name, audiences=[Classifier.AUDIENCE_ADULTS_ONLY]
         )
         self.assert_works_queries(adult_lane, [adults_only])
 
@@ -519,14 +528,7 @@ class TestContributorLane(LaneTest):
     def test_initialization(self):
         # An error is raised if ContributorLane is created without
         # at least a name.
-        assert_raises(ValueError, ContributorLane, self._db, '')
-
-        # An error is raised if ContributorLane is created with a name and
-        # ID that don't match.
-        assert_raises(
-            ValueError, ContributorLane,
-            self._db, 'Clark Kent', self.contributor.id
-        )
+        assert_raises(ValueError, ContributorLane, self._db, self._default_library, '')
 
     def test_works_query(self):
         # A work by someone else.
@@ -539,9 +541,7 @@ class TestContributorLane(LaneTest):
         SessionManager.refresh_materialized_views(self._db)
 
         # The work with a matching name is found in the contributor lane.
-        lane = ContributorLane(
-            self._db, 'Lois Lane', contributor_id=self.contributor.id
-        )
+        lane = ContributorLane(self._db, self._default_library, 'Lois Lane')
         self.assert_works_queries(lane, [w2])
 
         # And when we add some additional works, like:
@@ -558,11 +558,6 @@ class TestContributorLane(LaneTest):
         # Those works are also included in the lane, in alphabetical order.
         self.assert_works_queries(lane, [w3, w4, w2])
 
-        # When the lane is created without a contributor_id, the query
-        # only searches by name.
-        lane = ContributorLane(self._db, 'Lois Lane')
-        self.assert_works_queries(lane, [w3, w2])
-
         # If the lane is created with languages, works in other languages
         # aren't included.
         fre = self._work(with_license_pool=True, language='fre')
@@ -572,8 +567,8 @@ class TestContributorLane(LaneTest):
             main_contribution.contributor = self.contributor
         SessionManager.refresh_materialized_views(self._db)
 
-        lane = ContributorLane(self._db, 'Lois Lane', languages=['eng'])
-        self.assert_works_queries(lane, [w3, w2])
+        lane = ContributorLane(self._db, self._default_library, 'Lois Lane', languages=['eng'])
+        self.assert_works_queries(lane, [w3, w4, w2])
 
         lane.languages = ['fre', 'spa']
         self.assert_works_queries(lane, [fre, spa])
@@ -590,12 +585,12 @@ class TestContributorLane(LaneTest):
         # Only childrens works are available in a ContributorLane with a
         # Children audience source
         children_lane = ContributorLane(
-            self._db, 'Lois Lane', audiences=[Classifier.AUDIENCE_CHILDREN]
+            self._db, self._default_library, 'Lois Lane', audiences=[Classifier.AUDIENCE_CHILDREN]
         )
         self.assert_works_queries(children_lane, [children])
 
         # When more than one audience is requested, all are included.
         ya_lane = ContributorLane(
-            self._db, 'Lois Lane', audiences=list(Classifier.AUDIENCES_JUVENILE)
+            self._db, self._default_library, 'Lois Lane', audiences=list(Classifier.AUDIENCES_JUVENILE)
         )
         self.assert_works_queries(ya_lane, [children, ya])

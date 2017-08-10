@@ -4,6 +4,7 @@ from core.util.problem_detail import ProblemDetail
 from circulation_exceptions import *
 from problem_details import *
 from flask.ext.babel import lazy_gettext as _
+from core.model import Library, get_one
 
 class BaseCirculationManagerController(object):
     """Define minimal standards for a circulation manager controller,
@@ -14,7 +15,6 @@ class BaseCirculationManagerController(object):
         """:param manager: A CirculationManager object."""
         self.manager = manager
         self._db = self.manager._db
-        self.circulation = self.manager.circulation
         self.url_for = self.manager.url_for
         self.cdn_url_for = self.manager.cdn_url_for
 
@@ -37,6 +37,7 @@ class BaseCirculationManagerController(object):
         if not header:
             # No credentials were provided.
             return self.authenticate()
+
         try:
             patron = self.authenticated_patron(header)
         except RemoteInitiatedServerError,e:
@@ -73,9 +74,25 @@ class BaseCirculationManagerController(object):
 
     def authenticate(self):
         """Sends a 401 response that demands authentication."""
-        if not self.manager.opds_authentication_document:
-            self.manager.opds_authentication_document = self.manager.auth.create_authentication_document()
-
-        data = self.manager.opds_authentication_document
         headers = self.manager.auth.create_authentication_headers()
+        data = self.manager.authentication_for_opds_document
         return Response(data, 401, headers)
+
+    def library_for_request(self, library_short_name):
+        """Look up the library the user is trying to access.
+
+        Since this is called on pretty much every request, it's also
+        an appropriate time to check whether the site configuration
+        has been changed and needs to be updated.
+        """
+        self.manager.reload_settings_if_changed()
+        
+        if library_short_name:
+            library = get_one(self._db, Library, short_name=library_short_name)
+        else:
+            library = Library.default(self._db)
+        
+        if not library:
+            return LIBRARY_NOT_FOUND
+        flask.request.library = library
+        return library

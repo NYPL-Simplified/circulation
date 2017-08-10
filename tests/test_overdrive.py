@@ -10,13 +10,15 @@ from datetime import (
     timedelta,
 )
 from api.overdrive import (
-    DummyOverdriveAPI,
+    MockOverdriveAPI,
+    OverdriveCollectionReaper,
 )
 
 from api.circulation import (
     CirculationAPI,
 )
 from api.circulation_exceptions import *
+from api.config import Configuration
 
 from . import (
     DatabaseTest,
@@ -24,8 +26,11 @@ from . import (
 )
 
 from core.model import (
+    Collection,
+    ConfigurationSetting,
     DataSource,
     DeliveryMechanism,
+    ExternalIntegration,
     Identifier,
     LicensePool,
     Representation,
@@ -36,6 +41,15 @@ from api.config import temp_config
 
 class OverdriveAPITest(DatabaseTest):
 
+    def setup(self):
+        super(OverdriveAPITest, self).setup()
+        library = self._default_library
+        self.collection = MockOverdriveAPI.mock_collection(self._db)
+        self.circulation = CirculationAPI(
+            self._db, library, api_map={ExternalIntegration.OVERDRIVE:MockOverdriveAPI}
+        )
+        self.api = self.circulation.api_for_collection[self.collection.id]
+        
     @classmethod
     def sample_data(self, filename):
         return sample_data(filename, 'overdrive')
@@ -64,32 +78,30 @@ class TestOverdriveAPI(OverdriveAPITest):
         ignore, patron_with_email = self.sample_json(
             "patron_info.json"
         )
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(content=patron_with_email)
+        self.api.queue_response(200, content=patron_with_email)
         patron = self._patron()
         # If the patron has used a particular email address to put
         # books on hold, use that email address, not the site default.
-        with temp_config() as config:
-            config['default_notification_email_address'] = "notifications@example.com"
-            eq_("foo@bar.com", 
-                api.default_notification_email_address(patron, 'pin'))
+        ConfigurationSetting.for_library(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
+            self._default_library).value = "notifications@example.com"
+        eq_("foo@bar.com", 
+            self.api.default_notification_email_address(patron, 'pin'))
 
         # If the patron has never before put an Overdrive book on
         # hold, their JSON object has no `lastHoldEmail` key. In this
         # case we use the site default.
         patron_with_no_email = dict(patron_with_email)
         del patron_with_no_email['lastHoldEmail']
-        api.queue_response(content=patron_with_no_email)
-        with temp_config() as config:
-            config['default_notification_email_address'] = "notifications@example.com"
-            eq_("notifications@example.com", 
-                api.default_notification_email_address(patron, 'pin'))
+        self.api.queue_response(200, content=patron_with_no_email)
+        eq_("notifications@example.com", 
+            self.api.default_notification_email_address(patron, 'pin'))
 
-            # If there's an error getting the information, use the
-            # site default.
-            api.queue_response(404)
-            eq_("notifications@example.com", 
-                api.default_notification_email_address(patron, 'pin'))
+        # If there's an error getting the information, use the
+        # site default.
+        self.api.queue_response(404)
+        eq_("notifications@example.com", 
+            self.api.default_notification_email_address(patron, 'pin'))
 
     def test_place_hold_raises_exception_if_patron_over_hold_limit(self):
         over_hold_limit = self.error_message(
@@ -102,11 +114,10 @@ class TestOverdriveAPI(OverdriveAPITest):
             data_source_name=DataSource.OVERDRIVE,
             with_license_pool=True
         )
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(400, content=over_hold_limit)
+        self.api.queue_response(400, content=over_hold_limit)
         assert_raises(
             PatronHoldLimitReached,
-            api.place_hold, self._patron(), 'pin', pool, 
+            self.api.place_hold, self._patron(), 'pin', pool, 
             notification_email_address='foo@bar.com'
         )
 
@@ -131,13 +142,12 @@ class TestOverdriveAPI(OverdriveAPITest):
             "successful_hold.json"
         )
 
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(content=successful_hold)
-        api.queue_response(content=patron_with_email)
+        self.api.queue_response(200, content=patron_with_email)
+        self.api.queue_response(200, content=successful_hold)
         with temp_config() as config:
             config['default_notification_email_address'] = "notifications@example.com"
-            hold = api.place_hold(self._patron(), 'pin', pool, 
-                                  notification_email_address=None)
+            hold = self.api.place_hold(self._patron(), 'pin', pool, 
+                                       notification_email_address=None)
 
         # The book was placed on hold.
         eq_(1, hold.hold_position)
@@ -145,8 +155,8 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # And when we placed it on hold, we passed in foo@bar.com
         # as the email address -- not notifications@example.com.
-        hold_request = api.requests[-1]
-        body = hold_request[4]
+        url, positional_args, kwargs = self.api.requests[-1]
+        headers, body = positional_args
         assert '{"name": "emailAddress", "value": "foo@bar.com"}' in body
 
     def test_fulfill_raises_exception_and_updates_formats_for_outdated_format(self):
@@ -168,14 +178,14 @@ class TestOverdriveAPI(OverdriveAPITest):
             "lock_in_format_not_available.json"
         )
 
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(400, content=lock_in_format_not_available)
-        api.queue_response(200, content=loan)
-
+        # We will get the loan, try to lock in the format, and fail.
+        self.api.queue_response(200, content=loan)
+        self.api.queue_response(400, content=lock_in_format_not_available)
+        
         # Trying to get a fulfillment link raises an exception.
         assert_raises(
             FormatNotAvailable,
-            api.get_fulfillment_link,
+            self.api.get_fulfillment_link,
             self._patron(), 'pin', pool.identifier.identifier,
             'ebook-epub-adobe'
         )
@@ -185,19 +195,22 @@ class TestOverdriveAPI(OverdriveAPITest):
             "bibliographic_information.json"
         )
 
-        api.queue_response(200, content=bibliographic)
-        api.queue_response(400, content=lock_in_format_not_available)
-        api.queue_response(200, content=loan)
-
+        # If we have the LicensePool available (as opposed to just the
+        # identifier), we will get the loan, try to lock in the
+        # format, fail, and then update the bibliographic information.
+        self.api.queue_response(200, content=loan)
+        self.api.queue_response(400, content=lock_in_format_not_available)
+        self.api.queue_response(200, content=bibliographic)
+        
         assert_raises(
             FormatNotAvailable,
-            api.fulfill,
+            self.api.fulfill,
             self._patron(), 'pin', pool,
             'ebook-epub-adobe'
         )
 
         # The delivery mechanisms have been updated.
-        eq_(3, len(pool.delivery_mechanisms))
+        eq_(3, pool.delivery_mechanisms.count())
         eq_(set([Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
         eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
@@ -210,10 +223,9 @@ class TestOverdriveAPI(OverdriveAPITest):
             "streaming_fulfill_link_response.json"
         )
 
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(200, content=streaming_fulfill_link)
+        self.api.queue_response(200, content=streaming_fulfill_link)
 
-        href, type = api.get_fulfillment_link_from_download_link(patron, '1234', "http://download-link", fulfill_url="http://fulfill")
+        href, type = self.api.get_fulfillment_link_from_download_link(patron, '1234', "http://download-link", fulfill_url="http://fulfill")
         eq_("https://fulfill.contentreserve.com/PerfectLife9780345530967.epub-sample.overdrive.com?RetailerID=nypl&Expires=1469825647&Token=dd0e19b4-eb70-439d-8c50-a65201060f4c&Signature=asl67/G154KeeUsL1mHPwEbZfgc=",
             href)
         eq_("text/html", type)
@@ -221,6 +233,7 @@ class TestOverdriveAPI(OverdriveAPITest):
     def test_update_formats(self):
         # Create a LicensePool with an inaccurate delivery mechanism.
         edition, pool = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
             identifier_type=Identifier.OVERDRIVE_ID,
             with_license_pool=True
         )
@@ -238,13 +251,12 @@ class TestOverdriveAPI(OverdriveAPITest):
         # for the new pool's Identifier.
         bibliographic['id'] = pool.identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(content=bibliographic)
+        self.api.queue_response(200, content=bibliographic)
 
-        api.update_formats(pool)
+        self.api.update_formats(pool)
 
         # The delivery mechanisms have been updated.
-        eq_(3, len(pool.delivery_mechanisms))
+        eq_(3, pool.delivery_mechanisms.count())
         eq_(set([Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
         eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
@@ -258,10 +270,9 @@ class TestOverdriveAPI(OverdriveAPITest):
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
             identifier_type=Identifier.OVERDRIVE_ID,
-            # TODO: If this line is commented out, we get an error later
-            # on which might or might not be worrisome.
             data_source_name=DataSource.OVERDRIVE,
-            with_license_pool=True
+            with_license_pool=True,
+            collection=self.collection
         )
 
         # We have never checked the circulation information for this
@@ -287,13 +298,12 @@ class TestOverdriveAPI(OverdriveAPITest):
         availability['id'] = pool.identifier.identifier
         bibliographic['id'] = pool.identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(content=bibliographic)
-        api.queue_response(content=availability)
+        self.api.queue_response(200, content=availability)
+        self.api.queue_response(200, content=bibliographic)
 
-        api.update_availability(pool)
+        self.api.update_availability(pool)
 
-        # The availability information has been udpated, as has the
+        # The availability information has been updated, as has the
         # date the availability information was last checked.
         eq_(5, pool.licenses_owned)
         eq_(5, pool.licenses_available)
@@ -304,10 +314,9 @@ class TestOverdriveAPI(OverdriveAPITest):
         """Test the method that actually looks up Overdrive circulation
         information.
         """
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(content="foo")
+        self.api.queue_response(200, content="foo")
 
-        book, (status_code, headers, content) = api.circulation_lookup(
+        book, (status_code, headers, content) = self.api.circulation_lookup(
             "an identifier"
         )
         eq_(dict(id="an identifier"), book)
@@ -322,10 +331,9 @@ class TestOverdriveAPI(OverdriveAPITest):
         ignore, availability = self.sample_json(
             "overdrive_availability_information.json"
         )
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(response_code=500, content="An error occured.")
+        self.api.queue_response(500, content="An error occured.")
         book = dict(id=identifier.identifier, availability_link=self._url)
-        pool, was_new, changed = api.update_licensepool(book)
+        pool, was_new, changed = self.api.update_licensepool(book)
         eq_(None, pool)
 
     def test_update_licensepool_provides_bibliographic_coverage(self):
@@ -348,16 +356,15 @@ class TestOverdriveAPI(OverdriveAPITest):
         availability['id'] = identifier.identifier
         bibliographic['id'] = identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
-        api.queue_response(content=bibliographic)
-        api.queue_response(content=availability)
+        self.api.queue_response(200, content=availability)
+        self.api.queue_response(200, content=bibliographic)
 
         # Now we're ready. When we call update_licensepool, the
         # OverdriveAPI will retrieve the availability information,
         # then the bibliographic information. It will then trigger the
         # OverdriveBibliographicCoverageProvider, which will
         # create an Edition and a presentation-ready Work.
-        pool, was_new, changed = api.update_licensepool(identifier.identifier)
+        pool, was_new, changed = self.api.update_licensepool(identifier.identifier)
         eq_(True, was_new)        
         eq_(availability['copiesOwned'], pool.licenses_owned)
 
@@ -390,13 +397,13 @@ class TestOverdriveAPI(OverdriveAPITest):
         # newly created Identifier.
         raw['id'] = identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
         pool, was_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, 
-            identifier.type, identifier.identifier
+            identifier.type, identifier.identifier,
+            collection=self.collection
         )
         
-        pool, was_new, changed = api.update_licensepool_with_book_info(
+        pool, was_new, changed = self.api.update_licensepool_with_book_info(
             raw, pool, was_new
         )
         eq_(True, was_new)
@@ -429,8 +436,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_(0, pool.licenses_reserved)
         eq_(0, pool.patrons_in_hold_queue)
 
-        api = DummyOverdriveAPI(self._db)
-        p2, was_new, changed = api.update_licensepool_with_book_info(
+        p2, was_new, changed = self.api.update_licensepool_with_book_info(
             raw, pool, False
         )
         eq_(False, was_new)
@@ -451,29 +457,64 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
         raw['id'] = identifier.identifier
 
-        api = DummyOverdriveAPI(self._db)
         license_pool, is_new = LicensePool.for_foreign_id(
             self._db, DataSource.OVERDRIVE, identifier.type, 
-            identifier.identifier
+            identifier.identifier, collection=self._default_collection
         )
-        pool, was_new, changed = api.update_licensepool_with_book_info(
+        pool, was_new, changed = self.api.update_licensepool_with_book_info(
             raw, license_pool, is_new
         )
         eq_(10, pool.patrons_in_hold_queue)
         eq_(True, changed)
 
+    def test_refresh_patron_access_token(self):
+        """Verify that patron information is included in the request
+        when refreshing a patron access token.
+        """
+        patron = self._patron()
+        patron.authorization_identifier = 'barcode'
+        credential = self._credential(patron=patron)
 
+        data, raw = self.sample_json("patron_token.json")
+        self.api.queue_response(200, content=raw)
+        
+        # Try to refresh the patron access token with a PIN, and
+        # then without a PIN.
+        self.api.refresh_patron_access_token(credential, patron, "a pin")
+
+        self.api.refresh_patron_access_token(credential, patron, None)
+
+        # Verify that the requests that were made correspond to what
+        # Overdrive is expecting.
+        initial, with_pin, without_pin = self.api.access_token_requests
+        url, payload, headers, kwargs = with_pin
+        eq_("https://oauth-patron.overdrive.com/patrontoken", url)
+        eq_("barcode", payload['username'])
+        expect_scope = "websiteid:%s authorizationname:%s" % (
+            self.api.website_id, self.api.ils_name
+        )
+        eq_(expect_scope, payload['scope'])
+        eq_("a pin", payload['password'])
+        assert not 'password_required' in payload
+
+        url, payload, headers, kwargs = without_pin
+        eq_("https://oauth-patron.overdrive.com/patrontoken", url)
+        eq_("barcode", payload['username'])
+        eq_(expect_scope, payload['scope'])
+        eq_("false", payload['password_required'])
+        eq_("[ignore]", payload['password'])
+        
 class TestExtractData(OverdriveAPITest):
 
     def test_get_download_link(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
-        url = DummyOverdriveAPI.get_download_link(
+        url = MockOverdriveAPI.get_download_link(
             json, "ebook-epub-adobe", "http://foo.com/")
         eq_("http://patron.api.overdrive.com/v1/patrons/me/checkouts/76C1B7D0-17F4-4C05-8397-C66C17411584/formats/ebook-epub-adobe/downloadlink?errorpageurl=http://foo.com/", url)
         
         assert_raises(
             NoAcceptableFormat, 
-            DummyOverdriveAPI.get_download_link,
+            MockOverdriveAPI.get_download_link,
             json, "no-such-format", "http://foo.com/"
         )
 
@@ -481,13 +522,13 @@ class TestExtractData(OverdriveAPITest):
         data, json = self.sample_json("checkout_response_book_fulfilled_on_kindle.json")
         assert_raises(
             FulfilledOnIncompatiblePlatform,
-            DummyOverdriveAPI.get_download_link,
+            MockOverdriveAPI.get_download_link,
             json, "ebook-epub-adobe", "http://foo.com/"            
         )
 
     def test_extract_data_from_checkout_resource(self):
         data, json = self.sample_json("checkout_response_locked_in_format.json")
-        expires, url = DummyOverdriveAPI.extract_data_from_checkout_response(
+        expires, url = MockOverdriveAPI.extract_data_from_checkout_response(
             json, "ebook-epub-adobe", "http://foo.com/")
         eq_(2013, expires.year)
         eq_(10, expires.month)
@@ -500,22 +541,22 @@ class TestExtractData(OverdriveAPITest):
 
         # The book already fulfilled on Kindle doesn't get turned into
         # LoanInfo.
-        eq_(None, DummyOverdriveAPI.process_checkout_data(on_kindle))
+        eq_(None, MockOverdriveAPI.process_checkout_data(on_kindle))
 
         # The book not yet fulfilled does show up as a LoanInfo.
-        loan_info = DummyOverdriveAPI.process_checkout_data(not_on_kindle)
+        loan_info = MockOverdriveAPI.process_checkout_data(not_on_kindle)
         eq_("2fadd2ac-a8ec-4938-a369-4c3260e8922b", loan_info.identifier)
 
         data, format_locked_in = self.sample_json("checkout_response_locked_in_format.json")
 
         # A book that's on loan with a format locked in shows up.
-        loan_info = DummyOverdriveAPI.process_checkout_data(format_locked_in)
+        loan_info = MockOverdriveAPI.process_checkout_data(format_locked_in)
         assert loan_info != None
 
         data, no_format_locked_in = self.sample_json("checkout_response_no_format_locked_in.json")
 
         # A book that's on loan with no format locked in also shows up.
-        loan_info = DummyOverdriveAPI.process_checkout_data(no_format_locked_in)
+        loan_info = MockOverdriveAPI.process_checkout_data(no_format_locked_in)
         assert loan_info != None
 
         # TODO: In the future both of these tests should return a
@@ -528,40 +569,37 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
         holds_data, json_holds = self.sample_json("no_holds.json")
 
-        overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(content=holds_data)
-        overdrive.queue_response(content=loans_data)
+        self.api.queue_response(200, content=loans_data)
+        self.api.queue_response(200, content=holds_data)
 
         patron = self._patron()
-        circulation = CirculationAPI(self._db, overdrive=overdrive)
-        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+        loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
 
         # All four loans in the sample data were created.
         eq_(4, len(loans))
-        eq_(loans, patron.loans)
+        eq_(loans.sort(), patron.loans.sort())
 
         eq_([], holds)
 
         # Running the sync again leaves all four loans in place.
-        overdrive.queue_response(content=holds_data)
-        overdrive.queue_response(content=loans_data)
-        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+        self.api.queue_response(200, content=loans_data)
+        self.api.queue_response(200, content=holds_data)
+        loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(loans))
-        eq_(loans, patron.loans)        
+        eq_(loans.sort(), patron.loans.sort())
 
     def test_sync_bookshelf_removes_loans_not_present_on_remote(self):
         loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
         holds_data, json_holds = self.sample_json("no_holds.json")
 
-        overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(content=holds_data)
-        overdrive.queue_response(content=loans_data)
+        self.api.queue_response(200, content=loans_data)
+        self.api.queue_response(200, content=holds_data)
 
         # Create a loan not present in the sample data.
         patron = self._patron()
         overdrive_edition, new = self._edition(
             data_source_name=DataSource.OVERDRIVE,
-            with_license_pool=True
+            with_license_pool=True, collection=self.collection
         )
         overdrive_loan, new = overdrive_edition.license_pool.loan_to(patron)
         yesterday = datetime.utcnow() - timedelta(days=1)
@@ -569,8 +607,7 @@ class TestSyncBookshelf(OverdriveAPITest):
 
         # Sync with Overdrive, and the loan not present in the sample
         # data is removed.
-        circulation = CirculationAPI(self._db, overdrive=overdrive)
-        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+        loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
 
         eq_(4, len(loans))
         eq_(loans, patron.loans)
@@ -586,12 +623,10 @@ class TestSyncBookshelf(OverdriveAPITest):
    
         # Overdrive doesn't know about the Gutenberg loan, but it was
         # not destroyed, because it came from another source.
-        overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(content=holds_data)
-        overdrive.queue_response(content=loans_data)
-        circulation = CirculationAPI(self._db, overdrive=overdrive)
+        self.api.queue_response(200, content=loans_data)
+        self.api.queue_response(200, content=holds_data)
 
-        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+        loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.loans))
         assert gutenberg_loan in patron.loans
 
@@ -600,22 +635,19 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans_data, json_loans = self.sample_json("no_loans.json")
         holds_data, json_holds = self.sample_json("holds.json")
 
-        overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(content=holds_data)
-        overdrive.queue_response(content=loans_data)
-        circulation = CirculationAPI(self._db, overdrive=overdrive)
+        self.api.queue_response(200, content=loans_data)
+        self.api.queue_response(200, content=holds_data)
         patron = self._patron()
 
-        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+        loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         # All four loans in the sample data were created.
         eq_(4, len(holds))
         eq_(holds, patron.holds)
 
         # Running the sync again leaves all four holds in place.
-        overdrive.queue_response(content=holds_data)
-        overdrive.queue_response(content=loans_data)
-        circulation = CirculationAPI(self._db, overdrive=overdrive)
-        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+        self.api.queue_response(200, content=loans_data)
+        self.api.queue_response(200, content=holds_data)
+        loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(holds))
         eq_(holds, patron.holds)        
 
@@ -624,38 +656,54 @@ class TestSyncBookshelf(OverdriveAPITest):
         holds_data, json_holds = self.sample_json("holds.json")
         
         patron = self._patron()
-        overdrive_edition, new = self._edition(data_source_name=DataSource.OVERDRIVE,
-                                       with_license_pool=True)
+        overdrive_edition, new = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True,
+            collection=self.collection
+        )
         overdrive_hold, new = overdrive_edition.license_pool.on_hold_to(patron)
 
 
-        overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(content=holds_data)
-        overdrive.queue_response(content=loans_data)
+        self.api.queue_response(200, content=loans_data)
+        self.api.queue_response(200, content=holds_data)
 
         # The hold not present in the sample data has been removed
-        circulation = CirculationAPI(self._db, overdrive=overdrive)
-        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+        loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(4, len(holds))
         eq_(holds, patron.holds)
         assert overdrive_hold not in patron.loans
 
-    def test_sync_bookshelf_ignores_holds_from_other_sources(self):
+    def test_sync_bookshelf_ignores_holds_from_other_collections(self):
         loans_data, json_loans = self.sample_json("no_loans.json")
         holds_data, json_holds = self.sample_json("holds.json")
 
         patron = self._patron()
-        threem, new = self._edition(data_source_name=DataSource.THREEM,
-                                    with_license_pool=True)
-        threem_hold, new = threem.license_pool.on_hold_to(patron)
-   
-        overdrive = DummyOverdriveAPI(self._db)
-        overdrive.queue_response(content=holds_data)
-        overdrive.queue_response(content=loans_data)
 
-        # Overdrive doesn't know about the 3M hold, but it was
-        # not destroyed, because it came from another source.
-        circulation = CirculationAPI(self._db, overdrive=overdrive)
-        loans, holds = circulation.sync_bookshelf(patron, "dummy pin")
+        # This patron has an Overdrive book on hold, but it derives
+        # from an Overdrive Collection that's not managed by
+        # self.circulation.
+        overdrive, new = self._edition(
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True,
+            collection=self._collection()
+        )
+        overdrive_hold, new = overdrive.license_pool.on_hold_to(patron)
+   
+        self.api.queue_response(200, content=loans_data)
+        self.api.queue_response(200, content=holds_data)
+
+        # self.api doesn't know about the hold, but it was not
+        # destroyed, because it came from a different collection.
+        loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
-        assert threem_hold in patron.holds
+        assert overdrive_hold in patron.holds
+
+
+class TestReaper(OverdriveAPITest):
+
+    def test_instantiate(self):
+        # Validate the standard CollectionMonitor interface.
+        monitor = OverdriveCollectionReaper(
+            self._db, self.collection,
+            api_class=MockOverdriveAPI
+        )

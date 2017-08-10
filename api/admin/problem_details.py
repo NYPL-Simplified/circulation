@@ -2,11 +2,25 @@ from core.util.problem_detail import ProblemDetail as pd
 from api.problem_details import *
 from flask.ext.babel import lazy_gettext as _
 
+ADMIN_AUTH_NOT_CONFIGURED = pd(
+    "http://librarysimplified.org/terms/problem/admin-auth-not-configured",
+    500,
+    _("Admin auth not configured"),
+    _("This circulation manager has not been configured to authenticate admins."),
+)
+
+ADMIN_AUTH_MECHANISM_NOT_CONFIGURED = pd(
+    "http://librarysimplified.org/terms/problem/admin-auth-mechanism-not-configured",
+    400,
+    _("Admin auth mechanism not configured"),
+    _("This circulation manager has not been configured to authenticate admins with the mechanism you used"),
+)
+
 INVALID_ADMIN_CREDENTIALS = pd(
       "http://librarysimplified.org/terms/problem/admin-credentials-invalid",
       401,
       _("Invalid admin credentials"),
-      _("A valid library staff email is required."),
+      _("Valid library staff credentials are required."),
 )
 
 GOOGLE_OAUTH_FAILURE = pd(
@@ -84,4 +98,151 @@ INVALID_SERIES_POSITION = pd(
     status_code=400,
     title=_("Invalid series positon."),
     detail=_("The series position must be a number or blank."),
+)
+
+MISSING_LIBRARY_SHORT_NAME = pd(
+    "http://librarysimplified.org/terms/problem/missing-library-short-name",
+    status_code=400,
+    title=_("Missing library short name"),
+    detail=_("You must set a short name for the library."),
+)
+
+LIBRARY_SHORT_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/library-short-name-already-in-use",
+    status_code=400,
+    title=_("Library short name already in use"),
+    detail=_("The library short name must be unique, and there's already a library with the specified short name."),
+)
+
+MISSING_COLLECTION = pd(
+    "http://librarysimplified.org/terms/problem/missing-collection",
+    status_code=404,
+    title=_("Missing collection."),
+    detail=_("The specified collection does not exist."),
+)
+
+MISSING_COLLECTION_NAME = pd(
+    "http://librarysimplified.org/terms/problem/missing-collection-name",
+    status_code=400,
+    title=_("Missing collection name."),
+    detail=_("You must identify the collection by its name."),
+)
+
+COLLECTION_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/collection-name-already-in-use",
+    status_code=400,
+    title=_("Collection name already in use"),
+    detail=_("The collection name must be unique, and there's already a collection with the specified name."),
+)
+
+NO_PROTOCOL_FOR_NEW_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/no-protocol-for-new-service",
+    status_code=400,
+    title=_("No protocol for new service"),
+    detail=_("The specified service doesn't exist. You can create it, but you must specify a protocol."),
+)
+
+UNKNOWN_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/unknown-protocol",
+    status_code=400,
+    title=_("Unknown protocol"),
+    detail=_("The protocol is not one of the known protocols."),
+)
+
+CANNOT_CHANGE_PROTOCOL = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-protocol",
+    status_code=400,
+    title=_("Cannot change protocol"),
+    detail=_("A protocol can't be changed once it has been set."),
+)
+
+PROTOCOL_DOES_NOT_SUPPORT_PARENTS = pd(
+    "http://librarysimplified.org/terms/problem/protocol-does-not-support-parents",
+    status_code=400,
+    title=_("Protocol does not support parents"),
+    detail=_("You attempted to add a parent but the protocol does not support parents."),
+)
+
+MISSING_PARENT = pd(
+    "http://librarysimplified.org/terms/problem/missing-parent",
+    status_code=400,
+    title=_("Missing parent"),
+    detail=_("You attempted to add a parent that does not exist."),
+)
+
+NO_SUCH_LIBRARY = pd(
+    "http://librarysimplified.org/terms/problem/no-such-library",
+    status_code=400,
+    title=_("No such library"),
+    detail=_("A library in your request does not exist."),
+)
+
+INCOMPLETE_CONFIGURATION = pd(
+    "http://librarysimplified.org/terms/problem/incomplete-configuration",
+    status_code=400,
+    title=_("Incomplete configuration"),
+    detail=_("The configuration is missing a required field."),
+)
+
+INTEGRATION_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/integration-name-already-in-use",
+    status_code=400,
+    title=_("Integration name already in use"),
+    detail=_("The integration name must be unique, and there's already an integration with the specified name."),
+)
+
+MISSING_PGCRYPTO_EXTENSION = pd(
+    "http://librarysimplified.org/terms/problem/missing-pgcrypto-extension",
+    status_code=500,
+    title=_("Missing pgcrypto database extension"),
+    detail=_("You tried to store a password for an individual admin, but the database does not have the pgcrypto extension installed."),
+)
+
+MISSING_SERVICE = pd(
+    "http://librarysimplified.org/terms/problem/missing-service",
+    status_code=404,
+    title=_("Missing service"),
+    detail=_("The specified service does not exist."),
+)
+
+INVALID_CONFIGURATION_OPTION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-configuration-option",
+    status_code=400,
+    title=_("Invalid configuration option"),
+    detail=_("The configuration has an invalid value."),
+)
+
+INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-external-type-regular-expression",
+    status_code=400,
+    title=_("Invalid external type regular expression"),
+    detail=_("The specified external type regular expression does not compile."),
+)
+
+MULTIPLE_BASIC_AUTH_SERVICES = pd(
+    "http://librarysimplified.org/terms/problem/multiple-basic-auth-services",
+    status_code=400,
+    title=_("Multiple basic authentication services"),
+    detail=_("Each library can only have one patron authentication service using basic auth."),
+)
+
+MISSING_SITEWIDE_SETTING_KEY = pd(
+    "http://librarysimplified.org/terms/problem/missing-sitewide-setting-key",
+    status_code=400,
+    title=_("Missing sitewide setting key"),
+    detail=_("A key is required to change a sitewide setting."),
+)
+
+MISSING_SITEWIDE_SETTING_VALUE = pd(
+    "http://librarysimplified.org/terms/problem/missing-sitewide-setting-value",
+    status_code=400,
+    title=_("Missing sitewide setting value"),
+    detail=_("A value is required to change a sitewide setting."),
+)
+
+MULTIPLE_SEARCH_SERVICES = pd(
+    "http://librarysimplified.org/terms/problem/multiple-search-services",
+    status_code=400,
+    title=_("Multiple search services"),
+    detail=_("You tried to create a new search service, but a search service is already configured."),
 )

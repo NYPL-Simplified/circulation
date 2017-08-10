@@ -59,9 +59,10 @@ class AnnotationWriter(object):
             url = url_for('annotations_for_work',
                           identifier_type=identifier.type,
                           identifier=identifier.identifier,
+                          library_short_name=patron.library.short_name,
                           _external=True)
         else:
-            url = url_for("annotations", _external=True)
+            url = url_for("annotations", library_short_name=patron.library.short_name, _external=True)
         annotations = cls.annotations_for(patron, identifier=identifier)
 
         latest_timestamp = None
@@ -85,9 +86,10 @@ class AnnotationWriter(object):
             url = url_for('annotations_for_work',
                           identifier_type=identifier.type,
                           identifier=identifier.identifier,
+                          library_short_name=patron.library.short_name,
                           _external=True)
         else:
-            url = url_for("annotations", _external=True)
+            url = url_for("annotations", library_short_name=patron.library.short_name, _external=True)
         annotations = cls.annotations_for(patron, identifier=identifier)
         details = [cls.detail(annotation, with_context=with_context) for annotation in annotations]
 
@@ -104,7 +106,9 @@ class AnnotationWriter(object):
         item = dict()
         if with_context:
             item["@context"] = cls.JSONLD_CONTEXT
-        item["id"] = url_for("annotation_detail", annotation_id=annotation.id, _external=True)
+        item["id"] = url_for("annotation_detail", annotation_id=annotation.id,
+                             library_short_name=annotation.patron.library.short_name,
+                             _external=True)
         item["type"] = "Annotation"
         item["motivation"] = annotation.motivation
         item["body"] = annotation.content

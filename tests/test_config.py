@@ -1,79 +1,108 @@
+from collections import Counter
 from nose.tools import (
     eq_,
     set_trace,
 )
+import json
 
-from api.config import (
-    Configuration,
-    temp_config,
-    FacetConfig
+from core.model import (
+    ConfigurationSetting
 )
-from core.facets import FacetConstants as Facets
+from . import DatabaseTest
+from api.config import Configuration
 
-class TestFacetConfig(object):
+class TestConfiguration(DatabaseTest):
 
-    def setup(self):
-        self.enabled = {
-            Facets.ORDER_FACET_GROUP_NAME: [
-                Facets.ORDER_TITLE, Facets.ORDER_AUTHOR
-            ]
-        }
+    def test_collection_language_method_performs_estimate(self):
+        C = Configuration
+        library = self._default_library
 
-        self.default = {
-            Facets.ORDER_FACET_GROUP_NAME: Facets.ORDER_TITLE
-        }
+        # We haven't set any of these values.
+        for key in [C.LARGE_COLLECTION_LANGUAGES,
+                    C.SMALL_COLLECTION_LANGUAGES,
+                    C.TINY_COLLECTION_LANGUAGES]:
+            eq_(None, ConfigurationSetting.for_library(key, library).value)
 
-    def test_from_config(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {}
+        # So how does this happen?
+        eq_(["eng"], C.large_collection_languages(library))
+        eq_([], C.small_collection_languages(library))
+        eq_([], C.tiny_collection_languages(library))
 
-            facet_config = FacetConfig.from_config()
-            eq_(Configuration.DEFAULT_ENABLED_FACETS, facet_config._enabled_facets)
-            eq_(Configuration.DEFAULT_FACET, facet_config._default_facets)
+        # It happens because the first time we call one of those
+        # *_collection_languages, it estimates values for all three
+        # configuration settings, based on the library's current
+        # holdings.
+        large_setting = ConfigurationSetting.for_library(
+            C.LARGE_COLLECTION_LANGUAGES, library
+        ) 
+        eq_(["eng"], large_setting.json_value)
+        eq_([], ConfigurationSetting.for_library(
+            C.SMALL_COLLECTION_LANGUAGES, library).json_value)
+        eq_([], ConfigurationSetting.for_library(
+            C.TINY_COLLECTION_LANGUAGES, library).json_value)
 
-        with temp_config() as config:
-            config[Configuration.POLICIES][Configuration.FACET_POLICY] = {
-                Configuration.ENABLED_FACETS_KEY: self.enabled,
-                Configuration.DEFAULT_FACET_KEY: self.default,
-            }
-
-            facet_config = FacetConfig.from_config()
-            eq_(self.enabled, facet_config._enabled_facets)
-            eq_(self.default, facet_config._default_facets)
-
-    def test_enabled_facets(self):
-        facet_config = FacetConfig(self.enabled, self.default)
-
-        eq_([Facets.ORDER_TITLE, Facets.ORDER_AUTHOR], facet_config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME))
-        eq_(None, facet_config.enabled_facets(Facets.COLLECTION_FACET_GROUP_NAME))
-
-    def test_default_facet(self):
-        facet_config = FacetConfig(self.enabled, self.default)
-
-        eq_(Facets.ORDER_TITLE, facet_config.default_facet(Facets.ORDER_FACET_GROUP_NAME))
-        eq_(None, facet_config.default_facet(Facets.COLLECTION_FACET_GROUP_NAME))
-
-    def test_enable_facet(self):
-        facet_config = FacetConfig(self.enabled, self.default)
-
-        facet_config.enable_facet(Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_SERIES_POSITION)
-        eq_([Facets.ORDER_TITLE, Facets.ORDER_AUTHOR, Facets.ORDER_SERIES_POSITION],
-            facet_config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME))
-
-        facet_config.enable_facet(Facets.COLLECTION_FACET_GROUP_NAME, Facets.COLLECTION_MAIN)
-        eq_([Facets.COLLECTION_MAIN], facet_config.enabled_facets(Facets.COLLECTION_FACET_GROUP_NAME))
-
-    def test_set_default_facet(self):
-        facet_config = FacetConfig(self.enabled, self.default)
-
-        facet_config.set_default_facet(Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_AUTHOR)
-        eq_(Facets.ORDER_AUTHOR, facet_config.default_facet(Facets.ORDER_FACET_GROUP_NAME))
+        # We can change these values.
+        large_setting.value = json.dumps(["spa", "jpn"])
+        eq_(["spa", "jpn"], C.large_collection_languages(library))
         
-        facet_config.set_default_facet(Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_SERIES_POSITION)
-        eq_(Facets.ORDER_SERIES_POSITION, facet_config.default_facet(Facets.ORDER_FACET_GROUP_NAME))
-        eq_([Facets.ORDER_TITLE, Facets.ORDER_AUTHOR, Facets.ORDER_SERIES_POSITION],
-            facet_config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME))
+        # If we enter an invalid value, or a value that's not a list,
+        # the estimate is re-calculated the next time we look.
+        large_setting.value = "this isn't json"
+        eq_(["eng"], C.large_collection_languages(library))
 
-        facet_config.set_default_facet(Facets.COLLECTION_FACET_GROUP_NAME, Facets.COLLECTION_MAIN)
-        eq_(Facets.COLLECTION_MAIN, facet_config.default_facet(Facets.COLLECTION_FACET_GROUP_NAME))
-        eq_([Facets.COLLECTION_MAIN], facet_config.enabled_facets(Facets.COLLECTION_FACET_GROUP_NAME))
+        large_setting.value = '"this is json but it\'s not a list"'
+        eq_(["eng"], C.large_collection_languages(library))
+        
+    def test_estimate_language_collection_for_library(self):
+
+        library = self._default_library
+
+        # We thought we'd have big collections.
+        old_settings = {
+            Configuration.LARGE_COLLECTION_LANGUAGES : ["spa", "fre"],
+            Configuration.SMALL_COLLECTION_LANGUAGES : ["chi"],
+            Configuration.TINY_COLLECTION_LANGUAGES : ["rus"],
+        }
+
+        for key, value in old_settings.items():
+            ConfigurationSetting.for_library(
+                key, library).value = json.dumps(value)
+
+        # But there's nothing in our database, so when we call
+        # Configuration.estimate_language_collections_for_library...
+        Configuration.estimate_language_collections_for_library(library)
+
+        # ...it gets reset to the default.
+        eq_(["eng"], ConfigurationSetting.for_library(
+            Configuration.LARGE_COLLECTION_LANGUAGES, library
+        ).json_value)
+        
+        eq_([], ConfigurationSetting.for_library(
+            Configuration.SMALL_COLLECTION_LANGUAGES, library
+        ).json_value)
+            
+        eq_([], ConfigurationSetting.for_library(
+            Configuration.TINY_COLLECTION_LANGUAGES, library
+        ).json_value)
+
+    def test_classify_holdings(self):
+
+        m = Configuration.classify_holdings
+        
+        # If there are no titles in the collection at all, we assume
+        # there will eventually be a large English collection.
+        eq_([["eng"], [], []], m(Counter()))
+
+        # The largest collection is given the 'large collection' treatment,
+        # even if it's very small.
+        very_small = Counter(rus=2, pol=1)
+        eq_([["rus"], [], ["pol"]], m(very_small))
+
+        # Otherwise, the classification of a collection depends on the
+        # sheer number of items in that collection. Within a
+        # classification, languages are ordered by holding size.
+        different_sizes = Counter(jpn=16000, fre=20000, spa=8000,
+                                  nav=6, ukr=4000, ira=1500)
+        eq_([['fre', 'jpn'], ['spa', 'ukr', 'ira'], ['nav']],
+            m(different_sizes))
+        

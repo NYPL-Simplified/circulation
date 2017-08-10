@@ -15,6 +15,7 @@ import urlparse
 import urllib
 from core.model import (
     get_one_or_create,
+    ExternalIntegration,
     Patron,
 )
 
@@ -22,13 +23,15 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
 
     NAME = 'First Book'
 
+    DESCRIPTION = _("""
+        An authentication service for Open eBooks that authenticates
+        using access codes and PINs.""")
+
     LOGIN_LABEL = _("Access Code")
 
     # If FirstBook sends this message it means they accepted the
     # patron's credentials.
     SUCCESS_MESSAGE = 'Valid Code Pin Pair'
-
-    SECRET_KEY = 'key'
 
     # Server-side validation happens before the identifier
     # is converted to uppercase, which means lowercase characters
@@ -36,19 +39,28 @@ class FirstBookAuthenticationAPI(BasicAuthenticationProvider):
     DEFAULT_IDENTIFIER_REGULAR_EXPRESSION = '^[A-Za-z0-9@]+$'
     DEFAULT_PASSWORD_REGULAR_EXPRESSION = '^[0-9]+$'
     
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Key") },
+    ] + BasicAuthenticationProvider.SETTINGS
+    
     log = logging.getLogger("First Book authentication API")
 
-    def __init__(self, url=None, key=None, **kwargs):
-        if not (url and key):
-            raise CannotLoadConfiguration(
-                "First Book server not configured."
-            )
-        super(FirstBookAuthenticationAPI, self).__init__(**kwargs)
-        if '?' in url:
-            url += '&'
-        else:
-            url += '?'
-        self.root = url + 'key=' + key
+    def __init__(self, library_id, integration, analytics=None, root=None):
+        super(FirstBookAuthenticationAPI, self).__init__(library_id, integration, analytics)
+        if not root:
+            url = integration.url
+            key = integration.password
+            if not (url and key):
+                raise CannotLoadConfiguration(
+                    "First Book server not configured."
+                )
+            if '?' in url:
+                url += '&'
+            else:
+                url += '?'
+            root = url + 'key=' + key 
+        self.root = root
 
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
@@ -110,15 +122,17 @@ class MockFirstBookAuthenticationAPI(FirstBookAuthenticationAPI):
     SUCCESS = '"Valid Code Pin Pair"'
     FAILURE = '{"code":404,"message":"Access Code Pin Pair not found"}'
 
-    def __init__(self, valid={}, bad_connection=False, 
+    def __init__(self, library, integration, valid={}, bad_connection=False, 
                  failure_status_code=None):
+        super(MockFirstBookAuthenticationAPI, self).__init__(
+            library, integration, root="http://example.com/"
+        )
         self.identifier_re = None
         self.password_re = None
-        self.root = "http://example.com/"
         self.valid = valid
         self.bad_connection = bad_connection
         self.failure_status_code = failure_status_code
-
+        
     def request(self, url):
         if self.bad_connection:
             # Simulate a bad connection.

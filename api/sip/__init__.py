@@ -1,10 +1,14 @@
 from datetime import datetime
 from nose.tools import set_trace
+from flask.ext.babel import lazy_gettext as _
 from api.authenticator import (
     BasicAuthenticationProvider,
     PatronData,
 )
 from api.sip.client import SIPClient
+from core.util.http import RemoteIntegrationException
+from core.util import MoneyUtility
+from core.model import ExternalIntegration
 
 class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
@@ -12,10 +16,33 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
 
     DATE_FORMATS = ["%Y%m%d", "%Y%m%d%Z%H%M%S", "%Y%m%d    %H%M%S"]
 
-    def __init__(self, server, port, login_user_id,
-                 login_password, location_code, field_separator,
-                 client=None,
-                 **kwargs):
+    # Constants for integration configuration settings.
+    PORT = "port"
+    LOCATION_CODE = "location code"
+    FIELD_SEPARATOR = "field separator"
+    
+    SETTINGS = [
+        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": PORT, "label": _("Port") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Login User ID") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Login Password") },
+        { "key": LOCATION_CODE, "label": _("Location Code") },
+        { "key": FIELD_SEPARATOR, "label": _("Field Separator") },
+    ] + BasicAuthenticationProvider.SETTINGS
+    
+
+    # Most of the time, a patron who is blocked will be blocked with
+    # the reason UNKNOWN_BLOCK. However, there are a few more specific
+    # reasons we can use. This dictionary maps the block reason
+    # reported by SIP2 to the protocol-independent block reason used
+    # by PatronData.
+    SPECIFIC_BLOCK_REASONS = {
+        SIPClient.CARD_REPORTED_LOST : PatronData.CARD_REPORTED_LOST,
+        SIPClient.EXCESSIVE_FINES : PatronData.EXCESSIVE_FINES,
+        SIPClient.EXCESSIVE_FEES : PatronData.EXCESSIVE_FINES,
+    }
+
+    def __init__(self, library, integration, analytics=None, client=None, connect=True):
         """An object capable of communicating with a SIP server.
 
         :param server: Hostname of the SIP server.
@@ -45,19 +72,52 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         :param client: A drop-in replacement for the SIPClient
         object. Only intended for use during testing.
 
+        :param connect: If this is false, the generated SIPClient will
+        not attempt to connect to the server. Only intended for use
+        during testing.
         """
-        super(SIP2AuthenticationProvider, self).__init__(**kwargs)
-        if client:
-            self.client = client
-        else:
-            self.client = SIPClient(
-                target_server=server, target_port=port,
-                login_user_id=login_user_id, login_password=login_password,
-                location_code=location_code, separator=field_separator
+        super(SIP2AuthenticationProvider, self).__init__(
+            library, integration, analytics
+        )
+        try:
+            server = None
+            if client:
+                if callable(client):
+                    client = client()
+            else:
+                server = integration.url
+                port = integration.setting(self.PORT).int_value
+                login_user_id = integration.username
+                login_password = integration.password
+                location_code = integration.setting(self.LOCATION_CODE).value
+                field_separator = integration.setting(
+                    self.FIELD_SEPARATOR).value or '|'
+                client = SIPClient(
+                    target_server=server, target_port=port,
+                    login_user_id=login_user_id, login_password=login_password,
+                    location_code=location_code, separator=field_separator,
+                    connect=connect
+                )
+        except IOError, e:
+            raise RemoteIntegrationException(
+                server or 'unknown server', e.message
             )
-            
+        self.client = client
+
     def remote_authenticate(self, username, password):
-        info = self.client.patron_information(username, password)
+        """Authenticate a patron with the SIP2 server.
+
+        :param username: The patron's username/barcode/card
+            number/authorization identifier.
+        :param password: The patron's password/pin/access code.
+        """
+        try:
+            info = self.client.patron_information(username, password)
+        except IOError, e:
+            raise RemoteIntegrationException(
+                self.client.target_server or 'unknown server',
+                e.message
+            )
         return self.info_to_patrondata(info)
 
     @classmethod
@@ -86,7 +146,10 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         if 'personal_name' in info:
             patrondata.personal_name = info['personal_name']
         if 'fee_amount' in info:
-            patrondata.fines = info['fee_amount']
+            fines = info['fee_amount']
+        else:
+            fines = '0'
+        patrondata.fines = MoneyUtility.parse(fines)
         if 'sipserver_patron_class' in info:
             patrondata.external_type = info['sipserver_patron_class']
         for expire_field in ['sipserver_patron_expiration', 'polaris_patron_expiration']:
@@ -96,6 +159,38 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                 if value:
                     patrondata.authorization_expires = value
                     break
+
+        # If any subfield of the patron_status field is True, the
+        # patron is prohibited from borrowing books. The only
+        # exception is 'hold privileges denied', which only blocks a
+        # patron from putting books on hold and which we currently
+        # don't enforce.
+        status = info['patron_status_parsed']
+        block_reason = PatronData.NO_VALUE
+        for field in SIPClient.PATRON_STATUS_FIELDS:
+            if field == SIPClient.HOLD_PRIVILEGES_DENIED:
+                continue
+            if status.get(field) is True:
+                block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
+                    field, PatronData.UNKNOWN_BLOCK
+                )
+                if block_reason not in (PatronData.NO_VALUE,
+                                        PatronData.UNKNOWN_BLOCK):
+                    # Even if there are multiple problems with this
+                    # patron's account, we can now present a specific
+                    # error message. There's no need to look through
+                    # more fields.
+                    break
+        patrondata.block_reason = block_reason
+
+        # If we can tell by looking at the SIP2 message that the
+        # patron has excessive fines, we can use that as the reason
+        # they're blocked.
+        if 'fee_limit' in info:
+            fee_limit = MoneyUtility.parse(info['fee_limit']).amount
+            if fee_limit and patrondata.fines > fee_limit:
+                patrondata.block_reason = PatronData.EXCESSIVE_FINES
+        
         return patrondata
 
     @classmethod
@@ -112,3 +207,5 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         
     # NOTE: It's not necessary to implement remote_patron_lookup
     # because authentication gets patron data as a side effect.
+
+AuthenticationProvider = SIP2AuthenticationProvider
