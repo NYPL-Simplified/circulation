@@ -212,11 +212,6 @@ class EnkiAPI(BaseCirculationAPI):
                         "Removing unknown work %s from circulation.",
                         identifier.identifier
                     )
-            pool.licenses_owned = 0
-            pool.licenses_available = 0
-            pool.licenses_reserved = 0
-            pool.patrons_in_hold_queue = 0
-            pool.last_checked = now
 
             circulationdata = CirculationData(
                 data_source=DataSource.ENKI,
@@ -232,8 +227,6 @@ class EnkiAPI(BaseCirculationAPI):
                 self.collection,
                 replace=ReplacementPolicy.from_license_source(self._db)
             )
-
-            self._db.commit()
 
     def checkout(self, patron, pin, licensepool, internal_format):
         # WIP.
