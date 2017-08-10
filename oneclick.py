@@ -45,6 +45,8 @@ from metadata_layer import (
     SubjectData,
 )
 
+from monitor import CollectionMonitor
+
 from util import LanguageCodes
 
 from util.personal_names import name_tidy, sort_name_to_display_name
@@ -920,3 +922,40 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
             return self.failure(identifier, e)
 
         return self.set_metadata(identifier, metadata)
+
+
+class OneClickSyncMonitor(CollectionMonitor):
+
+    PROTOCOL = ExternalIntegration.ONE_CLICK
+    
+    def __init__(self, _db, collection, api_class=OneClickAPI,
+                 api_class_kwargs={}):
+        """Constructor."""
+        super(OneClickSyncMonitor, self).__init__(_db, collection)
+        self.api = api_class(_db, collection, **api_class_kwargs)
+
+    def run_once(self, start, cutoff):
+        items_transmitted, items_created = self.invoke()
+        self._db.commit()
+        result_string = "%s items transmitted, %s items saved to DB" % (items_transmitted, items_created)
+        self.log.info(result_string)
+        
+    def invoke(self):
+        raise NotImplementedError()
+
+
+class OneClickImportMonitor(OneClickSyncMonitor):
+
+    SERVICE_NAME = "OneClick Full Import"
+    
+    def invoke(self):
+        return self.api.populate_all_catalog()
+
+
+class OneClickDeltaMonitor(OneClickSyncMonitor):
+
+    SERVICE_NAME = "OneClick Delta Sync"
+    
+    def invoke(self):
+        return self.api.populate_delta()
+
