@@ -1,0 +1,48 @@
+FROM phusion/baseimage
+MAINTAINER Library Simplified <info@librarysimplified.org>
+
+ARG version
+ARG repo="NYPL-Simplified/circulation"
+
+ENV SIMPLIFIED_DB_TASK "ignore"
+
+# Development libraries we'll need
+COPY . /ls_build
+
+RUN /bin/bash -c "/ls_build/simplified_app.sh ${repo} ${version} \
+      && /bd_build/cleanup.sh"
+
+USER simplified
+WORKDIR /home/simplified
+
+# If you launch the container interactively with `docker run -it`,
+# this is where you'll end up:
+ENTRYPOINT ["/bin/bash"]
+
+CMD ["/sbin/my_init"]
+
+# # Add the logrotate.conf file.
+# COPY logrotate.conf /etc/
+# COPY default_logrotate /etc/logrotate.d/
+# 
+# # Add a logrotate file for circulation log files.
+# COPY libsimple.conf /etc/logrotate.d/
+# 
+# # Limit write access so logrotate will use the config files.
+# RUN chmod 644 /etc/logrotate.conf
+# RUN chmod 644 /etc/logrotate.d/default_logrotate
+# RUN chmod 644 /etc/logrotate.d/libsimple.conf
+# 
+# # Create the main log directory and mount the logs.
+# RUN mkdir /var/log/libsimple
+# RUN chmod 666 /var/log/
+# 
+# # Remove the default supervisor configuration, which
+# # has a web interface we don't want, in favor of our
+# # own configuration files.
+# RUN rm /etc/supervisor/supervisord.conf
+# COPY supervisord.conf /etc/supervisor/
+# COPY cron.conf /etc/supervisor/conf.d
+# 
+# # remove logrotate for dpkg as we will do our own in the default_logrotate.
+# RUN rm -rf /etc/logrotate.d/dpkg
