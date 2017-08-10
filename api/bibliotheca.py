@@ -126,6 +126,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         patron_id = patron.authorization_identifier
         path = "circulation/patron/%s" % patron_id
         response = self.request(path)
+        collection = self.collection
         return PatronCirculationParser(self.collection).process_all(response.content)
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
@@ -663,7 +664,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
                 # identifier?--but it shouldn't be a big deal to
                 # create one.
                 pool, ignore = LicensePool.for_foreign_id(
-                    self._db, self.data_source, identifier.type,
+                    self._db, self.collection.data_source, identifier.type,
                     identifier.identifier, collection=collection
                 )
 

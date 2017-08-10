@@ -708,7 +708,6 @@ class LoanController(CirculationManagerController):
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
         problem_doc = None
-
         try:
             loan, hold, is_new = self.circulation.borrow(
                 patron, credential, pool, mechanism
