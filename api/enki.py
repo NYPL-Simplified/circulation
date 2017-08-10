@@ -416,7 +416,7 @@ class BibliographicParser(object):
         metadata = Metadata(
         data_source=DataSource.ENKI,
         title=element["title"],
-        language="ENGLISH",
+        language="eng",
         medium=Edition.BOOK_MEDIUM,
         #series=series,
         publisher=element["publisher"],
