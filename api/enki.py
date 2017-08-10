@@ -86,8 +86,7 @@ class EnkiAPI(BaseCirculationAPI):
     PRODUCTION_BASE_URL = "http://enkilibrary.org/API/"
     availability_endpoint = "ListAPI"
     item_endpoint = "ItemAPI"
-    #TODO: get this from configurationsettings. Also make sure the value actually gets to the DB.
-    lib = 1
+    user_endpoint = "UserAPI"
 
     NAME = u"Enki"
     ENKI = NAME
@@ -120,36 +119,13 @@ class EnkiAPI(BaseCirculationAPI):
                 _db, collection, api_class=self
             )
         )
-        self.token = "mock_token"
-
-    @property
-    def authorization_headers(self):
-        # I don't think Enki needs authorization headers...
-        #authorization = u":".join([self.username, self.password, self.library_id])
-        authorization = u":".self.library_id
-        authorization = authorization.encode("utf_16_le")
-        authorization = base64.standard_b64encode(authorization)
-        return dict(Authorization="Basic " + authorization)
-
-    def refresh_bearer_token(self):
-        url = self.base_url + self.access_token_endpoint
-        headers = self.authorization_headers
-        response = self._make_request(
-            url, 'post', headers, allowed_response_codes=[200]
-        )
-        return self.parse_token(response.content)
 
     def request(self, url, method='get', extra_headers={}, data=None,
                 params=None, exception_on_401=False):
         """Make an HTTP request, acquiring/refreshing a bearer token
         if necessary.
         """
-        if not self.token:
-            self.token = self.refresh_bearer_token()
-
         headers = dict(extra_headers)
-        headers['Authorization'] = "Bearer " + self.token
-        headers['Library'] = self.library_id
         if exception_on_401:
             disallowed_response_codes = ["401"]
         else:
@@ -180,7 +156,7 @@ class EnkiAPI(BaseCirculationAPI):
 	args['id'] = "secontent"
         args['strt'] = strt
         args['qty'] = qty
-        args['lib'] = self.lib
+        args['lib'] = self.library_id
 	response = self.request(url, params=args)
         return response
 
@@ -217,10 +193,11 @@ class EnkiAPI(BaseCirculationAPI):
         args['method'] = "getItem"
         args['recordid'] = identifier.identifier
         args['size'] = "small"
-        args['lib'] = self.lib
+        args['lib'] = self.library_id
         response = self.request(url, method='get', params=args)
         if not(response.content.startswith("{\"result\":{\"id\":\"")):
-            pool = identifier.licensed_through[0]
+            # Get the license pool for the ID, but make sure it's the one belonging to Enki
+            pool = [x for x in identifier.licensed_through if x.data_source==DataSource.ENKI][0]
             if pool and (pool.licenses_owned > 0):
                 if pool.presentation_edition:
                     self.log.warn("Removing %s (%s) from circulation",
@@ -255,6 +232,34 @@ class EnkiAPI(BaseCirculationAPI):
 
         else:
             self.log.debug ("Keeping existing book: " + str(identifier))
+
+    def checkout(self, patron, pin, licensepool, internal_format):
+        # WIP.
+        return None
+
+        # Create the loan info. We don't know the expiration 
+        loan = LoanInfo(
+            licensepool.collection,
+            licensepool.data_source.name,
+            licensepool.identifier.type,
+            licensepool.identifier.identifier,
+            None,
+            expires,
+            None,
+        )
+        return loan
+
+    def get_loan(barcode, pin, book_id):
+        self.log.debug ("Sending checkout request for %d" % book_id)
+        now = datetime.datetime.utcnow()
+        url = str(self.base_url) + str(self.user_endpoint)
+        args = dict()
+        args['method'] = "getSELink"
+        args['username'] = barcide
+        args['password'] = pin
+        args['lib'] = self.library_id
+        args['id'] = book_id
+        response = self.request(url, method='get', params=args)
 
 class MockEnkiAPI(EnkiAPI):
     def __init__(self, _db, *args, **kwargs):
