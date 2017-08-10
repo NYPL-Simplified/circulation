@@ -396,7 +396,7 @@ class BibliographicParser(object):
         identifiers.append(IdentifierData(Identifier.ISBN, element["isbn"]))
         sort_name = element["author"]
         if not sort_name:
-            sort_name = "Unknown"
+            sort_name = Edition.UNKNOWN_AUTHOR
         contributors.append(ContributorData(sort_name=sort_name))
         primary_identifier = IdentifierData(EnkiAPI.ENKI_ID, element["id"])
         metadata = Metadata(
