@@ -570,6 +570,7 @@ class OPDSImporter(object):
                     external_identifier, external_identifier)
             else:
                 internal_identifier = external_identifier
+            failure.obj = internal_identifier
             identified_failures[internal_identifier.urn] = failure
 
         # Use one loop for both, since the id will be the same for both dictionaries.
