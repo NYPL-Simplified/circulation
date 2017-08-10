@@ -152,12 +152,12 @@ class EnkiAPI(BaseCirculationAPI):
         self.log.debug ("requesting : "+ str(qty) + " books starting at econtentRecord" +  str(strt))
         url = str(self.base_url) + str(self.availability_endpoint)
         args = dict()
-	args['method'] = "getAllTitles"
-	args['id'] = "secontent"
+        args['method'] = "getAllTitles"
+        args['id'] = "secontent"
         args['strt'] = strt
         args['qty'] = qty
         args['lib'] = self.library_id
-	response = self.request(url, params=args)
+        response = self.request(url, params=args)
         return response
 
     @classmethod
