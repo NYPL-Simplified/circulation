@@ -202,7 +202,7 @@ class EnkiAPI(BaseCirculationAPI):
             self.log.debug ("Keeping existing book: " + str(identifier))
         except:
             # Get the license pool for the ID, but make sure it's the one belonging to Enki
-            pool = identifier.licensed_through[0]
+            pool = [x for x in identifier.licensed_through if x.data_source.name == DataSource.ENKI][0]
             if pool and (pool.licenses_owned > 0):
                 if pool.presentation_edition:
                     self.log.warn("Removing %s (%s) from circulation",
