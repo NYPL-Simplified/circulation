@@ -386,15 +386,6 @@ class BibliographicParser(object):
     log = logging.getLogger("Enki Bibliographic Parser")
     log.setLevel(logging.DEBUG)
 
-    @classmethod
-    def parse_list(self, l):
-        """Turn strings like this into lists:
-
-        FICTION / Thrillers; FICTION / Suspense; FICTION / General
-        Ursu, Anne ; Fortune, Eric (ILT)
-        """
-        return [x.strip() for x in l.split(";")]
-
     def __init__(self, include_availability=True, include_bibliographic=True):
         self.include_availability = include_availability
         self.include_bibliographic = include_bibliographic
