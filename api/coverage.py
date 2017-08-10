@@ -159,8 +159,8 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     OPERATION = CoverageRecord.IMPORT_OPERATION
     DATA_SOURCE_NAME = DataSource.METADATA_WRANGLER
     INPUT_IDENTIFIER_TYPES = [
-        Identifier.OVERDRIVE_ID, 
-        Identifier.THREEM_ID,
+        Identifier.OVERDRIVE_ID,
+        Identifier.BIBLIOTHECA_ID,
         Identifier.AXIS_360_ID,
         Identifier.ONECLICK_ID,
     ]
@@ -189,7 +189,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         mapping = dict()
         for identifier in batch:
             if identifier.type in [
-                    Identifier.AXIS_360_ID, Identifier.THREEM_ID,
+                    Identifier.AXIS_360_ID, Identifier.BIBLIOTHECA_ID,
                     Identifier.ONECLICK_ID
             ]:
                 for e in identifier.equivalencies:
