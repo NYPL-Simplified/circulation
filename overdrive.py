@@ -109,13 +109,13 @@ class OverdriveAPI(object):
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
-    WEBSITE_ID = "website_id"
+    WEBSITE_ID = u"website_id"
 
     # When setting up Patron authentication for an Overdrive account,
     # it's necessary to specify an "ILS name" obtained from
     # Overdrive. Components that don't authenticate patrons (such as
     # the metadata wrangler) don't need to set this value.
-    ILS_NAME = "ils_name"
+    ILS_NAME = u"ils_name"
     
     def __init__(self, _db, collection):
         if collection.protocol != ExternalIntegration.OVERDRIVE:
