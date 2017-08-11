@@ -252,7 +252,7 @@ class TestPatronCirculationParser(BibliothecaAPITest):
 
     def test_parse(self):
         data = self.sample_data("checkouts.xml")
-        collection = object()
+        collection = self.collection
         loans_and_holds = PatronCirculationParser(collection).process_all(data)
         loans = [x for x in loans_and_holds if isinstance(x, LoanInfo)]
         holds = [x for x in loans_and_holds if isinstance(x, HoldInfo)]
@@ -269,7 +269,7 @@ class TestPatronCirculationParser(BibliothecaAPITest):
         [h1, h2] = sorted(holds, key=lambda x: x.identifier)
 
         # This is the book on reserve.
-        eq_(collection, h1.collection)
+        eq_(collection.id, h1.collection_id)
         eq_(DataSource.BIBLIOTHECA, h1.data_source_name)
         eq_("9wd8", h1.identifier)
         expect_hold_start = datetime.datetime(2015, 5, 25, 17, 5, 34)
@@ -280,7 +280,7 @@ class TestPatronCirculationParser(BibliothecaAPITest):
 
         # This is the book on hold.
         eq_("d4o8r9", h2.identifier)
-        eq_(collection, h2.collection)
+        eq_(collection.id, h2.collection_id)
         eq_(DataSource.BIBLIOTHECA, h2.data_source_name)
         expect_hold_start = datetime.datetime(2015, 3, 24, 15, 6, 56)
         expect_hold_end = datetime.datetime(2015, 3, 24, 15, 7, 51)
