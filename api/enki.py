@@ -101,6 +101,8 @@ class EnkiAPI(BaseCirculationAPI):
     log = logging.getLogger("Enki API")
     log.setLevel(logging.DEBUG)
 
+    TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+
     def __init__(self, _db, collection):
         self._db = _db
 
@@ -235,9 +237,28 @@ class EnkiAPI(BaseCirculationAPI):
 
     def checkout(self, patron, pin, licensepool, internal_format):
         # WIP.
-        return None
+        identifier = licensepool.identifier
+        enki_id = identifier.identifier
+        response = loan_request(patron, pin, enki_id)
+        if response.status_code != 200:
+            raise CannotLoan(response.status_code)
+        result = json.loads(response.content)['result']
+        if not data['success']:
+            message = data['message']
+            if "There are no available copies" in message:
+                # TODO: raise no copies error
+                print "no copies available"
+            elif "Login unsuccessful" in message:
+                # TODO: raise invalid barcode/password error
+                print "login trouble"
 
-        # Create the loan info. We don't know the expiration 
+        due_date = data['checkedOutItems'][0]['duedate']
+        expires = datetime.datetime.strptime(
+                time.strftime(self.TIME_FORMAT, time.localtime(due_date)),
+                self.TIME_FORMAT
+        )
+
+        # Create the loan info.
         loan = LoanInfo(
             licensepool.collection,
             licensepool.data_source.name,
@@ -249,7 +270,7 @@ class EnkiAPI(BaseCirculationAPI):
         )
         return loan
 
-    def get_loan(barcode, pin, book_id):
+    def loan_request(barcode, pin, book_id):
         self.log.debug ("Sending checkout request for %d" % book_id)
         now = datetime.datetime.utcnow()
         url = str(self.base_url) + str(self.user_endpoint)
@@ -260,6 +281,7 @@ class EnkiAPI(BaseCirculationAPI):
         args['lib'] = self.library_id
         args['id'] = book_id
         response = self.request(url, method='get', params=args)
+        return response
 
 class MockEnkiAPI(EnkiAPI):
     def __init__(self, _db, collection=None, *args, **kwargs):

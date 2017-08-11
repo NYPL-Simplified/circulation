@@ -240,11 +240,13 @@ class CirculationAPI(object):
         from bibliotheca import BibliothecaAPI
         from axis import Axis360API
         from oneclick import OneClickAPI
+        from enki import EnkiAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.BIBLIOTHECA : BibliothecaAPI,
             ExternalIntegration.AXIS_360 : Axis360API,
             ExternalIntegration.ONE_CLICK : OneClickAPI,
+            EnkiAPI.ENKI_EXTERNAL : EnkiAPI,
         }
 
     def api_for_license_pool(self, licensepool):
