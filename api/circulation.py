@@ -53,9 +53,13 @@ class CirculationInfo(object):
         self.identifier_type = identifier_type
         self.identifier = identifier
 
+    def collection(self, _db):
+        """Find the Collection to which this object belongs."""
+        return get_one(_db, Collection, id=self.collection_id)
+    
     def license_pool(self, _db):
         """Find the LicensePool model object corresponding to this object."""
-        collection = get_one(_db, Collection, id=self.collection_id)
+        collection = self.collection(_db)
         pool, is_new = LicensePool.for_foreign_id(
             _db, self.data_source_name, self.identifier_type, self.identifier,
             collection=collection
