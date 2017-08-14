@@ -48,18 +48,21 @@ class CirculationInfo(object):
             with the LicensePool.
         :param identifier: The string identifying the LicensePool.
         """
-        self.collection = collection
+        self.collection_id = collection.id
         self.data_source_name = data_source_name
         self.identifier_type = identifier_type
         self.identifier = identifier
 
-    @property
-    def license_pool(self):
+    def collection(self, _db):
+        """Find the Collection to which this object belongs."""
+        return get_one(_db, Collection, id=self.collection_id)
+    
+    def license_pool(self, _db):
         """Find the LicensePool model object corresponding to this object."""
-        _db = Session.object_session(self.collection)
+        collection = self.collection(_db)
         pool, is_new = LicensePool.for_foreign_id(
             _db, self.data_source_name, self.identifier_type, self.identifier,
-            collection=self.collection
+            collection=collection
         )
         return pool
         
@@ -767,7 +770,7 @@ class CirculationAPI(object):
         for loan in remote_loans:
             # This is a remote loan. Find or create the corresponding
             # local loan.
-            pool = loan.license_pool
+            pool = loan.license_pool(self._db)
             start = loan.start_date or now
             end = loan.end_date
             local_loan, new = pool.loan_to(patron, start, end)
@@ -782,7 +785,7 @@ class CirculationAPI(object):
         for hold in remote_holds:
             # This is a remote hold. Find or create the corresponding
             # local hold.
-            pool = hold.license_pool
+            pool = hold.license_pool(self._db)
             start = hold.start_date or now
             end = hold.end_date
             position = hold.hold_position

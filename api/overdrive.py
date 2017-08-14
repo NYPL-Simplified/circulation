@@ -460,10 +460,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             holds = {}
 
         for checkout in loans.get('checkouts', []):
-            loan_info = self.process_checkout_data(checkout)
-            if loan_info:
-                loan_info.collection = self.collection
-                yield loan_info
+            loan_info = self.process_checkout_data(checkout, self.collection)
+            yield loan_info
 
         for hold in holds.get('holds', []):
             overdrive_identifier = hold['reserveId'].lower()
@@ -488,7 +486,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             )
 
     @classmethod
-    def process_checkout_data(cls, checkout):
+    def process_checkout_data(cls, checkout, collection):
         """Convert one checkout from Overdrive's list of checkouts
         into a LoanInfo object.
 
@@ -530,7 +528,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         # not count overdrive-read), put it into fulfillment_info and
         # let the caller make the decision whether or not to show it.
         return LoanInfo(
-            None,
+            collection,
             DataSource.OVERDRIVE,
             Identifier.OVERDRIVE_ID,
             overdrive_identifier,
