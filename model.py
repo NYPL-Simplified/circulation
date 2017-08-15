@@ -164,6 +164,69 @@ class BaseMaterializedWork(object):
     pass
 
 
+class HasFullTableCache(object):
+    """A mixin class for ORM classes that maintain an in-memory cache of
+    (hopefully) every item in the database table for performance reasons.
+    """
+    
+    RESET = object()
+
+    # You MUST define your own class-specific '_cache' variable, like
+    # so:
+    # _cache = HasFullTableCache.RESET
+    
+    @classmethod
+    def reset_cache(cls):
+        cls._cache = cls.RESET
+
+    @classmethod
+    def cache_key(cls, obj):
+        raise NotImplementedError()
+        
+    @classmethod
+    def _cache_insert(cls, obj, cache):
+        """Cache an object for later retrieval, possibly by a different
+        database session.
+        """
+        key = cls.cache_key(obj)
+        cache[key] = genre
+
+    @classmethod
+    def populate_cache(cls, _db):
+        """Populate the in-memory cache from scratch with every single
+        object from the database table.
+        """
+        cache = {}
+        for obj in _db.query(cls):
+            cls._cache_insert(obj, cache)
+        cls._cache = cache
+
+    @classmethod
+    def _check_cache(cls, cache_key, create_hook):
+        new = False
+        if cls._cache == cls.RESET or cache_key not in cls._cache:
+            # This genre didn't exist when the cache was populated.
+            # Maybe it exists now, or we can create it.
+            obj, new = create_hook()
+            if cls._cache == cls.RESET:
+                # The cache was reset between the first line of this
+                # method and now. Since creation of a new
+                # ConfigurationSetting won't reset the cache, this
+                # shouldn't happen outside of a race condition.
+                #
+                # Just return the setting as-is and don't worry about
+                # updating the cache until things settle down.
+                return obj, new
+            cls._cache_insert(cache_key, cls._cache)
+
+        # Now we know the object is in the cache. Retrieve it and associate
+        # it with this database session.
+        obj = cls._cache[cache_key]
+        if obj and obj not in _db:
+            obj = _db.merge(obj, load=False)
+        return obj, new
+
+
 class SessionManager(object):
 
     # Materialized views need to be created and indexed from SQL
@@ -5303,7 +5366,7 @@ class Resource(Base):
         return quality
 
 
-class Genre(Base):
+class Genre(Base, HasFullTableCache):
     """A subject-matter classification for a book.
 
     Much, much more general than Classification.
@@ -5321,14 +5384,7 @@ class Genre(Base):
     work_genres = relationship("WorkGenre", backref="genre", 
                                cascade="all, delete, delete-orphan")
 
-    # The in-memory Genre cache starts in an invalid state and must be
-    # populated before it can be used.
-    RESET = object()
-    _cache = RESET
-
-    @classmethod
-    def reset_cache(cls):
-        cls._cache = cls.RESET
+    _cache = HasFullTableCache.RESET
     
     def __repr__(self):
         if classifier.genres.get(self.name):
@@ -5338,38 +5394,18 @@ class Genre(Base):
         return "<Genre %s (%d subjects, %d works, %d subcategories)>" % (
             self.name, len(self.subjects), len(self.works), length)
 
-    @classmethod
-    def _cache_insert(cls, genre, cache):
-        """Cache a Genre for later retrieval, possibly by a different
-        database session.
-        """
-        make_transient(genre)
-        make_transient_to_detached(genre)
-        cache[genre.name] = genre
+    def cache_key(self):
+        return self.name
     
-    @classmethod
-    def populate_cache(cls, _db):
-        """Populate the in-memory cache from scratch with every single
-        Genre from the database.
-
-        Genres currently never change once created, so the cache will not
-        need to be repopulated often.
-        """
-        cache = {}
-        for genre in _db.query(Genre):
-            cls._cache_insert(genre, cache)
-        cls._cache = cache
-            
     @classmethod
     def lookup(cls, _db, name, autocreate=False):
         if isinstance(name, GenreData):
             name = name.name
 
-        new = False
-        cache_key = name
-        if cls._cache == cls.RESET or cache_key not in cls._cache:
-            # This genre didn't exist when the cache was populated.
-            # Maybe it exists now, or we can create it.
+        def create():
+            """Function called when a Genre is not found in cache and must be
+            created."""
+            new = False
             args = (_db, Genre)
             if autocreate:
                 genre, new = get_one_or_create(*args, name=name)
@@ -5378,23 +5414,9 @@ class Genre(Base):
                 if genre is None:
                     logging.getLogger().error('"%s" is not a recognized genre.', name)
                     return None, False
-            if cls._cache == cls.RESET:
-                # The cache was reset between the first line of this
-                # method and now. Since creation of a new
-                # ConfigurationSetting won't reset the cache, this
-                # shouldn't happen outside of a race condition.
-                #
-                # Just return the setting as-is and don't worry about
-                # updating the cache until things settle down.
-                return genre, new
-            cls._cache_insert(genre, cls._cache)
+            return genre, new
             
-        # Now we know the genre is in the cache. Retrieve it and associate
-        # it with this database session.
-        genre = cls._cache[name]
-        if genre and genre not in _db:
-            genre = _db.merge(genre, load=False)
-        return genre, new
+        return cls._check_cache(name, create)
 
     @property
     def genredata(self):
@@ -9423,7 +9445,7 @@ class ExternalIntegration(Base):
         return lines
 
 
-class ConfigurationSetting(Base):
+class ConfigurationSetting(Base, HasFullTableCache):
     """An extra piece of site configuration.
 
     A ConfigurationSetting may be associated with an
@@ -9460,14 +9482,7 @@ class ConfigurationSetting(Base):
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
 
-    # The in-memory ConfigurationSetting cache starts in an invalid
-    # state and must be populated before it can be used.
-    RESET = object()
-    _cache = RESET
-
-    @classmethod
-    def reset_cache(cls):
-        cls._cache = cls.RESET
+    _cache = HasFullTableCache.RESET
 
     def __repr__(self):
         return u'<ConfigurationSetting: key=%s, ID=%d>' % (
@@ -9537,31 +9552,9 @@ class ConfigurationSetting(Base):
         key = setting.key
         cache_key = (library_id, external_integration_id, key)
         cache[cache_key] = setting
-        
-    @classmethod
-    def populate_cache(cls, _db):
-        """Populate the in-memory cache from scratch with every
-        single ConfigurationSetting from the database.
-        
-        ConfigurationSettings change rarely, so the cache will not
-        need to be repopulated often. ConfigurationSettings are looked
-        up many times on each request, so the cache will be used a lot.
-        """
-        cache = {}
-        for setting in _db.query(ConfigurationSetting):
-            cls._cache_insert(setting, cache)
-        cls._cache = cache
-    
-    @classmethod
-    def for_library_and_externalintegration(
-            cls, _db, key, library, external_integration
-    ):
-        """Find or create a ConfigurationSetting associated with a Library
-        and an ExternalIntegration.
-        """
-        if cls._cache == cls.RESET:
-            cls.populate_cache(_db)
 
+    @classmethod
+    def _cache_key(cls, library, external_integration, key):
         if library:
             library_id = library.id
         else:
@@ -9570,32 +9563,33 @@ class ConfigurationSetting(Base):
             external_integration_id = external_integration.id
         else:
             external_integration_id = None
-        cache_key = (library_id, external_integration_id, key)
-        if cls._cache == cls.RESET or cache_key not in cls._cache:
-            setting, ignore = get_one_or_create(
+        return (library_id, external_integration_id, key)
+        
+    def cache_key(self):
+        return self._cache_key(self.library, self.external_integration, key)
+        
+    @classmethod
+    def for_library_and_externalintegration(
+            cls, _db, key, library, external_integration
+    ):
+        """Find or create a ConfigurationSetting associated with a Library
+        and an ExternalIntegration.
+        """
+        cache_key = self._cache_key(library, external_integration, key)
+
+        def create():
+            """Function called when a ConfigurationSetting is not found in cache
+            and must be created.
+            """
+            return get_one_or_create(
                 _db, ConfigurationSetting,
                 library=library, external_integration=external_integration,
                 key=key
             )
-            if cls._cache == cls.RESET:
-                # The cache was reset between the first line of this
-                # method and now. Since creation of a new
-                # ConfigurationSetting won't reset the cache, this
-                # shouldn't happen outside of a race condition.
-                #
-                # Just return the setting as-is and don't worry about
-                # updating the cache until things settle down.
-                return setting
-            cls._cache_insert(setting, cls._cache)
 
-        # Now we know the ConfigurationSetting is in the
-        # cache. Retrieve it and associate it with this database
-        # session.
-        setting = cls._cache[cache_key]
-        if _db and setting not in _db:
-            setting = _db.merge(setting, load=False)
+        setting, ignore = cls._check_cache(cache_key, create)
         return setting
-
+        
     @hybrid_property
     def value(self):
         """What's the current value of this configuration setting?
