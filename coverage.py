@@ -717,7 +717,12 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     # CoverageProvider. If this CoverageProvider can manage collections
     # for any protocol, leave this as None.
     PROTOCOL = None
-    
+
+    # By default, Works calculated by a CollectionCoverageProvider update
+    # the ExternalSearchIndex. Set this value to True for applications that
+    # use external search, such as the Metadata Wrangler.
+    EXCLUDE_SEARCH_INDEX = False
+
     def __init__(self, collection, **kwargs):
         """Constructor.
 
@@ -748,7 +753,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         information.
         """
         return ReplacementPolicy.from_license_source(_db)
-        
+
     @classmethod
     def all(cls, _db, **kwargs):
         """Yield a sequence of CollectionCoverageProvider instances, one for
@@ -768,7 +773,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         collections = collections.order_by(func.random())
         for collection in collections:
             yield cls(collection, **kwargs)
-        
+
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Find all Identifiers associated with this Collection but lacking
         coverage through this CoverageProvider.
@@ -780,7 +785,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             LicensePool.collection_id==self.collection_id
         )
         return qu
-        
+
     def license_pool(self, identifier):
         """Finds this Collection's LicensePool for the given Identifier,
         creating one if necessary.
@@ -844,7 +849,9 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         )
             
         if pool:
-            work, created = pool.calculate_work(even_if_no_author=True)
+            work, created = pool.calculate_work(
+                even_if_no_author=True, exclude_search=self.EXCLUDE_SEARCH_INDEX
+            )
             if not work:
                 error = "Work could not be calculated"
         else:
@@ -928,7 +935,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         work = self.work(identifier)
         if isinstance(work, CoverageFailure):
             return work
-        work.set_presentation_ready()
+        work.set_presentation_ready(exclude_search=self.EXCLUDE_SEARCH_INDEX)
         return identifier
 
 

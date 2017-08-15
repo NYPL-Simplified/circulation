@@ -6651,7 +6651,7 @@ class LicensePool(Base):
                     continue
                 if not (self.open_access and pool.open_access):
                     pool.work = None
-                    pool.calculate_work()
+                    pool.calculate_work(exclude_search=exclude_search)
                     licensepools_changed = True
 
         else:
