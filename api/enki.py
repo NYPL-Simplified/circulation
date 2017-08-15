@@ -462,7 +462,7 @@ class EnkiImport(CollectionMonitor):
         self.api = api_class(_db, collection)
         self.analytics = Analytics(_db)
         self.bibliographic_coverage_provider = (
-            EnkiBibliographicCoverageProvider(_db, collection, api_class=self.api)
+            EnkiBibliographicCoverageProvider(collection, api_class=self.api)
         )
 
     def recently_changed_ids(self, start, cutoff):
