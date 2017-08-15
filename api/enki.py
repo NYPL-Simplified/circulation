@@ -134,10 +134,10 @@ class EnkiAPI(BaseCirculationAPI):
         else:
             disallowed_response_codes = None
             response = self._make_request(
-            url=url, method=method, headers=headers,
-            data=data, params=params,
-            disallowed_response_codes=disallowed_response_codes
-        )
+                url=url, method=method, headers=headers,
+                data=data, params=params,
+                disallowed_response_codes=disallowed_response_codes
+            )
         if response.status_code == 401:
             # This must be our first 401, since our second 401 will
             # make _make_request raise a RemoteIntegrationException.
@@ -322,9 +322,9 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
         """Constructor.
 
         :param collection: Provide bibliographic coverage to all
-            Axis 360 books in the given Collection.
+            Enki books in the given Collection.
         :param api_class: Instantiate this class with the given Collection,
-            rather than instantiating Axis360API.
+            rather than instantiating EnkiAPI.
         """
         _db = Session.object_session(collection)
         super(EnkiBibliographicCoverageProvider, self).__init__(
