@@ -179,8 +179,7 @@ class HasFullTableCache(object):
     def reset_cache(cls):
         cls._cache = cls.RESET
 
-    @classmethod
-    def cache_key(cls, obj):
+    def cache_key(self):
         raise NotImplementedError()
         
     @classmethod
@@ -188,8 +187,8 @@ class HasFullTableCache(object):
         """Cache an object for later retrieval, possibly by a different
         database session.
         """
-        key = cls.cache_key(obj)
-        cache[key] = genre
+        key = obj.cache_key()
+        cache[key] = obj
 
     @classmethod
     def populate_cache(cls, _db):
@@ -202,7 +201,7 @@ class HasFullTableCache(object):
         cls._cache = cache
 
     @classmethod
-    def _check_cache(cls, cache_key, create_hook):
+    def _check_cache(cls, _db, cache_key, create_hook):
         new = False
         if cls._cache == cls.RESET or cache_key not in cls._cache:
             # This genre didn't exist when the cache was populated.
@@ -217,7 +216,7 @@ class HasFullTableCache(object):
                 # Just return the setting as-is and don't worry about
                 # updating the cache until things settle down.
                 return obj, new
-            cls._cache_insert(cache_key, cls._cache)
+            cls._cache_insert(obj, cls._cache)
 
         # Now we know the object is in the cache. Retrieve it and associate
         # it with this database session.
@@ -5416,7 +5415,7 @@ class Genre(Base, HasFullTableCache):
                     return None, False
             return genre, new
             
-        return cls._check_cache(name, create)
+        return cls._check_cache(_db, name, create)
 
     @property
     def genredata(self):
@@ -9587,7 +9586,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
                 key=key
             )
 
-        setting, ignore = cls._check_cache(cache_key, create)
+        setting, ignore = cls._check_cache(_db, cache_key, create)
         return setting
         
     @hybrid_property

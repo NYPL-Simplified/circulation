@@ -29,6 +29,7 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound
 )
+from sqlalchemy.orm.session import Session
 
 from config import (
     Configuration, 
@@ -57,6 +58,7 @@ from model import (
     DRMDeviceIdentifier,
     ExternalIntegration,
     Genre,
+    HasFullTableCache,
     Hold,
     Hyperlink,
     IntegrationClient,
@@ -592,6 +594,78 @@ class TestIdentifier(DatabaseTest):
 
 class TestGenre(DatabaseTest):
 
+    def test_full_table_cache(self):
+        """We use Genre as a convenient way of testing
+        HasFullTableCache.populate_cache, which requires a real
+        SQLAlchemy ORM class to operate on.
+        """
+
+        # We start with an unusable object as the cache.
+        eq_(Genre.RESET, Genre._cache)
+
+        # When we call populate_cache()...
+        Genre.populate_cache(self._db)
+
+        # Every Genre in the database is copied to the cache.
+        dont_call_this = object
+        drama, is_new = Genre._check_cache(self._db, "Drama", dont_call_this)
+        eq_("Drama", drama.name)
+        eq_(False, is_new)
+
+    def test_check_cache_miss_triggers_create_function(self):
+        _db = self._db
+        class Factory(object):
+
+            def __init__(self):
+                self.called = False
+
+            def call_me(self):
+                self.called = True
+                genre, is_new = get_one_or_create(_db, Genre, name="Drama")
+                return genre, is_new
+                
+        factory = Factory()
+        Genre._cache = {}
+        genre, is_new = Genre._check_cache(self._db, "Drama", factory.call_me)
+        eq_("Drama", genre.name)
+        eq_(False, is_new)
+        eq_(True, factory.called)
+
+        # The Genre object created in call_me has been associated with the
+        # Genre's cache key in the table-wide cache.
+        eq_(genre, Genre._cache[genre.cache_key()])
+
+    def test_check_cache_miss_when_cache_is_reset_returns_object_only(self):
+        # The cache is not in a state to be used.
+        eq_(Genre._cache, Genre.RESET)
+
+        # But Genre_check_cache still works.
+        drama, is_new = Genre._check_cache(
+            self._db, "Drama",
+            lambda: get_one_or_create(self._db, Genre, name="Drama")
+        )
+        eq_("Drama", drama.name)
+        eq_(False, is_new)
+
+        # It just doesn't make use of the cache.
+        eq_(Genre._cache, Genre.RESET)
+
+    def test_check_cache_hit_returns_cached_object(self):
+
+        # If the object we ask for is not already in the cache, this
+        # function will be called and raise an exception.
+        def exploding_create_hook():
+            raise Exception("Kaboom")
+        drama, ignore = get_one_or_create(self._db, Genre, name="Drama")
+        Genre._cache = { "Drama": drama }
+        drama2, is_new = Genre._check_cache(
+            self._db, "Drama", exploding_create_hook
+        )
+
+        # The object was already in the cache, so we just looked it up.
+        eq_(drama, drama2)
+        eq_(False, is_new)
+        
     def test_default_fiction(self):
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         nonfiction, ignore = Genre.lookup(self._db, "History")
@@ -600,7 +674,9 @@ class TestGenre(DatabaseTest):
 
         # Create a previously unknown genre.
         genre, ignore = Genre.lookup(
-            self._db, "Some Weird Genre", autocreate=True
+            self._db
+
+        , "Some Weird Genre", autocreate=True
         )
 
         # We don't know its default fiction status.
@@ -6594,3 +6670,43 @@ class TestAdmin(DatabaseTest):
         eq_(self.admin, Admin.authenticate(self._db, "admin@nypl.org", "password"))
         eq_(None, Admin.authenticate(self._db, "other@nypl.org", "password"))
         eq_(None, Admin.authenticate(self._db, "example@nypl.org", "password"))
+
+
+class MockHasTableCache(HasFullTableCache):
+
+    """A simple HasFullTableCache that returns the same cache key
+    for every object.
+    """
+    
+    _cache = HasFullTableCache.RESET
+
+    KEY = "the only cache key"
+    
+    def cache_key(self):
+        return self.KEY
+    
+        
+class TestHasFullTableCache(DatabaseTest):
+
+    def setup(self):
+        super(TestHasFullTableCache, self).setup()
+        self.mock_class = MockHasTableCache
+        self.mock = MockHasTableCache()
+        self.mock._cache = HasFullTableCache.RESET
+
+    def test_reset_cache(self):
+        self.mock_class._cache = object()
+        self.mock_class.reset_cache()
+        eq_(HasFullTableCache.RESET, self.mock_class._cache)
+
+    def test_cache_insert(self):
+        temp_cache = {}
+        value = object()
+        self.mock_class._cache_insert(self.mock, temp_cache)
+        eq_({self.mock.KEY: self.mock}, temp_cache)
+
+    # populate_cache() and _check_cache() are tested in TestGenre
+    # since those methods must be backed by a real database table.
+
+
+    
