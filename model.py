@@ -5357,7 +5357,7 @@ class Genre(Base):
             name = name.name
 
         new = False
-        if name not in self._cache:
+        if name not in cls._cache:
             # This genre didn't exist when Genre.load_all() was called.
             # Maybe it exists now, or we can create it.
             args = (_db, Genre)
