@@ -43,6 +43,7 @@ from core.model import (
     get_one_or_create,
     Collection,
     Contributor,
+    CirculationEvent,
     DataSource,
     DeliveryMechanism,
     LicensePool,
@@ -388,15 +389,6 @@ class BibliographicParser(object):
     log = logging.getLogger("Enki Bibliographic Parser")
     log.setLevel(logging.DEBUG)
 
-    @classmethod
-    def parse_list(self, l):
-        """Turn strings like this into lists:
-
-        FICTION / Thrillers; FICTION / Suspense; FICTION / General
-        Ursu, Anne ; Fortune, Eric (ILT)
-        """
-        return [x.strip() for x in l.split(";")]
-
     def __init__(self, include_availability=True, include_bibliographic=True):
         self.include_availability = include_availability
         self.include_bibliographic = include_bibliographic
@@ -407,7 +399,7 @@ class BibliographicParser(object):
         identifiers.append(IdentifierData(Identifier.ISBN, element["isbn"]))
         sort_name = element["author"]
         if not sort_name:
-            sort_name = "Unknown"
+            sort_name = Edition.UNKNOWN_AUTHOR
         contributors.append(ContributorData(sort_name=sort_name))
         primary_identifier = IdentifierData(EnkiAPI.ENKI_ID, element["id"])
         metadata = Metadata(
@@ -500,6 +492,7 @@ class EnkiImport(CollectionMonitor):
 
     def process_book(self, bibliographic, availability):
         license_pool, new_license_pool = availability.license_pool(self._db, self.collection)
+        now = datetime.datetime.utcnow()
         edition, new_edition = bibliographic.edition(self._db)
         license_pool.edition = edition
         policy = ReplacementPolicy(
@@ -525,6 +518,8 @@ class EnkiImport(CollectionMonitor):
             self.bibliographic_coverage_provider.add_coverage_record_for(
                 identifier
             )
+            for library in self.collection.libraries:
+                self.analytics.collect_event(library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
 
         return edition, license_pool
 
