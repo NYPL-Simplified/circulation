@@ -52,6 +52,7 @@ from core.model import (
     Representation,
     Subject,
     ExternalIntegration,
+    Session,
 )
 
 from core.metadata_layer import (
@@ -72,6 +73,7 @@ from core.monitor import (
 
 from core.opds_import import SimplifiedOPDSLookup
 from core.analytics import Analytics
+from core.testing import DatabaseTest
 
 #TODO: Remove unnecessary imports (once the classes are more or less complete)
 
@@ -116,7 +118,7 @@ class EnkiAPI(BaseCirculationAPI):
             )
         self.enki_bibliographic_coverage_provider = (
             EnkiBibliographicCoverageProvider(
-                _db, collection, api_class=self
+                collection, api_class=self
             )
         )
 
@@ -228,6 +230,8 @@ class EnkiAPI(BaseCirculationAPI):
                 replace=ReplacementPolicy.from_license_source(self._db)
             )
 
+            return circulationdata
+
     def checkout(self, patron, pin, licensepool, internal_format):
         # WIP.
         return None
@@ -261,15 +265,12 @@ class MockEnkiAPI(EnkiAPI):
         self.responses = []
         self.requests = []
 
-        library = Library.instance(_db)
-        collection, ignore = get_one_or_create(
-            _db, Collection,
-            name="Test Enki Collection",
-            protocol=Collection.ENKI, create_method_kwargs=dict(
-                external_account_id=u'c',
-            )
+        library = DatabaseTest.make_default_library(_db)
+        collection, ignore = Collection.by_name_and_protocol(
+            _db, name="Test Enki Collection", protocol=EnkiAPI.ENKI
         )
-        collection.external_integration.url = "http://enki.test/"
+        collection.protocol=EnkiAPI.ENKI
+        collection.external_account_id=u'c';
         library.collections.append(collection)
         super(MockEnkiAPI, self).__init__(
             _db, collection, *args, **kwargs
@@ -316,7 +317,7 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
     PROTOCOL = EnkiAPI.ENKI
     INPUT_IDENTIFIER_TYPES = EnkiAPI.ENKI_ID
 
-    def __init__(self, _db, collection, api_class=EnkiAPI, **kwargs):
+    def __init__(self, collection, api_class=EnkiAPI, **kwargs):
         """Constructor.
 
         :param collection: Provide bibliographic coverage to all
@@ -324,6 +325,7 @@ class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
         :param api_class: Instantiate this class with the given Collection,
             rather than instantiating Axis360API.
         """
+        _db = Session.object_session(collection)
         super(EnkiBibliographicCoverageProvider, self).__init__(
             collection, **kwargs
         )
