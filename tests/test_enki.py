@@ -47,7 +47,6 @@ class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
     def setup(self):
         super(TestEnkiAPI, self).setup()
         self.collection = self._collection(protocol=EnkiAPI.ENKI)
-        self._collection(protocol=EnkiAPI.ENKI)
         self.api = MockEnkiAPI(self._db)
 
     def test_create_identifier_strings(self):
