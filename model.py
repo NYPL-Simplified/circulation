@@ -10323,6 +10323,7 @@ def configuration_relevant_collection_change(target, value, initiator):
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(target)
 
+@event.listens_for(ConfigurationSetting, 'after_insert')
 @event.listens_for(ConfigurationSetting, 'after_delete')
 @event.listens_for(ConfigurationSetting, 'after_update')
 def refresh_configuration_settings(mapper, connection, target):
