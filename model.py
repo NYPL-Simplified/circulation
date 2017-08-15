@@ -9515,8 +9515,8 @@ class ConfigurationSetting(Base):
 
         :return: The ConfigurationSetting, in a detached state.
         """
-        make_transient(setting)
-        make_transient_to_detached(setting)
+        #make_transient(setting)
+        #make_transient_to_detached(setting)
         library_id = setting.library_id
         external_integration_id = setting.external_integration_id
         key = setting.key
@@ -9578,7 +9578,7 @@ class ConfigurationSetting(Base):
                 return setting
             cls._cache_insert(setting, cls._cache)
         setting = cls._cache[cache_key]
-        if _db:
+        if _db and setting not in _db:
             setting = _db.merge(setting, load=False)
         return setting
 
