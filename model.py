@@ -5321,6 +5321,7 @@ class Genre(Base):
     work_genres = relationship("WorkGenre", backref="genre", 
                                cascade="all, delete, delete-orphan")
 
+    # A dictionary of all known Genre objects by name.
     _cache = {}
     
     def __repr__(self):
@@ -9451,7 +9452,7 @@ class ConfigurationSetting(Base):
     def __repr__(self):
         return u'<ConfigurationSetting: key=%s, ID=%d>' % (
             self.key, self.id)
-    
+
     @classmethod
     def sitewide_secret(cls, _db, key):
         """Find or create a sitewide shared secret.
@@ -9556,19 +9557,24 @@ class ConfigurationSetting(Base):
         else:
             external_integration_id = None
         cache_key = (library_id, external_integration_id, key)
-        if cache_key not in cls._cache:
+        if cls._cache == cls.RESET or cache_key not in cls._cache:
             setting, ignore = get_one_or_create(
                 _db, ConfigurationSetting,
                 library=library, external_integration=external_integration,
                 key=key
             )
             if cls._cache == cls.RESET:
-                # The cache was reset while we were doing the lookup.
-                # Since creation of a new ConfigurationSetting won't reset
-                # the cache, this shouldn't happen outside of a race condition.
+                # The cache was reset between the first line of this
+                # method and now. Since creation of a new
+                # ConfigurationSetting won't reset the cache, this
+                # shouldn't happen outside of a race condition.
                 #
                 # Just return the setting as-is and don't worry about
                 # updating the cache until things settle down.
+                #
+                # Since we never called _cache_insert, the
+                # ConfigurationSetting was never detached from the
+                # database session that created it.
                 return setting
             cls._cache_insert(setting, cls._cache)
         setting = cls._cache[cache_key]
