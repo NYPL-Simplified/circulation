@@ -9440,10 +9440,19 @@ class ConfigurationSetting(Base):
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
 
+    # The in-memory ConfigurationSetting cache starts in an invalid
+    # state and must be populated before it can be used.
+    RESET_ME = object()
+    _cache = RESET_ME
+
+    @classmethod
+    def reset_cache(cls):
+        cls._cache = RESET_ME
+
     def __repr__(self):
         return u'<ConfigurationSetting: key=%s, ID=%d>' % (
             self.key, self.id)
-
+    
     @classmethod
     def sitewide_secret(cls, _db, key):
         """Find or create a sitewide shared secret.
@@ -9497,6 +9506,38 @@ class ConfigurationSetting(Base):
         return cls.for_library_and_externalintegration(
             _db, key, None, externalintegration
         )
+
+    @classmethod
+    def _cache_insert(cls, setting, cache):
+        """Remove a ConfigurationSetting's association with the database
+        session that created it, then cache it in `cache` for later
+        retrieval.
+
+        :return: The ConfigurationSetting, in a detached state.
+        """
+        make_transient(setting)
+        make_transient_to_detached(setting)
+        library_id = setting.library_id
+        external_integration_id = setting.external_integration_id
+        key = setting.key
+        cache_key = (library_id, external_integration_id, key)
+        cache[cache_key] = setting
+        return setting
+        
+    @classmethod
+    def populate_cache(cls, _db):
+        """Populate the in-memory cache from scratch with every
+        single ConfigurationSetting from the database.
+        
+        ConfigurationSettings change rarely, so the cache will not
+        need to be repopulated often. ConfigurationSettings are looked
+        up many times on each request, so the cache will be used a lot.
+        """
+        print "CACHE POPULATE"
+        cache = {}
+        for setting in _db.query(ConfigurationSetting):
+            cls._cache_insert(setting, cache)
+        cls._cache = cache
     
     @classmethod
     def for_library_and_externalintegration(
@@ -9505,11 +9546,27 @@ class ConfigurationSetting(Base):
         """Find or create a ConfigurationSetting associated with a Library
         and an ExternalIntegration.
         """
-        setting, ignore = get_one_or_create(
-            _db, ConfigurationSetting,
-            library=library, external_integration=external_integration,
-            key=key
-        )
+        if cls._cache == cls.RESET_ME:
+            cls.populate_cache(_db)
+
+        if library:
+            library_id = library.id
+        else:
+            library_id = None
+        if external_integration:
+            external_integration_id = external_integration.id
+        else:
+            external_integration_id = None
+        cache_key = (library_id, external_integration_id, key)
+        if cache_key not in cls._cache:
+            setting, ignore = get_one_or_create(
+                _db, ConfigurationSetting,
+                library=library, external_integration=external_integration,
+                key=key
+            )
+            cls._cache_insert(setting, cls._cache)
+        setting = cls._cache[cache_key]
+        setting = _db.merge(setting, load=False)
         return setting
 
     @hybrid_property
@@ -10253,3 +10310,14 @@ def configuration_relevant_collection_change(target, value, initiator):
 @event.listens_for(ConfigurationSetting, 'after_update')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(target)
+
+@event.listens_for(ConfigurationSetting, 'after_insert')
+@event.listens_for(ConfigurationSetting, 'after_delete')
+@event.listens_for(ConfigurationSetting, 'after_update')
+def refresh_configuration_settings(mapper, connection, target):
+    # The next time someone tries to access a configuration setting,
+    # the cache will be repopulated.
+    for i in range(20):
+        print
+    print "CACHE RESET!!!!!!!!!!!!"
+    ConfigurationSetting.reset_cache()
