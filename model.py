@@ -5321,7 +5321,6 @@ class Genre(Base):
     work_genres = relationship("WorkGenre", backref="genre", 
                                cascade="all, delete, delete-orphan")
 
-    # A dictionary of all known Genre objects by name.
     _cache = {}
     
     def __repr__(self):
@@ -9447,7 +9446,7 @@ class ConfigurationSetting(Base):
 
     @classmethod
     def reset_cache(cls):
-        cls._cache = RESET_ME
+        cls._cache = cls.RESET_ME
 
     def __repr__(self):
         return u'<ConfigurationSetting: key=%s, ID=%d>' % (
@@ -9564,6 +9563,13 @@ class ConfigurationSetting(Base):
                 library=library, external_integration=external_integration,
                 key=key
             )
+            if cls._cache == cls.RESET_ME:
+                # The cache is being reset while we're doing this,
+                # possibly because we just created a new
+                # ConfigurationSetting. Just return the setting object
+                # as-is and forget about updating the cache until
+                # things settle down.
+                return setting
             cls._cache_insert(setting, cls._cache)
         setting = cls._cache[cache_key]
         setting = _db.merge(setting, load=False)
@@ -10317,7 +10323,4 @@ def configuration_relevant_lifecycle_event(mapper, connection, target):
 def refresh_configuration_settings(mapper, connection, target):
     # The next time someone tries to access a configuration setting,
     # the cache will be repopulated.
-    for i in range(20):
-        print
-    print "CACHE RESET!!!!!!!!!!!!"
     ConfigurationSetting.reset_cache()
