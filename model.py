@@ -125,7 +125,11 @@ from util.permanent_work_id import WorkIDCalculator
 from util.personal_names import display_name_to_sort_name
 from util.summary import SummaryEvaluator
 
-from sqlalchemy.orm.session import Session
+from sqlalchemy.orm.session import (
+    Session,
+    make_transient,
+    make_transient_to_detached,
+)
 
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
@@ -301,7 +305,10 @@ class SessionManager(object):
         # Create initial data sources.
         list(DataSource.well_known_sources(session))
 
-        # Create all genres.
+        # Load all existing Genre objects.
+        Genre.load_all(session)
+        
+        # Create any genres not in the database.
         for g in classifier.genres.values():
             Genre.lookup(session, g, autocreate=True)
 
@@ -5314,6 +5321,9 @@ class Genre(Base):
     work_genres = relationship("WorkGenre", backref="genre", 
                                cascade="all, delete, delete-orphan")
 
+    # A dictionary of all known Genre objects by name.
+    _cache = {}
+    
     def __repr__(self):
         if classifier.genres.get(self.name):
             length = len(classifier.genres[self.name].subgenres)
@@ -5323,9 +5333,28 @@ class Genre(Base):
             self.name, len(self.subjects), len(self.works), length)
 
     @classmethod
+    def load_all(cls, _db):
+        cls._cache = {}
+        cache = cls._cache
+        for genre in _db.query(Genre):
+            # Remove the Genre object's association with the
+            # database session that created it.
+            make_transient(genre)
+            make_transient_to_detached(genre)
+            cache[genre.name] = genre
+    
+    @classmethod
     def lookup(cls, _db, name, autocreate=False):
         if isinstance(name, GenreData):
             name = name.name
+        if name in cls._cache:
+            genre = cls._cache[name]
+            genre = _db.merge(genre, load=False)
+            return genre, False
+
+        # This genre didn't exist when Genre.load_all() was called.
+        # We may be able to create it; otherwise something weird is
+        # going on.
         args = (_db, Genre)
         if autocreate:
             result, new = get_one_or_create(*args, name=name)
