@@ -5687,9 +5687,9 @@ class TestExternalIntegration(DatabaseTest):
         eq_("id1", setting.value)
 
         # Calling set() again updates the key-value pair.
-        eq_([setting], self.external_integration.settings)
+        eq_([setting.id], [x.id for x in self.external_integration.settings])
         setting2 = self.external_integration.set_setting("website_id", "id2")
-        eq_(setting, setting2)
+        eq_(setting.id, setting2.id)
         eq_("id2", setting2.value)
 
         eq_(setting2, self.external_integration.setting("website_id"))
@@ -5879,7 +5879,7 @@ class TestConfigurationSetting(DatabaseTest):
         setting2 = ConfigurationSetting.for_library_and_externalintegration(
             self._db, key, library, integration
         )
-        eq_(setting, setting2)
+        eq_(setting.id, setting2.id)
         assert_raises(
             IntegrityError,
             create, self._db, ConfigurationSetting,
@@ -5934,7 +5934,7 @@ class TestConfigurationSetting(DatabaseTest):
         # associated with the library.
         self._db.delete(integration)
         self._db.commit()
-        eq_([for_library], library.settings)
+        eq_([for_library.id], [x.id for x in library.settings])
 
     def test_int_value(self):
         number = ConfigurationSetting.sitewide(self._db, "number")

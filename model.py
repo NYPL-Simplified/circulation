@@ -9578,7 +9578,8 @@ class ConfigurationSetting(Base):
                 return setting
             cls._cache_insert(setting, cls._cache)
         setting = cls._cache[cache_key]
-        setting = _db.merge(setting, load=False)
+        if _db:
+            setting = _db.merge(setting, load=False)
         return setting
 
     @hybrid_property
