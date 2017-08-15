@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 from collections import defaultdict
+import time
 import datetime
 import base64
 import os
@@ -95,6 +96,17 @@ class EnkiAPI(BaseCirculationAPI):
     ENKI = NAME
     ENKI_EXTERNAL = NAME
     ENKI_ID = u"Enki ID"
+
+    # Create a lookup table between common DeliveryMechanism identifiers
+    # and Overdrive format types.
+    epub = Representation.EPUB_MEDIA_TYPE
+    adobe_drm = DeliveryMechanism.ADOBE_DRM
+    no_drm = DeliveryMechanism.NO_DRM
+
+    delivery_mechanism_to_internal_format = {
+        (epub, no_drm): 'free',
+        (epub, adobe_drm): 'acs',
+    }
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
     SERVICE_NAME = "Enki"
@@ -237,24 +249,31 @@ class EnkiAPI(BaseCirculationAPI):
 
     def checkout(self, patron, pin, licensepool, internal_format):
         # WIP.
+        patron = "21157022927878"
+        pin = "ITSD"
         identifier = licensepool.identifier
         enki_id = identifier.identifier
-        response = loan_request(patron, pin, enki_id)
+        response = self.loan_request(patron, pin, enki_id)
         if response.status_code != 200:
             raise CannotLoan(response.status_code)
         result = json.loads(response.content)['result']
-        if not data['success']:
-            message = data['message']
-            if "There are no available copies" in message:
+        print "XXXXXXXXX we got a 200 response from Enki for checking out:\n%s" % result
+        if not result['success']:
+            message = result['message']
+            if "That record is already checked out to you" in message:
+                # this might be okay
+                pass
+            elif "There are no available copies" in message:
                 # TODO: raise no copies error
-                print "no copies available"
+                self.log.error("There are no copies of this book available.")
+                raise CirculationException()
             elif "Login unsuccessful" in message:
                 # TODO: raise invalid barcode/password error
-                print "login trouble"
-
-        due_date = data['checkedOutItems'][0]['duedate']
+                self.log.error("User validation against Enki server was unsuccessful.")
+                raise CirculationException()
+        due_date = result['checkedOutItems'][0]['duedate']
         expires = datetime.datetime.strptime(
-                time.strftime(self.TIME_FORMAT, time.localtime(due_date)),
+                time.strftime(self.TIME_FORMAT, time.localtime(float(due_date))),
                 self.TIME_FORMAT
         )
 
@@ -268,20 +287,112 @@ class EnkiAPI(BaseCirculationAPI):
             expires,
             None,
         )
+
+        print "XXXXXXXXXXXXXX we're returning a LoanInfo: %s, %s, %s" % (loan.data_source_name, loan.identifier_type, loan.identifier)
+
         return loan
 
-    def loan_request(barcode, pin, book_id):
-        self.log.debug ("Sending checkout request for %d" % book_id)
-        now = datetime.datetime.utcnow()
+    def loan_request(self, barcode, pin, book_id):
+        self.log.debug ("Sending checkout request for %s" % book_id)
         url = str(self.base_url) + str(self.user_endpoint)
         args = dict()
         args['method'] = "getSELink"
-        args['username'] = barcide
+        args['username'] = barcode
         args['password'] = pin
         args['lib'] = self.library_id
         args['id'] = book_id
+
+        final_url = url + "?"
+        for k, d in args.iteritems():
+            final_url = final_url + k + "=" + d + "&"
+        print "XXXXXXXXXXXXXXXXXXXX about to request to %s" % final_url
+
         response = self.request(url, method='get', params=args)
         return response
+
+    def fulfill(self, patron, pin, licensepool, internal_format):
+        book_id = licensepool.identifier.identifier
+        response = loan_request(patron, pin, book_id)
+        if response.status_code != 200:
+            raise CannotFulfill(response.status_code)
+        result = json.loads(response.content)['result']
+        print "XXXXXXXXX we got a 200 response from Enki for fulfilling:\n%s" % result
+        if not result['success']:
+            message = result['message']
+            if "That record is already checked out to you" in message:
+                # this might be okay
+                pass
+            elif "There are no available copies" in message:
+                # TODO: raise no copies error
+                self.log.error("There are no copies of this book available.")
+                raise CirculationException()
+            elif "Login unsuccessful" in message:
+                # TODO: raise invalid barcode/password error
+                self.log.error("User validation against Enki server was unsuccessful.")
+                raise CirculationException()
+        url, media_type, expires = parse_fulfill_result(result)
+        print 'XXXXXXXXXXXXX returning a fulfillment info object'
+        return FulfillmentInfo(
+            licensepool.collection,
+            licensepool.data_source.name,
+            licensepool.identifier.type,
+            licensepool.identifier.identifier,
+            content_link=url,
+            content_type=media_type,
+            content=None,
+            content_expires=expires
+        )
+
+    def parse_fulfill_result(self, result):
+        links = result['checkedOutItems'][0]['links'][0]
+        url = links['url']
+        media_type = links['item_type']
+        due_date = result['checkedOutItems'][0]['duedate']
+        expires = datetime.datetime.strptime(
+                time.strftime(self.TIME_FORMAT, time.localtime(float(due_date))),
+                self.TIME_FORMAT
+        )
+        return (url, media_type, expires)
+
+    def patron_activity(self, patron, pin):
+        response = loan_request(patron, pin, book_id)
+        if response.status_code != 200:
+            raise PatronNotFoundOnRemote(response.status_code)
+        result = json.loads(response.content)['result']
+        print "XXXXXXXXX we got a 200 response from Enki for patron activity:\n%s" % result
+        if not result['success']:
+            message = result['message']
+            if "That record is already checked out to you" in message:
+                # this might be okay
+                pass
+            elif "There are no available copies" in message:
+                # TODO: raise no copies error
+                self.log.error("There are no copies of this book available.")
+                raise CirculationException()
+            elif "Login unsuccessful" in message:
+                # TODO: raise invalid barcode/password error
+                self.log.error("User validation against Enki server was unsuccessful.")
+                raise CirculationException()
+        loans = parse_patron_loans(result['profile']['checkedOutItems'])
+        holds = parse_patron_holds(result['profile']['holds'])
+
+    def patron_request(self, patron, pin):
+        self.log.debug ("Querying Enki for information on patron %s" % patron)
+        url = str(self.base_url) + str(self.user_endpoint)
+        args = dict()
+        args['method'] = "getSEPatronData"
+        args['username'] = barcode
+        args['password'] = pin
+        args['lib'] = self.library_id
+        final_url = url + "?"
+        for k, d in args.iteritems():
+            final_url = final_url + k + "=" + d + "&"
+        print "XXXXXXXXXXXXXXXXXXXX about to request to %s" % final_url
+
+        response = self.request(url, method='get', params=args)
+
+    def parse_patron_loans(checkout_data):
+        
 
 class MockEnkiAPI(EnkiAPI):
     def __init__(self, _db, collection=None, *args, **kwargs):
