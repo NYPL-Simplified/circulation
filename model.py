@@ -9441,12 +9441,12 @@ class ConfigurationSetting(Base):
 
     # The in-memory ConfigurationSetting cache starts in an invalid
     # state and must be populated before it can be used.
-    RESET_ME = object()
-    _cache = RESET_ME
+    RESET = object()
+    _cache = RESET
 
     @classmethod
     def reset_cache(cls):
-        cls._cache = cls.RESET_ME
+        cls._cache = cls.RESET
 
     def __repr__(self):
         return u'<ConfigurationSetting: key=%s, ID=%d>' % (
@@ -9544,7 +9544,7 @@ class ConfigurationSetting(Base):
         """Find or create a ConfigurationSetting associated with a Library
         and an ExternalIntegration.
         """
-        if cls._cache == cls.RESET_ME:
+        if cls._cache == cls.RESET:
             cls.populate_cache(_db)
 
         if library:
@@ -9562,12 +9562,13 @@ class ConfigurationSetting(Base):
                 library=library, external_integration=external_integration,
                 key=key
             )
-            if cls._cache == cls.RESET_ME:
-                # The cache is being reset while we're doing this,
-                # possibly because we just created a new
-                # ConfigurationSetting. Just return the setting object
-                # as-is and forget about updating the cache until
-                # things settle down.
+            if cls._cache == cls.RESET:
+                # The cache was reset while we were doing the lookup.
+                # Since creation of a new ConfigurationSetting won't reset
+                # the cache, this shouldn't happen outside of a race condition.
+                #
+                # Just return the setting as-is and don't worry about
+                # updating the cache until things settle down.
                 return setting
             cls._cache_insert(setting, cls._cache)
         setting = cls._cache[cache_key]
@@ -10316,7 +10317,6 @@ def configuration_relevant_collection_change(target, value, initiator):
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(target)
 
-@event.listens_for(ConfigurationSetting, 'after_insert')
 @event.listens_for(ConfigurationSetting, 'after_delete')
 @event.listens_for(ConfigurationSetting, 'after_update')
 def refresh_configuration_settings(mapper, connection, target):
