@@ -5333,7 +5333,7 @@ class Genre(Base):
             self.name, len(self.subjects), len(self.works), length)
 
     @classmethod
-    def _cache_genre(cls, genre):
+    def _cache_genre(cls, cache, genre):
         """Remove a Genre's association with the database session
         that created it, then cache it for later retrieval.
 
@@ -5341,15 +5341,15 @@ class Genre(Base):
         """
         make_transient(genre)
         make_transient_to_detached(genre)
-        cls._cache[genre.name] = genre
+        cache[genre.name] = genre
         return genre
     
     @classmethod
     def load_all(cls, _db):
-        cls._cache = {}
-        cache = cls._cache
+        cache = {}
         for genre in _db.query(Genre):
-            cls._cache_genre(genre)
+            cls._cache_genre(cache, genre)
+        cls._cache = cache
             
     @classmethod
     def lookup(cls, _db, name, autocreate=False):
