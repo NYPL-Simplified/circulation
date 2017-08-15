@@ -5368,7 +5368,7 @@ class Genre(Base):
                 if genre is None:
                     logging.getLogger().error('"%s" is not a recognized genre.', name)
                     return None, False
-            cls._cache_genre(cache, genre)
+            cls._cache_genre(cls._cache, genre)
             
         # Now we know the genre is in the cache. Retrieve it and associate
         # it with this database session.
