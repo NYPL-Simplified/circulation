@@ -306,7 +306,7 @@ class SessionManager(object):
         list(DataSource.well_known_sources(session))
 
         # Load all existing Genre objects.
-        Genre.load_all(session)
+        Genre.populate_cache(session)
         
         # Create any genres not in the database.
         for g in classifier.genres.values():
@@ -5321,8 +5321,14 @@ class Genre(Base):
     work_genres = relationship("WorkGenre", backref="genre", 
                                cascade="all, delete, delete-orphan")
 
-    # A dictionary of all known Genre objects by name.
-    _cache = {}
+    # The in-memory Genre cache starts in an invalid state and must be
+    # populated before it can be used.
+    RESET = object()
+    _cache = RESET
+
+    @classmethod
+    def reset_cache(cls):
+        cls._cache = cls.RESET
     
     def __repr__(self):
         if classifier.genres.get(self.name):
@@ -5333,22 +5339,25 @@ class Genre(Base):
             self.name, len(self.subjects), len(self.works), length)
 
     @classmethod
-    def _cache_genre(cls, cache, genre):
-        """Remove a Genre's association with the database session
-        that created it, then cache it for later retrieval.
-
-        :return: The Genre, in a detached state.
+    def _cache_insert(cls, genre, cache):
+        """Cache a Genre for later retrieval, possibly by a different
+        database session.
         """
         make_transient(genre)
         make_transient_to_detached(genre)
         cache[genre.name] = genre
-        return genre
     
     @classmethod
-    def load_all(cls, _db):
+    def populate_cache(cls, _db):
+        """Populate the in-memory cache from scratch with every single
+        Genre from the database.
+
+        Genres currently never change once created, so the cache will not
+        need to be repopulated often.
+        """
         cache = {}
         for genre in _db.query(Genre):
-            cls._cache_genre(cache, genre)
+            cls._cache_insert(genre, cache)
         cls._cache = cache
             
     @classmethod
@@ -5357,8 +5366,9 @@ class Genre(Base):
             name = name.name
 
         new = False
-        if name not in cls._cache:
-            # This genre didn't exist when Genre.load_all() was called.
+        cache_key = name
+        if cls._cache == cls.RESET or cache_key not in cls._cache:
+            # This genre didn't exist when the cache was populated.
             # Maybe it exists now, or we can create it.
             args = (_db, Genre)
             if autocreate:
@@ -5368,12 +5378,22 @@ class Genre(Base):
                 if genre is None:
                     logging.getLogger().error('"%s" is not a recognized genre.', name)
                     return None, False
-            cls._cache_genre(cls._cache, genre)
+            if cls._cache == cls.RESET:
+                # The cache was reset between the first line of this
+                # method and now. Since creation of a new
+                # ConfigurationSetting won't reset the cache, this
+                # shouldn't happen outside of a race condition.
+                #
+                # Just return the setting as-is and don't worry about
+                # updating the cache until things settle down.
+                return genre, new
+            cls._cache_insert(genre, cls._cache)
             
         # Now we know the genre is in the cache. Retrieve it and associate
         # it with this database session.
         genre = cls._cache[name]
-        genre = _db.merge(genre, load=False)
+        if genre and genre not in _db:
+            genre = _db.merge(genre, load=False)
         return genre, new
 
     @property
@@ -9511,15 +9531,12 @@ class ConfigurationSetting(Base):
     def _cache_insert(cls, setting, cache):
         """Cache a ConfigurationSetting for later retrieval, probably by a
         different database session.
-
-        :return: The ConfigurationSetting.
         """
         library_id = setting.library_id
         external_integration_id = setting.external_integration_id
         key = setting.key
         cache_key = (library_id, external_integration_id, key)
         cache[cache_key] = setting
-        return setting
         
     @classmethod
     def populate_cache(cls, _db):
@@ -9568,12 +9585,12 @@ class ConfigurationSetting(Base):
                 #
                 # Just return the setting as-is and don't worry about
                 # updating the cache until things settle down.
-                #
-                # Since we never called _cache_insert, the
-                # ConfigurationSetting was never detached from the
-                # database session that created it.
                 return setting
             cls._cache_insert(setting, cls._cache)
+
+        # Now we know the ConfigurationSetting is in the
+        # cache. Retrieve it and associate it with this database
+        # session.
         setting = cls._cache[cache_key]
         if _db and setting not in _db:
             setting = _db.merge(setting, load=False)
@@ -10328,3 +10345,14 @@ def refresh_configuration_settings(mapper, connection, target):
     # The next time someone tries to access a configuration setting,
     # the cache will be repopulated.
     ConfigurationSetting.reset_cache()
+
+@event.listens_for(Genre, 'after_insert')
+@event.listens_for(Genre, 'after_delete')
+@event.listens_for(Genre, 'after_update')
+def refresh_configuration_settings(mapper, connection, target):
+    # The next time someone tries to access a genre,
+    # the cache will be repopulated.
+    #
+    # The only time this should really happen is the very first time a
+    # site is brought up, but just in case.
+    Genre.reset_cache()

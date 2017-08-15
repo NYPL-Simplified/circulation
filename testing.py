@@ -165,6 +165,7 @@ class DatabaseTest(object):
 
         # Remove any database objects cached in the model classes but
         # associated with the now-rolled-back session.
+        Genre.reset_cache()
         ConfigurationSetting.reset_cache()
         
         # Also roll back any record of those changes in the
