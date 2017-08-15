@@ -125,7 +125,11 @@ from util.permanent_work_id import WorkIDCalculator
 from util.personal_names import display_name_to_sort_name
 from util.summary import SummaryEvaluator
 
-from sqlalchemy.orm.session import Session
+from sqlalchemy.orm.session import (
+    Session,
+    make_transient,
+    make_transient_to_detached,
+)
 
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
@@ -301,7 +305,10 @@ class SessionManager(object):
         # Create initial data sources.
         list(DataSource.well_known_sources(session))
 
-        # Create all genres.
+        # Load all existing Genre objects.
+        Genre.load_all(session)
+        
+        # Create any genres not in the database.
         for g in classifier.genres.values():
             Genre.lookup(session, g, autocreate=True)
 
@@ -5314,6 +5321,9 @@ class Genre(Base):
     work_genres = relationship("WorkGenre", backref="genre", 
                                cascade="all, delete, delete-orphan")
 
+    # A dictionary of all known Genre objects by name.
+    _cache = {}
+    
     def __repr__(self):
         if classifier.genres.get(self.name):
             length = len(classifier.genres[self.name].subgenres)
@@ -5323,18 +5333,48 @@ class Genre(Base):
             self.name, len(self.subjects), len(self.works), length)
 
     @classmethod
+    def _cache_genre(cls, cache, genre):
+        """Remove a Genre's association with the database session
+        that created it, then cache it for later retrieval.
+
+        :return: The Genre, in a detached state.
+        """
+        make_transient(genre)
+        make_transient_to_detached(genre)
+        cache[genre.name] = genre
+        return genre
+    
+    @classmethod
+    def load_all(cls, _db):
+        cache = {}
+        for genre in _db.query(Genre):
+            cls._cache_genre(cache, genre)
+        cls._cache = cache
+            
+    @classmethod
     def lookup(cls, _db, name, autocreate=False):
         if isinstance(name, GenreData):
             name = name.name
-        args = (_db, Genre)
-        if autocreate:
-            result, new = get_one_or_create(*args, name=name)
-        else:
-            result = get_one(*args, name=name)
-            new = False
-        if result is None:
-            logging.getLogger().error('"%s" is not a recognized genre.', name)
-        return result, new
+
+        new = False
+        if name not in cls._cache:
+            # This genre didn't exist when Genre.load_all() was called.
+            # Maybe it exists now, or we can create it.
+            args = (_db, Genre)
+            if autocreate:
+                genre, new = get_one_or_create(*args, name=name)
+            else:
+                genre = get_one(*args, name=name)
+                if genre is None:
+                    logging.getLogger().error('"%s" is not a recognized genre.', name)
+                    return None, False
+            cls._cache_genre(cls._cache, genre)
+            
+        # Now we know the genre is in the cache. Retrieve it and associate
+        # it with this database session.
+        genre = cls._cache[name]
+        genre = _db.merge(genre, load=False)
+        return genre, new
 
     @property
     def genredata(self):

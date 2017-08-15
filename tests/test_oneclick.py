@@ -21,8 +21,10 @@ from model import (
     Edition,
     Identifier,
     Hyperlink,
+    LicensePool,
     Representation,
     Subject,
+    Work,
 )
 
 from oneclick import (
@@ -30,6 +32,8 @@ from oneclick import (
     MockOneClickAPI,
     OneClickBibliographicCoverageProvider,
     OneClickRepresentationExtractor,
+    OneClickDeltaMonitor,
+    OneClickImportMonitor,
 )
 
 from util.http import (
@@ -325,5 +329,120 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         eq_(True, pool.work.presentation_ready)
        
 
+class TestOneClickSyncMonitor(DatabaseTest):
 
+    # TODO: The only thing this should test is that the monitors can
+    # be instantiated using the constructor arguments used by
+    # RunCollectionMonitorScript, and that calling run_once() results
+    # in a call to the appropriate OneClickAPI method.
+    #
+    # However, there's no other code that tests populate_all_catalog()
+    # or populate_delta(), so we can't just remove the code; we need to
+    # refactor the tests.
 
+    def setup(self):
+        super(TestOneClickSyncMonitor, self).setup()
+        self.base_path = os.path.split(__file__)[0]
+        self.resource_path = os.path.join(self.base_path, "files", "oneclick")
+        self.collection = MockOneClickAPI.mock_collection(self._db)
+    
+    def get_data(self, filename):
+        # returns contents of sample file as string and as dict
+        path = os.path.join(self.resource_path, filename)
+        data = open(path).read()
+        return data, json.loads(data)
+
+    def test_import(self):
+
+        # Create a OneClickImportMonitor, which will take the current
+        # state of a OneClick collection and mirror the whole thing to
+        # a local database.
+        monitor = OneClickImportMonitor(
+            self._db, self.collection, api_class=MockOneClickAPI,
+            api_class_kwargs=dict(base_path=self.base_path)
+        )
+        datastr, datadict = self.get_data("response_catalog_all_sample.json")
+        monitor.api.queue_response(status_code=200, content=datastr)
+        monitor.run()
+
+        # verify that we created Works, Editions, LicensePools
+        works = self._db.query(Work).all()
+        work_titles = [work.title for work in works]
+        expected_titles = ["Tricks", "Emperor Mage: The Immortals", 
+            "In-Flight Russian", "Road, The", "Private Patient, The", 
+            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The", 
+            "Challenger Deep"]
+        eq_(set(expected_titles), set(work_titles))
+
+        # make sure we created some Editions
+        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9780062231727", create_if_not_exists=False)
+        assert(edition is not None)
+        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781615730186", create_if_not_exists=False)
+        assert(edition is not None)
+
+        # make sure we created some LicensePools
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9780062231727", collection=self.collection
+        )
+        eq_(False, made_new)
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9781615730186", collection=self.collection
+        )
+        eq_(False, made_new)
+
+        # make sure there are 8 LicensePools
+        pools = self._db.query(LicensePool).all()
+        eq_(8, len(pools))
+
+        #
+        # Now we're going to run the delta monitor to change things
+        # around a bit.
+        #
+        
+        # set license numbers on test pool to match what's in the
+        # delta document.
+        pool, made_new = LicensePool.for_foreign_id(
+            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
+            "9781615730186", collection=self.collection
+        )
+        eq_(False, made_new)
+        pool.licenses_owned = 10
+        pool.licenses_available = 9
+        pool.licenses_reserved = 2
+        pool.patrons_in_hold_queue = 1
+
+        # now update that library with a sample delta            
+        delta_monitor = OneClickDeltaMonitor(
+            self._db, self.collection, api_class=MockOneClickAPI,
+            api_class_kwargs=dict(base_path=self.base_path)
+        )
+        datastr, datadict = self.get_data("response_catalog_delta.json")
+        delta_monitor.api.queue_response(status_code=200, content=datastr)
+        delta_monitor.run()
+
+        # "Tricks" did not get deleted, but did get its pools set to "nope".
+        # "Emperor Mage: The Immortals" got new metadata.
+        works = self._db.query(Work).all()
+        work_titles = [work.title for work in works]
+        expected_titles = ["Tricks", "Emperor Mage: The Immortals", 
+            "In-Flight Russian", "Road, The", "Private Patient, The", 
+            "Year of Magical Thinking, The", "Junkyard Bot: Robots Rule, Book 1, The", 
+            "Challenger Deep"]
+        eq_(set(expected_titles), set(work_titles))
+
+        eq_("Tricks", pool.presentation_edition.title)
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
+        assert (datetime.datetime.utcnow() - pool.last_checked) < datetime.timedelta(seconds=20)
+
+        # make sure we updated fields
+        edition = Edition.for_foreign_id(self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, "9781934180723", create_if_not_exists=False)
+        eq_("Recorded Books, Inc.", edition.publisher)
+
+        # make sure there are still 8 LicensePools
+        pools = self._db.query(LicensePool).all()
+        eq_(8, len(pools))
