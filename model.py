@@ -9532,7 +9532,6 @@ class ConfigurationSetting(Base):
         need to be repopulated often. ConfigurationSettings are looked
         up many times on each request, so the cache will be used a lot.
         """
-        print "CACHE POPULATE"
         cache = {}
         for setting in _db.query(ConfigurationSetting):
             cls._cache_insert(setting, cache)
