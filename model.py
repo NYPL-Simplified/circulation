@@ -9509,14 +9509,11 @@ class ConfigurationSetting(Base):
 
     @classmethod
     def _cache_insert(cls, setting, cache):
-        """Remove a ConfigurationSetting's association with the database
-        session that created it, then cache it in `cache` for later
-        retrieval.
+        """Cache a ConfigurationSetting for later retrieval, probably by a
+        different database session.
 
-        :return: The ConfigurationSetting, in a detached state.
+        :return: The ConfigurationSetting.
         """
-        #make_transient(setting)
-        #make_transient_to_detached(setting)
         library_id = setting.library_id
         external_integration_id = setting.external_integration_id
         key = setting.key
