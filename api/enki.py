@@ -257,7 +257,6 @@ class EnkiAPI(BaseCirculationAPI):
         if response.status_code != 200:
             raise CannotLoan(response.status_code)
         result = json.loads(response.content)['result']
-        print "XXXXXXXXX we got a 200 response from Enki for checking out:\n%s" % result
         if not result['success']:
             message = result['message']
             if "That record is already checked out to you" in message:
@@ -288,8 +287,6 @@ class EnkiAPI(BaseCirculationAPI):
             None,
         )
 
-        print "XXXXXXXXXXXXXX we're returning a LoanInfo: %s, %s, %s" % (loan.data_source_name, loan.identifier_type, loan.identifier)
-
         return loan
 
     def loan_request(self, barcode, pin, book_id):
@@ -305,7 +302,6 @@ class EnkiAPI(BaseCirculationAPI):
         final_url = url + "?"
         for k, d in args.iteritems():
             final_url = final_url + k + "=" + d + "&"
-        print "XXXXXXXXXXXXXXXXXXXX about to request to %s" % final_url
 
         response = self.request(url, method='get', params=args)
         return response
@@ -316,7 +312,6 @@ class EnkiAPI(BaseCirculationAPI):
         if response.status_code != 200:
             raise CannotFulfill(response.status_code)
         result = json.loads(response.content)['result']
-        print "XXXXXXXXX we got a 200 response from Enki for fulfilling:\n%s" % result
         if not result['success']:
             message = result['message']
             if "That record is already checked out to you" in message:
@@ -331,7 +326,6 @@ class EnkiAPI(BaseCirculationAPI):
                 self.log.error("User validation against Enki server was unsuccessful.")
                 raise CirculationException()
         url, media_type, expires = parse_fulfill_result(result)
-        print 'XXXXXXXXXXXXX returning a fulfillment info object'
         return FulfillmentInfo(
             licensepool.collection,
             licensepool.data_source.name,
@@ -359,7 +353,6 @@ class EnkiAPI(BaseCirculationAPI):
         if response.status_code != 200:
             raise PatronNotFoundOnRemote(response.status_code)
         result = json.loads(response.content)['result']
-        print "XXXXXXXXX we got a 200 response from Enki for patron activity:\n%s" % result
         if not result['success']:
             message = result['message']
             if "That record is already checked out to you" in message:
@@ -387,12 +380,11 @@ class EnkiAPI(BaseCirculationAPI):
         final_url = url + "?"
         for k, d in args.iteritems():
             final_url = final_url + k + "=" + d + "&"
-        print "XXXXXXXXXXXXXXXXXXXX about to request to %s" % final_url
 
         response = self.request(url, method='get', params=args)
 
     def parse_patron_loans(checkout_data):
-        
+       pass
 
 class MockEnkiAPI(EnkiAPI):
     def __init__(self, _db, collection=None, *args, **kwargs):
