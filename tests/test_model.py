@@ -6791,7 +6791,7 @@ class TestHasFullTableCache(DatabaseTest):
         temp_id_cache = {}
         self.mock_class._cache_insert(self.mock, temp_cache, temp_id_cache)
         eq_({MockHasTableCache.KEY: self.mock}, temp_cache)
-        eq_({MockHasTableCache.ID: self.mock}, temp_cache, temp_id_cache)
+        eq_({MockHasTableCache.ID: self.mock}, temp_id_cache)
 
     # populate_cache(), _check_cache(), and by_id() are tested in
     # TestGenre since those methods must be backed by a real database
