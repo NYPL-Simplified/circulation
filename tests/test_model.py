@@ -156,13 +156,13 @@ class TestDataSource(DatabaseTest):
         eq_(key, gutenberg.cache_key())
 
         # Object has been loaded into cache.
-        eq_((gutenberg, False), DataSource._check_cache(self._db, key, None))
+        eq_((gutenberg, False), DataSource.by_cache_key(self._db, key, None))
 
         # Now try creating a new data source.
         key = "New data source"
 
         # It's not in the cache.
-        eq_((None, False), DataSource._check_cache(self._db, key, None))
+        eq_((None, False), DataSource.by_cache_key(self._db, key, None))
 
         new_source = DataSource.lookup(
             self._db, key, autocreate=True, offers_licenses=True
@@ -172,8 +172,10 @@ class TestDataSource(DatabaseTest):
         eq_(key, new_source.name)
         eq_(True, new_source.offers_licenses)
 
-        # Now it's in the cache.
-        eq_((new_source, False), DataSource._check_cache(self._db, key, None))
+        # The cache was reset when the data source was created.
+        eq_(HasFullTableCache.RESET, DataSource._cache)
+
+        eq_((new_source, False), DataSource.by_cache_key(self._db, key, None))
         
     def test_lookup_by_deprecated_name(self):
         threem = DataSource.lookup(self._db, "3M")
@@ -636,7 +638,7 @@ class TestGenre(DatabaseTest):
 
         # Every Genre in the database is copied to the cache.
         dont_call_this = object
-        drama, is_new = Genre._check_cache(self._db, "Drama", dont_call_this)
+        drama, is_new = Genre.by_cache_key(self._db, "Drama", dont_call_this)
         eq_("Drama", drama.name)
         eq_(False, is_new)
 
@@ -661,7 +663,7 @@ class TestGenre(DatabaseTest):
         eq_(drama, Genre._id_cache[drama.id])
         assert len(Genre._id_cache) > 1
         
-    def test_check_cache_miss_triggers_create_function(self):
+    def test_by_cache_key_miss_triggers_create_function(self):
         _db = self._db
         class Factory(object):
 
@@ -676,7 +678,7 @@ class TestGenre(DatabaseTest):
         factory = Factory()
         Genre._cache = {}
         Genre._id_cache = {}
-        genre, is_new = Genre._check_cache(self._db, "Drama", factory.call_me)
+        genre, is_new = Genre.by_cache_key(self._db, "Drama", factory.call_me)
         eq_("Drama", genre.name)
         eq_(False, is_new)
         eq_(True, factory.called)
@@ -688,12 +690,12 @@ class TestGenre(DatabaseTest):
         # The cache by ID has been similarly populated.
         eq_(genre, Genre._id_cache[genre.id])
 
-    def test_check_cache_miss_when_cache_is_reset_populates_cache(self):
+    def test_by_cache_key_miss_when_cache_is_reset_populates_cache(self):
         # The cache is not in a state to be used.
         eq_(Genre._cache, Genre.RESET)
 
-        # Call Genre_check_cache...
-        drama, is_new = Genre._check_cache(
+        # Call Genreby_cache_key...
+        drama, is_new = Genre.by_cache_key(
             self._db, "Drama",
             lambda: get_one_or_create(self._db, Genre, name="Drama")
         )
@@ -704,7 +706,7 @@ class TestGenre(DatabaseTest):
         assert drama.cache_key() in Genre._cache
         assert drama.id in Genre._id_cache
 
-    def test_check_cache_hit_returns_cached_object(self):
+    def test_by_cache_key_hit_returns_cached_object(self):
 
         # If the object we ask for is not already in the cache, this
         # function will be called and raise an exception.
@@ -712,7 +714,7 @@ class TestGenre(DatabaseTest):
             raise Exception("Kaboom")
         drama, ignore = get_one_or_create(self._db, Genre, name="Drama")
         Genre._cache = { "Drama": drama }
-        drama2, is_new = Genre._check_cache(
+        drama2, is_new = Genre.by_cache_key(
             self._db, "Drama", exploding_create_hook
         )
 
@@ -6793,7 +6795,7 @@ class TestHasFullTableCache(DatabaseTest):
         eq_({MockHasTableCache.KEY: self.mock}, temp_cache)
         eq_({MockHasTableCache.ID: self.mock}, temp_id_cache)
 
-    # populate_cache(), _check_cache(), and by_id() are tested in
+    # populate_cache(), by_cache_key(), and by_id() are tested in
     # TestGenre since those methods must be backed by a real database
     # table.
 

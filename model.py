@@ -214,10 +214,10 @@ class HasFullTableCache(object):
             cls._cache_insert(obj, cache, id_cache)
         cls._cache = cache
         cls._id_cache = id_cache
-
+        
     @classmethod
-    def _cache_lookup(cls, _db, cache, cache_key, lookup_hook):
-        """Helper method used by both by_id and _check_cache.
+    def _cache_lookup(cls, _db, cache, cache_name, cache_key, lookup_hook):
+        """Helper method used by both by_id and by_cache_key.
 
         Looks up `cache_key` in `cache` and calls `lookup_hook`
         to find/create it if it's not in there.
@@ -229,11 +229,17 @@ class HasFullTableCache(object):
             # of the table.
             cls.populate_cache(_db)
 
+            # Get the new value of the cache, replacing the value
+            # that turned out to be cls.RESET.
+            cache = getattr(cls, cache_name)
+
         if cache != cls.RESET:
             try:
                 obj = cache.get(cache_key)
             except TypeError, e:
-                # The cache was reset while we were doing the lookup.
+                # This shouldn't happen. Even if the actual cache was
+                # reset just now, we still have a copy of the 'old'
+                # cache which passed the 'cache != cls.RESET' test.
                 pass
                 
         if not obj:
@@ -251,8 +257,8 @@ class HasFullTableCache(object):
                 # The object doesn't exist and couldn't be created.
                 return obj, new
 
-            # Stick the object in the caches, assuming they haven't
-            # been reset.
+            # Stick the object in the caches, assuming they're not
+            # currently in a reset state.
             cls._cache_insert(obj, cls._cache, cls._id_cache)
             
         if obj and obj not in _db:
@@ -264,12 +270,16 @@ class HasFullTableCache(object):
         """Look up an item by its unique database ID."""
         def lookup_hook():
             return get_one(_db, cls, id=id), False        
-        obj, is_new = cls._cache_lookup(_db, cls._id_cache, id, lookup_hook)
+        obj, is_new = cls._cache_lookup(
+            _db, cls._id_cache, '_id_cache', id, lookup_hook
+        )
         return obj
             
     @classmethod
-    def _check_cache(cls, _db, cache_key, lookup_hook):
-        return cls._cache_lookup(_db, cls._cache, cache_key, lookup_hook)
+    def by_cache_key(cls, _db, cache_key, lookup_hook):
+        return cls._cache_lookup(
+            _db, cls._cache, '_cache', cache_key, lookup_hook
+        )
 
 class SessionManager(object):
 
@@ -417,6 +427,11 @@ class SessionManager(object):
         
         # Create any genres not in the database.
         for g in classifier.genres.values():
+            # TODO: On the very first startup this is rather expensive
+            # because the cache is invalidated every time a Genre is
+            # created, then populated the next time a Genre is looked
+            # up. This wouldn't be a big problem, but this also happens
+            # on setup for the unit tests.
             Genre.lookup(session, g, autocreate=True)
 
         # Make sure that the mechanisms fulfillable by the default
@@ -1088,7 +1103,7 @@ class DataSource(Base, HasFullTableCache):
 
         # Look up the DataSource in the full-table cache, falling back
         # to the database if necessary.
-        obj, is_new = cls._check_cache(_db, name, lookup_hook)
+        obj, is_new = cls.by_cache_key(_db, name, lookup_hook)
         return obj
     
     URI_PREFIX = u"http://librarysimplified.org/terms/sources/"
@@ -5458,7 +5473,7 @@ class Genre(Base, HasFullTableCache):
         return self.name
     
     @classmethod
-    def lookup(cls, _db, name, autocreate=False):
+    def lookup(cls, _db, name, autocreate=False, use_cache=True):
         if isinstance(name, GenreData):
             name = name.name
 
@@ -5475,8 +5490,11 @@ class Genre(Base, HasFullTableCache):
                     logging.getLogger().error('"%s" is not a recognized genre.', name)
                     return None, False
             return genre, new
-            
-        return cls._check_cache(_db, name, create)
+
+        if use_cache:
+            return cls.by_cache_key(_db, name, create)
+        else:
+            return create()
 
     @property
     def genredata(self):
@@ -8908,7 +8926,7 @@ class Library(Base, HasFullTableCache):
         def _lookup():
             library = get_one(_db, Library, short_name=short_name)
             return library, False
-        library, is_new = cls._check_cache(_db, short_name, _lookup)
+        library, is_new = cls.by_cache_key(_db, short_name, _lookup)
         return library
     
     @classmethod
@@ -9651,7 +9669,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         # ConfigurationSettings are stored in cache based on their library,
         # external integration, and the name of the setting.
         cache_key = cls._cache_key(library, external_integration, key)
-        setting, ignore = cls._check_cache(_db, cache_key, create)
+        setting, ignore = cls.by_cache_key(_db, cache_key, create)
         return setting
         
     @hybrid_property
@@ -9852,7 +9870,7 @@ class Collection(Base, HasFullTableCache):
         key = (name, protocol)
         def lookup_hook():
             return cls._by_name_and_protocol(_db, key)
-        return cls._check_cache(_db, key, lookup_hook)
+        return cls.by_cache_key(_db, key, lookup_hook)
 
     @classmethod
     def _by_name_and_protocol(cls, _db, cache_key):
