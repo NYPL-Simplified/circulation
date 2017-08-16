@@ -148,7 +148,7 @@ class TestDataSource(DatabaseTest):
         # Unlike with most of these tests, this cache doesn't start
         # out empty. It's populated with all known values at the start
         # of the test. Let's reset the cache.
-        DataSource._cache = HasFullTableCache.RESET
+        DataSource.reset_cache()
         
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         eq_(key, gutenberg.name)
@@ -662,11 +662,11 @@ class TestGenre(DatabaseTest):
         # Genre's cache key in the table-wide cache.
         eq_(genre, Genre._cache[genre.cache_key()])
 
-    def test_check_cache_miss_when_cache_is_reset_returns_object_only(self):
+    def test_check_cache_miss_when_cache_is_reset_populates_cache(self):
         # The cache is not in a state to be used.
         eq_(Genre._cache, Genre.RESET)
 
-        # But Genre_check_cache still works.
+        # Call Genre_check_cache...
         drama, is_new = Genre._check_cache(
             self._db, "Drama",
             lambda: get_one_or_create(self._db, Genre, name="Drama")
@@ -674,8 +674,8 @@ class TestGenre(DatabaseTest):
         eq_("Drama", drama.name)
         eq_(False, is_new)
 
-        # It just doesn't make use of the cache.
-        eq_(Genre._cache, Genre.RESET)
+        # ... and the cache is repopulated
+        assert drama.cache_key() in Genre._cache
 
     def test_check_cache_hit_returns_cached_object(self):
 
@@ -5624,13 +5624,14 @@ class TestLibrary(DatabaseTest):
         library = self._default_library
         name = library.short_name
         eq_(name, library.cache_key())
+
         # Cache is empty.
-        eq_(None, Library._check_cache(_db, name, None))
+        eq_(HasFullTableCache.RESET, Library._cache)
 
         eq_(library, Library.lookup(self._db, name))
 
         # Cache is populated.
-        eq_(library, Library._check_cache(_db, name, None))
+        eq_(library, Library._cache[name])
             
     def test_default(self):
         # We start off with no libraries.
@@ -6245,15 +6246,16 @@ class TestCollection(DatabaseTest):
         key = (name, protocol)
         
         # Cache is empty.
-        eq_(None, Collection._check_cache(_db, name, key))
+        eq_(HasFullTableCache.RESET, Collection._cache)
         
         collection1, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
         eq_(True, is_new)
 
-        # Cache is populated.
-        eq_(collection1, Collection._check_cache(_db, name, key))
+        # Cache was populated and then reset because we created a new
+        # Collection.
+        eq_(HasFullTableCache.RESET, Collection._cache)
         
         collection2, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
@@ -6261,6 +6263,9 @@ class TestCollection(DatabaseTest):
         eq_(collection1, collection2)
         eq_(False, is_new)
 
+        # This time the cache was not reset after being populated.
+        eq_(collection1, Collection._cache[key])
+        
         # You'll get an exception if you look up an existing name
         # but the protocol doesn't match.
         assert_raises_regexp(

@@ -1022,6 +1022,8 @@ class DataSource(Base, HasFullTableCache):
         "LicensePoolDeliveryMechanism", backref="data_source",
         foreign_keys=lambda: [LicensePoolDeliveryMechanism.data_source_id]
     )
+
+    _cache = HasFullTableCache.RESET
     
     def __repr__(self):
         return '<DataSource: name="%s">' % (self.name)
@@ -8871,9 +8873,7 @@ class Library(Base, HasFullTableCache):
         def _lookup():
             library = get_one(_db, Library, short_name=short_name)
             return library, False
-        library, is_new = self._check_cache(
-            cls, _db, short_name, _lookup
-        )
+        library, is_new = cls._check_cache(_db, short_name, _lookup)
         return library
     
     @classmethod
@@ -9824,10 +9824,11 @@ class Collection(Base, HasFullTableCache):
 
         :return: A 2-tuple (collection, is_new)
         """
-        return self._check_cache(
-            cls, _db, (name, protocol), cls._by_name_and_protocol
-        )
-        
+        key = (name, protocol)
+        def lookup_hook():
+            return cls._by_name_and_protocol(_db, key)
+        return cls._check_cache(_db, key, lookup_hook)
+
     @classmethod
     def _by_name_and_protocol(cls, _db, cache_key):
         """Find or create a Collection with the given name and the given
@@ -9861,7 +9862,7 @@ class Collection(Base, HasFullTableCache):
             )
             collection.external_integration.protocol=protocol
         return collection, is_new
-   
+    
     @classmethod
     def by_protocol(cls, _db, protocol):
         """Query collections that get their licenses through the given protocol.
