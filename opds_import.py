@@ -182,6 +182,8 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
     def _post(self, url, **kwargs):
         """Make an HTTP request. This method is overridden in the mock class."""
+        if self.authenticated:
+            kwargs['auth'] = (self.client_id, self.client_secret)
         kwargs['timeout'] = kwargs.get('timeout', 120)
         kwargs['allowed_response_codes'] = kwargs.get('allowed_response_codes', [])
         kwargs['allowed_response_codes'] += ['2xx', '3xx']
@@ -221,7 +223,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         url = self.get_collection_url(self.UPDATES_ENDPOINT)
         if last_update_time:
             formatted_time = last_update_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-            url += ('last_update_time=' + formatted_time)
+            url += ('?last_update_time=' + formatted_time)
         logging.info("Metadata Wrangler Collection Updates URL: %s", url)
         return self._get(url)
 
@@ -568,6 +570,7 @@ class OPDSImporter(object):
                     external_identifier, external_identifier)
             else:
                 internal_identifier = external_identifier
+            failure.obj = internal_identifier
             identified_failures[internal_identifier.urn] = failure
 
         # Use one loop for both, since the id will be the same for both dictionaries.

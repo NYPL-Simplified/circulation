@@ -6812,7 +6812,7 @@ class LicensePool(Base):
                     continue
                 if not (self.open_access and pool.open_access):
                     pool.work = None
-                    pool.calculate_work()
+                    pool.calculate_work(exclude_search=exclude_search)
                     licensepools_changed = True
 
         else:
@@ -10131,13 +10131,13 @@ class Collection(Base, HasFullTableCache):
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
-        account_id = base64.b64encode(unicode(self.unique_account_id), '-_')
-        protocol = base64.b64encode(
-            unicode(self.external_integration.protocol), '-_'
+        account_id = base64.urlsafe_b64encode(self.unique_account_id.encode('utf8'))
+        protocol = base64.urlsafe_b64encode(
+            self.external_integration.protocol.encode('utf8')
         )
 
         metadata_identifier = protocol + ':' + account_id
-        return base64.b64encode(metadata_identifier, '-_')
+        return base64.urlsafe_b64encode(metadata_identifier.encode('utf8'))
 
     @classmethod
     def from_metadata_identifier(cls, _db, metadata_identifier):
@@ -10148,8 +10148,10 @@ class Collection(Base, HasFullTableCache):
         is_new = False
 
         if not collection:
-            details = base64.b64decode(metadata_identifier, '-_')
-            protocol = base64.b64decode(details.split(':', 1)[0], '-_')
+            details = base64.urlsafe_b64decode(metadata_identifier.encode('utf8'))
+            protocol = unicode(base64.urlsafe_b64decode(
+                details.split(':', 1)[0].encode('utf8')
+            ))
             collection, is_new = create(_db, Collection,
                 name=metadata_identifier)
 
@@ -10194,20 +10196,21 @@ class Collection(Base, HasFullTableCache):
             _db.flush()
 
     def works_updated_since(self, _db, timestamp):
-        """Returns all of a collection's works that have been updated
-        since the last time the catalog was checked
+        """Returns all works in a collection's catalog that have been updated
+        since the last time the catalog was checked.
         """
-        query = _db.query(Work).join(Work.coverage_records)
-        query = query.join(Work.license_pools).join(Identifier)
-        query = query.join(Identifier.collections).filter(
-            Collection.id==self.id
-        )
+        query = _db.query(Work).join(Work.coverage_records)\
+            .join(Work.license_pools).join(Identifier)\
+            .join(Identifier.collections)\
+            .filter(Collection.id==self.id)\
+            .options(joinedload(Work.license_pools, LicensePool.identifier))
+
         if timestamp:
             query = query.filter(
                 WorkCoverageRecord.timestamp > timestamp
             )
 
-        return query
+        return query.distinct()
 
 
 collections_libraries = Table(

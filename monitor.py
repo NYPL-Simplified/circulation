@@ -149,7 +149,10 @@ class Monitor(object):
             start = timestamp.timestamp or self.default_start_time
         else:
             timestamp = None
-            start = default_start_time
+            start = self.default_start_time
+
+        if start == self.NEVER:
+            start = None
 
         cutoff = datetime.datetime.utcnow()           
         new_timestamp_value = self.run_once(start, cutoff) or cutoff
