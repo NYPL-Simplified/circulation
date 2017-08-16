@@ -171,66 +171,118 @@ class HasFullTableCache(object):
     
     RESET = object()
 
-    # You MUST define your own class-specific '_cache' variable, like
-    # so:
+    # You MUST define your own class-specific '_cache' and '_id_cache'
+    # variables, like so:
+    #
     # _cache = HasFullTableCache.RESET
+    # _id_cache = HasFullTableCache.RESET
     
     @classmethod
     def reset_cache(cls):
         cls._cache = cls.RESET
-
+        cls._id_cache = cls.RESET
+        
     def cache_key(self):
         raise NotImplementedError()
         
     @classmethod
-    def _cache_insert(cls, obj, cache):
+    def _cache_insert(cls, obj, cache, id_cache):
         """Cache an object for later retrieval, possibly by a different
         database session.
         """
         key = obj.cache_key()
-        cache[key] = obj
-
+        id = obj.id
+        try:
+            if cache != cls.RESET:
+                cache[key] = obj
+            if id_cache != cls.RESET:
+                id_cache[id] = obj
+        except TypeError, e:
+            # The cache was reset in between the time we checked for a
+            # reset and the time we tried to put an object in the
+            # cache. Stop trying to mess with the cache.
+            pass
+                
     @classmethod
     def populate_cache(cls, _db):
-        """Populate the in-memory cache from scratch with every single
+        """Populate the in-memory caches from scratch with every single
         object from the database table.
         """
         cache = {}
+        id_cache = {}
         for obj in _db.query(cls):
-            cls._cache_insert(obj, cache)
+            cls._cache_insert(obj, cache, id_cache)
         cls._cache = cache
+        cls._id_cache = id_cache
         
+    @classmethod
+    def by_id(cls, _db, id):
+        """Look up an item by its unique database ID."""
+        if cls._id_cache == cls.RESET:
+            # The cache has been reset. Populate it with the contents
+            # of the table.
+            cls.populate_cache(_db)
+
+        obj = None
+        if cls._id_cache != cls.RESET:
+            try:
+                obj = cls._id_cache.get(id)
+            except TypeError, e:
+                # The cache was reset while we were doing the lookup.
+                pass
+                
+        if not obj:
+            # Either this object didn't exist when the cache was
+            # populated, or the cache was reset while we were trying
+            # to look it up.
+            #
+            # Give up on the cache and go direct to the database,
+            # creating the object if necessary.
+            obj = get_one(_db, cls, id==id)
+
+            # Stick the object in the cache, assuming the cache hasn't
+            # been reset.
+            cls._cache_insert(obj, cls._cache, cls._id_cache)
+
+        if obj and obj not in _db:
+            obj = _db.merge(obj, load=False)
+        return obj
+            
     @classmethod
     def _check_cache(cls, _db, cache_key, lookup_hook):
         new = False
+        obj = None
         if cls._cache == cls.RESET:
             # The cache has been reset. Populate it with the contents
             # of the table.
             cls.populate_cache(_db)
-        if cls._cache == cls.RESET or cache_key not in cls._cache:
-            # This object didn't exist when the cache was populated.
-            # Maybe it exists now, or we can create it.
+
+        if cls._cache != cls.RESET:
+            try:
+                obj = cls._cache.get(cache_key)
+            except TypeError, e:
+                # The cache was reset while we were doing the lookup.
+                pass
+                
+        if not obj:
+            # Either this object didn't exist when the cache was
+            # populated, or the cache was reset while we were trying
+            # to look it up.
+            #
+            # Give up on the cache and go direct to the database,
+            # creating the object if necessary.
             if lookup_hook:
                 obj, new = lookup_hook()
             else:
                 obj = None
-            if cls._cache == cls.RESET:
-                # The cache was reset between the first line of this
-                # method and now. Since creation of a new
-                # ConfigurationSetting won't reset the cache, this
-                # shouldn't happen outside of a race condition.
-                #
-                # Just return the setting as-is and don't worry about
-                # updating the cache until things settle down.
-                return obj, new
             if not obj:
+                # The object doesn't exist and couldn't be created.
                 return obj, new
-            cls._cache_insert(obj, cls._cache)
 
-        # Now we know there is an object matching this cache key and
-        # it's in the cache. Retrieve it and associate it with this
-        # database session.
-        obj = cls._cache[cache_key]
+            # Stick the object in the cache, assuming the cache hasn't
+            # been reset.
+            cls._cache_insert(obj, cls._cache, cls._id_cache)
+            
         if obj and obj not in _db:
             obj = _db.merge(obj, load=False)
         return obj, new
@@ -9230,7 +9282,7 @@ class Admin(Base):
         return _db.query(Admin).filter(Admin.password_hashed != None)
 
 
-class ExternalIntegration(Base):
+class ExternalIntegration(Base, HasFullTableCache):
 
     """An external integration contains configuration for connecting
     to a third-party API.
@@ -9379,9 +9431,10 @@ class ExternalIntegration(Base):
     def __repr__(self):
         return u"<ExternalIntegration: protocol=%s goal='%s' settings=%d ID=%d>" % (
             self.protocol, self.goal, len(self.settings), self.id)
-
+    
     @classmethod
     def lookup(cls, _db, protocol, goal, library=None):
+        
         integrations = _db.query(cls).outerjoin(cls.libraries).filter(
             cls.protocol==protocol, cls.goal==goal
         )
@@ -9581,17 +9634,6 @@ class ConfigurationSetting(Base, HasFullTableCache):
         )
 
     @classmethod
-    def _cache_insert(cls, setting, cache):
-        """Cache a ConfigurationSetting for later retrieval, probably by a
-        different database session.
-        """
-        library_id = setting.library_id
-        external_integration_id = setting.external_integration_id
-        key = setting.key
-        cache_key = (library_id, external_integration_id, key)
-        cache[cache_key] = setting
-
-    @classmethod
     def _cache_key(cls, library, external_integration, key):
         if library:
             library_id = library.id
@@ -9604,7 +9646,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         return (library_id, external_integration_id, key)
         
     def cache_key(self):
-        return self._cache_key(self.library, self.external_integration, key)
+        return self._cache_key(self.library, self.external_integration, self.key)
         
     @classmethod
     def for_library_and_externalintegration(
