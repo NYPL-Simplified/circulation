@@ -9697,7 +9697,9 @@ class ConfigurationSetting(Base, HasFullTableCache):
     
     @value.setter
     def set_value(self, new_value):
-        self._value = unicode(new_value)
+        if new_value:
+            new_value = unicode(new_value)
+        self._value = new_value
 
     @classmethod
     def _is_secret(self, key):
