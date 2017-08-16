@@ -223,7 +223,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         url = self.get_collection_url(self.UPDATES_ENDPOINT)
         if last_update_time:
             formatted_time = last_update_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-            url += ('last_update_time=' + formatted_time)
+            url += ('?last_update_time=' + formatted_time)
         logging.info("Metadata Wrangler Collection Updates URL: %s", url)
         return self._get(url)
 
