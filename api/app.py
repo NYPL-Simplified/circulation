@@ -68,8 +68,6 @@ def run(url=None):
         socket.setdefaulttimeout(None)
 
     logging.info("Starting app on %s:%s", host, port)
-    from werkzeug.contrib.profiler import ProfilerMiddleware
-    app.config['PROFILE'] = True
     app.run(debug=debug, host=host, port=port)
 
 
