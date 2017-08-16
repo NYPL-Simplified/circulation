@@ -8330,7 +8330,7 @@ class Representation(Base):
         return quotient
 
 
-class DeliveryMechanism(Base):
+class DeliveryMechanism(Base, HasFullTableCache):
     """A technique for delivering a book to a patron.
 
     There are two parts to this: a DRM scheme and a content
@@ -8378,6 +8378,9 @@ class DeliveryMechanism(Base):
         backref="delivery_mechanism"
     )
 
+    _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
+    
     @property
     def name(self):
         if self.drm_scheme is self.NO_DRM:
@@ -8386,6 +8389,9 @@ class DeliveryMechanism(Base):
             drm_scheme = self.drm_scheme
         return "%s (%s)" % (self.content_type, drm_scheme)
 
+    def cache_key(self):
+        return (self.content_type, self.drm_scheme)
+    
     def __repr__(self):   
 
         if self.default_client_can_fulfill:
@@ -8399,10 +8405,7 @@ class DeliveryMechanism(Base):
 
     @classmethod
     def lookup(cls, _db, content_type, drm_scheme):
-        return get_one_or_create(
-            _db, DeliveryMechanism, content_type=content_type,
-            drm_scheme=drm_scheme
-        )
+        return cls.by_cache_key(_db, (content_type, drm_scheme), None)
 
     @property
     def implicit_medium(self):
@@ -9439,10 +9442,10 @@ class ExternalIntegration(Base, HasFullTableCache):
         # TODO: This is not ideal, but the lookup method isn't like
         # other HasFullTableCache lookup methods, so for now we use
         # the unique ID as the cache key. This means that
-        # for_cache_key() and for_id() do the same thing.
+        # by_cache_key() and by_id() do the same thing.
         #
-        # This is okay because we need for_id() quite a
-        # bit and for_cache_key() not as much.
+        # This is okay because we need by_id() quite a
+        # bit and by_cache_key() not as much.
         return self.id
     
     @classmethod
