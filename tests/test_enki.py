@@ -2,6 +2,7 @@ from nose.tools import (
     assert_raises_regexp,
     set_trace,
     eq_,
+    assert_not_equal,
 )
 import datetime
 import os
@@ -26,6 +27,7 @@ from api.enki import (
     EnkiAPI,
     MockEnkiAPI,
     EnkiBibliographicCoverageProvider,
+    EnkiImport,
 )
 from core.scripts import RunCollectionCoverageProviderScript
 from core.util.http import BadResponseException
@@ -53,6 +55,10 @@ class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
         identifier = self._identifier(identifier_type=Identifier.ENKI_ID)
         values = EnkiAPI.create_identifier_strings(["foo", identifier])
         eq_(["foo", identifier.identifier], values)
+
+    def test_import_instantiation(self):
+        imp = EnkiImport(self._db, self.collection, api_class=self.api.__class__)
+        assert_not_equal(None, imp)
 
 class TestBibliographicCoverageProvider(TestEnkiAPI):
 

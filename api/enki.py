@@ -262,7 +262,7 @@ class EnkiAPI(BaseCirculationAPI):
         response = self.request(url, method='get', params=args)
 
 class MockEnkiAPI(EnkiAPI):
-    def __init__(self, _db, *args, **kwargs):
+    def __init__(self, _db, collection=None, *args, **kwargs):
         self.responses = []
         self.requests = []
 
