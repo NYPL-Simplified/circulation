@@ -10092,7 +10092,7 @@ class Collection(Base, HasFullTableCache):
     def parents(self):
         if self.parent_id:
             _db = Session.object_session(self)
-            parent = get_one(_db, Collection, id=self.parent_id)
+            parent = Collection.for_id(_db, self.parent_id)
             yield parent
             for collection in parent.parents:
                 yield collection
