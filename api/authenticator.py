@@ -453,7 +453,7 @@ class LibraryAuthenticator(object):
 
     @property
     def library(self):
-        return get_one(self._db, Library, id=self.library_id)
+        return Library.by_id(self._db, self.library_id)
         
     def assert_ready_for_oauth(self):
         """If this LibraryAuthenticator has OAuth providers, ensure that it
@@ -656,7 +656,7 @@ class LibraryAuthenticator(object):
         a request comes in with no authentication.
         """
         links = []
-        library = get_one(self._db, Library, id=self.library_id)
+        library = Library.by_id(self._db, self.library_id)
 
         # Add the same links that we would show in an OPDS feed, plus
         # some extra like 'registration' that are specific to Authentication
@@ -904,7 +904,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         )
     
     def library(self, _db):
-        return get_one(_db, Library, id=self.library_id)
+        return Library.by_id(self._db, self.library_id)
     
     def authenticated_patron(self, _db, header):
         """Go from a WWW-Authenticate header (or equivalent) to a Patron object.

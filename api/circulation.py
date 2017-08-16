@@ -55,7 +55,7 @@ class CirculationInfo(object):
 
     def collection(self, _db):
         """Find the Collection to which this object belongs."""
-        return get_one(_db, Collection, id=self.collection_id)
+        return Collection.by_id(_db, self.collection_id)
     
     def license_pool(self, _db):
         """Find the LicensePool model object corresponding to this object."""
@@ -229,7 +229,7 @@ class CirculationAPI(object):
 
     @property
     def library(self):
-        return get_one(self._db, Library, id=self.library_id)
+        return Library.by_id(self._db, self.library_id)
                     
     @property
     def default_api_map(self):

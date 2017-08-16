@@ -92,7 +92,7 @@ class ServiceStatus(object):
             status[service] = error
             return status
         for collection_id, api in self.circulation.api_for_collection.items():
-            collection = get_one(self._db, Collection, id=collection_id)
+            collection = Collection.by_id(self._db, collection_id)
             data_source_name = collection.data_source.name
             service = "%s patron account (%s)" % (
                 collection.name, collection.data_source.name
