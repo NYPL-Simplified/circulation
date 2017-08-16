@@ -5593,6 +5593,18 @@ class TestLibrary(DatabaseTest):
         # recommended, but it's not an error.
         library.library_registry_short_name = None
 
+    def test_lookup(self):
+        library = self._default_library
+        name = library.short_name
+        eq_(name, library.cache_key())
+        # Cache is empty.
+        eq_(None, Library._check_cache(_db, name, None))
+
+        eq_(library, Library.lookup(self._db, name))
+
+        # Cache is populated.
+        eq_(library, Library._check_cache(_db, name, None))
+            
     def test_default(self):
         # We start off with no libraries.
         eq_(None, Library.default(self._db))
