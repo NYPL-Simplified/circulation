@@ -29,6 +29,7 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound
 )
+from sqlalchemy.orm.session import Session
 
 from config import (
     Configuration, 
@@ -57,6 +58,7 @@ from model import (
     DRMDeviceIdentifier,
     ExternalIntegration,
     Genre,
+    HasFullTableCache,
     Hold,
     Hyperlink,
     IntegrationClient,
@@ -141,11 +143,38 @@ class TestDatabaseInterface(DatabaseTest):
 class TestDataSource(DatabaseTest):
 
     def test_lookup(self):
-        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        eq_(DataSource.GUTENBERG, gutenberg.name)
-        eq_(True, gutenberg.offers_licenses)
+        key = DataSource.GUTENBERG
 
-       
+        # Unlike with most of these tests, this cache doesn't start
+        # out empty. It's populated with all known values at the start
+        # of the test. Let's reset the cache.
+        DataSource.reset_cache()
+        
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        eq_(key, gutenberg.name)
+        eq_(True, gutenberg.offers_licenses)
+        eq_(key, gutenberg.cache_key())
+
+        # Object has been loaded into cache.
+        eq_((gutenberg, False), DataSource._check_cache(self._db, key, None))
+
+        # Now try creating a new data source.
+        key = "New data source"
+
+        # It's not in the cache.
+        eq_((None, False), DataSource._check_cache(self._db, key, None))
+
+        new_source = DataSource.lookup(
+            self._db, key, autocreate=True, offers_licenses=True
+        )
+
+        # A new data source has been created.
+        eq_(key, new_source.name)
+        eq_(True, new_source.offers_licenses)
+
+        # Now it's in the cache.
+        eq_((new_source, False), DataSource._check_cache(self._db, key, None))
+        
     def test_lookup_by_deprecated_name(self):
         threem = DataSource.lookup(self._db, "3M")
         eq_(DataSource.BIBLIOTHECA, threem.name)
@@ -592,6 +621,79 @@ class TestIdentifier(DatabaseTest):
 
 class TestGenre(DatabaseTest):
 
+    def test_full_table_cache(self):
+        """We use Genre as a convenient way of testing
+        HasFullTableCache.populate_cache, which requires a real
+        SQLAlchemy ORM class to operate on.
+        """
+
+        # We start with an unusable object as the cache.
+        eq_(Genre.RESET, Genre._cache)
+
+        # When we call populate_cache()...
+        Genre.populate_cache(self._db)
+
+        # Every Genre in the database is copied to the cache.
+        dont_call_this = object
+        drama, is_new = Genre._check_cache(self._db, "Drama", dont_call_this)
+        eq_("Drama", drama.name)
+        eq_(False, is_new)
+
+    def test_check_cache_miss_triggers_create_function(self):
+        _db = self._db
+        class Factory(object):
+
+            def __init__(self):
+                self.called = False
+
+            def call_me(self):
+                self.called = True
+                genre, is_new = get_one_or_create(_db, Genre, name="Drama")
+                return genre, is_new
+                
+        factory = Factory()
+        Genre._cache = {}
+        genre, is_new = Genre._check_cache(self._db, "Drama", factory.call_me)
+        eq_("Drama", genre.name)
+        eq_(False, is_new)
+        eq_(True, factory.called)
+
+        # The Genre object created in call_me has been associated with the
+        # Genre's cache key in the table-wide cache.
+        eq_(genre, Genre._cache[genre.cache_key()])
+
+    def test_check_cache_miss_when_cache_is_reset_populates_cache(self):
+        # The cache is not in a state to be used.
+        eq_(Genre._cache, Genre.RESET)
+
+        # Call Genre_check_cache...
+        drama, is_new = Genre._check_cache(
+            self._db, "Drama",
+            lambda: get_one_or_create(self._db, Genre, name="Drama")
+        )
+        eq_("Drama", drama.name)
+        eq_(False, is_new)
+
+        # ... and the cache is repopulated
+        assert drama.cache_key() in Genre._cache
+
+    def test_check_cache_hit_returns_cached_object(self):
+
+        # If the object we ask for is not already in the cache, this
+        # function will be called and raise an exception.
+        def exploding_create_hook():
+            raise Exception("Kaboom")
+        drama, ignore = get_one_or_create(self._db, Genre, name="Drama")
+        Genre._cache = { "Drama": drama }
+        drama2, is_new = Genre._check_cache(
+            self._db, "Drama", exploding_create_hook
+        )
+
+        # The object was already in the cache, so we just looked it up.
+        # No exception.
+        eq_(drama, drama2)
+        eq_(False, is_new)
+        
     def test_default_fiction(self):
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         nonfiction, ignore = Genre.lookup(self._db, "History")
@@ -5518,6 +5620,19 @@ class TestLibrary(DatabaseTest):
         # recommended, but it's not an error.
         library.library_registry_short_name = None
 
+    def test_lookup(self):
+        library = self._default_library
+        name = library.short_name
+        eq_(name, library.cache_key())
+
+        # Cache is empty.
+        eq_(HasFullTableCache.RESET, Library._cache)
+
+        eq_(library, Library.lookup(self._db, name))
+
+        # Cache is populated.
+        eq_(library, Library._cache[name])
+            
     def test_default(self):
         # We start off with no libraries.
         eq_(None, Library.default(self._db))
@@ -5659,7 +5774,7 @@ class TestExternalIntegration(DatabaseTest):
         self.external_integration, ignore = create(
             self._db, ExternalIntegration, goal=self._str, protocol=self._str
         )
-
+        
     def test_data_source(self):
         # For most collections, the protocol determines the
         # data source.
@@ -5687,9 +5802,9 @@ class TestExternalIntegration(DatabaseTest):
         eq_("id1", setting.value)
 
         # Calling set() again updates the key-value pair.
-        eq_([setting], self.external_integration.settings)
+        eq_([setting.id], [x.id for x in self.external_integration.settings])
         setting2 = self.external_integration.set_setting("website_id", "id2")
-        eq_(setting, setting2)
+        eq_(setting.id, setting2.id)
         eq_("id2", setting2.value)
 
         eq_(setting2, self.external_integration.setting("website_id"))
@@ -5879,7 +5994,7 @@ class TestConfigurationSetting(DatabaseTest):
         setting2 = ConfigurationSetting.for_library_and_externalintegration(
             self._db, key, library, integration
         )
-        eq_(setting, setting2)
+        eq_(setting.id, setting2.id)
         assert_raises(
             IntegrityError,
             create, self._db, ConfigurationSetting,
@@ -5934,7 +6049,7 @@ class TestConfigurationSetting(DatabaseTest):
         # associated with the library.
         self._db.delete(integration)
         self._db.commit()
-        eq_([for_library], library.settings)
+        eq_([for_library.id], [x.id for x in library.settings])
 
     def test_int_value(self):
         number = ConfigurationSetting.sitewide(self._db, "number")
@@ -6126,20 +6241,33 @@ class TestCollection(DatabaseTest):
         )
 
     def test_by_name_and_protocol(self):
-        # You'll get an exception if you look up an existing name
-        # but the protocol doesn't match.
         name = "A name"
+        protocol = ExternalIntegration.OVERDRIVE
+        key = (name, protocol)
+        
+        # Cache is empty.
+        eq_(HasFullTableCache.RESET, Collection._cache)
+        
         collection1, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
         eq_(True, is_new)
 
+        # Cache was populated and then reset because we created a new
+        # Collection.
+        eq_(HasFullTableCache.RESET, Collection._cache)
+        
         collection2, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
         eq_(collection1, collection2)
         eq_(False, is_new)
 
+        # This time the cache was not reset after being populated.
+        eq_(collection1, Collection._cache[key])
+        
+        # You'll get an exception if you look up an existing name
+        # but the protocol doesn't match.
         assert_raises_regexp(
             ValueError,
             'Collection "A name" does not use protocol "Bibliotheca".',
@@ -6594,3 +6722,43 @@ class TestAdmin(DatabaseTest):
         eq_(self.admin, Admin.authenticate(self._db, "admin@nypl.org", "password"))
         eq_(None, Admin.authenticate(self._db, "other@nypl.org", "password"))
         eq_(None, Admin.authenticate(self._db, "example@nypl.org", "password"))
+
+
+class MockHasTableCache(HasFullTableCache):
+
+    """A simple HasFullTableCache that returns the same cache key
+    for every object.
+    """
+    
+    _cache = HasFullTableCache.RESET
+
+    KEY = "the only cache key"
+    
+    def cache_key(self):
+        return self.KEY
+    
+        
+class TestHasFullTableCache(DatabaseTest):
+
+    def setup(self):
+        super(TestHasFullTableCache, self).setup()
+        self.mock_class = MockHasTableCache
+        self.mock = MockHasTableCache()
+        self.mock._cache = HasFullTableCache.RESET
+
+    def test_reset_cache(self):
+        self.mock_class._cache = object()
+        self.mock_class.reset_cache()
+        eq_(HasFullTableCache.RESET, self.mock_class._cache)
+
+    def test_cache_insert(self):
+        temp_cache = {}
+        value = object()
+        self.mock_class._cache_insert(self.mock, temp_cache)
+        eq_({self.mock.KEY: self.mock}, temp_cache)
+
+    # populate_cache() and _check_cache() are tested in TestGenre
+    # since those methods must be backed by a real database table.
+
+
+    
