@@ -870,7 +870,8 @@ class DataSource(Base):
     INTERNAL_PROCESSING = u"Library Simplified Internal Process"
     FEEDBOOKS = u"FeedBooks"
     BIBBLIO = u"Bibblio"
-    
+    ENKI = u"Enki"
+
     DEPRECATED_NAMES = {
         u"3M" : BIBLIOTHECA
     }
@@ -1066,7 +1067,8 @@ class DataSource(Base):
                 (cls.PRESENTATION_EDITION, False, False, None, None),
                 (cls.INTERNAL_PROCESSING, False, False, None, None),
                 (cls.FEEDBOOKS, True, False, Identifier.URI, None),
-                (cls.BIBBLIO, False, True, Identifier.BIBBLIO_CONTENT_ITEM_ID, None)
+                (cls.BIBBLIO, False, True, Identifier.BIBBLIO_CONTENT_ITEM_ID, None),
+                (cls.ENKI, True, False, Identifier.ENKI_ID, None)
         ):
 
             extra = dict()
@@ -1403,6 +1405,7 @@ class Identifier(Base):
     DOI = u"DOI"
     UPC = u"UPC"
     BIBBLIO_CONTENT_ITEM_ID = u"Bibblio Content Item ID"
+    ENKI_ID = u"Enki ID"
 
     DEPRECATED_NAMES = {
         u"3M ID" : BIBLIOTHECA_ID
