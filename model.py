@@ -203,6 +203,10 @@ class HasFullTableCache(object):
     @classmethod
     def _check_cache(cls, _db, cache_key, lookup_hook):
         new = False
+        if cls._cache == cls.RESET:
+            # The cache has been reset. Populate it with the contents
+            # of the table.
+            cls.populate_cache(_db)
         if cls._cache == cls.RESET or cache_key not in cls._cache:
             # This object didn't exist when the cache was populated.
             # Maybe it exists now, or we can create it.
@@ -902,7 +906,7 @@ class Annotation(Base):
         self.content = None
         self.timestamp = datetime.datetime.utcnow()
 
-class DataSource(Base):
+class DataSource(Base, HasFullTableCache):
 
     """A source for information about books, and possibly the books themselves."""
 
@@ -1021,21 +1025,35 @@ class DataSource(Base):
     
     def __repr__(self):
         return '<DataSource: name="%s">' % (self.name)
+
+    def cache_key(self):
+        return self.name
     
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
         # (e.g. "Bibliotheca").
         name = cls.DEPRECATED_NAMES.get(name, name)
-        if autocreate:
-            data_source, is_new = get_one_or_create(
-                _db, DataSource, name=name,
-                create_method_kwargs=dict(offers_licenses=offers_licenses)
-            )
-        else:
-            data_source = get_one(_db, DataSource, name=name)
-        return data_source
 
+        def lookup_hook():
+            """There was no such DataSource in the cache. Look one up or
+            create one.
+            """
+            if autocreate:
+                data_source, is_new = get_one_or_create(
+                    _db, DataSource, name=name,
+                    create_method_kwargs=dict(offers_licenses=offers_licenses)
+                )
+            else:
+                data_source = get_one(_db, DataSource, name=name)
+                is_new = False
+            return data_source, is_new
+
+        # Look up the DataSource in the full-table cache, falling back
+        # to the database if necessary.
+        obj, is_new = cls._check_cache(_db, name, lookup_hook)
+        return obj
+    
     URI_PREFIX = u"http://librarysimplified.org/terms/sources/"
 
     @classmethod
@@ -10373,6 +10391,14 @@ def configuration_relevant_collection_change(target, value, initiator):
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(target)
 
+@event.listens_for(Collection, 'after_insert')
+@event.listens_for(Collection, 'after_delete')
+@event.listens_for(Collection, 'after_update')
+def refresh_collection_cache(mapper, connection, target):
+    # The next time someone tries to access a Collection,
+    # the cache will be repopulated.
+    Collection.reset_cache()
+
 @event.listens_for(ConfigurationSetting, 'after_insert')
 @event.listens_for(ConfigurationSetting, 'after_delete')
 @event.listens_for(ConfigurationSetting, 'after_update')
@@ -10380,11 +10406,19 @@ def refresh_configuration_settings(mapper, connection, target):
     # The next time someone tries to access a configuration setting,
     # the cache will be repopulated.
     ConfigurationSetting.reset_cache()
-
+    
+@event.listens_for(DataSource, 'after_insert')
+@event.listens_for(DataSource, 'after_delete')
+@event.listens_for(DataSource, 'after_update')
+def refresh_datasource_cache(mapper, connection, target):
+    # The next time someone tries to access a DataSource,
+    # the cache will be repopulated.
+    DataSource.reset_cache()
+    
 @event.listens_for(Library, 'after_insert')
 @event.listens_for(Library, 'after_delete')
 @event.listens_for(Library, 'after_update')
-def refresh_configuration_settings(mapper, connection, target):
+def refresh_library_cache(mapper, connection, target):
     # The next time someone tries to access a library,
     # the cache will be repopulated.
     Library.reset_cache()
@@ -10392,7 +10426,7 @@ def refresh_configuration_settings(mapper, connection, target):
 @event.listens_for(Genre, 'after_insert')
 @event.listens_for(Genre, 'after_delete')
 @event.listens_for(Genre, 'after_update')
-def refresh_configuration_settings(mapper, connection, target):
+def refresh_genre_cache(mapper, connection, target):
     # The next time someone tries to access a genre,
     # the cache will be repopulated.
     #

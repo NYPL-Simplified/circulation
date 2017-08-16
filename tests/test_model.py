@@ -143,11 +143,38 @@ class TestDatabaseInterface(DatabaseTest):
 class TestDataSource(DatabaseTest):
 
     def test_lookup(self):
-        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        eq_(DataSource.GUTENBERG, gutenberg.name)
-        eq_(True, gutenberg.offers_licenses)
+        key = DataSource.GUTENBERG
 
-       
+        # Unlike with most of these tests, this cache doesn't start
+        # out empty. It's populated with all known values at the start
+        # of the test. Let's reset the cache.
+        DataSource._cache = HasFullTableCache.RESET
+        
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        eq_(key, gutenberg.name)
+        eq_(True, gutenberg.offers_licenses)
+        eq_(key, gutenberg.cache_key())
+
+        # Object has been loaded into cache.
+        eq_((gutenberg, False), DataSource._check_cache(self._db, key, None))
+
+        # Now try creating a new data source.
+        key = "New data source"
+
+        # It's not in the cache.
+        eq_((None, False), DataSource._check_cache(self._db, key, None))
+
+        new_source = DataSource.lookup(
+            self._db, key, autocreate=True, offers_licenses=True
+        )
+
+        # A new data source has been created.
+        eq_(key, new_source.name)
+        eq_(True, new_source.offers_licenses)
+
+        # Now it's in the cache.
+        eq_((new_source, False), DataSource._check_cache(self._db, key, None))
+        
     def test_lookup_by_deprecated_name(self):
         threem = DataSource.lookup(self._db, "3M")
         eq_(DataSource.BIBLIOTHECA, threem.name)
