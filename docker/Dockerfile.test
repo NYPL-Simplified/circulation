@@ -12,14 +12,14 @@ COPY . /ls_build
 RUN /bin/bash -c "/ls_build/simplified_app.sh ${repo} ${version} \
       && /bd_build/cleanup.sh"
 
-USER simplified
+VOLUME /var/log
 WORKDIR /home/simplified
 
-# If you launch the container interactively with `docker run -it`,
-# this is where you'll end up:
-ENTRYPOINT ["/bin/bash"]
-
 CMD ["/sbin/my_init"]
+
+# # If you launch the container interactively with `docker run -it`,
+# # this is where you'll end up:
+# ENTRYPOINT ["/bin/bash"]
 
 # # Add the logrotate.conf file.
 # COPY logrotate.conf /etc/
@@ -32,10 +32,6 @@ CMD ["/sbin/my_init"]
 # RUN chmod 644 /etc/logrotate.conf
 # RUN chmod 644 /etc/logrotate.d/default_logrotate
 # RUN chmod 644 /etc/logrotate.d/libsimple.conf
-# 
-# # Create the main log directory and mount the logs.
-# RUN mkdir /var/log/libsimple
-# RUN chmod 666 /var/log/
 # 
 # # Remove the default supervisor configuration, which
 # # has a web interface we don't want, in favor of our

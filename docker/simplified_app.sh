@@ -46,7 +46,7 @@ echo "if [[ -f $SIMPLIFIED_ENVIRONMENT ]]; then \
       source $SIMPLIFIED_ENVIRONMENT; fi" >> env/bin/activate
 
 # Install required python libraries.
-source env/bin/activate
+set +x && source env/bin/activate && set -x
 pip install -r requirements.txt
 
 # Install NLTK.
