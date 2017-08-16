@@ -34,8 +34,8 @@ from core.model import (
 from core.util.problem_detail import (
     ProblemDetail,
 )
-from core.util.opds_authentication_document import (
-    OPDSAuthenticationDocument,
+from core.util.authentication_for_opds import (
+    AuthenticationForOPDSDocument,
 )
 from core.mock_analytics_provider import MockAnalyticsProvider
 
@@ -980,52 +980,53 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # The main thing we need to test is that the
             # sub-documents are assembled properly and placed in the
             # right position.
-            providers = doc['providers']
-            basic_doc = providers[basic.URI]
-            expect_basic = basic.authentication_provider_document(library.short_name)
+            flows = doc['authentication']
+            oauth_doc, basic_doc = sorted(flows, key=lambda x: x['type'])
+
+            expect_basic = basic.authentication_flow_document(self._db)
             eq_(expect_basic, basic_doc)
 
-            oauth_doc = providers[oauth.URI]
-            expect_oauth = oauth.authentication_provider_document(self._db)
+            expect_oauth = oauth.authentication_flow_document(self._db)
             eq_(expect_oauth, oauth_doc)
 
             # We also need to test that the library's name and UUID
             # were placed in the document.
-            eq_("A Fabulous Library", doc['name'])
+            eq_("A Fabulous Library", doc['title'])
             eq_("Just the best.", doc['service_description'])
-            eq_(url_for("index", library_short_name=self._default_library.short_name, _external=True), doc['id'])
+            eq_(url_for("authentication_document", library_short_name=self._default_library.short_name, _external=True), doc['id'])
 
             # The color scheme is correctly reported.
             eq_("plaid", doc['color_scheme'])
             
             # We also need to test that the links got pulled in
             # from the configuration.
-            links = doc['links']
-            eq_("http://terms", links['terms-of-service']['href'])
-            eq_("http://privacy", links['privacy-policy']['href'])
-            eq_("http://copyright", links['copyright']['href'])
-            eq_("http://about", links['about']['href'])
-            eq_("http://license/", links['license']['href'])
-            eq_("image data", links['logo']['href'])
+            (about, alternate, copyright, help_uri, help_web, help_email,
+             license, logo, privacy_policy, register, terms_of_service) = sorted(
+                 doc['links'], key=lambda x: (x['rel'], x['href'])
+             )
+            eq_("http://terms", terms_of_service['href'])
+            eq_("http://privacy", privacy_policy['href'])
+            eq_("http://copyright", copyright['href'])
+            eq_("http://about", about['href'])
+            eq_("http://license/", license['href'])
+            eq_("image data", logo['href'])
 
             # Most of the links have type='text/html'
-            eq_("text/html", links['about']['type'])
+            eq_("text/html", about['type'])
 
             # The registration link doesn't have a type, because it
             # uses a non-HTTP URI scheme.
-            register = links['register']
-            eq_({'href': 'custom-registration-hook://library/'},
-                links['register'])
+            assert 'type' not in register
+            eq_('custom-registration-hook://library/', register['href'])
 
             # The logo link has type "image/png".
-            eq_("image/png", links["logo"]["type"])
+            eq_("image/png", logo["type"])
 
             # We have three help links.
-            uri, web, email = sorted(links['help'], key=lambda x: x['href'])
-            eq_("custom:uri", uri['href'])
-            eq_("http://library.help/", web['href'])
-            eq_("text/html", web['type'])
-            eq_("mailto:help@library", email['href'])
+            eq_("custom:uri", help_uri['href'])
+            eq_("http://library.help/", help_web['href'])
+            eq_("text/html", help_web['type'])
+            eq_("mailto:help@library", help_email['href'])
 
             # The public key is correct.
             eq_("public key", doc['public_key']['value'])
@@ -1035,8 +1036,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # The library's web page shows up as an HTML alternate
             # to the OPDS server.
             eq_(
-                dict(type="text/html", href="http://library/"),
-                links['alternate']
+                dict(rel="alternate", type="text/html", href="http://library/"),
+                alternate
             )
             
             # Features that are enabled for this library are communicated
@@ -1052,7 +1053,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # provider, that provider's .authentication_header is used
             # for WWW-Authenticate.
             headers = authenticator.create_authentication_headers()
-            eq_(OPDSAuthenticationDocument.MEDIA_TYPE, headers['Content-Type'])
+            eq_(AuthenticationForOPDSDocument.MEDIA_TYPE, headers['Content-Type'])
             eq_(basic.authentication_header, headers['WWW-Authenticate'])
 
             # If the authenticator does not include a basic auth provider,
@@ -1514,23 +1515,22 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(None, provider.get_credential_from_header(dict()))
         eq_("foo", provider.get_credential_from_header(dict(password="foo")))
         
-    def test_authentication_provider_document(self):
+    def test_authentication_flow_document(self):
         """Test the default authentication provider document."""
         provider = self.mock_basic()
-        doc = provider.authentication_provider_document(self._db)
-        eq_(_(provider.DISPLAY_NAME), doc['name'])
-        methods = doc['methods']
-        eq_([provider.METHOD], methods.keys())
-        method = methods[provider.METHOD]
-        eq_(['inputs', 'labels'], sorted(method.keys()))
-        login = method['labels']['login']
-        password = method['labels']['password']
-        eq_(provider.identifier_label, login)
-        eq_(provider.password_label, password)
+        doc = provider.authentication_flow_document(self._db)
+        eq_(_(provider.DISPLAY_NAME), doc['description'])
+        eq_(provider.FLOW_TYPE, doc['type'])
+
+        labels = doc['labels']
+        eq_(provider.identifier_label, labels['login'])
+        eq_(provider.password_label, labels['password'])
+
+        inputs = doc['inputs']
         eq_(provider.identifier_keyboard,
-            method['inputs']['login']['keyboard'])
+            inputs['login']['keyboard'])
         eq_(provider.password_keyboard,
-            method['inputs']['password']['keyboard'])
+            inputs['password']['keyboard'])
         
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""
@@ -1843,7 +1843,7 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         mock_patrondata.set_authorization_identifier("abcd")
         eq_(PATRON_OF_ANOTHER_LIBRARY, oauth.oauth_callback(self._db, "a code"))
         
-    def test_authentication_provider_document(self):
+    def test_authentication_flow_document(self):
         # We're about to call url_for, so we must create an
         # application context.
         os.environ['AUTOINITIALIZE'] = "False"
@@ -1852,16 +1852,14 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         del os.environ['AUTOINITIALIZE']
         provider = MockOAuth(self._default_library)
         with self.app.test_request_context("/"):
-            doc = provider.authentication_provider_document(self._db)
-
-            # There is only one way to authenticate with this type
-            # of authentication.
-            eq_([provider.METHOD], doc['methods'].keys())
-            method = doc['methods'][provider.METHOD]
-
-            # And it involves following the 'authenticate' link.
-            link = method['links']['authenticate']
-            eq_(link, provider._internal_authenticate_url(self._db))
+            doc = provider.authentication_flow_document(self._db)
+            eq_(provider.FLOW_TYPE, doc['type'])
+            eq_(provider.NAME, doc['description'])
+            
+            # To authenticate with this provider, you must follow the
+            # 'authenticate' link.
+            [link] = [x for x in doc['links'] if x['rel'] == 'authenticate']
+            eq_(link['href'], provider._internal_authenticate_url(self._db))
 
     def test_token_data_source_can_create_new_data_source(self):
         class OAuthWithUnusualDataSource(MockOAuth):

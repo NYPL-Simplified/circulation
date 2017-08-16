@@ -45,9 +45,9 @@ logging.getLogger().info("Application debug mode==%r" % debug)
 app.config['DEBUG'] = debug
 app.debug = debug
 
-def run():
+def run(url=None):
     base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
-    base_url = base_url.value or u'http://localhost:6500/'
+    base_url = url or base_url.value or u'http://localhost:6500/'
     scheme, netloc, path, parameters, query, fragment = urlparse.urlparse(base_url)
     if ':' in netloc:
         host, port = netloc.split(':')

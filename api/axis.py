@@ -256,7 +256,7 @@ class Axis360CirculationMonitor(CollectionMonitor):
             # creating a new one.
             self.api = api_class
         else:
-            self.api = api_class(collection)
+            self.api = api_class(_db, collection)
         if not metadata_client:
             metadata_client = MetadataWranglerOPDSLookup.from_config(
                 _db, collection=collection
@@ -326,14 +326,14 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
     SERVICE_NAME = "Axis Collection Reaper"
     INTERVAL_SECONDS = 3600*12
     
-    def __init__(self, collection, api_class=Axis360API):
-        super(AxisCollectionReaper, self).__init__(collection)
+    def __init__(self, _db, collection, api_class=Axis360API):
+        super(AxisCollectionReaper, self).__init__(_db, collection)
         if isinstance(api_class, Axis360API):
             # Use a preexisting Axis360API instance rather than
             # creating a new one.
             self.api = api_class
         else:
-            self.api = api_class(collection)
+            self.api = api_class(_db, collection)
 
     def process_batch(self, identifiers):
         self.api.update_licensepools_for_identifiers(identifiers)

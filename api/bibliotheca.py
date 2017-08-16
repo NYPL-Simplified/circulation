@@ -126,6 +126,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         patron_id = patron.authorization_identifier
         path = "circulation/patron/%s" % patron_id
         response = self.request(path)
+        collection = self.collection
         return PatronCirculationParser(self.collection).process_all(response.content)
 
     TEMPLATE = "<%(request_type)s><ItemId>%(item_id)s</ItemId><PatronId>%(patron_id)s</PatronId></%(request_type)s>"
@@ -198,7 +199,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
                    item_id=bibliotheca_id, patron_id=patron_id)
         body = self.TEMPLATE % args 
         return self.request('GetItemACSM', body, method="PUT")
-
+    
     def checkin(self, patron, pin, licensepool):
         patron_id = patron.authorization_identifier
         item_id = licensepool.identifier.identifier
@@ -634,7 +635,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         if isinstance(api_class, BibliothecaAPI):
             self.api = api_class
         else:
-            self.api = api_class(collection)
+            self.api = api_class(_db, collection)
         self.analytics = Analytics(_db)
     
     def process_batch(self, identifiers):
@@ -663,7 +664,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
                 # identifier?--but it shouldn't be a big deal to
                 # create one.
                 pool, ignore = LicensePool.for_foreign_id(
-                    self._db, self.data_source, identifier.type,
+                    self._db, self.collection.data_source, identifier.type,
                     identifier.identifier, collection=collection
                 )
 
@@ -722,7 +723,7 @@ class BibliothecaEventMonitor(CollectionMonitor):
     
     def __init__(self, _db, collection, api_class=BibliothecaAPI):
         super(BibliothecaEventMonitor, self).__init__(_db, collection)
-        self.api = api_class(collection)
+        self.api = api_class(_db, collection)
         self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
             collection, self.api
         )

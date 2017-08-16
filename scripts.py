@@ -1,3 +1,4 @@
+# encoding: utf-8
 from cStringIO import StringIO
 from datetime import (
     datetime,
@@ -27,6 +28,7 @@ from core import log
 from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
+    CirculationEvent,
     ConfigurationSetting,
     Contribution,
     Credential,
@@ -849,6 +851,141 @@ class LoanReaperScript(Script):
         self._db.commit()
 
 
+class DisappearingBookReportScript(Script):
+
+    """Print a TSV-format report on books that used to be in the
+    collection, or should be in the collection, but aren't.
+    """
+    
+    def do_run(self):
+        qu = self._db.query(LicensePool).filter(
+            LicensePool.open_access==False).filter(
+                LicensePool.suppressed==False).filter(
+                    LicensePool.licenses_owned<=0).order_by(
+                        LicensePool.availability_time.desc())
+        first_row = ["Identifier",
+                     "Title",
+                     "Author",
+                     "First seen",
+                     "Last seen (best guess)",
+                     "Current licenses owned",
+                     "Current licenses available",
+                     "Changes in number of licenses",
+                     "Changes in title availability",
+        ]
+        print "\t".join(first_row)
+
+        for pool in qu:
+            self.explain(pool)
+
+    def investigate(self, licensepool):
+        """Find when the given LicensePool might have disappeared from the
+        collection.
+
+        :param licensepool: A LicensePool.
+
+        :return: a 3-tuple (last_seen, title_removal_events,
+        license_removal_events).
+
+        `last_seen` is the latest point at which we knew the book was
+        circulating. If we never knew the book to be circulating, this
+        is the first time we ever saw the LicensePool.
+
+        `title_removal_events` is a query that returns CirculationEvents
+        in which this LicensePool was removed from the remote collection.
+
+        `license_removal_events` is a query that returns
+        CirculationEvents in which LicensePool.licenses_owned went
+        from having a positive number to being zero or a negative
+        number.
+        """
+        first_activity = None
+        most_recent_activity = None
+
+        # If we have absolutely no information about the book ever
+        # circulating, we act like we lost track of the book
+        # immediately after seeing it for the first time.
+        last_seen = licensepool.availability_time
+
+        # If there's a recorded loan or hold on the book, that can
+        # push up the last time the book was known to be circulating.
+        for l in (licensepool.loans, licensepool.holds):
+            for item in l:
+                if not last_seen or item.start > last_seen:
+                    last_seen = item.start
+                    
+        # Now we look for relevant circulation events. First, an event
+        # where the title was explicitly removed is pretty clearly
+        # a 'last seen'.
+        base_query = self._db.query(CirculationEvent).filter(
+            CirculationEvent.license_pool==licensepool).order_by(
+                CirculationEvent.start.desc()
+            )
+        title_removal_events = base_query.filter(
+            CirculationEvent.type==CirculationEvent.DISTRIBUTOR_TITLE_REMOVE
+        )
+        if title_removal_events.count():
+            candidate = title_removal_events[-1].start
+            if not last_seen or candidate > last_seen:
+                last_seen = candidate
+        
+        # Also look for an event where the title went from a nonzero
+        # number of licenses to a zero number of licenses. That's a
+        # good 'last seen'.
+        license_removal_events = base_query.filter(
+            CirculationEvent.type==CirculationEvent.DISTRIBUTOR_LICENSE_REMOVE,
+        ).filter(
+            CirculationEvent.old_value>0).filter(
+                CirculationEvent.new_value<=0
+            )
+        if license_removal_events.count():
+            candidate = license_removal_events[-1].start
+            if not last_seen or candidate > last_seen:
+                last_seen = candidate
+        
+        return last_seen, title_removal_events, license_removal_events
+
+    format = "%Y-%m-%d"
+
+    def explain(self, licensepool):
+        edition = licensepool.presentation_edition
+        identifier = licensepool.identifier
+        last_seen, title_removal_events, license_removal_events = self.investigate(
+            licensepool
+        )
+
+        data = ["%s %s" % (identifier.type, identifier.identifier)]
+        if edition:
+            data.extend([edition.title, edition.author])
+        if licensepool.availability_time:
+            first_seen = licensepool.availability_time.strftime(self.format)
+        else:
+            first_seen = ''
+        data.append(first_seen)
+        if last_seen:
+            last_seen = last_seen.strftime(self.format)
+        else:
+            last_seen = ''
+        data.append(last_seen)
+        data.append(licensepool.licenses_owned)
+        data.append(licensepool.licenses_available)
+
+        license_removals = []
+        for event in license_removal_events:
+            description =u"%s: %s→%s" % (
+                    event.start.strftime(self.format), event.old_value,
+                event.new_value
+            )
+            license_removals.append(description)
+        data.append(", ".join(license_removals))
+
+        title_removals = [event.start.strftime(self.format)
+                          for event in title_removal_events]
+        data.append(", ".join(title_removals))
+        
+        print "\t".join([unicode(x).encode("utf8") for x in data])
+
+
 class NYTBestSellerListsScript(Script):
 
     def __init__(self, include_history=False):
@@ -876,3 +1013,4 @@ class NYTBestSellerListsScript(Script):
             self.log.info(
                 "Now %s entries in the list.", len(customlist.entries))
             self._db.commit()
+

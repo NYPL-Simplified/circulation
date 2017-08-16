@@ -92,8 +92,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
     # displayed to a patron, so it doesn't matter much.
     DEFAULT_ERROR_URL = "http://librarysimplified.org/"
 
-    def __init__(self, collection):
-        super(OverdriveAPI, self).__init__(collection)
+    def __init__(self, _db, collection):
+        super(OverdriveAPI, self).__init__(_db, collection)
         self.overdrive_bibliographic_coverage_provider = (
             OverdriveBibliographicCoverageProvider(
                 collection, api_class=self
@@ -460,10 +460,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             holds = {}
 
         for checkout in loans.get('checkouts', []):
-            loan_info = self.process_checkout_data(checkout)
-            if loan_info:
-                loan_info.collection = self.collection
-                yield loan_info
+            loan_info = self.process_checkout_data(checkout, self.collection)
+            yield loan_info
 
         for hold in holds.get('holds', []):
             overdrive_identifier = hold['reserveId'].lower()
@@ -488,7 +486,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             )
 
     @classmethod
-    def process_checkout_data(cls, checkout):
+    def process_checkout_data(cls, checkout, collection):
         """Convert one checkout from Overdrive's list of checkouts
         into a LoanInfo object.
 
@@ -530,7 +528,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         # not count overdrive-read), put it into fulfillment_info and
         # let the caller make the decision whether or not to show it.
         return LoanInfo(
-            None,
+            collection,
             DataSource.OVERDRIVE,
             Identifier.OVERDRIVE_ID,
             overdrive_identifier,
@@ -847,7 +845,7 @@ class OverdriveCirculationMonitor(CollectionMonitor):
     def __init__(self, _db, collection, api_class=OverdriveAPI):
         """Constructor."""
         super(OverdriveCirculationMonitor, self).__init__(_db, collection)
-        self.api = api_class(collection)
+        self.api = api_class(_db, collection)
         self.maximum_consecutive_unchanged_books = (
             self.MAXIMUM_CONSECUTIVE_UNCHANGED_BOOKS
         )
@@ -919,10 +917,9 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
     SERVICE_NAME = "Overdrive Collection Reaper"
     INTERVAL_SECONDS = 3600*4
     
-    def __init__(self, collection, api_class=OverdriveAPI):
-        _db = Session.object_session(collection)
+    def __init__(self, _db, collection, api_class=OverdriveAPI):
         super(OverdriveCollectionReaper, self).__init__(_db, collection)
-        self.api = api_class(collection)
+        self.api = api_class(_db, collection)
 
     def process_item(self, identifier):
         self.api.update_licensepool(identifier.identifier)
@@ -945,7 +942,7 @@ class OverdriveFormatSweep(IdentifierSweepMonitor):
 
     def __init__(self, collection, api_class=OverdriveAPI):
         _db = Session.object_session(collection)
-        api = api_class(collection)
+        api = api_class(_db, collection)
         super(OverdriveFormatSweep, self).__init__(_db, collection)
 
     def process_identifier(self, identifier):
