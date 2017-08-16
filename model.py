@@ -8405,7 +8405,12 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     @classmethod
     def lookup(cls, _db, content_type, drm_scheme):
-        return cls.by_cache_key(_db, (content_type, drm_scheme), None)
+        def lookup_hook():
+            return get_one_or_create(
+                _db, DeliveryMechanism, content_type=content_type,
+                drm_scheme=drm_scheme
+            )
+        return cls.by_cache_key(_db, (content_type, drm_scheme), lookup_hook)
 
     @property
     def implicit_medium(self):
