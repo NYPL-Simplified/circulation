@@ -9990,20 +9990,21 @@ class Collection(Base):
             _db.flush()
 
     def works_updated_since(self, _db, timestamp):
-        """Returns all of a collection's works that have been updated
-        since the last time the catalog was checked
+        """Returns all works in a collection's catalog that have been updated
+        since the last time the catalog was checked.
         """
-        query = _db.query(Work).join(Work.coverage_records)
-        query = query.join(Work.license_pools).join(Identifier)
-        query = query.join(Identifier.collections).filter(
-            Collection.id==self.id
-        )
+        query = _db.query(Work).join(Work.coverage_records)\
+            .join(Work.license_pools).join(Identifier)\
+            .join(Identifier.collections)\
+            .filter(Collection.id==self.id)\
+            .options(joinedload(Work.license_pools, LicensePool.identifier))
+
         if timestamp:
             query = query.filter(
                 WorkCoverageRecord.timestamp > timestamp
             )
 
-        return query
+        return query.distinct()
 
 
 collections_libraries = Table(
