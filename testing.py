@@ -18,6 +18,7 @@ from model import (
     IntegrationClient,
     Collection,
     Complaint,
+    ConfigurationSetting,
     Contributor,
     CoverageRecord,
     Credential,
@@ -162,6 +163,13 @@ class DatabaseTest(object):
         # other session.
         self.transaction.rollback()
 
+        # Remove any database objects cached in the model classes but
+        # associated with the now-rolled-back session.
+        ConfigurationSetting.reset_cache()
+        DataSource.reset_cache()
+        Genre.reset_cache()
+        Library.reset_cache()
+        
         # Also roll back any record of those changes in the
         # Configuration instance.
         for key in [

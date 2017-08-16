@@ -164,6 +164,78 @@ class BaseMaterializedWork(object):
     pass
 
 
+class HasFullTableCache(object):
+    """A mixin class for ORM classes that maintain an in-memory cache of
+    (hopefully) every item in the database table for performance reasons.
+    """
+    
+    RESET = object()
+
+    # You MUST define your own class-specific '_cache' variable, like
+    # so:
+    # _cache = HasFullTableCache.RESET
+    
+    @classmethod
+    def reset_cache(cls):
+        cls._cache = cls.RESET
+
+    def cache_key(self):
+        raise NotImplementedError()
+        
+    @classmethod
+    def _cache_insert(cls, obj, cache):
+        """Cache an object for later retrieval, possibly by a different
+        database session.
+        """
+        key = obj.cache_key()
+        cache[key] = obj
+
+    @classmethod
+    def populate_cache(cls, _db):
+        """Populate the in-memory cache from scratch with every single
+        object from the database table.
+        """
+        cache = {}
+        for obj in _db.query(cls):
+            cls._cache_insert(obj, cache)
+        cls._cache = cache
+        
+    @classmethod
+    def _check_cache(cls, _db, cache_key, lookup_hook):
+        new = False
+        if cls._cache == cls.RESET:
+            # The cache has been reset. Populate it with the contents
+            # of the table.
+            cls.populate_cache(_db)
+        if cls._cache == cls.RESET or cache_key not in cls._cache:
+            # This object didn't exist when the cache was populated.
+            # Maybe it exists now, or we can create it.
+            if lookup_hook:
+                obj, new = lookup_hook()
+            else:
+                obj = None
+            if cls._cache == cls.RESET:
+                # The cache was reset between the first line of this
+                # method and now. Since creation of a new
+                # ConfigurationSetting won't reset the cache, this
+                # shouldn't happen outside of a race condition.
+                #
+                # Just return the setting as-is and don't worry about
+                # updating the cache until things settle down.
+                return obj, new
+            if not obj:
+                return obj, new
+            cls._cache_insert(obj, cls._cache)
+
+        # Now we know there is an object matching this cache key and
+        # it's in the cache. Retrieve it and associate it with this
+        # database session.
+        obj = cls._cache[cache_key]
+        if obj and obj not in _db:
+            obj = _db.merge(obj, load=False)
+        return obj, new
+
+
 class SessionManager(object):
 
     # Materialized views need to be created and indexed from SQL
@@ -306,7 +378,7 @@ class SessionManager(object):
         list(DataSource.well_known_sources(session))
 
         # Load all existing Genre objects.
-        Genre.load_all(session)
+        Genre.populate_cache(session)
         
         # Create any genres not in the database.
         for g in classifier.genres.values():
@@ -834,7 +906,7 @@ class Annotation(Base):
         self.content = None
         self.timestamp = datetime.datetime.utcnow()
 
-class DataSource(Base):
+class DataSource(Base, HasFullTableCache):
 
     """A source for information about books, and possibly the books themselves."""
 
@@ -951,24 +1023,40 @@ class DataSource(Base):
         "LicensePoolDeliveryMechanism", backref="data_source",
         foreign_keys=lambda: [LicensePoolDeliveryMechanism.data_source_id]
     )
+
+    _cache = HasFullTableCache.RESET
     
     def __repr__(self):
         return '<DataSource: name="%s">' % (self.name)
+
+    def cache_key(self):
+        return self.name
     
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
         # Turn a deprecated name (e.g. "3M" into the current name
         # (e.g. "Bibliotheca").
         name = cls.DEPRECATED_NAMES.get(name, name)
-        if autocreate:
-            data_source, is_new = get_one_or_create(
-                _db, DataSource, name=name,
-                create_method_kwargs=dict(offers_licenses=offers_licenses)
-            )
-        else:
-            data_source = get_one(_db, DataSource, name=name)
-        return data_source
 
+        def lookup_hook():
+            """There was no such DataSource in the cache. Look one up or
+            create one.
+            """
+            if autocreate:
+                data_source, is_new = get_one_or_create(
+                    _db, DataSource, name=name,
+                    create_method_kwargs=dict(offers_licenses=offers_licenses)
+                )
+            else:
+                data_source = get_one(_db, DataSource, name=name)
+                is_new = False
+            return data_source, is_new
+
+        # Look up the DataSource in the full-table cache, falling back
+        # to the database if necessary.
+        obj, is_new = cls._check_cache(_db, name, lookup_hook)
+        return obj
+    
     URI_PREFIX = u"http://librarysimplified.org/terms/sources/"
 
     @classmethod
@@ -5306,7 +5394,7 @@ class Resource(Base):
         return quality
 
 
-class Genre(Base):
+class Genre(Base, HasFullTableCache):
     """A subject-matter classification for a book.
 
     Much, much more general than Classification.
@@ -5324,8 +5412,7 @@ class Genre(Base):
     work_genres = relationship("WorkGenre", backref="genre", 
                                cascade="all, delete, delete-orphan")
 
-    # A dictionary of all known Genre objects by name.
-    _cache = {}
+    _cache = HasFullTableCache.RESET
     
     def __repr__(self):
         if classifier.genres.get(self.name):
@@ -5335,34 +5422,18 @@ class Genre(Base):
         return "<Genre %s (%d subjects, %d works, %d subcategories)>" % (
             self.name, len(self.subjects), len(self.works), length)
 
-    @classmethod
-    def _cache_genre(cls, cache, genre):
-        """Remove a Genre's association with the database session
-        that created it, then cache it for later retrieval.
-
-        :return: The Genre, in a detached state.
-        """
-        make_transient(genre)
-        make_transient_to_detached(genre)
-        cache[genre.name] = genre
-        return genre
+    def cache_key(self):
+        return self.name
     
-    @classmethod
-    def load_all(cls, _db):
-        cache = {}
-        for genre in _db.query(Genre):
-            cls._cache_genre(cache, genre)
-        cls._cache = cache
-            
     @classmethod
     def lookup(cls, _db, name, autocreate=False):
         if isinstance(name, GenreData):
             name = name.name
 
-        new = False
-        if name not in cls._cache:
-            # This genre didn't exist when Genre.load_all() was called.
-            # Maybe it exists now, or we can create it.
+        def create():
+            """Function called when a Genre is not found in cache and must be
+            created."""
+            new = False
             args = (_db, Genre)
             if autocreate:
                 genre, new = get_one_or_create(*args, name=name)
@@ -5371,13 +5442,9 @@ class Genre(Base):
                 if genre is None:
                     logging.getLogger().error('"%s" is not a recognized genre.', name)
                     return None, False
-            cls._cache_genre(cls._cache, genre)
+            return genre, new
             
-        # Now we know the genre is in the cache. Retrieve it and associate
-        # it with this database session.
-        genre = cls._cache[name]
-        genre = _db.merge(genre, load=False)
-        return genre, new
+        return cls._check_cache(_db, name, create)
 
     @property
     def genredata(self):
@@ -8730,12 +8797,11 @@ class Complaint(Base):
         return self.resolved
 
 
-class Library(Base):
+class Library(Base, HasFullTableCache):
     """A library that uses this circulation manager to authenticate
     its patrons and manage access to its content.
 
-    Currently, a circulation manager serves only one library,
-    but that will change.
+    A circulation manager may serve many libraries.
     """
     __tablename__ = 'libraries'
 
@@ -8793,12 +8859,26 @@ class Library(Base):
         "ConfigurationSetting", backref="library",
         lazy="joined", cascade="save-update, merge, delete, delete-orphan",
     )
+
+    _cache = HasFullTableCache.RESET
     
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
             self.name, self.short_name, self.uuid, self.library_registry_short_name
         )
 
+    def cache_key(self):
+        return self.short_name
+
+    @classmethod
+    def lookup(cls, _db, short_name):
+        """Look up a library by short name."""
+        def _lookup():
+            library = get_one(_db, Library, short_name=short_name)
+            return library, False
+        library, is_new = cls._check_cache(_db, short_name, _lookup)
+        return library
+    
     @classmethod
     def default(cls, _db):
         """Find the default Library."""
@@ -9406,7 +9486,7 @@ class ExternalIntegration(Base):
         return lines
 
 
-class ConfigurationSetting(Base):
+class ConfigurationSetting(Base, HasFullTableCache):
     """An extra piece of site configuration.
 
     A ConfigurationSetting may be associated with an
@@ -9442,6 +9522,8 @@ class ConfigurationSetting(Base):
     __table_args__ = (
         UniqueConstraint('external_integration_id', 'library_id', 'key'),
     )
+
+    _cache = HasFullTableCache.RESET
 
     def __repr__(self):
         return u'<ConfigurationSetting: key=%s, ID=%d>' % (
@@ -9500,7 +9582,33 @@ class ConfigurationSetting(Base):
         return cls.for_library_and_externalintegration(
             _db, key, None, externalintegration
         )
-    
+
+    @classmethod
+    def _cache_insert(cls, setting, cache):
+        """Cache a ConfigurationSetting for later retrieval, probably by a
+        different database session.
+        """
+        library_id = setting.library_id
+        external_integration_id = setting.external_integration_id
+        key = setting.key
+        cache_key = (library_id, external_integration_id, key)
+        cache[cache_key] = setting
+
+    @classmethod
+    def _cache_key(cls, library, external_integration, key):
+        if library:
+            library_id = library.id
+        else:
+            library_id = None
+        if external_integration:
+            external_integration_id = external_integration.id
+        else:
+            external_integration_id = None
+        return (library_id, external_integration_id, key)
+        
+    def cache_key(self):
+        return self._cache_key(self.library, self.external_integration, key)
+        
     @classmethod
     def for_library_and_externalintegration(
             cls, _db, key, library, external_integration
@@ -9508,13 +9616,22 @@ class ConfigurationSetting(Base):
         """Find or create a ConfigurationSetting associated with a Library
         and an ExternalIntegration.
         """
-        setting, ignore = get_one_or_create(
-            _db, ConfigurationSetting,
-            library=library, external_integration=external_integration,
-            key=key
-        )
-        return setting
+        def create():
+            """Function called when a ConfigurationSetting is not found in cache
+            and must be created.
+            """
+            return get_one_or_create(
+                _db, ConfigurationSetting,
+                library=library, external_integration=external_integration,
+                key=key
+            )
 
+        # ConfigurationSettings are stored in cache based on their library,
+        # external integration, and the name of the setting.
+        cache_key = cls._cache_key(library, external_integration, key)
+        setting, ignore = cls._check_cache(_db, cache_key, create)
+        return setting
+        
     @hybrid_property
     def value(self):
         """What's the current value of this configuration setting?
@@ -9620,7 +9737,7 @@ class ConfigurationSetting(Base):
         return None
 
 
-class Collection(Base):
+class Collection(Base, HasFullTableCache):
 
     """A Collection is a set of LicensePools obtained through some mechanism.
     """
@@ -9692,12 +9809,31 @@ class Collection(Base):
         cascade="save-update, merge, delete"
     )
 
+    _cache = HasFullTableCache.RESET
+    
     def __repr__(self):
         return (u'<Collection "%s"/"%s" ID=%d>' %
                 (self.name, self.protocol, self.id)).encode('utf8')        
 
+    def cache_key(self):
+        return (self.name, self.external_integration.protocol)
+
     @classmethod
     def by_name_and_protocol(cls, _db, name, protocol):
+        """Find or create a Collection with the given name and the given
+        protocol.
+
+        This method uses the full-table cache if possible.
+
+        :return: A 2-tuple (collection, is_new)
+        """
+        key = (name, protocol)
+        def lookup_hook():
+            return cls._by_name_and_protocol(_db, key)
+        return cls._check_cache(_db, key, lookup_hook)
+
+    @classmethod
+    def _by_name_and_protocol(cls, _db, cache_key):
         """Find or create a Collection with the given name and the given
         protocol.
 
@@ -9706,6 +9842,8 @@ class Collection(Base):
 
         :return: A 2-tuple (collection, is_new)
         """
+        name, protocol = cache_key
+        
         qu = cls.by_protocol(_db, protocol)
         qu = qu.filter(Collection.name==name)
         try:
@@ -10256,3 +10394,46 @@ def configuration_relevant_collection_change(target, value, initiator):
 @event.listens_for(ConfigurationSetting, 'after_update')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(target)
+
+@event.listens_for(Collection, 'after_insert')
+@event.listens_for(Collection, 'after_delete')
+@event.listens_for(Collection, 'after_update')
+def refresh_collection_cache(mapper, connection, target):
+    # The next time someone tries to access a Collection,
+    # the cache will be repopulated.
+    Collection.reset_cache()
+
+@event.listens_for(ConfigurationSetting, 'after_insert')
+@event.listens_for(ConfigurationSetting, 'after_delete')
+@event.listens_for(ConfigurationSetting, 'after_update')
+def refresh_configuration_settings(mapper, connection, target):
+    # The next time someone tries to access a configuration setting,
+    # the cache will be repopulated.
+    ConfigurationSetting.reset_cache()
+    
+@event.listens_for(DataSource, 'after_insert')
+@event.listens_for(DataSource, 'after_delete')
+@event.listens_for(DataSource, 'after_update')
+def refresh_datasource_cache(mapper, connection, target):
+    # The next time someone tries to access a DataSource,
+    # the cache will be repopulated.
+    DataSource.reset_cache()
+    
+@event.listens_for(Library, 'after_insert')
+@event.listens_for(Library, 'after_delete')
+@event.listens_for(Library, 'after_update')
+def refresh_library_cache(mapper, connection, target):
+    # The next time someone tries to access a library,
+    # the cache will be repopulated.
+    Library.reset_cache()
+    
+@event.listens_for(Genre, 'after_insert')
+@event.listens_for(Genre, 'after_delete')
+@event.listens_for(Genre, 'after_update')
+def refresh_genre_cache(mapper, connection, target):
+    # The next time someone tries to access a genre,
+    # the cache will be repopulated.
+    #
+    # The only time this should really happen is the very first time a
+    # site is brought up, but just in case.
+    Genre.reset_cache()
