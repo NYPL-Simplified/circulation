@@ -904,7 +904,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         )
     
     def library(self, _db):
-        return Library.by_id(self._db, self.library_id)
+        return Library.by_id(_db, self.library_id)
     
     def authenticated_patron(self, _db, header):
         """Go from a WWW-Authenticate header (or equivalent) to a Patron object.
