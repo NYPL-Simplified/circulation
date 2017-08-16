@@ -720,7 +720,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
 
     # By default, Works calculated by a CollectionCoverageProvider update
     # the ExternalSearchIndex. Set this value to True for applications that
-    # use external search, such as the Metadata Wrangler.
+    # don't use external search, such as the Metadata Wrangler.
     EXCLUDE_SEARCH_INDEX = False
 
     def __init__(self, collection, **kwargs):
