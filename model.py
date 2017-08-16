@@ -171,70 +171,115 @@ class HasFullTableCache(object):
     
     RESET = object()
 
-    # You MUST define your own class-specific '_cache' variable, like
-    # so:
+    # You MUST define your own class-specific '_cache' and '_id_cache'
+    # variables, like so:
+    #
     # _cache = HasFullTableCache.RESET
+    # _id_cache = HasFullTableCache.RESET
     
     @classmethod
     def reset_cache(cls):
         cls._cache = cls.RESET
-
+        cls._id_cache = cls.RESET
+        
     def cache_key(self):
         raise NotImplementedError()
         
     @classmethod
-    def _cache_insert(cls, obj, cache):
+    def _cache_insert(cls, obj, cache, id_cache):
         """Cache an object for later retrieval, possibly by a different
         database session.
         """
         key = obj.cache_key()
-        cache[key] = obj
-
+        id = obj.id
+        try:
+            if cache != cls.RESET:
+                cache[key] = obj
+            if id_cache != cls.RESET:
+                id_cache[id] = obj
+        except TypeError, e:
+            # The cache was reset in between the time we checked for a
+            # reset and the time we tried to put an object in the
+            # cache. Stop trying to mess with the cache.
+            pass
+                
     @classmethod
     def populate_cache(cls, _db):
-        """Populate the in-memory cache from scratch with every single
+        """Populate the in-memory caches from scratch with every single
         object from the database table.
         """
         cache = {}
+        id_cache = {}
         for obj in _db.query(cls):
-            cls._cache_insert(obj, cache)
+            cls._cache_insert(obj, cache, id_cache)
         cls._cache = cache
+        cls._id_cache = id_cache
         
     @classmethod
-    def _check_cache(cls, _db, cache_key, lookup_hook):
+    def _cache_lookup(cls, _db, cache, cache_name, cache_key, lookup_hook):
+        """Helper method used by both by_id and by_cache_key.
+
+        Looks up `cache_key` in `cache` and calls `lookup_hook`
+        to find/create it if it's not in there.
+        """
         new = False
-        if cls._cache == cls.RESET:
+        obj = None
+        if cache == cls.RESET:
             # The cache has been reset. Populate it with the contents
             # of the table.
             cls.populate_cache(_db)
-        if cls._cache == cls.RESET or cache_key not in cls._cache:
-            # This object didn't exist when the cache was populated.
-            # Maybe it exists now, or we can create it.
+
+            # Get the new value of the cache, replacing the value
+            # that turned out to be cls.RESET.
+            cache = getattr(cls, cache_name)
+
+        if cache != cls.RESET:
+            try:
+                obj = cache.get(cache_key)
+            except TypeError, e:
+                # This shouldn't happen. Even if the actual cache was
+                # reset just now, we still have a copy of the 'old'
+                # cache which passed the 'cache != cls.RESET' test.
+                pass
+                
+        if not obj:
+            # Either this object didn't exist when the cache was
+            # populated, or the cache was reset while we were trying
+            # to look it up.
+            #
+            # Give up on the cache and go direct to the database,
+            # creating the object if necessary.
             if lookup_hook:
                 obj, new = lookup_hook()
             else:
                 obj = None
-            if cls._cache == cls.RESET:
-                # The cache was reset between the first line of this
-                # method and now. Since creation of a new
-                # ConfigurationSetting won't reset the cache, this
-                # shouldn't happen outside of a race condition.
-                #
-                # Just return the setting as-is and don't worry about
-                # updating the cache until things settle down.
-                return obj, new
             if not obj:
+                # The object doesn't exist and couldn't be created.
                 return obj, new
-            cls._cache_insert(obj, cls._cache)
 
-        # Now we know there is an object matching this cache key and
-        # it's in the cache. Retrieve it and associate it with this
-        # database session.
-        obj = cls._cache[cache_key]
+            # Stick the object in the caches, assuming they're not
+            # currently in a reset state.
+            cls._cache_insert(obj, cls._cache, cls._id_cache)
+            
         if obj and obj not in _db:
             obj = _db.merge(obj, load=False)
         return obj, new
-
+        
+    @classmethod
+    def by_id(cls, _db, id):
+        """Look up an item by its unique database ID."""
+        def lookup_hook():
+            return get_one(_db, cls, id=id), False        
+        obj, is_new = cls._cache_lookup(
+            _db, cls._id_cache, '_id_cache', id, lookup_hook
+        )
+        return obj
+            
+    @classmethod
+    def by_cache_key(cls, _db, cache_key, lookup_hook):
+        return cls._cache_lookup(
+            _db, cls._cache, '_cache', cache_key, lookup_hook
+        )
 
 class SessionManager(object):
 
@@ -382,6 +427,11 @@ class SessionManager(object):
         
         # Create any genres not in the database.
         for g in classifier.genres.values():
+            # TODO: On the very first startup this is rather expensive
+            # because the cache is invalidated every time a Genre is
+            # created, then populated the next time a Genre is looked
+            # up. This wouldn't be a big problem, but this also happens
+            # on setup for the unit tests.
             Genre.lookup(session, g, autocreate=True)
 
         # Make sure that the mechanisms fulfillable by the default
@@ -1025,6 +1075,7 @@ class DataSource(Base, HasFullTableCache):
     )
 
     _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
     
     def __repr__(self):
         return '<DataSource: name="%s">' % (self.name)
@@ -1033,7 +1084,8 @@ class DataSource(Base, HasFullTableCache):
         return self.name
     
     @classmethod
-    def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
+    def lookup(cls, _db, name, autocreate=False, offers_licenses=False,
+               primary_identifier_type=None):
         # Turn a deprecated name (e.g. "3M" into the current name
         # (e.g. "Bibliotheca").
         name = cls.DEPRECATED_NAMES.get(name, name)
@@ -1045,7 +1097,10 @@ class DataSource(Base, HasFullTableCache):
             if autocreate:
                 data_source, is_new = get_one_or_create(
                     _db, DataSource, name=name,
-                    create_method_kwargs=dict(offers_licenses=offers_licenses)
+                    create_method_kwargs=dict(
+                        offers_licenses=offers_licenses,
+                        primary_identifier_type=primary_identifier_type
+                    )
                 )
             else:
                 data_source = get_one(_db, DataSource, name=name)
@@ -1054,7 +1109,7 @@ class DataSource(Base, HasFullTableCache):
 
         # Look up the DataSource in the full-table cache, falling back
         # to the database if necessary.
-        obj, is_new = cls._check_cache(_db, name, lookup_hook)
+        obj, is_new = cls.by_cache_key(_db, name, lookup_hook)
         return obj
     
     URI_PREFIX = u"http://librarysimplified.org/terms/sources/"
@@ -1159,18 +1214,10 @@ class DataSource(Base, HasFullTableCache):
                 (cls.ENKI, True, False, Identifier.ENKI_ID, None)
         ):
 
-            extra = dict()
-            if refresh_rate:
-                extra['circulation_refresh_rate_seconds'] = refresh_rate
-
-            obj, new = get_one_or_create(
-                _db, DataSource,
-                name=name,
-                create_method_kwargs=dict(
-                    offers_licenses=offers_licenses,
-                    primary_identifier_type=primary_identifier_type,
-                    extra=extra,
-                )
+            obj = DataSource.lookup(
+                _db, name, autocreate=True,
+                offers_licenses=offers_licenses,
+                primary_identifier_type = primary_identifier_type
             )
 
             if offers_metadata_lookup:
@@ -5413,6 +5460,7 @@ class Genre(Base, HasFullTableCache):
                                cascade="all, delete, delete-orphan")
 
     _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
     
     def __repr__(self):
         if classifier.genres.get(self.name):
@@ -5426,7 +5474,7 @@ class Genre(Base, HasFullTableCache):
         return self.name
     
     @classmethod
-    def lookup(cls, _db, name, autocreate=False):
+    def lookup(cls, _db, name, autocreate=False, use_cache=True):
         if isinstance(name, GenreData):
             name = name.name
 
@@ -5443,8 +5491,11 @@ class Genre(Base, HasFullTableCache):
                     logging.getLogger().error('"%s" is not a recognized genre.', name)
                     return None, False
             return genre, new
-            
-        return cls._check_cache(_db, name, create)
+
+        if use_cache:
+            return cls.by_cache_key(_db, name, create)
+        else:
+            return create()
 
     @property
     def genredata(self):
@@ -8282,7 +8333,7 @@ class Representation(Base):
         return quotient
 
 
-class DeliveryMechanism(Base):
+class DeliveryMechanism(Base, HasFullTableCache):
     """A technique for delivering a book to a patron.
 
     There are two parts to this: a DRM scheme and a content
@@ -8330,6 +8381,9 @@ class DeliveryMechanism(Base):
         backref="delivery_mechanism"
     )
 
+    _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
+    
     @property
     def name(self):
         if self.drm_scheme is self.NO_DRM:
@@ -8338,6 +8392,9 @@ class DeliveryMechanism(Base):
             drm_scheme = self.drm_scheme
         return "%s (%s)" % (self.content_type, drm_scheme)
 
+    def cache_key(self):
+        return (self.content_type, self.drm_scheme)
+    
     def __repr__(self):   
 
         if self.default_client_can_fulfill:
@@ -8351,10 +8408,12 @@ class DeliveryMechanism(Base):
 
     @classmethod
     def lookup(cls, _db, content_type, drm_scheme):
-        return get_one_or_create(
-            _db, DeliveryMechanism, content_type=content_type,
-            drm_scheme=drm_scheme
-        )
+        def lookup_hook():
+            return get_one_or_create(
+                _db, DeliveryMechanism, content_type=content_type,
+                drm_scheme=drm_scheme
+            )
+        return cls.by_cache_key(_db, (content_type, drm_scheme), lookup_hook)
 
     @property
     def implicit_medium(self):
@@ -8861,6 +8920,7 @@ class Library(Base, HasFullTableCache):
     )
 
     _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
     
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
@@ -8876,7 +8936,7 @@ class Library(Base, HasFullTableCache):
         def _lookup():
             library = get_one(_db, Library, short_name=short_name)
             return library, False
-        library, is_new = cls._check_cache(_db, short_name, _lookup)
+        library, is_new = cls.by_cache_key(_db, short_name, _lookup)
         return library
     
     @classmethod
@@ -9233,7 +9293,7 @@ class Admin(Base):
         return _db.query(Admin).filter(Admin.password_hashed != None)
 
 
-class ExternalIntegration(Base):
+class ExternalIntegration(Base, HasFullTableCache):
 
     """An external integration contains configuration for connecting
     to a third-party API.
@@ -9357,6 +9417,9 @@ class ExternalIntegration(Base):
     USERNAME = u"username"
     PASSWORD = u"password"
 
+    _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
+    
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
 
@@ -9383,8 +9446,19 @@ class ExternalIntegration(Base):
         return u"<ExternalIntegration: protocol=%s goal='%s' settings=%d ID=%d>" % (
             self.protocol, self.goal, len(self.settings), self.id)
 
+    def cache_key(self):
+        # TODO: This is not ideal, but the lookup method isn't like
+        # other HasFullTableCache lookup methods, so for now we use
+        # the unique ID as the cache key. This means that
+        # by_cache_key() and by_id() do the same thing.
+        #
+        # This is okay because we need by_id() quite a
+        # bit and by_cache_key() not as much.
+        return self.id
+    
     @classmethod
     def lookup(cls, _db, protocol, goal, library=None):
+        
         integrations = _db.query(cls).outerjoin(cls.libraries).filter(
             cls.protocol==protocol, cls.goal==goal
         )
@@ -9524,7 +9598,8 @@ class ConfigurationSetting(Base, HasFullTableCache):
     )
 
     _cache = HasFullTableCache.RESET
-
+    _id_cache = HasFullTableCache.RESET
+    
     def __repr__(self):
         return u'<ConfigurationSetting: key=%s, ID=%d>' % (
             self.key, self.id)
@@ -9584,17 +9659,6 @@ class ConfigurationSetting(Base, HasFullTableCache):
         )
 
     @classmethod
-    def _cache_insert(cls, setting, cache):
-        """Cache a ConfigurationSetting for later retrieval, probably by a
-        different database session.
-        """
-        library_id = setting.library_id
-        external_integration_id = setting.external_integration_id
-        key = setting.key
-        cache_key = (library_id, external_integration_id, key)
-        cache[cache_key] = setting
-
-    @classmethod
     def _cache_key(cls, library, external_integration, key):
         if library:
             library_id = library.id
@@ -9607,7 +9671,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         return (library_id, external_integration_id, key)
         
     def cache_key(self):
-        return self._cache_key(self.library, self.external_integration, key)
+        return self._cache_key(self.library, self.external_integration, self.key)
         
     @classmethod
     def for_library_and_externalintegration(
@@ -9629,7 +9693,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         # ConfigurationSettings are stored in cache based on their library,
         # external integration, and the name of the setting.
         cache_key = cls._cache_key(library, external_integration, key)
-        setting, ignore = cls._check_cache(_db, cache_key, create)
+        setting, ignore = cls.by_cache_key(_db, cache_key, create)
         return setting
         
     @hybrid_property
@@ -9657,6 +9721,8 @@ class ConfigurationSetting(Base, HasFullTableCache):
     
     @value.setter
     def set_value(self, new_value):
+        if new_value:
+            new_value = unicode(new_value)
         self._value = new_value
 
     @classmethod
@@ -9810,6 +9876,7 @@ class Collection(Base, HasFullTableCache):
     )
 
     _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
     
     def __repr__(self):
         return (u'<Collection "%s"/"%s" ID=%d>' %
@@ -9830,7 +9897,7 @@ class Collection(Base, HasFullTableCache):
         key = (name, protocol)
         def lookup_hook():
             return cls._by_name_and_protocol(_db, key)
-        return cls._check_cache(_db, key, lookup_hook)
+        return cls.by_cache_key(_db, key, lookup_hook)
 
     @classmethod
     def _by_name_and_protocol(cls, _db, cache_key):
@@ -10004,9 +10071,7 @@ class Collection(Base, HasFullTableCache):
                 "No known external integration for collection %s" % self.name
             )
         _db = Session.object_session(self)
-        return get_one(
-            _db, ExternalIntegration, id=self.external_integration_id
-        )
+        return ExternalIntegration.by_id(_db, self.external_integration_id)
 
     @property
     def unique_account_id(self):
@@ -10052,7 +10117,7 @@ class Collection(Base, HasFullTableCache):
     def parents(self):
         if self.parent_id:
             _db = Session.object_session(self)
-            parent = get_one(_db, Collection, id=self.parent_id)
+            parent = Collection.by_id(_db, self.parent_id)
             yield parent
             for collection in parent.parents:
                 yield collection
@@ -10421,6 +10486,22 @@ def refresh_datasource_cache(mapper, connection, target):
     # The next time someone tries to access a DataSource,
     # the cache will be repopulated.
     DataSource.reset_cache()
+
+@event.listens_for(DeliveryMechanism, 'after_insert')
+@event.listens_for(DeliveryMechanism, 'after_delete')
+@event.listens_for(DeliveryMechanism, 'after_update')
+def refresh_datasource_cache(mapper, connection, target):
+    # The next time someone tries to access a DeliveryMechanism,
+    # the cache will be repopulated.
+    DeliveryMechanism.reset_cache()
+    
+@event.listens_for(ExternalIntegration, 'after_insert')
+@event.listens_for(ExternalIntegration, 'after_delete')
+@event.listens_for(ExternalIntegration, 'after_update')
+def refresh_datasource_cache(mapper, connection, target):
+    # The next time someone tries to access an ExternalIntegration,
+    # the cache will be repopulated.
+    ExternalIntegration.reset_cache()
     
 @event.listens_for(Library, 'after_insert')
 @event.listens_for(Library, 'after_delete')

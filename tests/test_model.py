@@ -156,13 +156,13 @@ class TestDataSource(DatabaseTest):
         eq_(key, gutenberg.cache_key())
 
         # Object has been loaded into cache.
-        eq_((gutenberg, False), DataSource._check_cache(self._db, key, None))
+        eq_((gutenberg, False), DataSource.by_cache_key(self._db, key, None))
 
         # Now try creating a new data source.
         key = "New data source"
 
         # It's not in the cache.
-        eq_((None, False), DataSource._check_cache(self._db, key, None))
+        eq_((None, False), DataSource.by_cache_key(self._db, key, None))
 
         new_source = DataSource.lookup(
             self._db, key, autocreate=True, offers_licenses=True
@@ -172,8 +172,10 @@ class TestDataSource(DatabaseTest):
         eq_(key, new_source.name)
         eq_(True, new_source.offers_licenses)
 
-        # Now it's in the cache.
-        eq_((new_source, False), DataSource._check_cache(self._db, key, None))
+        # The cache was reset when the data source was created.
+        eq_(HasFullTableCache.RESET, DataSource._cache)
+
+        eq_((new_source, False), DataSource.by_cache_key(self._db, key, None))
         
     def test_lookup_by_deprecated_name(self):
         threem = DataSource.lookup(self._db, "3M")
@@ -629,17 +631,39 @@ class TestGenre(DatabaseTest):
 
         # We start with an unusable object as the cache.
         eq_(Genre.RESET, Genre._cache)
+        eq_(Genre.RESET, Genre._id_cache)
 
         # When we call populate_cache()...
         Genre.populate_cache(self._db)
 
         # Every Genre in the database is copied to the cache.
         dont_call_this = object
-        drama, is_new = Genre._check_cache(self._db, "Drama", dont_call_this)
+        drama, is_new = Genre.by_cache_key(self._db, "Drama", dont_call_this)
         eq_("Drama", drama.name)
         eq_(False, is_new)
 
-    def test_check_cache_miss_triggers_create_function(self):
+        # The ID of every genre is copied to the ID cache.
+        eq_(drama, Genre._id_cache[drama.id])
+        drama2 = Genre.by_id(self._db, drama.id)
+        eq_(drama2, drama)
+
+    def test_by_id(self):
+
+        # Get a genre to test with.
+        drama = get_one(self._db, Genre, name="Drama")
+        
+        # Since we went right to the database, that didn't change the
+        # fact that the ID cache is uninitialized.
+        eq_(Genre.RESET, Genre._id_cache)
+
+        # Look up the same genre using by_id...
+        eq_(drama, Genre.by_id(self._db, drama.id))
+
+        # ... and the ID cache is fully initialized.
+        eq_(drama, Genre._id_cache[drama.id])
+        assert len(Genre._id_cache) > 1
+        
+    def test_by_cache_key_miss_triggers_create_function(self):
         _db = self._db
         class Factory(object):
 
@@ -653,7 +677,8 @@ class TestGenre(DatabaseTest):
                 
         factory = Factory()
         Genre._cache = {}
-        genre, is_new = Genre._check_cache(self._db, "Drama", factory.call_me)
+        Genre._id_cache = {}
+        genre, is_new = Genre.by_cache_key(self._db, "Drama", factory.call_me)
         eq_("Drama", genre.name)
         eq_(False, is_new)
         eq_(True, factory.called)
@@ -662,12 +687,15 @@ class TestGenre(DatabaseTest):
         # Genre's cache key in the table-wide cache.
         eq_(genre, Genre._cache[genre.cache_key()])
 
-    def test_check_cache_miss_when_cache_is_reset_populates_cache(self):
+        # The cache by ID has been similarly populated.
+        eq_(genre, Genre._id_cache[genre.id])
+
+    def test_by_cache_key_miss_when_cache_is_reset_populates_cache(self):
         # The cache is not in a state to be used.
         eq_(Genre._cache, Genre.RESET)
 
-        # Call Genre_check_cache...
-        drama, is_new = Genre._check_cache(
+        # Call Genreby_cache_key...
+        drama, is_new = Genre.by_cache_key(
             self._db, "Drama",
             lambda: get_one_or_create(self._db, Genre, name="Drama")
         )
@@ -676,8 +704,9 @@ class TestGenre(DatabaseTest):
 
         # ... and the cache is repopulated
         assert drama.cache_key() in Genre._cache
+        assert drama.id in Genre._id_cache
 
-    def test_check_cache_hit_returns_cached_object(self):
+    def test_by_cache_key_hit_returns_cached_object(self):
 
         # If the object we ask for is not already in the cache, this
         # function will be called and raise an exception.
@@ -685,7 +714,7 @@ class TestGenre(DatabaseTest):
             raise Exception("Kaboom")
         drama, ignore = get_one_or_create(self._db, Genre, name="Drama")
         Genre._cache = { "Drama": drama }
-        drama2, is_new = Genre._check_cache(
+        drama2, is_new = Genre.by_cache_key(
             self._db, "Drama", exploding_create_hook
         )
 
@@ -6731,8 +6760,14 @@ class MockHasTableCache(HasFullTableCache):
     """
     
     _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
 
+    ID = "the only ID"
     KEY = "the only cache key"
+
+    @property
+    def id(self):
+        return self.ID
     
     def cache_key(self):
         return self.KEY
@@ -6748,17 +6783,21 @@ class TestHasFullTableCache(DatabaseTest):
 
     def test_reset_cache(self):
         self.mock_class._cache = object()
+        self.mock_class._id_cache = object()
         self.mock_class.reset_cache()
         eq_(HasFullTableCache.RESET, self.mock_class._cache)
+        eq_(HasFullTableCache.RESET, self.mock_class._id_cache)
 
     def test_cache_insert(self):
         temp_cache = {}
-        value = object()
-        self.mock_class._cache_insert(self.mock, temp_cache)
-        eq_({self.mock.KEY: self.mock}, temp_cache)
+        temp_id_cache = {}
+        self.mock_class._cache_insert(self.mock, temp_cache, temp_id_cache)
+        eq_({MockHasTableCache.KEY: self.mock}, temp_cache)
+        eq_({MockHasTableCache.ID: self.mock}, temp_id_cache)
 
-    # populate_cache() and _check_cache() are tested in TestGenre
-    # since those methods must be backed by a real database table.
+    # populate_cache(), by_cache_key(), and by_id() are tested in
+    # TestGenre since those methods must be backed by a real database
+    # table.
 
 
     
