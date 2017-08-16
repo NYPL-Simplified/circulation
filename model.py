@@ -9574,8 +9574,6 @@ class ConfigurationSetting(Base, HasFullTableCache):
         """Find or create a ConfigurationSetting associated with a Library
         and an ExternalIntegration.
         """
-        cache_key = self._cache_key(library, external_integration, key)
-
         def create():
             """Function called when a ConfigurationSetting is not found in cache
             and must be created.
@@ -9586,6 +9584,9 @@ class ConfigurationSetting(Base, HasFullTableCache):
                 key=key
             )
 
+        # ConfigurationSettings are stored in cache based on their library,
+        # external integration, and the name of the setting.
+        cache_key = cls._cache_key(library, external_integration, key)
         setting, ignore = cls._check_cache(_db, cache_key, create)
         return setting
         
