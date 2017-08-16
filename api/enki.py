@@ -113,8 +113,6 @@ class EnkiAPI(BaseCirculationAPI):
     log = logging.getLogger("Enki API")
     log.setLevel(logging.DEBUG)
 
-    TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
-
     def __init__(self, _db, collection):
         self._db = _db
 
@@ -247,6 +245,16 @@ class EnkiAPI(BaseCirculationAPI):
 
             return circulationdata
 
+    def epoch_to_struct(self, epoch_string):
+        # This will turn the time string we get from Enki into a
+        # struct that the Circulation Manager can make use of.
+        time_format = "%Y-%m-%dT%H:%M:%S"
+        return datetime.datetime.strptime(
+            time.strftime(time_format, time.localtime(float(epoch_string))),
+            time_format
+        )
+
+
     def checkout(self, patron, pin, licensepool, internal_format):
         # TODO: remove these two assignments; test only
         patron = "21157022927878"
@@ -271,10 +279,7 @@ class EnkiAPI(BaseCirculationAPI):
                 self.log.error("User validation against Enki server was unsuccessful.")
                 raise CirculationException()
         due_date = result['checkedOutItems'][0]['duedate']
-        expires = datetime.datetime.strptime(
-                time.strftime(self.TIME_FORMAT, time.localtime(float(due_date))),
-                self.TIME_FORMAT
-        )
+        expires = self.epoch_to_struct(due_date)
 
         # Create the loan info.
         loan = LoanInfo(
@@ -286,7 +291,6 @@ class EnkiAPI(BaseCirculationAPI):
             expires,
             None,
         )
-
         return loan
 
     def loan_request(self, barcode, pin, book_id):
@@ -307,8 +311,11 @@ class EnkiAPI(BaseCirculationAPI):
         return response
 
     def fulfill(self, patron, pin, licensepool, internal_format):
+        # TODO: remove these two assignments; test only
+        patron = "21157022927878"
+        pin = "ITSD"
         book_id = licensepool.identifier.identifier
-        response = loan_request(patron, pin, book_id)
+        response = self.loan_request(patron, pin, book_id)
         if response.status_code != 200:
             raise CannotFulfill(response.status_code)
         result = json.loads(response.content)['result']
@@ -325,7 +332,7 @@ class EnkiAPI(BaseCirculationAPI):
                 # TODO: raise invalid barcode/password error
                 self.log.error("User validation against Enki server was unsuccessful.")
                 raise CirculationException()
-        url, media_type, expires = parse_fulfill_result(result)
+        url, media_type, expires = self.parse_fulfill_result(result)
         return FulfillmentInfo(
             licensepool.collection,
             licensepool.data_source.name,
@@ -342,14 +349,14 @@ class EnkiAPI(BaseCirculationAPI):
         url = links['url']
         media_type = links['item_type']
         due_date = result['checkedOutItems'][0]['duedate']
-        expires = datetime.datetime.strptime(
-                time.strftime(self.TIME_FORMAT, time.localtime(float(due_date))),
-                self.TIME_FORMAT
-        )
+        expires = self.epoch_to_struct(due_date)
         return (url, media_type, expires)
 
     def patron_activity(self, patron, pin):
-        response = loan_request(patron, pin, book_id)
+        # TODO: remove these two assignments; test only
+        patron = "21157022927878"
+        pin = "ITSD"
+        response = self.patron_request(patron, pin)
         if response.status_code != 200:
             raise PatronNotFoundOnRemote(response.status_code)
         result = json.loads(response.content)['result']
@@ -362,29 +369,43 @@ class EnkiAPI(BaseCirculationAPI):
                 # TODO: raise no copies error
                 self.log.error("There are no copies of this book available.")
                 raise CirculationException()
-            elif "Login unsuccessful" in message:
+            else:
                 # TODO: raise invalid barcode/password error
-                self.log.error("User validation against Enki server was unsuccessful.")
+                self.log.error("Something happened in patron_activity.")
                 raise CirculationException()
-        loans = parse_patron_loans(result['profile']['checkedOutItems'])
-        holds = parse_patron_holds(result['profile']['holds'])
+        for loan in result['checkedOutItems']:
+            yield self.parse_patron_loans(loan)
+        #holds = parse_patron_holds(result['holds'])
 
     def patron_request(self, patron, pin):
         self.log.debug ("Querying Enki for information on patron %s" % patron)
         url = str(self.base_url) + str(self.user_endpoint)
         args = dict()
         args['method'] = "getSEPatronData"
-        args['username'] = barcode
+        args['username'] = patron
         args['password'] = pin
         args['lib'] = self.library_id
         final_url = url + "?"
         for k, d in args.iteritems():
             final_url = final_url + k + "=" + d + "&"
 
-        response = self.request(url, method='get', params=args)
+        return self.request(url, method='get', params=args)
 
-    def parse_patron_loans(checkout_data):
-        pass
+    def parse_patron_loans(self, checkout_data):
+        # We should receive a list of JSON objects
+        enki_id = checkout_data['recordId']
+        start_date = self.epoch_to_struct(checkout_data['checkoutdate'])
+        end_date = self.epoch_to_struct(checkout_data['duedate'])
+        collection = self._db.merge(self.collection)
+        return LoanInfo(
+            collection,
+            DataSource.ENKI,
+            Identifier.ENKI_ID,
+            enki_id,
+            start_date=start_date,
+            end_date=end_date,
+            fulfillment_info=None
+        )
 
     def parse_patron_holds(hold_data):
         pass
