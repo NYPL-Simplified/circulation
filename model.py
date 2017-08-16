@@ -9406,6 +9406,9 @@ class ExternalIntegration(Base, HasFullTableCache):
     USERNAME = u"username"
     PASSWORD = u"password"
 
+    _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
+    
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
 
@@ -9431,6 +9434,16 @@ class ExternalIntegration(Base, HasFullTableCache):
     def __repr__(self):
         return u"<ExternalIntegration: protocol=%s goal='%s' settings=%d ID=%d>" % (
             self.protocol, self.goal, len(self.settings), self.id)
+
+    def cache_key(self):
+        # TODO: This is not ideal, but the lookup method isn't like
+        # other HasFullTableCache lookup methods, so for now we use
+        # the unique ID as the cache key. This means that
+        # for_cache_key() and for_id() do the same thing.
+        #
+        # This is okay because we need for_id() quite a
+        # bit and for_cache_key() not as much.
+        return self.id
     
     @classmethod
     def lookup(cls, _db, protocol, goal, library=None):
@@ -10047,9 +10060,7 @@ class Collection(Base, HasFullTableCache):
                 "No known external integration for collection %s" % self.name
             )
         _db = Session.object_session(self)
-        return get_one(
-            _db, ExternalIntegration, id=self.external_integration_id
-        )
+        return ExternalIntegration.by_id(_db, self.external_integration_id)
 
     @property
     def unique_account_id(self):
@@ -10461,6 +10472,14 @@ def refresh_datasource_cache(mapper, connection, target):
     # The next time someone tries to access a DataSource,
     # the cache will be repopulated.
     DataSource.reset_cache()
+
+@event.listens_for(ExternalIntegration, 'after_insert')
+@event.listens_for(ExternalIntegration, 'after_delete')
+@event.listens_for(ExternalIntegration, 'after_update')
+def refresh_datasource_cache(mapper, connection, target):
+    # The next time someone tries to access an ExternalIntegration,
+    # the cache will be repopulated.
+    ExternalIntegration.reset_cache()
     
 @event.listens_for(Library, 'after_insert')
 @event.listens_for(Library, 'after_delete')

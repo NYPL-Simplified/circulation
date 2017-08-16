@@ -168,6 +168,7 @@ class DatabaseTest(object):
         Collection.reset_cache()
         ConfigurationSetting.reset_cache()
         DataSource.reset_cache()
+        ExternalIntegration.reset_cache()
         Genre.reset_cache()
         Library.reset_cache()
         
