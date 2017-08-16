@@ -8,7 +8,7 @@ from core.coverage import (
     CollectionCoverageProvider,
     WorkCoverageProvider,
 )
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import contains_eager
 from core.model import (
     Collection,
@@ -159,8 +159,8 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     OPERATION = CoverageRecord.IMPORT_OPERATION
     DATA_SOURCE_NAME = DataSource.METADATA_WRANGLER
     INPUT_IDENTIFIER_TYPES = [
-        Identifier.OVERDRIVE_ID, 
-        Identifier.THREEM_ID,
+        Identifier.OVERDRIVE_ID,
+        Identifier.BIBLIOTHECA_ID,
         Identifier.AXIS_360_ID,
         Identifier.ONECLICK_ID,
     ]
@@ -189,7 +189,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         mapping = dict()
         for identifier in batch:
             if identifier.type in [
-                    Identifier.AXIS_360_ID, Identifier.THREEM_ID,
+                    Identifier.AXIS_360_ID, Identifier.BIBLIOTHECA_ID,
                     Identifier.ONECLICK_ID
             ]:
                 for e in identifier.equivalencies:
@@ -286,21 +286,27 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
         uncovered = super(MetadataWranglerCoverageProvider, self)\
             .items_that_need_coverage(identifiers, **kwargs)
 
+        # Make sure they're licensed by this collection.
+        uncovered = uncovered.filter(
+            or_(LicensePool.open_access, LicensePool.licenses_owned > 0)
+        )
+
         # We'll be excluding items that have been reaped because we
         # stopped having a license.
-        reaper_covered = self._db.query(Identifier).\
-                join(Identifier.coverage_records).\
-                filter(
-                    CoverageRecord.data_source==self.data_source,
-                    CoverageRecord.collection_id==self.collection_id,
-                    CoverageRecord.operation==CoverageRecord.REAP_OPERATION
-                )
+        reaper_covered = self._db.query(Identifier)\
+            .join(Identifier.coverage_records)\
+            .filter(
+                CoverageRecord.data_source==self.data_source,
+                CoverageRecord.collection_id==self.collection_id,
+                CoverageRecord.operation==CoverageRecord.REAP_OPERATION
+            )
 
-        # But we'll be _including_ items that were reaped and then we
-        # got the license back.
-        relicensed = reaper_covered.join(Identifier.licensed_through).\
-                filter(LicensePool.licenses_owned > 0).\
-                options(contains_eager(Identifier.coverage_records))
+        # But we'll be _including_ items that were reaped but have since been
+        # relicensed or otherwise added back to the collection.
+        relicensed = reaper_covered.join(Identifier.licensed_through).filter(
+                LicensePool.collection_id==self.collection_id,
+                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+            ).options(contains_eager(Identifier.coverage_records))
 
         # Remove MetadataWranglerCollectionReaper coverage records from
         # relicensed identifiers. This ensures that we can get Metadata
