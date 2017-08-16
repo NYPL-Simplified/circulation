@@ -248,7 +248,7 @@ class EnkiAPI(BaseCirculationAPI):
             return circulationdata
 
     def checkout(self, patron, pin, licensepool, internal_format):
-        # WIP.
+        # TODO: remove these two assignments; test only
         patron = "21157022927878"
         pin = "ITSD"
         identifier = licensepool.identifier
@@ -384,7 +384,16 @@ class EnkiAPI(BaseCirculationAPI):
         response = self.request(url, method='get', params=args)
 
     def parse_patron_loans(checkout_data):
-       pass
+        pass
+
+    def parse_patron_holds(hold_data):
+        pass
+
+    def place_hold(self, patron, pin, licensepool, notification_email_address):
+        pass
+
+    def release_hold(self, patron, pin, licensepool):
+        pass
 
 class MockEnkiAPI(EnkiAPI):
     def __init__(self, _db, collection=None, *args, **kwargs):
