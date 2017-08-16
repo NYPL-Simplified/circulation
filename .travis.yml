@@ -1,18 +1,17 @@
 sudo: false
-dist: precise
+dist: trusty
 
 addons:  
   postgresql: "9.3"
   apt:
-    sources:
-      - elasticsearch-1.7
     packages:
-      - elasticsearch
       - postgresql-contrib-9.3
+
+env:
+  - ES_VERSION=1.7.0 ES_DOWNLOAD_URL=https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-${ES_VERSION}.tar.gz
 
 services:
   - postgresql
-  - elasticsearch
 
 language: python
 
@@ -35,6 +34,9 @@ install:
   - python -m textblob.download_corpora
   - cp config.json.sample config.json
   - export SIMPLIFIED_CONFIGURATION_FILE="$TRAVIS_BUILD_DIR/config.json"
+  - wget ${ES_DOWNLOAD_URL}
+  - tar -xzf elasticsearch-${ES_VERSION}.tar.gz
+  - ./elasticsearch-${ES_VERSION}/bin/elasticsearch &
 
 before_script:
   - psql -c 'create user simplified_test;' -U postgres
@@ -42,4 +44,6 @@ before_script:
   - psql -c 'grant all privileges on database simplified_core_test to simplified_test;' -U postgres
   - psql -c 'create extension pgcrypto;' -U postgres -d simplified_core_test
 
-script: ./test
+script:
+  - wget -q --waitretry=1 --retry-connrefused -T 10 -O - http://127.0.0.1:9200
+  - ./test
