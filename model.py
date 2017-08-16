@@ -9721,7 +9721,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
     
     @value.setter
     def set_value(self, new_value):
-        if new_value:
+        if new_value is not None:
             new_value = unicode(new_value)
         self._value = new_value
 
