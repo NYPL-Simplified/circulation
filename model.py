@@ -10481,6 +10481,14 @@ def refresh_datasource_cache(mapper, connection, target):
     # the cache will be repopulated.
     DataSource.reset_cache()
 
+@event.listens_for(DeliveryMechanism, 'after_insert')
+@event.listens_for(DeliveryMechanism, 'after_delete')
+@event.listens_for(DeliveryMechanism, 'after_update')
+def refresh_datasource_cache(mapper, connection, target):
+    # The next time someone tries to access a DeliveryMechanism,
+    # the cache will be repopulated.
+    DeliveryMechanism.reset_cache()
+    
 @event.listens_for(ExternalIntegration, 'after_insert')
 @event.listens_for(ExternalIntegration, 'after_delete')
 @event.listens_for(ExternalIntegration, 'after_update')
