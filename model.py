@@ -214,52 +214,24 @@ class HasFullTableCache(object):
             cls._cache_insert(obj, cache, id_cache)
         cls._cache = cache
         cls._id_cache = id_cache
-        
+
     @classmethod
-    def by_id(cls, _db, id):
-        """Look up an item by its unique database ID."""
-        if cls._id_cache == cls.RESET:
-            # The cache has been reset. Populate it with the contents
-            # of the table.
-            cls.populate_cache(_db)
+    def _cache_lookup(cls, _db, cache, cache_key, lookup_hook):
+        """Helper method used by both by_id and _check_cache.
 
-        obj = None
-        if cls._id_cache != cls.RESET:
-            try:
-                obj = cls._id_cache.get(id)
-            except TypeError, e:
-                # The cache was reset while we were doing the lookup.
-                pass
-                
-        if not obj:
-            # Either this object didn't exist when the cache was
-            # populated, or the cache was reset while we were trying
-            # to look it up.
-            #
-            # Give up on the cache and go direct to the database,
-            # creating the object if necessary.
-            obj = get_one(_db, cls, id==id)
-
-            # Stick the object in the cache, assuming the cache hasn't
-            # been reset.
-            cls._cache_insert(obj, cls._cache, cls._id_cache)
-
-        if obj and obj not in _db:
-            obj = _db.merge(obj, load=False)
-        return obj
-            
-    @classmethod
-    def _check_cache(cls, _db, cache_key, lookup_hook):
+        Looks up `cache_key` in `cache` and calls `lookup_hook`
+        to find/create it if it's not in there.
+        """
         new = False
         obj = None
-        if cls._cache == cls.RESET:
+        if cache == cls.RESET:
             # The cache has been reset. Populate it with the contents
             # of the table.
             cls.populate_cache(_db)
 
-        if cls._cache != cls.RESET:
+        if cache != cls.RESET:
             try:
-                obj = cls._cache.get(cache_key)
+                obj = cache.get(cache_key)
             except TypeError, e:
                 # The cache was reset while we were doing the lookup.
                 pass
@@ -279,14 +251,25 @@ class HasFullTableCache(object):
                 # The object doesn't exist and couldn't be created.
                 return obj, new
 
-            # Stick the object in the cache, assuming the cache hasn't
+            # Stick the object in the caches, assuming they haven't
             # been reset.
             cls._cache_insert(obj, cls._cache, cls._id_cache)
             
         if obj and obj not in _db:
             obj = _db.merge(obj, load=False)
         return obj, new
-
+        
+    @classmethod
+    def by_id(cls, _db, id):
+        """Look up an item by its unique database ID."""
+        def lookup_hook():
+            return get_one(_db, cls, id=id), False        
+        obj, is_new = cls._cache_lookup(_db, cls._id_cache, id, lookup_hook)
+        return obj
+            
+    @classmethod
+    def _check_cache(cls, _db, cache_key, lookup_hook):
+        return cls._cache_lookup(_db, cls._cache, cache_key, lookup_hook)
 
 class SessionManager(object):
 
