@@ -143,11 +143,38 @@ class TestDatabaseInterface(DatabaseTest):
 class TestDataSource(DatabaseTest):
 
     def test_lookup(self):
-        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        eq_(DataSource.GUTENBERG, gutenberg.name)
-        eq_(True, gutenberg.offers_licenses)
+        key = DataSource.GUTENBERG
 
-       
+        # Unlike with most of these tests, this cache doesn't start
+        # out empty. It's populated with all known values at the start
+        # of the test. Let's reset the cache.
+        DataSource.reset_cache()
+        
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        eq_(key, gutenberg.name)
+        eq_(True, gutenberg.offers_licenses)
+        eq_(key, gutenberg.cache_key())
+
+        # Object has been loaded into cache.
+        eq_((gutenberg, False), DataSource._check_cache(self._db, key, None))
+
+        # Now try creating a new data source.
+        key = "New data source"
+
+        # It's not in the cache.
+        eq_((None, False), DataSource._check_cache(self._db, key, None))
+
+        new_source = DataSource.lookup(
+            self._db, key, autocreate=True, offers_licenses=True
+        )
+
+        # A new data source has been created.
+        eq_(key, new_source.name)
+        eq_(True, new_source.offers_licenses)
+
+        # Now it's in the cache.
+        eq_((new_source, False), DataSource._check_cache(self._db, key, None))
+        
     def test_lookup_by_deprecated_name(self):
         threem = DataSource.lookup(self._db, "3M")
         eq_(DataSource.BIBLIOTHECA, threem.name)
@@ -635,11 +662,11 @@ class TestGenre(DatabaseTest):
         # Genre's cache key in the table-wide cache.
         eq_(genre, Genre._cache[genre.cache_key()])
 
-    def test_check_cache_miss_when_cache_is_reset_returns_object_only(self):
+    def test_check_cache_miss_when_cache_is_reset_populates_cache(self):
         # The cache is not in a state to be used.
         eq_(Genre._cache, Genre.RESET)
 
-        # But Genre_check_cache still works.
+        # Call Genre_check_cache...
         drama, is_new = Genre._check_cache(
             self._db, "Drama",
             lambda: get_one_or_create(self._db, Genre, name="Drama")
@@ -647,8 +674,8 @@ class TestGenre(DatabaseTest):
         eq_("Drama", drama.name)
         eq_(False, is_new)
 
-        # It just doesn't make use of the cache.
-        eq_(Genre._cache, Genre.RESET)
+        # ... and the cache is repopulated
+        assert drama.cache_key() in Genre._cache
 
     def test_check_cache_hit_returns_cached_object(self):
 
@@ -5593,6 +5620,19 @@ class TestLibrary(DatabaseTest):
         # recommended, but it's not an error.
         library.library_registry_short_name = None
 
+    def test_lookup(self):
+        library = self._default_library
+        name = library.short_name
+        eq_(name, library.cache_key())
+
+        # Cache is empty.
+        eq_(HasFullTableCache.RESET, Library._cache)
+
+        eq_(library, Library.lookup(self._db, name))
+
+        # Cache is populated.
+        eq_(library, Library._cache[name])
+            
     def test_default(self):
         # We start off with no libraries.
         eq_(None, Library.default(self._db))
@@ -5734,7 +5774,7 @@ class TestExternalIntegration(DatabaseTest):
         self.external_integration, ignore = create(
             self._db, ExternalIntegration, goal=self._str, protocol=self._str
         )
-
+        
     def test_data_source(self):
         # For most collections, the protocol determines the
         # data source.
@@ -6201,20 +6241,33 @@ class TestCollection(DatabaseTest):
         )
 
     def test_by_name_and_protocol(self):
-        # You'll get an exception if you look up an existing name
-        # but the protocol doesn't match.
         name = "A name"
+        protocol = ExternalIntegration.OVERDRIVE
+        key = (name, protocol)
+        
+        # Cache is empty.
+        eq_(HasFullTableCache.RESET, Collection._cache)
+        
         collection1, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
         eq_(True, is_new)
 
+        # Cache was populated and then reset because we created a new
+        # Collection.
+        eq_(HasFullTableCache.RESET, Collection._cache)
+        
         collection2, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
         eq_(collection1, collection2)
         eq_(False, is_new)
 
+        # This time the cache was not reset after being populated.
+        eq_(collection1, Collection._cache[key])
+        
+        # You'll get an exception if you look up an existing name
+        # but the protocol doesn't match.
         assert_raises_regexp(
             ValueError,
             'Collection "A name" does not use protocol "Bibliotheca".',
