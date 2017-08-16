@@ -2389,7 +2389,6 @@ class TestSettingsController(AdminControllerTest):
             assert AcquisitionFeed.NONGROUPED_MAX_AGE_POLICY in keys
             assert Configuration.SECRET_KEY in keys
 
-        set_trace()
         ConfigurationSetting.sitewide(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 0
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "secret"
 
