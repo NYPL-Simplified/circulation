@@ -1074,6 +1074,7 @@ class DataSource(Base, HasFullTableCache):
     )
 
     _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
     
     def __repr__(self):
         return '<DataSource: name="%s">' % (self.name)
@@ -5460,6 +5461,7 @@ class Genre(Base, HasFullTableCache):
                                cascade="all, delete, delete-orphan")
 
     _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
     
     def __repr__(self):
         if classifier.genres.get(self.name):
@@ -8911,6 +8913,7 @@ class Library(Base, HasFullTableCache):
     )
 
     _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
     
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
@@ -9575,7 +9578,8 @@ class ConfigurationSetting(Base, HasFullTableCache):
     )
 
     _cache = HasFullTableCache.RESET
-
+    _id_cache = HasFullTableCache.RESET
+    
     def __repr__(self):
         return u'<ConfigurationSetting: key=%s, ID=%d>' % (
             self.key, self.id)
@@ -9852,6 +9856,7 @@ class Collection(Base, HasFullTableCache):
     )
 
     _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
     
     def __repr__(self):
         return (u'<Collection "%s"/"%s" ID=%d>' %
