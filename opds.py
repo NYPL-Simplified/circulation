@@ -1108,7 +1108,7 @@ class AcquisitionFeed(OPDSFeed):
             return
         default_loan_period = default_reservation_period = None
         collection = license_pool.collection
-        if (loan or hold) and not open_access:
+        if (loan or hold) and not license_pool.open_access:
             default_loan_period = datetime.timedelta(
                 collection.default_loan_period
             )
@@ -1117,7 +1117,7 @@ class AcquisitionFeed(OPDSFeed):
             since = loan.start
             until = loan.until(default_loan_period)
         elif hold:
-            if not open_access:
+            if not license_pool.open_access:
                 default_reservation_period = datetime.timedelta(
                     collection.default_reservation_period
                 )
