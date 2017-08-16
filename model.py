@@ -1083,7 +1083,8 @@ class DataSource(Base, HasFullTableCache):
         return self.name
     
     @classmethod
-    def lookup(cls, _db, name, autocreate=False, offers_licenses=False):
+    def lookup(cls, _db, name, autocreate=False, offers_licenses=False,
+               primary_identifier_type=None):
         # Turn a deprecated name (e.g. "3M" into the current name
         # (e.g. "Bibliotheca").
         name = cls.DEPRECATED_NAMES.get(name, name)
@@ -1095,7 +1096,10 @@ class DataSource(Base, HasFullTableCache):
             if autocreate:
                 data_source, is_new = get_one_or_create(
                     _db, DataSource, name=name,
-                    create_method_kwargs=dict(offers_licenses=offers_licenses)
+                    create_method_kwargs=dict(
+                        offers_licenses=offers_licenses,
+                        primary_identifier_type=primary_identifier_type
+                    )
                 )
             else:
                 data_source = get_one(_db, DataSource, name=name)
@@ -1208,18 +1212,10 @@ class DataSource(Base, HasFullTableCache):
                 (cls.BIBBLIO, False, True, Identifier.BIBBLIO_CONTENT_ITEM_ID, None)
         ):
 
-            extra = dict()
-            if refresh_rate:
-                extra['circulation_refresh_rate_seconds'] = refresh_rate
-
-            obj, new = get_one_or_create(
-                _db, DataSource,
-                name=name,
-                create_method_kwargs=dict(
-                    offers_licenses=offers_licenses,
-                    primary_identifier_type=primary_identifier_type,
-                    extra=extra,
-                )
+            obj = DataSource.lookup(
+                _db, name, autocreate=True,
+                offers_licenses=offers_licenses,
+                primary_identifier_type = primary_identifier_type
             )
 
             if offers_metadata_lookup:

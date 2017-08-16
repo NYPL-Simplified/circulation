@@ -428,7 +428,7 @@ class Lane(object):
 
     @property
     def library(self):
-        return get_one(self._db, Library, id=self.library_id)
+        return Library.by_id(self._db, self.library_id)
     
     @property
     def url_name(self):
