@@ -70,9 +70,6 @@ def run(url=None):
     logging.info("Starting app on %s:%s", host, port)
     from werkzeug.contrib.profiler import ProfilerMiddleware
     app.config['PROFILE'] = True
-    app.wsgi_app = ProfilerMiddleware(
-        app.wsgi_app, restrictions = ('circulation', 100)
-    )
     app.run(debug=debug, host=host, port=port)
 
 
