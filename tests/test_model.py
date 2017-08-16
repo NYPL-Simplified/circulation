@@ -663,6 +663,7 @@ class TestGenre(DatabaseTest):
         )
 
         # The object was already in the cache, so we just looked it up.
+        # No exception.
         eq_(drama, drama2)
         eq_(False, is_new)
         
@@ -674,9 +675,7 @@ class TestGenre(DatabaseTest):
 
         # Create a previously unknown genre.
         genre, ignore = Genre.lookup(
-            self._db
-
-        , "Some Weird Genre", autocreate=True
+            self._db, "Some Weird Genre", autocreate=True
         )
 
         # We don't know its default fiction status.
