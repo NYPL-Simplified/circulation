@@ -9716,7 +9716,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         return None
 
 
-class Collection(Base):
+class Collection(Base, HasFullTableCache):
 
     """A Collection is a set of LicensePools obtained through some mechanism.
     """
@@ -9788,12 +9788,30 @@ class Collection(Base):
         cascade="save-update, merge, delete"
     )
 
+    _cache = HasFullTableCache.RESET
+    
     def __repr__(self):
         return (u'<Collection "%s"/"%s" ID=%d>' %
                 (self.name, self.protocol, self.id)).encode('utf8')        
 
+    def cache_key(self):
+        return (self.name, self.external_integration.protocol)
+
     @classmethod
     def by_name_and_protocol(cls, _db, name, protocol):
+        """Find or create a Collection with the given name and the given
+        protocol.
+
+        This method uses the full-table cache if possible.
+
+        :return: A 2-tuple (collection, is_new)
+        """
+        return self._check_cache(
+            cls, _db, (name, protocol), cls._by_name_and_protocol
+        )
+        
+    @classmethod
+    def _by_name_and_protocol(cls, _db, cache_key):
         """Find or create a Collection with the given name and the given
         protocol.
 
@@ -9802,6 +9820,8 @@ class Collection(Base):
 
         :return: A 2-tuple (collection, is_new)
         """
+        name, protocol = cache_key
+        
         qu = cls.by_protocol(_db, protocol)
         qu = qu.filter(Collection.name==name)
         try:
@@ -9823,7 +9843,7 @@ class Collection(Base):
             )
             collection.external_integration.protocol=protocol
         return collection, is_new
-    
+   
     @classmethod
     def by_protocol(cls, _db, protocol):
         """Query collections that get their licenses through the given protocol.

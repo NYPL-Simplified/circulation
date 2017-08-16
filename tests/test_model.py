@@ -5746,7 +5746,7 @@ class TestExternalIntegration(DatabaseTest):
         self.external_integration, ignore = create(
             self._db, ExternalIntegration, goal=self._str, protocol=self._str
         )
-
+        
     def test_data_source(self):
         # For most collections, the protocol determines the
         # data source.
@@ -6213,20 +6213,29 @@ class TestCollection(DatabaseTest):
         )
 
     def test_by_name_and_protocol(self):
-        # You'll get an exception if you look up an existing name
-        # but the protocol doesn't match.
         name = "A name"
+        protocol = ExternalIntegration.OVERDRIVE
+        key = (name, protocol)
+        
+        # Cache is empty.
+        eq_(None, Collection._check_cache(_db, name, key))
+        
         collection1, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
         eq_(True, is_new)
 
+        # Cache is populated.
+        eq_(collection1, Collection._check_cache(_db, name, key))
+        
         collection2, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
         eq_(collection1, collection2)
         eq_(False, is_new)
 
+        # You'll get an exception if you look up an existing name
+        # but the protocol doesn't match.
         assert_raises_regexp(
             ValueError,
             'Collection "A name" does not use protocol "Bibliotheca".',
