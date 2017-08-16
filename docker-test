@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ev
+set -ex
 
 if ! [[ -z ${TRAVIS_TAG} ]]; then
   # Create a container with test and production postgres databases.
