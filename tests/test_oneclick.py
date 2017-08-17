@@ -406,8 +406,8 @@ class TestOneClickAPI(OneClickAPITest):
         # We have never checked the circulation information for this
         # LicensePool. Put some random junk in the pool to verify
         # that it gets changed.
-        pool.licenses_owned = 10
-        pool.licenses_available = 5
+        pool.licenses_owned = 5
+        pool.licenses_available = 3
         pool.patrons_in_hold_queue = 3
         eq_(None, pool.last_checked)
 
@@ -421,14 +421,15 @@ class TestOneClickAPI(OneClickAPITest):
 
         # The availability information has been updated, as has the
         # date the availability information was last checked.
-        eq_(10, pool.licenses_owned)
+        eq_(0, pool.licenses_owned)
         eq_(0, pool.licenses_available)
         eq_(3, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
 
         self.api.update_licensepool_for_identifier(isbn, True)
+        eq_(999, pool.licenses_owned)
         eq_(999, pool.licenses_available)
-
+        eq_(3, pool.patrons_in_hold_queue)
 
 
 class TestCirculationMonitor(OneClickAPITest):
