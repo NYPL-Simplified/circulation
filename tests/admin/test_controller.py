@@ -2391,6 +2391,7 @@ class TestSettingsController(AdminControllerTest):
 
         ConfigurationSetting.sitewide(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY).value = 0
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "secret"
+        self._db.flush()
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.sitewide_settings()
