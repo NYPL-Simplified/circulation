@@ -526,10 +526,18 @@ class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
         )
         relicensed.update_availability(1, 0, 0, 0)
 
+        # An item in the Collection that doesn't have any licenses.
+        e4, uncovered_unlicensed = self._edition(
+            with_license_pool=True,
+            collection=self.provider.collection,
+            identifier_type=Identifier.OVERDRIVE_ID
+        )
+        uncovered_unlicensed.update_availability(0, 0, 0, 0)
+
         items = self.provider.items_that_need_coverage().all()
 
-        # Provider ignores anything that has been reaped and doesn't have
-        # licenses.
+        # Provider ignores anything that doesn't have licenses.
+        assert uncovered_unlicensed.identifier not in items
         assert reaped.identifier not in items
 
         # But it picks up anything that hasn't been covered at all and anything
@@ -726,4 +734,3 @@ class TestContentServerBibliographicCoverageProvider(DatabaseTest):
         # Only the open-access work needs coverage.
         eq_([w1.license_pools[0].identifier],
             provider.items_that_need_coverage().all())
-
