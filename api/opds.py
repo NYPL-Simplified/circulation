@@ -773,11 +773,18 @@ class CirculationManagerAnnotator(Annotator):
         # tags that explain how the patron can get an Adobe ID, and
         # reuse them across <entry> tags. This saves a little time,
         # makes tests more reliable, and stops us from providing a
-        # different authdata value for every <entry> tag.
+        # different Short Client Token for every <entry> tag.
         if isinstance(patron_identifier, Patron):
-            patron_identifier = self._adobe_patron_identifier(patron_identifier)
-        cached = self._adobe_id_tags.get(patron_identifier)
+            cache_key = patron_identifier.id
+        else:
+            cache_key = patron_identifier
+        cached = self._adobe_id_tags.get(cache_key)
         if cached is None:
+            if isinstance(patron_identifier, Patron):
+                # Find the patron's identifier for Adobe ID purposes.
+                patron_identifier = self._adobe_patron_identifier(
+                    patron_identifier
+                )
             cached = []
             authdata = AuthdataUtility.from_config(self.library)
             if authdata:
@@ -807,7 +814,7 @@ class CirculationManagerAnnotator(Annotator):
                 drm_licensor.append(device_list_link)
                 cached = [drm_licensor]
 
-            self._adobe_id_tags[patron_identifier] = cached
+            self._adobe_id_tags[cache_key] = cached
         else:
             cached = copy.deepcopy(cached)
         return cached
