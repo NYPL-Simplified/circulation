@@ -342,10 +342,14 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         licenses_available = 999
         if not availability:
             licenses_available = 0
-
-        circulation_data = CirculationData(data_source=DataSource.ONECLICK, 
+        licenses_owned = licenses_available
+        
+        circulation_data = CirculationData(
+            data_source=DataSource.ONECLICK, 
             primary_identifier=license_pool.identifier, 
-            licenses_available=licenses_available)
+            licenses_owned=licenses_owned,
+            licenses_available=licenses_available
+        )
 
         license_pool, circulation_changed = circulation_data.apply(
             self._db,
