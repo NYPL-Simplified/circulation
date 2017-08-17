@@ -24,6 +24,8 @@ from core.util.authentication_for_opds import (
     OPDSAuthenticationFlow,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.sql.expression import or_
 from problem_details import *
 from util.patron import PatronUtility
 from api.opds import CirculationManagerAnnotator
@@ -1408,10 +1410,15 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         identify the patron more precisely. Or it may be None, in
         which case it's no help at all.
         """
-        # We're going to try a number of different strategies to look up
-        # the appropriate patron.
+
+        # We're going to try a number of different strategies to look
+        # up the appropriate patron based on PatronData. In theory we
+        # could employ all these strategies at once (see the code at
+        # the end of this method), but if the source of truth is
+        # well-behaved, the first available lookup should work, and if
+        # it's not, it's better to check the more reliable mechanisms
+        # before the less reliable.
         lookups = []
-       
         if patrondata:
             if patrondata.permanent_id:
                 # Permanent ID is the most reliable way of identifying
@@ -1437,16 +1444,6 @@ class BasicAuthenticationProvider(AuthenticationProvider):
                     )
                 )
 
-        if username:
-            # This is a Basic Auth username, but it might correspond
-            # to either Patron.authorization_identifier or
-            # Patron.username.
-            #
-            # TODO: We could save a bit of time in a common case by
-            # combining these into a single query.
-            lookups.append(dict(authorization_identifier=username))
-            lookups.append(dict(username=username))
-
         patron = None
         for lookup in lookups:
             lookup['library_id'] = self.library_id
@@ -1454,6 +1451,25 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             if patron:
                 # We found them!
                 break            
+
+        if not patron and username:
+            # This is a Basic Auth username, but it might correspond
+            # to either Patron.authorization_identifier or
+            # Patron.username.
+            #
+            # NOTE: If patrons are allowed to choose their own
+            # usernames, it's possible that a username and
+            # authorization_identifier can conflict. In that case it's
+            # undefined which Patron is returned from this query. If
+            # this happens, it's a problem with the ILS and needs to
+            # be resolved over there.
+            clause = or_(Patron.authorization_identifier==username,
+                         Patron.username==username)
+            qu = _db.query(Patron).filter(clause).limit(1)
+            try:
+                patron = qu.one()
+            except NoResultFound:
+                patron = None
         return patron
 
     @property
