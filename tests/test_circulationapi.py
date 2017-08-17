@@ -46,7 +46,9 @@ from api.bibliotheca import MockBibliothecaAPI
 
 class TestCirculationAPI(DatabaseTest):
 
-    YESTERDAY = datetime.utcnow() - timedelta(days=1) 
+    YESTERDAY = datetime.utcnow() - timedelta(days=1)
+    TODAY = datetime.utcnow()
+    TOMORROW = datetime.utcnow() + timedelta(days=1) 
     IN_TWO_WEEKS = datetime.utcnow() + timedelta(days=14) 
 
     def setup(self):
@@ -619,7 +621,49 @@ class TestCirculationAPI(DatabaseTest):
         # Now the loan is gone.
         loans = self._db.query(Loan).all()
         eq_([], loans)
+        
+    def test_sync_bookshelf_updates_local_loan_and_hold_with_modified_timestamps(self):
+        # We have a local loan that supposedly runs from yesterday
+        # until tomorrow.
+        loan, ignore = self.pool.loan_to(self.patron)
+        loan.start = self.YESTERDAY
+        loan.end = self.TOMORROW
 
+        # But the remote thinks the loan runs from today until two
+        # weeks from today.
+        self.circulation.add_remote_loan(
+            self.pool.collection, self.pool.data_source, self.identifier.type,
+            self.identifier.identifier, self.TODAY, self.IN_TWO_WEEKS
+        )
+
+        # Similar situation for this hold on a different LicensePool.
+        edition, pool2 = self._edition(
+            data_source_name=DataSource.BIBLIOTHECA,
+            identifier_type=Identifier.BIBLIOTHECA_ID,
+            with_license_pool=True, collection=self.collection
+        )
+
+        hold, ignore = pool2.on_hold_to(self.patron)
+        hold.start = self.YESTERDAY
+        hold.end = self.TOMORROW
+        hold.position = 10
+        
+        self.circulation.add_remote_hold(
+            pool2.collection, pool2.data_source, pool2.identifier.type,
+            pool2.identifier.identifier, self.TODAY, self.IN_TWO_WEEKS,
+            0
+        )
+        self.circulation.sync_bookshelf(self.patron, "1234")
+
+        # Our local loans and holds have been updated to reflect the new
+        # data from the source of truth.
+        eq_(self.TODAY, loan.start)
+        eq_(self.IN_TWO_WEEKS, loan.end)
+
+        eq_(self.TODAY, hold.start)
+        eq_(self.IN_TWO_WEEKS, hold.end)
+        eq_(0, hold.position)
+        
     def test_patron_activity(self):
         # Get a CirculationAPI that doesn't mock out its API's patron activity.
         circulation = CirculationAPI(
@@ -641,8 +685,8 @@ class TestCirculationAPI(DatabaseTest):
         loans, holds, complete = circulation.patron_activity(self.patron, "1234")
         eq_(0, len(loans))
         eq_(0, len(holds))
-        eq_(False, complete)
-
+        eq_(False, complete)        
+        
 
 class TestConfigurationFailures(DatabaseTest):
 
