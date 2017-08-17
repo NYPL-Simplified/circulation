@@ -170,7 +170,7 @@ class OverdriveAPI(object):
 
     @property
     def collection(self):
-        return get_one(self._db, Collection, id=self.collection_id)
+        return Collection.by_id(self._db, id=self.collection_id)
         
     @property
     def source(self):
