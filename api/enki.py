@@ -121,7 +121,7 @@ class EnkiAPI(BaseCirculationAPI):
                 "Collection protocol is %s, but passed into EnkiAPI!" %
                 collection.protocol
             )
-        self.collection = collection
+        self.collection_id = collection.id
         self.library_id = collection.external_account_id.encode("utf8")
         self.base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
 
@@ -134,6 +134,10 @@ class EnkiAPI(BaseCirculationAPI):
                 collection, api_class=self
             )
         )
+
+    @property
+    def collection(self):
+        return Collection.by_id(self._db, id=self.collection_id)
 
     def request(self, url, method='get', extra_headers={}, data=None,
                 params=None, exception_on_401=False):
@@ -396,9 +400,8 @@ class EnkiAPI(BaseCirculationAPI):
         enki_id = checkout_data['recordId']
         start_date = self.epoch_to_struct(checkout_data['checkoutdate'])
         end_date = self.epoch_to_struct(checkout_data['duedate'])
-        collection = self._db.merge(self.collection)
         return LoanInfo(
-            collection,
+            self.collection,
             DataSource.ENKI,
             Identifier.ENKI_ID,
             enki_id,
@@ -614,11 +617,17 @@ class EnkiImport(CollectionMonitor):
     def __init__(self, _db, collection, api_class=EnkiAPI):
         """Constructor."""
         super(EnkiImport, self).__init__(_db, collection)
+        self._db = _db
         self.api = api_class(_db, collection)
+        self.collection_id = collection.id
         self.analytics = Analytics(_db)
         self.bibliographic_coverage_provider = (
             EnkiBibliographicCoverageProvider(collection, api_class=self.api)
         )
+
+    @property
+    def collection(self):
+        return Collection.by_id(self._db, id=self.collection_id)
 
     def recently_changed_ids(self, start, cutoff):
         return self.api.recently_changed_ids(start, cutoff)
