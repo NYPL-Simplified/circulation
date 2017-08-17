@@ -88,7 +88,7 @@ class BaseCirculationManagerController(object):
         self.manager.reload_settings_if_changed()
         
         if library_short_name:
-            library = get_one(self._db, Library, short_name=library_short_name)
+            library = Library.lookup(self._db, short_name=library_short_name)
         else:
             library = Library.default(self._db)
         
