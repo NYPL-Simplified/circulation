@@ -93,6 +93,7 @@ from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 
 from core.opds_import import OPDSImporter
+from api.opds_for_distributors import OPDSForDistributorsAPI
 from api.overdrive import OverdriveAPI
 from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
@@ -1237,6 +1238,7 @@ class SettingsController(CirculationManagerController):
 
     def collections(self):
         provider_apis = [OPDSImporter,
+                         OPDSForDistributorsAPI,
                          OverdriveAPI,
                          BibliothecaAPI,
                          Axis360API,

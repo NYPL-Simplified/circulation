@@ -240,11 +240,13 @@ class CirculationAPI(object):
         from bibliotheca import BibliothecaAPI
         from axis import Axis360API
         from oneclick import OneClickAPI
+        from opds_for_distributors import OPDSForDistributorsAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.BIBLIOTHECA : BibliothecaAPI,
             ExternalIntegration.AXIS_360 : Axis360API,
             ExternalIntegration.ONE_CLICK : OneClickAPI,
+            OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
         }
 
     def api_for_license_pool(self, licensepool):
@@ -908,20 +910,20 @@ class BaseCirculationAPI(object):
 
         :return: a LoanInfo object.
         """
-        raise NotImplementedException()
+        raise NotImplementedError()
 
 
     def fulfill(self, patron, pin, licensepool, internal_format):
         """ Get the actual resource file to the patron.
         :return a FulfillmentInfo object.
         """
-        raise NotImplementedException()
+        raise NotImplementedError()
 
 
     def patron_activity(self, patron, pin):
         """ Return a patron's current checkouts and holds.
         """
-        raise NotImplementedException()
+        raise NotImplementedError()
 
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
@@ -929,7 +931,7 @@ class BaseCirculationAPI(object):
 
         :return: A HoldInfo object
         """
-        raise NotImplementedException()
+        raise NotImplementedError()
 
 
     def release_hold(self, patron, pin, licensepool):
@@ -939,6 +941,6 @@ class BaseCirculationAPI(object):
         with the provider, or the provider refuses to release the hold for
         any reason.
         """
-        raise NotImplementedException()
+        raise NotImplementedError()
 
 
