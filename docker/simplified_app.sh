@@ -14,7 +14,9 @@ apt-get update && $minimal_apt_get_install python-dev \
   gcc \
   git \
   libffi-dev \
-  libjpeg-dev
+  libjpeg-dev \
+  nodejs \
+  npm
 
 # Create a user.
 useradd -ms /bin/bash -U simplified
@@ -52,6 +54,10 @@ pip install -r requirements.txt
 # Install NLTK.
 python -m textblob.download_corpora
 mv /root/nltk_data /usr/lib/
+
+cd api/admin
+npm install
+cd ../..
 
 # Give logs a place to go.
 mkdir /var/log/libsimple
