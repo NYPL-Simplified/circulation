@@ -11,10 +11,12 @@ COPY . /ls_build
 
 RUN /bin/bash -c "/ls_build/simplified_app.sh ${repo} ${version} \
       && /ls_build/nginx.sh \
+      && /ls_build/uwsgi.sh \
       && rm -rf /ls_build && /bd_build/cleanup.sh"
 
 VOLUME /var/log
 WORKDIR /home/simplified
+EXPOSE 80
 
 CMD ["/sbin/my_init"]
 

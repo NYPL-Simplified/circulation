@@ -13,6 +13,8 @@ apt-get update && $minimal_apt_get_install python-dev \
   python-pip \
   gcc \
   git \
+  libpcre3 \
+  libpcre3-dev \
   libffi-dev \
   libjpeg-dev \
   nodejs \
