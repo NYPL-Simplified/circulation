@@ -457,7 +457,7 @@ class TestOPDSImporter(OPDSImporterTest):
             )
 
         # If the URN is invalid we can't create a CoverageFailure.
-        invalid_urn = f("urn:blah", "500", "description")
+        invalid_urn = f("urnblah", "500", "description")
         eq_(invalid_urn, None)
 
         identifier = self._identifier()
@@ -1304,7 +1304,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         self._default_collection.external_integration.protocol = ExternalIntegration.OVERDRIVE
         assert_raises_regexp(
             ValueError,
-            "Collection .* is configured for protocol Overdrive, not OPDS import.",
+            "Collection .* is configured for protocol Overdrive, not OPDS Import.",
             OPDSImportMonitor,
             self._db,
             self._default_collection,

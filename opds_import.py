@@ -446,7 +446,8 @@ class OPDSImporter(object):
             self, metadata, even_if_no_author, immediately_presentation_ready
     ):
         """ For the passed-in Metadata object, see if can find or create an Edition 
-            in the database.  Do not set the edition's pool or work, yet.
+            in the database. Also create a LicensePool if the Metadata has
+            CirculationData in it.
         """
 
         # Locate or create an Edition for this book.
@@ -625,9 +626,12 @@ class OPDSImporter(object):
                 combined_circ = self.combine(c_data_dict, circ_links_dict)
                 if combined_circ.get('data_source') is None:
                     combined_circ['data_source'] = self.data_source_name
-            
+
                 combined_circ['primary_identifier'] = identifier_obj
                 circulation = CirculationData(**combined_circ)
+
+                self._add_format_data(circulation)
+            
                 if circulation.formats:
                     metadata[internal_identifier.urn].circulation = circulation
                 else:
@@ -641,6 +645,15 @@ class OPDSImporter(object):
                     # ODL support.
                     pass
         return metadata, identified_failures
+
+    @classmethod
+    def _add_format_data(cls, circulation):
+        """Subclasses that specialize OPDS Import can implement this
+        method to add formats to a CirculationData object with
+        information that allows a patron to actually get a book
+        that's not open access.
+        """
+        pass
 
     @classmethod
     def combine(self, d1, d2):
@@ -1310,6 +1323,10 @@ class OPDSImportMonitor(CollectionMonitor):
     # entire OPDS feed.
     DEFAULT_START_TIME = CollectionMonitor.NEVER
 
+    # The protocol this Monitor works with. Subclasses that
+    # specialize OPDS import should override this.
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
+
     def __init__(self, _db, collection, import_class,
                  force_reimport=False, **import_class_kwargs):
         if not collection:
@@ -1317,10 +1334,10 @@ class OPDSImportMonitor(CollectionMonitor):
                 "OPDSImportMonitor can only be run in the context of a Collection."
             )
         
-        if collection.protocol != ExternalIntegration.OPDS_IMPORT:
+        if collection.protocol != self.PROTOCOL:
             raise ValueError(
-                "Collection %s is configured for protocol %s, not OPDS import." % (
-                    collection.name, collection.protocol
+                "Collection %s is configured for protocol %s, not %s." % (
+                    collection.name, collection.protocol, self.PROTOCOL
                 )
             )
 

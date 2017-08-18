@@ -1516,6 +1516,7 @@ class OPDSImportScript(CollectionInputScript):
 
     IMPORTER_CLASS = OPDSImporter
     MONITOR_CLASS = OPDSImportMonitor
+    PROTOCOL = ExternalIntegration.OPDS_IMPORT
     
     @classmethod
     def arg_parser(cls):
@@ -1529,7 +1530,7 @@ class OPDSImportScript(CollectionInputScript):
     
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
-        collections = parsed.collections or Collection.by_protocol(self._db, ExternalIntegration.OPDS_IMPORT)
+        collections = parsed.collections or Collection.by_protocol(self._db, self.PROTOCOL)
         for collection in collections:
             self.run_monitor(collection, force=parsed.force)
 
