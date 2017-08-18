@@ -24,12 +24,8 @@ useradd -ms /bin/bash -U simplified
 # Get the proper version of the codebase.
 mkdir /var/www && cd /var/www
 git clone https://github.com/${repo}.git circulation
-chown simplified:simplified circulation/
 cd circulation
 git checkout $version
-
-# Link the repository code to /home/simplified.
-ln -s . /home/simplified/circulation
 
 # Use https to access submodules.
 git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
@@ -59,9 +55,13 @@ cd api/admin
 npm install
 cd ../..
 
+# Link the repository code to /home/simplified and change permissions
+su - simplified -c "ln -s /var/www/circulation /home/simplified/circulation"
+chown -RHh simplified:simplified /home/simplified/circulation
+
 # Give logs a place to go.
 mkdir /var/log/libsimple
-chown simplified:simplified /var/log/libsimple
+chown -R simplified:simplified /var/log/libsimple
 
 # Copy app-specific commands.
 cp /ls_build/base/set_simplified_environment /usr/local/bin
