@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+
+exec tail -F /var/log/nginx/error.log
+exec /usr/sbin/nginx

@@ -10,7 +10,8 @@ ENV SIMPLIFIED_DB_TASK "ignore"
 COPY . /ls_build
 
 RUN /bin/bash -c "/ls_build/simplified_app.sh ${repo} ${version} \
-      && /bd_build/cleanup.sh"
+      && /ls_build/nginx.sh \
+      && rm -rf /ls_build && /bd_build/cleanup.sh"
 
 VOLUME /var/log
 WORKDIR /home/simplified
