@@ -705,7 +705,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         patron_checkouts = self.get_patron_checkouts(patron_oneclick_id)
         patron_holds = self.get_patron_holds(patron_oneclick_id)
 
-        return (patron_checkouts, patron_holds)
+        return patron_checkouts + patron_holds
 
 
     ''' -------------------------- Validation Handling -------------------------- '''
