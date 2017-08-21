@@ -23,6 +23,7 @@ from core.model import (
     Identifier,
     LicensePool,
     Patron,
+    Representation,
     Subject,
 )
 
@@ -259,8 +260,9 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        # TODO: Add a separate future method to follow the download link and get the acsm file
-        #datastr, datadict = self.get_data("response_fulfillment_sample_acsm_linking_page.json")
+        epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
+                                     "type": Representation.EPUB_MEDIA_TYPE })
+        self.api.queue_response(status_code=200, content=epub_manifest)
 
         found_fulfillment = self.api.fulfill(patron, None, pool, None)
 
@@ -296,31 +298,39 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
+        # queue a manifest for each checkout
+        audio_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/9781456103859/parts/1646772/download-url?s3=78226&f=78226_007_P004',
+                                      "type": Representation.MP3_MEDIA_TYPE })
+        epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
+                                     "type": Representation.EPUB_MEDIA_TYPE })
+        self.api.queue_response(status_code=200, content=audio_manifest)
+        self.api.queue_response(status_code=200, content=epub_manifest)
+
         # queue holds list
         datastr, datadict = self.api.get_data("response_patron_holds_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        (checkouts_list, holds_list) = self.api.patron_activity(patron, None)
+        patron_activity = self.api.patron_activity(patron, None)
 
-        eq_('OneClick ID', checkouts_list[0].identifier_type)
-        eq_(u'9781456103859', checkouts_list[0].identifier)
-        eq_(None, checkouts_list[0].start_date)
-        eq_(datetime.date(2016, 11, 19), checkouts_list[0].end_date)
-        eq_(u'http://api.oneclickdigital.us/v1/media/9781456103859/parts/1646772/download-url?s3=78226&f=78226_007_P004', checkouts_list[0].fulfillment_info.content_link)
-        eq_(u'audio/mpeg', checkouts_list[0].fulfillment_info.content_type)
+        eq_('OneClick ID', patron_activity[0].identifier_type)
+        eq_(u'9781456103859', patron_activity[0].identifier)
+        eq_(None, patron_activity[0].start_date)
+        eq_(datetime.date(2016, 11, 19), patron_activity[0].end_date)
+        eq_(u'http://api.oneclickdigital.us/v1/media/9781456103859/parts/1646772/download-url?s3=78226&f=78226_007_P004', patron_activity[0].fulfillment_info.content_link)
+        eq_(u'audio/mpeg', patron_activity[0].fulfillment_info.content_type)
                  
-        eq_('OneClick ID', checkouts_list[1].identifier_type)
-        eq_(u'9781426893483', checkouts_list[1].identifier)
-        eq_(None, checkouts_list[1].start_date)
-        eq_(datetime.date(2016, 11, 19), checkouts_list[1].end_date)
-        eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', checkouts_list[1].fulfillment_info.content_link)
-        eq_(u'application/epub+zip', checkouts_list[1].fulfillment_info.content_type)
+        eq_('OneClick ID', patron_activity[1].identifier_type)
+        eq_(u'9781426893483', patron_activity[1].identifier)
+        eq_(None, patron_activity[1].start_date)
+        eq_(datetime.date(2016, 11, 19), patron_activity[1].end_date)
+        eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', patron_activity[1].fulfillment_info.content_link)
+        eq_(u'application/epub+zip', patron_activity[1].fulfillment_info.content_type)
                  
-        eq_('OneClick ID', holds_list[0].identifier_type)
-        eq_('9781426893483', holds_list[0].identifier)
-        eq_(None, holds_list[0].start_date)
-        eq_(datetime.date(2050, 12, 31), holds_list[0].end_date)
-        eq_(None, holds_list[0].hold_position)
+        eq_('OneClick ID', patron_activity[2].identifier_type)
+        eq_('9781426893483', patron_activity[2].identifier)
+        eq_(None, patron_activity[2].start_date)
+        eq_(datetime.date(2050, 12, 31), patron_activity[2].end_date)
+        eq_(None, patron_activity[2].hold_position)
 
 
 
@@ -414,7 +424,7 @@ class TestOneClickAPI(OneClickAPITest):
         isbn = pool.identifier.identifier.encode("ascii")
 
         pool, is_new, circulation_changed = self.api.update_licensepool_for_identifier(
-            isbn, False
+            isbn, False, 'ebook'
         )
         eq_(False, is_new)
         eq_(True, circulation_changed)
@@ -426,7 +436,7 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(3, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
 
-        self.api.update_licensepool_for_identifier(isbn, True)
+        self.api.update_licensepool_for_identifier(isbn, True, 'ebook')
         eq_(999, pool.licenses_owned)
         eq_(999, pool.licenses_available)
         eq_(3, pool.patrons_in_hold_queue)

@@ -575,10 +575,10 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             # now, but we can turn an ebook manifest into a
             # FulfillmentInfo.
 
-            # We need to use requests instead of self.request because
-            # it's a different server that will reject the credentials
-            # we use for the API. This needs to be mocked separately.
-            access_document = requests.get(download_url)
+            # We need to use self._make_request instead of self.request
+            # because it's a different server that will reject the credentials
+            # we use for the API.
+            access_document = self._make_request(download_url, 'GET', {})
             data = json.loads(access_document.content)
             content_link = data['url']
             content_type = data['type']
