@@ -354,17 +354,23 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         # Note that these strings are different from the similar strings
         # found in "fileFormat" when looking at a patron's loans.
         # "ebook" (a medium) versus "EPUB" (a format). Unfortunately we
-        # 
+        # don't get the file format when checking the book's
+        # availability before a patron has checked it out.
         delivery_type = None
+        drm_scheme = None
         medium = medium.lower()
         if medium == 'ebook':
             delivery_type = Representation.EPUB_MEDIA_TYPE
+            # OneClick doesn't tell us the DRM scheme at this
+            # point, but some of their EPUBs do have Adobe DRM.
+            # Also, their DRM usage may change in the future.
+            drm_scheme = DeliveryMechanism.ADOBE_DRM
         elif medium == 'eaudio':
             # A questionable assumption.
             delivery_type = Representation.MP3_MEDIA_TYPE
 
         if delivery_type:
-            formats.append(FormatData(delivery_type, None))
+            formats.append(FormatData(delivery_type, drm_scheme))
         
         circulation_data = CirculationData(
             data_source=DataSource.ONECLICK, 
