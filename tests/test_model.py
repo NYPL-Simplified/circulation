@@ -358,6 +358,12 @@ class TestIdentifier(DatabaseTest):
         eq_(Identifier.URI, https_identifier.type)
         eq_("https://example.com", https_identifier.identifier)
 
+        # We can parse UUIDs.
+        uuid_identifier, ignore = Identifier.parse_urn(
+            self._db, "urn:uuid:04377e87-ab69-41c8-a2a4-812d55dc0952")
+        eq_(Identifier.URI, uuid_identifier.type)
+        eq_("urn:uuid:04377e87-ab69-41c8-a2a4-812d55dc0952", uuid_identifier.identifier)
+
         # A URN we can't handle raises an exception.
         ftp_urn = "ftp://example.com"
         assert_raises(ValueError, Identifier.parse_urn, self._db, ftp_urn)

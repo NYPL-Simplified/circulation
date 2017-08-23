@@ -1557,6 +1557,7 @@ class Identifier(Base):
     GUTENBERG_URN_SCHEME_PREFIX = "http://www.gutenberg.org/ebooks/"
     GUTENBERG_URN_SCHEME_RE = re.compile(
         GUTENBERG_URN_SCHEME_PREFIX + "([0-9]+)")
+    OTHER_URN_SCHEME_PREFIX = "urn:"
 
     __tablename__ = 'identifiers'
     id = Column(Integer, primary_key=True)
@@ -1766,6 +1767,8 @@ class Identifier(Base):
                 raise ValueError("%s is not a valid ISBN." % identifier_string)
             if isbnlib.is_isbn10(identifier_string):
                 identifier_string = isbnlib.to_isbn13(identifier_string)
+        elif identifier_string.startswith(Identifier.OTHER_URN_SCHEME_PREFIX):
+            type = Identifier.URI
         else:
             raise ValueError(
                 "Could not turn %s into a recognized identifier." %
@@ -5096,7 +5099,7 @@ class Hyperlink(Base):
     # TODO: Is this the appropriate relation?
     DRM_ENCRYPTED_DOWNLOAD = u"http://opds-spec.org/acquisition/"
 
-    CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD]
+    CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD, GENERIC_OPDS_ACQUISITION]
     METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW, 
         DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, ALTERNATE, SAMPLE]
     MIRRORED = [OPEN_ACCESS_DOWNLOAD, IMAGE]
