@@ -7,6 +7,7 @@ from nose.tools import (
 import datetime
 import os
 import pkgutil
+import json
 from core.model import (
     CirculationEvent,
     Contributor,
@@ -28,6 +29,7 @@ from api.enki import (
     MockEnkiAPI,
     EnkiBibliographicCoverageProvider,
     EnkiImport,
+    BibliographicParser,
 )
 from core.scripts import RunCollectionCoverageProviderScript
 from core.util.http import BadResponseException
@@ -57,8 +59,27 @@ class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
         eq_(["foo", identifier.identifier], values)
 
     def test_import_instantiation(self):
+        """Test that EnkiImport can be instantiated"""
         imp = EnkiImport(self._db, self.collection, api_class=self.api.__class__)
         assert_not_equal(None, imp)
+
+    def test_fulfillment_open_access(self):
+        """Test that fulfillment info for non-ACS Enki books is parsed correctly."""
+        data = self.get_data("checked_out_direct.json")
+        self.api.queue_response(200, content=data)
+        result = json.loads(data)
+        fulfill_data = self.api.parse_fulfill_result(result['result'])
+        eq_(fulfill_data[0], """http://cccl.enkilibrary.org/API/UserAPI?method=downloadEContentFile&username=21901000008080&password=deng&lib=1&recordId=2""")
+        eq_(fulfill_data[1], "epub")
+
+    def test_fulfillment_acs(self):
+        """Test that fulfillment info for ACS Enki books is parsed correctly."""
+        data = self.get_data("checked_out_acs.json")
+        self.api.queue_response(200, content=data)
+        result = json.loads(data)
+        fulfill_data = self.api.parse_fulfill_result(result['result'])
+        eq_(fulfill_data[0], """http://afs.enkilibrary.org/fulfillment/URLLink.acsm?action=enterloan&ordersource=Califa&orderid=ACS4-9243146841581187248119581&resid=urn%3Auuid%3Ad5f54da9-8177-43de-a53d-ef521bc113b4&gbauthdate=Wed%2C+23+Aug+2017+19%3A42%3A35+%2B0000&dateval=1503517355&rights=%24lat%231505331755%24&gblver=4&auth=8604f0fc3f014365ea8d3c4198c721ed7ed2c16d""")
+        eq_(fulfill_data[1], "epub")
 
 class TestBibliographicCoverageProvider(TestEnkiAPI):
 
