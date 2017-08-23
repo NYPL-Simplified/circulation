@@ -12,6 +12,7 @@ from core.opds_import import (
 )
 from core.model import (
     Collection,
+    Credential,
     DeliveryMechanism,
     ExternalIntegration,
     Hyperlink,
@@ -60,6 +61,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
 
     def __init__(self, _db, collection):
         self.collection_id = collection.id
+        self.data_source_name = collection.external_integration.setting(Collection.DATA_SOURCE_NAME_SETTING).value
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.feed_url = collection.external_account_id
@@ -69,7 +71,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
         """Wrapper around HTTP.request_with_timeout to be overridden for tests."""
         return HTTP.request_with_timeout(method, url, *args, **kwargs)
 
-    def _get_token(self):
+    def _get_token(self, _db):
         # If this is the first time we're getting a token, we
         # need to find the authenticate url in the OPDS
         # authentication document.
@@ -103,15 +105,25 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
                 raise LibraryAuthorizationFailedException()
             self.auth_url = auth_links[0].get("href")
 
-        headers = dict()
-        auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
-        headers['Authorization'] = auth_header
-        headers['Content-Type'] = "application/x-www-form-urlencoded"
-        token_response = self._request_with_timeout('POST', self.auth_url, data={}, headers=headers)
-        token = json.loads(token_response.content).get("access_token")
-        if not token:
-            raise LibraryAuthorizationFailedException()
-        return token
+        def refresh(credential):
+            headers = dict()
+            auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
+            headers['Authorization'] = auth_header
+            headers['Content-Type'] = "application/x-www-form-urlencoded"
+            token_response = self._request_with_timeout('POST', self.auth_url, data={}, headers=headers)
+            token = json.loads(token_response.content)
+            access_token = token.get("access_token")
+            expires_in = token.get("expires_in")
+            if not access_token or not expires_in:
+                raise LibraryAuthorizationFailedException()
+            credential.credential = access_token
+            expires_in = expires_in
+            credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
+        return Credential.lookup(_db, self.data_source_name,
+                                 "OPDS For Distributors Bearer Token",
+                                 patron=None,
+                                 refresher_method=refresh,
+                                 ).credential
 
     def checkin(self, patron, pin, licensepool):
         # Delete the patron's loan for this licensepool.
@@ -150,7 +162,8 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
                 url = link.resource.representation.url
 
                 # Obtain a bearer token.
-                token = self._get_token()
+                _db = Session.object_session(patron)
+                token = self._get_token(_db)
 
                 headers = dict()
                 auth_header = "Bearer %s" % token
@@ -233,7 +246,7 @@ class OPDSForDistributorsImportMonitor(OPDSImportMonitor):
         auth header with the credentials for the collection.
         """
 
-        token = self.api._get_token()
+        token = self.api._get_token(self._db)
         headers = dict(headers or {})
         auth_header = "Bearer %s" % token
         headers['Authorization'] = auth_header

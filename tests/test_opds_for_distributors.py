@@ -16,6 +16,7 @@ from api.circulation_exceptions import *
 from . import DatabaseTest
 from core.model import (
     Collection,
+    Credential,
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
@@ -58,15 +59,24 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         })
         self.api.queue_response(200, content=auth_doc)
         token = self._str
-        token_response = json.dumps({"access_token": token})
+        token_response = json.dumps({"access_token": token, "expires_in": 60})
         self.api.queue_response(200, content=token_response)
 
-        eq_(token, self.api._get_token())
+        eq_(token, self.api._get_token(self._db))
 
         # Now that the API has the authenticate url, it only needs
         # to get the token.
         self.api.queue_response(200, content=token_response)
-        eq_(token, self.api._get_token())
+        eq_(token, self.api._get_token(self._db))
+
+        # A credential was created.
+        [credential] = self._db.query(Credential).all()
+        eq_(token, credential.credential)
+
+        # If we call _get_token again, it uses the existing credential.
+        eq_(token, self.api._get_token(self._db))
+
+        self._db.delete(credential)
 
         # Create a new API that doesn't have an auth url yet.
         self.api = MockOPDSForDistributorsAPI(self._db, self.collection)
@@ -83,15 +93,15 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         })
         self.api.queue_response(401, content=auth_doc)
         token = self._str
-        token_response = json.dumps({"access_token": token})
+        token_response = json.dumps({"access_token": token, "expires_in": 60})
         self.api.queue_response(200, content=token_response)
 
-        eq_(token, self.api._get_token())
+        eq_(token, self.api._get_token(self._db))
 
     def test_get_token_errors(self):
         no_auth_document = '<feed></feed>'
         self.api.queue_response(200, content=no_auth_document)
-        assert_raises(LibraryAuthorizationFailedException, self.api._get_token)
+        assert_raises(LibraryAuthorizationFailedException, self.api._get_token, self._db)
 
         feed = '<feed><link rel="http://opds-spec.org/auth/document" href="http://authdoc"/></feed>'
         self.api.queue_response(200, content=feed)
@@ -99,7 +109,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
             "authentication": []
         })
         self.api.queue_response(200, content=auth_doc_without_client_credentials)
-        assert_raises(LibraryAuthorizationFailedException, self.api._get_token)
+        assert_raises(LibraryAuthorizationFailedException, self.api._get_token, self._db)
 
         self.api.queue_response(200, content=feed)
         auth_doc_without_links = json.dumps({
@@ -108,7 +118,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
             }]
         })
         self.api.queue_response(200, content=auth_doc_without_links)
-        assert_raises(LibraryAuthorizationFailedException, self.api._get_token)
+        assert_raises(LibraryAuthorizationFailedException, self.api._get_token, self._db)
 
         self.api.queue_response(200, content=feed)
         auth_doc = json.dumps({
@@ -123,7 +133,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         self.api.queue_response(200, content=auth_doc)
         token_response = json.dumps({"error": "unexpected error"})
         self.api.queue_response(200, content=token_response)
-        assert_raises(LibraryAuthorizationFailedException, self.api._get_token)
+        assert_raises(LibraryAuthorizationFailedException, self.api._get_token, self._db)
 
     def test_checkin(self):
         # The patron has two loans, one from this API's collection and
@@ -209,7 +219,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         # that's tested in test_get_token.
         self.api.auth_url = "http://auth"
 
-        token_response = json.dumps({"access_token": "token"})
+        token_response = json.dumps({"access_token": "token", "expires_in": 60})
         self.api.queue_response(200, content=token_response)
         self.api.queue_response(200, content="a book")
 
