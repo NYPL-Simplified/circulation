@@ -339,7 +339,7 @@ class EnkiAPI(BaseCirculationAPI):
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             content_link=url,
-            content_type=media_type,
+            content_type=DeliveryMechanism.ADOBE_DRM,
             content=None,
             content_expires=expires
         )
