@@ -260,12 +260,9 @@ class EnkiAPI(BaseCirculationAPI):
 
 
     def checkout(self, patron, pin, licensepool, internal_format):
-        # TODO: remove these two assignments; test only
-        patron = "21157022927878"
-        pin = "ITSD"
         identifier = licensepool.identifier
         enki_id = identifier.identifier
-        response = self.loan_request(patron, pin, enki_id)
+        response = self.loan_request(patron.authorization_identifier, pin, enki_id)
         if response.status_code != 200:
             raise CannotLoan(response.status_code)
         result = json.loads(response.content)['result']
@@ -315,11 +312,8 @@ class EnkiAPI(BaseCirculationAPI):
         return response
 
     def fulfill(self, patron, pin, licensepool, internal_format):
-        # TODO: remove these two assignments; test only
-        patron = "21157022927878"
-        pin = "ITSD"
         book_id = licensepool.identifier.identifier
-        response = self.loan_request(patron, pin, book_id)
+        response = self.loan_request(patron.authorization_identifier, pin, book_id)
         if response.status_code != 200:
             raise CannotFulfill(response.status_code)
         result = json.loads(response.content)['result']
@@ -336,7 +330,9 @@ class EnkiAPI(BaseCirculationAPI):
                 # TODO: raise invalid barcode/password error
                 self.log.error("User validation against Enki server was unsuccessful.")
                 raise CirculationException()
-        url, media_type, expires = self.parse_fulfill_result(result)
+        # TODO: call ItemAPI's getItem first to get the content type: either "acs" or "free"
+        media_type = self.get_enki_media_type(book_id)
+        url, expires = self.parse_fulfill_result(result)
         return FulfillmentInfo(
             licensepool.collection,
             licensepool.data_source.name,
@@ -348,19 +344,34 @@ class EnkiAPI(BaseCirculationAPI):
             content_expires=expires
         )
 
+    def get_enki_media_type(self, book_id):
+        url = str(self.base_url) + str(self.item_endpoint)
+        args = dict()
+        args['method'] = 'getItem'
+        args['recordid'] = book_id
+        args['lib'] = self.library_id
+        response = self.request(url, method='get', params=args)
+        if response.status_code != 200:
+            return None
+        else:
+            print response.content
+        media_type = json.loads(response.content)['result']['availability']['accessType']
+        if media_type == 'acs':
+            return DeliveryMechanism.ADOBE_DRM
+        elif media_type == 'free':
+            return Representation.EPUB_MEDIA_TYPE
+        else:
+            return None
+
     def parse_fulfill_result(self, result):
         links = result['checkedOutItems'][0]['links'][0]
         url = links['url']
-        media_type = links['item_type']
         due_date = result['checkedOutItems'][0]['duedate']
         expires = self.epoch_to_struct(due_date)
-        return (url, media_type, expires)
+        return (url, expires)
 
     def patron_activity(self, patron, pin):
-        # TODO: remove these two assignments; test only
-        patron = "21157022927878"
-        pin = "ITSD"
-        response = self.patron_request(patron, pin)
+        response = self.patron_request(patron.authorization_identifier, pin)
         if response.status_code != 200:
             raise PatronNotFoundOnRemote(response.status_code)
         result = json.loads(response.content)['result']
