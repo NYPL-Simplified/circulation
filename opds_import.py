@@ -364,7 +364,12 @@ class OPDSImporter(object):
             data_source_name = data_source_name or DataSource.METADATA_WRANGLER
         self.data_source_name = data_source_name
         self.identifier_mapping = identifier_mapping
-        self.metadata_client = metadata_client or MetadataWranglerOPDSLookup.from_config(_db, collection=collection)
+        try:
+            self.metadata_client = metadata_client or MetadataWranglerOPDSLookup.from_config(_db, collection=collection)
+        except CannotLoadConfiguration, e:
+            # The Metadata Wrangler isn't configured, but we can import without it.
+            self.log.warn("Metadata Wrangler integration couldn't be loaded, importing without it.")
+            self.metadata_client = None
         self.mirror = mirror
         self.content_modifier = content_modifier
         self.http_get = http_get
@@ -449,7 +454,6 @@ class OPDSImporter(object):
             in the database. Also create a LicensePool if the Metadata has
             CirculationData in it.
         """
-
         # Locate or create an Edition for this book.
         edition, is_new_edition = metadata.edition(self._db)
 
