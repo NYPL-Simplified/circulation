@@ -19,10 +19,12 @@ from core.model import (
     get_one_or_create,
     Contributor,
     DataSource,
+    DeliveryMechanism,
     Edition,
     Identifier,
     LicensePool,
     Patron,
+    Representation,
     Subject,
 )
 
@@ -139,6 +141,9 @@ class TestOneClickAPI(OneClickAPITest):
         #eq_(9828517, response_dictionary['transactionId'])
         eq_(939981, response_dictionary['patronId'])
         eq_(1931, response_dictionary['libraryId'])
+        request_url, request_args, request_kwargs = self.api.requests[-1]
+        assert "checkouts" in request_url
+        eq_("post", request_kwargs.get("method"))
 
         datastr, datadict = self.api.get_data("response_checkout_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
@@ -146,6 +151,9 @@ class TestOneClickAPI(OneClickAPITest):
             CannotLoan, "checkout:", 
             self.api.circulate_item, patron.oneclick_id, edition.primary_identifier.identifier
         )
+        request_url, request_args, request_kwargs = self.api.requests[-1]
+        assert "checkouts" in request_url
+        eq_("post", request_kwargs.get("method"))
 
         # book return functionality checks
         self.api.queue_response(status_code=200, content="")
@@ -153,6 +161,9 @@ class TestOneClickAPI(OneClickAPITest):
         response_dictionary = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier, 
             return_item=True)
         eq_({}, response_dictionary)
+        request_url, request_args, request_kwargs = self.api.requests[-1]
+        assert "checkouts" in request_url
+        eq_("delete", request_kwargs.get("method"))
 
         datastr, datadict = self.api.get_data("response_return_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
@@ -161,8 +172,31 @@ class TestOneClickAPI(OneClickAPITest):
             self.api.circulate_item, patron.oneclick_id, edition.primary_identifier.identifier, 
             return_item=True
         )
-        
+        request_url, request_args, request_kwargs = self.api.requests[-1]
+        assert "checkouts" in request_url
+        eq_("delete", request_kwargs.get("method"))
 
+        # hold functionality checks
+        datastr, datadict = self.api.get_data("response_patron_hold_success.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        response = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier,
+                                           hold=True)
+        eq_(9828560, response)
+        request_url, request_args, request_kwargs = self.api.requests[-1]
+        assert "holds" in request_url
+        eq_("post", request_kwargs.get("method"))
+
+        datastr, datadict = self.api.get_data("response_patron_hold_fail_409_reached_limit.json")
+        self.api.queue_response(status_code=409, content=datastr)
+
+        response = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier,
+                                           hold=True)
+        eq_("You have reached your checkout limit and therefore are unable to place additional holds.",
+            response)
+        request_url, request_args, request_kwargs = self.api.requests[-1]
+        assert "holds" in request_url
+        eq_("post", request_kwargs.get("method"))
 
     def test_checkin(self):
         # Returning a book is, for now, more of a "notify OneClick that we've 
@@ -179,6 +213,7 @@ class TestOneClickAPI(OneClickAPITest):
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
+        work = self._work(presentation_edition=edition)
 
         # queue patron id 
         datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
@@ -188,6 +223,14 @@ class TestOneClickAPI(OneClickAPITest):
 
         success = self.api.checkin(patron, None, pool)
         eq_(True, success)
+
+        # queue patron id
+        self.api.queue_response(status_code=200, content=datastr)
+        # queue unexpected non-empty response from the server
+        self.api.queue_response(status_code=200, content=json.dumps({"error_code": "error"}))
+
+        assert_raises(CirculationException, self.api.checkin,
+                      patron, None, pool)
 
 
     def test_checkout(self):
@@ -200,6 +243,7 @@ class TestOneClickAPI(OneClickAPITest):
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
+        work = self._work(presentation_edition=edition)
 
         # queue patron id 
         datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
@@ -219,7 +263,6 @@ class TestOneClickAPI(OneClickAPITest):
 
     def test_create_patron(self):
         patron = self.default_patron
-        patron.oneclick_id = 939981
 
         # queue patron id 
         datastr, datadict = self.api.get_data("response_patron_create_fail_already_exists.json")
@@ -259,8 +302,9 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        # TODO: Add a separate future method to follow the download link and get the acsm file
-        #datastr, datadict = self.get_data("response_fulfillment_sample_acsm_linking_page.json")
+        epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
+                                     "type": Representation.EPUB_MEDIA_TYPE })
+        self.api.queue_response(status_code=200, content=epub_manifest)
 
         found_fulfillment = self.api.fulfill(patron, None, pool, None)
 
@@ -269,6 +313,42 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', found_fulfillment.content_link)
         eq_(u'application/epub+zip', found_fulfillment.content_type)
         eq_(None, found_fulfillment.content)
+
+        # Here's another pool that the patron doesn't have checked out.
+        edition2, pool2  = self._edition(
+            identifier_type=Identifier.ONECLICK_ID,
+            data_source_name=DataSource.ONECLICK,
+            with_license_pool=True, 
+            identifier_id = '123456789'
+        )
+
+        # queue patron id 
+        datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        # queue checkouts list
+        datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
+                                     "type": Representation.EPUB_MEDIA_TYPE })
+        self.api.queue_response(status_code=200, content=epub_manifest)
+
+        # The patron can't fulfill the book if it's not one of their checkouts.
+        assert_raises(NoActiveLoan, self.api.fulfill,
+                      patron, None, pool2, None)
+
+        # queue patron id 
+        datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        # queue checkouts list
+        datastr, datadict = self.api.get_data("response_patron_checkouts_200_emptylist.json")
+        self.api.queue_response(status_code=200, content=datastr)
+
+        # The patron also can't fulfill the book if they have no checkouts.
+        assert_raises(NoActiveLoan, self.api.fulfill,
+                      patron, None, pool, None)
 
 
     def test_patron_activity(self):
@@ -296,31 +376,39 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
+        # queue a manifest for each checkout
+        audio_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/9781456103859/parts/1646772/download-url?s3=78226&f=78226_007_P004',
+                                      "type": Representation.MP3_MEDIA_TYPE })
+        epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
+                                     "type": Representation.EPUB_MEDIA_TYPE })
+        self.api.queue_response(status_code=200, content=audio_manifest)
+        self.api.queue_response(status_code=200, content=epub_manifest)
+
         # queue holds list
         datastr, datadict = self.api.get_data("response_patron_holds_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        (checkouts_list, holds_list) = self.api.patron_activity(patron, None)
+        patron_activity = self.api.patron_activity(patron, None)
 
-        eq_('OneClick ID', checkouts_list[0].identifier_type)
-        eq_(u'9781456103859', checkouts_list[0].identifier)
-        eq_(None, checkouts_list[0].start_date)
-        eq_(datetime.date(2016, 11, 19), checkouts_list[0].end_date)
-        eq_(u'http://api.oneclickdigital.us/v1/media/9781456103859/parts/1646772/download-url?s3=78226&f=78226_007_P004', checkouts_list[0].fulfillment_info.content_link)
-        eq_(u'audio/mpeg', checkouts_list[0].fulfillment_info.content_type)
+        eq_('OneClick ID', patron_activity[0].identifier_type)
+        eq_(u'9781456103859', patron_activity[0].identifier)
+        eq_(None, patron_activity[0].start_date)
+        eq_(datetime.date(2016, 11, 19), patron_activity[0].end_date)
+        eq_(u'http://api.oneclickdigital.us/v1/media/9781456103859/parts/1646772/download-url?s3=78226&f=78226_007_P004', patron_activity[0].fulfillment_info.content_link)
+        eq_(u'audio/mpeg', patron_activity[0].fulfillment_info.content_type)
                  
-        eq_('OneClick ID', checkouts_list[1].identifier_type)
-        eq_(u'9781426893483', checkouts_list[1].identifier)
-        eq_(None, checkouts_list[1].start_date)
-        eq_(datetime.date(2016, 11, 19), checkouts_list[1].end_date)
-        eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', checkouts_list[1].fulfillment_info.content_link)
-        eq_(u'application/epub+zip', checkouts_list[1].fulfillment_info.content_type)
+        eq_('OneClick ID', patron_activity[1].identifier_type)
+        eq_(u'9781426893483', patron_activity[1].identifier)
+        eq_(None, patron_activity[1].start_date)
+        eq_(datetime.date(2016, 11, 19), patron_activity[1].end_date)
+        eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', patron_activity[1].fulfillment_info.content_link)
+        eq_(u'application/epub+zip', patron_activity[1].fulfillment_info.content_type)
                  
-        eq_('OneClick ID', holds_list[0].identifier_type)
-        eq_('9781426893483', holds_list[0].identifier)
-        eq_(None, holds_list[0].start_date)
-        eq_(datetime.date(2050, 12, 31), holds_list[0].end_date)
-        eq_(None, holds_list[0].hold_position)
+        eq_('OneClick ID', patron_activity[2].identifier_type)
+        eq_('9781426893483', patron_activity[2].identifier)
+        eq_(None, patron_activity[2].start_date)
+        eq_(datetime.date(2050, 12, 31), patron_activity[2].end_date)
+        eq_(None, patron_activity[2].hold_position)
 
 
 
@@ -390,11 +478,37 @@ class TestOneClickAPI(OneClickAPITest):
         success = self.api.release_hold(patron, None, pool)
         eq_(True, success)
 
+        # queue patron id
+        self.api.queue_response(status_code=200, content=datastr)
+        # queue unexpected non-empty response from the server
+        self.api.queue_response(status_code=200, content=json.dumps({"error_code": "error"}))
+
+        assert_raises(CirculationException, self.api.release_hold,
+                      patron, None, pool)
+
 
     def test_update_licensepool_for_identifier(self):
         """Test the OneClick implementation of the update_availability method
         defined by the CirculationAPI interface.
         """
+
+        # Update a LicensePool that doesn't exist yet, and it gets created.
+        identifier = self._identifier(identifier_type=Identifier.ONECLICK_ID)
+        isbn = identifier.identifier.encode("ascii")
+
+        # The BibliographicCoverageProvider gets called for a new license pool.
+        self.api.queue_response(200, content=json.dumps({}))
+
+        pool, is_new, circulation_changed = self.api.update_licensepool_for_identifier(
+            isbn, True, 'ebook'
+        )
+        eq_(True, is_new)
+        eq_(True, circulation_changed)
+        eq_(999, pool.licenses_owned)
+        eq_(999, pool.licenses_available)
+        [lpdm] = pool.delivery_mechanisms
+        eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
 
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
@@ -414,7 +528,7 @@ class TestOneClickAPI(OneClickAPITest):
         isbn = pool.identifier.identifier.encode("ascii")
 
         pool, is_new, circulation_changed = self.api.update_licensepool_for_identifier(
-            isbn, False
+            isbn, False, 'eaudio'
         )
         eq_(False, is_new)
         eq_(True, circulation_changed)
@@ -426,7 +540,12 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(3, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
 
-        self.api.update_licensepool_for_identifier(isbn, True)
+        # A delivery mechanism was also added to the pool.
+        [lpdm] = pool.delivery_mechanisms
+        eq_(Representation.MP3_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
+        eq_(None, lpdm.delivery_mechanism.drm_scheme)
+
+        self.api.update_licensepool_for_identifier(isbn, True, 'ebook')
         eq_(999, pool.licenses_owned)
         eq_(999, pool.licenses_available)
         eq_(3, pool.patrons_in_hold_queue)
