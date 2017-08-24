@@ -36,11 +36,12 @@ print " Signature: %s" % signature
 print
 
 username, password = client_token.rsplit("|", 1)
-print "Using SignIn to log in via Short Client Token."
-print "Username: %s" % username
-print "Password: %s" % password
+print "Dividing Short Client Token into two parts to use in the SignIn API."
+print " Username: %s" % username
+print " Password: %s" % password
 print
 
+print "Using SignIn to log in via username and password."
 login_request = """<signInRequest method="standard" xmlns="http://ns.adobe.com/adept">
 <username>%s</username>
 <password>%s</password>
@@ -55,6 +56,6 @@ print
 
 m = re.compile("<user>([^<]+)</user>").search(response.content)
 if m:
-    print "Adobe ID for this user is %s" % m.groups()[0]
+    print "Adobe ID for this patron is %s" % m.groups()[0]
 else:
     print "Sorry, I couldn't turn this Short Client Token into an Adobe ID."
