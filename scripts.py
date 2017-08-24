@@ -105,6 +105,12 @@ from api.axis import (
 )
 from api.nyt import NYTBestSellerAPI
 from core.axis import Axis360BibliographicCoverageProvider
+from api.opds_for_distributors import (
+    OPDSForDistributorsImporter,
+    OPDSForDistributorsImportMonitor,
+    OPDSForDistributorsReaperMonitor,
+)
+from core.scripts import OPDSImportScript
 
 class Script(CoreScript):
     def load_config(self):
@@ -1014,3 +1020,18 @@ class NYTBestSellerListsScript(Script):
                 "Now %s entries in the list.", len(customlist.entries))
             self._db.commit()
 
+class OPDSForDistributorsImportScript(OPDSImportScript):
+    """Import all books from the OPDS feed associated with a collection
+    that requires authentication."""
+
+    IMPORTER_CLASS = OPDSForDistributorsImporter
+    MONITOR_CLASS = OPDSForDistributorsImportMonitor
+    PROTOCOL = OPDSForDistributorsImporter.NAME
+
+class OPDSForDistributorsReaperScript(OPDSImportScript):
+    """Get all books from the OPDS feed associated with a collection
+    to find out if any have been removed."""
+
+    IMPORTER_CLASS = OPDSForDistributorsImporter
+    MONITOR_CLASS = OPDSForDistributorsReaperMonitor
+    PROTOCOL = OPDSForDistributorsImporter.NAME
