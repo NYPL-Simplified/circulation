@@ -55,7 +55,7 @@ class CirculationInfo(object):
 
     def collection(self, _db):
         """Find the Collection to which this object belongs."""
-        return get_one(_db, Collection, id=self.collection_id)
+        return Collection.by_id(_db, self.collection_id)
     
     def license_pool(self, _db):
         """Find the LicensePool model object corresponding to this object."""
@@ -229,7 +229,7 @@ class CirculationAPI(object):
 
     @property
     def library(self):
-        return get_one(self._db, Library, id=self.library_id)
+        return Library.by_id(self._db, self.library_id)
                     
     @property
     def default_api_map(self):
@@ -241,12 +241,14 @@ class CirculationAPI(object):
         from axis import Axis360API
         from oneclick import OneClickAPI
         from enki import EnkiAPI
+        from opds_for_distributors import OPDSForDistributorsAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.BIBLIOTHECA : BibliothecaAPI,
             ExternalIntegration.AXIS_360 : Axis360API,
             ExternalIntegration.ONE_CLICK : OneClickAPI,
             EnkiAPI.ENKI_EXTERNAL : EnkiAPI,
+            OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
         }
 
     def api_for_license_pool(self, licensepool):
@@ -773,9 +775,22 @@ class CirculationAPI(object):
             # This is a remote loan. Find or create the corresponding
             # local loan.
             pool = loan.license_pool(self._db)
-            start = loan.start_date or now
+            start = loan.start_date
             end = loan.end_date
-            local_loan, new = pool.loan_to(patron, start, end)
+            key = (loan.identifier_type, loan.identifier)
+            if key in local_loans_by_identifier:
+                # We already have the Loan object, we don't need to look
+                # it up again.
+                local_loan = local_loans_by_identifier[key]
+
+                # But maybe the remote's opinions as to the loan's
+                # start or end date have changed.
+                if start:
+                    local_loan.start = start
+                if end:
+                    local_loan.end = end
+            else:
+                local_loan, new = pool.loan_to(patron, start, end)
             active_loans.append(local_loan)
 
             # Check the local loan off the list we're keeping so we
@@ -788,15 +803,24 @@ class CirculationAPI(object):
             # This is a remote hold. Find or create the corresponding
             # local hold.
             pool = hold.license_pool(self._db)
-            start = hold.start_date or now
+            start = hold.start_date
             end = hold.end_date
             position = hold.hold_position
-            local_hold, new = pool.on_hold_to(patron, start, end, position)
+            key = (hold.identifier_type, hold.identifier)
+            if key in local_holds_by_identifier:
+                # We already have the Hold object, we don't need to look
+                # it up again.
+                local_hold = local_holds_by_identifier[key]
+
+                # But maybe the remote's opinions as to the hold's
+                # start or end date have changed.
+                local_hold.update(start, end, position)
+            else:
+                local_hold, new = pool.on_hold_to(patron, start, end, position)
             active_holds.append(local_hold)
 
             # Check the local hold off the list we're keeping so that
             # we don't delete it later.
-            key = (hold.identifier_type, hold.identifier)
             if key in local_holds_by_identifier:
                 del local_holds_by_identifier[key]
 
