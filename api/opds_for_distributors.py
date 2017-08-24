@@ -110,7 +110,8 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
             auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
             headers['Authorization'] = auth_header
             headers['Content-Type'] = "application/x-www-form-urlencoded"
-            token_response = self._request_with_timeout('POST', self.auth_url, data={}, headers=headers)
+            body = dict(grant_type='client_credentials')
+            token_response = self._request_with_timeout('POST', self.auth_url, data=body, headers=headers)
             token = json.loads(token_response.content)
             access_token = token.get("access_token")
             expires_in = token.get("expires_in")
