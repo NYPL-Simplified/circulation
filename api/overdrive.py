@@ -42,6 +42,7 @@ from core.monitor import (
 )
 from core.util.http import HTTP
 from core.metadata_layer import ReplacementPolicy
+from core.scripts import Script
 
 from circulation_exceptions import *
 from core.analytics import Analytics
@@ -949,3 +950,48 @@ class OverdriveFormatSweep(IdentifierSweepMonitor):
         pool = identifier.licensed_through
         self.api.update_formats(pool)
         
+class OverdriveAdvantageAccountListScript(Script):
+
+    def run(self):
+        """Explain every Overdrive collection and, for each one, all of its
+        Advantage collections.
+        """
+        collections = Collection.by_protocol(
+            self._db, ExternalIntegration.OVERDRIVE
+        )
+        for collection in collections:
+            self.explain_main_collection(collection)
+            print
+
+    def explain_main_collection(self, collection):
+        """Explain an Overdrive collection and all of its Advantage
+        collections.
+        """
+        api = OverdriveAPI(self._db, collection)
+        print "Main Overdrive collection: %s" % collection.name
+        print "\n".join(collection.explain())
+        print "A few of the titles in the main collection:"
+        for i, book in enumerate(api.all_ids()):
+            print "", book['title']
+            if i > 10:
+                break
+        advantage_accounts = list(api.get_advantage_accounts())
+        print "%d associated Overdrive Advantage account(s)." % len(
+            advantage_accounts
+        )
+        for i in advantage_accounts:
+            self.explain_advantage_collection(collection)
+            print
+            
+    def explain_advantage_collection(self, collection):
+        """Explain a single Overdrive Advantage collection."""
+        parent_collection, child = i.to_collection(_db)
+        print " Overdrive Advantage collection: %s" % child.name
+        print " " + ("\n ".join(child.explain()))
+        print " A few of the titles in this Advantage collection:"
+        child_api = OverdriveAPI(_db, child)
+        for i, book in enumerate(child_api.all_ids()):
+            print " ", book['title']
+            if i > 10:
+                break
+
