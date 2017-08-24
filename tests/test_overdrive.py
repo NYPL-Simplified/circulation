@@ -408,6 +408,12 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
 
 class TestOverdriveAdvantageAccount(OverdriveTestWithAPI):
 
+    def test_no_advantage_accounts(self):
+        """When there are no Advantage accounts, get_advantage_accounts()
+        returns an empty list.
+        """
+        eq_([], self.api.get_advantage_accounts())
+    
     def test_from_representation(self):
         """Test the creation of OverdriveAdvantageAccount objects
         from Overdrive's representation of a list of accounts.
