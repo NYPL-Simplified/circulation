@@ -401,7 +401,11 @@ class OneClickAPI(object):
                     # the interest field, and then deal with licenses_owned. 
                     if result.licensed_through:
                         result.licensed_through.licenses_owned = 1
-
+            if not items_created % 100:
+                # Periodically commit the work done so that if there's
+                # a failure, the subsequent run through this code will
+                # take less time.
+                self._db.commit()
         # stay data, stay!
         self._db.commit()
 

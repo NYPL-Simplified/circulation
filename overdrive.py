@@ -281,7 +281,7 @@ class OverdriveAPI(object):
         links = library.get('links', {})
         advantage = links.get('advantageAccounts')
         if not advantage:
-            return
+            return []
         if advantage:
             # This library has Overdrive Advantage accounts, or at
             # least a link where some may be found.
