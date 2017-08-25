@@ -290,7 +290,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=True)
 
-        if resp_dict == {}:
+        if resp_dict.get('message') == 'success':
             self.log.debug("Patron %s/%s released hold %s.", patron.authorization_identifier, 
                 patron_oneclick_id, item_oneclick_id)
             return True
