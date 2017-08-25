@@ -788,6 +788,10 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                     # we tried to borrow something the patron already has
                     raise AlreadyCheckedOut(action + ": " + message)
                 elif message == "Title is not available for checkout":
+                    # This will put the book on hold, and if it ever
+                    # shows up again it'll be checked out
+                    # automatically. If it doesn't show up again...
+                    # best not to think about that.
                     raise NoAvailableCopies(message)
                 else:
                     raise CannotLoan(action + ": " + message)

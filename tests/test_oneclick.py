@@ -148,7 +148,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_checkout_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
-            CannotLoan, "checkout:", 
+            NoAvailableCopies, "Title is not available for checkout", 
             self.api.circulate_item, patron.oneclick_id, edition.primary_identifier.identifier
         )
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -219,7 +219,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
         self.api.queue_response(status_code=200, content=datastr)
         # queue checkin success
-        self.api.queue_response(status_code=200, content="")
+        self.api.queue_response(status_code=200, content='{"message": "success"}')
 
         success = self.api.checkin(patron, None, pool)
         eq_(True, success)
@@ -473,7 +473,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
         self.api.queue_response(status_code=200, content=datastr)
         # queue release success
-        self.api.queue_response(status_code=200, content="")
+        self.api.queue_response(status_code=200, content='{"message": "success"}')
 
         success = self.api.release_hold(patron, None, pool)
         eq_(True, success)
