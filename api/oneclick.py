@@ -102,7 +102,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=True)
 
-        if resp_dict == {}:
+        if resp_dict.get('message') == 'success':
             self.log.debug("Patron %s/%s returned item %s.", patron.authorization_identifier, 
                 patron_oneclick_id, item_oneclick_id)
             return True
@@ -185,7 +185,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         message = None
         try:
             response = self.request(url=url, method=method)
-
             if response.text:
                 resp_obj = response.json()
 
@@ -291,7 +290,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=True)
 
-        if resp_dict == {}:
+        if resp_dict.get('message') == 'success':
             self.log.debug("Patron %s/%s released hold %s.", patron.authorization_identifier, 
                 patron_oneclick_id, item_oneclick_id)
             return True
@@ -788,6 +787,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 elif message == "Checkout item already exists":
                     # we tried to borrow something the patron already has
                     raise AlreadyCheckedOut(action + ": " + message)
+                elif message == "Title is not available for checkout":
+                    # This will put the book on hold, and if it ever
+                    # shows up again it'll be checked out
+                    # automatically. If it doesn't show up again...
+                    # best not to think about that.
+                    raise NoAvailableCopies(message)
                 else:
                     raise CannotLoan(action + ": " + message)
 
@@ -797,16 +802,19 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                     raise NotCheckedOut(action + ": " + message)
                 else:
                     raise CannotReturn(action + ": " + message)
-
+                
             if response.status_code == 404:
                 raise NotFoundOnRemote(action + ": " + message)
 
             if response.status_code == 400:
                 raise InvalidInputException(action + ": " + message)
-
+            
         elif message:
-            # http code was OK, but info wasn't sucessfully read from db
-            if message.startswith("eXtensible Framework was unable to locate the resource for RB.API.OneClick.UserPatron.Get"):
+            if message == 'success':
+                # There is no additional information to be had.
+                return
+            elif message.startswith("eXtensible Framework was unable to locate the resource for RB.API.OneClick.UserPatron.Get"):
+                # http code was OK, but info wasn't sucessfully read from db
                 raise PatronNotFoundOnRemote(action + ": " + message)
             else:
                 self.log.warning("%s not retrieved: %s ", action, message)
@@ -835,6 +843,8 @@ class OneClickCirculationMonitor(CollectionMonitor):
     DEFAULT_START_TIME = datetime.datetime(1970, 1, 1)
     INTERVAL_SECONDS = 1200
     DEFAULT_BATCH_SIZE = 50
+
+    PROTOCOL = ExternalIntegration.ONE_CLICK
     
     def __init__(self, _db, collection, batch_size=None, api_class=OneClickAPI,
                  api_class_kwargs={}):
