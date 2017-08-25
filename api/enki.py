@@ -100,15 +100,18 @@ class EnkiAPI(BaseCirculationAPI):
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     epub = Representation.EPUB_MEDIA_TYPE
-    adobe_drm = DeliveryMechanism.ADOBE_DRM
+    # TODO: this should eventually use DeliveryMechanism.ADOBE_DRM, and the mapping
+    # below should use this variable, but for now there's an issue in core.
+    # Update this once that fix is in.
+    adobe_drm = "application/vnd.adobe.adept+xml"
     no_drm = DeliveryMechanism.NO_DRM
 
     delivery_mechanism_to_internal_format = {
         (epub, no_drm): 'free',
-        (epub, adobe_drm): 'acs',
+        (epub, DeliveryMechanism.ADOBE_DRM): 'acs',
     }
 
-    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
+    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
     SERVICE_NAME = "Enki"
     log = logging.getLogger("Enki API")
     log.setLevel(logging.DEBUG)
@@ -330,16 +333,19 @@ class EnkiAPI(BaseCirculationAPI):
                 # TODO: raise invalid barcode/password error
                 self.log.error("User validation against Enki server was unsuccessful.")
                 raise CirculationException()
-        # TODO: call ItemAPI's getItem first to get the content type: either "acs" or "free"
         media_type = self.get_enki_media_type(book_id)
-        url, expires = self.parse_fulfill_result(result)
+        url, item_type, expires = self.parse_fulfill_result(result)
+
+        if not media_type and item_type == 'epub':
+            media_type = self.epub
+
         return FulfillmentInfo(
             licensepool.collection,
             licensepool.data_source.name,
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             content_link=url,
-            content_type=DeliveryMechanism.ADOBE_DRM,
+            content_type=media_type,
             content=None,
             content_expires=expires
         )
@@ -357,18 +363,19 @@ class EnkiAPI(BaseCirculationAPI):
             print response.content
         media_type = json.loads(response.content)['result']['availability']['accessType']
         if media_type == 'acs':
-            return DeliveryMechanism.ADOBE_DRM
+            return self.adobe_drm
         elif media_type == 'free':
-            return Representation.EPUB_MEDIA_TYPE
+            return self.no_drm
         else:
             return None
 
     def parse_fulfill_result(self, result):
         links = result['checkedOutItems'][0]['links'][0]
         url = links['url']
+        item_type = links['item_type']
         due_date = result['checkedOutItems'][0]['duedate']
         expires = self.epoch_to_struct(due_date)
-        return (url, expires)
+        return (url, item_type, expires)
 
     def patron_activity(self, patron, pin):
         response = self.patron_request(patron.authorization_identifier, pin)
@@ -589,7 +596,7 @@ class BibliographicParser(object):
         licenses_available=element["availability"]["availableCopies"]
         hold=element["availability"]["onHold"]
         formats = []
-        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=DeliveryMechanism.ADOBE_DRM))
+        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=self.adobe_drm))
 
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,

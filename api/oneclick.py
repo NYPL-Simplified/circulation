@@ -28,6 +28,7 @@ from core.oneclick import (
 
 from core.metadata_layer import (
     CirculationData, 
+    FormatData,
     ReplacementPolicy,
 )
 
@@ -35,6 +36,7 @@ from core.model import (
     CirculationEvent,
     Collection,
     DataSource,
+    DeliveryMechanism,
     Edition,
     ExternalIntegration,
     Identifier, 
@@ -65,8 +67,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 
     log = logging.getLogger("OneClick Patron API")
-
-
+   
     def __init__(self, *args, **kwargs):
         super(OneClickAPI, self).__init__(*args, **kwargs)
         self.bibliographic_coverage_provider = (
@@ -300,7 +301,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             patron_oneclick_id, item_oneclick_id)
 
 
-    def update_licensepool_for_identifier(self, isbn, availability):
+    def update_licensepool_for_identifier(self, isbn, availability, medium):
         """Update availability information for a single book.
 
         If the book has never been seen before, a new LicensePool
@@ -314,6 +315,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :param isbn the identifier OneClick uses
         :param availability boolean denoting if book can be lent to patrons 
+        :param medium: The name OneClick uses for the book's medium.
         """
 
         # find a license pool to match the isbn, and see if it'll need a metadata update later
@@ -342,11 +344,42 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         licenses_available = 999
         if not availability:
             licenses_available = 0
+        licenses_owned = licenses_available
 
-        circulation_data = CirculationData(data_source=DataSource.ONECLICK, 
+
+        # If possible, create a FormatData object representing
+        # how the book is available.
+        formats = []
+
+        # Note that these strings are different from the similar strings
+        # found in "fileFormat" when looking at a patron's loans.
+        # "ebook" (a medium) versus "EPUB" (a format). Unfortunately we
+        # don't get the file format when checking the book's
+        # availability before a patron has checked it out.
+        delivery_type = None
+        drm_scheme = None
+        medium = medium.lower()
+        if medium == 'ebook':
+            delivery_type = Representation.EPUB_MEDIA_TYPE
+            # OneClick doesn't tell us the DRM scheme at this
+            # point, but some of their EPUBs do have Adobe DRM.
+            # Also, their DRM usage may change in the future.
+            drm_scheme = DeliveryMechanism.ADOBE_DRM
+        elif medium == 'eaudio':
+            # A questionable assumption.
+            delivery_type = Representation.MP3_MEDIA_TYPE
+
+        if delivery_type:
+            formats.append(FormatData(delivery_type, drm_scheme))
+        
+        circulation_data = CirculationData(
+            data_source=DataSource.ONECLICK, 
             primary_identifier=license_pool.identifier, 
-            licenses_available=licenses_available)
-
+            licenses_owned=licenses_owned,
+            licenses_available=licenses_available,
+            formats=formats,
+        )
+        
         license_pool, circulation_changed = circulation_data.apply(
             self._db,
             self.collection,
@@ -365,6 +398,13 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         pass
 
 
+    def internal_format(self, delivery_mechanism):
+        """We don't need to do any mapping between delivery mechanisms and
+        internal formats, because each title is only available in one
+        format.
+        """
+        return delivery_mechanism
+    
     ''' -------------------------- Patron Account Handling -------------------------- '''
     def create_patron(self, patron):
         """ Ask OneClick to create a new patron record.
@@ -526,16 +566,32 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 # is included in the downloadUrl, actually
                 acs_resource_id = file.get('acsResourceId', None)
 
-            # TODO: For audio books, the downloads are done by parts, and there are 
-            # multiple download urls.  Need to have a mechanism for putting lists of 
-            # parts into fulfillment objects.
+            # The document at the other end of download_url is a manifest.
+            # For audio books, the manifest includes a list of parts.
+            # For ebooks, the manifest includes a single link to an ACSM
+            # file.
+            #
+            # We can't do anything about audiobook manifests right
+            # now, but we can turn an ebook manifest into a
+            # FulfillmentInfo.
+
+            # We need to use self._make_request instead of self.request
+            # because it's a different server that will reject the credentials
+            # we use for the API.
+            access_document = self._make_request(download_url, 'GET', {})
+            data = json.loads(access_document.content)
+            content_link = data['url']
+            content_type = data['type']
+            if content_type == 'application/vnd.adobe':
+                # The manifest spells the media type wrong. Fix it.
+                content_type = DeliveryMechanism.ADOBE_DRM
             fulfillment_info = FulfillmentInfo(
                 self.collection,
                 DataSource.ONECLICK,
                 Identifier.ONECLICK_ID, 
                 identifier, 
-                content_link = download_url, 
-                content_type = file_format, 
+                content_link = content_link, 
+                content_type = content_type, 
                 content = None, 
                 content_expires = None
             )
@@ -649,7 +705,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         patron_checkouts = self.get_patron_checkouts(patron_oneclick_id)
         patron_holds = self.get_patron_holds(patron_oneclick_id)
 
-        return (patron_checkouts, patron_holds)
+        return patron_checkouts + patron_holds
 
 
     ''' -------------------------- Validation Handling -------------------------- '''
@@ -666,12 +722,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             raise InvalidInputException("Licensepool %r doesn't know its ISBN.", licensepool)
 
         if licensepool.work and licensepool.work.presentation_edition:
-            media = licensepool.work.presentation_edition.media
+            media = licensepool.work.presentation_edition.medium
 
         return item_oneclick_id, media
 
 
-    def validate_patron(self, patron, create=False):
+    def validate_patron(self, patron, create=True):
         """ Does the patron have what we need to identify them to OneClick?
         Does OneClick have this patron's record?
         Do we need to tell OneClick to create the patron record? 
@@ -684,7 +740,11 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         if not patron_cardno:
             raise InvalidInputException("Patron %r has no card number.", patron)
 
-        patron_oneclick_id = self.get_patron_internal_id(patron_cardno=patron_cardno)
+        try:
+            patron_oneclick_id = self.get_patron_internal_id(patron_cardno=patron_cardno)
+        except NotFoundOnRemote, e:
+            patron_oneclick_id = None
+            
         if not patron_oneclick_id:
             if not create:
                 # OneClick doesn't recognize this patron's permanent identifier, and we 
@@ -798,7 +858,8 @@ class OneClickCirculationMonitor(CollectionMonitor):
             # boolean True/False value, not number of licenses
             available = availability['availability']
 
-            license_pool, is_new, is_changed = self.api.update_licensepool_for_identifier(isbn, available)
+            medium = availability.get('mediaType')
+            license_pool, is_new, is_changed = self.api.update_licensepool_for_identifier(isbn, available, medium)
             # Log a circulation event for this work.
             if is_new:
                 for library in self.collection.libraries:
@@ -819,7 +880,7 @@ class OneClickCirculationMonitor(CollectionMonitor):
     def run_once(self, start, cutoff):
         ebook_count = self.process_availability(media_type='ebook')
         eaudio_count = self.process_availability(media_type='eaudio')
-
+        
         self.log.info("Processed %d ebooks and %d audiobooks.", ebook_count, eaudio_count)
 
 
