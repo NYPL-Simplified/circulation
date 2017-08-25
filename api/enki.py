@@ -100,15 +100,18 @@ class EnkiAPI(BaseCirculationAPI):
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     epub = Representation.EPUB_MEDIA_TYPE
-    adobe_drm = DeliveryMechanism.ADOBE_DRM
+    # TODO: this should eventually use DeliveryMechanism.ADOBE_DRM, and the mapping
+    # below should use this variable, but for now there's an issue in core.
+    # Update this once that fix is in.
+    adobe_drm = "application/vnd.adobe.adept+xml"
     no_drm = DeliveryMechanism.NO_DRM
 
     delivery_mechanism_to_internal_format = {
         (epub, no_drm): 'free',
-        (epub, adobe_drm): 'acs',
+        (epub, DeliveryMechanism.ADOBE_DRM): 'acs',
     }
 
-    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
+    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
     SERVICE_NAME = "Enki"
     log = logging.getLogger("Enki API")
     log.setLevel(logging.DEBUG)
@@ -593,7 +596,7 @@ class BibliographicParser(object):
         licenses_available=element["availability"]["availableCopies"]
         hold=element["availability"]["onHold"]
         formats = []
-        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=DeliveryMechanism.ADOBE_DRM))
+        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=self.adobe_drm))
 
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
