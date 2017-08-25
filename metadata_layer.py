@@ -297,10 +297,11 @@ class ContributorData(object):
 
         # Time to break out the big guns. Ask the metadata wrangler
         # if it can find a sort name for this display name.
-        sort_name = self.display_name_to_sort_name_through_canonicalizer(
-            _db, identifiers, metadata_client
-        )
-        self.sort_name = sort_name
+        if metadata_client:
+            sort_name = self.display_name_to_sort_name_through_canonicalizer(
+                _db, identifiers, metadata_client
+            )
+            self.sort_name = sort_name
         return (self.sort_name is not None)
 
     @classmethod
