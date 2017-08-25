@@ -3,7 +3,7 @@
 
 This is the Server Core for [Library Simplified](http://www.librarysimplified.org/). The server core contains functionality common between various LS servers, including database models and essential class constants, OPDS parsers, and certain configuration details.
 
-The [OA Content Server], [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata-wrangler), and Circulation Manager all depend on this codebase. Treat it well.
+The [OA Content Server](https://github.com/NYPL-Simplified/content_server), [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata-wrangler), and [Circulation Manager](https://github.com/NYPL-Simplified/circulation) all depend on this codebase. Treat it well.
 
 ## Installation & Workflow
 
