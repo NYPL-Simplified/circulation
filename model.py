@@ -8341,7 +8341,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     There are two parts to this: a DRM scheme and a content
     type. Either may be identified with a MIME media type
-    (e.g. "vnd.adobe/adept+xml" or "application/epub+zip") or an
+    (e.g. "application/vnd.adobe.adept+xml" or "application/epub+zip") or an
     informal name ("Kindle via Amazon").
     """
     KINDLE_CONTENT_TYPE = u"Kindle via Amazon"
@@ -8351,7 +8351,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     STREAMING_VIDEO_CONTENT_TYPE = u"Streaming Video"
 
     NO_DRM = None
-    ADOBE_DRM = u"vnd.adobe/adept+xml"
+    ADOBE_DRM = u"application/vnd.adobe.adept+xml"
     KINDLE_DRM = u"Kindle DRM"
     NOOK_DRM = u"Nook DRM"
     STREAMING_DRM = u"Streaming"
