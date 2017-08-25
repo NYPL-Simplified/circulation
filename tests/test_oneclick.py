@@ -322,7 +322,7 @@ class TestOneClickBibliographicCoverageProvider(OneClickTest):
         [pool] = identifier.licensed_through
         eq_(0, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
-        eq_('application/epub+zip (vnd.adobe/adept+xml)', lpdm.delivery_mechanism.name)
+        eq_('application/epub+zip (application/vnd.adobe.adept+xml)', lpdm.delivery_mechanism.name)
 
         # A Work was created and made presentation ready.
         eq_('Tea Time for the Traditionally Built', pool.work.title)

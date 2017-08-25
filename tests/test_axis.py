@@ -271,7 +271,7 @@ class TestAxis360BibliographicCoverageProvider(AxisTest):
         [pool] = identifier.licensed_through
         eq_(9, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
-        eq_('application/epub+zip (vnd.adobe/adept+xml)', 
+        eq_('application/epub+zip (application/vnd.adobe.adept+xml)', 
             lpdm.delivery_mechanism.name)
 
         # A Work was created and made presentation ready.

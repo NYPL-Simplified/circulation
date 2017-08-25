@@ -245,7 +245,7 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         eq_(0, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
         eq_(
-            'application/epub+zip (vnd.adobe/adept+xml)', 
+            'application/epub+zip (application/vnd.adobe.adept+xml)', 
             lpdm.delivery_mechanism.name
         )
 
