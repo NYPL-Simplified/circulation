@@ -543,7 +543,7 @@ class TestOverdriveBibliographicCoverageProvider(OverdriveTest):
         eq_(0, pool.licenses_owned)
         [lpdm1, lpdm2] = pool.delivery_mechanisms
         names = [x.delivery_mechanism.name for x in pool.delivery_mechanisms]
-        eq_(sorted([u'application/pdf (vnd.adobe/adept+xml)', 
+        eq_(sorted([u'application/pdf (application/vnd.adobe.adept+xml)', 
                     u'Kindle via Amazon (Kindle DRM)']), sorted(names))
 
         # A Work was created and made presentation ready.
