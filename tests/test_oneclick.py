@@ -21,6 +21,7 @@ from core.model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Identifier,
     LicensePool,
     Patron,
@@ -558,6 +559,7 @@ class TestCirculationMonitor(OneClickAPITest):
             self._db, self.collection, api_class=MockOneClickAPI, 
             api_class_kwargs=dict(base_path=self.base_path)
         )
+        eq_(ExternalIntegration.ONE_CLICK, monitor.protocol)
 
         # Create a LicensePool that needs updating.
         edition_ebook, pool_ebook = self._edition(

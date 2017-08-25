@@ -843,6 +843,8 @@ class OneClickCirculationMonitor(CollectionMonitor):
     DEFAULT_START_TIME = datetime.datetime(1970, 1, 1)
     INTERVAL_SECONDS = 1200
     DEFAULT_BATCH_SIZE = 50
+
+    PROTOCOL = ExternalIntegration.ONE_CLICK
     
     def __init__(self, _db, collection, batch_size=None, api_class=OneClickAPI,
                  api_class_kwargs={}):
