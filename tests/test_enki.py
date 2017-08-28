@@ -90,8 +90,8 @@ class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
         eq_(loan.data_source_name, DataSource.ENKI)
         eq_(loan.identifier_type, Identifier.ENKI_ID)
         eq_(loan.identifier, "econtentRecord2")
-        eq_(loan.start_date, datetime.datetime(2017, 8, 23, 14, 31, 58))
-        eq_(loan.start_date, datetime.datetime(2017, 8, 23, 14, 31, 58))
+        eq_(loan.start_date, datetime.datetime(2017, 8, 23, 19, 31, 58, 0))
+        eq_(loan.end_date, datetime.datetime(2017, 9, 13, 19, 31, 58, 0))
 
     def test_checkout_acs(self):
         """Test that checkout info for ACS Enki books is parsed correctly."""
@@ -102,8 +102,8 @@ class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
         eq_(loan.data_source_name, DataSource.ENKI)
         eq_(loan.identifier_type, Identifier.ENKI_ID)
         eq_(loan.identifier, "econtentRecord3334")
-        eq_(loan.start_date, datetime.datetime(2017, 8, 23, 14, 42, 35))
-        eq_(loan.end_date, datetime.datetime(2017, 9, 13, 14, 42, 35))
+        eq_(loan.start_date, datetime.datetime(2017, 8, 23, 19, 42, 35, 0))
+        eq_(loan.end_date, datetime.datetime(2017, 9, 13, 19, 42, 35, 0))
 
 class TestBibliographicCoverageProvider(TestEnkiAPI):
 

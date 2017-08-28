@@ -254,7 +254,7 @@ class EnkiAPI(BaseCirculationAPI):
         # struct that the Circulation Manager can make use of.
         time_format = "%Y-%m-%dT%H:%M:%S"
         return datetime.datetime.strptime(
-            time.strftime(time_format, time.localtime(float(epoch_string))),
+            time.strftime(time_format, time.gmtime(float(epoch_string))),
             time_format
         )
 
