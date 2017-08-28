@@ -103,7 +103,7 @@ class EnkiAPI(BaseCirculationAPI):
     # TODO: this should eventually use DeliveryMechanism.ADOBE_DRM, and the mapping
     # below should use this variable, but for now there's an issue in core.
     # Update this once that fix is in.
-    adobe_drm = "application/vnd.adobe.adept+xml"
+    adobe_drm = DeliveryMechanism.ADOBE_DRM
     no_drm = DeliveryMechanism.NO_DRM
 
     delivery_mechanism_to_internal_format = {
@@ -596,7 +596,7 @@ class BibliographicParser(object):
         licenses_available=element["availability"]["availableCopies"]
         hold=element["availability"]["onHold"]
         formats = []
-        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=self.adobe_drm))
+        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=EnkiAPI.adobe_drm))
 
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
