@@ -98,11 +98,8 @@ class EnkiAPI(BaseCirculationAPI):
     ENKI_ID = u"Enki ID"
 
     # Create a lookup table between common DeliveryMechanism identifiers
-    # and Overdrive format types.
+    # and Enki format types.
     epub = Representation.EPUB_MEDIA_TYPE
-    # TODO: this should eventually use DeliveryMechanism.ADOBE_DRM, and the mapping
-    # below should use this variable, but for now there's an issue in core.
-    # Update this once that fix is in.
     adobe_drm = DeliveryMechanism.ADOBE_DRM
     no_drm = DeliveryMechanism.NO_DRM
 
@@ -307,10 +304,6 @@ class EnkiAPI(BaseCirculationAPI):
         args['lib'] = self.library_id
         args['id'] = book_id
 
-        final_url = url + "?"
-        for k, d in args.iteritems():
-            final_url = final_url + k + "=" + d + "&"
-
         response = self.request(url, method='get', params=args)
         return response
 
@@ -359,8 +352,6 @@ class EnkiAPI(BaseCirculationAPI):
         response = self.request(url, method='get', params=args)
         if response.status_code != 200:
             return None
-        else:
-            print response.content
         media_type = json.loads(response.content)['result']['availability']['accessType']
         if media_type == 'acs':
             return self.adobe_drm
@@ -392,12 +383,12 @@ class EnkiAPI(BaseCirculationAPI):
                 self.log.error("There are no copies of this book available.")
                 raise CirculationException()
             else:
-                # TODO: raise invalid barcode/password error
                 self.log.error("Something happened in patron_activity.")
                 raise CirculationException()
         for loan in result['checkedOutItems']:
             yield self.parse_patron_loans(loan)
-        #holds = parse_patron_holds(result['holds'])
+        for hold in result['holds']:
+            yield self.parse_patron_holds(hold)
 
     def patron_request(self, patron, pin):
         self.log.debug ("Querying Enki for information on patron %s" % patron)
@@ -407,9 +398,6 @@ class EnkiAPI(BaseCirculationAPI):
         args['username'] = patron
         args['password'] = pin
         args['lib'] = self.library_id
-        final_url = url + "?"
-        for k, d in args.iteritems():
-            final_url = final_url + k + "=" + d + "&"
 
         return self.request(url, method='get', params=args)
 
