@@ -269,16 +269,14 @@ class EnkiAPI(BaseCirculationAPI):
         if not result['success']:
             message = result['message']
             if "That record is already checked out to you" in message:
-                # this might be okay
-                pass
+                self.log.error("Book %s has already been checked out to this user." % enki_id)
+                raise AlreadyCheckedOut()
             elif "There are no available copies" in message:
-                # TODO: raise no copies error
-                self.log.error("There are no copies of this book available.")
-                raise CirculationException()
+                self.log.error("There are no copies of book %s available." % enki_id)
+                raise NoAvailableCopies()
             elif "Login unsuccessful" in message:
-                # TODO: raise invalid barcode/password error
-                self.log.error("User validation against Enki server was unsuccessful.")
-                raise CirculationException()
+                self.log.error("User validation against Enki server with %s / %s was unsuccessful." % (patron, pin))
+                raise AuthorizationFailedException()
         due_date = result['checkedOutItems'][0]['duedate']
         expires = self.epoch_to_struct(due_date)
 
@@ -315,17 +313,12 @@ class EnkiAPI(BaseCirculationAPI):
         result = json.loads(response.content)['result']
         if not result['success']:
             message = result['message']
-            if "That record is already checked out to you" in message:
-                # this might be okay
-                pass
-            elif "There are no available copies" in message:
-                # TODO: raise no copies error
-                self.log.error("There are no copies of this book available.")
-                raise CirculationException()
+            if "There are no available copies" in message:
+                self.log.error("There are no copies of book %s available." % book_id)
+                raise NoAvailableCopies()
             elif "Login unsuccessful" in message:
-                # TODO: raise invalid barcode/password error
-                self.log.error("User validation against Enki server was unsuccessful.")
-                raise CirculationException()
+                self.log.error("User validation against Enki server with %s / %s was unsuccessful." % (patron, pin))
+                raise AuthorizationFailedException()
         media_type = self.get_enki_media_type(book_id)
         url, item_type, expires = self.parse_fulfill_result(result)
 
@@ -375,13 +368,9 @@ class EnkiAPI(BaseCirculationAPI):
         result = json.loads(response.content)['result']
         if not result['success']:
             message = result['message']
-            if "That record is already checked out to you" in message:
-                # this might be okay
-                pass
-            elif "There are no available copies" in message:
-                # TODO: raise no copies error
-                self.log.error("There are no copies of this book available.")
-                raise CirculationException()
+            if "Login unsuccessful" in message:
+                self.log.error("User validation against Enki server with %s / %s was unsuccessful." % (patron, pin))
+                raise AuthorizationFailedException()
             else:
                 self.log.error("Something happened in patron_activity.")
                 raise CirculationException()
