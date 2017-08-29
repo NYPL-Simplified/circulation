@@ -181,6 +181,7 @@ class TestOneClickRepresentationExtractor(OneClickTest):
         eq_(None, metadata.subtitle)
         eq_(Edition.BOOK_MEDIUM, metadata.medium)
         eq_("No. 1 Ladies Detective Agency", metadata.series)
+        eq_(10, metadata.series_position)
         eq_("eng", metadata.language)
         eq_("Anchor", metadata.publisher)
         eq_(None, metadata.imprint)
@@ -256,6 +257,18 @@ class TestOneClickRepresentationExtractor(OneClickTest):
         eq_(Representation.EPUB_MEDIA_TYPE, epub.content_type)       
         eq_(DeliveryMechanism.ADOBE_DRM, epub.drm_scheme)      
 
+
+    def test_book_info_metadata_no_series(self):
+        """'Default Blank' is not a series -- it's a string representing
+        the absence of a series.
+        """
+
+        datastr, datadict = self.api.get_data("response_isbn_found_no_series.json")
+        metadata = OneClickRepresentationExtractor.isbn_info_to_metadata(datadict)
+
+        eq_("Tea Time for the Traditionally Built", metadata.title)
+        eq_(None, metadata.series)
+        eq_(None, metadata.series_position)
 
 
 class TestOneClickBibliographicCoverageProvider(OneClickTest):
