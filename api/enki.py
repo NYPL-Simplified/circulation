@@ -319,11 +319,11 @@ class EnkiAPI(BaseCirculationAPI):
             elif "Login unsuccessful" in message:
                 self.log.error("User validation against Enki server with %s / %s was unsuccessful." % (patron, pin))
                 raise AuthorizationFailedException()
-        media_type = self.get_enki_media_type(book_id)
+        drm_type = self.get_enki_drm_type(book_id)
         url, item_type, expires = self.parse_fulfill_result(result)
 
-        if not media_type and item_type == 'epub':
-            media_type = self.epub
+        if not drm_type and item_type == 'epub':
+            drm_type = self.no_drm
 
         return FulfillmentInfo(
             licensepool.collection,
@@ -331,12 +331,12 @@ class EnkiAPI(BaseCirculationAPI):
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             content_link=url,
-            content_type=media_type,
+            content_type=drm_type,
             content=None,
             content_expires=expires
         )
 
-    def get_enki_media_type(self, book_id):
+    def get_enki_drm_type(self, book_id):
         url = str(self.base_url) + str(self.item_endpoint)
         args = dict()
         args['method'] = 'getItem'
@@ -345,10 +345,10 @@ class EnkiAPI(BaseCirculationAPI):
         response = self.request(url, method='get', params=args)
         if response.status_code != 200:
             return None
-        media_type = json.loads(response.content)['result']['availability']['accessType']
-        if media_type == 'acs':
+        drm_type = json.loads(response.content)['result']['availability']['accessType']
+        if drm_type == 'acs':
             return self.adobe_drm
-        elif media_type == 'free':
+        elif drm_type == 'free':
             return self.no_drm
         else:
             return None
@@ -573,7 +573,7 @@ class BibliographicParser(object):
         licenses_available=element["availability"]["availableCopies"]
         hold=element["availability"]["onHold"]
         formats = []
-        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=EnkiAPI.adobe_drm))
+        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=DeliveryMechanism.ADOBE_DRM))
 
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
