@@ -17,8 +17,8 @@ HOME=/var/www/circulation
 */15 * * * * root core/bin/run overdrive_reaper >> /var/log/cron.log 2>&1
 0 */1 * * * root core/bin/run oneclick_library_delta >> /var/log/cron.log 2>&1
 0 */1 * * * root core/bin/run oneclick_monitor_availability >> /var/log/cron.log 2>&1
-0 2 * * * root core/bin/run enki_reaper >> /var/log/cron.log 2>&1
-0 0 1 * * root core/bin/run enki_import >> /var/log/cron.log 2>&1
+0 0 1 * * root core/bin/run enki_reaper >> /var/log/cron.log 2>&1
+0 3 * * * root core/bin/run enki_import >> /var/log/cron.log 2>&1
 */20 * * * * root core/bin/run bibliographic_coverage >> /var/log/cron.log 2>&1
 */5 * * * * root core/bin/run cache_opds_blocks >> /var/log/cron.log 2>&1
 */10 * * * * root core/bin/run metadata_wrangler_coverage >> /var/log/cron.log 2>&1
