@@ -21,6 +21,7 @@ from core.model import (
     DataSource,
     DeliveryMechanism,
     Edition,
+    ExternalIntegration,
     Identifier,
     LicensePool,
     Patron,
@@ -148,7 +149,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_checkout_unavailable.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
-            CannotLoan, "checkout:", 
+            NoAvailableCopies, "Title is not available for checkout", 
             self.api.circulate_item, patron.oneclick_id, edition.primary_identifier.identifier
         )
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -219,7 +220,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
         self.api.queue_response(status_code=200, content=datastr)
         # queue checkin success
-        self.api.queue_response(status_code=200, content="")
+        self.api.queue_response(status_code=200, content='{"message": "success"}')
 
         success = self.api.checkin(patron, None, pool)
         eq_(True, success)
@@ -473,7 +474,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
         self.api.queue_response(status_code=200, content=datastr)
         # queue release success
-        self.api.queue_response(status_code=200, content="")
+        self.api.queue_response(status_code=200, content='{"message": "success"}')
 
         success = self.api.release_hold(patron, None, pool)
         eq_(True, success)
@@ -504,8 +505,8 @@ class TestOneClickAPI(OneClickAPITest):
         )
         eq_(True, is_new)
         eq_(True, circulation_changed)
-        eq_(999, pool.licenses_owned)
-        eq_(999, pool.licenses_available)
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
         [lpdm] = pool.delivery_mechanisms
         eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
@@ -535,7 +536,10 @@ class TestOneClickAPI(OneClickAPITest):
 
         # The availability information has been updated, as has the
         # date the availability information was last checked.
-        eq_(0, pool.licenses_owned)
+        #
+        # We still own a license, but it's no longer available for
+        # checkout.
+        eq_(1, pool.licenses_owned)
         eq_(0, pool.licenses_available)
         eq_(3, pool.patrons_in_hold_queue)
         assert pool.last_checked is not None
@@ -546,8 +550,8 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(None, lpdm.delivery_mechanism.drm_scheme)
 
         self.api.update_licensepool_for_identifier(isbn, True, 'ebook')
-        eq_(999, pool.licenses_owned)
-        eq_(999, pool.licenses_available)
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
         eq_(3, pool.patrons_in_hold_queue)
 
 
@@ -558,6 +562,7 @@ class TestCirculationMonitor(OneClickAPITest):
             self._db, self.collection, api_class=MockOneClickAPI, 
             api_class_kwargs=dict(base_path=self.base_path)
         )
+        eq_(ExternalIntegration.ONE_CLICK, monitor.protocol)
 
         # Create a LicensePool that needs updating.
         edition_ebook, pool_ebook = self._edition(
