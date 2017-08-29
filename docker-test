@@ -45,3 +45,4 @@ if ! [[ -z ${TRAVIS_TAG} ]]; then
 fi
 
 exit 0;
+
