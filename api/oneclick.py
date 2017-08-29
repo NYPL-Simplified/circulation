@@ -338,13 +338,16 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             analytics=Analytics(self._db),
         )
 
-        # licenses_available can be 0 or 999, depending on whether the book is 
-        # lendable or not.   
-        licenses_available = 999
+        # We don't know exactly how many licenses are available, but
+        # we know that it's either zero (book is not lendable) or greater
+        # than zero (book is lendable)
+        licenses_available = 1
         if not availability:
             licenses_available = 0
-        licenses_owned = licenses_available
 
+        # Because the book showed up in availability, we know we own
+        # at least one license to it.
+        licenses_owned = 1
 
         # If possible, create a FormatData object representing
         # how the book is available.
