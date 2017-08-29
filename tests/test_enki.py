@@ -3,6 +3,7 @@ from nose.tools import (
     set_trace,
     eq_,
     assert_not_equal,
+    raises,
 )
 import datetime
 import os
@@ -104,6 +105,41 @@ class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
         eq_(loan.identifier, "econtentRecord3334")
         eq_(loan.start_date, datetime.datetime(2017, 8, 23, 19, 42, 35, 0))
         eq_(loan.end_date, datetime.datetime(2017, 9, 13, 19, 42, 35, 0))
+
+    @raises(AuthorizationFailedException)
+    def test_login_fail(self):
+        """Test that the correct exception is thrown upon an unsuccessful login."""
+        data = self.get_data("login_unsuccessful.json")
+        self.api.queue_response(200, content=data)
+        result = json.loads(data)
+
+        edition, pool = self._edition(
+            identifier_type=Identifier.ENKI_ID,
+            data_source_name=DataSource.ENKI,
+            with_license_pool=True
+        )
+        pool.identifier.identifier = 'notanid'
+
+        patron = self._patron(external_identifier='notabarcode')
+
+        loan = self.api.checkout(patron,'notapin',pool,None)
+
+    @raises(NoAvailableCopies)
+    def test_login_fail(self):
+        """Test that the correct exception is thrown upon an unsuccessful login."""
+        data = self.get_data("no_copies.json")
+        self.api.queue_response(200, content=data)
+        result = json.loads(data)
+
+        edition, pool = self._edition(
+            identifier_type=Identifier.ENKI_ID,
+            data_source_name=DataSource.ENKI,
+            with_license_pool=True
+        )
+        pool.identifier.identifier = 'econtentRecord1'
+        patron = self._patron(external_identifier='12345678901234')
+
+        loan = self.api.checkout(patron,'1234',pool,None)
 
 class TestBibliographicCoverageProvider(TestEnkiAPI):
 
