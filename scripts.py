@@ -290,6 +290,8 @@ class InputScript(Script):
 class IdentifierInputScript(InputScript):
     """A script that takes identifiers as command line inputs."""
 
+    DATABASE_ID = "Database ID"
+
     @classmethod
     def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin, 
                            *args, **kwargs):
@@ -306,7 +308,6 @@ class IdentifierInputScript(InputScript):
         data_source = None
         if parsed.identifier_data_source:
             data_source = DataSource.lookup(_db, parsed.identifier_data_source)
-
         if _db and parsed.identifier_type:
             # We can also call parse_identifier_list.
             identifier_strings = parsed.identifier_strings
@@ -329,7 +330,7 @@ class IdentifierInputScript(InputScript):
         parser = argparse.ArgumentParser()
         parser.add_argument(
             '--identifier-type', 
-            help='Process identifiers of this type. If IDENTIFIER is not specified, all identifiers of this type will be processed. If IDENTIFIER is specified, this argument is required.'
+            help='Process identifiers of this type. If IDENTIFIER is not specified, all identifiers of this type will be processed. To name identifiers by their database ID, use --identifier-type="Database ID"'
         )
         parser.add_argument(
             '--identifier-data-source',
@@ -362,7 +363,7 @@ class IdentifierInputScript(InputScript):
         identifiers = []
 
         if not identifier_type:
-            raise ValueError("No identifier type specified!")
+            raise ValueError("No identifier type specified! Use '--identifier-type=\"Database ID\"' to name identifiers by database ID.")
 
         if len(arguments) == 0:
             if data_source:
@@ -375,9 +376,18 @@ class IdentifierInputScript(InputScript):
             return identifiers
 
         for arg in arguments:
-            identifier, ignore = Identifier.for_foreign_id(
-                _db, identifier_type, arg, autocreate=autocreate
-            )
+            if identifier_type == cls.DATABASE_ID:
+                try:
+                    arg = int(arg)
+                except ValueError, e:
+                    # We'll print out a warning later.
+                    arg = None
+                if arg:
+                    identifier = get_one(_db, Identifier, id=arg)
+            else:
+                identifier, ignore = Identifier.for_foreign_id(
+                    _db, identifier_type, arg, autocreate=autocreate
+                )
             if not identifier:
                 logging.warn(
                     "Could not load identifier %s/%s", identifier_type, arg

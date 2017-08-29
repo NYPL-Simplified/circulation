@@ -206,6 +206,19 @@ class TestIdentifierInputScript(DatabaseTest):
             self._db, Identifier.URI, source, [])
         eq_([i2], identifiers)
 
+    def test_parse_list_as_identifiers_by_database_id(self):
+        id1 = self._identifier()
+        id2 = self._identifier()
+
+        # Make a list containing two Identifier database IDs,
+        # as well as two strings which are not existing Identifier database
+        # IDs.
+        ids = [id1.id, "10000000", "abcde", id2.id]
+
+        identifiers = IdentifierInputScript.parse_identifier_list(
+            self._db, IdentifierInputScript.DATABASE_ID, None, ids)
+        eq_([id1, id2], identifiers)
+
     def test_parse_command_line(self):
         i1 = self._identifier()
         i2 = self._identifier()
