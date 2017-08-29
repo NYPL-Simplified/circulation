@@ -34,8 +34,7 @@ With your PostgreSQL url, you are ready to run:
 ```
 # See the section "Environment Variables" below for more information
 # about the values listed here and their alternatives.
-$ docker run --name scripts \
-    -d -p 80:80 \
+$ docker run --name scripts -d \
     -e TZ='YOUR_TIMEZONE_STRING' \
     -e SIMPLIFIED_DB_TASK='migrate' \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
