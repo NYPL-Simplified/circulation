@@ -661,14 +661,18 @@ class OneClickRepresentationExtractor(object):
             # Sometimes, series position and total == 0, for many series items (ex: "seriesName": "EngLits").
             # Sometimes, seriesName is set to "Default Blank", meaning "not actually a series".
             series_name = book.get('seriesName', None)
-
-            series_position = book.get('seriesPosition', None)
-            if series_position:
-                try:
-                    series_position = int(series_position)
-                except ValueError:
-                    # not big enough deal to stop the whole process
-                    series_position = None
+            series_position = None
+            if series_name == 'Default Blank':
+                # This is not actually a series.
+                series_name = None
+            else:
+                series_position = book.get('seriesPosition', None)
+                if series_position:
+                    try:
+                        series_position = int(series_position)
+                    except ValueError:
+                        # not big enough deal to stop the whole process
+                        series_position = None
 
             # ignored for now
             series_total = book.get('seriesTotal', None)
