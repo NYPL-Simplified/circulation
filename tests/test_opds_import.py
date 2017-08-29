@@ -1104,20 +1104,20 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 </svg>"""
 
         http = DummyHTTPClient()
+        http.queue_response(
+        200, content='I am 10441.epub.images',
+        media_type=Representation.EPUB_MEDIA_TYPE
+        )
+        http.queue_response(
+        200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
+        )
+        http.queue_response(
+        200, content='I am 10557.epub.images',
+        media_type=Representation.EPUB_MEDIA_TYPE,
+        )
         # The request to http://root/full-cover-image.png
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
-        http.queue_response(
-            200, content='I am 10557.epub.images',
-            media_type=Representation.EPUB_MEDIA_TYPE,
-        )
-        http.queue_response(
-            200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
-        )
-        http.queue_response(
-            200, content='I am 10441.epub.images',
-            media_type=Representation.EPUB_MEDIA_TYPE
-        )
 
         s3 = DummyS3Uploader()
 
@@ -1215,7 +1215,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 
         # If the content has changed, it will be mirrored again.
         http.queue_response(
-            200, content="I am a new version of 10557.epub.images",
+            200, content="I am a new version of 10441.epub.images",
             media_type=Representation.EPUB_MEDIA_TYPE
         )
 
@@ -1225,7 +1225,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         )
 
         http.queue_response(
-            200, content="I am a new version of 10441.epub.images",
+            200, content="I am a new version of 10557.epub.images",
             media_type=Representation.EPUB_MEDIA_TYPE
         )
 

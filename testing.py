@@ -1022,9 +1022,9 @@ class DummyHTTPClient(object):
                 headers[k.lower()] = v
         self.responses.append((response_code, headers, content))
 
-    def do_get(self, url, headers, **kwargs):
+    def do_get(self, url, *args, **kwargs):
         self.requests.append(url)
-        return self.responses.pop()
+        return self.responses.pop(0)
 
 
 class MockRequestsResponse(object):
