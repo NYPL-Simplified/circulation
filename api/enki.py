@@ -105,7 +105,7 @@ class EnkiAPI(BaseCirculationAPI):
 
     delivery_mechanism_to_internal_format = {
         (epub, no_drm): 'free',
-        (epub, DeliveryMechanism.ADOBE_DRM): 'acs',
+        (epub, adobe_drm): 'acs',
     }
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
@@ -115,7 +115,6 @@ class EnkiAPI(BaseCirculationAPI):
 
     def __init__(self, _db, collection):
         self._db = _db
-
         if collection.protocol != self.ENKI:
             raise ValueError(
                 "Collection protocol is %s, but passed into EnkiAPI!" %
@@ -404,7 +403,7 @@ class EnkiAPI(BaseCirculationAPI):
             fulfillment_info=None
         )
 
-    def parse_patron_holds(hold_data):
+    def parse_patron_holds(self, hold_data):
         pass
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
@@ -555,24 +554,21 @@ class BibliographicParser(object):
         contributors.append(ContributorData(sort_name=sort_name))
         primary_identifier = IdentifierData(EnkiAPI.ENKI_ID, element["id"])
         metadata = Metadata(
-        data_source=DataSource.ENKI,
-        title=element["title"],
-        language="eng",
-        medium=Edition.BOOK_MEDIUM,
-        #series=series,
-        publisher=element["publisher"],
-        #imprint=imprint,
-        #published=publication_date,
-        primary_identifier=primary_identifier,
-        identifiers=identifiers,
-        #subjects=subjects,
-        contributors=contributors,
+            data_source=DataSource.ENKI,
+            title=element["title"],
+            language="eng",
+            medium=Edition.BOOK_MEDIUM,
+            publisher=element["publisher"],
+            primary_identifier=primary_identifier,
+            identifiers=identifiers,
+            contributors=contributors,
         )
         licenses_owned=element["availability"]["totalCopies"]
         licenses_available=element["availability"]["availableCopies"]
         hold=element["availability"]["onHold"]
+        drm_type = EnkiAPI.adobe_drm if (element["availability"]["accessType"] == 'acs') else EnkiAPI.no_drm
         formats = []
-        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=DeliveryMechanism.ADOBE_DRM))
+        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=drm_type))
 
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
