@@ -114,7 +114,7 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_("Booth Expired Test", patrondata.personal_name)
         eq_(0, patrondata.fines)
         eq_(datetime(2008, 9, 7), patrondata.authorization_expires)
-        eq_(PatronData.UNKNOWN_BLOCK, patrondata.block_reason)
+        eq_(PatronData.NO_BORROWING_PRIVILEGES, patrondata.block_reason)
 
         # A patron with excessive fines
         client.queue_response(self.evergreen_excessive_fines)
@@ -125,12 +125,15 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(100, patrondata.fines)
         eq_(datetime(2019, 10, 04), patrondata.authorization_expires)
 
-        # We happen know that this patron can't borrow books due to
-        # excessive fines, but that information doesn't make it into
-        # block_reason, because Evergreen doesn't also provide the
+        # We happen to know that this patron can't borrow books due to
+        # excessive fines, but that information doesn't show up as a 
+        # block, because Evergreen doesn't also provide the
         # fine limit. This isn't a big deal -- we'll pick it up later
         # when we apply the site policy.
-        eq_(PatronData.UNKNOWN_BLOCK, patrondata.block_reason)
+        #
+        # This patron also has "Recall privileges denied" set, but
+        # that's not a reason to block them.
+        eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
         # "Hold privileges denied" is not a block because you can
         # still borrow books.

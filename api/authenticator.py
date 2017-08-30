@@ -74,6 +74,21 @@ class PatronData(object):
     UNKNOWN_BLOCK = 'unknown'
     CARD_REPORTED_LOST = 'card reported lost'
     EXCESSIVE_FINES = 'excessive fines'
+    EXCESSIVE_FEES = 'excessive fees'
+    NO_BORROWING_PRIVILEGES = 'no borrowing privileges'
+    TOO_MANY_LOANS = 'too many active loans'
+    TOO_MANY_RENEWALS = 'too many renewals'
+    TOO_MANY_OVERDUE = 'too many items overdue'
+    TOO_MANY_LOST = 'too many items lost'
+
+    # Patron is being billed for too many items (as opposed to
+    # excessive fines, which means patron's fines have exceeded a
+    # certain amount).
+    TOO_MANY_ITEMS_BILLED = 'too many items billed'
+
+    # Patron was asked to return an item so someone else could borrow it,
+    # but didn't return the item.
+    RECALL_OVERDUE = 'recall overdue'
     
     def __init__(self,
                  permanent_id=None,
