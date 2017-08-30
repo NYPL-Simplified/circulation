@@ -99,6 +99,18 @@ class Script(object):
         return self._session
 
     @property
+    def timestamp_name(self):
+        """The name of this script as seen in its Timestamp."""
+
+        class_name = type(self).__name__
+
+        # Some scripts like RunMonitorScript 
+        specific_name = getattr(self, 'name')
+        if specific_name:
+            return "%s: %s" % (class_name, specific_name)
+
+
+    @property
     def log(self):
         if not hasattr(self, '_log'):
             logger_name = getattr(self, 'name', None)
@@ -266,8 +278,16 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
         _db = _db or self._db
         providers = providers or list()
         if provider_class:
+            # Give each provider class its own Timestamp when run
+            # through this script.
+            self.name = provider_class.__name__
             providers += self.get_providers(_db, provider_class, **kwargs)
-
+        else:
+            # Give this combination of providers a unique Timestamp
+            # when run through this script.
+            self.name = ", ".join(
+                sorted([provider.SERVICE_NAME for provider in providers])
+            )
         super(RunCollectionCoverageProviderScript, self).__init__(providers)
 
     def get_providers(self, _db, provider_class, **kwargs):
