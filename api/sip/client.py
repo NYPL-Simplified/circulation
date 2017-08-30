@@ -218,6 +218,20 @@ class SIPClient(Constants):
         RECALL_OVERDUE,
         TOO_MANY_ITEMS_BILLED
     ]
+
+    # Some, but not all, of these fields, imply that a patron has lost
+    # borrowing privileges.
+    PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES = [
+        CHARGE_PRIVILEGES_DENIED,
+        CARD_REPORTED_LOST,
+        TOO_MANY_ITEMS_CHARGED,
+        TOO_MANY_ITEMS_OVERDUE,
+        TOO_MANY_LOST,
+        EXCESSIVE_FINES,
+        EXCESSIVE_FEES,
+        RECALL_OVERDUE,
+        TOO_MANY_ITEMS_BILLED
+    ]
     
     def __init__(self, target_server, target_port, login_user_id=None,
                  login_password=None, location_code=None, separator=None,
