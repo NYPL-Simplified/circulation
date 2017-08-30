@@ -39,6 +39,7 @@ from api.circulation import (
 )
 from api.circulation_exceptions import *
 from api.bibliotheca import (
+    BibliothecaCirculationSweep,
     CheckoutResponseParser,
     CirculationParser,
     ErrorParser,
@@ -218,6 +219,57 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         self.api.queue_response(400, content=self.sample_data("error_exceeded_hold_limit.xml"))
         assert_raises(PatronHoldLimitReached, self.api.place_hold,
                       patron, 'pin', pool)
+
+
+class TestBibliothecaCirculationSweep(BibliothecaAPITest):
+
+    def test_circulation_sweep_discovers_work(self):
+        """Test what happens when BibliothecaCirculationSweep discovers a new
+        work.
+        """
+
+        # Create an analytics integration so we can make sure
+        # events are tracked.
+        integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="core.local_analytics_provider",
+        )
+
+        # We know about an identifier, but nothing else.
+        identifier = self._identifier(
+            identifier_type=Identifier.BIBLIOTHECA_ID, foreign_id="d5rf89"
+        )
+
+        # We're about to get information about that identifier from
+        # the API.
+        data = self.sample_data("item_circulation_single.xml")
+
+        # Update availability using that data.
+        self.api.queue_response(200, content=data)
+        monitor = BibliothecaCirculationSweep(
+            self.collection, api_class=self.api
+        )
+        monitor.process_batch([identifier])
+        
+        # A LicensePool has been created for the previously mysterious
+        # identifier.
+        [pool] = identifier.licensed_through
+        eq_(self.collection, pool.collection)
+        eq_(False, pool.open_access)
+        
+        # Three circulation events were created for this license pool,
+        # marking the creation of the license pool, the addition of
+        # licenses owned, and the making of those licenses available.
+        circulation_events = self._db.query(CirculationEvent).join(LicensePool).filter(LicensePool.id==pool.id)
+        eq_(3, circulation_events.count())
+        types = [e.type for e in circulation_events]
+        eq_(sorted([CirculationEvent.DISTRIBUTOR_LICENSE_ADD,
+                    CirculationEvent.DISTRIBUTOR_TITLE_ADD,
+                    CirculationEvent.DISTRIBUTOR_CHECKIN
+        ]),
+            sorted(types))
+
 
 # Tests of the various parser classes.
 #

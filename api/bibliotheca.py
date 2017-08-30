@@ -648,34 +648,13 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         identifiers_not_mentioned_by_bibliotheca = set(identifiers)
         now = datetime.datetime.utcnow()
 
-        collection = self.api.collection
         for circ in self.api.get_circulation_for(bibliotheca_ids):
             if not circ:
                 continue
-            bibliotheca_id = circ[Identifier][Identifier.BIBLIOTHECA_ID]
-            identifier = identifiers_by_bibliotheca_id[bibliotheca_id]
-            identifiers_not_mentioned_by_bibliotheca.remove(identifier)
-            pools = [lp for lp in identifier.licensed_through
-                     if lp.data_source.name==DataSource.BIBLIOTHECA
-                     and lp.collection == collection]
-            if not pools:
-                # We don't have a license pool for this work. That
-                # shouldn't happen--how did we know about the
-                # identifier?--but it shouldn't be a big deal to
-                # create one.
-                pool, ignore = LicensePool.for_foreign_id(
-                    self._db, self.collection.data_source, identifier.type,
-                    identifier.identifier, collection=collection
-                )
-
-                # Bibliotheca books are never open-access.
-                pool.open_access = False
-                self.analytics.collect_event(
-                    self._db, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
-            else:
-                [pool] = pools
-                
-            self.api.apply_circulation_information_to_licensepool(circ, pool, self.analytics)
+            self._process_circulation_data(
+                circ, identifiers_by_bibliotheca_id,
+                identifiers_not_mentioned_by_bibliotheca,
+            )
 
         # At this point there may be some license pools left over
         # that Bibliotheca doesn't know about.  This is a pretty reliable
@@ -684,7 +663,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
         for identifier in identifiers_not_mentioned_by_bibliotheca:
             pools = [lp for lp in identifier.licensed_through
                      if lp.data_source.name==DataSource.BIBLIOTHECA
-                     and lp.collection == collection]
+                     and lp.collection == self.collection]
             if not pools:
                 continue
             for pool in pools:
@@ -699,6 +678,44 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
                         )
                 pool.update_availability(0, 0, 0, 0, self.analytics)
                 pool.last_checked = now
+
+    def _process_circulation_data(
+        self, circ, identifiers_by_bibliotheca_id, 
+        identifiers_not_mentioned_by_bibliotheca
+    ):
+        """Process a single CirculationData object retrieved from
+        Bibliotheca.
+        """
+        bibliotheca_id = circ[Identifier][Identifier.BIBLIOTHECA_ID]
+        identifier = identifiers_by_bibliotheca_id[bibliotheca_id]
+        identifiers_not_mentioned_by_bibliotheca.remove(identifier)
+        pools = [lp for lp in identifier.licensed_through
+                 if lp.data_source.name==DataSource.BIBLIOTHECA
+                 and lp.collection == self.collection]
+        if not pools:
+            # We don't have a license pool for this work. That
+            # shouldn't happen--how did we know about the
+            # identifier?--but it shouldn't be a big deal to
+            # create one.
+            pool, ignore = LicensePool.for_foreign_id(
+                self._db, self.collection.data_source, identifier.type,
+                identifier.identifier, collection=self.collection
+            )
+
+            # Bibliotheca books are never open-access.
+            pool.open_access = False
+
+            for library in self.collection.libraries:
+                self.analytics.collect_event(
+                    library, pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, 
+                    datetime.datetime.utcnow()
+                )
+        else:
+            [pool] = pools
+                
+        self.api.apply_circulation_information_to_licensepool(
+            circ, pool, self.analytics
+        )
 
 
 class BibliothecaEventMonitor(CollectionMonitor):
