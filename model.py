@@ -2310,7 +2310,9 @@ class Contributor(Base):
             if create_new:
                 contributor, new = get_one_or_create(
                     _db, Contributor, create_method_kwargs=create_method_kwargs,
-                    **query)
+                    on_multiple='interchangeable',
+                    **query
+                )
                 if contributor:
                     contributors = [contributor]
             else:
