@@ -4072,7 +4072,8 @@ class Work(Base):
 
 
     def calculate_presentation(
-        self, policy=None, search_index_client=None, exclude_search=False
+        self, policy=None, search_index_client=None, exclude_search=False,
+        default_fiction=False, default_audience=Classifier.AUDIENCE_ADULT
     ):
         """Make a Work ready to show to patrons.
 
@@ -4127,7 +4128,9 @@ class Work(Base):
             identifier_ids = []
 
         if policy.classify:
-            classification_changed = self.assign_genres(identifier_ids)
+            classification_changed = self.assign_genres(identifier_ids,
+                                                        default_fiction=default_fiction,
+                                                        default_audience=default_audience)
             WorkCoverageRecord.add_for(
                 self, operation=WorkCoverageRecord.CLASSIFY_OPERATION
             )
@@ -4383,7 +4386,7 @@ class Work(Base):
             self, operation=WorkCoverageRecord.QUALITY_OPERATION
         )
 
-    def assign_genres(self, identifier_ids):
+    def assign_genres(self, identifier_ids, default_fiction=False, default_audience=Classifier.AUDIENCE_ADULT):
         """Set classification information for this work based on the
         subquery to get equivalent identifiers.
 
@@ -4404,7 +4407,8 @@ class Work(Base):
             classifier.add(classification)
 
         (genre_weights, self.fiction, self.audience, 
-         target_age) = classifier.classify
+         target_age) = classifier.classify(default_fiction=default_fiction,
+                                           default_audience=default_audience)
         self.target_age = tuple_to_numericrange(target_age)
 
         workgenres, workgenres_changed = self.assign_genres_from_weights(
