@@ -500,19 +500,19 @@ class MetaToModelUtility(object):
         original_url = link.href
 
         self.log.info("About to mirror %s" % original_url)
-        pool = None
+        pools = []
         edition = None
         title = None
         identifier = None
         if model_object:
             if isinstance(model_object, LicensePool):
-                pool = model_object
+                pools = [model_object]
                 identifier = model_object.identifier
 
                 if (identifier and identifier.primarily_identifies and identifier.primarily_identifies[0]): 
                     edition = identifier.primarily_identifies[0]
             elif isinstance(model_object, Edition):
-                pool = model_object.license_pool
+                pools = model_object.license_pools
                 identifier = model_object.primary_identifier
                 edition = model_object
         if edition and edition.title:
@@ -550,10 +550,11 @@ class MetaToModelUtility(object):
         # The license pool to suppress will be either the passed-in model_object (if it's of type pool), 
         # or the license pool associated with the passed-in model object (if it's of type edition).
         if representation.fetch_exception:
-            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                pool.suppressed = True
-                pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
-                self.log.error(pool.license_exception)
+            if pools and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                for pool in pools:
+                    pool.suppressed = True
+                    pool.license_exception = "Fetch exception: %s" % representation.fetch_exception
+                    self.log.error(pool.license_exception)
             return
 
         # If we fetched the representation and it hasn't changed,
@@ -607,10 +608,11 @@ class MetaToModelUtility(object):
         # If we couldn't mirror an open access link representation, suppress
         # the license pool until someone fixes it manually.
         if representation.mirror_exception: 
-            if pool and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-                pool.suppressed = True
-                pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
-                self.log.error(pool.license_exception)
+            if pools and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                for pool in pools:
+                    pool.suppressed = True
+                    pool.license_exception = "Mirror exception: %s" % representation.mirror_exception
+                    self.log.error(pool.license_exception)
 
         if link_obj.rel == Hyperlink.IMAGE:
             # Create and mirror a thumbnail.
