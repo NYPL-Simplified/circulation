@@ -1339,10 +1339,11 @@ class Metadata(MetaToModelUtility):
     def _run_query(self, qu, potentials, confidence):
         success = False
         for i in qu:
-            lp = i.license_pool
-            if lp and lp.deliverable and potentials.get(lp, 0) < confidence:
-                potentials[lp] = confidence
-                success = True
+            pools = i.license_pools
+            for lp in pools:
+                if lp and lp.deliverable and potentials.get(lp, 0) < confidence:
+                    potentials[lp] = confidence
+                    success = True
         return success
 
 

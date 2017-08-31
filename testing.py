@@ -301,7 +301,9 @@ class DatabaseTest(object):
             if with_license_pool:
                 presentation_edition, pool = presentation_edition
         else:
-            pool = presentation_edition.license_pool
+            # Just pick one -- there's probably only one and if
+            # there's any confusion it's the fault of the caller.
+            pool = presentation_edition.license_pools[0]
         if new_edition:
             presentation_edition.calculate_presentation()
         work, ignore = get_one_or_create(
