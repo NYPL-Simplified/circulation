@@ -829,8 +829,7 @@ class DatabaseTest(object):
     def _integration_client(self, url=None):
         url = url or self._url
         return get_one_or_create(
-            self._db, IntegrationClient,
-            url=url, key=u"abc", secret=u"def"
+            self._db, IntegrationClient, url=url, shared_secret=u"secret"
         )[0]
 
     def _subject(self, type, identifier):

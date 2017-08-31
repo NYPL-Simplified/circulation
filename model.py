@@ -10300,7 +10300,7 @@ class IntegrationClient(Base):
     url = Column(Unicode, unique=True)
 
     # Shared secret
-    shared_secret = Column(Unicode)
+    shared_secret = Column(Unicode, unique=True, index=True)
 
     created = Column(DateTime)
     last_accessed = Column(DateTime)
@@ -10309,22 +10309,19 @@ class IntegrationClient(Base):
         return (u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
 
     @classmethod
-    def register(cls, _db, url, bearer_secret):
+    def register(cls, _db, url, submitted_secret=None):
         """Creates a new server with client details."""
         url = cls.normalize_url(url)
-        if bearer_secret:
-            bearer_secret = base64.b64decode(bearer_secret)
-
         now = datetime.datetime.utcnow()
         client, is_new = get_one_or_create(
             _db, cls, url=url, create_method_kwargs=dict(created=now)
         )
         client.last_accessed = now
 
-        if not is_new and not bearer_secret:
+        if not is_new and (not submitted_secret or submitted_secret != client.shared_secret):
             raise ValueError('Cannot update existing IntegratedClient without valid shared_secret')
 
-        generate_secret = (client.shared_secret is None) or (bearer_secret==client.shared_secret)
+        generate_secret = (client.shared_secret is None) or submitted_secret
         if generate_secret:
             client.shared_secret = os.urandom(24).encode('hex')
 
@@ -10339,12 +10336,11 @@ class IntegrationClient(Base):
         return unicode(url.lower())
 
     @classmethod
-    def authenticate(cls, _db, key, plaintext_secret):
-        server = get_one(_db, cls, key=unicode(key))
-        if (server and server._correct_secret(plaintext_secret)):
-            server.last_accessed = datetime.datetime.utcnow()
-            _db.flush()
-            return server
+    def authenticate(cls, _db, shared_secret):
+        client = get_one(_db, cls, shared_secret=shared_secret)
+        if client:
+            client.last_accessed = datetime.datetime.utcnow()
+            return client
         return None
 
 
