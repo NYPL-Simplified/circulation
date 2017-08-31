@@ -137,8 +137,6 @@ from sqlalchemy.dialects.postgresql import (
     JSON,
     INT4RANGE,
 )
-from s3 import S3Uploader
-
 
 DEBUG = False
 
@@ -2013,11 +2011,12 @@ class Identifier(Base):
     IDEAL_IMAGE_WIDTH = 160
 
     @classmethod
-    def best_cover_for(cls, _db, identifier_ids):
+    def best_cover_for(cls, _db, identifier_ids, rel=None):
         # Find all image resources associated with any of
         # these identifiers.
+        rel = rel or Hyperlink.IMAGE
         images = cls.resources_for_identifier_ids(
-            _db, identifier_ids, Hyperlink.IMAGE)
+            _db, identifier_ids, rel)
         images = images.join(Resource.representation)
         images = images.filter(Representation.mirrored_at != None).\
             filter(Representation.mirror_url != None)
@@ -3057,14 +3056,15 @@ class Edition(Base):
                 if similarity >= threshold:
                     yield candidate
 
-    def best_cover_within_distance(self, distance, threshold=0.5):
+    def best_cover_within_distance(self, distance, threshold=0.5, rel=None):
         _db = Session.object_session(self)
         identifier_ids = [self.primary_identifier.id]
         if distance > 0:
-            identifier_ids = Identifier.recursively_equivalent_identifier_ids(
+            identifier_ids_dict = Identifier.recursively_equivalent_identifier_ids(
                 _db, identifier_ids, distance, threshold=threshold)
+            identifier_ids += identifier_ids_dict[self.primary_identifier.id]
 
-        return Identifier.best_cover_for(_db, identifier_ids)
+        return Identifier.best_cover_for(_db, identifier_ids, rel=rel)
 
     @property
     def title_for_permanent_work_id(self):
@@ -3152,6 +3152,7 @@ class Edition(Base):
         old_work_id = self.permanent_work_id
         old_cover = self.cover
         old_cover_full_url = self.cover_full_url
+        old_cover_thumbnail_url = self.cover_thumbnail_url
 
         if policy.set_edition_metadata:
             self.author, self.sort_author = self.calculate_author()
@@ -3171,6 +3172,7 @@ class Edition(Base):
             or self.permanent_work_id != old_work_id
             or self.cover != old_cover
             or self.cover_full_url != old_cover_full_url
+            or self.cover_thumbnail_url != old_cover_thumbnail_url
         ):
             changed = True
 
@@ -3246,12 +3248,38 @@ class Edition(Base):
         else:
             # No cover has been found. If the Edition currently references
             # a cover, it has since been rejected or otherwise removed.
-            # All cover details need to be removed.
-            cover_info = [self.cover, self.cover_full_url, self.cover_thumbnail_url]
+            # Cover details need to be removed.
+            cover_info = [self.cover, self.cover_full_url]
             if any(cover_info):
                 self.cover = None
                 self.cover_full_url = None
-                self.cover_thumbnail_url = None
+
+            # It's possible there's a thumbnail even though there's no full-sized
+            # cover. Try to find a thumbnail the same way we'd look for a cover.
+            for distance in (0, 5):
+                best_thumbnail, thumbnails = self.best_cover_within_distance(distance, rel=Hyperlink.THUMBNAIL_IMAGE)
+                if best_thumbnail:
+                    if not best_thumbnail.representation:
+                        logging.warn(
+                            "Best thumbnail for %r has no representation!", 
+                            self.primary_identifier,
+                        )
+                    else:
+                        rep = best_thumbnail.representation
+                        if not rep.mirrored_at:
+                            logging.warn(
+                                "Best thumbnail for %r (%s) was never mirrored!",
+                                self.primary_identifier, rep.url
+                            )
+                            self.cover_thumbnail_url = rep.url
+                        else:
+                            self.cover_thumbnail_url = rep.mirror_url
+                        break
+            else:
+                # No thumbnail was found. If the Edition references a thumbnail,
+                # it needs to be removed.
+                if self.cover_thumbnail_url:
+                    self.cover_thumbnail_url = None
 
         # Whether or not we succeeded in setting the cover,
         # record the fact that we tried.

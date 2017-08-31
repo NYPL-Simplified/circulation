@@ -1283,12 +1283,65 @@ class TestEdition(DatabaseTest):
         eq_(staff_resource, champ5)
 
     def test_calculate_presentation_cover(self):
-        # TODO: Verify that a cover will be used even if it's some
-        # distance away along the identifier-equivalence line.
+        # Here's a cover image with a thumbnail.
+        representation, ignore = get_one_or_create(self._db, Representation, url="http://cover")
+        representation.media_type = Representation.JPEG_MEDIA_TYPE
+        representation.mirrored_at = datetime.datetime.now()
+        representation.mirror_url = "http://mirror/cover"
+        thumb, ignore = get_one_or_create(self._db, Representation, url="http://thumb")
+        thumb.media_type = Representation.JPEG_MEDIA_TYPE
+        thumb.mirrored_at = datetime.datetime.now()
+        thumb.mirror_url = "http://mirror/thumb"
+        thumb.thumbnail_of_id = representation.id
 
-        # TODO: Verify that a nearby cover takes precedence over a
+        # Verify that a cover for the edition's primary identifier is used.
+        e, pool = self._edition(with_license_pool=True)
+        link, ignore = e.primary_identifier.add_link(Hyperlink.IMAGE, "http://cover", e.data_source)
+        link.resource.representation = representation
+        e.calculate_presentation()
+        eq_("http://mirror/cover", e.cover_full_url)
+        eq_("http://mirror/thumb", e.cover_thumbnail_url)
+
+        # Verify that a cover will be used even if it's some
+        # distance away along the identifier-equivalence line.
+        e, pool = self._edition(with_license_pool=True)
+        oclc_classify = DataSource.lookup(self._db, DataSource.OCLC)
+        oclc_number, ignore = Identifier.for_foreign_id(
+            self._db, Identifier.OCLC_NUMBER, "22")
+        e.primary_identifier.equivalent_to(
+            oclc_classify, oclc_number, 1)
+        link, ignore = oclc_number.add_link(Hyperlink.IMAGE, "http://cover", oclc_classify)
+        link.resource.representation = representation
+        e.calculate_presentation()
+        eq_("http://mirror/cover", e.cover_full_url)
+        eq_("http://mirror/thumb", e.cover_thumbnail_url)
+
+        # Verify that a nearby cover takes precedence over a
         # faraway cover.
-        pass
+        link, ignore = e.primary_identifier.add_link(Hyperlink.IMAGE, "http://nearby-cover", e.data_source)
+        nearby, ignore = get_one_or_create(self._db, Representation, url=link.resource.url)
+        nearby.media_type = Representation.JPEG_MEDIA_TYPE
+        nearby.mirrored_at = datetime.datetime.now()
+        nearby.mirror_url = "http://mirror/nearby-cover"
+        link.resource.representation = nearby
+        nearby_thumb, ignore = get_one_or_create(self._db, Representation, url="http://nearby-thumb")
+        nearby_thumb.media_type = Representation.JPEG_MEDIA_TYPE
+        nearby_thumb.mirrored_at = datetime.datetime.now()
+        nearby_thumb.mirror_url = "http://mirror/nearby-thumb"
+        nearby_thumb.thumbnail_of_id = nearby.id
+        e.calculate_presentation()
+        eq_("http://mirror/nearby-cover", e.cover_full_url)
+        eq_("http://mirror/nearby-thumb", e.cover_thumbnail_url)
+
+        # Verify that a thumbnail is used even if there's
+        # no full-sized cover.
+        e, pool = self._edition(with_license_pool=True)
+        link, ignore = e.primary_identifier.add_link(Hyperlink.THUMBNAIL_IMAGE, "http://thumb", e.data_source)
+        link.resource.representation = thumb
+        e.calculate_presentation()
+        eq_(None, e.cover_full_url)
+        eq_("http://mirror/thumb", e.cover_thumbnail_url)
+
 
     def test_calculate_presentation_registers_coverage_records(self):
         edition = self._edition()
