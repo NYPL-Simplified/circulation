@@ -10299,11 +10299,8 @@ class IntegrationClient(Base):
     # URL (or human readable name) to represent the server.
     url = Column(Unicode, unique=True)
 
-    # Unique identifier
-    key = Column(Unicode, unique=True, index=True)
-
-    # Encrypted secret
-    _secret = Column(Unicode, nullable=False)
+    # Shared secret
+    shared_secret = Column(Unicode)
 
     created = Column(DateTime)
     last_accessed = Column(DateTime)
@@ -10311,58 +10308,27 @@ class IntegrationClient(Base):
     def __repr__(self):
         return (u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
 
-    @hybrid_property
-    def secret(self):
-        """Gets encrypted client secret from database"""
-        return self._secret
-
-    @secret.setter
-    def _set_secret(self, plaintext_secret):
-        """Encrypts client secret string for database"""
-        self._secret = unicode(bcrypt.hashpw(
-            plaintext_secret, bcrypt.gensalt()
-        ))
-
-    def _correct_secret(self, plaintext_secret):
-        """Determines if a plaintext string is this client's secret"""
-        return (bcrypt.hashpw(plaintext_secret, self.secret) == self.secret)
-
     @classmethod
-    def register(cls, _db, url):
+    def register(cls, _db, url, bearer_secret):
         """Creates a new server with client details."""
         url = cls.normalize_url(url)
-        if get_one(_db, cls, url=url):
-            raise ValueError(
-                "An IntegrationClient for '%s' already exists" % url
-            )
-
-        key, plaintext_secret = cls._generate_client_details()
-        while get_one(_db, cls, key=key):
-            # Generate a new key if it's not unique initially.
-            key, plaintext_secret = cls._generate_client_details()
+        if bearer_secret:
+            bearer_secret = base64.b64decode(bearer_secret)
 
         now = datetime.datetime.utcnow()
-        server, ignore = create(
-            _db, cls, url=url, key=unicode(key),
-            secret=unicode(plaintext_secret), created=now, last_accessed=now
+        client, is_new = get_one_or_create(
+            _db, cls, url=url, create_method_kwargs=dict(created=now)
         )
+        client.last_accessed = now
 
-        _db.flush()
-        return server, plaintext_secret
+        if not is_new and not bearer_secret:
+            raise ValueError('Cannot update existing IntegratedClient without valid shared_secret')
 
-    @classmethod
-    def _generate_client_details(cls):
-        key_chars = ('abcdefghijklmnopqrstuvwxyz'
-                     'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-                     '0123456789')
-        secret_chars = key_chars + '!#$%&*+,-._'
+        generate_secret = (client.shared_secret is None) or (bearer_secret==client.shared_secret)
+        if generate_secret:
+            client.shared_secret = os.urandom(24).encode('hex')
 
-        def make_client_string(chars, length):
-            return u"".join([random.choice(chars) for x in range(length)])
-        key = make_client_string(key_chars, 25)
-        secret = make_client_string(secret_chars, 40)
-
-        return key, secret
+        return client, is_new
 
     @classmethod
     def normalize_url(cls, url):
