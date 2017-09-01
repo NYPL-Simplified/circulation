@@ -441,10 +441,10 @@ class TestCustomListEntrySweepMonitor(DatabaseTest):
         
         # Two Collections, each with one book from one of the lists.
         c1 = self._collection()
-        c1.licensepools.append(edition1.license_pool)
+        c1.licensepools.extend(edition1.license_pools)
         
         c2 = self._collection()
-        c2.licensepools.append(edition2.license_pool)
+        c2.licensepools.extend(edition2.license_pools)
 
         # If we don't pass in a Collection to
         # CustomListEntrySweepMonitor, we get all three
@@ -472,10 +472,10 @@ class TestEditionSweepMonitor(DatabaseTest):
 
         # Two Collections, each with one book.
         c1 = self._collection()
-        c1.licensepools.append(e1.license_pool)
+        c1.licensepools.extend(e1.license_pools)
         
         c2 = self._collection()
-        c2.licensepools.append(e2.license_pool)
+        c2.licensepools.extend(e2.license_pools)
         
         # If we don't pass in a Collection to EditionSweepMonitor, we
         # get all three Editions, in their order of creation.

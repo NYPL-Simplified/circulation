@@ -156,7 +156,7 @@ class TestCirculationData(DatabaseTest):
 
         [epub, pdf] = sorted(pool.delivery_mechanisms, 
                              key=lambda x: x.delivery_mechanism.content_type)
-        eq_(epub.resource, edition.license_pool.best_open_access_resource)
+        eq_(epub.resource, pool.best_open_access_resource)
 
         eq_(Representation.PDF_MEDIA_TYPE, pdf.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, pdf.delivery_mechanism.drm_scheme)
@@ -611,7 +611,7 @@ class TestMetaToModelUtility(DatabaseTest):
         assert book.mirror_url.endswith(expect)
 
         # make sure the mirrored link is safely on edition
-        sorted_edition_links = sorted(edition.license_pool.identifier.links, key=lambda x: x.rel)
+        sorted_edition_links = sorted(pool.identifier.links, key=lambda x: x.rel)
         unmirrored_representation, mirrored_representation = [edlink.resource.representation for edlink in sorted_edition_links]
         assert mirrored_representation.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
 
