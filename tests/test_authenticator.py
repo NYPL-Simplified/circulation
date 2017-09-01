@@ -1056,6 +1056,15 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_(AuthenticationForOPDSDocument.MEDIA_TYPE, headers['Content-Type'])
             eq_(basic.authentication_header, headers['WWW-Authenticate'])
 
+            # The response contains a Link header pointing to the authentication
+            # document
+            expect = "<%s>; rel=%s" % (
+                authenticator.authentication_document_url(self._default_library),
+                AuthenticationForOPDSDocument.LINK_RELATION
+            )
+            eq_(expect, headers['Link'])
+
+
             # If the authenticator does not include a basic auth provider,
             # no WWW-Authenticate header is provided.
             authenticator = LibraryAuthenticator(
