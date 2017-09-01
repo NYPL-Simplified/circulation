@@ -26,6 +26,7 @@ from core.model import (
     get_one_or_create,
 )
 from core.metadata_layer import FormatData
+from core.opds import AcquisitionFeed
 from circulation import (
     BaseCirculationAPI,
     LoanInfo,
@@ -214,6 +215,10 @@ class OPDSForDistributorsImporter(OPDSImporter):
         for pool in pools:
             pool.licenses_owned = 1
             pool.licenses_available = 1
+
+        if self.metadata_client:
+            feed = AcquisitionFeed(self._db, "OPDS for Distributors Metadata Feed", "", works, None)
+            self.metadata_client.add_with_metadata(feed)
 
         return editions, pools, works, failures
 
