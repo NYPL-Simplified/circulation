@@ -1051,6 +1051,8 @@ class SettingsController(CirculationManagerController):
             library.short_name = short_name
 
         for setting in Configuration.LIBRARY_SETTINGS:
+            # Start off by assuming the value is not set.
+            value = ""
             if setting.get("type") == "list":
                 if setting.get('options'):
                     # Restrict to the values in 'options'.
@@ -1908,7 +1910,10 @@ class SettingsController(CirculationManagerController):
             self._db.commit()
 
             library_url = self.url_for("index", library_short_name=library.short_name)
-            response = do_post(register_url, dict(url=library_url), allowed_response_codes=["2xx"])
+            response = do_post(
+                register_url, dict(url=library_url), 
+                allowed_response_codes=["2xx"], timeout=60
+            )
             catalog = json.loads(response.content)
 
             # Since we generated a public key, the catalog should have the short name

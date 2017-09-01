@@ -190,9 +190,7 @@ def index():
 @has_library
 @returns_problem_detail
 def authentication_document():
-    return app.manager.index_controller.authentication_document(
-        app.manager._db
-    )
+    return app.manager.index_controller.authentication_document()
 
 @library_dir_route('/groups', defaults=dict(lane_name=None, languages=None))
 @library_dir_route('/groups/<languages>', defaults=dict(lane_name=None))
