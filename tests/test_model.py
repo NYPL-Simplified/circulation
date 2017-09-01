@@ -804,6 +804,22 @@ class TestContributor(DatabaseTest):
 
         eq_((bob1, False), Contributor.lookup(self._db, lc="foo"))
 
+    def test_lookup_by_viaf_interchangeable(self):
+        # Two contributors with the same lc. This shouldn't happen, but 
+        # the reason it shouldn't happen is these two people are the same
+        # person, so lookup() should just pick one and go with it.
+        bob1, new = self._contributor(sort_name="Bob", lc="foo")
+        bob2, new = self._contributor()
+        bob2.sort_name = "Bob"
+        bob2.lc = "foo"
+        self._db.commit()
+        assert bob1 != bob2
+        [some_bob], new = Contributor.lookup(
+            self._db, sort_name="Bob", lc="foo"
+        )
+        eq_(False, new)
+        assert some_bob in (bob1, bob2)
+
     def test_lookup_by_name(self):
 
         # Two contributors named Bob.

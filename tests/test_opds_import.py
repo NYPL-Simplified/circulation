@@ -754,7 +754,6 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(edition.license_pools, [old_license_pool])
         eq_(work.license_pools, [old_license_pool])
 
-
     def test_import_from_license_source(self):
         # Instead of importing this data as though it came from the
         # metadata wrangler, let's import it as though it came from the
