@@ -267,7 +267,6 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
         providers = providers or list()
         if provider_class:
             providers += self.get_providers(_db, provider_class, **kwargs)
-
         super(RunCollectionCoverageProviderScript, self).__init__(providers)
 
     def get_providers(self, _db, provider_class, **kwargs):

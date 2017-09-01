@@ -388,10 +388,6 @@ class Configuration(object):
             and last_check and (now - last_check).total_seconds() < timeout):
             # We went to the database less than [timeout] seconds ago.
             # Assume there has been no change.
-            logging.error("Assuming that %s is still valid.", cls._site_configuration_last_update())
-            logging.error("Known value: %s", known_value)
-            logging.error("Last check: %.2f sec ago.", (now-last_check).total_seconds())
-            logging.error("Timeout: %s", timeout)
             return cls._site_configuration_last_update()
         
         # Ask the database when was the last time the site

@@ -2812,13 +2812,14 @@ class Edition(Base):
         return r
 
     @property
-    def license_pool(self):
-        """The Edition's corresponding LicensePool, if any.
+    def license_pools(self):
+        """The LicensePools that provide access to the book described
+        by this Edition.
         """
         _db = Session.object_session(self)
-        return get_one(_db, LicensePool,
-                       data_source=self.data_source,
-                       identifier=self.primary_identifier)
+        return _db.query(LicensePool).filter(
+            LicensePool.data_source==self.data_source,
+            LicensePool.identifier==self.primary_identifier).all()
 
     def equivalent_identifiers(self, levels=3, threshold=0.5, type=None):
         """All Identifiers equivalent to this
