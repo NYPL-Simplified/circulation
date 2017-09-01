@@ -19,6 +19,7 @@ import urlparse
 import flask
 from flask import url_for
 
+from core.opds import OPDSFeed
 from core.model import (
     CirculationEvent,
     ConfigurationSetting,
@@ -1001,7 +1002,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # We also need to test that the links got pulled in
             # from the configuration.
             (about, alternate, copyright, help_uri, help_web, help_email,
-             license, logo, privacy_policy, register, terms_of_service) = sorted(
+             license, logo, privacy_policy, register, start, terms_of_service) = sorted(
                  doc['links'], key=lambda x: (x['rel'], x['href'])
              )
             eq_("http://terms", terms_of_service['href'])
@@ -1010,8 +1011,16 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("http://about", about['href'])
             eq_("http://license/", license['href'])
             eq_("image data", logo['href'])
+            expect_start = url_for(
+                "index", library_short_name=self._default_library.short_name, 
+                _external=True
+            )
+            eq_(expect_start, start['href'])
 
-            # Most of the links have type='text/html'
+            # The start link points to an OPDS feed.
+            eq_(OPDSFeed.ACQUISITION_FEED_TYPE, start['type'])
+
+            # Most of the other links have type='text/html'
             eq_("text/html", about['type'])
 
             # The registration link doesn't have a type, because it
