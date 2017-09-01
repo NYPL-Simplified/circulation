@@ -3,6 +3,7 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
+from core.opds import OPDSFeed
 from core.model import (
     get_one,
     get_one_or_create,
@@ -698,6 +699,14 @@ class LibraryAuthenticator(object):
                 # assume anything about other URL schemes.
                 link['type'] = "text/html"
             links.append(link)
+
+        # Add a rel="start" link pointing to the root OPDS feed.
+        index_url = url_for("index", _external=True,
+                            library_short_name=library.short_name)
+        links.append(
+            dict(rel="start", href=index_url, 
+                 type=OPDSFeed.ACQUISITION_FEED_TYPE)
+        )
                 
         # Add a rel="help" link for every type of URL scheme that
         # leads to library-specific help.
