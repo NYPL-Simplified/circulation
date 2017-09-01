@@ -971,6 +971,20 @@ class TestContributor(DatabaseTest):
 
 class TestEdition(DatabaseTest):
 
+    def test_license_pools(self):
+        # Here are two collections that provide access to the same book.
+        c1 = self._collection()
+        c2 = self._collection()
+        
+        edition, lp1 = self._edition(with_license_pool=True)
+        lp2 = self._licensepool(edition=edition, collection=c2)
+
+        # Two LicensePools for the same work.
+        eq_(lp1.identifier, lp2.identifier)
+        
+        # Edition.license_pools contains both.
+        eq_([lp1, lp2], edition.license_pools)        
+
     def test_author_contributors(self):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         id = self._str
