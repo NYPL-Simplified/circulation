@@ -132,6 +132,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
     SITEWIDE = True
 
     ADD_ENDPOINT = 'add'
+    ADD_WITH_METADATA_ENDPOINT = 'add_with_metadata'
     REMOVE_ENDPOINT = 'remove'
     UPDATES_ENDPOINT = 'updates'
     CANONICALIZE_ENDPOINT = 'canonical-author-name'
@@ -180,14 +181,14 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
             kwargs['auth'] = (self.client_id, self.client_secret)
         return super(MetadataWranglerOPDSLookup, self)._get(url, **kwargs)
 
-    def _post(self, url, **kwargs):
+    def _post(self, url, data="", **kwargs):
         """Make an HTTP request. This method is overridden in the mock class."""
         if self.authenticated:
             kwargs['auth'] = (self.client_id, self.client_secret)
         kwargs['timeout'] = kwargs.get('timeout', 120)
         kwargs['allowed_response_codes'] = kwargs.get('allowed_response_codes', [])
         kwargs['allowed_response_codes'] += ['2xx', '3xx']
-        return HTTP.post_with_timeout(url, "", **kwargs)
+        return HTTP.post_with_timeout(url, data, **kwargs)
 
     def get_collection_url(self, endpoint):
         if not self.authenticated:
@@ -204,6 +205,11 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
         logging.info("Metadata Wrangler Collection Addition URL: %s", url)
         return self._post(url)
+
+    def add_with_metadata(self, feed):
+        """Add a feed of items with metadata to an authenticated Metadata Wrangler Collection."""
+        add_with_metadata_url = self.get_collection_url(self.ADD_WITH_METADATA_ENDPOINT)
+        return self._post(add_with_metadata_url, unicode(feed))
 
     def remove(self, identifiers):
         """Remove items from an authenticated Metadata Wrangler Collection"""
