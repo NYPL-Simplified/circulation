@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 from collections import defaultdict
+import time
 import datetime
 import base64
 import os
@@ -96,20 +97,30 @@ class EnkiAPI(BaseCirculationAPI):
     ENKI_EXTERNAL = NAME
     ENKI_ID = u"Enki ID"
 
-    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
+    # Create a lookup table between common DeliveryMechanism identifiers
+    # and Enki format types.
+    epub = Representation.EPUB_MEDIA_TYPE
+    adobe_drm = DeliveryMechanism.ADOBE_DRM
+    no_drm = DeliveryMechanism.NO_DRM
+
+    delivery_mechanism_to_internal_format = {
+        (epub, no_drm): 'free',
+        (epub, adobe_drm): 'acs',
+    }
+
+    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
     SERVICE_NAME = "Enki"
     log = logging.getLogger("Enki API")
     log.setLevel(logging.DEBUG)
 
     def __init__(self, _db, collection):
         self._db = _db
-
         if collection.protocol != self.ENKI:
             raise ValueError(
                 "Collection protocol is %s, but passed into EnkiAPI!" %
                 collection.protocol
             )
-        self.collection = collection
+        self.collection_id = collection.id
         self.library_id = collection.external_account_id.encode("utf8")
         self.base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
 
@@ -122,6 +133,10 @@ class EnkiAPI(BaseCirculationAPI):
                 collection, api_class=self
             )
         )
+
+    @property
+    def collection(self):
+        return Collection.by_id(self._db, id=self.collection_id)
 
     def request(self, url, method='get', extra_headers={}, data=None,
                 params=None, exception_on_401=False):
@@ -233,11 +248,36 @@ class EnkiAPI(BaseCirculationAPI):
 
             return circulationdata
 
-    def checkout(self, patron, pin, licensepool, internal_format):
-        # WIP.
-        return None
+    def epoch_to_struct(self, epoch_string):
+        # This will turn the time string we get from Enki into a
+        # struct that the Circulation Manager can make use of.
+        time_format = "%Y-%m-%dT%H:%M:%S"
+        return datetime.datetime.strptime(
+            time.strftime(time_format, time.gmtime(float(epoch_string))),
+            time_format
+        )
 
-        # Create the loan info. We don't know the expiration 
+
+    def checkout(self, patron, pin, licensepool, internal_format):
+        identifier = licensepool.identifier
+        enki_id = identifier.identifier
+        response = self.loan_request(patron.authorization_identifier, pin, enki_id)
+        if response.status_code != 200:
+            raise CannotLoan(response.status_code)
+        result = json.loads(response.content)['result']
+        if not result['success']:
+            message = result['message']
+            if "There are no available copies" in message:
+                self.log.error("There are no copies of book %s available." % enki_id)
+                raise NoAvailableCopies()
+            elif "Login unsuccessful" in message:
+                self.log.error("User validation against Enki server with %s / %s was unsuccessful."
+                    % (patron.authorization_identifier, pin))
+                raise AuthorizationFailedException()
+        due_date = result['checkedOutItems'][0]['duedate']
+        expires = self.epoch_to_struct(due_date)
+
+        # Create the loan info.
         loan = LoanInfo(
             licensepool.collection,
             licensepool.data_source.name,
@@ -249,17 +289,128 @@ class EnkiAPI(BaseCirculationAPI):
         )
         return loan
 
-    def get_loan(barcode, pin, book_id):
-        self.log.debug ("Sending checkout request for %d" % book_id)
-        now = datetime.datetime.utcnow()
+    def loan_request(self, barcode, pin, book_id):
+        self.log.debug ("Sending checkout request for %s" % book_id)
         url = str(self.base_url) + str(self.user_endpoint)
         args = dict()
         args['method'] = "getSELink"
-        args['username'] = barcide
+        args['username'] = barcode
         args['password'] = pin
         args['lib'] = self.library_id
         args['id'] = book_id
+
         response = self.request(url, method='get', params=args)
+        return response
+
+    def fulfill(self, patron, pin, licensepool, internal_format):
+        book_id = licensepool.identifier.identifier
+        response = self.loan_request(patron.authorization_identifier, pin, book_id)
+        if response.status_code != 200:
+            raise CannotFulfill(response.status_code)
+        result = json.loads(response.content)['result']
+        if not result['success']:
+            message = result['message']
+            if "There are no available copies" in message:
+                self.log.error("There are no copies of book %s available." % book_id)
+                raise NoAvailableCopies()
+            elif "Login unsuccessful" in message:
+                self.log.error("User validation against Enki server with %s / %s was unsuccessful."
+                    % (patron.authorization_identifier, pin))
+                raise AuthorizationFailedException()
+        drm_type = self.get_enki_drm_type(book_id)
+        url, item_type, expires = self.parse_fulfill_result(result)
+
+        if not drm_type and item_type == 'epub':
+            drm_type = self.no_drm
+
+        return FulfillmentInfo(
+            licensepool.collection,
+            licensepool.data_source.name,
+            licensepool.identifier.type,
+            licensepool.identifier.identifier,
+            content_link=url,
+            content_type=drm_type,
+            content=None,
+            content_expires=expires
+        )
+
+    def get_enki_drm_type(self, book_id):
+        url = str(self.base_url) + str(self.item_endpoint)
+        args = dict()
+        args['method'] = 'getItem'
+        args['recordid'] = book_id
+        args['lib'] = self.library_id
+        response = self.request(url, method='get', params=args)
+        if response.status_code != 200:
+            return None
+        drm_type = json.loads(response.content)['result']['availability']['accessType']
+        if drm_type == 'acs':
+            return self.adobe_drm
+        elif drm_type == 'free':
+            return self.no_drm
+        else:
+            return None
+
+    def parse_fulfill_result(self, result):
+        links = result['checkedOutItems'][0]['links'][0]
+        url = links['url']
+        item_type = links['item_type']
+        due_date = result['checkedOutItems'][0]['duedate']
+        expires = self.epoch_to_struct(due_date)
+        return (url, item_type, expires)
+
+    def patron_activity(self, patron, pin):
+        response = self.patron_request(patron.authorization_identifier, pin)
+        if response.status_code != 200:
+            raise PatronNotFoundOnRemote(response.status_code)
+        result = json.loads(response.content)['result']
+        if not result['success']:
+            message = result['message']
+            if "Login unsuccessful" in message:
+                self.log.error("User validation against Enki server with %s / %s was unsuccessful." % (patron, pin))
+                raise AuthorizationFailedException()
+            else:
+                self.log.error("Something happened in patron_activity.")
+                raise CirculationException()
+        for loan in result['checkedOutItems']:
+            yield self.parse_patron_loans(loan)
+        for hold in result['holds']:
+            yield self.parse_patron_holds(hold)
+
+    def patron_request(self, patron, pin):
+        self.log.debug ("Querying Enki for information on patron %s" % patron)
+        url = str(self.base_url) + str(self.user_endpoint)
+        args = dict()
+        args['method'] = "getSEPatronData"
+        args['username'] = patron
+        args['password'] = pin
+        args['lib'] = self.library_id
+
+        return self.request(url, method='get', params=args)
+
+    def parse_patron_loans(self, checkout_data):
+        # We should receive a list of JSON objects
+        enki_id = checkout_data['recordId']
+        start_date = self.epoch_to_struct(checkout_data['checkoutdate'])
+        end_date = self.epoch_to_struct(checkout_data['duedate'])
+        return LoanInfo(
+            self.collection,
+            DataSource.ENKI,
+            Identifier.ENKI_ID,
+            enki_id,
+            start_date=start_date,
+            end_date=end_date,
+            fulfillment_info=None
+        )
+
+    def parse_patron_holds(self, hold_data):
+        pass
+
+    def place_hold(self, patron, pin, licensepool, notification_email_address):
+        pass
+
+    def release_hold(self, patron, pin, licensepool):
+        pass
 
 class MockEnkiAPI(EnkiAPI):
     def __init__(self, _db, collection=None, *args, **kwargs):
@@ -403,24 +554,21 @@ class BibliographicParser(object):
         contributors.append(ContributorData(sort_name=sort_name))
         primary_identifier = IdentifierData(EnkiAPI.ENKI_ID, element["id"])
         metadata = Metadata(
-        data_source=DataSource.ENKI,
-        title=element["title"],
-        language="eng",
-        medium=Edition.BOOK_MEDIUM,
-        #series=series,
-        publisher=element["publisher"],
-        #imprint=imprint,
-        #published=publication_date,
-        primary_identifier=primary_identifier,
-        identifiers=identifiers,
-        #subjects=subjects,
-        contributors=contributors,
+            data_source=DataSource.ENKI,
+            title=element["title"],
+            language="eng",
+            medium=Edition.BOOK_MEDIUM,
+            publisher=element["publisher"],
+            primary_identifier=primary_identifier,
+            identifiers=identifiers,
+            contributors=contributors,
         )
         licenses_owned=element["availability"]["totalCopies"]
         licenses_available=element["availability"]["availableCopies"]
         hold=element["availability"]["onHold"]
+        drm_type = EnkiAPI.adobe_drm if (element["availability"]["accessType"] == 'acs') else EnkiAPI.no_drm
         formats = []
-        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=DeliveryMechanism.ADOBE_DRM))
+        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=drm_type))
 
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
@@ -459,11 +607,17 @@ class EnkiImport(CollectionMonitor):
     def __init__(self, _db, collection, api_class=EnkiAPI):
         """Constructor."""
         super(EnkiImport, self).__init__(_db, collection)
+        self._db = _db
         self.api = api_class(_db, collection)
+        self.collection_id = collection.id
         self.analytics = Analytics(_db)
         self.bibliographic_coverage_provider = (
             EnkiBibliographicCoverageProvider(collection, api_class=self.api)
         )
+
+    @property
+    def collection(self):
+        return Collection.by_id(self._db, id=self.collection_id)
 
     def recently_changed_ids(self, start, cutoff):
         return self.api.recently_changed_ids(start, cutoff)

@@ -30,16 +30,19 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         { "key": FIELD_SEPARATOR, "label": _("Field Separator") },
     ] + BasicAuthenticationProvider.SETTINGS
     
-
-    # Most of the time, a patron who is blocked will be blocked with
-    # the reason UNKNOWN_BLOCK. However, there are a few more specific
-    # reasons we can use. This dictionary maps the block reason
-    # reported by SIP2 to the protocol-independent block reason used
-    # by PatronData.
+    # Map the reasons why SIP2 might report a patron is blocked to the
+    # protocol-independent block reason used by PatronData.
     SPECIFIC_BLOCK_REASONS = {
         SIPClient.CARD_REPORTED_LOST : PatronData.CARD_REPORTED_LOST,
         SIPClient.EXCESSIVE_FINES : PatronData.EXCESSIVE_FINES,
-        SIPClient.EXCESSIVE_FEES : PatronData.EXCESSIVE_FINES,
+        SIPClient.EXCESSIVE_FEES : PatronData.EXCESSIVE_FEES,
+        SIPClient.TOO_MANY_ITEMS_BILLED : PatronData.TOO_MANY_ITEMS_BILLED,
+        SIPClient.CHARGE_PRIVILEGES_DENIED : PatronData.NO_BORROWING_PRIVILEGES,
+        SIPClient.TOO_MANY_ITEMS_CHARGED : PatronData.TOO_MANY_LOANS,
+        SIPClient.TOO_MANY_ITEMS_OVERDUE : PatronData.TOO_MANY_OVERDUE,
+        SIPClient.TOO_MANY_RENEWALS : PatronData.TOO_MANY_RENEWALS,
+        SIPClient.TOO_MANY_LOST : PatronData.TOO_MANY_LOST,
+        SIPClient.RECALL_OVERDUE : PatronData.RECALL_OVERDUE,
     }
 
     def __init__(self, library, integration, analytics=None, client=None, connect=True):
@@ -160,16 +163,12 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                     patrondata.authorization_expires = value
                     break
 
-        # If any subfield of the patron_status field is True, the
-        # patron is prohibited from borrowing books. The only
-        # exception is 'hold privileges denied', which only blocks a
-        # patron from putting books on hold and which we currently
-        # don't enforce.
+        # A True value in most (but not all) subfields of the
+        # patron_status field will prohibit the patron from borrowing
+        # books.
         status = info['patron_status_parsed']
         block_reason = PatronData.NO_VALUE
-        for field in SIPClient.PATRON_STATUS_FIELDS:
-            if field == SIPClient.HOLD_PRIVILEGES_DENIED:
-                continue
+        for field in SIPClient.PATRON_STATUS_FIELDS_THAT_DENY_BORROWING_PRIVILEGES:
             if status.get(field) is True:
                 block_reason = cls.SPECIFIC_BLOCK_REASONS.get(
                     field, PatronData.UNKNOWN_BLOCK

@@ -240,12 +240,14 @@ class CirculationAPI(object):
         from bibliotheca import BibliothecaAPI
         from axis import Axis360API
         from oneclick import OneClickAPI
+        from enki import EnkiAPI
         from opds_for_distributors import OPDSForDistributorsAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.BIBLIOTHECA : BibliothecaAPI,
             ExternalIntegration.AXIS_360 : Axis360API,
             ExternalIntegration.ONE_CLICK : OneClickAPI,
+            EnkiAPI.ENKI_EXTERNAL : EnkiAPI,
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
         }
 
