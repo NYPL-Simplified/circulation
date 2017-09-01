@@ -601,7 +601,8 @@ class TestSyncBookshelf(OverdriveAPITest):
             data_source_name=DataSource.OVERDRIVE,
             with_license_pool=True, collection=self.collection
         )
-        overdrive_loan, new = overdrive_edition.license_pools[0].loan_to(patron)
+        [pool] = overdrive_edition.license_pools
+        overdrive_loan, new = pool.loan_to(patron)
         yesterday = datetime.utcnow() - timedelta(days=1)
         overdrive_loan.start = yesterday
 
@@ -617,7 +618,8 @@ class TestSyncBookshelf(OverdriveAPITest):
         patron = self._patron()
         gutenberg, new = self._edition(data_source_name=DataSource.GUTENBERG,
                                        with_license_pool=True)
-        gutenberg_loan, new = gutenberg.license_pools[0].loan_to(patron)
+        [pool] = gutenberg.license_pools
+        gutenberg_loan, new = pool.loan_to(patron)
         loans_data, json_loans = self.sample_json("shelf_with_some_checked_out_books.json")
         holds_data, json_holds = self.sample_json("no_holds.json")     
    
@@ -661,9 +663,8 @@ class TestSyncBookshelf(OverdriveAPITest):
             with_license_pool=True,
             collection=self.collection
         )
-        overdrive_hold, new = overdrive_edition.license_pools[0].on_hold_to(
-            patron
-        )
+        [pool] = overdrive_edition.license_pools
+        overdrive_hold, new = pool.on_hold_to(patron)
 
 
         self.api.queue_response(200, content=loans_data)
@@ -689,7 +690,8 @@ class TestSyncBookshelf(OverdriveAPITest):
             with_license_pool=True,
             collection=self._collection()
         )
-        overdrive_hold, new = overdrive.license_pools[0].on_hold_to(patron)
+        [pool] = overdrive.license_pools
+        overdrive_hold, new = pool.on_hold_to(patron)
    
         self.api.queue_response(200, content=loans_data)
         self.api.queue_response(200, content=holds_data)
