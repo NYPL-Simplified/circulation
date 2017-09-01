@@ -2934,23 +2934,25 @@ class TestWorkConsolidation(DatabaseTest):
             with_license_pool=True
         )
 
-        # For purposes of this test, let's pretend these books are
+        # For purposes of this test, let's pretend all these books are
         # open-access.
-        edition1.license_pool.open_access = True
-        edition2.license_pool.open_access = True
+        for e in [edition1, edition2]:
+            for license_pool in e.license_pools:
+                license_pool.open_access = True
         
         # Calling calculate_work() on the first edition creates a Work.
-        work1, created = edition1.license_pool.calculate_work()
+        work1, created = edition1.license_pools[0].calculate_work()
         eq_(created, True)
 
         # Calling calculate_work() on the second edition associated
         # the second edition's pool with the first work.
-        work2, created = edition2.license_pool.calculate_work()
+        work2, created = edition2.license_pools[0].calculate_work()
         eq_(created, False)
 
         eq_(work1, work2)
 
-        eq_(set([edition1.license_pool, edition2.license_pool]), set(work1.license_pools))
+        expect = edition1.license_pools + edition2.license_pools
+        eq_(set(expect), set(work1.license_pools))
 
 
     def test_calculate_work_for_licensepool_creates_new_work(self):
@@ -6627,7 +6629,7 @@ class TestMaterializedViews(DatabaseTest):
         [pool1] = work.license_pools
         edition2, pool2 = self._edition(with_license_pool=True)
         work.license_pools.append(pool1)
-        eq_(pool1, work.presentation_edition.license_pool)
+        eq_([pool1], work.presentation_edition.license_pools)
         work.presentation_ready = True
         work.simple_opds_entry = '<entry>'
         work.assign_genres_from_weights({classifier.Fantasy : 1})

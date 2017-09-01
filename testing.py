@@ -272,7 +272,7 @@ class DatabaseTest(object):
               audience=None, fiction=True, with_license_pool=False, 
               with_open_access_download=False, quality=0.5, series=None,
               presentation_edition=None, collection=None):
-        pool = None
+        pools = []
         if with_open_access_download:
             with_license_pool = True
         language = language or "eng"
@@ -300,8 +300,11 @@ class DatabaseTest(object):
             )
             if with_license_pool:
                 presentation_edition, pool = presentation_edition
+                if with_open_access_download:
+                    pool.open_access = True
+                pools = [pool]
         else:
-            pool = presentation_edition.license_pool
+            pools = presentation_edition.license_pools
         if new_edition:
             presentation_edition.calculate_presentation()
         work, ignore = get_one_or_create(
@@ -318,21 +321,20 @@ class DatabaseTest(object):
         work.set_presentation_edition(presentation_edition)
         work.calculate_presentation_edition()
 
-        if pool != None:
+        if pools:
             # make sure the pool's presentation_edition is set, 
             # bc loan tests assume that.
             if not work.license_pools:
-                work.license_pools.append(pool)
+                for pool in pools:
+                    work.license_pools.append(pools)
 
-            pool.set_presentation_edition()
+            for pool in pools:
+                pool.set_presentation_edition()
 
             # This is probably going to be used in an OPDS feed, so
             # fake that the work is presentation ready.
             work.presentation_ready = True
             work.calculate_opds_entries(verbose=False)
-
-        if with_open_access_download:
-            pool.open_access = True
 
         return work
 
