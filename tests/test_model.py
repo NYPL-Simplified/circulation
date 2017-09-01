@@ -983,7 +983,7 @@ class TestEdition(DatabaseTest):
         eq_(lp1.identifier, lp2.identifier)
         
         # Edition.license_pools contains both.
-        eq_([lp1, lp2], edition.license_pools)        
+        eq_(set([lp1, lp2]), set(edition.license_pools))
 
     def test_author_contributors(self):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
