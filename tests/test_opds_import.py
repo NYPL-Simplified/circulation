@@ -543,7 +543,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # metadata wrangler. No Work has been created.
         eq_(DataSource.METADATA_WRANGLER, crow.data_source.name)
         eq_(None, crow.work)
-        eq_(None, crow.license_pool)
+        eq_([], crow.license_pools)
         eq_(Edition.BOOK_MEDIUM, crow.medium)
 
         # not even the 'mouse'
@@ -728,10 +728,10 @@ class TestOPDSImporter(OPDSImporterTest):
             DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID,
             with_license_pool=True
         )
-        edition.license_pool.calculate_work()
-        work = edition.license_pool.work
+        [old_license_pool] = edition.license_pools
+        old_license_pool.calculate_work()
+        work = old_license_pool.work
 
-        old_license_pool = edition.license_pool
         feed = feed.replace("{OVERDRIVE ID}", edition.primary_identifier.identifier)
 
         self._default_collection.external_integration.setting('data_source').value = (
@@ -751,9 +751,8 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(DataSource.OVERDRIVE, new_edition.data_source.name)
         
         # But the license pools have not changed.
-        eq_(edition.license_pool, old_license_pool)
+        eq_(edition.license_pools, [old_license_pool])
         eq_(work.license_pools, [old_license_pool])
-
 
     def test_import_from_license_source(self):
         # Instead of importing this data as though it came from the

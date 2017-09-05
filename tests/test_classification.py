@@ -961,14 +961,14 @@ class TestWorkClassifier(DatabaseTest):
 
     def test_default_nonfiction(self):
         # In the absence of any information we assume a book is nonfiction.
-        eq_(False, self.classifier.fiction)
+        eq_(False, self.classifier.fiction())
 
         # Put a tiny bit of evidence on the scale, and the balance tips.
         new_classifier = WorkClassifier(self.work, test_session=self._db) 
         source = DataSource.lookup(self._db, DataSource.OCLC)
         c = self.identifier.classify(source, Subject.TAG, u"Fiction", weight=1)
         new_classifier.add(c)
-        eq_(True, new_classifier.fiction)
+        eq_(True, new_classifier.fiction())
 
     def test_juvenile_classification_is_split_between_children_and_ya(self):
 
@@ -991,7 +991,7 @@ class TestWorkClassifier(DatabaseTest):
         )
         self.classifier.add(c2)
         self.classifier.prepare_to_classify
-        genres, fiction, audience, target_age = self.classifier.classify
+        genres, fiction, audience, target_age = self.classifier.classify()
 
         # Young Adult wins because we err on the side of showing books
         # to kids who are too old, rather than too young.
@@ -1169,7 +1169,7 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.work = self._work(presentation_edition=overdrive_edition)
         for classification in i.classifications:
             self.classifier.add(classification)
-        genres, fiction, audience, target_age = self.classifier.classify
+        genres, fiction, audience, target_age = self.classifier.classify()
 
         eq_(Classifier.AUDIENCE_CHILDREN, audience)
         eq_((6,9), target_age)
@@ -1282,9 +1282,35 @@ class TestWorkClassifier(DatabaseTest):
         
         # We set the low end equal to the high end, erring on the side
         # of making the book available to fewer people.
-        genres, fiction, audience, target_age = self.classifier.classify
+        genres, fiction, audience, target_age = self.classifier.classify()
         eq_(10, target_age[0])
         eq_(10, target_age[1])
+
+    def test_classify_uses_default_fiction_status(self):
+        genres, fiction, audience, target_age = self.classifier.classify(default_fiction=True)
+        eq_(True, fiction)
+        genres, fiction, audience, target_age = self.classifier.classify(default_fiction=False)
+        eq_(False, fiction)
+        genres, fiction, audience, target_age = self.classifier.classify(default_fiction=None)
+        eq_(None, fiction)
+
+        # The default isn't used if there's any information about the fiction status.
+        self.classifier.fiction_weights[False] = 1
+        genres, fiction, audience, target_age = self.classifier.classify(default_fiction=None)
+        eq_(False, fiction)
+
+    def test_classify_uses_default_audience(self):
+        genres, fiction, audience, target_age = self.classifier.classify(default_audience=None)
+        eq_(None, audience)
+        genres, fiction, audience, target_age = self.classifier.classify(default_audience=Classifier.AUDIENCE_ADULT)
+        eq_(Classifier.AUDIENCE_ADULT, audience)
+        genres, fiction, audience, target_age = self.classifier.classify(default_audience=Classifier.AUDIENCE_CHILDREN)
+        eq_(Classifier.AUDIENCE_CHILDREN, audience)
+
+        # The default isn't used if there's any information about the audience.
+        self.classifier.audience_weights[Classifier.AUDIENCE_ADULT] = 1
+        genres, fiction, audience, target_age = self.classifier.classify(default_audience=None)
+        eq_(Classifier.AUDIENCE_ADULT, audience)
 
     def test_classify(self):
         # At this point we've tested all the components of classify, so just
@@ -1301,7 +1327,7 @@ class TestWorkClassifier(DatabaseTest):
             self.classifier.add(classification)
         self.classifier.prepare_to_classify()
 
-        genres, fiction, audience, target_age = self.classifier.classify
+        genres, fiction, audience, target_age = self.classifier.classify()
 
         # This work really looks like science fiction (w=100), but it
         # looks *even more* like nonfiction (w=100+10), and science
@@ -1366,7 +1392,7 @@ class TestWorkClassifier(DatabaseTest):
             data_source=staff_source, weight=1)
         self.classifier.add(classification1)
         self.classifier.add(classification2)
-        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify()
         eq_([genre2.name], [genre.name for genre in genre_weights.keys()])
 
     def test_staff_none_genre_overrides_others(self):
@@ -1387,7 +1413,7 @@ class TestWorkClassifier(DatabaseTest):
             data_source=staff_source, weight=1)
         self.classifier.add(classification1)
         self.classifier.add(classification2)
-        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify()
         eq_(0, len(genre_weights.keys()))
 
     def test_staff_fiction_overrides_others(self):
@@ -1413,7 +1439,7 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(classification1)
         self.classifier.add(classification2)
         self.classifier.add(classification3)
-        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify()
         eq_(True, fiction)
 
     def test_staff_audience_overrides_others(self):
@@ -1439,7 +1465,7 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(classification1)
         self.classifier.add(classification2)
         self.classifier.add(classification3)
-        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify()
         eq_("Children", audience)
 
     def test_staff_target_age_overrides_others(self):
@@ -1467,7 +1493,7 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(classification1)
         self.classifier.add(classification2)
         self.classifier.add(classification3)
-        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify()
         eq_((10, 13), target_age)
 
     def test_not_inclusive_target_age(self):
@@ -1481,5 +1507,5 @@ class TestWorkClassifier(DatabaseTest):
             identifier=self.identifier, subject=subject,
             data_source=staff_source, weight=1)
         self.classifier.add(classification)
-        (genre_weights, fiction, audience, target_age) = self.classifier.classify
+        (genre_weights, fiction, audience, target_age) = self.classifier.classify()
         eq_((10, 12), target_age)

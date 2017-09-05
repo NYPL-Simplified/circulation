@@ -30,7 +30,7 @@ class AuthenticationForOPDSDocument(object):
     """
     
     MEDIA_TYPE = "application/vnd.opds.authentication.v1.0+json"
-    OPDS_REL = "http://opds-spec.org/auth/document"
+    LINK_RELATION = "http://opds-spec.org/auth/document"
 
     def __init__(self, id=None, title=None, authentication_flows=[], links=[]):
         """Initialize an Authentication For OPDS document.

@@ -3652,8 +3652,7 @@ class WorkClassifier(object):
 
         self.prepared = True
 
-    @property
-    def classify(self):
+    def classify(self, default_fiction=False, default_audience=Classifier.AUDIENCE_ADULT):
         # Do a little prep work.
         if not self.prepared:
             self.prepare_to_classify()
@@ -3665,9 +3664,9 @@ class WorkClassifier(object):
                 )
 
         # Actually figure out the classifications
-        fiction = self.fiction
+        fiction = self.fiction(default_fiction=default_fiction)
         genres = self.genres(fiction)
-        audience = self.audience(genres)
+        audience = self.audience(genres, default_audience=default_audience)
         target_age = self.target_age(audience)
         if self.debug:
             self.log.debug("Fiction weights:")
@@ -3681,17 +3680,25 @@ class WorkClassifier(object):
                 self.log.debug(" %s: %s", v, k)
         return genres, fiction, audience, target_age
 
-    @property
-    def fiction(self):
+    def fiction(self, default_fiction=False):
         """Is it more likely this is a fiction or nonfiction book?"""
         # Default to nonfiction.
-        is_fiction = False
+        is_fiction = default_fiction
         if self.fiction_weights[True] > self.fiction_weights[False]:
             is_fiction = True
+        elif self.fiction_weights[False] > 0:
+            is_fiction = False
         return is_fiction
 
-    def audience(self, genres=[]):
-        """What's the most likely audience for this book?"""
+    def audience(self, genres=[], default_audience=Classifier.AUDIENCE_ADULT):
+        """What's the most likely audience for this book?
+        :param default_audience: To avoid embarassing situations we will
+        classify works as being intended for adults absent convincing
+        evidence to the contrary. In some situations (like the metadata
+        wrangler), it's better to state that we have no information, so
+        default_audience can be set to None.
+        """
+
         # If we determined that Erotica was a significant enough
         # component of the classification to count as a genre, the
         # audience will always be 'Adults Only', even if the audience
@@ -3707,11 +3714,8 @@ class WorkClassifier(object):
 
         total_adult_weight = adult_weight + adults_only_weight
         total_weight = sum(w.values())
-        
-        # To avoid embarassing situations we will classify works as
-        # being intended for adults absent convincing evidence to the
-        # contrary.
-        audience = Classifier.AUDIENCE_ADULT
+
+        audience = default_audience
 
         # A book will be classified as a young adult or childrens'
         # book when the weight of that audience is more than twice the
@@ -3734,6 +3738,8 @@ class WorkClassifier(object):
             # combined they do pass the threshold. Go with
             # 'Young Adult' to be safe.
             audience = Classifier.AUDIENCE_YOUNG_ADULT
+        elif total_adult_weight > 0:
+            audience = Classifier.AUDIENCE_ADULT
 
         # If the 'adults only' weight is more than 1/4 of the total adult
         # weight, classify as 'adults only' to be safe.
