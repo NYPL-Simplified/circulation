@@ -1050,9 +1050,10 @@ class SettingsController(CirculationManagerController):
         if short_name:
             library.short_name = short_name
 
+        NO_VALUE = object()
         for setting in Configuration.LIBRARY_SETTINGS:
             # Start off by assuming the value is not set.
-            value = ""
+            value = NO_VALUE
             if setting.get("type") == "list":
                 if setting.get('options'):
                     # Restrict to the values in 'options'.
@@ -1089,7 +1090,8 @@ class SettingsController(CirculationManagerController):
                     value = "data:image/png;base64,%s" % b64
             else:
                 value = flask.request.form.get(setting['key'], None)
-            ConfigurationSetting.for_library(setting['key'], library).value = value
+            if value != NO_VALUE:
+                ConfigurationSetting.for_library(setting['key'], library).value = value
 
         if is_new:
             return Response(unicode(_("Success")), 201)
