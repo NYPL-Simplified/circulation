@@ -977,6 +977,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         base_url.value = u'http://circulation-manager/'
        
         with self.app.test_request_context("/"):
+            url = authenticator.authentication_document_url(library)
+            assert url.endswith(
+                "/%s/authentication_document" % library.short_name
+            )
+
             doc = json.loads(authenticator.create_authentication_document())
             # The main thing we need to test is that the
             # sub-documents are assembled properly and placed in the
@@ -990,11 +995,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             expect_oauth = oauth.authentication_flow_document(self._db)
             eq_(expect_oauth, oauth_doc)
 
-            # We also need to test that the library's name and UUID
+            # We also need to test that the library's name and ID
             # were placed in the document.
             eq_("A Fabulous Library", doc['title'])
             eq_("Just the best.", doc['service_description'])
-            eq_(url_for("authentication_document", library_short_name=self._default_library.short_name, _external=True), doc['id'])
+            eq_(url, doc['id'])
 
             # The color scheme is correctly reported.
             eq_("plaid", doc['color_scheme'])
