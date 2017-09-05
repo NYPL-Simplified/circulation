@@ -1445,7 +1445,7 @@ class TestSettingsController(AdminControllerTest):
                 Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                 library).value)
 
-        # A library-wide setting that was not updated has been left alone.
+        # The library-wide logo was not updated and has been left alone.
         eq_("A tiny image", 
             ConfigurationSetting.for_library(Configuration.LOGO, library).value
         )
