@@ -1035,6 +1035,12 @@ class DataSource(Base, HasFullTableCache):
     primary_identifier_type = Column(String, index=True)
     extra = Column(MutableDict.as_mutable(JSON), default={})
 
+    # One DataSource can have one IntegrationClient.
+    integration_client_id = Column(
+        Integer, ForeignKey('integrationclients.id'),
+        unique=True, index=True, nullable=True)
+    integration_client = relationship("IntegrationClient", backref=backref("data_source", uselist=False))
+
     # One DataSource can generate many Editions.
     editions = relationship("Edition", backref="data_source")
 
@@ -5137,7 +5143,7 @@ class Hyperlink(Base):
     CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD, GENERIC_OPDS_ACQUISITION]
     METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW, 
         DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, ALTERNATE, SAMPLE]
-    MIRRORED = [OPEN_ACCESS_DOWNLOAD, IMAGE]
+    MIRRORED = [OPEN_ACCESS_DOWNLOAD, IMAGE, THUMBNAIL_IMAGE]
 
     id = Column(Integer, primary_key=True)
 
@@ -9387,6 +9393,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     BIBLIOTHECA = DataSource.BIBLIOTHECA
     AXIS_360 = DataSource.AXIS_360
     ONE_CLICK = DataSource.ONECLICK
+    OPDS_FOR_DISTRIBUTORS = u'OPDS for Distributors'
 
     # These protocols are only used on the Content Server when mirroring
     # content from a given directory or directly from Project

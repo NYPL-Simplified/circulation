@@ -1147,10 +1147,16 @@ class Metadata(MetaToModelUtility):
             type=i.type, identifier=i.identifier, weight=1
         )
 
+        links = []
+        for link in i.links:
+            link_data = LinkData(link.rel, link.resource.url)
+            links.append(link_data)
+
         return Metadata(
             data_source=edition.data_source.name,
             primary_identifier=primary_identifier,
             contributors=contributors,
+            links=links,
             **kwargs
         )
 
@@ -1551,12 +1557,15 @@ class Metadata(MetaToModelUtility):
             self.circulation.apply(_db, collection, replace)
 
         # obtains a presentation_edition for the title, which will later be used to get a mirror link.
+        has_image = any([link.rel == Hyperlink.IMAGE for link in self.links])
         for link in self.links:
             link_obj = link_objects[link]
-            # TODO: We do not properly handle the (unlikely) case
-            # where there is an IMAGE_THUMBNAIL link but no IMAGE
-            # link. In such a case we should treat the IMAGE_THUMBNAIL
-            # link as though it were an IMAGE link.
+
+            if link_obj.rel == Hyperlink.THUMBNAIL_IMAGE and has_image:
+                # This is a thumbnail but we also have a full-sized image link,
+                # so we don't need to separately mirror the thumbnail.
+                continue
+
             if replace.mirror:
                 # We need to mirror this resource. If it's an image, a
                 # thumbnail may be provided as a side effect.

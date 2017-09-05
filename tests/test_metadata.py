@@ -235,6 +235,27 @@ class TestMetadataImporter(DatabaseTest):
         assert thumbnail.mirror_url.startswith('http://s3.amazonaws.com/test.cover.bucket/scaled/300/')
         assert thumbnail.mirror_url.endswith('cover.png')
 
+    def test_mirror_thumbnail_only(self):
+        # Make sure a thumbnail image is mirrored when there's no cover image.
+        mirror = DummyS3Uploader()
+        edition, pool = self._edition(with_license_pool=True)
+        thumbnail_content = open(self.sample_cover_path("tiny-image-cover.png")).read()
+        l = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://example.com/thumb.png",
+            media_type=Representation.PNG_MEDIA_TYPE,
+            content=thumbnail_content
+        )
+
+        policy = ReplacementPolicy(mirror=mirror)
+        metadata = Metadata(links=[l], data_source=edition.data_source)
+        metadata.apply(edition, pool.collection, replace=policy)
+
+        # One Representation was 'mirrored'.
+        [thumbnail] = mirror.uploaded
+
+        # The image has been 'mirrored' to Amazon S3.
+        assert thumbnail.mirror_url.startswith('http://s3.amazonaws.com/test.cover.bucket/')
+        assert thumbnail.mirror_url.endswith('thumb.png')
 
     def test_mirror_open_access_link_fetch_failure(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -572,6 +593,7 @@ class TestMetadata(DatabaseTest):
         edition, pool = self._edition(with_license_pool=True)
         edition.series = "Harry Otter and the Mollusk of Infamy"
         edition.series_position = "14"
+        edition.primary_identifier.add_link(Hyperlink.IMAGE, "image", edition.data_source)
         metadata = Metadata.from_edition(edition)
 
         # make sure the metadata and the originating edition match 
@@ -585,6 +607,11 @@ class TestMetadata(DatabaseTest):
 
         eq_(edition.data_source, metadata.data_source(self._db))
         eq_(edition.primary_identifier.identifier, metadata.primary_identifier.identifier)
+
+        e_link = edition.primary_identifier.links[0]
+        m_link = metadata.links[0]
+        eq_(e_link.rel, m_link.rel)
+        eq_(e_link.resource.url, m_link.href)
 
     def test_update(self):
         # Tests that Metadata.update correctly prefers new fields to old, unless 
