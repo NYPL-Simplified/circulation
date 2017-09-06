@@ -795,6 +795,35 @@ class TestIndexController(CirculationControllerTest):
             doc = json.loads(data)
             eq_(self.library.short_name, doc['title'])
 
+    def test_public_key_integration_document(self):
+        base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
+
+        # Without a sitewide public key, only the id and an empty dictionary are
+        # returned. Library-specific public keys are ignored.
+        ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, self.library).value = u'banana'
+        with self.app.test_request_context('/'):
+            response = self.manager.index_controller.public_key_document()
+
+        eq_(200, response.status_code)
+        eq_('application/opds+json', response.headers.get('Content-Type'))
+
+        data = json.loads(response.data)
+        eq_('http://test-circulation-manager/', data.get('id'))
+        eq_({}, data.get('public_key'))
+
+        # When a sitewide public key exists, all of its data is included.
+        ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY).value = u'weird'
+        with self.app.test_request_context('/'):
+            response = self.manager.index_controller.public_key_document()
+
+        eq_(200, response.status_code)
+        eq_('application/opds+json', response.headers.get('Content-Type'))
+
+        data = json.loads(response.data)
+        eq_('RSA', data.get('public_key', {}).get('type'))
+        eq_('weird', data.get('public_key', {}).get('value'))
+
+
 class TestMultipleLibraries(CirculationControllerTest):
 
     def make_default_libraries(self, _db):
