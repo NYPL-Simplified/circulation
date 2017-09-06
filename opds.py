@@ -74,12 +74,19 @@ class Annotator(object):
     opds_cache_field = Work.simple_opds_entry.name
 
     @classmethod
-    def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
-                            entry):
+    def annotate_work_entry(cls, work, active_license_pool, edition, 
+                            identifier, feed, entry):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
         """
-        pass
+        if active_license_pool:
+            provider_name_attr = "{%s}ProviderName" % AtomFeed.BIBFRAME_NS
+            kwargs = {provider_name_attr : active_license_pool.data_source.name}
+            data_source_tag = AtomFeed.makeelement(
+                "{%s}distribution" % AtomFeed.BIBFRAME_NS,
+                **kwargs
+            )
+            entry.extend([data_source_tag])
 
     @classmethod
     def annotate_feed(cls, feed, lane):
@@ -886,15 +893,6 @@ class AcquisitionFeed(OPDSFeed):
             subtitle_tag = AtomFeed.makeelement(AtomFeed.schema_("alternativeHeadline"))
             subtitle_tag.text = edition.subtitle
             entry.append(subtitle_tag)
-
-        if license_pool:
-            provider_name_attr = "{%s}ProviderName" % AtomFeed.BIBFRAME_NS
-            kwargs = {provider_name_attr : license_pool.data_source.name}
-            data_source_tag = AtomFeed.makeelement(
-                "{%s}distribution" % AtomFeed.BIBFRAME_NS,
-                **kwargs
-            )
-            entry.extend([data_source_tag])
 
         author_tags = self.annotator.authors(work, license_pool, edition, identifier)
         entry.extend(author_tags)
