@@ -1565,7 +1565,7 @@ class RefreshMaterializedViewsScript(Script):
         )
         return parser
 
-    def do_run(self, test=False):
+    def do_run(self):
         args = self.parse_command_line()
         if args.blocking_refresh:
             concurrently = ''
@@ -1592,7 +1592,7 @@ class RefreshMaterializedViewsScript(Script):
         # time) wraps everything in a big transaction, but VACUUM
         # can't be executed within a transaction block. So create a
         # separate connection that uses autocommit.
-        url = Configuration.database_url(test=test)
+        url = Configuration.database_url()
         engine = create_engine(url, isolation_level="AUTOCOMMIT")
         engine.autocommit = True
         a = time.time()
@@ -1698,7 +1698,7 @@ class DatabaseMigrationScript(Script):
         # the database before the ExternalIntegration has been uploaded.
         Configuration.load(None)
 
-    def run(self):
+    def run(self, test=False):
         parsed = self.parse_command_line()
         last_run_date = parsed.last_run_date
         last_run_counter = parsed.last_run_counter
@@ -1709,7 +1709,7 @@ class DatabaseMigrationScript(Script):
         # Create a special database session that doesn't initialize
         # the ORM. As long as we only execute SQL and don't try to use
         # any ORM objects, we'll be fine.
-        url = Configuration.database_url()
+        url = Configuration.database_url(test=test)
         self._session = SessionManager.session(url, initialize_data=False)
 
         # Try to find an existing timestamp representing the last migration
