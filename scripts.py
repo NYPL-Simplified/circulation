@@ -1565,7 +1565,7 @@ class RefreshMaterializedViewsScript(Script):
         )
         return parser
 
-    def do_run(self):
+    def do_run(self, test=False):
         args = self.parse_command_line()
         if args.blocking_refresh:
             concurrently = ''
@@ -1592,7 +1592,7 @@ class RefreshMaterializedViewsScript(Script):
         # time) wraps everything in a big transaction, but VACUUM
         # can't be executed within a transaction block. So create a
         # separate connection that uses autocommit.
-        url = Configuration.database_url()
+        url = Configuration.database_url(test=test)
         engine = create_engine(url, isolation_level="AUTOCOMMIT")
         engine.autocommit = True
         a = time.time()
