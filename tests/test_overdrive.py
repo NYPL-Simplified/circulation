@@ -12,6 +12,7 @@ from datetime import (
 from api.overdrive import (
     MockOverdriveAPI,
     OverdriveCollectionReaper,
+    OverdriveFormatSweep,
 )
 
 from api.circulation import (
@@ -701,6 +702,22 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
         eq_(5, len(patron.holds))
         assert overdrive_hold in patron.holds
+
+class TestOverdriveFormatSweep(OverdriveAPITest):
+
+    def test_process_item(self):
+        # Validate the standard CollectionMonitor interface.
+        monitor = OverdriveFormatSweep(
+            self._db, self.collection,
+            api_class=MockOverdriveAPI
+        )
+
+        # We're not testing that the work actually gets done (that's
+        # tested in test_update_formats), only that the monitor
+        # implements the expected process_item API without crashing.
+        monitor.api.queue_response(404)
+        edition, pool = self._edition(with_license_pool=True)
+        monitor.process_item(pool.identifier)
 
 
 class TestReaper(OverdriveAPITest):
