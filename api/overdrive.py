@@ -656,6 +656,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
         metadata = OverdriveRepresentationExtractor.book_info_to_metadata(
             info, include_bibliographic=False, include_formats=True)
+        if not metadata:
+            # No work to be done.
+            return
         circulation_data = metadata.circulation
 
         # The identifier in the CirculationData needs to match the
@@ -917,6 +920,7 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
     """
     SERVICE_NAME = "Overdrive Collection Reaper"
     INTERVAL_SECONDS = 3600*4
+    PROTOCOL = ExternalIntegration.OVERDRIVE
     
     def __init__(self, _db, collection, api_class=OverdriveAPI):
         super(OverdriveCollectionReaper, self).__init__(_db, collection)
@@ -940,15 +944,17 @@ class OverdriveFormatSweep(IdentifierSweepMonitor):
     """
     SERVICE_NAME = "Overdrive Format Sweep"
     DEFAULT_BATCH_SIZE = 25
+    PROTOCOL = ExternalIntegration.OVERDRIVE
 
-    def __init__(self, collection, api_class=OverdriveAPI):
-        _db = Session.object_session(collection)
-        api = api_class(_db, collection)
+    def __init__(self, _db, collection, api_class=OverdriveAPI):
         super(OverdriveFormatSweep, self).__init__(_db, collection)
+        self.api = api_class(_db, collection)
 
-    def process_identifier(self, identifier):
-        pool = identifier.licensed_through
-        self.api.update_formats(pool)
+    def process_item(self, identifier):
+        pools = identifier.licensed_through
+        for pool in pools:
+            self.api.update_formats(pool)
+
         
 class OverdriveAdvantageAccountListScript(Script):
 
