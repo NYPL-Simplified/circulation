@@ -6645,38 +6645,29 @@ class TestIntegrationClient(DatabaseTest):
         super(TestIntegrationClient, self).setup()
         self.client = self._integration_client()
 
-    def test_encrypts_secret(self):
-        client, new = create(
-            self._db, IntegrationClient, url=u"http://circ-manager.net",
-            key=u"test", secret=u"megatest"
-        )
-        assert client.secret != u"megatest"
-        eq_(True, client.secret.startswith("$2a$"))
-
     def test_register(self):
         now = datetime.datetime.utcnow()
-        client, plaintext_secret = IntegrationClient.register(self._db, self._url)
+        client, is_new = IntegrationClient.register(self._db, self._url)
 
-        # It creates client details.
-        assert client.key and client.secret
+        # It creates a shared_secret.
+        assert client.shared_secret
         # And sets a timestamp for created & last_accessed.
         assert client.created and client.last_accessed
         assert client.created > now
         eq_(True, isinstance(client.created, datetime.datetime))
         eq_(client.created, client.last_accessed)
 
-        # It raises an error if the url is already registered.
+        # It raises an error if the url is already registered and the
+        # submitted shared_secret is inaccurate.
         assert_raises(ValueError, IntegrationClient.register, self._db, client.url)
+        assert_raises(ValueError, IntegrationClient.register, self._db, client.url, 'wrong')
 
     def test_authenticate(self):
 
-        result = IntegrationClient.authenticate(self._db, u"abc", u"def")
+        result = IntegrationClient.authenticate(self._db, u"secret")
         eq_(self.client, result)
 
-        result = IntegrationClient.authenticate(self._db, u"abc", u"bad_secret")
-        eq_(None, result)
-
-        result = IntegrationClient.authenticate(self._db, u"bad_id", u"def")
+        result = IntegrationClient.authenticate(self._db, u"wrong_secret")
         eq_(None, result)
 
     def test_normalize_url(self):

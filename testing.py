@@ -831,8 +831,7 @@ class DatabaseTest(object):
     def _integration_client(self, url=None):
         url = url or self._url
         return get_one_or_create(
-            self._db, IntegrationClient,
-            url=url, key=u"abc", secret=u"def"
+            self._db, IntegrationClient, url=url, shared_secret=u"secret"
         )[0]
 
     def _subject(self, type, identifier):
@@ -1024,9 +1023,9 @@ class DummyHTTPClient(object):
                 headers[k.lower()] = v
         self.responses.append((response_code, headers, content))
 
-    def do_get(self, url, headers, **kwargs):
+    def do_get(self, url, *args, **kwargs):
         self.requests.append(url)
-        return self.responses.pop()
+        return self.responses.pop(0)
 
 
 class MockRequestsResponse(object):
