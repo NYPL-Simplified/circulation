@@ -118,7 +118,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool."""
         monitor = BibliothecaCirculationSweep(
-            licensepool.collection, api_class=self
+            self._db, licensepool.collection, api_class=self
         )
         return monitor.process_batch([licensepool.identifier])
 
@@ -626,8 +626,9 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
     """
     SERVICE_NAME = "Bibliotheca Circulation Sweep"
     DEFAULT_BATCH_SIZE = 25
+    PROTOCOL = ExternalIntegration.BIBLIOTHECA
 
-    def __init__(self, collection, api_class=BibliothecaAPI, **kwargs):
+    def __init__(self, _db, collection, api_class=BibliothecaAPI, **kwargs):
         _db = Session.object_session(collection)
         super(BibliothecaCirculationSweep, self).__init__(
             _db, collection, **kwargs
@@ -737,13 +738,18 @@ class BibliothecaEventMonitor(CollectionMonitor):
 
     SERVICE_NAME = "Bibliotheca Event Monitor"
     DEFAULT_START_TIME = datetime.timedelta(365*3)
-    
-    def __init__(self, _db, collection, api_class=BibliothecaAPI):
+    PROTOCOL = ExternalIntegration.BIBLIOTHECA
+
+    def __init__(self, _db, collection, api_class=BibliothecaAPI, cli_date=None):
         super(BibliothecaEventMonitor, self).__init__(_db, collection)
         self.api = api_class(_db, collection)
         self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
             collection, self.api
         )
+        if cli_date:
+            self.default_start_time = self.create_default_start_time(
+                _db,  cli_date
+            )
 
     def create_default_start_time(self, _db, cli_date):
         """Sets the default start time if it's passed as an argument.
@@ -755,7 +761,10 @@ class BibliothecaEventMonitor(CollectionMonitor):
 
         if cli_date:
             try:
-                date = cli_date[0]
+                if isinstance(cli_date, basestring):
+                    date = cli_date
+                else:
+                    date = cli_date[0]
                 return datetime.datetime.strptime(date, "%Y-%m-%d")
             except ValueError as e:
                 # Date argument wasn't in the proper format.

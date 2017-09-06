@@ -325,6 +325,7 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
     """
     SERVICE_NAME = "Axis Collection Reaper"
     INTERVAL_SECONDS = 3600*12
+    PROTOCOL = ExternalIntegration.AXIS_360
     
     def __init__(self, _db, collection, api_class=Axis360API):
         super(AxisCollectionReaper, self).__init__(_db, collection)

@@ -248,7 +248,7 @@ class TestBibliothecaCirculationSweep(BibliothecaAPITest):
         # Update availability using that data.
         self.api.queue_response(200, content=data)
         monitor = BibliothecaCirculationSweep(
-            self.collection, api_class=self.api
+            self._db, self.collection, api_class=self.api
         )
         monitor.process_batch([identifier])
         
@@ -618,13 +618,29 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         )
         expected = datetime.datetime.utcnow() - monitor.DEFAULT_START_TIME
 
-        # Returns a date long in the past if the monitor has never
-        # been run before.
+        # When the monitor has never been run before, the default
+        # start time is a date long in the past.
+        assert abs((expected-monitor.default_start_time).total_seconds()) <= 1
         default_start_time = monitor.create_default_start_time(self._db, [])
         assert abs((expected-default_start_time).total_seconds()) <= 1
 
-        # After Bibliotheca has been initialized, it returns None if no
-        # arguments are passed
+        # It's possible to override this by instantiating
+        # BibliothecaEventMonitor with a specific date.
+        monitor = BibliothecaEventMonitor(
+            self._db, self.collection, api_class=MockBibliothecaAPI,
+            cli_date="2011-01-01"
+        )
+        expected = datetime.datetime(year=2011, month=1, day=1)
+        eq_(expected, monitor.default_start_time)
+        for cli_date in ('2011-01-01', ['2011-01-01']):
+            default_start_time = monitor.create_default_start_time(
+                self._db, cli_date
+            )
+            eq_(expected, default_start_time)
+
+        # After Bibliotheca has been initialized,
+        # create_default_start_time returns None, rather than a date
+        # far in the bast, if no cli_date is passed in.
         Timestamp.stamp(self._db, monitor.service_name, self.collection)
         eq_(None, monitor.create_default_start_time(self._db, []))
 
