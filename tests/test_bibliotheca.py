@@ -248,7 +248,7 @@ class TestBibliothecaCirculationSweep(BibliothecaAPITest):
         # Update availability using that data.
         self.api.queue_response(200, content=data)
         monitor = BibliothecaCirculationSweep(
-            self.collection, api_class=self.api
+            self._db, self.collection, api_class=self.api
         )
         monitor.process_batch([identifier])
         

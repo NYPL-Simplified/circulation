@@ -118,7 +118,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
     def update_availability(self, licensepool):
         """Update the availability information for a single LicensePool."""
         monitor = BibliothecaCirculationSweep(
-            licensepool.collection, api_class=self
+            self._db, licensepool.collection, api_class=self
         )
         return monitor.process_batch([licensepool.identifier])
 
