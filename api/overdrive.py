@@ -917,6 +917,7 @@ class OverdriveCollectionReaper(IdentifierSweepMonitor):
     """
     SERVICE_NAME = "Overdrive Collection Reaper"
     INTERVAL_SECONDS = 3600*4
+    PROTOCOL = ExternalIntegration.OVERDRIVE
     
     def __init__(self, _db, collection, api_class=OverdriveAPI):
         super(OverdriveCollectionReaper, self).__init__(_db, collection)
@@ -940,6 +941,7 @@ class OverdriveFormatSweep(IdentifierSweepMonitor):
     """
     SERVICE_NAME = "Overdrive Format Sweep"
     DEFAULT_BATCH_SIZE = 25
+    PROTOCOL = ExternalIntegration.OVERDRIVE
 
     def __init__(self, collection, api_class=OverdriveAPI):
         _db = Session.object_session(collection)
