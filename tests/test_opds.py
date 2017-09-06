@@ -1179,10 +1179,20 @@ class TestAcquisitionFeed(DatabaseTest):
         tiny_entry = '<feed>cached entry</feed>'
         work.simple_opds_entry = tiny_entry
 
-        # If we pass in use_cache=True, the cached value is used.
+        # If we pass in use_cache=True, the cached value is used as a basis
+        # for the annotated entry.
         entry = feed.create_entry(work, use_cache=True)
         eq_(tiny_entry, work.simple_opds_entry)
-        eq_(tiny_entry, etree.tostring(entry))
+
+        # We know what the final value looks like -- it's the cached entry
+        # run through `Annotator.annotate_work_entry`.
+        [pool] = work.license_pools
+        xml = etree.fromstring(work.simple_opds_entry)
+        Annotator.annotate_work_entry(
+            work, pool, pool.presentation_edition, pool.identifier, feed, 
+            xml
+        )
+        eq_(etree.tostring(xml), etree.tostring(entry))
 
         # If we pass in use_cache=False, a new OPDS entry is created
         # from scratch, but the cache is not updated.
@@ -1195,7 +1205,16 @@ class TestAcquisitionFeed(DatabaseTest):
         entry = feed.create_entry(work, force_create=True)
         entry_string = etree.tostring(entry) 
         assert entry_string != tiny_entry
-        eq_(entry_string, work.simple_opds_entry)
+        assert work.simple_opds_entry != tiny_entry
+
+        # Again, we got entry_string by running the (new) cached value
+        # through `Annotator.annotate_work_entry`.
+        full_entry = etree.fromstring(work.simple_opds_entry)
+        Annotator.annotate_work_entry(
+            work, pool, pool.presentation_edition, pool.identifier, feed, 
+            full_entry
+        )
+        eq_(entry_string, etree.tostring(full_entry))
 
     def test_exception_during_entry_creation_is_not_reraised(self):
         # This feed will raise an exception whenever it's asked
