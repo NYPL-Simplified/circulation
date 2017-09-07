@@ -26,6 +26,7 @@ from sqlalchemy import (
     exists,
     and_,
     or_,
+    text,
 )
 from sqlalchemy.sql.functions import func
 from sqlalchemy.orm.exc import (
@@ -1601,10 +1602,25 @@ class RefreshMaterializedViewsScript(Script):
 
 
 class DatabaseMigrationScript(Script):
-    """Runs new migrations"""
+    """Runs new migrations.
+
+    This script needs to execute without ever loading an ORM object,
+    because the database might be in a state that's not compatible
+    with the current ORM version.
+    """
 
     name = "Database Migration"
     MIGRATION_WITH_COUNTER = re.compile("\d{8}-(\d+)-(.)+\.(py|sql)")
+
+    class TimestampInfo(object):
+        """Act like a ORM Timestamp object, but with no database connection."""
+        def __init__(self, timestamp, counter):
+            if isinstance(timestamp, basestring):
+                timestamp = Script.parse_time(timestamp)
+            self.timestamp = timestamp
+            if isinstance(counter, basestring):
+                counter = int(counter)
+            self.counter = counter
 
     @classmethod
     def arg_parser(cls):
@@ -1682,39 +1698,46 @@ class DatabaseMigrationScript(Script):
         # the database before the ExternalIntegration has been uploaded.
         Configuration.load(None)
 
-    def do_run(self):
-        parsed = self.parse_command_line()
+    def run(self, test=False, cmd_args=None):
+        parsed = self.parse_command_line(cmd_args=cmd_args)
         last_run_date = parsed.last_run_date
         last_run_counter = parsed.last_run_counter
-
-        existing_timestamp = get_one(self._db, Timestamp, service=self.name)
+        timestamp = None
         if last_run_date:
-            last_run_datetime = self.parse_time(last_run_date)
-            if existing_timestamp:
-                existing_timestamp.timestamp = last_run_datetime
-                if last_run_counter:
-                    existing_timestamp.counter = last_run_counter
-            else:
-                existing_timestamp, ignore = get_one_or_create(
-                    self._db, Timestamp,
-                    service=self.name,
-                    timestamp=last_run_datetime
-                )
+            timestamp = self.TimestampInfo(last_run_date, last_run_counter)
 
-        if existing_timestamp:
+        # Create a special database session that doesn't initialize
+        # the ORM. As long as we only execute SQL and don't try to use
+        # any ORM objects, we'll be fine.
+        url = Configuration.database_url(test=test)
+        self._session = SessionManager.session(url, initialize_data=False)
+
+        # Try to find an existing timestamp representing the last migration
+        # script that was run.
+        sql = "SELECT timestamp, counter FROM timestamps WHERE service=:service AND collection_id IS NULL LIMIT 1;"
+        results = list(self._db.execute(text(sql), dict(service=self.name)))
+        if results:
+            [(date, counter)] = results
+            current_timestamp = self.TimestampInfo(date, counter)
+            if not timestamp:
+                timestamp = current_timestamp
+        else:
+            # Make sure there's a "Database Migration" row in the
+            # timestamps table so that we can update the row later.
+            sql = "INSERT INTO timestamps (service) values (:service);"
+            self._db.execute(text(sql), dict(service=self.name))
+
+        if timestamp:
             migrations, migrations_by_dir = self.fetch_migration_files()
 
-            new_migrations = self.get_new_migrations(
-                existing_timestamp, migrations
-            )
+            new_migrations = self.get_new_migrations(timestamp, migrations)
             if new_migrations:
                 # Log the new migrations.
                 print "%d new migrations found." % len(new_migrations)
                 for migration in new_migrations:
                     print "  - %s" % migration
-
                 self.run_migrations(
-                    new_migrations, migrations_by_dir, existing_timestamp
+                    new_migrations, migrations_by_dir, timestamp
                 )
             else:
                 print "No new migrations found. Your database is up-to-date."
@@ -1874,6 +1897,10 @@ class DatabaseMigrationScript(Script):
         match = self.MIGRATION_WITH_COUNTER.search(migration_file)
         if match:
             timestamp.counter = int(match.groups()[0])
+        sql = "UPDATE timestamps SET timestamp=:timestamp, counter=:counter where service=:service AND collection_id IS NULL"
+        self._db.execute(text(sql), dict(timestamp=timestamp.timestamp,
+                                         counter=timestamp.counter,
+                                         service=self.name))
         self._db.commit()
 
         print "New timestamp created at %s for %s" % (

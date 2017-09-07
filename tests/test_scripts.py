@@ -1,6 +1,7 @@
 import datetime
 import json
 import os
+import shutil
 import tempfile
 from StringIO import StringIO
 
@@ -532,7 +533,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         for migration_dir in directories:
             if not os.path.isdir(migration_dir):
                 temp_migration_dir = tempfile.mkdtemp()
-                os.rename(temp_migration_dir, migration_dir)
+                shutil.move(temp_migration_dir, migration_dir)
 
         # Put a file of each migratable type in both directories.
         self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql')
@@ -793,7 +794,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         eq_(self.timestamp.counter, 3)
 
     def test_all_migration_files_are_run(self):
-        self.script.do_run()
+        self.script.run(test=True, cmd_args=["--last-run-date", "2010-01-01"])
 
         # There are two test timestamps in the database, confirming that
         # the test SQL files created by self._create_test_migration_files()

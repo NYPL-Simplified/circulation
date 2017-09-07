@@ -406,13 +406,14 @@ class SessionManager(object):
             _db.commit()
 
     @classmethod
-    def session(cls, url):
+    def session(cls, url, initialize_data=True):
         engine = connection = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=sa_exc.SAWarning)
             engine, connection = cls.initialize(url)
         session = Session(connection)
-        session = cls.initialize_data(session)
+        if initialize_data:
+            session = cls.initialize_data(session)
         return session
 
     @classmethod
