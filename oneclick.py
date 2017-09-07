@@ -61,8 +61,8 @@ from testing import DatabaseTest
 class OneClickAPI(object):
 
     API_VERSION = "v1"
-    PRODUCTION_BASE_URL = "https://api.oneclickdigital.com/"
-    QA_BASE_URL = "https://api.oneclickdigital.us/"
+    PRODUCTION_BASE_URL = "https://api.rbdigital.com/"
+    QA_BASE_URL = "http://api.rbdigitalstage.com/"
     
     # Map simple nicknames to server URLs.
     SERVER_NICKNAMES = {
