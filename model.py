@@ -994,8 +994,8 @@ class DataSource(Base, HasFullTableCache):
     ENKI = u"Enki"
 
     DEPRECATED_NAMES = {
-        u"3M" : BIBLIOTHECA
-        u"OneClick" : RB_DIGITAL
+        u"3M" : BIBLIOTHECA,
+        u"OneClick" : RB_DIGITAL,
     }
     THREEM = BIBLIOTHECA
     ONECLICK = RB_DIGITAL
@@ -1550,8 +1550,8 @@ class Identifier(Base):
     ENKI_ID = u"Enki ID"
 
     DEPRECATED_NAMES = {
-        u"3M ID" : BIBLIOTHECA_ID
-        u"OneClick ID" : RB_DIGITAL_ID
+        u"3M ID" : BIBLIOTHECA_ID,
+        u"OneClick ID" : RB_DIGITAL_ID,
     }
     THREEM_ID = BIBLIOTHECA_ID
     ONECLICK_ID = RB_DIGITAL_ID
