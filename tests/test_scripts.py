@@ -844,44 +844,44 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
     def test_accurate_timestamp_created(self):
         eq_(None, Timestamp.value(self._db, self.script.name, collection=None))
 
-        self.script.do_run()
+        self.script.run()
         self.assert_matches_latest_migration()
 
     def test_error_raised_when_timestamp_exists(self):
         Timestamp.stamp(self._db, self.script.name, None)
-        assert_raises(RuntimeError, self.script.do_run)
+        assert_raises(RuntimeError, self.script.run)
 
     def test_error_not_raised_when_timestamp_forced(self):
         Timestamp.stamp(self._db, self.script.name, None)
-        self.script.do_run(['-f'])
+        self.script.run(['-f'])
         self.assert_matches_latest_migration()
 
     def test_accepts_last_run_date(self):
         # A timestamp can be passed via the command line.
-        self.script.do_run(['--last-run-date', '20101010'])
+        self.script.run(['--last-run-date', '20101010'])
         expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
         eq_(expected_stamp, self.timestamp.timestamp)
 
         # It will override an existing timestamp if forced.
         previous_timestamp = self.timestamp
-        self.script.do_run(['--last-run-date', '20111111', '--force'])
+        self.script.run(['--last-run-date', '20111111', '--force'])
         expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d')
         eq_(previous_timestamp, self.timestamp)
         eq_(expected_stamp, self.timestamp.timestamp)
 
     def test_accepts_last_run_counter(self):
         # If a counter is passed without a date, an error is raised.
-        assert_raises(ValueError, self.script.do_run, ['--last-run-counter', '7'])
+        assert_raises(ValueError, self.script.run, ['--last-run-counter', '7'])
 
         # With a date, the counter can be set.
-        self.script.do_run(['--last-run-date', '20101010', '--last-run-counter', '7'])
+        self.script.run(['--last-run-date', '20101010', '--last-run-counter', '7'])
         expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
         eq_(expected_stamp, self.timestamp.timestamp)
         eq_(7, self.timestamp.counter)
 
         # When forced, the counter can be reset on an existing timestamp.
         previous_timestamp = self.timestamp
-        self.script.do_run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
+        self.script.run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
         expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d')
         eq_(previous_timestamp, self.timestamp)
         eq_(expected_stamp, self.timestamp.timestamp)
