@@ -125,8 +125,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": "http://metadata.librarysimplified.org/" },
-        { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Shared Secret") },
     ]
 
     SITEWIDE = True
