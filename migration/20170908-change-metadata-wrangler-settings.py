@@ -24,11 +24,11 @@ try:
                 # A username (or client_id) is no longer required.
                 _db.delete(setting)
             if setting.key == 'password':
-                # All passwords (previous client_secrets) must be reset as
-                # shared_secrets.
+                # The password (previously client_secret) must be reset to
+                # register for a shared_secret.
                 setting.value = None
         _db.commit()
     _db.close()
 except Exception as e:
-    db.close()
+    _db.close()
     raise e
