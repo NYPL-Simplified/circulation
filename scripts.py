@@ -1923,7 +1923,7 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
         )
         return parser
 
-    def do_run(self, cmd_args=None):
+    def run(self, cmd_args=None):
         parsed = self.parse_command_line(cmd_args=cmd_args)
         last_run_date = parsed.last_run_date
         last_run_counter = parsed.last_run_counter
