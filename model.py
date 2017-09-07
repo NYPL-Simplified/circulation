@@ -984,7 +984,7 @@ class DataSource(Base, HasFullTableCache):
     LIBRARY_STAFF = u"Library staff"
     ADOBE = u"Adobe DRM"
     PLYMPTON = u"Plympton"
-    ONECLICK = u"OneClick"
+    RB_DIGITAL = u"RBdigital"
     ELIB = u"eLiburutegia"
     OA_CONTENT_SERVER = u"Library Simplified Open Access Content Server"
     PRESENTATION_EDITION = u"Presentation edition generator"
@@ -995,8 +995,10 @@ class DataSource(Base, HasFullTableCache):
 
     DEPRECATED_NAMES = {
         u"3M" : BIBLIOTHECA
+        u"OneClick" : RB_DIGITAL
     }
     THREEM = BIBLIOTHECA
+    ONECLICK = RB_DIGITAL
     
     # Some sources of open-access ebooks are better than others. This
     # list shows which sources we prefer, in ascending order of
@@ -1187,7 +1189,7 @@ class DataSource(Base, HasFullTableCache):
 
         for (name, offers_licenses, offers_metadata_lookup, primary_identifier_type, refresh_rate) in (
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
-                (cls.ONECLICK, True, True, Identifier.ONECLICK_ID, None),
+                (cls.RB_DIGITAL, True, True, Identifier.RB_DIGITAL_ID, None),
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
                 (cls.THREEM, True, False, Identifier.BIBLIOTHECA_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
@@ -1537,8 +1539,8 @@ class Identifier(Base):
     NOVELIST_ID = u"NoveList ID"
     OCLC_WORK = u"OCLC Work ID"
     OCLC_NUMBER = u"OCLC Number"
-    # OneClick uses ISBNs for ebooks and eaudio, and its own ids for magazines
-    ONECLICK_ID = u"OneClick ID"
+    # RBdigital uses ISBNs for ebooks and eaudio, and its own ids for magazines
+    RB_DIGITAL_ID = u"RBdigital ID"
     OPEN_LIBRARY_ID = u"OLID"
     BIBLIOCOMMONS_ID = u"Bibliocommons ID"
     URI = u"URI"
@@ -1549,8 +1551,10 @@ class Identifier(Base):
 
     DEPRECATED_NAMES = {
         u"3M ID" : BIBLIOTHECA_ID
+        u"OneClick ID" : RB_DIGITAL_ID
     }
     THREEM_ID = BIBLIOTHECA_ID
+    ONECLICK_ID = RB_DIGITAL_ID
 
     LICENSE_PROVIDING_IDENTIFIER_TYPES = [
         BIBLIOTHECA_ID, OVERDRIVE_ID, AXIS_360_ID,
@@ -3409,7 +3413,7 @@ class Work(Base):
     # necessary to show up in featured feeds.
     default_quality_by_data_source = {
         DataSource.GUTENBERG: 0,
-        DataSource.ONECLICK: 0.4,
+        DataSource.RB_DIGITAL: 0.4,
         DataSource.OVERDRIVE: 0.4,
         DataSource.THREEM : 0.65,
         DataSource.AXIS_360: 0.65,
@@ -9393,7 +9397,8 @@ class ExternalIntegration(Base, HasFullTableCache):
     OVERDRIVE = DataSource.OVERDRIVE
     BIBLIOTHECA = DataSource.BIBLIOTHECA
     AXIS_360 = DataSource.AXIS_360
-    ONE_CLICK = DataSource.ONECLICK
+    RB_DIGITAL = DataSource.RB_DIGITAL
+    ONE_CLICK = RB_DIGITAL
     OPDS_FOR_DISTRIBUTORS = u'OPDS for Distributors'
 
     # These protocols are only used on the Content Server when mirroring
@@ -9404,7 +9409,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     GUTENBERG = DataSource.GUTENBERG
 
     LICENSE_PROTOCOLS = [
-        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, ONE_CLICK,
+        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, RB_DIGITAL,
         DIRECTORY_IMPORT, GUTENBERG,
     ]
 
@@ -9414,7 +9419,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         OVERDRIVE : DataSource.OVERDRIVE,
         BIBLIOTHECA : DataSource.BIBLIOTHECA,
         AXIS_360 : DataSource.AXIS_360,
-        ONE_CLICK : DataSource.ONECLICK
+        RB_DIGITAL : DataSource.RB_DIGITAL
     }
 
     # Integrations with METADATA_GOAL
