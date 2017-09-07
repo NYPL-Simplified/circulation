@@ -57,7 +57,7 @@ from core.util.http import (
 
 class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
-    NAME = ExternalIntegration.ONE_CLICK
+    NAME = ExternalIntegration.RB_DIGITAL
     SETTINGS = [
         { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
@@ -147,7 +147,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         # would mean another http call and is not currently merited.
         loan = LoanInfo(
             self.collection,
-            DataSource.ONECLICK,
+            DataSource.RB_DIGITAL,
             identifier_type=licensepool.identifier.type,
             identifier=item_oneclick_id,
             start_date=today,
@@ -263,7 +263,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         hold = HoldInfo(
             self.collection,
-            DataSource.ONECLICK,
+            DataSource.RB_DIGITAL,
             identifier_type=licensepool.identifier.type,
             identifier=item_oneclick_id,
             start_date=today,
@@ -319,7 +319,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         # find a license pool to match the isbn, and see if it'll need a metadata update later
         license_pool, is_new_pool = LicensePool.for_foreign_id(
-            self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID, isbn,
+            self._db, DataSource.RB_DIGITAL, Identifier.RB_DIGITAL_ID, isbn,
             collection=self.collection
         )
         if is_new_pool:
@@ -375,7 +375,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             formats.append(FormatData(delivery_type, drm_scheme))
         
         circulation_data = CirculationData(
-            data_source=DataSource.ONECLICK, 
+            data_source=DataSource.RB_DIGITAL, 
             primary_identifier=license_pool.identifier, 
             licenses_owned=licenses_owned,
             licenses_available=licenses_available,
@@ -541,7 +541,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 expires = datetime.datetime.strptime(expires, self.EXPIRATION_DATE_FORMAT).date()
 
             identifier, made_new = Identifier.for_foreign_id(self._db, 
-                    foreign_identifier_type=Identifier.ONECLICK_ID, 
+                    foreign_identifier_type=Identifier.RB_DIGITAL_ID, 
                     foreign_id=isbn, autocreate=False)
 
             # Note: if OneClick knows about a patron's checked-out item that wasn't
@@ -589,8 +589,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 content_type = DeliveryMechanism.ADOBE_DRM
             fulfillment_info = FulfillmentInfo(
                 self.collection,
-                DataSource.ONECLICK,
-                Identifier.ONECLICK_ID, 
+                DataSource.RB_DIGITAL,
+                Identifier.RB_DIGITAL_ID, 
                 identifier, 
                 content_link = content_link, 
                 content_type = content_type, 
@@ -600,8 +600,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
             loan = LoanInfo(
                 self.collection,
-                DataSource.ONECLICK,
-                Identifier.ONECLICK_ID,
+                DataSource.RB_DIGITAL,
+                Identifier.RB_DIGITAL_ID,
                 isbn,
                 start_date=None,
                 end_date=expires,
@@ -657,8 +657,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
             hold = HoldInfo(
                 self.collection,
-                DataSource.ONECLICK,
-                Identifier.ONECLICK_ID,
+                DataSource.RB_DIGITAL,
+                Identifier.RB_DIGITAL_ID,
                 isbn,
                 start_date=None,
                 end_date=expires,
@@ -847,7 +847,7 @@ class OneClickCirculationMonitor(CollectionMonitor):
     INTERVAL_SECONDS = 1200
     DEFAULT_BATCH_SIZE = 50
 
-    PROTOCOL = ExternalIntegration.ONE_CLICK
+    PROTOCOL = ExternalIntegration.RB_DIGITAL
     
     def __init__(self, _db, collection, batch_size=None, api_class=OneClickAPI,
                  api_class_kwargs={}):

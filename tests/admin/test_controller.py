@@ -1636,7 +1636,7 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection1"),
-                ("protocol", "OneClick"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
                 ("username", "user"),
                 ("password", "password"),
             ])
