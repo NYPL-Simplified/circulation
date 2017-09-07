@@ -61,8 +61,8 @@ from testing import DatabaseTest
 class OneClickAPI(object):
 
     API_VERSION = "v1"
-    PRODUCTION_BASE_URL = "https://api.oneclickdigital.com/"
-    QA_BASE_URL = "https://api.oneclickdigital.us/"
+    PRODUCTION_BASE_URL = "https://api.rbdigital.com/"
+    QA_BASE_URL = "http://api.rbdigitalstage.com/"
     
     # Map simple nicknames to server URLs.
     SERVER_NICKNAMES = {
@@ -78,7 +78,7 @@ class OneClickAPI(object):
     log = logging.getLogger("OneClick API")
 
     def __init__(self, _db, collection):
-        if collection.protocol != ExternalIntegration.ONE_CLICK:
+        if collection.protocol != ExternalIntegration.RB_DIGITAL:
             raise ValueError(
                 "Collection protocol is %s, but passed into OneClickAPI!" %
                 collection.protocol
@@ -117,7 +117,7 @@ class OneClickAPI(object):
 
     @property
     def source(self):
-        return DataSource.lookup(self._db, DataSource.ONECLICK)
+        return DataSource.lookup(self._db, DataSource.RB_DIGITAL)
 
     @property
     def collection(self):
@@ -538,7 +538,7 @@ class MockOneClickAPI(OneClickAPI):
             )
         )
         integration = collection.create_external_integration(
-            protocol=ExternalIntegration.ONE_CLICK
+            protocol=ExternalIntegration.RB_DIGITAL
         )        
         integration.password = u'abcdef123hijklm'
         library.collections.append(collection)
@@ -644,11 +644,11 @@ class OneClickRepresentationExtractor(object):
             return None
         oneclick_id = book['isbn']
         primary_identifier = IdentifierData(
-            Identifier.ONECLICK_ID, oneclick_id
+            Identifier.RB_DIGITAL_ID, oneclick_id
         )
 
         metadata = Metadata(
-            data_source=DataSource.ONECLICK,
+            data_source=DataSource.RB_DIGITAL,
             primary_identifier=primary_identifier,
         )
 
@@ -822,7 +822,7 @@ class OneClickRepresentationExtractor(object):
 
             # Make a CirculationData so we can write the formats, 
             circulationdata = CirculationData(
-                data_source=DataSource.ONECLICK,
+                data_source=DataSource.RB_DIGITAL,
                 primary_identifier=primary_identifier,
                 formats=formats,
             )
@@ -837,9 +837,9 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for OneClick records."""
 
     SERVICE_NAME = "OneClick Bibliographic Coverage Provider"
-    DATA_SOURCE_NAME = DataSource.ONECLICK
-    PROTOCOL = ExternalIntegration.ONE_CLICK
-    INPUT_IDENTIFIER_TYPES = Identifier.ONECLICK_ID
+    DATA_SOURCE_NAME = DataSource.RB_DIGITAL
+    PROTOCOL = ExternalIntegration.RB_DIGITAL
+    INPUT_IDENTIFIER_TYPES = Identifier.RB_DIGITAL_ID
     DEFAULT_BATCH_SIZE = 25
 
     def __init__(self, collection, api_class=OneClickAPI, api_class_kwargs={},
@@ -934,7 +934,7 @@ class OneClickBibliographicCoverageProvider(BibliographicCoverageProvider):
 
 class OneClickSyncMonitor(CollectionMonitor):
 
-    PROTOCOL = ExternalIntegration.ONE_CLICK
+    PROTOCOL = ExternalIntegration.RB_DIGITAL
     
     def __init__(self, _db, collection, api_class=OneClickAPI,
                  api_class_kwargs={}):
