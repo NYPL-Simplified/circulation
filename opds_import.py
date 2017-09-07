@@ -4,6 +4,7 @@ from collections import (
     defaultdict,
     Counter,
 )
+import base64
 import datetime
 import feedparser
 import logging
@@ -151,23 +152,25 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
             raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
 
         return cls(
-            integration.url, username=integration.username,
-            password=integration.password, collection=collection
+            integration.url, shared_secret=integration.password,
+            collection=collection
         )
 
-    def __init__(self, url, username=None, password=None, collection=None):
-        if ((username or password) and not (username and password)):
-            # We have one portion fo the authentiction details, but not both.
-            raise  CannotLoadConfiguration("Metadata Wrangler improperly configured.")
-
+    def __init__(self, url, shared_secret=None, collection=None):
         super(MetadataWranglerOPDSLookup, self).__init__(url)
-        self.client_id = username
-        self.client_secret = password
+        self.shared_secret = shared_secret
         self.collection = collection
 
     @property
     def authenticated(self):
-        return bool(self.client_id and self.client_secret)
+        return bool(self.shared_secret)
+
+    @property
+    def authorization(self):
+        if self.authenticated:
+            token = 'Bearer ' + base64.b64encode(self.shared_secret)
+            return { 'Authorization' : token }
+        return None
 
     @property
     def lookup_endpoint(self):
@@ -177,13 +180,17 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
     def _get(self, url, **kwargs):
         if self.authenticated:
-            kwargs['auth'] = (self.client_id, self.client_secret)
+            headers = kwargs.get('headers', {})
+            headers.update(self.authorization)
+            kwargs['headers'] = headers
         return super(MetadataWranglerOPDSLookup, self)._get(url, **kwargs)
 
     def _post(self, url, data="", **kwargs):
         """Make an HTTP request. This method is overridden in the mock class."""
         if self.authenticated:
-            kwargs['auth'] = (self.client_id, self.client_secret)
+            headers = kwargs.get('headers', {})
+            headers.update(self.authorization)
+            kwargs['headers'] = headers
         kwargs['timeout'] = kwargs.get('timeout', 120)
         kwargs['allowed_response_codes'] = kwargs.get('allowed_response_codes', [])
         kwargs['allowed_response_codes'] += ['2xx', '3xx']
