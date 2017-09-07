@@ -3380,4 +3380,4 @@ class TestSettingsController(AdminControllerTest):
         eq_(200, response.status_code)
         eq_('Success', response.data)
         eq_([metadata_wrangler_service.url, registration_url], self.requests)
-        eq_(shared_secret, metadata_wrangler_service.setting('shared_secret').value)
+        eq_(shared_secret, metadata_wrangler_service.password)

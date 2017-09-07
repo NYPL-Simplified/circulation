@@ -1994,5 +1994,5 @@ class SettingsController(CirculationManagerController):
 
         public_key_setting.value = None
         shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
-        integration.set_setting('shared_secret', unicode(shared_secret))
+        integration.password = unicode(shared_secret)
         return Response(unicode(_("Success")), 200)
