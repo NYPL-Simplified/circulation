@@ -1407,6 +1407,9 @@ class TestSettingsController(AdminControllerTest):
         ConfigurationSetting.for_library(
             Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME, library
         ).value = json.dumps([FacetConstants.ORDER_TITLE, FacetConstants.ORDER_RANDOM])
+        ConfigurationSetting.for_library(
+            Configuration.LOGO, library
+        ).value = "A tiny image"
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1443,6 +1446,10 @@ class TestSettingsController(AdminControllerTest):
                 Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                 library).value)
 
+        # The library-wide logo was not updated and has been left alone.
+        eq_("A tiny image", 
+            ConfigurationSetting.for_library(Configuration.LOGO, library).value
+        )
         
     def test_collections_get_with_no_collections(self):
         # Delete any existing collections created by the test setup.
@@ -1630,7 +1637,7 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection1"),
-                ("protocol", "OneClick"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
                 ("username", "user"),
                 ("password", "password"),
             ])

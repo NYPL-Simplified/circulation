@@ -39,6 +39,7 @@ from api.circulation import (
 )
 from api.circulation_exceptions import *
 from api.bibliotheca import (
+    BibliothecaCirculationSweep,
     CheckoutResponseParser,
     CirculationParser,
     ErrorParser,
@@ -218,6 +219,57 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         self.api.queue_response(400, content=self.sample_data("error_exceeded_hold_limit.xml"))
         assert_raises(PatronHoldLimitReached, self.api.place_hold,
                       patron, 'pin', pool)
+
+
+class TestBibliothecaCirculationSweep(BibliothecaAPITest):
+
+    def test_circulation_sweep_discovers_work(self):
+        """Test what happens when BibliothecaCirculationSweep discovers a new
+        work.
+        """
+
+        # Create an analytics integration so we can make sure
+        # events are tracked.
+        integration, ignore = create(
+            self._db, ExternalIntegration,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+            protocol="core.local_analytics_provider",
+        )
+
+        # We know about an identifier, but nothing else.
+        identifier = self._identifier(
+            identifier_type=Identifier.BIBLIOTHECA_ID, foreign_id="d5rf89"
+        )
+
+        # We're about to get information about that identifier from
+        # the API.
+        data = self.sample_data("item_circulation_single.xml")
+
+        # Update availability using that data.
+        self.api.queue_response(200, content=data)
+        monitor = BibliothecaCirculationSweep(
+            self._db, self.collection, api_class=self.api
+        )
+        monitor.process_batch([identifier])
+        
+        # A LicensePool has been created for the previously mysterious
+        # identifier.
+        [pool] = identifier.licensed_through
+        eq_(self.collection, pool.collection)
+        eq_(False, pool.open_access)
+        
+        # Three circulation events were created for this license pool,
+        # marking the creation of the license pool, the addition of
+        # licenses owned, and the making of those licenses available.
+        circulation_events = self._db.query(CirculationEvent).join(LicensePool).filter(LicensePool.id==pool.id)
+        eq_(3, circulation_events.count())
+        types = [e.type for e in circulation_events]
+        eq_(sorted([CirculationEvent.DISTRIBUTOR_LICENSE_ADD,
+                    CirculationEvent.DISTRIBUTOR_TITLE_ADD,
+                    CirculationEvent.DISTRIBUTOR_CHECKIN
+        ]),
+            sorted(types))
+
 
 # Tests of the various parser classes.
 #
@@ -566,13 +618,29 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         )
         expected = datetime.datetime.utcnow() - monitor.DEFAULT_START_TIME
 
-        # Returns a date long in the past if the monitor has never
-        # been run before.
+        # When the monitor has never been run before, the default
+        # start time is a date long in the past.
+        assert abs((expected-monitor.default_start_time).total_seconds()) <= 1
         default_start_time = monitor.create_default_start_time(self._db, [])
         assert abs((expected-default_start_time).total_seconds()) <= 1
 
-        # After Bibliotheca has been initialized, it returns None if no
-        # arguments are passed
+        # It's possible to override this by instantiating
+        # BibliothecaEventMonitor with a specific date.
+        monitor = BibliothecaEventMonitor(
+            self._db, self.collection, api_class=MockBibliothecaAPI,
+            cli_date="2011-01-01"
+        )
+        expected = datetime.datetime(year=2011, month=1, day=1)
+        eq_(expected, monitor.default_start_time)
+        for cli_date in ('2011-01-01', ['2011-01-01']):
+            default_start_time = monitor.create_default_start_time(
+                self._db, cli_date
+            )
+            eq_(expected, default_start_time)
+
+        # After Bibliotheca has been initialized,
+        # create_default_start_time returns None, rather than a date
+        # far in the bast, if no cli_date is passed in.
         Timestamp.stamp(self._db, monitor.service_name, self.collection)
         eq_(None, monitor.create_default_start_time(self._db, []))
 

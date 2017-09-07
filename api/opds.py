@@ -255,6 +255,9 @@ class CirculationManagerAnnotator(Annotator):
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
+        Annotator.annotate_work_entry(
+            work, active_license_pool, edition, identifier, feed, entry
+        )
         active_loan = self.active_loans_by_work.get(work)
         active_hold = self.active_holds_by_work.get(work)
         active_fulfillment = self.active_fulfillments_by_work.get(work)
@@ -443,7 +446,12 @@ class CirculationManagerAnnotator(Annotator):
 
     def annotate_feed(self, feed, lane):
         if self.patron:
+            # A patron is authenticated.
             self.add_patron(feed)
+        else:
+            # No patron is authenticated. Show them how to
+            # authenticate.
+            self.add_authentication_document_link(feed)
         
         # Add a 'search' link.
         lane_name, languages = self._lane_name_and_languages(lane)
@@ -842,6 +850,20 @@ class CirculationManagerAnnotator(Annotator):
 
         patron_tag = OPDSFeed.makeelement("{%s}patron" % OPDSFeed.SIMPLIFIED_NS, patron_details)
         feed_obj.feed.append(patron_tag)
+
+    def add_authentication_document_link(self, feed_obj):
+        """Create a <link> tag that points to the circulation
+        manager's Authentication for OPDS document
+        for the current library.
+        """
+        feed_obj.add_link_to_feed(
+            feed_obj.feed,
+            rel='http://opds-spec.org/auth/document',
+            href=self.url_for(
+                'authentication_document', 
+                library_short_name=self.library.short_name, _external=True
+            )
+        )
 
 
 class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):

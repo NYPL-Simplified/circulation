@@ -3,6 +3,7 @@ from config import (
     Configuration,
     CannotLoadConfiguration,
 )
+from core.opds import OPDSFeed
 from core.model import (
     get_one,
     get_one_or_create,
@@ -74,6 +75,21 @@ class PatronData(object):
     UNKNOWN_BLOCK = 'unknown'
     CARD_REPORTED_LOST = 'card reported lost'
     EXCESSIVE_FINES = 'excessive fines'
+    EXCESSIVE_FEES = 'excessive fees'
+    NO_BORROWING_PRIVILEGES = 'no borrowing privileges'
+    TOO_MANY_LOANS = 'too many active loans'
+    TOO_MANY_RENEWALS = 'too many renewals'
+    TOO_MANY_OVERDUE = 'too many items overdue'
+    TOO_MANY_LOST = 'too many items lost'
+
+    # Patron is being billed for too many items (as opposed to
+    # excessive fines, which means patron's fines have exceeded a
+    # certain amount).
+    TOO_MANY_ITEMS_BILLED = 'too many items billed'
+
+    # Patron was asked to return an item so someone else could borrow it,
+    # but didn't return the item.
+    RECALL_OVERDUE = 'recall overdue'
     
     def __init__(self,
                  permanent_id=None,
@@ -653,6 +669,15 @@ class LibraryAuthenticator(object):
         token = decoded['token']
         return (provider_name, token)
 
+    def authentication_document_url(self, library):
+        """Return the URL of the authentication document for the
+        given library.
+        """
+        return url_for(
+            "authentication_document", library_short_name=library.short_name,
+            _external=True
+        )
+
     def create_authentication_document(self):
         """Create the Authentication For OPDS document to be used when
         a request comes in with no authentication.
@@ -674,6 +699,14 @@ class LibraryAuthenticator(object):
                 # assume anything about other URL schemes.
                 link['type'] = "text/html"
             links.append(link)
+
+        # Add a rel="start" link pointing to the root OPDS feed.
+        index_url = url_for("index", _external=True,
+                            library_short_name=library.short_name)
+        links.append(
+            dict(rel="start", href=index_url, 
+                 type=OPDSFeed.ACQUISITION_FEED_TYPE)
+        )
                 
         # Add a rel="help" link for every type of URL scheme that
         # leads to library-specific help.
@@ -695,10 +728,7 @@ class LibraryAuthenticator(object):
             links.append(dict(rel="logo", type="image/png", href=logo))
                 
         library_name = self.library_name or unicode(_("Library"))
-        auth_doc_url = url_for(
-            "authentication_document", library_short_name=library.short_name,
-            _external=True
-        )
+        auth_doc_url = self.authentication_document_url(library)
         doc = AuthenticationForOPDSDocument(
             id=auth_doc_url, title=library_name,
             authentication_flows=list(self.providers),
@@ -739,8 +769,13 @@ class LibraryAuthenticator(object):
     def create_authentication_headers(self):
         """Create the HTTP headers to return with the OPDS
         authentication document."""
+        library = Library.by_id(self._db, self.library_id)
         headers = Headers()
         headers.add('Content-Type', AuthenticationForOPDSDocument.MEDIA_TYPE)
+        headers.add('Link', "<%s>; rel=%s" % (
+            self.authentication_document_url(library),
+            AuthenticationForOPDSDocument.LINK_RELATION
+        ))
         # if requested from a web client, don't include WWW-Authenticate header,
         # which forces the default browser authentication prompt
         if self.basic_auth_provider and not flask.request.headers.get("X-Requested-With") == "XMLHttpRequest":

@@ -121,8 +121,8 @@ class TestOneClickAPI(OneClickAPITest):
 
     def test_circulate_item(self):
         edition, pool = self._edition(
-            identifier_type=Identifier.ONECLICK_ID,
-            data_source_name=DataSource.ONECLICK,
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
@@ -209,8 +209,8 @@ class TestOneClickAPI(OneClickAPITest):
         patron.oneclick_id = 939981
 
         edition, pool = self._edition(
-            identifier_type=Identifier.ONECLICK_ID,
-            data_source_name=DataSource.ONECLICK,
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
@@ -239,8 +239,8 @@ class TestOneClickAPI(OneClickAPITest):
         patron.oneclick_id = 939981
 
         edition, pool = self._edition(
-            identifier_type=Identifier.ONECLICK_ID,
-            data_source_name=DataSource.ONECLICK,
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
@@ -254,7 +254,7 @@ class TestOneClickAPI(OneClickAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         loan_info = self.api.checkout(patron, None, pool, None)
-        eq_('OneClick ID', loan_info.identifier_type)
+        eq_(Identifier.RB_DIGITAL_ID, loan_info.identifier_type)
         eq_(pool.identifier.identifier, loan_info.identifier)
         today = datetime.datetime.now()
         assert (loan_info.start_date - today).total_seconds() < 20
@@ -285,12 +285,12 @@ class TestOneClickAPI(OneClickAPITest):
         patron.oneclick_id = 939981
 
         identifier = self._identifier(
-            identifier_type=Identifier.ONECLICK_ID, 
+            identifier_type=Identifier.RB_DIGITAL_ID, 
             foreign_id='9781426893483')
 
         edition, pool = self._edition(
-            identifier_type=Identifier.ONECLICK_ID,
-            data_source_name=DataSource.ONECLICK,
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
             with_license_pool=True, 
             identifier_id = '9781426893483'
         )
@@ -309,7 +309,7 @@ class TestOneClickAPI(OneClickAPITest):
 
         found_fulfillment = self.api.fulfill(patron, None, pool, None)
 
-        eq_('OneClick ID', found_fulfillment.identifier_type)
+        eq_(Identifier.RB_DIGITAL_ID, found_fulfillment.identifier_type)
         eq_(u'9781426893483', found_fulfillment.identifier.identifier)
         eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', found_fulfillment.content_link)
         eq_(u'application/epub+zip', found_fulfillment.content_type)
@@ -317,8 +317,8 @@ class TestOneClickAPI(OneClickAPITest):
 
         # Here's another pool that the patron doesn't have checked out.
         edition2, pool2  = self._edition(
-            identifier_type=Identifier.ONECLICK_ID,
-            data_source_name=DataSource.ONECLICK,
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
             with_license_pool=True, 
             identifier_id = '123456789'
         )
@@ -362,11 +362,11 @@ class TestOneClickAPI(OneClickAPITest):
         patron.oneclick_id = 939981
 
         identifier = self._identifier(
-            identifier_type=Identifier.ONECLICK_ID, 
+            identifier_type=Identifier.RB_DIGITAL_ID, 
             foreign_id='9781456103859')
 
         identifier = self._identifier(
-            identifier_type=Identifier.ONECLICK_ID, 
+            identifier_type=Identifier.RB_DIGITAL_ID, 
             foreign_id='9781426893483')
 
         # queue patron id 
@@ -391,21 +391,21 @@ class TestOneClickAPI(OneClickAPITest):
 
         patron_activity = self.api.patron_activity(patron, None)
 
-        eq_('OneClick ID', patron_activity[0].identifier_type)
+        eq_(Identifier.RB_DIGITAL_ID, patron_activity[0].identifier_type)
         eq_(u'9781456103859', patron_activity[0].identifier)
         eq_(None, patron_activity[0].start_date)
         eq_(datetime.date(2016, 11, 19), patron_activity[0].end_date)
         eq_(u'http://api.oneclickdigital.us/v1/media/9781456103859/parts/1646772/download-url?s3=78226&f=78226_007_P004', patron_activity[0].fulfillment_info.content_link)
         eq_(u'audio/mpeg', patron_activity[0].fulfillment_info.content_type)
                  
-        eq_('OneClick ID', patron_activity[1].identifier_type)
+        eq_(Identifier.RB_DIGITAL_ID, patron_activity[1].identifier_type)
         eq_(u'9781426893483', patron_activity[1].identifier)
         eq_(None, patron_activity[1].start_date)
         eq_(datetime.date(2016, 11, 19), patron_activity[1].end_date)
         eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', patron_activity[1].fulfillment_info.content_link)
         eq_(u'application/epub+zip', patron_activity[1].fulfillment_info.content_type)
                  
-        eq_('OneClick ID', patron_activity[2].identifier_type)
+        eq_(Identifier.RB_DIGITAL_ID, patron_activity[2].identifier_type)
         eq_('9781426893483', patron_activity[2].identifier)
         eq_(None, patron_activity[2].start_date)
         eq_(datetime.date(2050, 12, 31), patron_activity[2].end_date)
@@ -420,8 +420,8 @@ class TestOneClickAPI(OneClickAPITest):
         patron.oneclick_id = 939981
 
         edition, pool = self._edition(
-            identifier_type=Identifier.ONECLICK_ID,
-            data_source_name=DataSource.ONECLICK,
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
@@ -451,7 +451,7 @@ class TestOneClickAPI(OneClickAPITest):
 
         hold_info = self.api.place_hold(patron, None, pool, None)
 
-        eq_('OneClick ID', hold_info.identifier_type)
+        eq_(Identifier.RB_DIGITAL_ID, hold_info.identifier_type)
         eq_(pool.identifier.identifier, hold_info.identifier)
         today = datetime.datetime.now()
         assert (hold_info.start_date - today).total_seconds() < 20
@@ -464,8 +464,8 @@ class TestOneClickAPI(OneClickAPITest):
         patron.oneclick_id = 939981
 
         edition, pool = self._edition(
-            identifier_type=Identifier.ONECLICK_ID,
-            data_source_name=DataSource.ONECLICK,
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
@@ -494,7 +494,7 @@ class TestOneClickAPI(OneClickAPITest):
         """
 
         # Update a LicensePool that doesn't exist yet, and it gets created.
-        identifier = self._identifier(identifier_type=Identifier.ONECLICK_ID)
+        identifier = self._identifier(identifier_type=Identifier.RB_DIGITAL_ID)
         isbn = identifier.identifier.encode("ascii")
 
         # The BibliographicCoverageProvider gets called for a new license pool.
@@ -513,8 +513,8 @@ class TestOneClickAPI(OneClickAPITest):
 
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
-            identifier_type=Identifier.ONECLICK_ID,
-            data_source_name=DataSource.ONECLICK,
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
             with_license_pool=True, collection=self.collection
         )
 
@@ -562,12 +562,12 @@ class TestCirculationMonitor(OneClickAPITest):
             self._db, self.collection, api_class=MockOneClickAPI, 
             api_class_kwargs=dict(base_path=self.base_path)
         )
-        eq_(ExternalIntegration.ONE_CLICK, monitor.protocol)
+        eq_(ExternalIntegration.RB_DIGITAL, monitor.protocol)
 
         # Create a LicensePool that needs updating.
         edition_ebook, pool_ebook = self._edition(
-            identifier_type=Identifier.ONECLICK_ID,
-            data_source_name=DataSource.ONECLICK,
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
             with_license_pool=True, collection=self.collection
         )
         pool_ebook.licenses_owned = 3

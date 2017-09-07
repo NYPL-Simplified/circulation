@@ -163,6 +163,7 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         Identifier.BIBLIOTHECA_ID,
         Identifier.AXIS_360_ID,
         Identifier.ONECLICK_ID,
+        Identifier.URI,
     ]
     
     def __init__(self, collection, lookup_client=None, **kwargs):

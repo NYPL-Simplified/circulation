@@ -1050,7 +1050,10 @@ class SettingsController(CirculationManagerController):
         if short_name:
             library.short_name = short_name
 
+        NO_VALUE = object()
         for setting in Configuration.LIBRARY_SETTINGS:
+            # Start off by assuming the value is not set.
+            value = NO_VALUE
             if setting.get("type") == "list":
                 if setting.get('options'):
                     # Restrict to the values in 'options'.
@@ -1087,7 +1090,8 @@ class SettingsController(CirculationManagerController):
                     value = "data:image/png;base64,%s" % b64
             else:
                 value = flask.request.form.get(setting['key'], None)
-            ConfigurationSetting.for_library(setting['key'], library).value = value
+            if value != NO_VALUE:
+                ConfigurationSetting.for_library(setting['key'], library).value = value
 
         if is_new:
             return Response(unicode(_("Success")), 201)
@@ -1907,8 +1911,14 @@ class SettingsController(CirculationManagerController):
             # OPDS Authentication document.
             self._db.commit()
 
-            library_url = self.url_for("index", library_short_name=library.short_name)
-            response = do_post(register_url, dict(url=library_url), allowed_response_codes=["2xx"])
+            library_url = self.url_for(
+                "authentication_document", 
+                library_short_name=library.short_name
+            )
+            response = do_post(
+                register_url, dict(url=library_url), 
+                allowed_response_codes=["2xx"], timeout=60
+            )
             catalog = json.loads(response.content)
 
             # Since we generated a public key, the catalog should have the short name
