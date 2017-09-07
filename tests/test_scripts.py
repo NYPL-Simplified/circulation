@@ -794,7 +794,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         eq_(self.timestamp.counter, 3)
 
     def test_all_migration_files_are_run(self):
-        self.script.run(test=True)
+        self.script.run(test=True, cmd_args=["--last-run-date", "2010-01-01"])
 
         # There are two test timestamps in the database, confirming that
         # the test SQL files created by self._create_test_migration_files()

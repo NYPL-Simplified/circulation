@@ -1698,8 +1698,8 @@ class DatabaseMigrationScript(Script):
         # the database before the ExternalIntegration has been uploaded.
         Configuration.load(None)
 
-    def run(self, test=False):
-        parsed = self.parse_command_line()
+    def run(self, test=False, cmd_args=None):
+        parsed = self.parse_command_line(cmd_args=cmd_args)
         last_run_date = parsed.last_run_date
         last_run_counter = parsed.last_run_counter
         timestamp = None
