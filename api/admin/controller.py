@@ -1932,3 +1932,59 @@ class SettingsController(CirculationManagerController):
 
         return Response(unicode(_("Success")), 200)
 
+    def sitewide_registration(self, do_get=HTTP.get_with_timeout, do_post=HTTP.post_with_timeout, key=None):
+        integration_id = flask.request.form.get("integration_id")
+
+        integration = get_one(self._db, ExternalIntegration, id=integration_id)
+        if not integration:
+            return MISSING_SERVICE
+
+        # Get the catalog for this service.
+        try:
+            response = do_get(integration.url, allowed_response_codes=['2xx', '3xx'])
+        except Exception as e:
+            return REMOTE_INTEGRATION_FAILED
+
+        catalog = response.json()
+        links = catalog.get('links', [])
+
+        # Get the link for registration from the catalog.
+        register_urls = filter(lambda l: l.get('rel')=='register', links)
+        if not register_urls:
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _('The service did not provide a register link.')
+            )
+        register_url = register_urls[0].get('href')
+
+        # Generate a public key for this website.
+        if not key:
+            key = RSA.generate(2048)
+        encryptor = PKCS1_OAEP.new(key)
+        public_key = key.publickey().exportKey()
+
+        # Save the public key to the database before generating the public key document.
+        public_key_setting = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY)
+        public_key_setting.value = public_key
+        self._db.commit()
+
+        # Get the public key document URL and register this server.
+        try:
+            public_key_url = self.url_for('public_key_document')
+            response = do_post(register_url, dict(url=public_key_url), allowed_response_codes=['2xx'])
+        except Exception as e:
+            public_key_setting.value = None
+            return REMOTE_INTEGRATION_FAILED
+
+        registration_info = response.json()
+        shared_secret = registration_info.get('metadata', {}).get('shared_secret')
+
+        if not shared_secret:
+            public_key_setting.value = None
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _('The service did not provide registration information.')
+            )
+
+        public_key_setting.value = None
+        shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+        integration.set_setting('shared_secret', unicode(shared_secret))
+        return Response(unicode(_("Success")), 200)

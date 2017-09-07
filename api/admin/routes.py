@@ -422,6 +422,18 @@ def library_registrations():
         return data
     return flask.jsonify(**data)
 
+@app.route('/admin/sitewide_registration', methods=['POST'])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def sitewide_registration():
+    data = app.manager.admin_settings_controller.sitewide_registration()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
     """Allows an  admin with expired credentials to sign back in
@@ -459,4 +471,3 @@ def admin_js():
 def admin_css():
     directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
     return flask.send_from_directory(directory, "circulation-web.css")
-
