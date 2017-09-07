@@ -781,7 +781,7 @@ class InstanceInitializationScript(Script):
         if existing:
             # No need to run the script. We already have a timestamp.
             return
-        db_init_script.do_run()
+        db_init_script.run()
 
         # Create a secret key if one doesn't already exist.
         ConfigurationSetting.sitewide_secret(self._db, Configuration.SECRET_KEY)
