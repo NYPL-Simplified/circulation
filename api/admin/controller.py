@@ -1954,7 +1954,15 @@ class SettingsController(CirculationManagerController):
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide a register link.')
             )
+
+        # Get the full registration url.
         register_url = register_urls[0].get('href')
+        if not register_url.startswith('http'):
+            # We have a relative path. Create a full registration url.
+            base_url = catalog.get('id')
+            if base_url.endswith('/'):
+                base_url = base_url[:-1]
+            register_url = base_url + register_url
 
         # Generate a public key for this website.
         if not key:
