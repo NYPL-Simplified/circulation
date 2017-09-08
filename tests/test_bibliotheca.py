@@ -61,7 +61,7 @@ class BibliothecaAPITest(DatabaseTest):
 
     @classmethod
     def sample_data(self, filename):
-        return sample_data(filename, 'threem')
+        return sample_data(filename, 'bibliotheca')
 
 class TestBibliothecaAPI(BibliothecaAPITest):      
 
@@ -658,3 +658,30 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         proper_args = ['2013-04-02']
         default_start_time = monitor.create_default_start_time(self._db, proper_args)
         eq_(datetime.datetime(2013, 4, 2), default_start_time)
+
+    def test_handle_event(self):
+        api = MockBibliothecaAPI(self._db, self.collection)
+        api.queue_response(
+            200, content=self.sample_data("item_metadata_single.xml")
+        )
+        monitor = BibliothecaEventMonitor(
+            self._db, self.collection, api_class=api
+        )
+
+        now = datetime.datetime.utcnow()
+        monitor.handle_event("ddf4gr9", "9781250015280", None, now, None,
+                             CirculationEvent.DISTRIBUTOR_LICENSE_ADD)
+
+        # The collection now has a LicensePool corresponding to the book
+        # we just loaded.
+        [pool] = self.collection.licensepools
+        eq_("ddf4gr9", pool.identifier.identifier)
+
+        # The book has a presentation-ready work and we know its
+        # bibliographic metadata.
+        eq_(True, pool.work.presentation_ready)
+        eq_("The Incense Game", pool.work.title)
+
+        # But we don't yet know anything about the LicensePool
+        # from a circulation standpoint.
+        eq_(0, pool.licenses_available)

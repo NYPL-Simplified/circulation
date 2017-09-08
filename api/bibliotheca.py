@@ -742,7 +742,11 @@ class BibliothecaEventMonitor(CollectionMonitor):
 
     def __init__(self, _db, collection, api_class=BibliothecaAPI, cli_date=None):
         super(BibliothecaEventMonitor, self).__init__(_db, collection)
-        self.api = api_class(_db, collection)
+        if isinstance(api_class, BibliothecaAPI):
+            # We were given an actual API object. Just use it.
+            self.api = api_class
+        else:
+            self.api = api_class(_db, collection)
         self.bibliographic_coverage_provider = BibliothecaBibliographicCoverageProvider(
             collection, self.api
         )
@@ -837,7 +841,9 @@ class BibliothecaEventMonitor(CollectionMonitor):
                      start_time, end_time, internal_event_type):
         # Find or lookup the LicensePool for this event.
         license_pool, is_new = LicensePool.for_foreign_id(
-            self._db, self.api.source, Identifier.BIBLIOTHECA_ID, bibliotheca_id)
+            self._db, self.api.source, Identifier.BIBLIOTHECA_ID, 
+            bibliotheca_id, collection=self.collection
+        )
 
         if is_new:
             # Immediately acquire bibliographic coverage for this book.
