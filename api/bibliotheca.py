@@ -833,7 +833,6 @@ class BibliothecaEventMonitor(CollectionMonitor):
                         exc_info=e
                     )
                 raise e
-            self.timestamp.timestamp = most_recent_timestamp
         self.log.info("Handled %d events total", i)
         return most_recent_timestamp
 
