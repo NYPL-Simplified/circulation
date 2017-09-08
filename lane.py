@@ -55,7 +55,10 @@ from sqlalchemy import (
     Unicode,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import (
+    ARRAY,
+    INT4RANGE,
+)
 
 class DatabaseLane(Base):
     __tablename__ = 'lanes'
@@ -82,6 +85,54 @@ class DatabaseLane(Base):
     fiction = Column(Boolean, index=True, nullable=True)
 
     audiences = Column(ARRAY(Unicode))
+    languages = Column(ARRAY(Unicode))
+    media = Column(ARRAY(Unicode))
+    target_age = Column(INT4RANGE, index=True)
+
+    # Only books licensed through this DataSource will be shown.
+    license_datasource_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True,
+        nullable=True
+    )
+
+    # Only books on a CustomList obtained from this DataSource will be
+    # shown.
+    list_datasource_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True,
+        nullable=True
+    )
+
+    # Only books on this specific CustomList will be shown.
+    list_identifier_id = Column(
+        Integer, ForeignKey('customlists.id'), index=True,
+        nullable=True
+    )
+
+    # This has no effect unless list_datasource_id or
+    # list_identifier_id is also set. If this is set, then a book will
+    # only be shown if it was seen on an appropriate list within this
+    # number of days. If the number is zero, the book must be
+    # _currently_ on an appropriate list.
+    list_seen_in_previous_days = Column(Integer, nullable=True)
+
+    # If this is set to True, then a book will show up in a lane only
+    # if it would _also_ show up in the parent lane.
+    inherit_parent_restrictions = Column(Boolean, default=False, nullable=False)
+
+    # Patrons whose external type is in this list will be sent to this
+    # lane when they ask for the root lane.
+    #
+    # This is almost never necessary.
+    root_for_patron_type = Column(ARRAY(Unicode), nullable=True)
+
+    # Only a visible lane will show up in the user interface.  The
+    # admin interface can see all the lanes.
+    visible = Column(Boolean, default=True, nullable=False)
+
+    # searchable - this lane handles search requests for itself and
+    # its children.
+    # genres
+    # excluded_genres
 
     __table_args__ = (
         UniqueConstraint('library_id', 'identifier'),
