@@ -805,6 +805,7 @@ class BibliothecaEventMonitor(CollectionMonitor):
         added_books = 0
         i = 0
         one_day = datetime.timedelta(days=1)
+        most_recent_timestamp = start
         for start, cutoff, full_slice in self.slice_timespan(
                 start, cutoff, one_day):
             most_recent_timestamp = start
