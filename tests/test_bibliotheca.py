@@ -61,7 +61,7 @@ class BibliothecaAPITest(DatabaseTest):
 
     @classmethod
     def sample_data(self, filename):
-        return sample_data(filename, 'threem')
+        return sample_data(filename, 'bibliotheca')
 
 class TestBibliothecaAPI(BibliothecaAPITest):      
 
@@ -658,3 +658,75 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         proper_args = ['2013-04-02']
         default_start_time = monitor.create_default_start_time(self._db, proper_args)
         eq_(datetime.datetime(2013, 4, 2), default_start_time)
+
+    def test_run_once(self):
+        api = MockBibliothecaAPI(self._db, self.collection)
+        api.queue_response(
+            200, content=self.sample_data("empty_end_date_event.xml")
+        )
+        api.queue_response(
+            200, content=self.sample_data("item_metadata_single.xml")
+        )
+        monitor = BibliothecaEventMonitor(
+            self._db, self.collection, api_class=api
+        )
+        now = datetime.datetime.utcnow() 
+        yesterday = now - datetime.timedelta(days=1)
+
+        new_timestamp = monitor.run_once(yesterday, now)
+
+        # Two requests were made to the API -- one to find events
+        # and one to look up detailed information about the book
+        # whose event we learned of.
+        eq_(2, len(api.requests))
+
+        # The result, which will be used as the new timestamp, is very
+        # close to the time we called run_once(). It represents the
+        # point at which we should expect new events to start showing
+        # up.
+        assert (new_timestamp-now).seconds < 2
+
+        # A LicensePool was created for the identifier referred to
+        # in empty_end_date_event.xml.
+        [pool] = self.collection.licensepools
+        eq_("d5rf89", pool.identifier.identifier)
+
+        # But since the metadata retrieved in the follow-up request
+        # was for a different book, no Work and no Edition have been
+        # created. (See test_handle_event for what happens when the
+        # API cooperates.)
+        eq_(None, pool.work)
+        eq_(None, pool.presentation_edition)
+
+        # If we tell run_once() to work through a zero amount of time,
+        # it does nothing.
+        new_timestamp = monitor.run_once(yesterday, yesterday)
+        eq_(new_timestamp, yesterday)
+
+
+    def test_handle_event(self):
+        api = MockBibliothecaAPI(self._db, self.collection)
+        api.queue_response(
+            200, content=self.sample_data("item_metadata_single.xml")
+        )
+        monitor = BibliothecaEventMonitor(
+            self._db, self.collection, api_class=api
+        )
+
+        now = datetime.datetime.utcnow()
+        monitor.handle_event("ddf4gr9", "9781250015280", None, now, None,
+                             CirculationEvent.DISTRIBUTOR_LICENSE_ADD)
+
+        # The collection now has a LicensePool corresponding to the book
+        # we just loaded.
+        [pool] = self.collection.licensepools
+        eq_("ddf4gr9", pool.identifier.identifier)
+
+        # The book has a presentation-ready work and we know its
+        # bibliographic metadata.
+        eq_(True, pool.work.presentation_ready)
+        eq_("The Incense Game", pool.work.title)
+
+        # But we don't yet know anything about the LicensePool
+        # from a circulation standpoint.
+        eq_(0, pool.licenses_available)
