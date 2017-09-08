@@ -52,6 +52,7 @@ from core.model import (
     CirculationEvent,
     Collection,
     Complaint,
+    ConfigurationSetting,
     DataSource,
     ExternalIntegration,
     Hold,
@@ -380,6 +381,20 @@ class CirculationManager(object):
             self.authentication_for_opds_documents[name] = self.auth.create_authentication_document()
         return self.authentication_for_opds_documents[name]
 
+    @property
+    def public_key_integration_document(self):
+        site_id = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
+        document = dict(id=site_id)
+
+        public_key_dict = dict()
+        public_key = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY).value
+        if public_key:
+            public_key_dict['type'] = 'RSA'
+            public_key_dict['value'] = public_key
+
+        document['public_key'] = public_key_dict
+        return json.dumps(document)
+
 
 class CirculationManagerController(BaseCirculationManagerController):
 
@@ -516,7 +531,7 @@ class IndexController(CirculationManagerController):
                 "Content-Type" : AuthenticationForOPDSDocument.MEDIA_TYPE
             }
         )
-    
+
     def authenticated_patron_root_lane(self):
         patron = self.authenticated_patron_from_request()
         if isinstance(patron, ProblemDetail):
@@ -554,6 +569,13 @@ class IndexController(CirculationManagerController):
                 languages=root_lane.language_key,
                 lane_name=root_lane.url_name
             )
+        )
+
+    def public_key_document(self):
+        """Serves a sitewide public key document"""
+        return Response(
+            self.manager.public_key_integration_document,
+            200, { 'Content-Type' : 'application/opds+json' }
         )
 
 

@@ -192,6 +192,11 @@ def index():
 def authentication_document():
     return app.manager.index_controller.authentication_document()
 
+@library_route('/public_key_document')
+@returns_problem_detail
+def public_key_document():
+    return app.manager.index_controller.public_key_document()
+
 @library_dir_route('/groups', defaults=dict(lane_name=None, languages=None))
 @library_dir_route('/groups/<languages>', defaults=dict(lane_name=None))
 @library_route('/groups/<languages>/<lane_name>')

@@ -4,6 +4,7 @@ from nose.tools import (
 )
 import flask
 import json
+import os
 import re
 import feedparser
 from werkzeug import ImmutableMultiDict, MultiDict
@@ -3291,3 +3292,120 @@ class TestSettingsController(AdminControllerTest):
                     self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
             eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)
+
+    def test_sitewide_registration_post_errors(self):
+        def assert_remote_integration_error(response, message=None):
+            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
+            eq_(REMOTE_INTEGRATION_FAILED.title, response.title)
+            if message:
+                assert message in response.detail
+
+        metadata_wrangler_service = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            goal=ExternalIntegration.METADATA_GOAL, url=self._url
+        )
+        default_form = None
+
+        # If no an ExternalIntegration.id that doesn't exist is sent,
+        # a ProblemDetail is returned.
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict([('integration_id', 0),])
+            response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request)
+        eq_(MISSING_SERVICE, response)
+
+        # If an error is raised during registration, a ProblemDetail is returned.
+        def error_get(*args, **kwargs):
+            raise RuntimeError('Mock error during request')
+
+        integration_args = [('integration_id', metadata_wrangler_service.id),]
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict(integration_args)
+            response = self.manager.admin_settings_controller.sitewide_registration(do_get=error_get)
+        assert_remote_integration_error(response)
+
+        # If the response has the wrong media type, a ProblemDetail is returned.
+        self.responses.append(
+            MockRequestsResponse(200, headers={'Content-Type' : 'text/plain'})
+        )
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict(integration_args)
+            response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request)
+            assert_remote_integration_error(
+                response, 'The service did not provide a valid catalog.'
+            )
+
+        # If no registration link is available, a ProblemDetail is returned
+        catalog = dict(id=self._url, links=[])
+        headers = { 'Content-Type' : 'application/opds+json' }
+        self.responses.append(
+            MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
+        )
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict(integration_args)
+            response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request)
+        assert_remote_integration_error(
+            response, 'The service did not provide a register link.'
+        )
+
+        # If no registration details are given, a ProblemDetail is returned
+        link_type = self.manager.admin_settings_controller.METADATA_SERVICE_URI_TYPE
+        catalog['links'] = [dict(rel='register', href=self._url, type=link_type)]
+        registration = dict(id=self._url, metadata={})
+        self.responses.extend([
+            MockRequestsResponse(200, content=json.dumps(registration), headers=headers),
+            MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
+        ])
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict(integration_args)
+            response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request, do_post=self.do_request)
+        assert_remote_integration_error(
+            response, 'The service did not provide registration information.'
+        )
+
+    def test_sitewide_registration_post_success(self):
+        # A service to register with
+        metadata_wrangler_service = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            goal=ExternalIntegration.METADATA_GOAL, url=self._url
+        )
+
+        # An RSA key for testing purposes
+        key = RSA.generate(2048)
+        encryptor = PKCS1_OAEP.new(key)
+
+        # A catalog with registration url
+        register_link_type = self.manager.admin_settings_controller.METADATA_SERVICE_URI_TYPE
+        registration_url = self._url
+        catalog = dict(
+            id = metadata_wrangler_service.url,
+            links = [
+                dict(rel='collection-add', href=self._url, type='collection'),
+                dict(rel='register', href=registration_url, type=register_link_type),
+                dict(rel='collection-remove', href=self._url, type='collection'),
+            ]
+        )
+        headers = { 'Content-Type' : 'application/opds+json' }
+        self.responses.append(
+            MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
+        )
+
+        # A registration document with secrets
+        shared_secret = os.urandom(24).encode('hex')
+        encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
+        registration = dict(
+            id = metadata_wrangler_service.url,
+            metadata = dict(shared_secret=encrypted_secret)
+        )
+        self.responses.insert(0, MockRequestsResponse(200, content=json.dumps(registration)))
+
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict([
+                ('integration_id', metadata_wrangler_service.id),
+            ])
+            response = self.manager.admin_settings_controller.sitewide_registration(
+                do_get=self.do_request, do_post=self.do_request, key=key
+            )
+        eq_(200, response.status_code)
+        eq_('Success', response.data)
+        eq_([metadata_wrangler_service.url, registration_url], self.requests)
+        eq_(shared_secret, metadata_wrangler_service.password)
