@@ -29,6 +29,7 @@ from sqlalchemy.orm import (
 )
 
 from model import (
+    Base,
     CustomList,
     CustomListEntry,
     DataSource,
@@ -46,6 +47,47 @@ from model import (
 from facets import FacetConstants
 from util import fast_query_count
 import elasticsearch
+
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    Unicode,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import ARRAY
+
+class DatabaseLane(Base):
+    __tablename__ = 'lanes'
+    id = Column(Integer, primary_key=True)
+    library_id = Column(Integer, ForeignKey('libraries.id'), index=True,
+                        nullable=False)
+    parent_id = Column(Integer, ForeignKey('lanes.id'), index=True,
+                       nullable=True)
+    # identifier is a name for this lane that is unique across the
+    # library.  "Adult Fiction" is a good example. We can't have an
+    # adult fiction lane called "Fiction" and a YA fiction lane called
+    # "Fiction".
+    identifier = Column(Unicode)
+
+    # display_name is the name of the lane as shown to patrons.  It's
+    # okay for this to be duplicated across the library, but it's not
+    # okay to have two lanes with the same parent and the same display
+    # name -- that would be confusing.
+    display_name = Column(Unicode)
+
+    # True = Fiction only
+    # False = Nonfiction only
+    # null = Both fiction and nonfiction
+    fiction = Column(Boolean, index=True, nullable=True)
+
+    audiences = Column(ARRAY(Unicode))
+
+    __table_args__ = (
+        UniqueConstraint('library_id', 'identifier'),
+        UniqueConstraint('parent_id', 'display_name'),
+    )
+
 
 class Facets(FacetConstants):
 
