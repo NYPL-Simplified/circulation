@@ -8,6 +8,7 @@ import uuid
 import json
 import re
 import urllib
+import urlparse
 
 import flask
 from flask import (
@@ -993,6 +994,8 @@ class DashboardController(CirculationManagerController):
 
 class SettingsController(CirculationManagerController):
 
+    METADATA_SERVICE_URI_TYPE = 'application/opds+json;profile=https://librarysimplified.org/rel/profile/metadata-service'
+
     def libraries(self):
         if flask.request.method == 'GET':
             libraries = []
@@ -1955,11 +1958,20 @@ class SettingsController(CirculationManagerController):
         except Exception as e:
             return REMOTE_INTEGRATION_FAILED
 
+        if not response.headers.get('Content-Type') == 'application/opds+json':
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _('The service did not provide a valid catalog.')
+            )
+
         catalog = response.json()
         links = catalog.get('links', [])
 
         # Get the link for registration from the catalog.
-        register_urls = filter(lambda l: l.get('rel')=='register', links)
+        register_link_filter = lambda l: (
+            l.get('rel')=='register' and
+            l.get('type')==self.METADATA_SERVICE_URI_TYPE
+        )
+        register_urls = filter(register_link_filter, links)
         if not register_urls:
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide a register link.')
@@ -1970,9 +1982,7 @@ class SettingsController(CirculationManagerController):
         if not register_url.startswith('http'):
             # We have a relative path. Create a full registration url.
             base_url = catalog.get('id')
-            if base_url.endswith('/'):
-                base_url = base_url[:-1]
-            register_url = base_url + register_url
+            register_url = urlparse.urljoin(base_url, register_url)
 
         # Generate a public key for this website.
         if not key:

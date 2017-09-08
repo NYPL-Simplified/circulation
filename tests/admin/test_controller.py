@@ -3323,23 +3323,40 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.sitewide_registration(do_get=error_get)
         assert_remote_integration_error(response)
 
-        # If no registration link is available, a ProblemDetail is returned
-        catalog = dict(id=self._url, links=[])
+        # If the response has the wrong media type, a ProblemDetail is returned.
+        self.responses.append(
+            MockRequestsResponse(200, headers={'Content-Type' : 'text/plain'})
+        )
         with self.app.test_request_context('/', method='POST'):
             flask.request.form = MultiDict(integration_args)
-            self.responses.append(MockRequestsResponse(200, content=json.dumps(catalog)))
+            response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request)
+            assert_remote_integration_error(
+                response, 'The service did not provide a valid catalog.'
+            )
+
+        # If no registration link is available, a ProblemDetail is returned
+        catalog = dict(id=self._url, links=[])
+        headers = { 'Content-Type' : 'application/opds+json' }
+        self.responses.append(
+            MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
+        )
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict(integration_args)
             response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request)
         assert_remote_integration_error(
             response, 'The service did not provide a register link.'
         )
 
         # If no registration details are given, a ProblemDetail is returned
-        catalog['links'] = [dict(rel='register', href=self._url)]
+        link_type = self.manager.admin_settings_controller.METADATA_SERVICE_URI_TYPE
+        catalog['links'] = [dict(rel='register', href=self._url, type=link_type)]
         registration = dict(id=self._url, metadata={})
+        self.responses.extend([
+            MockRequestsResponse(200, content=json.dumps(registration), headers=headers),
+            MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
+        ])
         with self.app.test_request_context('/', method='POST'):
             flask.request.form = MultiDict(integration_args)
-            self.responses.append(MockRequestsResponse(200, content=json.dumps(registration)))
-            self.responses.append(MockRequestsResponse(200, content=json.dumps(catalog)))
             response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request, do_post=self.do_request)
         assert_remote_integration_error(
             response, 'The service did not provide registration information.'
@@ -3357,16 +3374,20 @@ class TestSettingsController(AdminControllerTest):
         encryptor = PKCS1_OAEP.new(key)
 
         # A catalog with registration url
+        register_link_type = self.manager.admin_settings_controller.METADATA_SERVICE_URI_TYPE
         registration_url = self._url
         catalog = dict(
             id = metadata_wrangler_service.url,
             links = [
-                dict(rel='collection-add', href=self._url),
-                dict(rel='register', href=registration_url),
-                dict(rel='collection-remove', href=self._url),
+                dict(rel='collection-add', href=self._url, type='collection'),
+                dict(rel='register', href=registration_url, type=register_link_type),
+                dict(rel='collection-remove', href=self._url, type='collection'),
             ]
         )
-        self.responses.append(MockRequestsResponse(200, content=json.dumps(catalog)))
+        headers = { 'Content-Type' : 'application/opds+json' }
+        self.responses.append(
+            MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
+        )
 
         # A registration document with secrets
         shared_secret = os.urandom(24).encode('hex')
