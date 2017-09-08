@@ -83,7 +83,7 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL,
-            username='abc', password='def', url="http://metadata.in"
+            password='secret', url="http://metadata.in"
         )
         self.collection = self._collection(
             protocol=ExternalIntegration.OVERDRIVE, external_account_id=u'library'
@@ -95,22 +95,13 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         """
 
         lookup = MetadataWranglerOPDSLookup.from_config(self._db)
-        eq_("abc", lookup.client_id)
-        eq_("def", lookup.client_secret)
+        eq_("secret", lookup.shared_secret)
         eq_(True, lookup.authenticated)
 
-        # An error is raised if only one value is set.
-        self.integration.password = None
-        assert_raises(
-            CannotLoadConfiguration, MetadataWranglerOPDSLookup.from_config,
-            self._db
-        )
-
         # The details are None if client configuration isn't set at all.
-        self.integration.username = None
+        self.integration.password = None
         lookup = MetadataWranglerOPDSLookup.from_config(self._db)
-        eq_(None, lookup.client_id)
-        eq_(None, lookup.client_secret)
+        eq_(None, lookup.shared_secret)
         eq_(False, lookup.authenticated)
 
     def test_get_collection_url(self):
@@ -124,14 +115,14 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
 
         # If the lookup client isn't authenticated, an error is raised.
         lookup.collection = self.collection
-        lookup.client_id = lookup.client_secret = None
+        lookup.shared_secret = None
         assert_raises(
             AccessNotAuthenticated, lookup.get_collection_url, 'banana'
         )
 
         # With both authentication and a specific Collection,
         # a URL is returned.
-        lookup.client_id = lookup.client_secret = 'password'
+        lookup.shared_secret = 'secret'
         expected = '%s%s/banana' % (lookup.base_url, self.collection.metadata_identifier)
         eq_(expected, lookup.get_collection_url('banana'))
 
@@ -148,7 +139,7 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         eq_('lookup', lookup.lookup_endpoint)
 
         # Without authentication, an unspecific endpoint is returned.
-        lookup.client_id = lookup.client_secret = None
+        lookup.shared_secret = None
         lookup.collection = self.collection
         eq_('lookup', lookup.lookup_endpoint)
 
