@@ -90,6 +90,9 @@ class TestCirculationManagerAnnotator(VendorIDTest):
             CirculationManagerAnnotator.COPYRIGHT: "http://copyright/",
             CirculationManagerAnnotator.ABOUT: "http://about/",
             CirculationManagerAnnotator.LICENSE: "http://license/",
+            Configuration.HELP_EMAIL : "help@me",
+            Configuration.HELP_WEB : "http://help/",
+            Configuration.HELP_URI : "uri:help",
         }
 
         # Set up configuration settings for links.
@@ -98,21 +101,27 @@ class TestCirculationManagerAnnotator(VendorIDTest):
 
         self.annotator.add_configuration_links(mock_feed)
 
-        # Five links were added to the "feed"
-        eq_(5, len(mock_feed))
+        # Eight links were added to the "feed"
+        eq_(8, len(mock_feed))
 
         # They are the links we'd expect.
         links = {}
         for link in mock_feed:
             rel = link.attrib['rel']
             href = link.attrib['href']
-            type = link.attrib['type']
-
-            eq_("text/html", type)
-
+            if rel == 'help':
+                continue # Tested below
             # Check that the configuration value made it into the link.
             eq_(href, link_config[rel])
+            eq_("text/html", link.attrib['type'])
             
+        # There are three help links using different protocols.
+        help_links = [x.attrib['href'] for x in mock_feed
+                      if x.attrib['rel'] == 'help']
+        eq_(set(["mailto:help@me", "http://help/", "uri:help"]),
+            set(help_links))
+        
+
     def test_open_access_link(self):
 
         # The resource URL associated with a LicensePoolDeliveryMechanism

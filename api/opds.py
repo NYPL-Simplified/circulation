@@ -499,7 +499,7 @@ class CirculationManagerAnnotator(Annotator):
                 _add_link(d)
 
         for type, value in Configuration.help_uris(self.library):
-            d = dict(href=setting.value, rel="help")
+            d = dict(href=value, rel="help")
             if type:
                 d['type'] = type
             _add_link(d)
