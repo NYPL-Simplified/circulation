@@ -672,7 +672,7 @@ class TestCirculationAPI(DatabaseTest):
         })
         mock_bibliotheca = circulation.api_for_collection[self.collection.id]
 
-        data = sample_data("checkouts.xml", "threem")
+        data = sample_data("checkouts.xml", "bibiliotheca")
         mock_bibliotheca.queue_response(200, content=data)
 
         loans, holds, complete = circulation.patron_activity(self.patron, "1234")
