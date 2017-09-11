@@ -6616,6 +6616,83 @@ class LicensePool(Base):
 
         return changes_made
 
+    def update_availability_from_event(self, event):
+        """Update the LicensePool to reflect the fact that a specific
+        `CirculationEvent` has happened.
+
+        `update_availablility` is for situations where the changes to
+        the LicensePool are known and the event needs to be
+        created. This method is for situations where the type of event
+        is known and the LicensePool needs to be updated
+        appropriately.
+
+        Events must be processed in chronological order. Any event
+        earlier than `LicensePool.last_checked` is ignored, and
+        calling this method will update `LicensePool.last_checked` to
+        the time of the event.
+
+        This information is unlikely to be completely accurate, but it
+        should suffice until more accurate information can be
+        obtained.
+        """
+        if event.start and self.last_checked and event.start < self.last_checked:
+            # This is an old event and its effect on availability has
+            # already been taken into account.
+            return
+
+        if self.last_checked and not event.start:
+            # We have a history for this LicensePool and we don't know
+            # where this event fits into the history. Ignore the
+            # event.
+            return
+
+        self._update_availability_from_event(event.type, event.delta)
+
+        # Any events that come in from before this time will be ignored.
+        if event.start:
+            self.last_checked = event.start
+
+    def _update_availability_from_event(self, type, delta):
+        def add(field):
+            value = getattr(self, field) + delta
+            setattr(self, field, value)
+
+        def subtract(field):
+            value = getattr(self, field)
+            value -= delta
+            if value < 0:
+                # It's impossible for any of these numbers to be
+                # negative.
+                value = 0
+            setattr(self, field, value)
+
+        CE = CirculationEvent
+        added = False
+        if type == CE.DISTRIBUTOR_HOLD_PLACE:
+            add('patrons_in_hold_queue')
+        elif type == CE.DISTRIBUTOR_HOLD_RELEASE:
+            subtract('patrons_in_hold_queue')
+        elif type == CE.DISTRIBUTOR_CHECKIN:
+            add('licenses_available')
+        elif type == CE.DISTRIBUTOR_CHECKOUT:
+            subtract('licenses_available')
+        elif type == CE.DISTRIBUTOR_LICENSE_ADD:
+            add('licenses_owned')
+        elif type == CE.DISTRIBUTOR_LICENSE_REMOVE:
+            subtract('licenses_owned')
+        if self.licenses_owned < self.licenses_available:
+            # It's impossible to have more licenses available than
+            # owned. One of these values needs to change, but which
+            # one?
+            if type in (CE.DISTRIBUTOR_CHECKIN, CE.DISTRIBUTOR_CHECKOUT):
+                # The number of available licenses changed. Change
+                # the number of owned licenses to match.
+                self.licenses_owned = self.licenses_available
+            elif type in (CE.DISTRIBUTOR_LICENSE_ADD, CE.DISTRIBUTOR_LICENSE_REMOVE):
+                # The number of owned licenses changed. Change the number
+                # of available licenses to match.
+                self.licenses_available = self.licenses_owned
+
     def circulation_changelog(self, old_licenses_owned, old_licenses_available,
                               old_licenses_reserved, old_patrons_in_hold_queue):
         """Generate a log message describing a change to the circulation.
@@ -7248,6 +7325,7 @@ class CirculationEvent(Base):
                 end=end)
             )
         return event, was_new
+        
 
 Index("ix_circulationevents_start_desc_nullslast", CirculationEvent.start.desc().nullslast())
 
