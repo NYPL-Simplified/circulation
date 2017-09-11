@@ -129,6 +129,11 @@ class DatabaseLane(Base):
     # admin interface can see all the lanes.
     visible = Column(Boolean, default=True, nullable=False)
 
+    # "Search the current language"
+    # "Search the top level lane for your patron type"
+    # "Search this lane"
+    # "Search all books" (only at top level)
+
     # searchable - this lane handles search requests for itself and
     # its children.
     # genres
