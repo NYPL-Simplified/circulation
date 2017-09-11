@@ -6541,7 +6541,7 @@ class LicensePool(Base):
             new_licenses_reserved, new_patrons_in_hold_queue,
             analytics=None, as_of=None):
         """Update the LicensePool with new availability information.
-        Log the implied changes as CirculationEvents.
+        Log the implied changes with the analytics provider.
         """
         changes_made = False
         _db = Session.object_session(self)
