@@ -1894,96 +1894,87 @@ class TestLicensePool(DatabaseTest):
         eq_("[NO TITLE]", args[1])
         eq_("[NO AUTHOR]", args[2])
 
-    def test_update_availability_from_event(self):
-        """A LicensePool may have its avaialability information updated based
-        on a CirculationEvent that appears to contain new information.
+    def test_update_availability_from_delta(self):
+        """A LicensePool may have its availability information updated based
+        on a single observed change.
         """
 
         edition, pool = self._edition(with_license_pool=True)
-
-        event, is_new = create(
-            self._db, CirculationEvent, 
-            type=CirculationEvent.DISTRIBUTOR_LICENSE_ADD,
-            delta=1
-        )
-
-        event.start = None
-
-        # This event has no start time, but the pool has no history,
-        # so we process the event.
         eq_(None, pool.last_checked)
         eq_(1, pool.licenses_owned)
-        pool.update_availability_from_event(event)
-        eq_(2, pool.licenses_owned)
-        eq_(None, pool.last_checked)
 
-        # The pool has a history, and we can't fit an event with no
-        # start time into that history, so such an event is ignored.
+        add = CirculationEvent.DISTRIBUTOR_LICENSE_ADD
+        analytics = MockAnalyticsProvider()
+
+        # This observation has no timestamp, but the pool has no
+        # history, so we process it.
+        pool.update_availability_from_delta(add, CirculationEvent.NO_DATE, 1, analytics)
+        eq_(None, pool.last_checked)
+        eq_(2, pool.licenses_owned)
+
+        # Processing triggered an analytics event.
+        eq_(1, analytics.count)
+
+        # Now the pool has a history, and we can't fit an undated
+        # observation into that history, so undated observations
+        # are now ignored.
         now = datetime.datetime.utcnow()
         yesterday = now - datetime.timedelta(days=1)
         pool.last_checked = yesterday
-        pool.update_availability_from_event(event)
+        pool.update_availability_from_delta(add, CirculationEvent.NO_DATE, 1, analytics)
         eq_(2, pool.licenses_owned)
         eq_(yesterday, pool.last_checked)
 
-        # This event is more recent than the last time the pool was
-        # checked, so it's processed and the last check time is
+        # This observation is more recent than the last time the pool
+        # was checked, so it's processed and the last check time is
         # updated.
-        event.start = now
-        pool.update_availability_from_event(event)
+        pool.update_availability_from_delta(add, now, 1, analytics)
         eq_(3, pool.licenses_owned)
         eq_(now, pool.last_checked)
 
         # This event is less recent than the last time the pool was
         # checked, so it's ignored. Processing it is likely to do more
         # harm than good.
-        event.start = yesterday
-        pool.update_availability_from_event(event)
+        pool.update_availability_from_delta(add, yesterday, 1, analytics)
         eq_(3, pool.licenses_owned)
         eq_(now, pool.last_checked)
 
-    def test_update_availability_from_event_internal(self):
-
-        """Test the internal method called by update_availability_from_event."""
+    def test_calculate_change_from_one_event(self):
+        """Test the internal method called by update_availability_from_delta."""
         edition, pool = self._edition(with_license_pool=True)
-        update = pool._update_availability_from_event
+        calc = pool._calculate_change_from_one_event
         CE = CirculationEvent
+        pool.licenses_owned = 2
+        pool.licenses_available = 1
+        pool.licenses_reserved = 0
+        pool.patrons_in_hold_queue = 2
+        eq_((2,1,0,2), calc(CE.DISTRIBUTOR_HOLD_PLACE, 0))
 
-        update(CE.DISTRIBUTOR_HOLD_PLACE, 3)
-        eq_(3, pool.patrons_in_hold_queue)
-        update(CE.DISTRIBUTOR_HOLD_RELEASE, 3)
-        eq_(0, pool.patrons_in_hold_queue)
+        eq_((2,1,0,5), calc(CE.DISTRIBUTOR_HOLD_PLACE, 3))
+
+        # A number won't go below zero.
+        eq_((2,1,0,0), calc(CE.DISTRIBUTOR_HOLD_RELEASE, 3))
 
         # If there ever appear to be more licenses available than
         # owned, the number of owned licenses is automatically bumped
         # up to match.
-        update(CE.DISTRIBUTOR_CHECKIN, 3)
-        eq_(4, pool.licenses_available)
-        eq_(4, pool.licenses_owned)
+        eq_((4,4,0,2), calc(CE.DISTRIBUTOR_CHECKIN, 3))
 
-        # We don't bump up the number of available licenses just because
-        # one becomes available.
-        update(CE.DISTRIBUTOR_LICENSE_ADD, 1)
-        eq_(5, pool.licenses_owned)
-        eq_(4, pool.licenses_available)
+        # But we don't bump up the number of available licenses just
+        # because one becomes available.
+        eq_((2,2,0,2), calc(CE.DISTRIBUTOR_CHECKIN, 1))
 
         # If a license stops being owned, it implicitly stops being
         # available.
-        update(CE.DISTRIBUTOR_LICENSE_REMOVE, 2)
-        eq_(3, pool.licenses_owned)
-        eq_(3, pool.licenses_available)
+        eq_((0,0,0,2), calc(CE.DISTRIBUTOR_LICENSE_REMOVE, 2))
 
         # But if a license stops being available, it doesn't stop
         # being owned.
-        update(CE.DISTRIBUTOR_CHECKOUT, 1)
-        eq_(3, pool.licenses_owned)
-        eq_(2, pool.licenses_available)
+        eq_((2,0,0,2), calc(CE.DISTRIBUTOR_CHECKOUT, 1))
 
-        # If an event would take one of the numbers below zero, it's set
-        # to zero rather than a negative number.
-        update(CE.DISTRIBUTOR_CHECKOUT, 5)
-        eq_(0, pool.licenses_available)
-
+        # An availability notification takes a patron off the hold
+        # queue and adds them to the reserved list.
+        eq_((2,1,1,1), calc(CE.DISTRIBUTOR_AVAILABILITY_NOTIFY, 1))
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 

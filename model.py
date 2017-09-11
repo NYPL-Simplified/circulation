@@ -6547,6 +6547,10 @@ class LicensePool(Base):
         _db = Session.object_session(self)
         if not as_of:
             as_of = datetime.datetime.utcnow()
+        elif as_of == CirculationEvent.NO_DATE:
+            # The caller explicitly does not want
+            # LicensePool.last_checked to be updated.
+            as_of = None
 
         old_licenses_owned = self.licenses_owned
         old_licenses_available = self.licenses_available
@@ -6598,7 +6602,7 @@ class LicensePool(Base):
             self.patrons_in_hold_queue = new_patrons_in_hold_queue
             any_data = True
 
-        if any_data or changes_made:
+        if as_of and (any_data or changes_made):
             # Sometimes update_availability is called with no actual
             # numbers, but that's not the case this time. We got
             # numbers and they may have even changed our view of the
@@ -6616,82 +6620,97 @@ class LicensePool(Base):
 
         return changes_made
 
-    def update_availability_from_event(self, event):
-        """Update the LicensePool to reflect the fact that a specific
-        `CirculationEvent` has happened.
-
-        `update_availablility` is for situations where the changes to
-        the LicensePool are known and the event needs to be
-        created. This method is for situations where the type of event
-        is known and the LicensePool needs to be updated
-        appropriately.
-
-        Events must be processed in chronological order. Any event
-        earlier than `LicensePool.last_checked` is ignored, and
-        calling this method will update `LicensePool.last_checked` to
-        the time of the event.
+    def update_availability_from_delta(self, event_type, event_date, delta, analytics=None):
+        """Call update_availability based on a single change seen in the
+        distributor data, rather than a complete snapshot of
+        distributor information as of a certain time.
 
         This information is unlikely to be completely accurate, but it
         should suffice until more accurate information can be
         obtained.
+
+        No CirculationEvent is created until `update_availability` is
+        called.
+
+        Events must be processed in chronological order. Any event
+        that happened than `LicensePool.last_checked` is ignored, and
+        calling this method will update `LicensePool.last_checked` to
+        the time of the event.
+
+        :param event_type: A CirculationEvent constant representing the
+        type of change that was seen.
+
+        :param event_date: A datetime corresponding to when the 
+        change was seen.
+
+        :param delta: The magnitude of the change that was seen.
+
         """
-        if event.start and self.last_checked and event.start < self.last_checked:
+        if event_date != CirculationEvent.NO_DATE and self.last_checked and event_date < self.last_checked:
             # This is an old event and its effect on availability has
             # already been taken into account.
             return
 
-        if self.last_checked and not event.start:
+        if self.last_checked and event_date == CirculationEvent.NO_DATE:
             # We have a history for this LicensePool and we don't know
-            # where this event fits into the history. Ignore the
+            # where this event fits into that history. Ignore the
             # event.
             return
 
-        self._update_availability_from_event(event.type, event.delta)
+        (new_licenses_owned, new_licenses_available, 
+         new_licenses_reserved, 
+         new_patrons_in_hold_queue) = self._calculate_change_from_one_event(
+             event_type, delta
+         )
+        self.update_availability(
+            new_licenses_owned, new_licenses_available, 
+            new_licenses_reserved, new_patrons_in_hold_queue,
+            analytics=analytics, as_of=event_date
+        )
 
-        # Any events that come in from before this time will be ignored.
-        if event.start:
-            self.last_checked = event.start
+    def _calculate_change_from_one_event(self, type, delta):
+        new_licenses_owned = self.licenses_owned
+        new_licenses_available = self.licenses_available
+        new_licenses_reserved = self.licenses_reserved
+        new_patrons_in_hold_queue = self.patrons_in_hold_queue
 
-    def _update_availability_from_event(self, type, delta):
-        def add(field):
-            value = getattr(self, field) + delta
-            setattr(self, field, value)
-
-        def subtract(field):
-            value = getattr(self, field)
-            value -= delta
-            if value < 0:
-                # It's impossible for any of these numbers to be
-                # negative.
-                value = 0
-            setattr(self, field, value)
+        def deduct(value):
+            # It's impossible for any of these numbers to be
+            # negative.
+            return max(value-delta, 0)
 
         CE = CirculationEvent
         added = False
         if type == CE.DISTRIBUTOR_HOLD_PLACE:
-            add('patrons_in_hold_queue')
+            new_patrons_in_hold_queue += delta
         elif type == CE.DISTRIBUTOR_HOLD_RELEASE:
-            subtract('patrons_in_hold_queue')
+            new_patrons_in_hold_queue = deduct(new_patrons_in_hold_queue)
         elif type == CE.DISTRIBUTOR_CHECKIN:
-            add('licenses_available')
+            new_licenses_available += delta
         elif type == CE.DISTRIBUTOR_CHECKOUT:
-            subtract('licenses_available')
+            new_licenses_available = deduct(new_licenses_available)
         elif type == CE.DISTRIBUTOR_LICENSE_ADD:
-            add('licenses_owned')
+            new_licenses_owned += delta
         elif type == CE.DISTRIBUTOR_LICENSE_REMOVE:
-            subtract('licenses_owned')
-        if self.licenses_owned < self.licenses_available:
+            new_licenses_owned = deduct(new_licenses_owned)
+        elif type == CE.DISTRIBUTOR_AVAILABILITY_NOTIFY:
+            new_patrons_in_hold_queue = deduct(new_patrons_in_hold_queue)
+            new_licenses_reserved += delta
+        if new_licenses_owned < new_licenses_available:
             # It's impossible to have more licenses available than
             # owned. One of these values needs to change, but which
             # one?
             if type in (CE.DISTRIBUTOR_CHECKIN, CE.DISTRIBUTOR_CHECKOUT):
                 # The number of available licenses changed. Change
                 # the number of owned licenses to match.
-                self.licenses_owned = self.licenses_available
+                new_licenses_owned = new_licenses_available
             elif type in (CE.DISTRIBUTOR_LICENSE_ADD, CE.DISTRIBUTOR_LICENSE_REMOVE):
                 # The number of owned licenses changed. Change the number
                 # of available licenses to match.
-                self.licenses_available = self.licenses_owned
+                new_licenses_available = new_licenses_owned
+
+        return (new_licenses_owned, new_licenses_available, 
+                new_licenses_reserved, new_patrons_in_hold_queue)
 
     def circulation_changelog(self, old_licenses_owned, old_licenses_available,
                               old_licenses_reserved, old_patrons_in_hold_queue):
@@ -7245,6 +7264,9 @@ class CirculationEvent(Base):
     individual books.
     """
     __tablename__ = 'circulationevents'
+
+    # Used to explicitly tag an event as happening at an unknown time.
+    NO_DATE = object()
 
     id = Column(Integer, primary_key=True)
 
