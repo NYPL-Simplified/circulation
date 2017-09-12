@@ -6719,7 +6719,16 @@ class LicensePool(Base):
                 if delta > new_patrons_in_hold_queue:
                     new_licenses_available += (delta-new_patrons_in_hold_queue)
         elif type == CE.DISTRIBUTOR_CHECKOUT:
-            new_licenses_available = deduct(new_licenses_available)
+            if new_licenses_available == 0:
+                # The only way to borrow books while there are no
+                # licenses available is to borrow reserved copies.
+                new_licenses_reserved = deduct(new_licenses_reserved)
+            else:
+                # We don't know whether this checkout came from
+                # licenses available or from a lingering reserved
+                # copy, but in most cases it came from licenses
+                # available.
+                new_licenses_available = deduct(new_licenses_available)
         elif type == CE.DISTRIBUTOR_LICENSE_ADD:
             new_licenses_owned += delta
         elif type == CE.DISTRIBUTOR_LICENSE_REMOVE:

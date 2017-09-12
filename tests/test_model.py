@@ -2026,6 +2026,9 @@ class TestLicensePool(DatabaseTest):
         # thought. It's more likely that the sixth license expired and
         # we weren't notified.
 
+        # When there are no licenses available, a checkout event
+        # draws from the pool of licenses reserved instead.
+        eq_((5,0,0,3), calc(CE.DISTRIBUTOR_CHECKOUT, 2))
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
