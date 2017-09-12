@@ -1648,19 +1648,27 @@ class DatabaseMigrationScript(Script):
 
     @classmethod
     def sort_migrations(self, migrations):
-        """Ensures that migrations with a counter digit are sorted after
-        migrations without one.
+        """All Python migrations sort after all SQL migrations, since a Python
+        migration requires an up-to-date database schema.
+
+        Migrations with a counter digit sort after migrations without
+        one.
         """
 
         def compare_migrations(first, second):
             """Compares migrations according to ideal sorting order.
 
+            - All Python migrations run after all SQL migrations.
             - Migrations are first ordered by timestamp (asc).
             - If two migrations have the same timestamp, any migrations
               without counters come before migrations with counters.
             - If two migrations with the same timestamp, have counters,
               migrations are sorted by counter (asc).
             """
+            if first.endswith('.py') and second.endswith('.sql'):
+                return 1
+            elif first.endswith('.sql') and second.endswith('.py'):
+                return -1
             first_datestamp = int(first[:8])
             second_datestamp = int(second[:8])
             datestamp_difference = first_datestamp - second_datestamp
