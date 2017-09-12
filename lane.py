@@ -60,109 +60,6 @@ from sqlalchemy.dialects.postgresql import (
     INT4RANGE,
 )
 
-class DatabaseLane(Base):
-    __tablename__ = 'lanes'
-    id = Column(Integer, primary_key=True)
-    library_id = Column(Integer, ForeignKey('libraries.id'), index=True,
-                        nullable=False)
-    parent_id = Column(Integer, ForeignKey('lanes.id'), index=True,
-                       nullable=True)
-    # identifier is a name for this lane that is unique across the
-    # library.  "Adult Fiction" is a good example. We can't have an
-    # adult fiction lane called "Fiction" and a YA fiction lane called
-    # "Fiction".
-    identifier = Column(Unicode)
-
-    # display_name is the name of the lane as shown to patrons.  It's
-    # okay for this to be duplicated across the library, but it's not
-    # okay to have two lanes with the same parent and the same display
-    # name -- that would be confusing.
-    display_name = Column(Unicode)
-
-    # True = Fiction only
-    # False = Nonfiction only
-    # null = Both fiction and nonfiction
-    fiction = Column(Boolean, index=True, nullable=True)
-
-    audiences = Column(ARRAY(Unicode))
-    languages = Column(ARRAY(Unicode))
-    media = Column(ARRAY(Unicode))
-    target_age = Column(INT4RANGE, index=True)
-
-    # Only books licensed through this DataSource will be shown.
-    license_datasource_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True,
-        nullable=True
-    )
-
-    # Only books on a CustomList obtained from this DataSource will be
-    # shown.
-    list_datasource_id = Column(
-        Integer, ForeignKey('datasources.id'), index=True,
-        nullable=True
-    )
-
-    # Only books on this specific CustomList will be shown.
-    list_identifier_id = Column(
-        Integer, ForeignKey('customlists.id'), index=True,
-        nullable=True
-    )
-
-    # This has no effect unless list_datasource_id or
-    # list_identifier_id is also set. If this is set, then a book will
-    # only be shown if it was seen on an appropriate list within this
-    # number of days. If the number is zero, the book must be
-    # _currently_ on an appropriate list.
-    list_seen_in_previous_days = Column(Integer, nullable=True)
-
-    # If this is set to True, then a book will show up in a lane only
-    # if it would _also_ show up in the parent lane.
-    inherit_parent_restrictions = Column(Boolean, default=False, nullable=False)
-
-    # Patrons whose external type is in this list will be sent to this
-    # lane when they ask for the root lane.
-    #
-    # This is almost never necessary.
-    root_for_patron_type = Column(ARRAY(Unicode), nullable=True)
-
-    # Only a visible lane will show up in the user interface.  The
-    # admin interface can see all the lanes.
-    visible = Column(Boolean, default=True, nullable=False)
-
-    # "Search the current language"
-    # "Search the top level lane for your patron type"
-    # "Search this lane"
-    # "Search all books" (only at top level)
-
-    # searchable - this lane handles search requests for itself and
-    # its children.
-    # genres
-    # excluded_genres
-
-    __table_args__ = (
-        UniqueConstraint('library_id', 'identifier'),
-        UniqueConstraint('parent_id', 'display_name'),
-    )
-
-
-class LaneGenre(Base):
-    """Relationship object between Lane and Genre."""
-    __tablename__ = 'lanes'
-    id = Column(Integer, primary_key=True)
-    lane_id = Column(Integer, ForeignKey('lanes.id'), index=True,
-                     nullable=False)
-    genre_id = Column(Integer, ForeignKey('genres.id'), index=True,
-                      nullable=False)
-
-    # By default, a Work classified only under a subgenre will also
-    # show up in a lane devoted to the primary genre.
-    include_subgenres = Column(Boolean, default=True, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint('lane_id', 'genre_id'),
-    )
-
-
 class Facets(FacetConstants):
 
     @classmethod
@@ -507,6 +404,158 @@ class Pagination(object):
         """Modify the given query with OFFSET and LIMIT."""
         self.query_size = fast_query_count(q)
         return q.offset(self.offset).limit(self.size)
+
+
+class DatabaseLane(Base):
+    __tablename__ = 'lanes'
+    id = Column(Integer, primary_key=True)
+    library_id = Column(Integer, ForeignKey('libraries.id'), index=True,
+                        nullable=False)
+    parent_id = Column(Integer, ForeignKey('lanes.id'), index=True,
+                       nullable=True)
+    # identifier is a name for this lane that is unique across the
+    # library.  "Adult Fiction" is a good example. We can't have an
+    # adult fiction lane called "Fiction" and a YA fiction lane called
+    # "Fiction".
+    identifier = Column(Unicode)
+
+    # display_name is the name of the lane as shown to patrons.  It's
+    # okay for this to be duplicated across the library, but it's not
+    # okay to have two lanes with the same parent and the same display
+    # name -- that would be confusing.
+    display_name = Column(Unicode)
+
+    # True = Fiction only
+    # False = Nonfiction only
+    # null = Both fiction and nonfiction
+    fiction = Column(Boolean, index=True, nullable=True)
+
+    audiences = Column(ARRAY(Unicode))
+    languages = Column(ARRAY(Unicode))
+    media = Column(ARRAY(Unicode))
+    _target_age = Column(INT4RANGE, name="target_age", index=True)
+
+    # Only books licensed through this DataSource will be shown.
+    license_datasource_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True,
+        nullable=True
+    )
+
+    # Only books on a CustomList obtained from this DataSource will be
+    # shown.
+    list_datasource_id = Column(
+        Integer, ForeignKey('datasources.id'), index=True,
+        nullable=True
+    )
+
+    # Only books on this specific CustomList will be shown.
+    list_identifier_id = Column(
+        Integer, ForeignKey('customlists.id'), index=True,
+        nullable=True
+    )
+
+    # This has no effect unless list_datasource_id or
+    # list_identifier_id is also set. If this is set, then a book will
+    # only be shown if it was seen on an appropriate list within this
+    # number of days. If the number is zero, the book must be
+    # _currently_ on an appropriate list.
+    list_seen_in_previous_days = Column(Integer, nullable=True)
+
+    # If this is set to True, then a book will show up in a lane only
+    # if it would _also_ show up in the parent lane.
+    inherit_parent_restrictions = Column(Boolean, default=False, nullable=False)
+
+    # Patrons whose external type is in this list will be sent to this
+    # lane when they ask for the root lane.
+    #
+    # This is almost never necessary.
+    root_for_patron_type = Column(ARRAY(Unicode), nullable=True)
+
+    # Only a visible lane will show up in the user interface.  The
+    # admin interface can see all the lanes.
+    visible = Column(Boolean, default=True, nullable=False)
+
+    # "Search the current language"
+    # "Search the top level lane for your patron type"
+    # "Search this lane"
+    # "Search all books" (only at top level)
+
+    # searchable - this lane handles search requests for itself and
+    # its children.
+    # genres
+    # excluded_genres
+
+    __table_args__ = (
+        UniqueConstraint('library_id', 'identifier'),
+        UniqueConstraint('parent_id', 'display_name'),
+    )
+
+    @property
+    def audiences(self):
+        return self._audiences
+
+    @audiences.setter(self):
+    def set_audiences(self, value):
+        if self._audiences and self._target_age and value != self._audiences:
+            raise ValueError("Cannot modify Lane.audiences when Lane.target_age is set!")
+        self._audiences = value
+
+    @property
+    def target_age(self):
+        return self._target_age
+
+    @target_age.setter
+    def set_target_age(self, value):
+        """Setting .target_age will change .audiences to the corresponding
+        values.
+
+        If you set target_age to 16-18, you're saying that the audiences
+        are [Young Adult, Adult].
+
+        If you set target_age 12-15, you're saying that the audiences are
+        [Adult, Children].
+        """
+        if not audiences:
+            if self.parent:
+                audiences = self.parent.audiences
+            else:
+                audiences = []
+        if isinstance(audiences, basestring):
+            audiences = [audiences]
+        if isinstance(audiences, set):
+            audiences = audiences
+        else:
+            audiences = set(audiences)
+        if not age_range:
+            return audiences
+
+        if not isinstance(age_range, list):
+            age_range = [age_range]
+
+        if age_range[-1] >= 18:
+            audiences.add(Classifier.AUDIENCE_ADULT)
+        if age_range[0] < Classifier.YOUNG_ADULT_AGE_CUTOFF:
+            audiences.add(Classifier.AUDIENCE_CHILDREN)
+        if age_range[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
+            audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
+        return audiences      
+
+class LaneGenre(Base):
+    """Relationship object between Lane and Genre."""
+    __tablename__ = 'lanes'
+    id = Column(Integer, primary_key=True)
+    lane_id = Column(Integer, ForeignKey('lanes.id'), index=True,
+                     nullable=False)
+    genre_id = Column(Integer, ForeignKey('genres.id'), index=True,
+                      nullable=False)
+
+    # By default, a Work classified only under a subgenre will also
+    # show up in a lane devoted to the primary genre.
+    include_subgenres = Column(Boolean, default=True, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('lane_id', 'genre_id'),
+    )
 
 
 class UndefinedLane(Exception):
@@ -1008,7 +1057,7 @@ class Lane(object):
             audiences.add(Classifier.AUDIENCE_CHILDREN)
         if age_range[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
             audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
-        return audiences      
+        return audiences
 
     @classmethod
     def from_description(cls, _db, library, parent, description):
