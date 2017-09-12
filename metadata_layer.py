@@ -948,7 +948,7 @@ class CirculationData(MetaToModelUtility):
         old_open_access = any(pool.open_access for pool in pools)
 
         for format in self.formats:
-            if format.link:
+            if format and format.link:
                 link = format.link
                 if not format.content_type:
                     format.content_type = link.media_type
