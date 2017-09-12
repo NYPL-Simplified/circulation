@@ -6734,8 +6734,15 @@ class LicensePool(Base):
                 new_licenses_available = deduct(new_licenses_available)
         elif type == CE.DISTRIBUTOR_LICENSE_ADD:
             new_licenses_owned += delta
+            # Newly added licenses start out as available, unless there
+            # are patrons in the holds queue.
+            if new_patrons_in_hold_queue == 0:
+                new_licenses_available += delta
         elif type == CE.DISTRIBUTOR_LICENSE_REMOVE:
             new_licenses_owned = deduct(new_licenses_owned)
+            # We can't say whether or not the removed licenses should
+            # be deducted from the list of available licenses, because they
+            # might already be checked out.
         elif type == CE.DISTRIBUTOR_AVAILABILITY_NOTIFY:
             new_patrons_in_hold_queue = deduct(new_patrons_in_hold_queue)
             new_licenses_reserved += delta

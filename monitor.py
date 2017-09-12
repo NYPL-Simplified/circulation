@@ -314,11 +314,10 @@ class SweepMonitor(CollectionMonitor):
 
     def process_batch(self, offset):
         """Process one batch of work."""
+        offset = offset or 0
         items = self.fetch_batch(offset).all()
         if items:
-            for item in items:
-                self.process_item(item)
-                self.log.log(self.COMPLETION_LOG_LEVEL, "Completed %r", item)
+            self.process_items(items)
             # We've completed a batch. Return the ID of the last item
             # in the batch so we don't do this work again.
             return items[-1].id
@@ -326,6 +325,12 @@ class SweepMonitor(CollectionMonitor):
             # There are no more items in this database table, so we
             # are done with the sweep. Reset the counter.
             return 0
+
+    def process_items(self, items):
+        """Process a list of items."""
+        for item in items:
+            self.process_item(item)
+            self.log.log(self.COMPLETION_LOG_LEVEL, "Completed %r", item)
 
     def fetch_batch(self, offset):
         """Retrieve one batch of work from the database."""
