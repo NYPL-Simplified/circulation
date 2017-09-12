@@ -1700,7 +1700,6 @@ class SettingsController(CirculationManagerController):
                 allowed_response_codes=['2xx'], headers=headers
             )
         except Exception as e:
-            set_trace()
             public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED
 
