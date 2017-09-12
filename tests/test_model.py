@@ -1924,6 +1924,7 @@ class TestLicensePool(DatabaseTest):
         pool.update_availability_from_delta(add, CirculationEvent.NO_DATE, 1, analytics)
         eq_(2, pool.licenses_owned)
         eq_(yesterday, pool.last_checked)
+        eq_(1, analytics.count)
 
         # This observation is more recent than the last time the pool
         # was checked, so it's processed and the last check time is
@@ -1931,6 +1932,7 @@ class TestLicensePool(DatabaseTest):
         pool.update_availability_from_delta(add, now, 1, analytics)
         eq_(3, pool.licenses_owned)
         eq_(now, pool.last_checked)
+        eq_(2, analytics.count)
 
         # This event is less recent than the last time the pool was
         # checked, so it's ignored. Processing it is likely to do more
@@ -1938,43 +1940,92 @@ class TestLicensePool(DatabaseTest):
         pool.update_availability_from_delta(add, yesterday, 1, analytics)
         eq_(3, pool.licenses_owned)
         eq_(now, pool.last_checked)
+        eq_(2, analytics.count)
+
+        # This event did not actually cause the circulation to change at all,
+        # but an analytics event was sent out for it.
+        pool.update_availability_from_delta(add, now, 0, analytics)
+        eq_(3, pool.licenses_owned)
+        eq_(now, pool.last_checked)
+        eq_(3, analytics.count)
 
     def test_calculate_change_from_one_event(self):
         """Test the internal method called by update_availability_from_delta."""
-        edition, pool = self._edition(with_license_pool=True)
-        calc = pool._calculate_change_from_one_event
         CE = CirculationEvent
-        pool.licenses_owned = 2
-        pool.licenses_available = 1
+
+        # Create a LicensePool with a large number of available licenses.
+        edition, pool = self._edition(with_license_pool=True)
+        pool.licenses_owned = 5
+        pool.licenses_available = 4
         pool.licenses_reserved = 0
-        pool.patrons_in_hold_queue = 2
-        eq_((2,1,0,2), calc(CE.DISTRIBUTOR_HOLD_PLACE, 0))
+        pool.patrons_in_hold_queue = 0
 
-        eq_((2,1,0,5), calc(CE.DISTRIBUTOR_HOLD_PLACE, 3))
-
-        # A number won't go below zero.
-        eq_((2,1,0,0), calc(CE.DISTRIBUTOR_HOLD_RELEASE, 3))
+        # Calibrate _calculate_change_from_one_event by sending it an
+        # event that makes no difference. This lets us see what a
+        # 'status quo' response from the method would look like.
+        calc = pool._calculate_change_from_one_event
+        eq_((5,4,0,0), calc(CE.DISTRIBUTOR_CHECKIN, 0))
 
         # If there ever appear to be more licenses available than
-        # owned, the number of owned licenses is automatically bumped
-        # up to match.
-        eq_((4,4,0,2), calc(CE.DISTRIBUTOR_CHECKIN, 3))
+        # owned, the number of owned licenses is left alone. It's
+        # possible that we have more licenses than we thought, but
+        # it's more likely that a license has expired or otherwise
+        # been removed.
+        eq_((5,5,0,0), calc(CE.DISTRIBUTOR_CHECKIN, 3))
 
         # But we don't bump up the number of available licenses just
         # because one becomes available.
-        eq_((2,2,0,2), calc(CE.DISTRIBUTOR_CHECKIN, 1))
+        eq_((5,5,0,0), calc(CE.DISTRIBUTOR_CHECKIN, 1))
+
+        # When you signal a hold on a book that's available, we assume
+        # that the book has stopped being available.
+        eq_((5,0,0,3), calc(CE.DISTRIBUTOR_HOLD_PLACE, 3))
 
         # If a license stops being owned, it implicitly stops being
-        # available.
-        eq_((0,0,0,2), calc(CE.DISTRIBUTOR_LICENSE_REMOVE, 2))
+        # available. (But we don't know if the license that became
+        # unavailable is one of the ones currently checked out to
+        # someone, or one of the other ones.)
+        eq_((3,3,0,0), calc(CE.DISTRIBUTOR_LICENSE_REMOVE, 2))
 
-        # But if a license stops being available, it doesn't stop
+        # If a license stops being available, it doesn't stop
         # being owned.
-        eq_((2,0,0,2), calc(CE.DISTRIBUTOR_CHECKOUT, 1))
+        eq_((5,3,0,0), calc(CE.DISTRIBUTOR_CHECKOUT, 1))
 
-        # An availability notification takes a patron off the hold
-        # queue and adds them to the reserved list.
-        eq_((2,1,1,1), calc(CE.DISTRIBUTOR_AVAILABILITY_NOTIFY, 1))
+        # None of these numbers will go below zero.
+        eq_((0,0,0,0), calc(CE.DISTRIBUTOR_LICENSE_REMOVE, 100))
+
+        # Now let's run some tests with a LicensePool that has a large holds
+        # queue.
+        pool.licenses_owned = 5
+        pool.licenses_available = 0
+        pool.licenses_reserved = 1
+        pool.patrons_in_hold_queue = 3        
+        eq_((5,0,1,3), calc(CE.DISTRIBUTOR_HOLD_PLACE, 0))
+
+        # When you signal a hold on a book that already has holds, it
+        # does nothing but increase the number of patrons in the hold
+        # queue.
+        eq_((5,0,1,6), calc(CE.DISTRIBUTOR_HOLD_PLACE, 3))
+
+        # A checkin event has no effect...
+        eq_((5,0,1,3), calc(CE.DISTRIBUTOR_CHECKIN, 1))
+
+        # ...because it's presumed that it will be followed by an
+        # availability notification event, which takes a patron off
+        # the hold queue and adds them to the reserved list.
+        eq_((5,0,2,2), calc(CE.DISTRIBUTOR_AVAILABILITY_NOTIFY, 1))
+
+        # The only exception is if the checkin event wipes out the
+        # entire holds queue, in which case the number of available
+        # licenses increases.  (But nothing else changes -- we're
+        # still waiting for the availability notification events.)
+        eq_((5,3,1,3), calc(CE.DISTRIBUTOR_CHECKIN, 6))
+
+        # Again, note that even though six copies were checked in,
+        # we're not assuming we own more licenses than we
+        # thought. It's more likely that the sixth license expired and
+        # we weren't notified.
+
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 

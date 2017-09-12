@@ -6581,11 +6581,9 @@ class LicensePool(Base):
             if not event_name:
                 continue
 
-            if analytics:
-                for library in self.collection.libraries:
-                    analytics.collect_event(
-                        library, self, event_name, as_of,
-                        old_value=old_value, new_value=new_value)
+            self.collect_analytics_event(
+                analytics, event_name, as_of, old_value, new_value
+            )
 
         # Update the license pool with the latest information.
         any_data = False
@@ -6619,6 +6617,16 @@ class LicensePool(Base):
             logging.info(message, *args)
 
         return changes_made
+
+    def collect_analytics_event(self, analytics, event_name, as_of,
+                                old_value, new_value):
+        if not analytics:
+            return
+        for library in self.collection.libraries:
+            analytics.collect_event(
+                library, self, event_name, as_of,
+                old_value=old_value, new_value=new_value
+            )
 
     def update_availability_from_delta(self, event_type, event_date, delta, analytics=None):
         """Call update_availability based on a single change seen in the
@@ -6662,11 +6670,18 @@ class LicensePool(Base):
          new_patrons_in_hold_queue) = self._calculate_change_from_one_event(
              event_type, delta
          )
-        self.update_availability(
+
+        changes_made = self.update_availability(
             new_licenses_owned, new_licenses_available, 
             new_licenses_reserved, new_patrons_in_hold_queue,
             analytics=analytics, as_of=event_date
         )
+        if not changes_made:
+            # Even if nothing about availability actually changed, we
+            # want to record the fact that the event happened.
+            self.collect_analytics_event(
+                analytics, event_type, event_date, 0, 0
+            )
 
     def _calculate_change_from_one_event(self, type, delta):
         new_licenses_owned = self.licenses_owned
@@ -6683,10 +6698,26 @@ class LicensePool(Base):
         added = False
         if type == CE.DISTRIBUTOR_HOLD_PLACE:
             new_patrons_in_hold_queue += delta
+            if new_licenses_available:
+                # If someone has put a book on hold, it must not be
+                # immediately available.
+                new_licenses_available = 0
         elif type == CE.DISTRIBUTOR_HOLD_RELEASE:
             new_patrons_in_hold_queue = deduct(new_patrons_in_hold_queue)
         elif type == CE.DISTRIBUTOR_CHECKIN:
-            new_licenses_available += delta
+            if self.patrons_in_hold_queue == 0:
+                new_licenses_available += delta
+            else:
+                # When there are patrons in the hold queue, checking
+                # in a single book does not make new licenses
+                # available.  Checking in more books than there are
+                # patrons in the hold queue _does_ make books
+                # available.  However, in neither case do patrons
+                # leave the hold queue. That will happen in the near
+                # future as DISTRIBUTOR_AVAILABILITY_NOTIFICATION events 
+                # are sent out.
+                if delta > new_patrons_in_hold_queue:
+                    new_licenses_available += (delta-new_patrons_in_hold_queue)
         elif type == CE.DISTRIBUTOR_CHECKOUT:
             new_licenses_available = deduct(new_licenses_available)
         elif type == CE.DISTRIBUTOR_LICENSE_ADD:
@@ -6698,16 +6729,11 @@ class LicensePool(Base):
             new_licenses_reserved += delta
         if new_licenses_owned < new_licenses_available:
             # It's impossible to have more licenses available than
-            # owned. One of these values needs to change, but which
-            # one?
-            if type in (CE.DISTRIBUTOR_CHECKIN, CE.DISTRIBUTOR_CHECKOUT):
-                # The number of available licenses changed. Change
-                # the number of owned licenses to match.
-                new_licenses_owned = new_licenses_available
-            elif type in (CE.DISTRIBUTOR_LICENSE_ADD, CE.DISTRIBUTOR_LICENSE_REMOVE):
-                # The number of owned licenses changed. Change the number
-                # of available licenses to match.
-                new_licenses_available = new_licenses_owned
+            # owned. We don't know whether this means there are some
+            # extra licenses we never heard about, or whether some
+            # licenses expired without us being notified, but the
+            # latter is more likely.
+            new_licenses_available = new_licenses_owned
 
         return (new_licenses_owned, new_licenses_available, 
                 new_licenses_reserved, new_patrons_in_hold_queue)
