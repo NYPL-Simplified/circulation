@@ -37,7 +37,7 @@ git submodule update --init --recursive
 # Use the latest version of pip to install a virtual environment for the app.
 pip install -U --no-cache-dir pip setuptools
 pip install --no-cache-dir virtualenv virtualenvwrapper
-virtualenv env
+virtualenv -p /usr/bin/python2.7 env
 
 # Pass runtime environment variables to the app at runtime.
 touch environment.sh
