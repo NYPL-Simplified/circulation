@@ -1905,6 +1905,7 @@ class TestLicensePool(DatabaseTest):
 
         add = CirculationEvent.DISTRIBUTOR_LICENSE_ADD
         analytics = MockAnalyticsProvider()
+        eq_(0, analytics.count)
 
         # This observation has no timestamp, but the pool has no
         # history, so we process it.
@@ -1917,14 +1918,17 @@ class TestLicensePool(DatabaseTest):
 
         # Now the pool has a history, and we can't fit an undated
         # observation into that history, so undated observations
-        # are now ignored.
+        # have no effect on circulation data.
         now = datetime.datetime.utcnow()
         yesterday = now - datetime.timedelta(days=1)
         pool.last_checked = yesterday
         pool.update_availability_from_delta(add, CirculationEvent.NO_DATE, 1, analytics)
         eq_(2, pool.licenses_owned)
         eq_(yesterday, pool.last_checked)
-        eq_(1, analytics.count)
+
+        # However, outdated events are passed on to analytics so that
+        # we record the fact that they happened... at some point.
+        eq_(2, analytics.count)
 
         # This observation is more recent than the last time the pool
         # was checked, so it's processed and the last check time is
@@ -1932,7 +1936,7 @@ class TestLicensePool(DatabaseTest):
         pool.update_availability_from_delta(add, now, 1, analytics)
         eq_(3, pool.licenses_owned)
         eq_(now, pool.last_checked)
-        eq_(2, analytics.count)
+        eq_(3, analytics.count)
 
         # This event is less recent than the last time the pool was
         # checked, so it's ignored. Processing it is likely to do more
@@ -1940,14 +1944,18 @@ class TestLicensePool(DatabaseTest):
         pool.update_availability_from_delta(add, yesterday, 1, analytics)
         eq_(3, pool.licenses_owned)
         eq_(now, pool.last_checked)
-        eq_(2, analytics.count)
 
-        # This event did not actually cause the circulation to change at all,
-        # but an analytics event was sent out for it.
+        # It's still logged to analytics, though.
+        eq_(4, analytics.count)
+
+        # This event is new but does not actually cause the
+        # circulation to change at all.
         pool.update_availability_from_delta(add, now, 0, analytics)
         eq_(3, pool.licenses_owned)
         eq_(now, pool.last_checked)
-        eq_(3, analytics.count)
+
+        # We still send the analytics event.
+        eq_(5, analytics.count)
 
     def test_calculate_change_from_one_event(self):
         """Test the internal method called by update_availability_from_delta."""

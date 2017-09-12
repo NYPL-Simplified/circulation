@@ -6654,31 +6654,34 @@ class LicensePool(Base):
         :param delta: The magnitude of the change that was seen.
 
         """
+        ignore = False
         if event_date != CirculationEvent.NO_DATE and self.last_checked and event_date < self.last_checked:
             # This is an old event and its effect on availability has
             # already been taken into account.
-            return
+            ignore = True
 
-        if self.last_checked and event_date == CirculationEvent.NO_DATE:
+        elif self.last_checked and event_date == CirculationEvent.NO_DATE:
             # We have a history for this LicensePool and we don't know
             # where this event fits into that history. Ignore the
             # event.
-            return
+            ignore = True
 
-        (new_licenses_owned, new_licenses_available, 
-         new_licenses_reserved, 
-         new_patrons_in_hold_queue) = self._calculate_change_from_one_event(
-             event_type, delta
-         )
+        if not ignore:
+            (new_licenses_owned, new_licenses_available, 
+             new_licenses_reserved, 
+             new_patrons_in_hold_queue) = self._calculate_change_from_one_event(
+                 event_type, delta
+             )
 
-        changes_made = self.update_availability(
-            new_licenses_owned, new_licenses_available, 
-            new_licenses_reserved, new_patrons_in_hold_queue,
-            analytics=analytics, as_of=event_date
-        )
-        if not changes_made:
-            # Even if nothing about availability actually changed, we
-            # want to record the fact that the event happened.
+            changes_made = self.update_availability(
+                new_licenses_owned, new_licenses_available, 
+                new_licenses_reserved, new_patrons_in_hold_queue,
+                analytics=analytics, as_of=event_date
+            )
+        if ignore or not changes_made:
+            # Even if the event was ignored or didn't actually change
+            # availability, we want to record receipt of the event
+            # in the analytics.
             self.collect_analytics_event(
                 analytics, event_type, event_date, 0, 0
             )
