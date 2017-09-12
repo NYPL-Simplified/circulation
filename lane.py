@@ -145,6 +145,24 @@ class DatabaseLane(Base):
     )
 
 
+class LaneGenre(Base):
+    """Relationship object between Lane and Genre."""
+    __tablename__ = 'lanes'
+    id = Column(Integer, primary_key=True)
+    lane_id = Column(Integer, ForeignKey('lanes.id'), index=True,
+                     nullable=False)
+    genre_id = Column(Integer, ForeignKey('genres.id'), index=True,
+                      nullable=False)
+
+    # By default, a Work classified only under a subgenre will also
+    # show up in a lane devoted to the primary genre.
+    include_subgenres = Column(Boolean, default=True, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('lane_id', 'genre_id'),
+    )
+
+
 class Facets(FacetConstants):
 
     @classmethod
