@@ -3306,33 +3306,32 @@ class TestSettingsController(AdminControllerTest):
         )
         default_form = None
 
-        # If no an ExternalIntegration.id that doesn't exist is sent,
-        # a ProblemDetail is returned.
-        with self.app.test_request_context('/', method='POST'):
-            flask.request.form = MultiDict([('integration_id', 0),])
-            response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request)
+        # If ExternalIntegration is given, a ProblemDetail is returned.
+        response = self.manager.admin_settings_controller.sitewide_registration(
+            None, do_get=self.do_request
+        )
         eq_(MISSING_SERVICE, response)
 
         # If an error is raised during registration, a ProblemDetail is returned.
         def error_get(*args, **kwargs):
             raise RuntimeError('Mock error during request')
 
-        integration_args = [('integration_id', metadata_wrangler_service.id),]
-        with self.app.test_request_context('/', method='POST'):
-            flask.request.form = MultiDict(integration_args)
-            response = self.manager.admin_settings_controller.sitewide_registration(do_get=error_get)
+        response = self.manager.admin_settings_controller.sitewide_registration(
+            metadata_wrangler_service, do_get=error_get
+        )
         assert_remote_integration_error(response)
 
         # If the response has the wrong media type, a ProblemDetail is returned.
         self.responses.append(
             MockRequestsResponse(200, headers={'Content-Type' : 'text/plain'})
         )
-        with self.app.test_request_context('/', method='POST'):
-            flask.request.form = MultiDict(integration_args)
-            response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request)
-            assert_remote_integration_error(
-                response, 'The service did not provide a valid catalog.'
-            )
+
+        response = self.manager.admin_settings_controller.sitewide_registration(
+            metadata_wrangler_service, do_get=self.do_request
+        )
+        assert_remote_integration_error(
+            response, 'The service did not provide a valid catalog.'
+        )
 
         # If no registration link is available, a ProblemDetail is returned
         catalog = dict(id=self._url, links=[])
@@ -3340,9 +3339,10 @@ class TestSettingsController(AdminControllerTest):
         self.responses.append(
             MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
         )
-        with self.app.test_request_context('/', method='POST'):
-            flask.request.form = MultiDict(integration_args)
-            response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request)
+
+        response = self.manager.admin_settings_controller.sitewide_registration(
+            metadata_wrangler_service, do_get=self.do_request
+        )
         assert_remote_integration_error(
             response, 'The service did not provide a register link.'
         )
@@ -3355,9 +3355,11 @@ class TestSettingsController(AdminControllerTest):
             MockRequestsResponse(200, content=json.dumps(registration), headers=headers),
             MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
         ])
+
         with self.app.test_request_context('/', method='POST'):
-            flask.request.form = MultiDict(integration_args)
-            response = self.manager.admin_settings_controller.sitewide_registration(do_get=self.do_request, do_post=self.do_request)
+            response = self.manager.admin_settings_controller.sitewide_registration(
+                metadata_wrangler_service, do_get=self.do_request, do_post=self.do_request
+            )
         assert_remote_integration_error(
             response, 'The service did not provide registration information.'
         )
@@ -3403,9 +3405,9 @@ class TestSettingsController(AdminControllerTest):
                 ('integration_id', metadata_wrangler_service.id),
             ])
             response = self.manager.admin_settings_controller.sitewide_registration(
-                do_get=self.do_request, do_post=self.do_request, key=key
+                metadata_wrangler_service, do_get=self.do_request,
+                do_post=self.do_request, key=key
             )
-        eq_(200, response.status_code)
-        eq_('Success', response.data)
+        eq_(None, response)
         eq_([metadata_wrangler_service.url, registration_url], self.requests)
         eq_(shared_secret, metadata_wrangler_service.password)

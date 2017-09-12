@@ -1564,7 +1564,9 @@ class SettingsController(CirculationManagerController):
         setting.value = value
         return Response(unicode(_("Success")), 200)
 
-    def metadata_services(self):
+    def metadata_services(self, do_get=HTTP.get_with_timeout,
+        do_post=HTTP.post_with_timeout, key=None
+    ):
         provider_apis = [NYTBestSellerAPI,
                          NoveListAPI,
                          MetadataWranglerOPDSLookup,
@@ -1614,10 +1616,106 @@ class SettingsController(CirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
 
+        # Register this site with the Metadata Wrangler.
+        if ((is_new or not service.password) and
+            service.protocol == ExternalIntegration.METADATA_WRANGLER):
+
+            problem_detail = self.sitewide_registration(
+                service, do_get=do_get, do_post=do_post, key=key
+            )
+            if problem_detail:
+                return problem_detail
+
         if is_new:
             return Response(unicode(_("Success")), 201)
         else:
             return Response(unicode(_("Success")), 200)
+
+    def sitewide_registration(self, integration, do_get=HTTP.get_with_timeout,
+        do_post=HTTP.post_with_timeout, key=None
+    ):
+        """Performs a sitewide registration for a particular service, currently
+        only the Metadata Wrangler.
+
+        :return: A ProblemDetail or, if successful, None
+        """
+        if not integration:
+            return MISSING_SERVICE
+
+        # Get the catalog for this service.
+        try:
+            response = do_get(integration.url, allowed_response_codes=['2xx', '3xx'])
+        except Exception as e:
+            return REMOTE_INTEGRATION_FAILED
+
+        if not response.headers.get('Content-Type') == 'application/opds+json':
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _('The service did not provide a valid catalog.')
+            )
+
+        catalog = response.json()
+        links = catalog.get('links', [])
+
+        # Get the link for registration from the catalog.
+        register_link_filter = lambda l: (
+            l.get('rel')=='register' and
+            l.get('type')==self.METADATA_SERVICE_URI_TYPE
+        )
+        register_urls = filter(register_link_filter, links)
+        if not register_urls:
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _('The service did not provide a register link.')
+            )
+
+        # Get the full registration url.
+        register_url = register_urls[0].get('href')
+        if not register_url.startswith('http'):
+            # We have a relative path. Create a full registration url.
+            base_url = catalog.get('id')
+            register_url = urlparse.urljoin(base_url, register_url)
+
+        # Generate a public key for this website.
+        if not key:
+            key = RSA.generate(2048)
+        encryptor = PKCS1_OAEP.new(key)
+        public_key = key.publickey().exportKey()
+
+        # Save the public key to the database before generating the public key document.
+        public_key_setting = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY)
+        public_key_setting.value = public_key
+        self._db.commit()
+
+        # If the integration has an existing shared_secret, use it to access the
+        # server and update it.
+        headers = { 'Content-Type' : 'application/x-www-form-urlencoded' }
+        if integration.password:
+            token = base64.b64encode(integration.password.encode('utf-8'))
+            headers['Authorization'] = 'Bearer ' + token
+
+        # Get the public key document URL and register this server.
+        try:
+            public_key_url = self.url_for('public_key_document')
+            response = do_post(
+                register_url, dict(url=public_key_url),
+                allowed_response_codes=['2xx'], headers=headers
+            )
+        except Exception as e:
+            set_trace()
+            public_key_setting.value = None
+            return REMOTE_INTEGRATION_FAILED
+
+        registration_info = response.json()
+        shared_secret = registration_info.get('metadata', {}).get('shared_secret')
+
+        if not shared_secret:
+            public_key_setting.value = None
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _('The service did not provide registration information.')
+            )
+
+        public_key_setting.value = None
+        shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+        integration.password = unicode(shared_secret)
 
     def analytics_services(self):
         provider_apis = [GoogleAnalyticsProvider,
@@ -1943,76 +2041,4 @@ class SettingsController(CirculationManagerController):
                 # We're done with the key, so remove the setting.
                 ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = None
 
-        return Response(unicode(_("Success")), 200)
-
-    def sitewide_registration(self, do_get=HTTP.get_with_timeout, do_post=HTTP.post_with_timeout, key=None):
-        integration_id = flask.request.form.get("integration_id")
-
-        integration = get_one(self._db, ExternalIntegration, id=integration_id)
-        if not integration:
-            return MISSING_SERVICE
-
-        # Get the catalog for this service.
-        try:
-            response = do_get(integration.url, allowed_response_codes=['2xx', '3xx'])
-        except Exception as e:
-            return REMOTE_INTEGRATION_FAILED
-
-        if not response.headers.get('Content-Type') == 'application/opds+json':
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _('The service did not provide a valid catalog.')
-            )
-
-        catalog = response.json()
-        links = catalog.get('links', [])
-
-        # Get the link for registration from the catalog.
-        register_link_filter = lambda l: (
-            l.get('rel')=='register' and
-            l.get('type')==self.METADATA_SERVICE_URI_TYPE
-        )
-        register_urls = filter(register_link_filter, links)
-        if not register_urls:
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _('The service did not provide a register link.')
-            )
-
-        # Get the full registration url.
-        register_url = register_urls[0].get('href')
-        if not register_url.startswith('http'):
-            # We have a relative path. Create a full registration url.
-            base_url = catalog.get('id')
-            register_url = urlparse.urljoin(base_url, register_url)
-
-        # Generate a public key for this website.
-        if not key:
-            key = RSA.generate(2048)
-        encryptor = PKCS1_OAEP.new(key)
-        public_key = key.publickey().exportKey()
-
-        # Save the public key to the database before generating the public key document.
-        public_key_setting = ConfigurationSetting.sitewide(self._db, Configuration.PUBLIC_KEY)
-        public_key_setting.value = public_key
-        self._db.commit()
-
-        # Get the public key document URL and register this server.
-        try:
-            public_key_url = self.url_for('public_key_document')
-            response = do_post(register_url, dict(url=public_key_url), allowed_response_codes=['2xx'])
-        except Exception as e:
-            public_key_setting.value = None
-            return REMOTE_INTEGRATION_FAILED
-
-        registration_info = response.json()
-        shared_secret = registration_info.get('metadata', {}).get('shared_secret')
-
-        if not shared_secret:
-            public_key_setting.value = None
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _('The service did not provide registration information.')
-            )
-
-        public_key_setting.value = None
-        shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
-        integration.password = unicode(shared_secret)
         return Response(unicode(_("Success")), 200)
