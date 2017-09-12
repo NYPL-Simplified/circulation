@@ -676,28 +676,34 @@ class TestDatabaseMigrationScript(DatabaseTest):
         """Filters out migrations that were run on or before a given timestamp"""
 
         migrations = [
+            '20271204-far-future-migration-funtime.sql',
             '20271202-future-migration-funtime.sql',
+            '20271203-do-another-thing.py',
             '20250521-make-bananas.sql',
             '20260810-last-timestamp',
             '20260811-do-a-thing.py',
-            '20260809-already-done.sql'
+            '20260809-already-done.sql',
         ]
 
         result = self.script.get_new_migrations(self.timestamp, migrations)
-        # Expected migrations will be sorted by timestamp.
+        # Expected migrations will be sorted by timestamp. Python migrations
+        # will be sorted after SQL migrations.
         expected = [
-            '20260811-do-a-thing.py', '20271202-future-migration-funtime.sql'
+            '20271202-future-migration-funtime.sql', 
+            '20271204-far-future-migration-funtime.sql',
+            '20260811-do-a-thing.py',
+            '20271203-do-another-thing.py',
         ]
 
-        eq_(2, len(result))
+        eq_(4, len(result))
         eq_(expected, result)
 
         # If the timestamp has a counter, the filter only finds new migrations
         # past the counter.
         migrations = [
-            '20271202-future-migration-funtime.sql',
             '20260810-last-timestamp.sql',
             '20260810-1-do-a-thing.sql',
+            '20271202-future-migration-funtime.sql',
             '20260810-2-do-all-the-things.sql',
             '20260809-already-done.sql'
         ]
@@ -705,7 +711,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         result = self.script.get_new_migrations(self.timestamp, migrations)
         expected = [
             '20260810-2-do-all-the-things.sql',
-            '20271202-future-migration-funtime.sql'
+            '20271202-future-migration-funtime.sql',
         ]
 
         eq_(2, len(result))
