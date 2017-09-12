@@ -1714,7 +1714,7 @@ class DatabaseMigrationScript(Script):
 
         # Try to find an existing timestamp representing the last migration
         # script that was run.
-        sql = "SELECT timestamp, counter FROM timestamps WHERE service=:service AND collection_id IS NULL LIMIT 1;"
+        sql = "SELECT timestamp, counter FROM timestamps WHERE service=:service LIMIT 1;"
         results = list(self._db.execute(text(sql), dict(service=self.name)))
         if results:
             [(date, counter)] = results
@@ -1897,7 +1897,7 @@ class DatabaseMigrationScript(Script):
         match = self.MIGRATION_WITH_COUNTER.search(migration_file)
         if match:
             timestamp.counter = int(match.groups()[0])
-        sql = "UPDATE timestamps SET timestamp=:timestamp, counter=:counter where service=:service AND collection_id IS NULL"
+        sql = "UPDATE timestamps SET timestamp=:timestamp, counter=:counter where service=:service"
         self._db.execute(text(sql), dict(timestamp=timestamp.timestamp,
                                          counter=timestamp.counter,
                                          service=self.name))
