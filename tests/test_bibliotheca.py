@@ -13,6 +13,7 @@ from . import (
     sample_data
 )
 
+from core.mock_analytics_provider import MockAnalyticsProvider
 from core.model import (
     CirculationEvent,
     Collection,
@@ -250,7 +251,7 @@ class TestBibliothecaCirculationSweep(BibliothecaAPITest):
         monitor = BibliothecaCirculationSweep(
             self._db, self.collection, api_class=self.api
         )
-        monitor.process_batch([identifier])
+        monitor.process_items([identifier])
         
         # A LicensePool has been created for the previously mysterious
         # identifier.
@@ -709,8 +710,10 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         api.queue_response(
             200, content=self.sample_data("item_metadata_single.xml")
         )
+        analytics = MockAnalyticsProvider()
         monitor = BibliothecaEventMonitor(
-            self._db, self.collection, api_class=api
+            self._db, self.collection, api_class=api,
+            analytics=analytics
         )
 
         now = datetime.datetime.utcnow()
@@ -727,6 +730,16 @@ class TestBibliothecaEventMonitor(BibliothecaAPITest):
         eq_(True, pool.work.presentation_ready)
         eq_("The Incense Game", pool.work.title)
 
-        # But we don't yet know anything about the LicensePool
-        # from a circulation standpoint.
-        eq_(0, pool.licenses_available)
+        # The LicensePool's circulation information has been changed
+        # to reflect what we know about the book -- that we have one
+        # license which (as of the instant the event happened) is
+        # available.
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
+
+        # Three analytics events were collected: one for the license add
+        # event itself, one for the 'checkin' that made the new
+        # license available, and one for the first appearance of a new
+        # LicensePool.
+        eq_(3, analytics.count)
+
