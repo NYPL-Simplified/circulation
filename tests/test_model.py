@@ -1902,8 +1902,10 @@ class TestLicensePool(DatabaseTest):
         edition, pool = self._edition(with_license_pool=True)
         eq_(None, pool.last_checked)
         eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
 
         add = CirculationEvent.DISTRIBUTOR_LICENSE_ADD
+        checkout = CirculationEvent.DISTRIBUTOR_CHECKOUT
         analytics = MockAnalyticsProvider()
         eq_(0, analytics.count)
 
@@ -1912,9 +1914,11 @@ class TestLicensePool(DatabaseTest):
         pool.update_availability_from_delta(add, CirculationEvent.NO_DATE, 1, analytics)
         eq_(None, pool.last_checked)
         eq_(2, pool.licenses_owned)
+        eq_(2, pool.licenses_available)
 
-        # Processing triggered an analytics event.
-        eq_(1, analytics.count)
+        # Processing triggered two analytics events -- one for creating
+        # the license pool and one for making it available.
+        eq_(2, analytics.count)
 
         # Now the pool has a history, and we can't fit an undated
         # observation into that history, so undated observations
@@ -1928,34 +1932,35 @@ class TestLicensePool(DatabaseTest):
 
         # However, outdated events are passed on to analytics so that
         # we record the fact that they happened... at some point.
-        eq_(2, analytics.count)
+        eq_(3, analytics.count)
 
         # This observation is more recent than the last time the pool
         # was checked, so it's processed and the last check time is
         # updated.
-        pool.update_availability_from_delta(add, now, 1, analytics)
-        eq_(3, pool.licenses_owned)
+        pool.update_availability_from_delta(checkout, now, 1, analytics)
+        eq_(2, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
         eq_(now, pool.last_checked)
-        eq_(3, analytics.count)
+        eq_(4, analytics.count)
 
         # This event is less recent than the last time the pool was
         # checked, so it's ignored. Processing it is likely to do more
         # harm than good.
         pool.update_availability_from_delta(add, yesterday, 1, analytics)
-        eq_(3, pool.licenses_owned)
+        eq_(2, pool.licenses_owned)
         eq_(now, pool.last_checked)
 
         # It's still logged to analytics, though.
-        eq_(4, analytics.count)
+        eq_(5, analytics.count)
 
         # This event is new but does not actually cause the
         # circulation to change at all.
         pool.update_availability_from_delta(add, now, 0, analytics)
-        eq_(3, pool.licenses_owned)
+        eq_(2, pool.licenses_owned)
         eq_(now, pool.last_checked)
 
         # We still send the analytics event.
-        eq_(5, analytics.count)
+        eq_(6, analytics.count)
 
     def test_calculate_change_from_one_event(self):
         """Test the internal method called by update_availability_from_delta."""
@@ -2002,6 +2007,10 @@ class TestLicensePool(DatabaseTest):
         # None of these numbers will go below zero.
         eq_((0,0,0,0), calc(CE.DISTRIBUTOR_LICENSE_REMOVE, 100))
 
+        # Newly added licenses start out available if there are no
+        # patrons in the hold queue.
+        eq_((6,5,0,0), calc(CE.DISTRIBUTOR_LICENSE_ADD, 1))
+
         # Now let's run some tests with a LicensePool that has a large holds
         # queue.
         pool.licenses_owned = 5
@@ -2037,6 +2046,11 @@ class TestLicensePool(DatabaseTest):
         # When there are no licenses available, a checkout event
         # draws from the pool of licenses reserved instead.
         eq_((5,0,0,3), calc(CE.DISTRIBUTOR_CHECKOUT, 2))
+
+        # Newly added licenses do not start out available if there are
+        # patrons in the hold queue.
+        eq_((6,0,1,3), calc(CE.DISTRIBUTOR_LICENSE_ADD, 1))
+
 
 class TestLicensePoolDeliveryMechanism(DatabaseTest):
 
