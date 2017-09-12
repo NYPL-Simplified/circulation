@@ -120,7 +120,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         monitor = BibliothecaCirculationSweep(
             self._db, licensepool.collection, api_class=self
         )
-        return monitor.process_batch([licensepool.identifier])
+        return monitor.process_items([licensepool.identifier])
 
     def patron_activity(self, patron, pin):
         patron_id = patron.authorization_identifier
@@ -639,7 +639,7 @@ class BibliothecaCirculationSweep(IdentifierSweepMonitor):
             self.api = api_class(_db, collection)
         self.analytics = Analytics(_db)
     
-    def process_batch(self, identifiers):
+    def process_items(self, identifiers):
         identifiers_by_bibliotheca_id = dict()
         bibliotheca_ids = set()
         for identifier in identifiers:
@@ -740,7 +740,9 @@ class BibliothecaEventMonitor(CollectionMonitor):
     DEFAULT_START_TIME = datetime.timedelta(365*3)
     PROTOCOL = ExternalIntegration.BIBLIOTHECA
 
-    def __init__(self, _db, collection, api_class=BibliothecaAPI, cli_date=None):
+    def __init__(self, _db, collection, api_class=BibliothecaAPI, 
+                 cli_date=None, analytics=None):
+        self.analytics = analytics or Analytics(_db)
         super(BibliothecaEventMonitor, self).__init__(_db, collection)
         if isinstance(api_class, BibliothecaAPI):
             # We were given an actual API object. Just use it.
@@ -846,10 +848,12 @@ class BibliothecaEventMonitor(CollectionMonitor):
         )
 
         if is_new:
-            # Immediately acquire bibliographic coverage for this book.
-            # This will set the DistributionMechanisms and make the
-            # book presentation-ready. However, its circulation information
-            # might not be up to date until we process some more events.
+            # This is a new book. Immediately acquire bibliographic
+            # coverage for it.  This will set the
+            # DistributionMechanisms and make the book
+            # presentation-ready. However, its circulation information
+            # might not be up to date until we process some more
+            # events.
             record = self.bibliographic_coverage_provider.ensure_coverage(
                 license_pool.identifier, force=True
             )
@@ -865,25 +869,24 @@ class BibliothecaEventMonitor(CollectionMonitor):
         bibliotheca_identifier.equivalent_to(self.api.source, isbn, strength=1)
 
         # Log the event.
-        event, was_new = get_one_or_create(
-            self._db, CirculationEvent, license_pool=license_pool,
-            type=internal_event_type, start=start_time,
-            foreign_patron_id=foreign_patron_id,
-            create_method_kwargs=dict(delta=1,end=end_time)
-            )
+        start = start_time or CirculationEvent.NO_DATE
 
-        # If this is our first time seeing this LicensePool, log its
-        # occurance as a separate event
+        # Make sure the effects of the event reported by Bibliotheca
+        # are made visible on the LicensePool and turned into
+        # analytics events. This is not 100% reliable, but it
+        # should be mostly accurate, and the BibliothecaCirculationSweep
+        # will periodically correct the errors.
+        license_pool.update_availability_from_delta(
+            internal_event_type, start_time, 1, self.analytics
+        )
+
         if is_new:
-            event = get_one_or_create(
-                self._db, CirculationEvent,
-                type=CirculationEvent.DISTRIBUTOR_TITLE_ADD,
-                license_pool=license_pool,
-                create_method_kwargs=dict(
-                    start=license_pool.last_checked or start_time,
-                    delta=1,
-                    end=license_pool.last_checked or end_time,
-                )
+            # This is our first time seeing this LicensePool. Log its
+            # occurance as a separate event.
+            license_pool.collect_analytics_event(
+                self.analytics, CirculationEvent.DISTRIBUTOR_TITLE_ADD,
+                license_pool.last_checked or start_time,
+                0, 1
             )
         title = edition.title or "[no title]"
         self.log.info("%r %s: %s", start_time, title, internal_event_type)
