@@ -26,6 +26,7 @@ useradd -ms /bin/bash -U simplified
 # Get the proper version of the codebase.
 mkdir /var/www && cd /var/www
 git clone https://github.com/${repo}.git circulation
+chown simplified:simplified circulation
 cd circulation
 git checkout $version
 

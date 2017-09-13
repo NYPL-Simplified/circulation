@@ -4,10 +4,8 @@ set -ex
 # Configure uwsgi.
 cp /ls_build/services/uwsgi.ini /var/www/circulation/uwsgi.ini
 chown simplified:simplified /var/www/circulation/uwsgi.ini
-
-# Add the nginx-default group to simplified so nginx
-# can access the socket file referenced in uwsgi.ini
-usermod -aG www-data simplified
+mkdir /var/log/uwsgi
+chown -R simplified:simplified /var/log/uwsgi
 
 # Defer uwsgi service to simplified.
 mkdir /etc/service/runsvdir-simplified
