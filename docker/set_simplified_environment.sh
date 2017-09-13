@@ -3,7 +3,9 @@
 # Local environment variables are not passed into cron, so variables set at
 # runtime need to be stored.
 
-SIMPLIFIED_ENVIRONMENT=/var/www/circulation/environment.sh;
+set -ex
+
+SIMPLIFIED_ENVIRONMENT=/var/www/circulation/environment.sh
 
 # Make sure there's a file to put environment variables into
 touch $SIMPLIFIED_ENVIRONMENT

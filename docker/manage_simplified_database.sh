@@ -2,6 +2,8 @@
 # Manages the Circulation Manager database (either initializing it, migrating
 # it, or ignoring it) when the container starts and before the app launches.
 
+set -ex
+
 su simplified <<EOF
 WORKDIR=/var/www/circulation
 BINDIR=${WORKDIR}/bin
