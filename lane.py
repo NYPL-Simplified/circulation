@@ -729,7 +729,15 @@ class Lane(Base, WorkList):
 
         for lanegenre in lane_genres:
             genre = lanegenre.genre
-            if lanegenre.exclude
+            if lanegenre.inclusive:
+                bucket = included_ids
+            else:
+                bucket = excluded_its
+            bucket.add(genre.id)
+            if lanegenre.recursive:
+                for subgenre in genre.recursive_subgenres:
+                    bucket.add(subgenre.id)
+                
 
     def apply_filters(self, q, facets=None, pagination=None, work_model=Work, edition_model=Edition):
         """Apply filters to a base query against Work or a materialized view.
