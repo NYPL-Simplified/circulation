@@ -55,6 +55,7 @@ from scripts import (
     CustomListManagementScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
+    Explain,
     IdentifierInputScript,
     FixInvisibleWorksScript,
     LibraryInputScript,
@@ -1773,6 +1774,34 @@ class TestBibliographicRefreshScript(DatabaseTest):
         eq_(False, script.refresh_metadata(identifier))
 
 
+class TestExplain(DatabaseTest):
+
+    def test_explain(self):
+        """Make sure the Explain script runs without crashing."""
+        work = self._work(with_license_pool=True, genre="Science Fiction")
+        [pool] = work.license_pools
+        edition = work.presentation_edition
+        identifier = pool.identifier
+        input = StringIO()
+        output = StringIO()
+        args = ["--identifier-type", "Database ID", str(identifier.id)]
+        Explain(self._db).do_run(cmd_args=args, stdin=input, stdout=output)
+        output = output.getvalue()
+
+        # The script ran. Spot-check that it provided various
+        # information about the work, without testing the exact
+        # output.
+        assert work.title in output
+        assert "Science Fiction" in output
+        for contributor in edition.contributors:
+            assert contributor.sort_name in output
+
+        # There is an active LicensePool that is fulfillable and has
+        # copies owned.
+        assert "%s owned" % pool.licenses_owned in output
+        assert "Fulfillable" in output
+        assert "ACTIVE" in output
+
 class TestWorkConsolidationScript(object):
     """TODO"""
     pass
@@ -1811,8 +1840,4 @@ class TestNYTBestSellerListsScript(object):
 class TestRefreshMaterializedViewsScript(object):
     """TODO"""
     pass
-
-
-class TestExplain(object):
-    """TODO"""
-    pass
+    
