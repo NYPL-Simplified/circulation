@@ -4,22 +4,22 @@
 
 set -ex
 
-su simplified <<EOF
 WORKDIR=/var/www/circulation
-BINDIR=${WORKDIR}/bin
-CORE_BINDIR=${WORKDIR}/core/bin
+BINDIR=$WORKDIR/bin
+CORE_BINDIR=$WORKDIR/core/bin
 
+su simplified <<EOF
 # Default value 'ignore' does nothing.
-if ! [[ ${SIMPLIFIED_DB_TASK} == "ignore" ]]; then
+if ! [[ $SIMPLIFIED_DB_TASK == "ignore" ]]; then
 
   # Enter the virtual environment for the application.
-  source ${WORKDIR}/env/bin/activate;
+  source $WORKDIR/env/bin/activate;
 
-  if [[ ${SIMPLIFIED_DB_TASK} == "init" ]] && [[ -f ${BINDIR}/util/initialize_instance ]]; then
+  if [[ $SIMPLIFIED_DB_TASK == "init" ]] && [[ -f ${BINDIR}/util/initialize_instance ]]; then
     # Initialize the database with value 'init'
     ${BINDIR}/util/initialize_instance;
 
-  elif [[ ${SIMPLIFIED_DB_TASK} == "migrate" ]] && [[ -f ${CORE_BINDIR}/migrate_database ]]; then
+  elif [[ $SIMPLIFIED_DB_TASK == "migrate" ]] && [[ -f ${CORE_BINDIR}/migrate_database ]]; then
     # Migrate the database with value 'migrate'
     ${CORE_BINDIR}/migrate_database;
 
