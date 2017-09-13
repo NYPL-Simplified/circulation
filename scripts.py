@@ -2164,7 +2164,7 @@ class Explain(IdentifierInputScript):
         policy = None
         for edition in editions:
             self.explain(self._db, edition, policy)
-            self.stdout.write("-" * 80)
+            self.write("-" * 80)
 
     def write(self, s):
         """Write a string to self.stdout."""
