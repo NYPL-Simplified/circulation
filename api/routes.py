@@ -23,6 +23,8 @@ from opds import (
     CirculationManagerAnnotator,
 )
 from controller import CirculationManager
+from problem_details import REMOTE_INTEGRATION_FAILED
+from flask.ext.babel import lazy_gettext as _
 
 # TODO: Without the monkeypatch below, Flask continues to process
 # requests while before_first_request is running. Those requests will
@@ -366,6 +368,10 @@ def track_analytics_event(identifier_type, identifier, event_type):
 @requires_auth
 @returns_problem_detail
 def adobe_vendor_id_get_token():
+    if not app.manager.adobe_vendor_id:
+        return REMOTE_INTEGRATION_FAILED.detailed(
+            _("This server does not have an Adobe Vendor ID server configured.")
+        )
     return app.manager.adobe_vendor_id.create_authdata_handler(flask.request.patron)
 
 @app.route('/AdobeAuth/SignIn', methods=['POST'])
@@ -403,7 +409,7 @@ def adobe_drm_device(device_id):
 @has_library
 @returns_problem_detail
 def oauth_authenticate():
-    return app.manager.oauth_controller.oauth_authentication_redirect(flask.request.args)
+    return app.manager.oauth_controller.oauth_authentication_redirect(flask.request.args, app.manager._db)
 
 # Redirect URI for OAuth providers, eg. Clever
 @library_route('/oauth_callback')

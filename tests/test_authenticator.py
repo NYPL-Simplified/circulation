@@ -379,6 +379,24 @@ class TestPatronData(AuthenticatorTest):
         params = self.data.to_response_parameters
         eq_(dict(name="4"), params)
 
+
+class MockAuthenticator(Authenticator):
+    """Allows testing Authenticator methods outside of a request context."""
+
+    def __init__(self, current_library, authenticators, analytics=None):
+        _db = Session.object_session(current_library)
+        super(MockAuthenticator, self).__init__(_db, analytics)
+        self.current_library_name = current_library.short_name
+        self.library_authenticators = authenticators
+
+    def populate_authenticators(self):
+        """Do nothing -- authenticators were set in the constructor."""
+
+    @property
+    def current_library_short_name(self):
+        return self.current_library_name
+
+
 class TestAuthenticator(ControllerTest):
 
     def test_init(self):
@@ -435,6 +453,13 @@ class TestAuthenticator(ControllerTest):
                 return "authentication headers for %s" % self.name
             def get_credential_from_header(self, header):
                 return "credential for %s" % self.name
+            def create_bearer_token(self, *args, **kwargs):
+                return "bearer token for %s" % self.name
+            def oauth_provider_lookup(self, *args, **kwargs):
+                return "oauth provider for %s" % self.name
+            def decode_bearer_token(self, *args, **kwargs):
+                return "decoded bearer token for %s" % self.name
+
 
         l1, ignore = create(self._db, Library, short_name="l1")
         l2, ignore = create(self._db, Library, short_name="l2")
@@ -452,6 +477,8 @@ class TestAuthenticator(ControllerTest):
             eq_(LIBRARY_NOT_FOUND, auth.create_authentication_document())
             eq_(LIBRARY_NOT_FOUND, auth.create_authentication_headers())
             eq_(LIBRARY_NOT_FOUND, auth.get_credential_from_header({}))
+            eq_(LIBRARY_NOT_FOUND, auth.create_bearer_token())
+            eq_(LIBRARY_NOT_FOUND, auth.oauth_provider_lookup())
 
         # The other libraries are in the authenticator.
         with self.app.test_request_context("/"):
@@ -460,6 +487,9 @@ class TestAuthenticator(ControllerTest):
             eq_("authentication document for l1", auth.create_authentication_document())
             eq_("authentication headers for l1", auth.create_authentication_headers())
             eq_("credential for l1", auth.get_credential_from_header({}))
+            eq_("bearer token for l1", auth.create_bearer_token())
+            eq_("oauth provider for l1", auth.oauth_provider_lookup())
+            eq_("decoded bearer token for l1", auth.decode_bearer_token())
 
         with self.app.test_request_context("/"):
             flask.request.library = l2
@@ -467,6 +497,10 @@ class TestAuthenticator(ControllerTest):
             eq_("authentication document for l2", auth.create_authentication_document())
             eq_("authentication headers for l2", auth.create_authentication_headers())
             eq_("credential for l2", auth.get_credential_from_header({}))
+            eq_("bearer token for l2", auth.create_bearer_token())
+            eq_("oauth provider for l2", auth.oauth_provider_lookup())
+            eq_("decoded bearer token for l2", auth.decode_bearer_token())
+
 
 class TestLibraryAuthenticator(AuthenticatorTest):
 
@@ -1947,12 +1981,19 @@ class TestOAuthController(AuthenticatorTest):
             self._default_library, self._db, "http://oauth2.org/", patron
         )
         self.oauth2.NAME = "Mock OAuth 2"
-        self.auth = LibraryAuthenticator(
+
+        self.library_auth = LibraryAuthenticator(
             _db=self._db,
             library=self._default_library,
             basic_auth_provider=self.basic,
             oauth_providers=[self.oauth1, self.oauth2],
             bearer_token_signing_secret="a secret"
+        )
+        self._db.commit()
+        self.auth = MockAuthenticator(
+            self._default_library, { 
+                self._default_library.short_name : self.library_auth
+            }
         )
         self.controller = OAuthController(self.auth)
     

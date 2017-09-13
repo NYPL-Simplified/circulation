@@ -370,11 +370,18 @@ class Authenticator(object):
     def __init__(self, _db, analytics=None):
         self.library_authenticators = {}
 
+        self.populate_authenticators()
+
+    @property
+    def current_library_short_name(self):
+        return flask.request.library.short_name
+
+    def populate_authenticators(self):
         for library in _db.query(Library):
             self.library_authenticators[library.short_name] = LibraryAuthenticator.from_config(_db, library, analytics)
 
     def invoke_authenticator_method(self, method_name, *args, **kwargs):
-        short_name = flask.request.library.short_name
+        short_name = self.current_library_short_name
         if short_name not in self.library_authenticators:
             return LIBRARY_NOT_FOUND
         return getattr(self.library_authenticators[short_name], method_name)(*args, **kwargs)
@@ -390,6 +397,22 @@ class Authenticator(object):
 
     def get_credential_from_header(self, header):
         return self.invoke_authenticator_method("get_credential_from_header", header)
+
+    def create_bearer_token(self, *args, **kwargs):
+        return self.invoke_authenticator_method(
+            "create_bearer_token", *args, **kwargs
+        )
+
+    def oauth_provider_lookup(self, *args, **kwargs):
+        return self.invoke_authenticator_method(
+            "oauth_provider_lookup", *args, **kwargs
+        )
+
+    def decode_bearer_token(self, *args, **kwargs):
+        return self.invoke_authenticator_method(
+            "decode_bearer_token", *args, **kwargs
+        )
+
 
 class LibraryAuthenticator(object):
     """Use the registered AuthenticationProviders to turn incoming
