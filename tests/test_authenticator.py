@@ -389,7 +389,7 @@ class MockAuthenticator(Authenticator):
         self.current_library_name = current_library.short_name
         self.library_authenticators = authenticators
 
-    def populate_authenticators(self):
+    def populate_authenticators(self, *args, **kwargs):
         """Do nothing -- authenticators were set in the constructor."""
 
     @property
@@ -1989,9 +1989,10 @@ class TestOAuthController(AuthenticatorTest):
             oauth_providers=[self.oauth1, self.oauth2],
             bearer_token_signing_secret="a secret"
         )
-        self._db.commit()
+
         self.auth = MockAuthenticator(
-            self._default_library, { 
+            self._default_library, 
+            { 
                 self._default_library.short_name : self.library_auth
             }
         )

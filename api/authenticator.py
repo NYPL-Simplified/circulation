@@ -370,13 +370,13 @@ class Authenticator(object):
     def __init__(self, _db, analytics=None):
         self.library_authenticators = {}
 
-        self.populate_authenticators()
+        self.populate_authenticators(_db, analytics)
 
     @property
     def current_library_short_name(self):
         return flask.request.library.short_name
 
-    def populate_authenticators(self):
+    def populate_authenticators(self, _db, analytics):
         for library in _db.query(Library):
             self.library_authenticators[library.short_name] = LibraryAuthenticator.from_config(_db, library, analytics)
 
