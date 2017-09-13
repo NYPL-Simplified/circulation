@@ -406,6 +406,17 @@ class Pagination(object):
         return q.offset(self.offset).limit(self.size)
 
 
+class WorkList(object):
+    """An object that can obtain a list of
+    Work/MaterializedWork/MaterializedWorkWithGenre objects
+    for use in generating an OPDS feed.
+    """
+
+    def featured_works(self, use_materialized_works=True):
+        """Find a random sample of high-quality 
+        raise NotImplementedError()
+
+
 class DatabaseLane(Base):
     __tablename__ = 'lanes'
     id = Column(Integer, primary_key=True)
