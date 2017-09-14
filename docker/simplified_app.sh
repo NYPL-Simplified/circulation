@@ -66,6 +66,5 @@ chown -RHh simplified:simplified /home/simplified/circulation
 mkdir /var/log/libsimple
 chown -R simplified:simplified /var/log/libsimple
 
-# Copy scripts run at startup.
-cp /ls_build/set_simplified_environment.sh /etc/my_init.d/01_set_simplified_environment.sh
-cp /ls_build/manage_simplified_database.sh /etc/my_init.d/02_manage_simplified_database.sh
+# Copy scripts that run at startup.
+cp /ls_build/startup/* /etc/my_init.d/
