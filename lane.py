@@ -1110,6 +1110,10 @@ class Lane(Base, WorkList):
         featured_subquery = None
         target_size = self.library.featured_lane_size
 
+        # How many more books do we need to add to `book` before
+        # we reach target_size?
+        short_of_target = target_size
+
         # Prefer to feature available books in the featured
         # collection, but if that fails, gradually degrade to
         # featuring all books, no matter what the availability.
@@ -1125,27 +1129,29 @@ class Lane(Base, WorkList):
                 order=Facets.ORDER_RANDOM
             )
             if use_materialized_works:
-                query = self.materialized_works(
-                    facets=facets, featured=True
-                )
+                query = self.materialized_works(facets=facets, featured=True)
             else:
-                query = self.works(
-                    facets=facets, featured=True
-                )
+                query = self.works(facets=facets, featured=True)
             if not query:
                 # apply_filters may return None in subclasses of Lane
                 continue
 
+            # Don't get more books than we need.
+            query = query.limit(short_of_target)
+
+            books += query.all()
+            if len(books) >= target_size:
+                break
+            short_of_target = target_size - len(books)
+
+        if len(books) < target_size:
             # This is the end of the line, so we're desperate
             # to fill the lane, even if it's a little short.
-            use_min_size = (collection==Facets.COLLECTION_FULL and
-                            availability==Facets.AVAILABLE_ALL)
-
-            # Get a random sample of books to be featured.
             books += self.randomized_sample_works(
-                query, target_size=target_size, use_min_size=use_min_size)
+                query, target_size=target_size, use_min_size=True
+            )
 
-        return books
+        return books[:target_size]
 
     def apply_customlist_filter(
             self, qu, must_be_featured=False, work_model=Work, 
