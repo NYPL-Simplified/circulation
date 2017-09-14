@@ -35,11 +35,11 @@ class AdobeVendorIDController(object):
     """Flask controllers that implement the Account Service and
     Authorization Service portions of the Adobe Vendor ID protocol.
     """
-    def __init__(self, library, vendor_id, node_value, authenticator):
+    def __init__(self, _db, library, vendor_id, node_value, authenticator):
         self.library = library
-        self._db = Session.object_session(library)
+        self._db = _db
         self.request_handler = AdobeVendorIDRequestHandler(vendor_id)
-        self.model = AdobeVendorIDModel(library, authenticator, node_value)
+        self.model = AdobeVendorIDModel(_db, library, authenticator, node_value)
 
     def create_authdata_handler(self, patron):
         """Create an authdata token for the given patron.
@@ -332,10 +332,10 @@ class AdobeVendorIDModel(object):
     AUTHDATA_TOKEN_TYPE = "Authdata for Adobe Vendor ID"
     VENDOR_ID_UUID_TOKEN_TYPE = "Vendor ID UUID"
 
-    def __init__(self, library, authenticator, node_value,
+    def __init__(self, _db, library, authenticator, node_value,
                  temporary_token_duration=None):
         self.library = library
-        self._db = Session.object_session(library)
+        self._db = _db
         self.authenticator = authenticator
         self.temporary_token_duration = (
             temporary_token_duration or datetime.timedelta(minutes=10))

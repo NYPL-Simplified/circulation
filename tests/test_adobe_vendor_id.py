@@ -19,6 +19,7 @@ from api.problem_details import *
 from api.adobe_vendor_id import (
     AdobeSignInRequestParser,
     AdobeAccountInfoRequestParser,
+    AdobeVendorIDController,
     AdobeVendorIDRequestHandler,
     AdobeVendorIDModel,
     AuthdataUtility,
@@ -46,10 +47,10 @@ from api.config import (
 
 from api.simple_authentication import SimpleAuthenticationProvider       
 
-class TestVendorIDModel(VendorIDTest):
+TEST_NODE_VALUE = 114740953091845
 
-    TEST_NODE_VALUE = 114740953091845
-    
+class TestVendorIDModel(VendorIDTest):
+   
     credentials = dict(username="validpatron", password="password")
     
     def setup(self):
@@ -80,7 +81,9 @@ class TestVendorIDModel(VendorIDTest):
         )
         
         self.model = AdobeVendorIDModel(
-            self._default_library, self.authenticator, self.TEST_NODE_VALUE)
+            self._db, self._default_library, self.authenticator, 
+            TEST_NODE_VALUE
+        )
         self.data_source = DataSource.lookup(self._db, DataSource.ADOBE)
 
         self.bob_patron = self.authenticator.authenticated_patron(
@@ -1039,7 +1042,7 @@ class TestAuthdataUtility(VendorIDTest):
         # An integration-level test:
         # AdobeVendorIDModel.to_delegated_patron_identifier_uuid works
         # now.
-        model = AdobeVendorIDModel(self._default_library, None, None)
+        model = AdobeVendorIDModel(self._db, self._default_library, None, None)
         uuid, label = model.to_delegated_patron_identifier_uuid(
             self.authdata.library_uri, new_credential.credential
         )
@@ -1105,4 +1108,25 @@ class TestDeviceManagementRequestHandler(VendorIDTest):
         handler = DeviceManagementRequestHandler(credential)
         # Device IDs are sorted alphabetically.
         eq_("bar\nfoo", handler.device_list())
+        
+
+class TestAdobeVendorIDController(VendorIDTest):
+
+    def test_create_authdata_handler(self):
+
+        controller = AdobeVendorIDController(
+            self._db, self._default_library, self.TEST_VENDOR_ID,
+            TEST_NODE_VALUE, object()
+        )
+        patron = self._patron()
+        response = controller.create_authdata_handler(patron)
+
+        # An authdata was created.
+        eq_(200, response.status_code)
+
+        # The authdata returned is the one stored as a Credential
+        # for the Patron.
+        [credential] = patron.credentials
+        eq_(credential.credential, response.data)
+        
         
