@@ -1,0 +1,25 @@
+FROM phusion/baseimage
+MAINTAINER Library Simplified <info@librarysimplified.org>
+
+ARG version
+ARG repo="NYPL-Simplified/circulation"
+
+ENV SIMPLIFIED_DB_TASK "ignore"
+
+ENV TZ=US/Eastern
+
+# Development libraries we'll need
+COPY . /ls_build
+
+RUN /bin/bash -c "/ls_build/simplified_app.sh ${repo} ${version} \
+      && /ls_build/simplified_cron.sh \
+      && rm -rf /ls_build && /bd_build/cleanup.sh"
+
+VOLUME /var/log
+WORKDIR /home/simplified/circulation/bin
+
+CMD ["/sbin/my_init"]
+
+# # If you launch the container interactively with `docker run -it`,
+# # this is where you'll end up:
+# ENTRYPOINT ["/bin/bash"]
