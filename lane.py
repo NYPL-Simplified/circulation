@@ -484,7 +484,7 @@ class WorkList(object):
                 works_and_worklists.append((work, child))
         return works_and_worklists
 
-    def works(self, _db, facets=None, pagination=None):
+    def works(self, _db, facets=None, pagination=None, featured=False):
         """Create a query that finds all Works that belong together in an OPDS
         feed.
 
@@ -536,10 +536,12 @@ class WorkList(object):
         return self.apply_filters(
             q,
             facets=facets, pagination=pagination,
-            work_model=Work, edition_model=Edition
+            work_model=Work, edition_model=Edition,
+            featured=featured,
         )
 
-    def materialized_works(self, _db, facets=None, pagination=None):
+    def materialized_works(self, _db, facets=None, pagination=None, 
+                           featured=False):
         """Find all MaterializedWorks that belong together in an OPDS feed.
         
         This is the same as `works()` but it queries a materialized view.
@@ -570,19 +572,19 @@ class WorkList(object):
         q = q.options(contains_eager(mw.license_pool))
         return self.apply_filters(
             _db, q, work_model=mw, edition_model=mw,
-            facets=facets, pagination=pagination
+            facets=facets, pagination=pagination, featured=featured
         )
 
     def apply_filters(self, _db, qu, facets, pagination,
-                      work_model=Work, edition_model=Edition):
+                      featured=False, work_model=Work, edition_model=Edition):
         """Apply common WorkList filters to a query. Also apply
         subclass-specific filters by calling
         apply_bibliographic_filters, which calls the
         apply_custom_filters() hook method.
         """
         qu = self.only_show_ready_deliverable_works(qu, work_model)
-        qu = self.apply_bibliographic_filters(
-            _db, qu, work_model, edition_model
+        qu, distinct = self.apply_bibliographic_filters(
+            _db, qu, featured, work_model, edition_model
         )
         if not qu:
             # apply_custom_filters() may return None to indicate that
@@ -590,19 +592,34 @@ class WorkList(object):
             return None
 
         if facets:
-            qu = facets.apply(self._db, qu, work_model, edition_model)
+            qu = facets.apply(
+                self._db, qu, work_model, edition_model, distinct=distinct
+            )
+        elif distinct:
+            qu = qu.distinct()
 
         if pagination:
             qu = pagination.apply(qu)
 
     def apply_bibliographic_filters(
-            self, _db, qu, work_model=Work, edition_model=Edition
+            self, _db, qu, featured, work_model=Work, edition_model=Edition
     ):
         qu = self.apply_audience_filter(_db, qu, work_model)
         if self.languages:
             qu = qu.filter(edition_model.language.in_(self.languages))
 
         return self.apply_custom_filters(q, work_model, edition_model)
+
+    def apply_custom_filters(self, _db, qu, featured, work_model, edition_model):
+        """Apply any subclass-specific filters to a query in progress.
+
+        :return: A 2-tuple (query, distinct). `distinct` controls whether
+        the query should be made DISTINCT. We never want to show duplicate
+        Works in a query, but adding DISTINCT slows things down, so you
+        should only return it when it's reasonable to expect a book to show
+        up more than once.
+        """
+        raise NotImplementedError()
 
     def apply_audience_filter(self, _db, qu, work_model):
         if not self.audiences:
@@ -943,7 +960,7 @@ class Lane(Base, WorkList):
                     bucket.add(subgenre.id)
         return included_ids - excluded_ids
 
-    def apply_custom_filters(self, q, work_model=Work, edition_model=Edition):
+    def apply_custom_filters(self, q, featured, work_model=Work, edition_model=Edition):
         """Apply filters to a base query against Work or a materialized view,
         yielding a query that only finds books in this Lane.
 
@@ -952,7 +969,7 @@ class Lane(Base, WorkList):
         """
         if self.parent and self.inherit_parent_restrictions:
             q = self.parent.apply_bibliographic_filters(
-                q, work_model, edition_model
+                q, featured, work_model, edition_model,
             )
 
         # If a license source is specified, only show books from that
@@ -998,8 +1015,7 @@ class Lane(Base, WorkList):
         if self.media:
             q = q.filter(edition_model.medium.in_(self.media))
 
-        distinct = False
-        qu, distinct = self.apply_customlist_filter(q, work_model)
+        return self.apply_customlist_filter(q, featured, work_model)
 
     def search(self, query, search_client, pagination=None):
         """Find works in this lane that match a search query.
@@ -1025,7 +1041,7 @@ class Lane(Base, WorkList):
             a = time.time()
             try:
                 docs = search_client.query_works(
-                    query, search_lane.media, search_lane.languages, search_lane.exclude_languages,
+                    query, search_lane.media, search_lane.languages,
                     fiction, list(search_lane.audiences), search_lane.age_range,
                     search_lane.genre_ids,
                     fields=["_id", "title", "author", "license_pool_id"],
@@ -1077,8 +1093,9 @@ class Lane(Base, WorkList):
     def featured_works(self, use_materialized_works=True):
         """Find a random sample of featured books.
 
-        While it's semi-okay for this request to be slow for default Lanes,
-        subclass implementations such as LicensePoolBasedLane may require
+        While it's semi-okay for this request to be slow for the
+        genre-based lanes that make up the bulk of the site, subclass
+        implementations such as LicensePoolBasedLane may require
         improved performance.
 
         :return: A list of MaterializedWork or MaterializedWorkWithGenre
@@ -1087,17 +1104,6 @@ class Lane(Base, WorkList):
         books = []
         featured_subquery = None
         target_size = self.library.featured_lane_size
-        # If this lane (or its ancestors) is a CustomList, look for any
-        # featured works that were set on the list itself.
-        list_books, work_id_column = self.list_featured_works(
-            use_materialized_works=use_materialized_works
-        )
-        if list_books:
-            target_size = target_size - len(list_books)
-            if target_size <= 0:
-                # We've found all the books we need from the
-                # human-generated selections on the CustomList.
-                return list_books
 
         # Prefer to feature available books in the featured
         # collection, but if that fails, gradually degrade to
@@ -1114,18 +1120,16 @@ class Lane(Base, WorkList):
                 order=Facets.ORDER_RANDOM
             )
             if use_materialized_works:
-                query = self.materialized_works(facets=facets)
+                query = self.materialized_works(
+                    facets=facets, featured=True
+                )
             else:
-                query = self.works(facets=facets)
+                query = self.works(
+                    facets=facets, featured=True
+                )
             if not query:
                 # apply_filters may return None in subclasses of Lane
                 continue
-
-            if list_books:
-                # Remove any already-featured books, set by the
-                # CustomList(s), from the database results.
-                list_book_ids = [getattr(w, work_id_column.key) for w in list_books]
-                query = query.filter(work_id_column.notin_(list_book_ids))
 
             # This is the end of the line, so we're desperate
             # to fill the lane, even if it's a little short.
@@ -1135,17 +1139,11 @@ class Lane(Base, WorkList):
             # Get a random sample of books to be featured.
             books += self.randomized_sample_works(
                 query, target_size=target_size, use_min_size=use_min_size)
-            if books:
-                break
 
-        if list_books and books:
-            # Combine any books from the CustomList with those that were
-            # randomly generated.
-            return list_books+books
         return books
 
     def apply_customlist_filter(
-            self, qu, work_model=Work, must_be_featured=False
+            self, qu, must_be_featured=False, work_model=Work, 
     ):
         if not self.custom_lists and not self.list_data_source:
             # This lane does not require that books be on any particular
