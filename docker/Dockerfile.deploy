@@ -15,7 +15,7 @@ RUN /bin/bash -c "/ls_build/simplified_app.sh ${repo} ${version} \
       && rm -rf /ls_build && /bd_build/cleanup.sh"
 
 VOLUME /var/log
-WORKDIR /home/simplified
+WORKDIR /home/simplified/circulation
 EXPOSE 80
 
 CMD ["/sbin/my_init"]
