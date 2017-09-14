@@ -1235,6 +1235,21 @@ Genre.lane_genres = relationship(
 )
 
 
+lanes_customlists = Table(
+    'lanes_customlists', Base.metadata,
+    Column(
+        'lane_id', Integer, ForeignKey('lanes.id'),
+        index=True, nullable=False
+    ),
+    Column(
+        'customlist_id', Integer, ForeignKey('identifiers.id'),
+        index=True, nullable=False
+    ),
+    UniqueConstraint('lane_id', 'customlist_id'),
+)
+
+
+
 
 class QueryGeneratedLane(WorkList):
     """A WorkList that takes its list of books from a database query
