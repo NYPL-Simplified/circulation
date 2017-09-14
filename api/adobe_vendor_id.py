@@ -36,8 +36,8 @@ class AdobeVendorIDController(object):
     Authorization Service portions of the Adobe Vendor ID protocol.
     """
     def __init__(self, _db, library, vendor_id, node_value, authenticator):
-        self.library = library
         self._db = _db
+        self.library = library
         self.request_handler = AdobeVendorIDRequestHandler(vendor_id)
         self.model = AdobeVendorIDModel(_db, library, authenticator, node_value)
 

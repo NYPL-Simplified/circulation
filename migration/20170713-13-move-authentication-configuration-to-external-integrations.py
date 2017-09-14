@@ -109,8 +109,8 @@ if not Configuration.instance:
     # No need to import configuration if there isn't any.
     sys.exit()
 
+_db = production_session()
 try:
-    _db = production_session()
     integrations = []
     auth_conf = Configuration.policy('authentication')
     if not auth_conf:
