@@ -453,6 +453,18 @@ class WorkList(object):
         """By default, a WorkList has no children."""
         return []
 
+    @property
+    def audience_key(self):
+        """Translates audiences list into url-safe string"""
+        key = u''
+        if (self.audiences and
+            Classifier.AUDIENCES.difference(self.audiences)):
+            # There are audiences and they're not the default
+            # "any audience", so add them to the URL.
+            audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
+            key += ','.join(audiences)
+        return key
+
     def grouped_samples(self, _db, use_materialized_works=True):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped OPDS feed for the WorkList.
@@ -562,19 +574,16 @@ class WorkList(object):
         )
 
     def apply_filters(self, _db, qu, facets, pagination,
-                      work_model, edition_model):
+                      work_model=Work, edition_model=Edition):
         """Apply common WorkList filters to a query. Also apply
-        subclass-specific filters by calling the apply_custom_filters()
-        hook method.
+        subclass-specific filters by calling
+        apply_bibliographic_filters, which calls the
+        apply_custom_filters() hook method.
         """
         qu = self.only_show_ready_deliverable_works(qu, work_model)
-        qu = self.apply_audience_filter(_db, qu, work_model)
-
-        if self.languages:
-            qu = qu.filter(edition_model.language.in_(self.languages))
-
-        qu = self.apply_custom_filters(q, work_model=mw, edition_model=mw)
-
+        qu = self.apply_bibliographic_filters(
+            _db, qu, work_model, edition_model
+        )
         if not qu:
             # apply_custom_filters() may return None to indicate that
             # the WorkList should not exist at all.
@@ -585,6 +594,15 @@ class WorkList(object):
 
         if pagination:
             qu = pagination.apply(qu)
+
+    def apply_bibliographic_filters(
+            self, _db, qu, work_model=Work, edition_model=Edition
+    ):
+        qu = self.apply_audience_filter(_db, qu, work_model)
+        if self.languages:
+            qu = qu.filter(edition_model.language.in_(self.languages))
+
+        return self.apply_custom_filters(q, work_model, edition_model)
 
     def apply_audience_filter(self, _db, qu, work_model):
         if not self.audiences:
@@ -756,7 +774,7 @@ class Lane(Base, WorkList):
     )
 
     # Only books on this specific CustomList will be shown.
-    list_identifier_id = Column(
+    list_id = Column(
         Integer, ForeignKey('customlists.id'), index=True,
         nullable=True
     )
@@ -876,6 +894,26 @@ class Lane(Base, WorkList):
         """
         return self.list_identifier_id or self.list_datasource_id
 
+    @property
+    def custom_lists(self):
+        """Find the specific CustomLists that control which works
+        are in this Lane.
+        """
+        if not self.custom_lists and not self.list_data_source:
+            # This isn't that kind of lane.
+            return None
+
+        if self.custom_lists:
+            # This Lane draws from a specific set of lists.
+            return [self.custom_lists]
+
+        # This lane draws from every list associated with a certain
+        # data source.
+        _db = Session.object_session(self)
+        return _db.query(CustomList).filter(
+            CustomList.data_source==self.list_data_source
+        )
+
     def genre_ids(self):
         """Find the database ID of every Genre such that a Work classified in
         that Genre should be in this Lane.
@@ -901,7 +939,7 @@ class Lane(Base, WorkList):
                 bucket = excluded_ids
             bucket.add(genre.id)
             if lanegenre.recursive:
-                for subgenre in genre.recursive_subgenres:
+                for subgenre in genre.subgenres:
                     bucket.add(subgenre.id)
         return included_ids - excluded_ids
 
@@ -912,9 +950,10 @@ class Lane(Base, WorkList):
         :param work_model: Either Work, MaterializedWork, or MaterializedWorkWithGenre
         :param edition_model: Either Edition, MaterializedWork, or MaterializedWorkWithGenre
         """
-        if self.exclude_languages:
-            q = q.filter(not_(edition_model.language.in_(self.exclude_languages)))
-
+        if self.parent and self.inherit_parent_restrictions:
+            q = self.parent.apply_bibliographic_filters(
+                q, work_model, edition_model
+            )
 
         # If a license source is specified, only show books from that
         # source.
@@ -960,30 +999,7 @@ class Lane(Base, WorkList):
             q = q.filter(edition_model.medium.in_(self.media))
 
         distinct = False
-        if self.list_data_source_id or self.list_ids:
-            # One book can show up on more than one list; we need to
-            # add a DISTINCT clause.
-            distinct = True
-
-            if work_model == Work:
-                clause = CustomListEntry.work_id==work_model.id
-            else:
-                clause = CustomListEntry.work_id==work_model.works_id
-            q = q.join(CustomListEntry, clause)
-            if self.list_data_source_id:
-                q = q.join(CustomListEntry.customlist).filter(
-                    CustomList.data_source_id==self.list_data_source_id)
-            else:
-                q = q.filter(
-                    CustomListEntry.list_id.in_(self.list_ids)
-                )
-            if self.list_seen_in_previous_days:
-                cutoff = datetime.datetime.utcnow() - datetime.timedelta(
-                    self.list_seen_in_previous_days
-                )
-                q = q.filter(CustomListEntry.most_recent_appearance
-                             >=cutoff)
-        return q
+        qu, distinct = self.apply_customlist_filter(q, work_model)
 
     def search(self, query, search_client, pagination=None):
         """Find works in this lane that match a search query.
@@ -1128,6 +1144,39 @@ class Lane(Base, WorkList):
             return list_books+books
         return books
 
+    def apply_customlist_filter(
+            self, qu, work_model=Work, must_be_featured=False
+    ):
+        if not self.custom_lists and not self.list_data_source:
+            # This lane does not require that books be on any particular
+            # CustomList.
+            return qu, False
+
+        # There may already be a join against CustomListEntry, in the case 
+        # of a Lane that inherits its parent's restrictions. To avoid
+        # confusion, create a different join every time.
+        a_entry = aliased(CustomListEntry)
+        if work_model == Work:
+            clause = CustomListEntry.work_id==work_model.id
+        else:
+            clause = CustomListEntry.work_id==work_model.works_id
+        qu = qu.join(a_entry, clause)
+        a_list = aliased(CustomListEntry.customlist)
+        qu = qu.join(a_entry).join(a_list)
+        if self.list_data_source:
+            qu = qu.filter(a_list.data_source==self.list_data_source)
+        if self.custom_lists:
+            qu = qu.filter(a_list.id.in_([x.id for x in self.custom_lists]))
+        if must_be_featured:
+            qu = qu.filter(a_entry.featured==True)
+        if self.list_seen_in_previous_days:
+            cutoff = datetime.datetime.utcnow() - datetime.timedelta(
+                self.list_seen_in_previous_days
+            )
+            qu = qu.filter(a_entry.most_recent_appearance >=cutoff)
+        # TODO: The query must now be set to DISTINCT, since a book may
+        # show up on a list more than once.
+        return qu
 
     @property
     def search_target(self):
@@ -1159,35 +1208,6 @@ class Lane(Base, WorkList):
                 self.name, self.parent.name)
         )
         return self.parent.search_target
-
-    def list_featured_works(self, target_size=None, use_materialized_works=True):
-        """Returns the featured books for a lane descended from CustomList(s)"""
-        if not self.list_based_lane:
-            return None
-        books = list()
-        work_id_column = None
-        target_size = target_size or self.library.featured_lane_size
-
-        if self.list_featured_works_query:
-            subquery = self.list_featured_works_query.with_labels().subquery()
-
-            if use_materialized_works:
-                query = self.materialized_works()
-
-                # Extract the MaterializedView model from the query
-                [work_model] = query._entities[0].entities
-                work_id_column = work_model.works_id
-            else:
-                query = self.works()
-                work_id_column = Work.id
-
-            query = query.join(subquery, work_id_column==subquery.c.works_id)
-            books += self.randomized_sample_works(
-                query, target_size=target_size, use_min_size=True
-            )
-
-        return books, work_id_column
-
 
 Library.lanes = relationship("Lane", backref="library")
 
@@ -1232,23 +1252,6 @@ class QueryGeneratedLane(WorkList):
     # When generating groups feeds, we want to return a sample
     # even if there's only a single result.
     MINIMUM_SAMPLE_SIZE = 1
-
-    def __init__(self, library, genres, audiences, languages):
-        self.initialize(library, genres)
-        self.audiences = audiences
-        self.languages = languages
-
-    @property
-    def audience_key(self):
-        """Translates audiences list into url-safe string"""
-        key = u''
-        if (self.audiences and
-            Classifier.AUDIENCES.difference(self.audiences)):
-            # There are audiences and they're not the default
-            # "any audience", so add them to the URL.
-            audiences = [urllib.quote_plus(a) for a in sorted(self.audiences)]
-            key += ','.join(audiences)
-        return key
 
     def apply_custom_filters(self, qu, work_model=Work, edition_model=Edition):
         """Incorporates general filters that help determine which works can be
