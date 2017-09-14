@@ -967,8 +967,9 @@ class Lane(Base, WorkList):
         :param work_model: Either Work, MaterializedWork, or MaterializedWorkWithGenre
         :param edition_model: Either Edition, MaterializedWork, or MaterializedWorkWithGenre
         """
+        parent_distinct = False
         if self.parent and self.inherit_parent_restrictions:
-            q = self.parent.apply_bibliographic_filters(
+            q, parent_distinct = self.parent.apply_bibliographic_filters(
                 q, featured, work_model, edition_model,
             )
 
@@ -1015,7 +1016,11 @@ class Lane(Base, WorkList):
         if self.media:
             q = q.filter(edition_model.medium.in_(self.media))
 
-        return self.apply_customlist_filter(q, featured, work_model)
+        q, child_distinct = self.apply_customlist_filter(
+            q, featured, work_model
+        )
+        distinct = parent_distinct or new_distinct
+        return q, distinct
 
     def search(self, query, search_client, pagination=None):
         """Find works in this lane that match a search query.
@@ -1172,9 +1177,10 @@ class Lane(Base, WorkList):
                 self.list_seen_in_previous_days
             )
             qu = qu.filter(a_entry.most_recent_appearance >=cutoff)
-        # TODO: The query must now be set to DISTINCT, since a book may
-        # show up on a list more than once.
-        return qu
+            
+        # Now that a custom list is involved, we must set DISTINCT to True
+        # on the query.
+        return qu, True
 
     @property
     def search_target(self):
