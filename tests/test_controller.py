@@ -387,7 +387,7 @@ class TestCirculationManager(CirculationControllerTest):
 
         # Then try to set up the Adobe Vendor ID configuration for
         # that library.
-        self.manager.setup_adobe_vendor_id(self.library)
+        self.manager.setup_adobe_vendor_id(self._db, self.library)
 
         # The exception caused when we tried to load the incomplete
         # configuration was stored here.
@@ -2408,7 +2408,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
 
         # Set up the Adobe configuration for this library and
         # reload the CirculationManager configuration.
-        self.manager.setup_adobe_vendor_id(self.library)
+        self.manager.setup_adobe_vendor_id(self._db, self.library)
         self.manager.load_settings()
 
         # Now the controller is enabled and we can use it in this

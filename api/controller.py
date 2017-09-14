@@ -198,7 +198,7 @@ class CirculationManager(object):
             self.circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
-            authdata = self.setup_adobe_vendor_id(library)
+            authdata = self.setup_adobe_vendor_id(self._db, library)
             if authdata and not self.adobe_device_management:
                 # There's at least one library on this system that
                 # wants Vendor IDs. This means we need to advertise support
@@ -303,18 +303,16 @@ class CirculationManager(object):
         """
         self.oauth_controller = OAuthController(self.auth)        
         
-    def setup_adobe_vendor_id(self, library):
+    def setup_adobe_vendor_id(self, _db, library):
         """If this Library has an Adobe Vendor ID integration,
         configure the controller for it.
 
         :return: An Authdata object for `library`, if one could be created.
         """
-        _db = Session.object_session(library)
         adobe = ExternalIntegration.lookup(
             _db, ExternalIntegration.ADOBE_VENDOR_ID,
             ExternalIntegration.DRM_GOAL, library=library
         )
-
         warning = (
             'Adobe Vendor ID controller is disabled due to missing or'
             ' incomplete configuration. This is probably nothing to'
