@@ -654,7 +654,7 @@ class WorkList(object):
         # Then take a random sample from that query.
         target_size = self.library(_db).featured_lane_size
         return self.randomized_sample_works(
-            query, target_size=target_size, use_min_size=True
+            query, target_size=target_size
         )
 
     def only_show_ready_deliverable_works(
@@ -672,18 +672,10 @@ class WorkList(object):
             collection_ids=self.collection_ids
         )
 
-    def randomized_sample_works(self, query, target_size=None, use_min_size=False):
+    def randomized_sample_works(self, query, target_size):
         """Find a random sample of works for a feed"""
-        offset = 0
-        smallest_sample_size = target_size
-
-        if use_min_size:
-            smallest_sample_size = self.MINIMUM_SAMPLE_SIZE or (target_size-5)
         total_size = fast_query_count(query)
 
-        if total_size < smallest_sample_size:
-            # There aren't enough works here. Ignore the lane.
-            return []
         if total_size > target_size:
             # We have enough results to randomly offset the selection.
             offset = random.randint(0, total_size-target_size)
@@ -1107,12 +1099,9 @@ class Lane(Base, WorkList):
         objects.
         """
         books = []
+        book_ids = set()
         featured_subquery = None
         target_size = self.library.featured_lane_size
-
-        # How many more books do we need to add to `book` before
-        # we reach target_size?
-        short_of_target = target_size
 
         # Prefer to feature available books in the featured
         # collection, but if that fails, gradually degrade to
@@ -1136,21 +1125,16 @@ class Lane(Base, WorkList):
                 # apply_filters may return None in subclasses of Lane
                 continue
 
-            # Don't get more books than we need.
-            query = query.limit(short_of_target)
-
-            books += query.all()
+            # Get a new list of books that meet our (possibly newly 
+            # reduced) standards.
+            new_books = self.randomized_sample_works(query, target_size)
+            for book in new_books:
+                if book.id not in book_ids:
+                    books.append(book)
+                    book_ids.add(book)
             if len(books) >= target_size:
+                # We found enough books.
                 break
-            short_of_target = target_size - len(books)
-
-        if len(books) < target_size:
-            # This is the end of the line, so we're desperate
-            # to fill the lane, even if it's a little short.
-            books += self.randomized_sample_works(
-                query, target_size=target_size, use_min_size=True
-            )
-
         return books[:target_size]
 
     def apply_customlist_filter(
