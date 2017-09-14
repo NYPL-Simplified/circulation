@@ -1,5 +1,5 @@
 from nose.tools import set_trace
-from functools import wraps, partial
+from functools import wraps, update_wrapper
 import os
 
 import flask
@@ -7,8 +7,9 @@ from flask import (
     Response,
     redirect,
     request,
+    make_response,
 )
-from flask_cors import cross_origin
+from flask_cors.core import get_cors_options, set_cors_headers
 
 from app import app, _db, babel
 
@@ -94,33 +95,40 @@ def requires_auth(f):
             return f(*args, **kwargs)
     return decorated
 
-patron_web_url = None
-if (hasattr(app, 'manager') and hasattr(app.manager, '_db')):
-    patron_web_url = ConfigurationSetting.sitewide(
-        app.manager._db, Configuration.PATRON_WEB_CLIENT_URL).value
+# The allows_patron_web decorator will add Cross-Origin Resource Sharing
+# (CORS) headers to routes that will be used by the patron web interface.
+# This is necessary for a JS app on a different domain to make requests.
+#
+# This is mostly taken from the cross_origin decorator in flask_cors, but we
+# can't use that decorator because we aren't able to look up the patron web
+# client url configuration setting at the time we create the decorator.
+def allows_patron_web(f):
+    # Override Flask's default behavior and intercept the OPTIONS method for
+    # every request so CORS headers can be added.
+    f.required_methods = getattr(f, 'required_methods', set())
+    f.required_methods.add("OPTIONS")
+    f.provide_automatic_options = False
 
-if patron_web_url:
-    # The allows_patron_web decorator will add Cross-Origin Resource Sharing
-    # (CORS) headers to routes that will be used by the patron web interface.
-    # This is necessary for a JS app on a different domain to make requests.
-    #
-    # The partial function sets the arguments to the cross_origin decorator,
-    # since they're the same for all routes that use it.
-    allows_patron_web = partial(
-        cross_origin,
-        origins=[patron_web_url],
-        supports_credentials=True,
-    )
-else:
-    # If the patron web client isn't configured, the decorator will do nothing.
-    def allows_patron_web():
-        def decorated(f):
-            return f
-        return decorated
+    def wrapped_function(*args, **kwargs):
+        if request.method == "OPTIONS":
+            resp = app.make_default_options_response()
+        else:
+            resp = make_response(f(*args, **kwargs))
+
+        patron_web_client_url = app.manager.patron_web_client_url
+        if patron_web_client_url:
+            options = get_cors_options(
+                app, dict(origins=[patron_web_client_url],
+                          supports_credentials=True)
+            )
+            set_cors_headers(resp, options)
+
+        return resp
+    return update_wrapper(wrapped_function, f)
 
 h = ErrorHandler(app, app.config['DEBUG'])
 @app.errorhandler(Exception)
-@allows_patron_web()
+@allows_patron_web
 def exception_handler(exception):
     return h.handle(exception)
 
@@ -183,7 +191,7 @@ def library_dir_route(path, *args, **kwargs):
 
 @library_route("/")
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def index():
     return app.manager.index_controller()
@@ -203,7 +211,7 @@ def public_key_document():
 @library_dir_route('/groups/<languages>', defaults=dict(lane_name=None))
 @library_route('/groups/<languages>/<lane_name>')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def acquisition_groups(languages, lane_name):
     return app.manager.opds_feeds.groups(languages, lane_name)
@@ -212,7 +220,7 @@ def acquisition_groups(languages, lane_name):
 @library_dir_route('/feed/<languages>', defaults=dict(lane_name=None))
 @library_route('/feed/<languages>/<lane_name>')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def feed(languages, lane_name):
     return app.manager.opds_feeds.feed(languages, lane_name)
@@ -221,14 +229,14 @@ def feed(languages, lane_name):
 @library_dir_route('/search/<languages>', defaults=dict(lane_name=None))
 @library_route('/search/<languages>/<lane_name>')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def lane_search(languages, lane_name):
     return app.manager.opds_feeds.search(languages, lane_name)
 
 @library_dir_route('/patrons/me', methods=['GET', 'PUT'])
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @requires_auth
 @returns_problem_detail
 def patron_profile():
@@ -236,7 +244,7 @@ def patron_profile():
 
 @library_dir_route('/loans', methods=['GET', 'HEAD'])
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @requires_auth
 @returns_problem_detail
 def active_loans():
@@ -244,7 +252,7 @@ def active_loans():
 
 @library_route('/annotations/', methods=['HEAD', 'GET', 'POST'])
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @requires_auth
 @returns_problem_detail
 def annotations():
@@ -252,7 +260,7 @@ def annotations():
 
 @library_route('/annotations/<annotation_id>', methods=['HEAD', 'GET', 'DELETE'])
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @requires_auth
 @returns_problem_detail
 def annotation_detail(annotation_id):
@@ -260,7 +268,7 @@ def annotation_detail(annotation_id):
 
 @library_route('/annotations/<identifier_type>/<path:identifier>/', methods=['GET'])
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @requires_auth
 @returns_problem_detail
 def annotations_for_work(identifier_type, identifier):
@@ -270,7 +278,7 @@ def annotations_for_work(identifier_type, identifier):
 @library_route('/works/<identifier_type>/<path:identifier>/borrow/<mechanism_id>', 
            methods=['GET', 'PUT'])
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @requires_auth
 @returns_problem_detail
 def borrow(identifier_type, identifier, mechanism_id=None):
@@ -279,7 +287,7 @@ def borrow(identifier_type, identifier, mechanism_id=None):
 @library_route('/works/<license_pool_id>/fulfill')
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @requires_auth
 @returns_problem_detail
 def fulfill(license_pool_id, mechanism_id=None):
@@ -287,7 +295,7 @@ def fulfill(license_pool_id, mechanism_id=None):
 
 @library_route('/loans/<license_pool_id>/revoke', methods=['GET', 'PUT'])
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @requires_auth
 @returns_problem_detail
 def revoke_loan_or_hold(license_pool_id):
@@ -295,7 +303,7 @@ def revoke_loan_or_hold(license_pool_id):
 
 @library_route('/loans/<identifier_type>/<path:identifier>', methods=['GET', 'DELETE'])
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @requires_auth
 @returns_problem_detail
 def loan_or_hold_detail(identifier_type, identifier):
@@ -303,7 +311,7 @@ def loan_or_hold_detail(identifier_type, identifier):
 
 @library_dir_route('/works')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def work():
     annotator = CirculationManagerAnnotator(app.manager.circulation, None)
@@ -313,7 +321,7 @@ def work():
 @library_dir_route('/works/contributor/<contributor_name>/<languages>', defaults=dict(audiences=None))
 @library_route('/works/contributor/<contributor_name>/<languages>/<audiences>')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def contributor(contributor_name, languages, audiences):
     return app.manager.work_controller.contributor(contributor_name, languages, audiences)
@@ -322,42 +330,42 @@ def contributor(contributor_name, languages, audiences):
 @library_dir_route('/works/series/<series_name>/<languages>', defaults=dict(audiences=None))
 @library_route('/works/series/<series_name>/<languages>/<audiences>')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def series(series_name, languages, audiences):
     return app.manager.work_controller.series(series_name, languages, audiences)
 
 @library_route('/works/<identifier_type>/<path:identifier>')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def permalink(identifier_type, identifier):
     return app.manager.work_controller.permalink(identifier_type, identifier)
 
 @library_route('/works/<identifier_type>/<path:identifier>/recommendations')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def recommendations(identifier_type, identifier):
     return app.manager.work_controller.recommendations(identifier_type, identifier)
 
 @library_route('/works/<identifier_type>/<path:identifier>/related_books')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def related_books(identifier_type, identifier):
     return app.manager.work_controller.related(identifier_type, identifier)
 
 @library_route('/works/<identifier_type>/<path:identifier>/report', methods=['GET', 'POST'])
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def report(identifier_type, identifier):
     return app.manager.work_controller.report(identifier_type, identifier)
 
 @library_route('/analytics/<identifier_type>/<path:identifier>/<event_type>')
 @has_library
-@allows_patron_web()
+@allows_patron_web
 @returns_problem_detail
 def track_analytics_event(identifier_type, identifier, event_type):
     return app.manager.analytics_controller.track_event(identifier_type, identifier, event_type)

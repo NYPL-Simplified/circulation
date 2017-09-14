@@ -208,6 +208,9 @@ class CirculationManager(object):
             Configuration.policy('lending', {})
         )
 
+        self.patron_web_client_url = ConfigurationSetting.sitewide(
+            self._db, Configuration.PATRON_WEB_CLIENT_URL).value
+
         self.setup_configuration_dependent_controllers()
         self.authentication_for_opds_documents = {}
     
