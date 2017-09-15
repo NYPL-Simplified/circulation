@@ -201,7 +201,7 @@ class NoveListAPI(object):
         representation = get_one(
             self._db, Representation, 'interchangeable', url=scrubbed_url
         )
-        if not representation or not representation.is_fresher_than(max_age):
+        if not (representation and representation.is_fresher_than(max_age)):
             self.log.info("No cached NoveList request available.")
 
             url = self.build_query_url(params)
