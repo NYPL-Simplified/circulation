@@ -465,14 +465,13 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def grouped_samples(self, _db, use_materialized_works=True):
+    def groups(self, _db, use_materialized_works=True):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped OPDS feed for the WorkList.
 
         :return: A list of (Work, WorkList) 2-tuples, with each WorkList
-        representing the child in which the Work is found.
+        representing the child WorkList in which the Work is found.
         """
-
         # This is a list rather than a dict because we want to
         # preserve the ordering of the children.
         works_and_worklists = []
@@ -485,66 +484,27 @@ class WorkList(object):
         return works_and_worklists
 
     def works(self, _db, facets=None, pagination=None, featured=False):
-        """Create a query that finds all Works that belong together in an OPDS
-        feed.
 
-        Works will:
+        """Create a query against a materialized view that finds Work-like
+        objects corresponding to all the Works that belong in this
+        WorkList.
 
-        * Have a delivery mechanism that can be rendered by the
-          default client.
+        The apply_filters() implementation defines which Works qualify
+        for membership.
 
-        * Have an unsuppressed license pool that belongs to one of the
-          collections associated with the WorkList's library.
-
-        * Be classified under one of the genres given in `genre_ids`
-        (if any genre_ids are specified)
-
-        * Be classified under one of the audiences given in `audiences`
-        (if any audiences are specified).
-        
-        * Be in one of the languages given in `languages`
-        (if any languages are specified).
-
-        Any further restrictions will be applied by the subclass
-        `apply_filters` implementation.
-
-        :return: A Query, or None if the list of works is deemed to
-        be a bad idea.
-        """
-
-        q = _db.query(Work).join(Work.presentation_edition)
-        q = q.join(Work.license_pools).enable_eagerloads(False).\
-            join(LicensePool.data_source).\
-            join(LicensePool.identifier)
-        q = q.options(
-            joinedload(Work.license_pools),
-            contains_eager(Work.presentation_edition),
-            contains_eager(Work.license_pools, LicensePool.data_source),
-            contains_eager(Work.license_pools, LicensePool.presentation_edition),
-            contains_eager(Work.license_pools, LicensePool.identifier),
-            defer(Work.presentation_edition, Edition.extra),
-            defer(Work.license_pools, LicensePool.presentation_edition, Edition.extra),
-        )
-        q = self._defer_unused_opds_entry(q, work_model=Work)
-
-        genre_ids = self.genre_ids
-        if genre_ids:
-            q = q.join(Work.work_genres)
-            q = q.options(contains_eager(Work.work_genres))
-            q = q.filter(WorkGenre.genre_id.in_(genre_ids))
-
-        return self.apply_filters(
-            q,
-            facets=facets, pagination=pagination,
-            work_model=Work, edition_model=Edition,
-            featured=featured,
-        )
-
-    def materialized_works(self, _db, facets=None, pagination=None, 
-                           featured=False):
-        """Find all MaterializedWorks that belong together in an OPDS feed.
-        
-        This is the same as `works()` but it queries a materialized view.
+        :param _db: A database connection.
+        :param facets: A Facets object which may put additional
+           constraints on WorkList membership.
+        :param pagination: A Pagination object indicating which part of
+           the WorkList the caller is looking at.
+        :param featured: If this is true, then Works that belong on a
+           WorkList by virtue of belonging in a CustomList must be _featured_
+           on that CustomList. If this is False, then all Works on an
+           eligible CustomList are also on the WorkList. If the 
+           WorkList does not consider CustomLists at all, then this value is
+           irrelevant.
+        :return: A Query, or None if the WorkList is deemed to be a
+           bad idea in the first place.
         """
         from model import (
             MaterializedWork,
@@ -571,12 +531,12 @@ class WorkList(object):
         q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
         q = q.options(contains_eager(mw.license_pool))
         return self.apply_filters(
-            _db, q, work_model=mw, edition_model=mw,
-            facets=facets, pagination=pagination, featured=featured
+            _db, q, work_model=mw, facets=facets, pagination=pagination, 
+            featured=featured
         )
 
     def apply_filters(self, _db, qu, facets, pagination,
-                      featured=False, work_model=Work, edition_model=Edition):
+                      featured=False, work_model=None):
         """Apply common WorkList filters to a query. Also apply
         subclass-specific filters by calling
         apply_bibliographic_filters, which calls the
