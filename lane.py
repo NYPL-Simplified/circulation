@@ -1063,6 +1063,10 @@ class Lane(Base, WorkList):
         # Prefer to feature available books in the featured
         # collection, but if that fails, gradually degrade to
         # featuring all books, no matter what the availability.
+
+        # TODO: knowing whether the lane is list-based would be useful
+        # here; we could try or avoid some variants based on toggling
+        # featured_on_list.
         for (collection, availability, featured_on_list) in (
                 (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, True),
                 (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, True),
