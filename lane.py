@@ -616,7 +616,7 @@ class WorkList(object):
 
         # Then take a random sample from that query.
         target_size = self.library(_db).featured_lane_size
-        return self.randomized_sample_works(
+        return self.random_sample(
             query, target_size=target_size
         )
 
@@ -635,20 +635,23 @@ class WorkList(object):
             collection_ids=self.collection_ids
         )
 
-    def randomized_sample_works(self, query, target_size):
-        """Find a random sample of works for a feed"""
+    def random_sample(self, query, target_size):
+        """Find a random sample of items obtained from a query"""
         total_size = fast_query_count(query)
 
         if total_size > target_size:
             # We have enough results to randomly offset the selection.
             offset = random.randint(0, total_size-target_size)
 
-        works = query.offset(offset).limit(target_size).all()
-        random.shuffle(works)
+        items = query.offset(offset).limit(target_size).all()
+        random.shuffle(items)
         return works
 
-    def _defer_unused_opds_entry(self, query, work_model=Work):
-        """Defer the appropriate opds entry
+    def _defer_unused_opds_entry(self, query, work_model):
+        """Some applications use the simple OPDS entry and some
+        applications use the verbose. Whichever one we don't need,
+        we can stop from even being sent over from the
+        database.
         """
         if Configuration.DEFAULT_OPDS_FORMAT == "simple_opds_entry":
             return query.options(defer(work_model.verbose_opds_entry))
@@ -664,6 +667,8 @@ class Lane(Base, WorkList):
     bookstore. Lanes are the primary means by which patrons discover
     books.
     """
+
+    MAX_CACHE_AGE = 20*60      # 20 minutes
 
     # If a Lane has fewer than 5 titles, don't even bother showing it.
     MINIMUM_SAMPLE_SIZE = 5
@@ -932,7 +937,7 @@ class Lane(Base, WorkList):
 
         qu = self.apply_age_range_filter(_db, qu, work_model)
         qu, child_distinct = self.apply_customlist_filter(
-            qu, featured, work_model
+            qu, work_model, featured
         )
         return qu, (parent_distinct or child_distinct)
 
@@ -1077,7 +1082,7 @@ class Lane(Base, WorkList):
 
             # Get a new list of books that meet our (possibly newly 
             # reduced) standards.
-            new_books = self.randomized_sample_works(query, target_size)
+            new_books = self.random_sample(query, target_size)
             for book in new_books:
                 if book.id not in book_ids:
                     books.append(book)
@@ -1088,7 +1093,7 @@ class Lane(Base, WorkList):
         return books[:target_size]
 
     def apply_customlist_filter(
-            self, qu, must_be_featured=False, work_model=Work, 
+            self, qu, work_model, must_be_featured=False
     ):
         if not self.custom_lists and not self.list_data_source:
             # This lane does not require that books be on any particular
@@ -1124,8 +1129,8 @@ class Lane(Base, WorkList):
 
     @property
     def search_target(self):
-        """When performing a search in this Lane, determine which Lane
-        should actually be searched.
+        """When someone in this lane wants to do a search, determine which
+        Lane should actually be searched.
         """
         if self.parent is None:
             # We are at the top level. Search everything.
