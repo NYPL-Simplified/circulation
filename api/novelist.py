@@ -204,7 +204,7 @@ class NoveListAPI(object):
         if not representation or not representation.is_fresher_than(max_age):
             self.log.info("No cached NoveList request available.")
 
-            url = self._build_query(params)
+            url = self.build_query_url(params)
             self.log.debug("NoveList lookup: %s",  url)
             representation, from_cache = Representation.cacheable_post(
                 self._db, unicode(url), '', max_age=max_age,
@@ -231,7 +231,7 @@ class NoveListAPI(object):
     @classmethod
     def scrubbed_url(cls, params):
         """Removes authentication details from cached Representation.url"""
-        cls._build_query(params, include_auth=False)
+        return cls.build_query_url(params, include_auth=False)
 
     @classmethod
     def _scrub_subtitle(cls, subtitle):
@@ -243,14 +243,16 @@ class NoveListAPI(object):
         return subtitle
 
     @classmethod
-    def _build_query(cls, params, include_auth=True):
+    def build_query_url(cls, params, include_auth=True):
         """Builds a unique and url-encoded query endpoint"""
         url = cls.QUERY_ENDPOINT
         if include_auth:
             url += cls.AUTH_PARAMS
+
+        urlencoded_params = dict()
         for name, value in params.items():
-            params[name] = urllib.quote(value)
-        return url % params
+            urlencoded_params[name] = urllib.quote(value)
+        return url % urlencoded_params
 
     def lookup_info_to_metadata(self, lookup_representation):
         """Transforms a NoveList JSON representation into a Metadata object"""

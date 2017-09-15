@@ -195,6 +195,38 @@ class TestNoveListAPI(DatabaseTest):
         result = self.novelist.lookup_info_to_metadata(empty_response)
         eq_(None, result)
 
+    def test_build_query_url(self):
+        params = dict(
+            ClientIdentifier='C I',
+            ISBN='456',
+            version='2.2',
+            profile='username',
+            password='secret'
+        )
+
+        # Authentication information is included in the URL by default
+        full_result = self.novelist.build_query_url(params)
+        auth_details = '&profile=username&password=secret'
+        eq_(True, full_result.endswith(auth_details))
+        assert 'profile=username' in full_result
+        assert 'password=secret' in full_result
+
+        # With a scrub, no authentication information is included.
+        scrubbed_result = self.novelist.build_query_url(params, include_auth=False)
+        eq_(False, scrubbed_result.endswith(auth_details))
+        assert 'profile=username' not in scrubbed_result
+        assert 'password=secret' not in scrubbed_result
+
+        # Other details are urlencoded and available in both versions.
+        for url in (scrubbed_result, full_result):
+            assert 'ClientIdentifier=C%20I' in url
+            assert 'ISBN=456' in url
+            assert 'version=2.2' in url
+
+        # The method to create a scrubbed url returns the same result
+        # as the NoveListAPI.build_query_url
+        eq_(scrubbed_result, self.novelist.scrubbed_url(params))
+
     def test_scrub_subtitle(self):
         """Unnecessary title segments are removed from subtitles"""
 
