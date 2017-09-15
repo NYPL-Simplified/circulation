@@ -57,7 +57,7 @@ class NoveListAPI(object):
     # the Representation object needs a unique URL to return the proper data
     # from the database.
     QUERY_ENDPOINT = (
-        "http://novselect.ebscohost.com/Data/ContentByQuery?"
+        "https://novselect.ebscohost.com/Data/ContentByQuery?"
         "ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
     )
     AUTH_PARAMS = "&profile=%(profile)s&password=%(password)s"
