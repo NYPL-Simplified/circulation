@@ -519,14 +519,8 @@ class WorkList(object):
             mw = MaterializedWork
             qu = self._db.query(mw)
 
-        # Avoid eager loading of objects that are contained in the 
-        # materialized view.
-        qu = qu.options(
-            lazyload(mw.license_pool, LicensePool.data_source),
-            lazyload(mw.license_pool, LicensePool.identifier),
-            lazyload(mw.license_pool, LicensePool.presentation_edition),
-        )
-        qu = self._defer_unused_opds_entry(qu, work_model=mw)
+        qu = self._lazy_load(qu, mw)
+        qu = self._defer_unused_fields(qu, mw)
 
         qu = qu.join(LicensePool, LicensePool.id==mw.license_pool_id)
         qu = qu.options(contains_eager(mw.license_pool))
@@ -647,7 +641,17 @@ class WorkList(object):
         random.shuffle(items)
         return works
 
-    def _defer_unused_opds_entry(self, query, work_model):
+    def _lazy_load(self, qu, work_model):
+        """Avoid eager loading of objects that are contained in the 
+        materialized view.
+        """
+        qu = qu.options(
+            lazyload(work_model.license_pool, LicensePool.data_source),
+            lazyload(work_model.license_pool, LicensePool.identifier),
+            lazyload(work_model.license_pool, LicensePool.presentation_edition),
+        )
+
+    def _defer_unused_fields(self, query, work_model):
         """Some applications use the simple OPDS entry and some
         applications use the verbose. Whichever one we don't need,
         we can stop from even being sent over from the
@@ -794,7 +798,7 @@ class Lane(Base, WorkList):
         because Flask tries to route "feed/Suspense%2FThriller" to
         feed/Suspense/Thriller.
         """
-        return self.name.replace("/", "__")
+        return self.identifier.replace("/", "__")
 
     @property
     def audiences(self):
@@ -901,7 +905,12 @@ class Lane(Base, WorkList):
             if lanegenre.recursive:
                 for subgenre in genre.subgenres:
                     bucket.add(subgenre.id)
-        return included_ids - excluded_ids
+        genre_ids = included_ids - excluded_ids
+        if not genre_ids:
+            logging.error(
+                "Lane %s has a self-negating set of genre IDs.", self.identifier
+            )
+        return genre_ids
 
     def apply_custom_filters(self, _db, qu, work_model, featured=False):
         """Apply filters to a base query against a materialized view,
@@ -1008,31 +1017,35 @@ class Lane(Base, WorkList):
                     int(x['_id']) for x in docs['hits']['hits']
                 ]
                 if doc_ids:
-                    from model import MaterializedWork as mw
-                    qu = _db.query(mw).join(
-                        LicensePool, mw.license_pool_id==LicensePool.id
-                    ).filter(
-                        mw.works_id.in_(doc_ids)
-                    )
-                    qu = qu.options(
-                        lazyload(mw.license_pool, LicensePool.data_source),
-                        lazyload(mw.license_pool, LicensePool.identifier),
-                        lazyload(mw.license_pool, LicensePool.presentation_edition),
-                    )
-                    qu = self.only_show_ready_deliverable_works(qu, mw)
-                    qu = self._defer_unused_opds_entry(qu, work_model=mw)
-                    work_by_id = dict()
-                    a = time.time()
-                    works = qu.all()
-                    for mw in works:
-                        work_by_id[mw.works_id] = mw
-                    results = [work_by_id[x] for x in doc_ids if x in work_by_id]
-                    b = time.time()
-                    logging.debug(
-                        "Obtained %d MaterializedWork objects in %.2fsec",
-                        len(results), b-a
-                    )
+                    results = self.for_specific_work_ids(_db, doc_ids)
 
+        return results
+
+    @classmethod
+    def for_work_ids(self, _db, work_ids):
+        """Create the appearance of having called works() on this Lane, but
+        return the specific Works identified by `work_ids`.
+        """
+        from model import MaterializedWork as mw
+        qu = _db.query(mw).join(
+            LicensePool, mw.license_pool_id==LicensePool.id
+        ).filter(
+            mw.works_id.in_(doc_ids)
+        )
+        qu = self._lazy_load(qu, mw)
+        qu = self._defer_unused_fields(qu, mw)
+        qu = self.only_show_ready_deliverable_works(qu, mw)
+        work_by_id = dict()
+        a = time.time()
+        works = qu.all()
+        for mw in works:
+            work_by_id[mw.works_id] = mw
+        results = [work_by_id[x] for x in doc_ids if x in work_by_id]
+        b = time.time()
+        logging.debug(
+            "Obtained %d MaterializedWork objects in %.2fsec",
+            len(results), b-a
+        )
         return results
 
     def featured_works(self, use_materialized_works=True):
