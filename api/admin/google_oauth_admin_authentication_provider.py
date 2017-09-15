@@ -33,11 +33,13 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
         super(GoogleOAuthAdminAuthenticationProvider, self).__init__(integration)
         self.redirect_uri = redirect_uri
         self.test_mode = test_mode
+        if self.test_mode:
+            self.dummy_client = DummyGoogleClient()
 
     @property
     def client(self):
         if self.test_mode:
-            return DummyGoogleClient()
+            return self.dummy_client
 
         config = dict()
         config["auth_uri"] = self.integration.url
@@ -67,7 +69,10 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
         auth_code = request.get('code')
         if auth_code:
             redirect_url = request.get("state")
-            credentials = self.client.step2_exchange(auth_code)
+            try:
+                credentials = self.client.step2_exchange(auth_code)
+            except GoogleClient.FlowExchangeError, e:
+                return self.google_error_problem_detail(e.message), None
             return dict(
                 email=credentials.id_token.get('email'),
                 credentials=credentials.to_json(),

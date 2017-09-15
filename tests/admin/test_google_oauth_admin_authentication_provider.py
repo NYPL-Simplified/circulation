@@ -4,6 +4,8 @@ from nose.tools import (
     set_trace,
 )
 
+from oauth2client import client as GoogleClient
+
 from .. import DatabaseTest
 from core.util.problem_detail import ProblemDetail
 
@@ -39,6 +41,18 @@ class TestGoogleOAuthAdminAuthenticationProvider(DatabaseTest):
         eq_('example@nypl.org', success['email'])
         default_credentials = json.dumps({"id_token": {"email": "example@nypl.org", "hd": "nypl.org"}})
         eq_(default_credentials, success['credentials'])
+
+        # Returns a problem detail when the oauth client library
+        # raises an exception.
+        class ExceptionRaisingClient(DummyGoogleClient):
+            def step2_exchange(self, auth_code):
+                raise GoogleClient.FlowExchangeError("mock error")
+        self.google.dummy_client = ExceptionRaisingClient()
+        error_response, redirect = self.google.callback({'code' : 'abc'})
+        eq_(True, isinstance(error_response, ProblemDetail))
+        eq_(400, error_response.status_code)
+        eq_(True, error_response.detail.endswith('mock error'))
+        eq_(None, redirect)
 
     def test_domains(self):
         super(TestGoogleOAuthAdminAuthenticationProvider, self).setup()
