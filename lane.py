@@ -465,7 +465,7 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def groups(self, _db, use_materialized_works=True):
+    def groups(self, _db):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped OPDS feed for the WorkList.
 
@@ -476,9 +476,7 @@ class WorkList(object):
         # preserve the ordering of the children.
         works_and_worklists = []
         for child in self.visible_children:
-            works = child.featured_works(
-                _db, use_materialized_works=use_materialized_works
-            )
+            works = child.featured_works(_db)
             for work in works:
                 works_and_worklists.append((work, child))
         return works_and_worklists
@@ -610,9 +608,7 @@ class WorkList(object):
 
         # Then take a random sample from that query.
         target_size = self.library(_db).featured_lane_size
-        return self.random_sample(
-            query, target_size=target_size
-        )
+        return self.random_sample(query, target_size=target_size)
 
     def only_show_ready_deliverable_works(
             self, query, work_model, show_suppressed=False
@@ -1048,7 +1044,7 @@ class Lane(Base, WorkList):
         )
         return results
 
-    def featured_works(self, use_materialized_works=True):
+    def featured_works(self, _db):
         """Find a random sample of featured books.
 
         While it's semi-okay for this request to be slow for the
@@ -1067,23 +1063,24 @@ class Lane(Base, WorkList):
         # Prefer to feature available books in the featured
         # collection, but if that fails, gradually degrade to
         # featuring all books, no matter what the availability.
-        for (collection, availability) in (
-                (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW),
-                (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL),
-                (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW),
-                (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL),
-                (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL),
+        for (collection, availability, featured_on_list) in (
+                (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, True),
+                (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, True),
+                (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW, False),
+                (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False),
+                (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False),
         ):
             facets = Facets(
                 self.library, collection=collection, availability=availability,
                 order=Facets.ORDER_RANDOM
             )
-            if use_materialized_works:
-                query = self.materialized_works(facets=facets, featured=True)
-            else:
-                query = self.works(facets=facets, featured=True)
+            query = self.works(facets=facets, featured=featured_on_list)
             if not query:
-                # apply_filters may return None in subclasses of Lane
+                # works() may return None, indicating that the whole
+                # thing is a bad idea and the query should not even be
+                # run. It will probably think the whole thing is a bad
+                # idea no matter which arguments we pass in, but let's
+                # keep trying.
                 continue
 
             # Get a new list of books that meet our (possibly newly 
