@@ -531,24 +531,28 @@ class WorkList(object):
         q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
         q = q.options(contains_eager(mw.license_pool))
         return self.apply_filters(
-            _db, q, work_model=mw, facets=facets, pagination=pagination, 
-            featured=featured
+            _db, q, work_model, facets, pagination, featured
         )
 
-    def apply_filters(self, _db, qu, facets, pagination,
-                      featured=False, work_model=None):
+    def apply_filters(self, _db, qu, work_model, facets, pagination,
+                      featured=False):
         """Apply common WorkList filters to a query. Also apply
         subclass-specific filters by calling
-        apply_bibliographic_filters, which calls the
+        apply_bibliographic_filters(), which calls the
         apply_custom_filters() hook method.
         """
+        # In general, we only show books that are ready to be delivered
+        # to patrons.
         qu = self.only_show_ready_deliverable_works(qu, work_model)
+
+        # This method applies whatever filters are necessary to implement
+        # the rules of this particular WorkList.
         qu, distinct = self.apply_bibliographic_filters(
-            _db, qu, featured, work_model, edition_model
+            _db, work_model, qu, featured
         )
         if not qu:
-            # apply_custom_filters() may return None to indicate that
-            # the WorkList should not exist at all.
+            # apply_bibliographic_filters() may return None to
+            # indicate that the WorkList should not exist at all.
             return None
 
         if facets:
@@ -556,13 +560,17 @@ class WorkList(object):
                 self._db, qu, work_model, edition_model, distinct=distinct
             )
         elif distinct:
+            # Something about the query makes it possible that the same
+            # book might show up twice. We set the query as DISTINCT
+            # to avoid this possibility.
             qu = qu.distinct()
 
         if pagination:
             qu = pagination.apply(qu)
+        return qu
 
     def apply_bibliographic_filters(
-            self, _db, qu, featured, work_model=Work, edition_model=Edition
+            self, _db, qu, featured, work_model
     ):
         qu = self.apply_audience_filter(_db, qu, work_model)
         if self.languages:
