@@ -715,6 +715,10 @@ class Lane(Base, WorkList):
     bookstore. Lanes are the primary means by which patrons discover
     books.
     """
+
+    # If a Lane has fewer than 5 titles, don't even bother showing it.
+    MINIMUM_SAMPLE_SIZE = 5
+
     __tablename__ = 'lanes'
     id = Column(Integer, primary_key=True)
     library_id = Column(Integer, ForeignKey('libraries.id'), index=True,
@@ -1261,31 +1265,6 @@ class QueryGeneratedLane(WorkList):
     # When generating groups feeds, we want to return a sample
     # even if there's only a single result.
     MINIMUM_SAMPLE_SIZE = 1
-
-    def apply_custom_filters(self, qu, work_model=Work, edition_model=Edition):
-        """Incorporates general filters that help determine which works can be
-        usefully presented to users with lane-specific queries that select
-        the works specific to the QueryGeneratedLane
-
-        :return: query or None
-        """
-        # Only show works for the proper audiences.
-        if self.audiences:
-            qu = qu.filter(work_model.audience.in_(self.audiences))
-
-        # Only show works in the source language.
-        if self.languages:
-            qu = qu.filter(edition_model.language.in_(self.languages))
-
-        # Add lane-specific details to query and return the result.
-        qu = self.query_hook(qu, work_model=work_model)
-        if not qu:
-            # The hook may return None.
-            return None
-
-        return qu
-
-    def featured_works(self, use_materialized_works=True):
 
     def query_hook(self, qu, work_model=Work):
         """Create the query specific to a subclass of  QueryGeneratedLane
