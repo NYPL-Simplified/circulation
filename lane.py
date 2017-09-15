@@ -270,7 +270,7 @@ class Facets(FacetConstants):
 
         return None
 
-    def apply(self, _db, q, work_model=Work, edition_model=Edition,
+    def apply(self, _db, qu, work_model=Work, edition_model=Edition,
               distinct=False):
         """Restrict a query so that it only matches works that fit
         the given facets, and the query is ordered appropriately.
@@ -285,7 +285,7 @@ class Facets(FacetConstants):
                 LicensePool.licenses_owned > 0)
         elif self.availability == self.AVAILABLE_OPEN_ACCESS:
             availability_clause = LicensePool.open_access==True
-        q = q.filter(availability_clause)
+        qu = qu.filter(availability_clause)
 
         if self.collection == self.COLLECTION_FULL:
             # Include everything.
@@ -297,11 +297,11 @@ class Facets(FacetConstants):
                 LicensePool.open_access==False,
                 work_model.quality >= 0.3
             )
-            q = q.filter(or_clause)
+            qu = qu.filter(or_clause)
         elif self.collection == self.COLLECTION_FEATURED:
             # Exclude books with a quality of less than the library's
             # minimum featured quality.
-            q = q.filter(
+            qu = qu.filter(
                 work_model.quality >= self.library.minimum_featured_quality
             )
 
@@ -309,9 +309,9 @@ class Facets(FacetConstants):
         order_by, order_distinct = self.order_by(
             work_model, edition_model
         )
-        q = q.order_by(*order_by)
+        qu = qu.order_by(*order_by)
         if distinct:
-            q = q.distinct(*order_distinct)
+            qu = qu.distinct(*order_distinct)
 
         return q
 
@@ -404,7 +404,7 @@ class Pagination(object):
     def apply(self, q):
         """Modify the given query with OFFSET and LIMIT."""
         self.query_size = fast_query_count(q)
-        return q.offset(self.offset).limit(self.size)
+        return qu.offset(self.offset).limit(self.size)
 
 
 class WorkList(object):
@@ -513,25 +513,25 @@ class WorkList(object):
         genre_ids = self.genre_ids
         if genre_ids:
             mw = MaterializedWorkWithGenre
-            q = _db.query(mw)
-            q = q.filter(mw.genre_id.in_(genre_ids))
+            qu = _db.query(mw)
+            qu = qu.filter(mw.genre_id.in_(genre_ids))
         else:
             mw = MaterializedWork
-            q = self._db.query(mw)
+            qu = self._db.query(mw)
 
         # Avoid eager loading of objects that are contained in the 
         # materialized view.
-        q = q.options(
+        qu = qu.options(
             lazyload(mw.license_pool, LicensePool.data_source),
             lazyload(mw.license_pool, LicensePool.identifier),
             lazyload(mw.license_pool, LicensePool.presentation_edition),
         )
-        q = self._defer_unused_opds_entry(q, work_model=mw)
+        qu = self._defer_unused_opds_entry(qu, work_model=mw)
 
-        q = q.join(LicensePool, LicensePool.id==mw.license_pool_id)
-        q = q.options(contains_eager(mw.license_pool))
+        qu = qu.join(LicensePool, LicensePool.id==mw.license_pool_id)
+        qu = qu.options(contains_eager(mw.license_pool))
         return self.apply_filters(
-            _db, q, work_model, facets, pagination, featured
+            _db, qu, work_model, facets, pagination, featured
         )
 
     def apply_filters(self, _db, qu, work_model, facets, pagination,
@@ -548,7 +548,7 @@ class WorkList(object):
         # This method applies whatever filters are necessary to implement
         # the rules of this particular WorkList.
         qu, distinct = self.apply_bibliographic_filters(
-            _db, work_model, qu, featured
+            _db, qu, work_model, featured
         )
         if not qu:
             # apply_bibliographic_filters() may return None to
@@ -556,9 +556,7 @@ class WorkList(object):
             return None
 
         if facets:
-            qu = facets.apply(
-                self._db, qu, work_model, edition_model, distinct=distinct
-            )
+            qu = facets.apply(self._db, qu, work_model, distinct=distinct)
         elif distinct:
             # Something about the query makes it possible that the same
             # book might show up twice. We set the query as DISTINCT
@@ -569,17 +567,17 @@ class WorkList(object):
             qu = pagination.apply(qu)
         return qu
 
-    def apply_bibliographic_filters(
-            self, _db, qu, featured, work_model
-    ):
+    def apply_bibliographic_filters(self, _db, qu, work_model, featured=False):
+        """Filter out books whose bibliographic metadata doesn't match
+        what we're looking for.
+        """
         qu = self.apply_audience_filter(_db, qu, work_model)
         if self.languages:
             qu = qu.filter(edition_model.language.in_(self.languages))
+        return self.apply_custom_filters(_db, qu, work_model, featured)
 
-        return self.apply_custom_filters(q, work_model, edition_model)
-
-    def apply_custom_filters(self, _db, qu, featured, work_model, edition_model):
-        """Apply any subclass-specific filters to a query in progress.
+    def apply_custom_filters(self, _db, qu, work_model, featured=False):
+        """Apply subclass-specific filters to a query in progress.
 
         :return: A 2-tuple (query, distinct). `distinct` controls whether
         the query should be made DISTINCT. We never want to show duplicate
@@ -607,15 +605,12 @@ class WorkList(object):
             qu = qu.filter(edition_model.data_source_id != gutenberg.id)
         return qu
 
-    def featured_works(self, _db, use_materialized_works=True):
+    def featured_works(self, _db):
         """Extract a random sample of high-quality works from the WorkList.
         """
 
         # Build a query that would find all of the works.
-        if use_materialized_works:
-            query = self.materialized_works()
-        else:
-            query = self.works()
+        query = self.works(_db, featured=True)
         if not query:
             return []
 
@@ -659,20 +654,6 @@ class WorkList(object):
             return query.options(defer(work_model.verbose_opds_entry))
         else:
             return query.options(defer(work_model.simple_opds_entry))
-
-    def _search_database(self, query):
-        """Do a really awful database search for a book using ILIKE.
-
-        This is useful if an app server has no external search
-        interface defined, or if the search interface isn't working
-        for some reason.
-        """
-        k = "%" + query + "%"
-        q = self.works().filter(
-            or_(Edition.title.ilike(k),
-                Edition.author.ilike(k)))
-        #q = q.order_by(Work.quality.desc())
-        return q
 
 
 class Lane(Base, WorkList):
@@ -924,69 +905,69 @@ class Lane(Base, WorkList):
                     bucket.add(subgenre.id)
         return included_ids - excluded_ids
 
-    def apply_custom_filters(self, q, featured, work_model=Work, edition_model=Edition):
-        """Apply filters to a base query against Work or a materialized view,
+    def apply_custom_filters(self, _db, qu, work_model, featured=False):
+        """Apply filters to a base query against a materialized view,
         yielding a query that only finds books in this Lane.
 
-        :param work_model: Either Work, MaterializedWork, or MaterializedWorkWithGenre
-        :param edition_model: Either Edition, MaterializedWork, or MaterializedWorkWithGenre
+        :param work_model: Either MaterializedWork or MaterializedWorkWithGenre
         """
         parent_distinct = False
         if self.parent and self.inherit_parent_restrictions:
-            q, parent_distinct = self.parent.apply_bibliographic_filters(
-                q, featured, work_model, edition_model,
+            qu, parent_distinct = self.parent.apply_bibliographic_filters(
+                _db, qu, work_model, featured
             )
 
         # If a license source is specified, only show books from that
         # source.
         if self.license_source:
-            q = q.filter(
-                LicensePool.data_source==self.license_source
-            )
-
-        if self.age_range != None:
-            if (Classifier.AUDIENCE_ADULT in self.audiences
-                or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
-                # Books for adults don't have target ages. If we're including
-                # books for adults, allow the target age to be empty.
-                audience_has_no_target_age = work_model.target_age == None
-            else:
-                audience_has_no_target_age = False
-
-            if len(self.age_range) == 1:
-                # The target age must include this number.
-                r = NumericRange(self.age_range[0], self.age_range[0], '[]')
-                q = q.filter(
-                    or_(
-                        work_model.target_age.contains(r),
-                        audience_has_no_target_age
-                    )
-                )
-            else:
-                # The target age range must overlap this age range
-                r = NumericRange(self.age_range[0], self.age_range[-1], '[]')
-                q = q.filter(
-                    or_(
-                        work_model.target_age.overlaps(r),
-                        audience_has_no_target_age
-                    )
-                )
+            qu = qu.filter(LicensePool.data_source==self.license_source)
 
         if self.fiction == self.UNCLASSIFIED:
-            q = q.filter(work_model.fiction==None)
+            qu = qu.filter(work_model.fiction==None)
         elif self.fiction != self.BOTH_FICTION_AND_NONFICTION:
-            q = q.filter(work_model.fiction==self.fiction)
+            qu = qu.filter(work_model.fiction==self.fiction)
 
         if self.media:
-            q = q.filter(edition_model.medium.in_(self.media))
+            qu = qu.filter(edition_model.medium.in_(self.media))
 
-        q, child_distinct = self.apply_customlist_filter(
-            q, featured, work_model
+        qu = self.apply_age_range_filter(_db, qu, work_model)
+        qu, child_distinct = self.apply_customlist_filter(
+            qu, featured, work_model
         )
-        distinct = parent_distinct or new_distinct
-        return q, distinct
+        return qu, (parent_distinct or child_distinct)
 
-    def search(self, query, search_client, pagination=None):
+    def apply_age_range_filter(self, _db, qu, work_model):
+        if self.age_range == None:
+            return qu
+            
+        if (Classifier.AUDIENCE_ADULT in self.audiences
+            or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
+            # Books for adults don't have target ages. If we're including
+            # books for adults, allow the target age to be empty.
+            audience_has_no_target_age = work_model.target_age == None
+        else:
+            audience_has_no_target_age = False
+
+        if len(self.age_range) == 1:
+            # The target age must include this number.
+            r = NumericRange(self.age_range[0], self.age_range[0], '[]')
+            qu = qu.filter(
+                or_(
+                    work_model.target_age.contains(r),
+                    audience_has_no_target_age
+                )
+            )
+        else:
+            # The target age range must overlap this age range
+            r = NumericRange(self.age_range[0], self.age_range[-1], '[]')
+            qu = qu.filter(
+                or_(
+                    work_model.target_age.overlaps(r),
+                    audience_has_no_target_age
+                )
+            )
+
+    def search(self, _db, query, search_client, pagination=None):
         """Find works in this lane that match a search query.
         """        
            
@@ -1030,21 +1011,21 @@ class Lane(Base, WorkList):
                 ]
                 if doc_ids:
                     from model import MaterializedWork as mw
-                    q = self._db.query(mw).join(
+                    qu = _db.query(mw).join(
                         LicensePool, mw.license_pool_id==LicensePool.id
                     ).filter(
                         mw.works_id.in_(doc_ids)
                     )
-                    q = q.options(
+                    qu = qu.options(
                         lazyload(mw.license_pool, LicensePool.data_source),
                         lazyload(mw.license_pool, LicensePool.identifier),
                         lazyload(mw.license_pool, LicensePool.presentation_edition),
                     )
-                    q = self.only_show_ready_deliverable_works(q, mw)
-                    q = self._defer_unused_opds_entry(q, work_model=mw)
+                    qu = self.only_show_ready_deliverable_works(qu, mw)
+                    qu = self._defer_unused_opds_entry(qu, work_model=mw)
                     work_by_id = dict()
                     a = time.time()
-                    works = q.all()
+                    works = qu.all()
                     for mw in works:
                         work_by_id[mw.works_id] = mw
                     results = [work_by_id[x] for x in doc_ids if x in work_by_id]
@@ -1054,9 +1035,6 @@ class Lane(Base, WorkList):
                         len(results), b-a
                     )
 
-        if not results:
-            logging.debug("No elasticsearch results, falling back to database query")
-            results = self._search_database(query).limit(pagination.size).offset(pagination.offset).all()
         return results
 
     def featured_works(self, use_materialized_works=True):
