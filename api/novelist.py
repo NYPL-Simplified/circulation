@@ -55,8 +55,11 @@ class NoveListAPI(object):
     # While the NoveList API doesn't require parameters to be passed via URL,
     # the Representation object needs a unique URL to return the proper data
     # from the database.
-    QUERY_ENDPOINT = "http://novselect.ebscohost.com/Data/ContentByQuery?\
-            ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
+    QUERY_ENDPOINT = (
+        "http://novselect.ebscohost.com/Data/ContentByQuery?"
+        "ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
+        "&profile=%(profile)s&password=%(password)s"
+    )
     MAX_REPRESENTATION_AGE = 14*24*60*60      # two weeks
 
     @classmethod
@@ -192,8 +195,7 @@ class NoveListAPI(object):
         url = self._build_query(params)
         self.log.debug("NoveList lookup: %s", url)
         representation, from_cache = Representation.cacheable_post(
-            self._db, unicode(url), params,
-            max_age=self.MAX_REPRESENTATION_AGE,
+            self._db, unicode(url), '', max_age=self.MAX_REPRESENTATION_AGE,
             response_reviewer=self.review_response
         )
 
@@ -221,10 +223,9 @@ class NoveListAPI(object):
     @classmethod
     def _build_query(cls, params):
         """Builds a unique and url-encoded query endpoint"""
-
         for name, value in params.items():
             params[name] = urllib.quote(value)
-        return (cls.QUERY_ENDPOINT % params).replace(" ", "")
+        return cls.QUERY_ENDPOINT % params
 
     def lookup_info_to_metadata(self, lookup_representation):
         """Transforms a NoveList JSON representation into a Metadata object"""
@@ -321,8 +322,9 @@ class NoveListAPI(object):
 
         # If nothing interesting comes from the API, ignore it.
         if not (metadata.measurements or metadata.series_position or
-                metadata.series or metadata.subjects or metadata.links or
-                metadata.subtitle or metadata.recommendations):
+            metadata.series or metadata.subjects or metadata.links or
+            metadata.subtitle or metadata.recommendations
+        ):
             metadata = None
         return metadata
 
@@ -372,7 +374,7 @@ class NoveListAPI(object):
 
     def get_recommendations(self, metadata, recommendations_info):
         if not recommendations_info:
-            return None
+            return metadata
 
         related_books = recommendations_info.get('titles')
         related_books = filter(lambda b: b.get('is_held_locally'), related_books)
