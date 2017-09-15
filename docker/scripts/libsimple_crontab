@@ -56,7 +56,7 @@ HOME=/var/www/circulation
 # OPDS For Distributors
 #
 0 0 2 * * root core/bin/run opds_for_distributors_reaper_monitor >> /var/log/cron.log 2>&1
-0 4 * * * root core/bin/run opds_for_distributors_monitor >> /var/log/cron.log 2>&1
+0 4 * * * root core/bin/run opds_for_distributors_import_monitor >> /var/log/cron.log 2>&1
 
 # Vanilla OPDS
 #
