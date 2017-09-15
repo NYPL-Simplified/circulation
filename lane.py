@@ -855,13 +855,6 @@ class Lane(Base, WorkList):
         self._audiences = audiences
 
     @property
-    def list_based_lane(self):
-        """Is this the sort of Lane that only shows books if they
-        are in CustomLists?
-        """
-        return self.list_identifier_id or self.list_datasource_id
-
-    @property
     def custom_lists(self):
         """Find the specific CustomLists that control which works
         are in this Lane.
