@@ -8065,12 +8065,12 @@ class Representation(Base):
         representation.fetch_exception = traceback
 
     @classmethod
-    def cacheable_post(cls, _db, url, params, max_age=None,
+    def cacheable_post(cls, _db, url, data, max_age=None,
                        response_reviewer=None):
         """Transforms cacheable POST request into a Representation"""
 
         def do_post(url, headers, **kwargs):
-            kwargs.update({'data' : params})
+            kwargs.update({'data' : data})
             return cls.simple_http_post(url, headers, **kwargs)
 
         return cls.get(
@@ -8169,7 +8169,10 @@ class Representation(Base):
     @classmethod
     def simple_http_post(cls, url, headers, **kwargs):
         """The most simple HTTP-based POST."""
-        response = HTTP.post_with_timeout(url, headers=headers, **kwargs)
+        data = kwargs.get('data')
+        if 'data' in kwargs:
+            del kwargs['data']
+        response = HTTP.post_with_timeout(url, data, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod
