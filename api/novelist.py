@@ -61,7 +61,7 @@ class NoveListAPI(object):
         "ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
     )
     AUTH_PARAMS = "&profile=%(profile)s&password=%(password)s"
-    MAX_REPRESENTATION_AGE = 14*24*60*60      # two weeks
+    MAX_REPRESENTATION_AGE = 7*24*60*60      # one week
 
     @classmethod
     def from_config(cls, library):
@@ -184,7 +184,6 @@ class NoveListAPI(object):
 
         :return: Metadata object or None
         """
-
         client_identifier = identifier.urn
         if identifier.type != Identifier.ISBN:
             return self.lookup_equivalent_isbns(identifier)
@@ -195,19 +194,14 @@ class NoveListAPI(object):
         )
         scrubbed_url = unicode(self.scrubbed_url(params))
 
-        # Try to find a cached Representation for this URL to avoid a new
-        # request.
-        max_age = self.MAX_REPRESENTATION_AGE
-        representation = get_one(
-            self._db, Representation, 'interchangeable', url=scrubbed_url
-        )
-        if not (representation and representation.is_fresher_than(max_age)):
+        representation = self.cached_representation(scrubbed_url)
+        if representation:
             self.log.info("No cached NoveList request available.")
 
             url = self.build_query_url(params)
             self.log.debug("NoveList lookup: %s",  url)
             representation, from_cache = Representation.cacheable_post(
-                self._db, unicode(url), '', max_age=max_age,
+                self._db, unicode(url), '', max_age=self.MAX_REPRESENTATION_AGE,
                 response_reviewer=self.review_response
             )
 
@@ -253,6 +247,21 @@ class NoveListAPI(object):
         for name, value in params.items():
             urlencoded_params[name] = urllib.quote(value)
         return url % urlencoded_params
+
+    def cached_representation(self, scrubbed_url):
+        """Attempts to find a usable cached Representation for a given URL"""
+        representation = get_one(
+            self._db, Representation, 'interchangeable', url=scrubbed_url
+        )
+
+        if not representation:
+            return None
+        if not representation.is_fresher_than(self.MAX_REPRESENTATION_AGE):
+            # The Representation is nonexistent or stale. Delete it, so it
+            # can be replaced.
+            self._db.delete(representation)
+            return None
+        return representation
 
     def lookup_info_to_metadata(self, lookup_representation):
         """Transforms a NoveList JSON representation into a Metadata object"""

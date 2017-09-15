@@ -1,3 +1,4 @@
+import datetime
 import json
 from nose.tools import (
     set_trace,
@@ -226,6 +227,27 @@ class TestNoveListAPI(DatabaseTest):
         # The method to create a scrubbed url returns the same result
         # as the NoveListAPI.build_query_url
         eq_(scrubbed_result, self.novelist.scrubbed_url(params))
+
+    def test_cached_representation(self):
+        url = self._url
+
+        # If there's no Representation, nothing is returned.
+        result = self.novelist.cached_representation(url)
+        eq_(None, result)
+
+        # If a recent Representation exists, it is returned.
+        representation, is_new = self._representation(url=url)
+        representation.content = 'content'
+        representation.fetched_at = datetime.datetime.utcnow() - datetime.timedelta(days=3)
+        result = self.novelist.cached_representation(url)
+        eq_(representation, result)
+
+        # If an old Representation exists, it's deleted.
+        representation.fetched_at = datetime.datetime.utcnow() - datetime.timedelta(days=30)
+        result = self.novelist.cached_representation(url)
+        eq_(None, result)
+        self._db.commit()
+        assert representation not in self._db
 
     def test_scrub_subtitle(self):
         """Unnecessary title segments are removed from subtitles"""
