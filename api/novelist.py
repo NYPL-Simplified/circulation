@@ -195,12 +195,12 @@ class NoveListAPI(object):
         scrubbed_url = unicode(self.scrubbed_url(params))
 
         representation = self.cached_representation(scrubbed_url)
-        if representation:
+        if not representation:
             self.log.info("No cached NoveList request available.")
 
             url = self.build_query_url(params)
             self.log.debug("NoveList lookup: %s",  url)
-            representation, from_cache = Representation.cacheable_post(
+            representation, from_cache = Representation.post(
                 self._db, unicode(url), '', max_age=self.MAX_REPRESENTATION_AGE,
                 response_reviewer=self.review_response
             )
