@@ -8072,9 +8072,8 @@ class Representation(Base):
         representation.fetch_exception = traceback
 
     @classmethod
-    def cacheable_post(cls, _db, url, data, max_age=None,
-                       response_reviewer=None):
-        """Transforms cacheable POST request into a Representation"""
+    def post(cls, _db, url, data, max_age=None, response_reviewer=None):
+        """Finds or creates POST request as a Representation"""
 
         def do_post(url, headers, **kwargs):
             kwargs.update({'data' : data})
