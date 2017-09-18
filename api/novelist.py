@@ -27,6 +27,7 @@ from core.model import (
     Representation,
     Session,
     Subject,
+    get_one,
 )
 from core.util import TitleProcessor
 
@@ -55,9 +56,12 @@ class NoveListAPI(object):
     # While the NoveList API doesn't require parameters to be passed via URL,
     # the Representation object needs a unique URL to return the proper data
     # from the database.
-    QUERY_ENDPOINT = "http://novselect.ebscohost.com/Data/ContentByQuery?\
-            ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
-    MAX_REPRESENTATION_AGE = 14*24*60*60      # two weeks
+    QUERY_ENDPOINT = (
+        "https://novselect.ebscohost.com/Data/ContentByQuery?"
+        "ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
+    )
+    AUTH_PARAMS = "&profile=%(profile)s&password=%(password)s"
+    MAX_REPRESENTATION_AGE = 7*24*60*60      # one week
 
     @classmethod
     def from_config(cls, library):
@@ -180,7 +184,6 @@ class NoveListAPI(object):
 
         :return: Metadata object or None
         """
-
         client_identifier = identifier.urn
         if identifier.type != Identifier.ISBN:
             return self.lookup_equivalent_isbns(identifier)
@@ -189,13 +192,23 @@ class NoveListAPI(object):
             ClientIdentifier=client_identifier, ISBN=identifier.identifier,
             version=self.version, profile=self.profile, password=self.password
         )
-        url = self._build_query(params)
-        self.log.debug("NoveList lookup: %s", url)
-        representation, from_cache = Representation.cacheable_post(
-            self._db, unicode(url), params,
-            max_age=self.MAX_REPRESENTATION_AGE,
-            response_reviewer=self.review_response
-        )
+        scrubbed_url = unicode(self.scrubbed_url(params))
+
+        representation = self.cached_representation(scrubbed_url)
+        if not representation:
+            self.log.info("No cached NoveList request available.")
+
+            url = self.build_query_url(params)
+            self.log.debug("NoveList lookup: %s",  url)
+            representation, from_cache = Representation.post(
+                self._db, unicode(url), '', max_age=self.MAX_REPRESENTATION_AGE,
+                response_reviewer=self.review_response
+            )
+
+            # Remove credential information from the Representation URL. This
+            # avoids holding those details in an unexpected part of the database
+            # and lets multiple libraries to use the same cached representation.
+            representation.url = scrubbed_url
 
         return self.lookup_info_to_metadata(representation)
 
@@ -210,6 +223,11 @@ class NoveListAPI(object):
         return response
 
     @classmethod
+    def scrubbed_url(cls, params):
+        """Removes authentication details from cached Representation.url"""
+        return cls.build_query_url(params, include_auth=False)
+
+    @classmethod
     def _scrub_subtitle(cls, subtitle):
         """Removes common NoveList subtitle annoyances"""
         if subtitle:
@@ -219,12 +237,31 @@ class NoveListAPI(object):
         return subtitle
 
     @classmethod
-    def _build_query(cls, params):
+    def build_query_url(cls, params, include_auth=True):
         """Builds a unique and url-encoded query endpoint"""
+        url = cls.QUERY_ENDPOINT
+        if include_auth:
+            url += cls.AUTH_PARAMS
 
+        urlencoded_params = dict()
         for name, value in params.items():
-            params[name] = urllib.quote(value)
-        return (cls.QUERY_ENDPOINT % params).replace(" ", "")
+            urlencoded_params[name] = urllib.quote(value)
+        return url % urlencoded_params
+
+    def cached_representation(self, scrubbed_url):
+        """Attempts to find a usable cached Representation for a given URL"""
+        representation = get_one(
+            self._db, Representation, 'interchangeable', url=scrubbed_url
+        )
+
+        if not representation:
+            return None
+        if not representation.is_fresher_than(self.MAX_REPRESENTATION_AGE):
+            # The Representation is nonexistent or stale. Delete it, so it
+            # can be replaced.
+            self._db.delete(representation)
+            return None
+        return representation
 
     def lookup_info_to_metadata(self, lookup_representation):
         """Transforms a NoveList JSON representation into a Metadata object"""
@@ -321,8 +358,9 @@ class NoveListAPI(object):
 
         # If nothing interesting comes from the API, ignore it.
         if not (metadata.measurements or metadata.series_position or
-                metadata.series or metadata.subjects or metadata.links or
-                metadata.subtitle or metadata.recommendations):
+            metadata.series or metadata.subjects or metadata.links or
+            metadata.subtitle or metadata.recommendations
+        ):
             metadata = None
         return metadata
 
@@ -372,7 +410,7 @@ class NoveListAPI(object):
 
     def get_recommendations(self, metadata, recommendations_info):
         if not recommendations_info:
-            return None
+            return metadata
 
         related_books = recommendations_info.get('titles')
         related_books = filter(lambda b: b.get('is_held_locally'), related_books)

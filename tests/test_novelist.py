@@ -1,3 +1,4 @@
+import datetime
 import json
 from nose.tools import (
     set_trace,
@@ -194,6 +195,59 @@ class TestNoveListAPI(DatabaseTest):
         empty_response = self.sample_representation("unknown_isbn.json")
         result = self.novelist.lookup_info_to_metadata(empty_response)
         eq_(None, result)
+
+    def test_build_query_url(self):
+        params = dict(
+            ClientIdentifier='C I',
+            ISBN='456',
+            version='2.2',
+            profile='username',
+            password='secret'
+        )
+
+        # Authentication information is included in the URL by default
+        full_result = self.novelist.build_query_url(params)
+        auth_details = '&profile=username&password=secret'
+        eq_(True, full_result.endswith(auth_details))
+        assert 'profile=username' in full_result
+        assert 'password=secret' in full_result
+
+        # With a scrub, no authentication information is included.
+        scrubbed_result = self.novelist.build_query_url(params, include_auth=False)
+        eq_(False, scrubbed_result.endswith(auth_details))
+        assert 'profile=username' not in scrubbed_result
+        assert 'password=secret' not in scrubbed_result
+
+        # Other details are urlencoded and available in both versions.
+        for url in (scrubbed_result, full_result):
+            assert 'ClientIdentifier=C%20I' in url
+            assert 'ISBN=456' in url
+            assert 'version=2.2' in url
+
+        # The method to create a scrubbed url returns the same result
+        # as the NoveListAPI.build_query_url
+        eq_(scrubbed_result, self.novelist.scrubbed_url(params))
+
+    def test_cached_representation(self):
+        url = self._url
+
+        # If there's no Representation, nothing is returned.
+        result = self.novelist.cached_representation(url)
+        eq_(None, result)
+
+        # If a recent Representation exists, it is returned.
+        representation, is_new = self._representation(url=url)
+        representation.content = 'content'
+        representation.fetched_at = datetime.datetime.utcnow() - datetime.timedelta(days=3)
+        result = self.novelist.cached_representation(url)
+        eq_(representation, result)
+
+        # If an old Representation exists, it's deleted.
+        representation.fetched_at = datetime.datetime.utcnow() - datetime.timedelta(days=30)
+        result = self.novelist.cached_representation(url)
+        eq_(None, result)
+        self._db.commit()
+        assert representation not in self._db
 
     def test_scrub_subtitle(self):
         """Unnecessary title segments are removed from subtitles"""
