@@ -100,6 +100,20 @@ class TestCleverAuthenticationAPI(DatabaseTest):
         with self.app.test_request_context("/"):
             problem = self.api.remote_exchange_code_for_bearer_token(self._db, "code")
         eq_(INVALID_CREDENTIALS.uri, problem.uri)
+
+    def test_remote_exchange_payload(self):
+        """Test the content of the document sent to Clever when
+        exchanging tokens.
+        """
+        with self.app.test_request_context("/"):
+            payload = self.api._remote_exchange_payload(self._db, "a code")
+
+            expect_uri = url_for("oauth_callback", 
+                                 library_short_name=self._default_library.name,
+                                 _external=True)
+            eq_('authorization_code', payload['grant_type'])
+            eq_(expect_uri, payload['redirect_uri'])
+            eq_('a code', payload['code'])
         
     def test_remote_patron_lookup_unsupported_user_type(self):
         self.api.queue_response(dict(type='district_admin', data=dict(id='1234')))
