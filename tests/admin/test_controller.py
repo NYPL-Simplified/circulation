@@ -805,12 +805,23 @@ class TestSignInController(AdminControllerTest):
             eq_(INVALID_ADMIN_CREDENTIALS.detail, response.detail)
 
     def test_authenticated_admin(self):
+
+        # Unset the base URL -- it will be set automatically when we
+        # successfully authenticate as an admin.
+        base_url = ConfigurationSetting.sitewide(
+            self._db, Configuration.BASE_URL_KEY
+        )
+        base_url.value = None
+        eq_(None, base_url.value)
+
+
         # Creates a new admin with fresh details.
         new_admin_details = {
             'email' : u'admin@nypl.org',
             'credentials' : u'gnarly',
         }
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
+            flask.request.url = "http://chosen-hostname/admin/sign_in?redirect=foo"
             admin = self.manager.admin_sign_in_controller.authenticated_admin(new_admin_details)
             eq_('admin@nypl.org', admin.email)
             eq_('gnarly', admin.credential)
@@ -819,15 +830,25 @@ class TestSignInController(AdminControllerTest):
             eq_("admin@nypl.org", flask.session["admin_email"])
             eq_(True, flask.session.permanent)
 
+        # The first successfully authenticated admin user automatically
+        # sets the site's base URL.
+        eq_("http://chosen-hostname/", base_url.value)
+
         # Or overwrites credentials for an existing admin.
         existing_admin_details = {
             'email' : u'example@nypl.org',
             'credentials' : u'b-a-n-a-n-a-s',
         }
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
+            flask.request.url = "http://a-different-hostname/"
             admin = self.manager.admin_sign_in_controller.authenticated_admin(existing_admin_details)
             eq_(self.admin.id, admin.id)
             eq_('b-a-n-a-n-a-s', self.admin.credential)
+
+        # We already set the site's base URL, and it doesn't get set
+        # to a different value just because someone authenticated
+        # through a different hostname.
+        eq_("http://chosen-hostname/", base_url.value)
 
     def test_admin_signin(self):
         # Returns an error if there's no admin auth service.
