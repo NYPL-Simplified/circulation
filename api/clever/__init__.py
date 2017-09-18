@@ -139,11 +139,7 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         :return: A ProblemDetail if there's a problem; otherwise, the
         bearer token.
         """
-        payload = dict(
-            code=code,
-            grant_type='authorization_code',
-            redirect_uri=OAuthController.oauth_authentication_callback_url(_db)
-        )
+        payload = self._remote_exchange_payload(_db, code)
         authorization = base64.b64encode(
             self.client_id + ":" + self.client_secret
         )
@@ -161,6 +157,16 @@ class CleverAuthenticationAPI(OAuthAuthenticationProvider):
         if not token:
             return invalid
         return token
+
+    def _remote_exchange_payload(self, _db, code):
+        library = self.library(_db)
+        return dict(
+            code=code,
+            grant_type='authorization_code',
+            redirect_uri=OAuthController.oauth_authentication_callback_url(
+                library.short_name
+            )
+        )
         
     def remote_patron_lookup(self, token):
         """Use a bearer token to look up detailed patron information.
