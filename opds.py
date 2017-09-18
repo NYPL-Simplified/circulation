@@ -974,8 +974,11 @@ class AcquisitionFeed(OPDSFeed):
                 issued_already = (issued <= today)
             if issued_already:
                 issued_tag = AtomFeed.makeelement("{%s}created" % AtomFeed.DCTERMS_NS)
+                # Use datetime.isoformat instead of datetime.strftime because
+                # strftime only works on dates after 1890, and we have works
+                # that were issued much earlier than that.
                 # TODO: convert to local timezone, not that it matters much.
-                issued_tag.text = issued.strftime("%Y-%m-%d")
+                issued_tag.text = issued.isoformat().split('T')[0]
                 entry.extend([issued_tag])
 
         return entry

@@ -1103,6 +1103,19 @@ class TestAcquisitionFeed(DatabaseTest):
         assert original_pool.presentation_edition.title in entry
         assert new_pool.presentation_edition.title not in entry
 
+        # If the edition was issued before 1980, no datetime formatting error
+        # is raised.
+        work.simple_opds_entry = work.verbose_opds_entry = None
+        five_hundred_years = datetime.timedelta(days=(500*365))
+        work.presentation_edition.issued = (
+            datetime.datetime.utcnow() - five_hundred_years
+        )
+
+        entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)
+
+        expected = str(work.presentation_edition.issued.date())
+        assert expected in etree.tostring(entry)
+
     def test_entry_cache_adds_missing_drm_namespace(self):
         
         work = self._work(with_open_access_download=True)
