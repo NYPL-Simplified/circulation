@@ -181,6 +181,18 @@ class AdminController(object):
         # when the user closes the browser.
         flask.session.permanent = True
 
+        # If this is the first time an admin has been authenticated,
+        # make sure there is a value set for the sitewide BASE_URL_KEY
+        # setting. If it's not set, set it to the hostname of the
+        # current request. This assumes the first authenticated admin
+        # is accessing the admin interface through the hostname they
+        # want to be used for the site itself.
+        base_url = ConfigurationSetting.sitewide(
+            self._db, Configuration.BASE_URL_KEY
+        )
+        if not base_url.value:
+            base_url.value = urlparse.urljoin(flask.request.url, '/')
+
         return admin
 
     def check_csrf_token(self):
