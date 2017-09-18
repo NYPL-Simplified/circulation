@@ -7828,6 +7828,18 @@ class Representation(Base):
             return True
         return False
 
+    @property
+    def is_usable(self):
+        """Returns True if the Representation has some data or received
+        a status code that's not in the 5xx series.
+        """
+        if not self.fetch_exception and (
+            self.content or self.local_path or self.status_code
+            and self.status_code / 100 != 5
+        ):
+            return True
+        return False
+
     @classmethod
     def is_media_type(cls, s):
         """Return true if the given string looks like a media type."""
@@ -7845,6 +7857,15 @@ class Representation(Base):
                    'text/', 
                    'video/'
         ])
+
+    def is_fresher_than(self, max_age):
+        # Convert a max_age timedelta to a number of seconds.
+        if isinstance(max_age, datetime.timedelta):
+            max_age = max_age.total_seconds()
+
+        if not self.is_usable:
+            return False
+        return (max_age is None or max_age > self.age)
 
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
@@ -7885,27 +7906,13 @@ class Representation(Base):
             a['media_type'] = accept
         representation = get_one(_db, Representation, 'interchangeable', **a)
 
-        # Convert a max_age timedelta to a number of seconds.
-        if isinstance(max_age, datetime.timedelta):
-            max_age = max_age.total_seconds()
+        usable_representation = fresh_representation = False
+        if representation:
+            # Do we already have a usable representation?
+            usable_representation = representation.is_usable
 
-        # Do we already have a usable representation?
-        #
-        # 'Usable' means we tried it and either got some data or
-        # received a status code that's not in the 5xx series.
-        usable_representation = (
-            representation and not representation.fetch_exception
-            and (
-                representation.content or representation.local_path
-                or representation.status_code and representation.status_code / 100 != 5
-            )
-        )
-
-        # Assuming we have a usable representation, is it
-        # fresh?
-        fresh_representation = (
-            usable_representation and (
-                max_age is None or max_age > representation.age))
+            # Assuming we have a usable representation, is it fresh?
+            fresh_representation = representation.is_fresher_than(max_age)
 
         if debug is True:
             debug_level = logging.DEBUG
@@ -8065,12 +8072,11 @@ class Representation(Base):
         representation.fetch_exception = traceback
 
     @classmethod
-    def cacheable_post(cls, _db, url, params, max_age=None,
-                       response_reviewer=None):
-        """Transforms cacheable POST request into a Representation"""
+    def post(cls, _db, url, data, max_age=None, response_reviewer=None):
+        """Finds or creates POST request as a Representation"""
 
         def do_post(url, headers, **kwargs):
-            kwargs.update({'data' : params})
+            kwargs.update({'data' : data})
             return cls.simple_http_post(url, headers, **kwargs)
 
         return cls.get(
@@ -8169,7 +8175,10 @@ class Representation(Base):
     @classmethod
     def simple_http_post(cls, url, headers, **kwargs):
         """The most simple HTTP-based POST."""
-        response = HTTP.post_with_timeout(url, headers=headers, **kwargs)
+        data = kwargs.get('data')
+        if 'data' in kwargs:
+            del kwargs['data']
+        response = HTTP.post_with_timeout(url, data, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod
