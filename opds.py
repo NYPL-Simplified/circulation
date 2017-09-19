@@ -194,7 +194,12 @@ class Annotator(object):
                 dict(term=work.audience, label=work.audience)
             ]
 
-        if work.target_age:
+        # Any book can have a target age, but the target age
+        # is only relevant for childrens' and YA books.
+        audiences_with_target_age = (
+            Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
+        )
+        if (work.target_age and work.audience in audiences_with_target_age):
             uri = Subject.uri_lookup[Subject.AGE_RANGE]
             target_age = work.target_age_string
             if target_age:

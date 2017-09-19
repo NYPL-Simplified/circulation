@@ -587,40 +587,52 @@ class TestOPDS(DatabaseTest):
         work2.target_age = NumericRange(7,9)
         work3 = self._work(with_open_access_download=True)
         work3.audience = None
+        work4 = self._work(with_open_access_download=True)
+        work4.audience = "Adult"
+        work4.target_age = NumericRange(18)
 
         self._db.commit()
 
-        for w in work, work2, work3:
+        for w in work, work2, work3, work4:
             w.calculate_opds_entries(verbose=False)
 
         works = self._db.query(Work)
         with_audience = AcquisitionFeed(self._db, "test", "url", works)
         u = unicode(with_audience)
         with_audience = feedparser.parse(u)
-        entries = sorted(with_audience['entries'], key = lambda x: int(x['title']))
+        ya, children, no_audience, adult = sorted(with_audience['entries'], key = lambda x: int(x['title']))
         scheme = "http://schema.org/audience"
         eq_(
             [('Young Adult', 'Young Adult')],
-            [(x['term'], x['label']) for x in entries[0]['tags']
+            [(x['term'], x['label']) for x in ya['tags']
              if x['scheme'] == scheme]
         )
 
         eq_(
             [('Children', 'Children')],
-            [(x['term'], x['label']) for x in entries[1]['tags']
+            [(x['term'], x['label']) for x in children['tags']
              if x['scheme'] == scheme]
         )
 
         age_scheme = Subject.uri_lookup[Subject.AGE_RANGE]
         eq_(
             [('7-9', '7-9')],
-            [(x['term'], x['label']) for x in entries[1]['tags']
+            [(x['term'], x['label']) for x in children['tags']
              if x['scheme'] == age_scheme]
         )
 
         eq_([],
-            [(x['term'], x['label']) for x in entries[2]['tags']
+            [(x['term'], x['label']) for x in no_audience['tags']
              if x['scheme'] == scheme])
+
+        # Even though the 'Adult' book has a target age, the target
+        # age is not shown, because target age is only a relevant
+        # concept for children's and YA books.
+        eq_(
+            [],
+            [(x['term'], x['label']) for x in adult['tags']
+             if x['scheme'] == age_scheme]
+        )
 
     def test_acquisition_feed_includes_category_tags_for_appeals(self):
         work = self._work(with_open_access_download=True)
