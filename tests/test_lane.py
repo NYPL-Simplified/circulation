@@ -506,6 +506,35 @@ class TestWorkList(DatabaseTest):
         actual = list(WorkList.featured_collection_facets())
         eq_(expect, actual)
 
+    def test_works(self):
+
+        class OnlyOliverTwist(WorkList):
+            """Mock WorkList that only finds copies of Oliver Twist."""
+
+            def apply_filters(self, _db, qu, work_model, *args, **kwargs):
+                return qu.filter(work_model.sort_title=='Oliver Twist')
+
+        oliver_twist = self._work(title='Oliver Twist', with_license_pool=True)
+        not_oliver_twist = self._work(
+            title='Barnaby Rudge', with_license_pool=True
+        )
+        self.add_to_materialized_view(oliver_twist, not_oliver_twist)
+
+        # A normal WorkList will find both books.
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        eq_(2, wl.works(self._db).count())
+
+        # But the mock WorkList will only find Oliver Twist.
+        wl = OnlyOliverTwist()
+        wl.initialize(self._default_library)
+        eq_([oliver_twist.id], [x.works_id for x in wl.works(self._db)])
+
+        # A WorkList will only find books licensed through one of its
+        # collections.
+        collection = self._collection()
+
+
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.
         w1 = self._work(with_license_pool=True)

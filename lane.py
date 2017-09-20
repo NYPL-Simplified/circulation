@@ -564,7 +564,7 @@ class WorkList(object):
             # restrictions.
         else:
             mw = MaterializedWork
-            qu = self._db.query(mw)
+            qu = _db.query(mw)
 
         # Apply some database optimizations.
         qu = self._lazy_load(qu, mw)
@@ -581,7 +581,7 @@ class WorkList(object):
             )
 
         return self.apply_filters(
-            _db, qu, work_model, facets, pagination, featured
+            _db, qu, mw, facets, pagination, featured
         )
 
     def works_for_specific_ids(self, _db, work_ids):
