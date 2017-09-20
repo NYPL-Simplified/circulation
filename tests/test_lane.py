@@ -425,23 +425,24 @@ class TestWorkList(DatabaseTest):
         # We're going to try to get 3 featured works.
         self._default_library.setting(Library.FEATURED_LANE_SIZE).value = 3
 
-        # Here they are!
+        # Here are four.
         w1 = MockWork(1)
         w2 = MockWork(2)
         w3 = MockWork(3)
-        # Here's an extra.
         w4 = MockWork(4)
 
-        # Here, we will call works() five times times -- once for every item
-        # in the featured_collection_facets() generator -- but we will
-        # not be able to get more than one featured work.
+        # With a single work queued, we will call works() several
+        # times -- once for every item in the
+        # featured_collection_facets() generator -- but we will not be
+        # able to get more than that one featured work.
         queue = wl.queue_works
         queue([w1])
         featured = wl.featured_works(self._db)
         eq_([w1], featured)
 
         # Compare the actual arguments passed into works() with what
-        # featured_collection_facets() would dictate.
+        # featured_collection_facets() would dictate, to verify that
+        # the information was used.
         actual_facets = [
             (facets.collection, facets.availability, featured)
             for [facets, pagination, featured] in wl.works_calls
@@ -466,10 +467,17 @@ class TestWorkList(DatabaseTest):
         # Works are presented in the order they were received, to put
         # higher-quality works at the front. Duplicates are ignored.
         eq_([w1.id, w3.id, w4.id], [x.id for x in featured])
-        
+
         # We only had to make three calls to works() before filling
         # our quota.
         eq_(3, len(wl.works_calls))
+
+        # Here, we only have to try once.
+        wl.reset()
+        queue([w2, w3, w4, w1])
+        featured = wl.featured_works(self._db)
+        eq_([w2.id, w3.id, w4.id], [x.id for x in featured])        
+        eq_(1, len(wl.works_calls))
 
         # Here, the WorkList thinks that calling works() is a bad idea,
         # and persistently returns None.
@@ -481,7 +489,7 @@ class TestWorkList(DatabaseTest):
         # any values either.
         eq_([], wl.featured_works(self._db))
 
-        # And it keep calling works() for every facet, rather than
+        # And it keeps calling works() for every facet, rather than
         # giving up after the first None.
         eq_(len(expect_facets), len(wl.works_calls))
 
