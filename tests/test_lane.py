@@ -315,14 +315,39 @@ class TestPagination(DatabaseTest):
 
 class TestWorkList(DatabaseTest):
 
-    def test_works_for_specific_ids(self):
-        # Create two works and put them in the materialized view.
-        w1 = self._work()
-        w2 = self._work()
+    def add_to_materialized_view(self, *works):
+        """Make sure all the works show up in the materialized view.
+        """
+        for work in works:
+            work.presentation_ready = True
+            work.simple_opds_entry = "an entry"
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
+    def test_works_for_specific_ids(self):
+        # Create two works and put them in the materialized view.
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        self.add_to_materialized_view(w1, w2)
         wl = WorkList()
         wl.initialize(self._default_library)
-        [w2_mw] = wl.works_for_specific_ids(self._db, [w2.id])
-        eq_(w2_mv.title, w2.title)
+
+        # We asked for w2 only, and we got (the materialized view's
+        # version of) w2 only.
+        [w2_mv] = wl.works_for_specific_ids(self._db, [w2.id])
+        eq_(w2_mv.sort_title, w2.sort_title)
+
+        # Works are returned in the order we ask for.
+        for ordering in ([w1, w2], [w2, w1]):            
+            ids = [x.id for x in ordering]
+            mv_works = wl.works_for_specific_ids(self._db, ids)
+            eq_(ids, [x.works_id for x in mv_works])
+
+        # If we ask for a work ID that's not in the materialized view,
+        # we don't get it.
+        eq_([], wl.works_for_specific_ids(self._db, [-100]))
+
+        # If we ask for a work that's not deliverable, we don't get it.
+        for lpdm in w2.license_pools[0].delivery_mechanisms:
+            self._db.delete(lpdm)
+        eq_([], wl.works_for_specific_ids(self._db, [w2.id]))
