@@ -6731,7 +6731,9 @@ class TestCollection(DatabaseTest):
         )
         eq_(True, is_new)
         eq_(self.collection.metadata_identifier, mirror_collection.name)
-        eq_(self.collection.external_integration.protocol, mirror_collection.external_integration.protocol)
+        eq_(self.collection.protocol, mirror_collection.protocol)
+        # Because this isn't an OPDS collection, no account details are held.
+        eq_(None, mirror_collection.external_account_id)
 
         # If the mirrored collection already exists, it is returned.
         collection = self._collection(external_account_id=self._url)
@@ -6739,12 +6741,17 @@ class TestCollection(DatabaseTest):
             self._db, Collection,
             name=collection.metadata_identifier,
         )[0]
+        mirror_collection.create_external_integration(collection.protocol)
+        # Confirm that there's no external_account_id.
+        eq_(None, mirror_collection.external_account_id)
 
         result, is_new = Collection.from_metadata_identifier(
             self._db, collection.metadata_identifier
         )
         eq_(False, is_new)
         eq_(mirror_collection, result)
+        # The external_account_id has been set now.
+        eq_(collection.external_account_id, mirror_collection.external_account_id)
 
     def test_catalog_identifier(self):
         """#catalog_identifier associates an identifier with the catalog"""

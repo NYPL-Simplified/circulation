@@ -10336,13 +10336,14 @@ class Collection(Base, HasFullTableCache):
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
-        account_id = base64.urlsafe_b64encode(self.unique_account_id.encode('utf8'))
-        protocol = base64.urlsafe_b64encode(
-            self.external_integration.protocol.encode('utf8')
-        )
+        def encode(detail):
+            return base64.urlsafe_b64encode(detail.encode('utf-8'))
+
+        account_id = encode(self.unique_account_id)
+        protocol = encode(self.protocol)
 
         metadata_identifier = protocol + ':' + account_id
-        return base64.urlsafe_b64encode(metadata_identifier.encode('utf8'))
+        return encode(metadata_identifier)
 
     @classmethod
     def from_metadata_identifier(cls, _db, metadata_identifier):
@@ -10352,19 +10353,28 @@ class Collection(Base, HasFullTableCache):
         collection = get_one(_db, Collection, name=metadata_identifier)
         is_new = False
 
-        if not collection:
-            details = base64.urlsafe_b64decode(metadata_identifier.encode('utf8'))
-            protocol = unicode(base64.urlsafe_b64decode(
-                details.split(':', 1)[0].encode('utf8')
-            ))
-            collection, is_new = create(_db, Collection,
-                name=metadata_identifier)
+        opds_collection_without_url = (
+            collection and collection.protocol==ExternalIntegration.OPDS_IMPORT
+            and not collection.external_account_id
+        )
 
-            integration = collection.create_external_integration(protocol)
-            collection.external_integration.goal = (
-                ExternalIntegration.LICENSE_GOAL
-            )
-            collection.external_integration.protocol = protocol
+        if not collection or opds_collection_without_url:
+            def decode(detail):
+                return base64.urlsafe_b64decode(detail.encode('utf-8'))
+
+            details = decode(metadata_identifier)
+            encoded_details  = details.split(':', 1)
+            [protocol, account_id] = [decode(d) for d in encoded_details]
+
+            if not collection:
+                collection, is_new = create(
+                    _db, Collection, name=metadata_identifier
+                )
+                collection.create_external_integration(protocol)
+
+            if protocol == ExternalIntegration.OPDS_IMPORT:
+                # Share the feed URL so the Metadata Wrangler can find it.
+               collection.external_account_id = account_id
 
         return collection, is_new
 
