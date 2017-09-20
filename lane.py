@@ -23,6 +23,7 @@ from sqlalchemy import (
     Table,
 )
 from sqlalchemy.orm import (
+    backref,
     contains_eager,
     defer,
     joinedload,
@@ -760,12 +761,14 @@ class Lane(Base, WorkList):
                        nullable=True)
 
     # A lane may have one parent lane and many sublanes.
-    parent = relationship("Lane", foreign_keys=parent_id, backref="sublanes")
+    parent = relationship(
+        "Lane", foreign_keys=parent_id, backref=backref("sublanes", remote_side=[id]),
+    )
 
     # A lane may have multiple associated LaneGenres. For most lanes,
     # this is how the contents of the lanes are defined.
     lane_genres = relationship(
-        "LaneGenre", foreign_keys="lane_id", backref="lane"
+        "LaneGenre", foreign_keys="LaneGenre.lane_id", backref="lane"
     )
 
     # identifier is a name for this lane that is unique across the
@@ -822,7 +825,7 @@ class Lane(Base, WorkList):
     # Only the books on these specific CustomLists will be shown.
     customlists = relationship(
         "CustomList", secondary=lambda: lanes_customlists,
-        backref="lanes"
+        backref="lane"
     )
 
     # This has no effect unless list_datasource_id or
@@ -1251,7 +1254,7 @@ lanes_customlists = Table(
         index=True, nullable=False
     ),
     Column(
-        'customlist_id', Integer, ForeignKey('identifiers.id'),
+        'customlist_id', Integer, ForeignKey('customlists.id'),
         index=True, nullable=False
     ),
     UniqueConstraint('lane_id', 'customlist_id'),
