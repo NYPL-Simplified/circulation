@@ -370,9 +370,9 @@ class Pagination(object):
             return False
         return self.offset + self.size < self.query_size
 
-    def apply(self, q):
+    def apply(self, qu):
         """Modify the given query with OFFSET and LIMIT."""
-        self.query_size = fast_query_count(q)
+        self.query_size = fast_query_count(qu)
         return qu.offset(self.offset).limit(self.size)
 
 

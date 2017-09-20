@@ -989,34 +989,3 @@ class TestFilters(DatabaseTest):
         [subclass_work] = subclass.works().all()
         eq_(2, len(subclass_work.license_pools))
 
-
-class TestPagination(DatabaseTest):
-
-    def test_has_next_page(self):
-        query = self._db.query(Work)
-        pagination = Pagination(size=2)
-
-        # When the query is empty, pagination doesn't have a next page.
-        pagination.apply(query)
-        eq_(False, pagination.has_next_page)
-
-        # When there are more results in the query, it does.
-        for num in range(3):
-            # Create three works.
-            self._work()
-        pagination.apply(query)
-        eq_(True, pagination.has_next_page)
-
-        # When we reach the end of results, there's no next page.
-        pagination.offset = 1
-        eq_(False, pagination.has_next_page)
-
-        # When the database is updated, pagination knows.
-        for num in range(3):
-            self._work()
-        pagination.apply(query)
-        eq_(True, pagination.has_next_page)
-
-        # Even when the query ends at the same size as a page, all is well.
-        pagination.offset = 4
-        eq_(False, pagination.has_next_page)
