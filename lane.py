@@ -236,40 +236,6 @@ class Facets(FacetConstants):
         }
         return order_facet_to_database_field[order_facet]
 
-    @classmethod
-    def database_field_to_order_facet(cls, database_field):
-        """The inverse of order_facet_to_database_field.
-
-        TODO: This method may not be necessary.
-        """
-        from model import (
-            MaterializedWork as mw,
-            MaterializedWorkWithGenre as mwg,
-        )
-
-        if database_field in (Edition.sort_title, mw.sort_title, 
-                              mwg.sort_title):
-            return cls.ORDER_TITLE
-
-        if database_field in (Edition.sort_author, mw.sort_author,
-                              mwg.sort_author):
-            return cls.ORDER_AUTHOR
-
-        if database_field in (Work.last_update_time, mw.last_update_time, 
-                              mwg.last_update_time):
-            return cls.ORDER_LAST_UPDATE
-
-        if database_field in (Edition.series_position, mw.series_position):
-            return cls.ORDER_SERIES_POSITION
-
-        if database_field in (Work.id, mw.works_id, mwg.works_id):
-            return cls.ORDER_WORK_ID
-
-        if database_field in (Work.random, mw.random, mwg.random):
-            return cls.ORDER_RANDOM
-
-        return None
-
     def apply(self, _db, qu, work_model=Work, edition_model=Edition,
               distinct=False):
         """Restrict a query so that it only matches works that fit
