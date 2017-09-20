@@ -945,7 +945,8 @@ class Lane(Base, WorkList):
         """
         if value:
             self.customlists = []
-        self._list_datasource_id = value.id
+            value = value.id
+        self._list_datasource_id = value
 
     @property
     def uses_customlists(self):
