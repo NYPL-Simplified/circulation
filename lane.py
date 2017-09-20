@@ -1212,7 +1212,7 @@ class Lane(Base, WorkList):
         return qu, True
 
 Library.lanes = relationship("Lane", backref="library")
-DataSource.list_lanes = relationship("Lane", backref="_list_datasource")
+DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
 
 
 class LaneGenre(Base):
@@ -1240,7 +1240,7 @@ class LaneGenre(Base):
     )
 
 Genre.lane_genres = relationship(
-    "LaneGenre", foreign_keys="genre_id", backref="genre"
+    "LaneGenre", foreign_keys=LaneGenre.genre_id, backref="genre"
 )
 
 
