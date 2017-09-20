@@ -20,6 +20,7 @@ from sqlalchemy import (
     and_,
     or_,
     not_,
+    Table,
 )
 from sqlalchemy.orm import (
     contains_eager,
@@ -50,6 +51,7 @@ from util import fast_query_count
 import elasticsearch
 
 from sqlalchemy import (
+    Boolean,
     Column,
     ForeignKey,
     Integer,
@@ -384,8 +386,9 @@ class WorkList(object):
     def initialize(self, library, genres=None, audiences=None, languages=None):
         """Initialize with basic data.
 
-        This is not a constructor to avoid conflicts with `Lane`, an
-        ORM object that subclasses this object.
+        This is not a constructor, to avoid conflicts with `Lane`, an
+        ORM object that subclasses this object but does not use this
+        initialization code.
         
         :param library: Only Works available in this Library will be
         included in lists.
@@ -398,6 +401,7 @@ class WorkList(object):
 
         :param languages: Only Works in one of these languages will be
         included in lists.
+
         """
         self.library_id = library.id
         self.collection_ids = [
@@ -416,7 +420,11 @@ class WorkList(object):
 
     @property
     def visible_children(self):
-        """By default, a WorkList has no children."""
+        """A WorkList's children can be used to create a grouped acquisition
+        feed for that WorkList.
+
+        By default, a WorkList has no children.
+        """
         return []
 
     @property
@@ -433,7 +441,7 @@ class WorkList(object):
 
     def groups(self, _db):
         """Extract a list of samples from each child of this WorkList.  This
-        can be used to create a grouped OPDS feed for the WorkList.
+        can be used to create a grouped acquisition feed for the WorkList.
 
         :return: A list of (Work, WorkList) 2-tuples, with each WorkList
         representing the child WorkList in which the Work is found.
@@ -447,6 +455,23 @@ class WorkList(object):
                 works_and_worklists.append((work, child))
         return works_and_worklists
 
+    def featured_works(self, _db):
+        """Extract a random sample of high-quality works from the WorkList.
+
+        Used when building a grouped OPDS feed for this WorkList's parent.
+        """
+        # TODO: It seems like quality and ordering by Work.random need
+        # to be involved here.
+
+        # Build a query that would find all of the works.
+        query = self.works(_db, featured=True)
+        if not query:
+            return []
+
+        # Then take a random sample from that query.
+        target_size = self.library(_db).featured_lane_size
+        return self.random_sample(query, target_size=target_size)
+
     def works(self, _db, facets=None, pagination=None, featured=False):
 
         """Create a query against a materialized view that finds Work-like
@@ -454,7 +479,7 @@ class WorkList(object):
         WorkList.
 
         The apply_filters() implementation defines which Works qualify
-        for membership.
+        for membership in a WorkList of this type.
 
         :param _db: A database connection.
         :param facets: A Facets object which may put additional
@@ -474,29 +499,70 @@ class WorkList(object):
             MaterializedWork,
             MaterializedWorkWithGenre,
         )
-        genre_ids = self.genre_ids
-        if genre_ids:
+        if self.genre_ids:
             mw = MaterializedWorkWithGenre
             qu = _db.query(mw)
-            qu = qu.filter(mw.genre_id.in_(genre_ids))
+            # apply_bibliographic_filters() will apply the genre
+            # restrictions.
         else:
             mw = MaterializedWork
             qu = self._db.query(mw)
 
+        # Apply some database optimizations.
         qu = self._lazy_load(qu, mw)
         qu = self._defer_unused_fields(qu, mw)
 
+        # apply_filters() requires that the query include a join
+        # against LicensePool. If nothing else, the `facets` may
+        # restrict the query to currently available items.
         qu = qu.join(LicensePool, LicensePool.id==mw.license_pool_id)
         qu = qu.options(contains_eager(mw.license_pool))
+        if self.collection_ids:
+            qu = qu.filter(
+                LicensePool.collection_id.in_(self.collection_ids)
+            )
+
         return self.apply_filters(
             _db, qu, work_model, facets, pagination, featured
         )
+
+    @classmethod
+    def works_for_specific_ids(self, _db, work_ids):
+        """Create the appearance of having called works() on a WorkList object,
+        but return the specific Works identified by `work_ids`.
+        """
+
+        # Get a list of MaterializedWorks as though we had called works()
+        from model import MaterializedWork as mw
+        qu = _db.query(mw).join(
+            LicensePool, mw.license_pool_id==LicensePool.id
+        ).filter(
+            mw.works_id.in_(doc_ids)
+        )
+        qu = self._lazy_load(qu, mw)
+        qu = self._defer_unused_fields(qu, mw)
+        qu = self.only_show_ready_deliverable_works(qu, mw)
+        work_by_id = dict()
+        a = time.time()
+        works = qu.all()
+
+        # Put the Work objects in the same order as their work_ids were.
+        for mw in works:
+            work_by_id[mw.works_id] = mw
+        results = [work_by_id[x] for x in doc_ids if x in work_by_id]
+
+        b = time.time()
+        logging.debug(
+            "Obtained %d MaterializedWork objects in %.2fsec",
+            len(results), b-a
+        )
+        return results
 
     def apply_filters(self, _db, qu, work_model, facets, pagination,
                       featured=False):
         """Apply common WorkList filters to a query. Also apply
         subclass-specific filters by calling
-        apply_bibliographic_filters(), which calls the
+        apply_bibliographic_filters(), which will call the
         apply_custom_filters() hook method.
         """
         # In general, we only show books that are ready to be delivered
@@ -509,7 +575,7 @@ class WorkList(object):
             _db, qu, work_model, featured
         )
         if not qu:
-            # apply_bibliographic_filters() may return None to
+            # apply_bibliographic_filters() may return a null query to
             # indicate that the WorkList should not exist at all.
             return None
 
@@ -529,9 +595,14 @@ class WorkList(object):
         """Filter out books whose bibliographic metadata doesn't match
         what we're looking for.
         """
+        # Audience and language restrictions are common to all
+        # WorkLists. (So are genre and collection restrictions, but those
+        # were applied back in works().)
         qu = self.apply_audience_filter(_db, qu, work_model)
         if self.languages:
             qu = qu.filter(edition_model.language.in_(self.languages))
+        if self.genre_ids:
+            qu = qu.filter(mw.genre_id.in_(self.genre_ids))
         return self.apply_custom_filters(_db, qu, work_model, featured)
 
     def apply_custom_filters(self, _db, qu, work_model, featured=False):
@@ -540,18 +611,20 @@ class WorkList(object):
         :return: A 2-tuple (query, distinct). `distinct` controls whether
         the query should be made DISTINCT. We never want to show duplicate
         Works in a query, but adding DISTINCT slows things down, so you
-        should only return it when it's reasonable to expect a book to show
+        should only return it when it's reasonable that a book might show
         up more than once.
         """
         raise NotImplementedError()
 
     def apply_audience_filter(self, _db, qu, work_model):
+        """Make sure that only Works classified under this lane's
+        allowed audiences are returned.
+        """
         if not self.audiences:
             return qu
         qu = qu.filter(work_model.audience.in_(self.audiences))
         if (Classifier.AUDIENCE_CHILDREN in self.audiences
             or Classifier.AUDIENCE_YOUNG_ADULT in self.audiences):
-            gutenberg = DataSource.lookup(_db, DataSource.GUTENBERG)
             # TODO: A huge hack to exclude Project Gutenberg
             # books (which were deemed appropriate for
             # pre-1923 children but are not necessarily so for
@@ -560,21 +633,9 @@ class WorkList(object):
             # This hack should be removed in favor of a
             # whitelist system and some way of allowing adults
             # to see books aimed at pre-1923 children.
+            gutenberg = DataSource.lookup(_db, DataSource.GUTENBERG)
             qu = qu.filter(edition_model.data_source_id != gutenberg.id)
         return qu
-
-    def featured_works(self, _db):
-        """Extract a random sample of high-quality works from the WorkList.
-        """
-
-        # Build a query that would find all of the works.
-        query = self.works(_db, featured=True)
-        if not query:
-            return []
-
-        # Then take a random sample from that query.
-        target_size = self.library(_db).featured_lane_size
-        return self.random_sample(query, target_size=target_size)
 
     def only_show_ready_deliverable_works(
             self, query, work_model, show_suppressed=False
@@ -636,7 +697,8 @@ class Lane(Base, WorkList):
 
     MAX_CACHE_AGE = 20*60      # 20 minutes
 
-    # If a Lane has fewer than 5 titles, don't even bother showing it.
+    # If a Lane has fewer than 5 titles, don't even bother showing it
+    # in its parent's grouped feed.
     MINIMUM_SAMPLE_SIZE = 5
 
     __tablename__ = 'lanes'
@@ -652,7 +714,7 @@ class Lane(Base, WorkList):
     # A lane may have multiple associated LaneGenres. For most lanes,
     # this is how the contents of the lanes are defined.
     lane_genres = relationship(
-        "LaneGenre", foreign_keys=lane_id, backref="lane"
+        "LaneGenre", foreign_keys="lane_id", backref="lane"
     )
 
     # identifier is a name for this lane that is unique across the
@@ -671,8 +733,8 @@ class Lane(Base, WorkList):
     # False = Nonfiction only
     # null = Both fiction and nonfiction
     #
-    # This may interact with lane_genres, for genres that span
-    # fiction/nonfiction such as Humor.
+    # This may interact with lane_genres, for genres such as Humor
+    # which can apply to either fiction or nonfiction.
     fiction = Column(Boolean, index=True, nullable=True)
 
     # A lane may be restricted to works classified for specific audiences
@@ -699,17 +761,17 @@ class Lane(Base, WorkList):
         nullable=True
     )
 
-    # Only books on a CustomList obtained from this DataSource will be
-    # shown.
+    # Only books on one or more CustomLists obtained from this
+    # DataSource will be shown.
     list_datasource_id = Column(
         Integer, ForeignKey('datasources.id'), index=True,
         nullable=True
     )
 
-    # Only books on this specific CustomList will be shown.
-    list_id = Column(
-        Integer, ForeignKey('customlists.id'), index=True,
-        nullable=True
+    # Only the books on these specific CustomLists will be shown.
+    customlists = relationship(
+        "CustomList", secondary=lambda: lanes_customlists,
+        backref="lanes"
     )
 
     # This has no effect unless list_datasource_id or
@@ -766,7 +828,7 @@ class Lane(Base, WorkList):
     def audiences(self):
         return self._audiences
 
-    @audiences.setter(self):
+    @audiences.setter
     def set_audiences(self, value):
         """The `audiences` field cannot be set to a value that
         contradicts the current value to the `target_age` field.
@@ -818,7 +880,10 @@ class Lane(Base, WorkList):
             audiences.add(Classifier.AUDIENCE_CHILDREN)
         if age_range[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
             audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
+        self._target_age = age_range
         self._audiences = audiences
+
+    # TODO: Setting list_data_source should clear custom_lists.
 
     @property
     def custom_lists(self):
@@ -840,6 +905,7 @@ class Lane(Base, WorkList):
             CustomList.data_source==self.list_data_source
         )
 
+    @property
     def genre_ids(self):
         """Find the database ID of every Genre such that a Work classified in
         that Genre should be in this Lane.
@@ -852,6 +918,7 @@ class Lane(Base, WorkList):
         return self._genre_ids
 
     def _gather_genre_ids(self):
+        """Method that does the work of `genre_ids`."""
         if not self.lane_genres:
             return None
 
@@ -874,79 +941,50 @@ class Lane(Base, WorkList):
             )
         return genre_ids
 
-    def apply_custom_filters(self, _db, qu, work_model, featured=False):
-        """Apply filters to a base query against a materialized view,
-        yielding a query that only finds books in this Lane.
-
-        :param work_model: Either MaterializedWork or MaterializedWorkWithGenre
+    @property
+    def search_target(self):
+        """When someone in this lane wants to do a search, determine which
+        Lane should actually be searched.
         """
-        parent_distinct = False
-        if self.parent and self.inherit_parent_restrictions:
-            qu, parent_distinct = self.parent.apply_bibliographic_filters(
-                _db, qu, work_model, featured
-            )
+        if self.parent is None:
+            # We are at the top level. Search everything.
+            return self
 
-        # If a license source is specified, only show books from that
-        # source.
-        if self.license_source:
-            qu = qu.filter(LicensePool.data_source==self.license_source)
+        if self.root_for_patron_type:
+            # This lane acts as the "top level" for one or more patron
+            # types.  Search it, even if the active patron is not of
+            # that type. (This avoids panic reactions when an admin
+            # searches the 'Early Grades' lane and finds books from
+            # other lanes.)
+            return self
 
-        if self.fiction == self.UNCLASSIFIED:
-            qu = qu.filter(work_model.fiction==None)
-        elif self.fiction != self.BOTH_FICTION_AND_NONFICTION:
-            qu = qu.filter(work_model.fiction==self.fiction)
+        if not self.genres and not self.list_ids:
+            # This lane is not restricted to any particular genres or
+            # lists. It can be searched and any lane below it should
+            # search this one.
+            return self
 
-        if self.media:
-            qu = qu.filter(edition_model.medium.in_(self.media))
-
-        qu = self.apply_age_range_filter(_db, qu, work_model)
-        qu, child_distinct = self.apply_customlist_filter(
-            qu, work_model, featured
+        # Any other lane cannot be searched directly, but maybe its
+        # parent can be searched.
+        logging.debug(
+            "Lane %s is not searchable; using parent %s" % (
+                self.name, self.parent.name)
         )
-        return qu, (parent_distinct or child_distinct)
-
-    def apply_age_range_filter(self, _db, qu, work_model):
-        if self.age_range == None:
-            return qu
-            
-        if (Classifier.AUDIENCE_ADULT in self.audiences
-            or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
-            # Books for adults don't have target ages. If we're including
-            # books for adults, allow the target age to be empty.
-            audience_has_no_target_age = work_model.target_age == None
-        else:
-            audience_has_no_target_age = False
-
-        if len(self.age_range) == 1:
-            # The target age must include this number.
-            r = NumericRange(self.age_range[0], self.age_range[0], '[]')
-            qu = qu.filter(
-                or_(
-                    work_model.target_age.contains(r),
-                    audience_has_no_target_age
-                )
-            )
-        else:
-            # The target age range must overlap this age range
-            r = NumericRange(self.age_range[0], self.age_range[-1], '[]')
-            qu = qu.filter(
-                or_(
-                    work_model.target_age.overlaps(r),
-                    audience_has_no_target_age
-                )
-            )
+        return self.parent.search_target
 
     def search(self, _db, query, search_client, pagination=None):
-        """Find works in this lane that match a search query.
+        """Find works in this lane that also match a search query.
         """        
            
         if not pagination:
-            pagination = Pagination(offset=0, size=Pagination.DEFAULT_SEARCH_SIZE)
+            pagination = Pagination(
+                offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
+            )
 
         search_lane = self.search_target
         if not search_lane:
             # This lane is not searchable, and neither are any of its
-            # parents.
+            # parents. There are no search results.
             return []
 
         if search_lane.fiction in (True, False):
@@ -954,6 +992,7 @@ class Lane(Base, WorkList):
         else:
             fiction = None
 
+        # Get the search results from Elasticsearch.
         results = None
         if search_client:
             docs = None
@@ -961,7 +1000,8 @@ class Lane(Base, WorkList):
             try:
                 docs = search_client.query_works(
                     query, search_lane.media, search_lane.languages,
-                    fiction, list(search_lane.audiences), search_lane.age_range,
+                    fiction, list(search_lane.audiences), 
+                    search_lane.target_age,
                     search_lane.genre_ids,
                     fields=["_id", "title", "author", "license_pool_id"],
                     size=pagination.size,
@@ -969,7 +1009,7 @@ class Lane(Base, WorkList):
                 )
             except elasticsearch.exceptions.ConnectionError, e:
                 logging.error(
-                    "Could not connect to Elasticsearch; falling back to database search."
+                    "Could not connect to ElasticSearch. Returning empty list of search results."
                 )
             b = time.time()
             logging.debug("Elasticsearch query completed in %.2fsec", b-a)
@@ -979,35 +1019,8 @@ class Lane(Base, WorkList):
                     int(x['_id']) for x in docs['hits']['hits']
                 ]
                 if doc_ids:
-                    results = self.for_specific_work_ids(_db, doc_ids)
+                    results = WorkList.works_for_specific_ids(_db, doc_ids)
 
-        return results
-
-    @classmethod
-    def for_work_ids(self, _db, work_ids):
-        """Create the appearance of having called works() on this Lane, but
-        return the specific Works identified by `work_ids`.
-        """
-        from model import MaterializedWork as mw
-        qu = _db.query(mw).join(
-            LicensePool, mw.license_pool_id==LicensePool.id
-        ).filter(
-            mw.works_id.in_(doc_ids)
-        )
-        qu = self._lazy_load(qu, mw)
-        qu = self._defer_unused_fields(qu, mw)
-        qu = self.only_show_ready_deliverable_works(qu, mw)
-        work_by_id = dict()
-        a = time.time()
-        works = qu.all()
-        for mw in works:
-            work_by_id[mw.works_id] = mw
-        results = [work_by_id[x] for x in doc_ids if x in work_by_id]
-        b = time.time()
-        logging.debug(
-            "Obtained %d MaterializedWork objects in %.2fsec",
-            len(results), b-a
-        )
         return results
 
     def featured_works(self, _db):
@@ -1065,9 +1078,83 @@ class Lane(Base, WorkList):
                 break
         return books[:target_size]
 
+    def apply_custom_filters(self, _db, qu, work_model, featured=False):
+        """Apply filters to a base query against a materialized view,
+        yielding a query that only finds books in this Lane.
+
+        :param work_model: Either MaterializedWork or MaterializedWorkWithGenre
+        """
+        parent_distinct = False
+        if self.parent and self.inherit_parent_restrictions:
+            # In addition to the other restrictions imposed by this
+            # Lane, books will show up here only if they would
+            # also show up in the parent Lane.
+            qu, parent_distinct = self.parent.apply_bibliographic_filters(
+                _db, qu, work_model, featured
+            )
+
+        # If a license source is specified, only show books from that
+        # source.
+        if self.license_source:
+            qu = qu.filter(LicensePool.data_source==self.license_source)
+
+        if self.fiction == self.UNCLASSIFIED:
+            qu = qu.filter(work_model.fiction==None)
+        elif self.fiction != self.BOTH_FICTION_AND_NONFICTION:
+            qu = qu.filter(work_model.fiction==self.fiction)
+
+        if self.media:
+            qu = qu.filter(edition_model.medium.in_(self.media))
+
+        qu = self.apply_age_range_filter(_db, qu, work_model)
+        qu, child_distinct = self.apply_customlist_filter(
+            qu, work_model, featured
+        )
+        return qu, (parent_distinct or child_distinct)
+
+    def apply_age_range_filter(self, _db, qu, work_model):
+        """Filter out all books that are not classified as suitable for this
+        Lane's age range.
+        """
+        if self.target_age == None:
+            return qu
+            
+        if (Classifier.AUDIENCE_ADULT in self.audiences
+            or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
+            # Books for adults don't have target ages. If we're including
+            # books for adults, allow the target age to be empty.
+            audience_has_no_target_age = work_model.target_age == None
+        else:
+            audience_has_no_target_age = False
+
+        if len(self.target_age) == 1:
+            # The target age must include this number.
+            r = NumericRange(self.target_age[0], self.target_age[0], '[]')
+            qu = qu.filter(
+                or_(
+                    work_model.target_age.contains(r),
+                    audience_has_no_target_age
+                )
+            )
+        else:
+            # The target age range must overlap this age range
+            r = NumericRange(self.target_age[0], self.target_age[-1], '[]')
+            qu = qu.filter(
+                or_(
+                    work_model.target_age.overlaps(r),
+                    audience_has_no_target_age
+                )
+            )
+
     def apply_customlist_filter(
             self, qu, work_model, must_be_featured=False
     ):
+        """Change the given query so that it finds only books that are
+        on one of the CustomLists allowed by Lane configuration.
+
+        :param must_be_featured: It's not enough for the book to be on
+        an appropriate list; it must be _featured_ on an appropriate list.
+        """
         if not self.custom_lists and not self.list_data_source:
             # This lane does not require that books be on any particular
             # CustomList.
@@ -1084,6 +1171,8 @@ class Lane(Base, WorkList):
         qu = qu.join(a_entry, clause)
         a_list = aliased(CustomListEntry.customlist)
         qu = qu.join(a_entry).join(a_list)
+
+        # Actually apply the restriction.
         if self.list_data_source:
             qu = qu.filter(a_list.data_source==self.list_data_source)
         if self.custom_lists:
@@ -1096,47 +1185,16 @@ class Lane(Base, WorkList):
             )
             qu = qu.filter(a_entry.most_recent_appearance >=cutoff)
             
-        # Now that a custom list is involved, we must set DISTINCT to True
-        # on the query.
+        # Now that a custom list is involved, we must eventually set
+        # DISTINCT to True on the query.
         return qu, True
-
-    @property
-    def search_target(self):
-        """When someone in this lane wants to do a search, determine which
-        Lane should actually be searched.
-        """
-        if self.parent is None:
-            # We are at the top level. Search everything.
-            return self
-
-        if self.root_for_patron_type:
-            # This lane acts as the "top level" for one or more patron
-            # types.  Search it, even if the active patron is not of
-            # that type. (This avoids panic reactions when an admin
-            # searches the 'Early Grades' lane and finds books from
-            # other lanes.)
-            return self
-
-        if not self.genres and not self.list_ids:
-            # This lane is not restricted to any particular genres or
-            # lists. It can be searched and any lane below it should
-            # search this one.
-            return self
-
-        # Any other lane cannot be searched directly, but maybe its
-        # parent can be searched.
-        logging.debug(
-            "Lane %s is not searchable; using parent %s" % (
-                self.name, self.parent.name)
-        )
-        return self.parent.search_target
 
 Library.lanes = relationship("Lane", backref="library")
 
 
 class LaneGenre(Base):
     """Relationship object between Lane and Genre."""
-    __tablename__ = 'lanes'
+    __tablename__ = 'lanes_genres'
     id = Column(Integer, primary_key=True)
     lane_id = Column(Integer, ForeignKey('lanes.id'), index=True,
                      nullable=False)
@@ -1159,7 +1217,7 @@ class LaneGenre(Base):
     )
 
 Genre.lane_genres = relationship(
-    "LaneGenre", foreign_keys=genre_id, backref="genre"
+    "LaneGenre", foreign_keys="genre_id", backref="genre"
 )
 
 
@@ -1175,7 +1233,6 @@ lanes_customlists = Table(
     ),
     UniqueConstraint('lane_id', 'customlist_id'),
 )
-
 
 
 
