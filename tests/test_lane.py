@@ -17,6 +17,7 @@ from lane import (
 from model import (
     DataSource,
     Edition,
+    Genre,
     Library,
     LicensePool,
     SessionManager,
@@ -336,10 +337,16 @@ class TestWorkList(DatabaseTest):
     def test_initialize(self):
         wl = WorkList()
         child = WorkList()
-        wl.initialize(self._default_library, children=[child])
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        romance, ignore = Genre.lookup(self._db, "Romance")
+
+        wl.initialize(self._default_library, children=[child],
+                      genres=[sf, romance])
         eq_(self._default_library, wl.library(self._db))
-        eq_(self.collection_ids, 
-            [x.id for x in self._default_library.collections])
+        eq_(set(wl.collection_ids), 
+            set([x.id for x in self._default_library.collections]))
+        eq_(set(wl.genre_ids),
+            set([x.id for x in [sf, romance]]))
         eq_([child], wl.visible_children)
 
     def test_groups(self):
