@@ -456,21 +456,72 @@ class WorkList(object):
         return works_and_worklists
 
     def featured_works(self, _db):
-        """Extract a random sample of high-quality works from the WorkList.
+        """Find a random sample of featured books.
 
         Used when building a grouped OPDS feed for this WorkList's parent.
+
+        While it's semi-okay for this method to be slow for the Lanes
+        that make up the bulk of a circulation manager's offerings,
+        other WorkList implementations may need to do something
+        simpler for performance reasons.
+
+        :return: A list of MaterializedWork or MaterializedWorkWithGenre
+        objects.
         """
-        # TODO: It seems like quality and ordering by Work.random need
-        # to be involved here.
+        books = []
+        book_ids = set()
+        featured_subquery = None
+        target_size = self.library.featured_lane_size
 
-        # Build a query that would find all of the works.
-        query = self.works(_db, featured=True)
-        if not query:
-            return []
+        # Try various Facets configurations in hopes of finding enough
+        # books to fill the lane. Running the query multiple times is
+        # the main reason why this method might be slow.
+        for (collection, availability, 
+             featured_on_list) in self.featured_collection_facets():
+            facets = Facets(
+                self.library, collection=collection, availability=availability,
+                order=Facets.ORDER_RANDOM
+            )
+            query = self.works(facets=facets, featured=featured_on_list)
+            if not query:
+                # works() may return None, indicating that the whole
+                # thing is a bad idea and the query should not even be
+                # run. It will probably think the whole thing is a bad
+                # idea no matter which arguments we pass in, but let's
+                # keep trying.
+                continue
 
-        # Then take a random sample from that query.
-        target_size = self.library(_db).featured_lane_size
-        return self.random_sample(query, target_size=target_size)
+            # Get a new list of books that meet our (possibly newly 
+            # reduced) standards.
+            new_books = self.random_sample(query, target_size)
+            for book in new_books:
+                if book.id not in book_ids:
+                    books.append(book)
+                    book_ids.add(book)
+            if len(books) >= target_size:
+                # We found enough books.
+                break
+        return books[:target_size]
+
+    @classmethod
+    def featured_collection_facets(cls):
+        """Yield a sequence of Facets settings to use when trying to find
+        featured works.
+
+        The sequence represents our becoming more and more desperate
+        to find enough books to fill a 'featured' lane.
+        """
+        # The 'featured' collection contains high quality works.
+        yield (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False)
+        yield (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, False)
+
+        # The 'main' collection contains everything except low-quality
+        # open-access works, 
+        yield (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW, False)
+        yield (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False)
+
+        # The 'full' collection contains absolutely everything.
+        yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False)
 
     def works(self, _db, facets=None, pagination=None, featured=False):
 
@@ -763,7 +814,7 @@ class Lane(Base, WorkList):
 
     # Only books on one or more CustomLists obtained from this
     # DataSource will be shown.
-    list_datasource_id = Column(
+    _list_datasource_id = Column(
         Integer, ForeignKey('datasources.id'), index=True,
         nullable=True
     )
@@ -883,27 +934,30 @@ class Lane(Base, WorkList):
         self._target_age = age_range
         self._audiences = audiences
 
-    # TODO: Setting list_data_source should clear custom_lists.
+    @property
+    def list_datasource(self, value):
+        return self._list_datasource
+
+    @list_datasource.setter
+    def set_list_datasource(self, value):
+        """Setting .list_datasource to a non-null value wipes out any specific
+        CustomLists previously associated with this Lane.
+        """
+        if value:
+            self.customlists = []
+        self._list_datasource_id = value.id
 
     @property
-    def custom_lists(self):
-        """Find the specific CustomLists that control which works
-        are in this Lane.
+    def uses_customlists(self):
+        """Does the works() implementation for this Lane look for works on
+        CustomLists?
         """
-        if not self.custom_lists and not self.list_data_source:
-            # This isn't that kind of lane.
-            return None
-
-        if self.custom_lists:
-            # This Lane draws from a specific set of lists.
-            return [self.custom_lists]
-
-        # This lane draws from every list associated with a certain
-        # data source.
-        _db = Session.object_session(self)
-        return _db.query(CustomList).filter(
-            CustomList.data_source==self.list_data_source
-        )
+        if self.customlists or self.list_data_source:
+            return True
+        if (self.parent and self.inherit_parent_restrictions 
+            and self.parent_uses_customlists):
+            return True
+        return False        
 
     @property
     def genre_ids(self):
@@ -1023,60 +1077,25 @@ class Lane(Base, WorkList):
 
         return results
 
-    def featured_works(self, _db):
-        """Find a random sample of featured books.
-
-        While it's semi-okay for this request to be slow for the
-        genre-based lanes that make up the bulk of the site, subclass
-        implementations such as LicensePoolBasedLane may require
-        improved performance.
-
-        :return: A list of MaterializedWork or MaterializedWorkWithGenre
-        objects.
+    def featured_collection_facets(self):
+        """In descending order of preference, yield (collection_type,
+        availability, featured_on_list) 3-tuples that featured_works()
+        will use to find the 'best' works in this lane.
         """
-        books = []
-        book_ids = set()
-        featured_subquery = None
-        target_size = self.library.featured_lane_size
+        if self.uses_customlists:
+            # If a Lane uses CustomLists, then the surest way to know
+            # that a work is featured is to check whether its entry on
+            # one of its CustomLists has been explicitly marked as
+            # 'featured'. The work's 'quality' setting is irrelevant.
+            #
+            # However, we still prefer currently available books to
+            # books that have a holds queue.
+            yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, True)
+            yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, True)
 
-        # Prefer to feature available books in the featured
-        # collection, but if that fails, gradually degrade to
-        # featuring all books, no matter what the availability.
-
-        # TODO: knowing whether the lane is list-based would be useful
-        # here; we could try or avoid some variants based on toggling
-        # featured_on_list.
-        for (collection, availability, featured_on_list) in (
-                (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, True),
-                (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, True),
-                (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW, False),
-                (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False),
-                (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False),
-        ):
-            facets = Facets(
-                self.library, collection=collection, availability=availability,
-                order=Facets.ORDER_RANDOM
-            )
-            query = self.works(facets=facets, featured=featured_on_list)
-            if not query:
-                # works() may return None, indicating that the whole
-                # thing is a bad idea and the query should not even be
-                # run. It will probably think the whole thing is a bad
-                # idea no matter which arguments we pass in, but let's
-                # keep trying.
-                continue
-
-            # Get a new list of books that meet our (possibly newly 
-            # reduced) standards.
-            new_books = self.random_sample(query, target_size)
-            for book in new_books:
-                if book.id not in book_ids:
-                    books.append(book)
-                    book_ids.add(book)
-            if len(books) >= target_size:
-                # We found enough books.
-                break
-        return books[:target_size]
+        # If that didn't get us enough books, use the default facet sets.
+        for i in WorkList.featured_collection_facets():
+            yield i
 
     def apply_custom_filters(self, _db, qu, work_model, featured=False):
         """Apply filters to a base query against a materialized view,
@@ -1155,7 +1174,7 @@ class Lane(Base, WorkList):
         :param must_be_featured: It's not enough for the book to be on
         an appropriate list; it must be _featured_ on an appropriate list.
         """
-        if not self.custom_lists and not self.list_data_source:
+        if not self.customlists and not self.list_data_source:
             # This lane does not require that books be on any particular
             # CustomList.
             return qu, False
@@ -1175,8 +1194,10 @@ class Lane(Base, WorkList):
         # Actually apply the restriction.
         if self.list_data_source:
             qu = qu.filter(a_list.data_source==self.list_data_source)
-        if self.custom_lists:
-            qu = qu.filter(a_list.id.in_([x.id for x in self.custom_lists]))
+        else:
+            customlist_ids = [x.id for x in self.customlists]
+            if customlist_ids:
+                qu = qu.filter(a_list.id.in_(customlist_ids))
         if must_be_featured:
             qu = qu.filter(a_entry.featured==True)
         if self.list_seen_in_previous_days:
@@ -1190,6 +1211,7 @@ class Lane(Base, WorkList):
         return qu, True
 
 Library.lanes = relationship("Lane", backref="library")
+DataSource.list_lanes = relationship("Lane", backref="_list_datasource")
 
 
 class LaneGenre(Base):
