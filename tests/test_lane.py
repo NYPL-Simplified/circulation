@@ -338,6 +338,8 @@ class TestWorkList(DatabaseTest):
         child = WorkList()
         wl.initialize(self._default_library, children=[child])
         eq_(self._default_library, wl.library(self._db))
+        eq_(self.collection_ids, 
+            [x.id for x in self._default_library.collections])
         eq_([child], wl.visible_children)
 
     def test_groups(self):
