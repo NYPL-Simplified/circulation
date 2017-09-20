@@ -653,7 +653,7 @@ class WorkList(object):
         # were applied back in works().)
         qu = self.apply_audience_filter(_db, qu, work_model)
         if self.languages:
-            qu = qu.filter(edition_model.language.in_(self.languages))
+            qu = qu.filter(work_model.language.in_(self.languages))
         if self.genre_ids:
             qu = qu.filter(mw.genre_id.in_(self.genre_ids))
         return self.apply_custom_filters(_db, qu, work_model, featured)
@@ -687,7 +687,7 @@ class WorkList(object):
             # whitelist system and some way of allowing adults
             # to see books aimed at pre-1923 children.
             gutenberg = DataSource.lookup(_db, DataSource.GUTENBERG)
-            qu = qu.filter(edition_model.data_source_id != gutenberg.id)
+            qu = qu.filter(LicensePool.data_source_id != gutenberg.id)
         return qu
 
     def only_show_ready_deliverable_works(
@@ -1130,7 +1130,7 @@ class Lane(Base, WorkList):
             qu = qu.filter(work_model.fiction==self.fiction)
 
         if self.media:
-            qu = qu.filter(edition_model.medium.in_(self.media))
+            qu = qu.filter(work_model.medium.in_(self.media))
 
         qu = self.apply_age_range_filter(_db, qu, work_model)
         qu, child_distinct = self.apply_customlist_filter(
