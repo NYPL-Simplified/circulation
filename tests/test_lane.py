@@ -1,3 +1,4 @@
+import json
 from nose.tools import (
     eq_,
     set_trace,
@@ -13,6 +14,13 @@ from lane import (
     Lane,
 )
 
+from model import (
+    DataSource,
+    Edition,
+    Library,
+    LicensePool,
+    Work,
+)
 
 class TestFacets(DatabaseTest):
 

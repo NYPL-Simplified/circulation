@@ -282,7 +282,7 @@ class Facets(FacetConstants):
         if distinct:
             qu = qu.distinct(*order_distinct)
 
-        return q
+        return qu
 
     def order_by(self, work_model, edition_model):
         """Establish a complete ORDER BY clause for books."""
