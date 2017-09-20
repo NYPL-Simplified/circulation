@@ -19,6 +19,7 @@ from model import (
     Edition,
     Library,
     LicensePool,
+    SessionManager,
     Work,
 )
 
@@ -310,3 +311,18 @@ class TestPagination(DatabaseTest):
         # Even when the query ends at the same size as a page, all is well.
         pagination.offset = 4
         eq_(False, pagination.has_next_page)
+
+
+class TestWorkList(DatabaseTest):
+
+    def test_works_for_specific_ids(self):
+        # Create two works and put them in the materialized view.
+        w1 = self._work()
+        w2 = self._work()
+        self._db.commit()
+        SessionManager.refresh_materialized_views(self._db)
+
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        [w2_mw] = wl.works_for_specific_ids(self._db, [w2.id])
+        eq_(w2_mv.title, w2.title)

@@ -271,7 +271,7 @@ class Facets(FacetConstants):
             # Exclude books with a quality of less than the library's
             # minimum featured quality.
             qu = qu.filter(
-                work_model.quality >= self.library.minimum_featured_quality
+                work_model.quality >= self.library(_db).minimum_featured_quality
             )
 
         # Set the ORDER BY clause.
@@ -474,7 +474,7 @@ class WorkList(object):
         books = []
         book_ids = set()
         featured_subquery = None
-        target_size = self.library.featured_lane_size
+        target_size = self.library(_db).featured_lane_size
 
         # Try various Facets configurations in hopes of finding enough
         # books to fill the lane. Running the query multiple times is
@@ -580,9 +580,8 @@ class WorkList(object):
             _db, qu, work_model, facets, pagination, featured
         )
 
-    @classmethod
     def works_for_specific_ids(self, _db, work_ids):
-        """Create the appearance of having called works() on a WorkList object,
+        """Create the appearance of having called works(),
         but return the specific Works identified by `work_ids`.
         """
 
@@ -591,11 +590,11 @@ class WorkList(object):
         qu = _db.query(mw).join(
             LicensePool, mw.license_pool_id==LicensePool.id
         ).filter(
-            mw.works_id.in_(doc_ids)
+            mw.works_id.in_(work_ids)
         )
         qu = self._lazy_load(qu, mw)
         qu = self._defer_unused_fields(qu, mw)
-        qu = self.only_show_ready_deliverable_works(qu, mw)
+        qu = self.only_show_ready_deliverable_works(_db, qu, mw)
         work_by_id = dict()
         a = time.time()
         works = qu.all()
@@ -603,7 +602,7 @@ class WorkList(object):
         # Put the Work objects in the same order as their work_ids were.
         for mw in works:
             work_by_id[mw.works_id] = mw
-        results = [work_by_id[x] for x in doc_ids if x in work_by_id]
+        results = [work_by_id[x] for x in work_ids if x in work_by_id]
 
         b = time.time()
         logging.debug(
@@ -621,7 +620,7 @@ class WorkList(object):
         """
         # In general, we only show books that are ready to be delivered
         # to patrons.
-        qu = self.only_show_ready_deliverable_works(qu, work_model)
+        qu = self.only_show_ready_deliverable_works(_db, qu, work_model)
 
         # This method applies whatever filters are necessary to implement
         # the rules of this particular WorkList.
@@ -692,7 +691,7 @@ class WorkList(object):
         return qu
 
     def only_show_ready_deliverable_works(
-            self, query, work_model, show_suppressed=False
+            self, _db, query, work_model, show_suppressed=False
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -701,7 +700,7 @@ class WorkList(object):
         Note that this assumes the query has an active join against
         LicensePool.
         """
-        return self.library.restrict_to_ready_deliverable_works(
+        return self.library(_db).restrict_to_ready_deliverable_works(
             query, work_model, show_suppressed=show_suppressed,
             collection_ids=self.collection_ids
         )
@@ -718,17 +717,19 @@ class WorkList(object):
         random.shuffle(items)
         return works
 
-    def _lazy_load(self, qu, work_model):
+    @classmethod
+    def _lazy_load(cls, qu, work_model):
         """Avoid eager loading of objects that are contained in the 
         materialized view.
         """
-        qu = qu.options(
+        return qu.options(
             lazyload(work_model.license_pool, LicensePool.data_source),
             lazyload(work_model.license_pool, LicensePool.identifier),
             lazyload(work_model.license_pool, LicensePool.presentation_edition),
         )
 
-    def _defer_unused_fields(self, query, work_model):
+    @classmethod
+    def _defer_unused_fields(cls, query, work_model):
         """Some applications use the simple OPDS entry and some
         applications use the verbose. Whichever one we don't need,
         we can stop from even being sent over from the
@@ -1077,7 +1078,9 @@ class Lane(Base, WorkList):
                     int(x['_id']) for x in docs['hits']['hits']
                 ]
                 if doc_ids:
-                    results = WorkList.works_for_specific_ids(_db, doc_ids)
+                    results = WorkList.works_for_specific_ids(
+                        _db, self.library, doc_ids
+                    )
 
         return results
 
