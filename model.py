@@ -10290,7 +10290,7 @@ class Collection(Base, HasFullTableCache):
             return self.parent.unique_account_id + '+' + unique_account_id
         return unique_account_id        
     
-    @property
+    @hybrid_property
     def data_source(self):
         """Find the data source associated with this Collection.
 
@@ -10305,9 +10305,8 @@ class Collection(Base, HasFullTableCache):
         the data source is a Collection-specific setting.
         """
         data_source = None
-        protocol = self.external_integration.protocol
         name = ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROTOCOL.get(
-            protocol
+            self.protocol
         )
         if not name:
             name = self.external_integration.setting(
@@ -10317,7 +10316,24 @@ class Collection(Base, HasFullTableCache):
         if name:
             data_source = DataSource.lookup(_db, name, autocreate=True)
         return data_source
-    
+
+    @data_source.setter
+    def data_source(self, new_value):
+        if isinstance(new_value, DataSource):
+            new_value = new_value.name
+        if self.protocol == new_value:
+            return
+
+        # Only set a DataSource for Collections that don't have an
+        # implied source.
+        if self.protocol not in ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROTOCOL:
+            setting = self.external_integration.setting(
+                Collection.DATA_SOURCE_NAME_SETTING
+            )
+            if new_value is not None:
+                new_value = unicode(new_value)
+            setting.value = new_value
+
     @property
     def parents(self):
         if self.parent_id:
@@ -10346,7 +10362,7 @@ class Collection(Base, HasFullTableCache):
         return encode(metadata_identifier)
 
     @classmethod
-    def from_metadata_identifier(cls, _db, metadata_identifier):
+    def from_metadata_identifier(cls, _db, metadata_identifier, data_source=None):
         """Finds or creates a Collection on the metadata wrangler, based
         on its unique metadata_identifier
         """
@@ -10375,6 +10391,9 @@ class Collection(Base, HasFullTableCache):
             if protocol == ExternalIntegration.OPDS_IMPORT:
                 # Share the feed URL so the Metadata Wrangler can find it.
                collection.external_account_id = account_id
+
+        if data_source:
+            collection.data_source = data_source
 
         return collection, is_new
 

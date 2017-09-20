@@ -771,9 +771,7 @@ class DatabaseTest(object):
         integration.password = password
 
         if data_source_name:
-            integration.set_setting(
-                Collection.DATA_SOURCE_NAME_SETTING, data_source_name
-            )
+            collection.data_source = data_source_name
         return collection
         
     @property

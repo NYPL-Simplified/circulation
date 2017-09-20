@@ -6652,7 +6652,33 @@ class TestCollection(DatabaseTest):
         # automatically updated.
         self.collection.protocol = bibliotheca
         eq_(bibliotheca, child.protocol)
-        
+
+    def test_data_source(self):
+        opds = self._collection()
+        bibliotheca = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
+
+        # The rote data_source is returned for the obvious collection.
+        eq_(DataSource.BIBLIOTHECA, bibliotheca.data_source.name)
+
+        # The less obvious OPDS collection doesn't have a DataSource.
+        eq_(None, opds.data_source)
+
+        # Trying to change the Bibliotheca collection's data_source does nothing.
+        bibliotheca.data_source = DataSource.AXIS_360
+        eq_(DataSource.BIBLIOTHECA, bibliotheca.data_source.name)
+
+        # Trying to change the opds collection's data_source is fine.
+        opds.data_source = DataSource.PLYMPTON
+        eq_(DataSource.PLYMPTON, opds.data_source.name)
+
+        # Resetting it to something else is fine.
+        opds.data_source = DataSource.OA_CONTENT_SERVER
+        eq_(DataSource.OA_CONTENT_SERVER, opds.data_source.name)
+
+        # Resetting it to None is fine.
+        opds.data_source = None
+        eq_(None, opds.data_source)
+
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
         about a Collection.
@@ -6742,16 +6768,19 @@ class TestCollection(DatabaseTest):
             name=collection.metadata_identifier,
         )[0]
         mirror_collection.create_external_integration(collection.protocol)
-        # Confirm that there's no external_account_id.
+        # Confirm that there's no external_account_id and no DataSource.
         eq_(None, mirror_collection.external_account_id)
+        eq_(None, mirror_collection.data_source)
 
+        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
         result, is_new = Collection.from_metadata_identifier(
-            self._db, collection.metadata_identifier
+            self._db, collection.metadata_identifier, data_source=source
         )
         eq_(False, is_new)
         eq_(mirror_collection, result)
-        # The external_account_id has been set now.
+        # The external_account_id and data_source have been set now.
         eq_(collection.external_account_id, mirror_collection.external_account_id)
+        eq_(source, mirror_collection.data_source)
 
     def test_catalog_identifier(self):
         """#catalog_identifier associates an identifier with the catalog"""
