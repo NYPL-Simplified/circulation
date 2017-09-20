@@ -9554,6 +9554,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     RB_DIGITAL = DataSource.RB_DIGITAL
     ONE_CLICK = RB_DIGITAL
     OPDS_FOR_DISTRIBUTORS = u'OPDS for Distributors'
+    ENKI = DataSource.ENKI
 
     # These protocols are only used on the Content Server when mirroring
     # content from a given directory or directly from Project
@@ -9564,7 +9565,7 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, RB_DIGITAL,
-        DIRECTORY_IMPORT, GUTENBERG,
+        DIRECTORY_IMPORT, GUTENBERG, ENKI,
     ]
 
     # Some integrations with LICENSE_GOAL imply that the data and
@@ -9573,7 +9574,8 @@ class ExternalIntegration(Base, HasFullTableCache):
         OVERDRIVE : DataSource.OVERDRIVE,
         BIBLIOTHECA : DataSource.BIBLIOTHECA,
         AXIS_360 : DataSource.AXIS_360,
-        RB_DIGITAL : DataSource.RB_DIGITAL
+        RB_DIGITAL : DataSource.RB_DIGITAL,
+        ENKI : DataSource.ENKI,
     }
 
     # Integrations with METADATA_GOAL
