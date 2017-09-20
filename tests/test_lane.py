@@ -493,6 +493,19 @@ class TestWorkList(DatabaseTest):
         # giving up after the first None.
         eq_(len(expect_facets), len(wl.works_calls))
 
+    def test_featured_collection_facets(self):
+        """Test the specific values expected from the default
+        featured_collection_facets() implementation.
+        """
+        expect = [(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False),
+         (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, False),
+         (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW, False),
+         (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False),
+         (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False)
+        ]
+        actual = list(WorkList.featured_collection_facets())
+        eq_(expect, actual)
+
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.
         w1 = self._work(with_license_pool=True)
