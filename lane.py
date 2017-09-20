@@ -381,7 +381,9 @@ class WorkList(object):
     for use in generating an OPDS feed.
     """
 
-    MINIMUM_SAMPLE_SIZE = 0
+    # By default, the set of Works in a WorkList is cacheable for two
+    # weeks.
+    MAX_CACHE_AGE = 14*24*60*60
 
     def initialize(self, library, genres=None, audiences=None, languages=None):
         """Initialize with basic data.
@@ -746,11 +748,9 @@ class Lane(Base, WorkList):
     books.
     """
 
-    MAX_CACHE_AGE = 20*60      # 20 minutes
-
-    # If a Lane has fewer than 5 titles, don't even bother showing it
-    # in its parent's grouped feed.
-    MINIMUM_SAMPLE_SIZE = 5
+    # By default, the set of Works in a Lane is cacheable for twenty
+    # minutes.
+    MAX_CACHE_AGE = 20*60
 
     __tablename__ = 'lanes'
     id = Column(Integer, primary_key=True)
@@ -1255,23 +1255,3 @@ lanes_customlists = Table(
     ),
     UniqueConstraint('lane_id', 'customlist_id'),
 )
-
-
-
-class QueryGeneratedLane(WorkList):
-    """A WorkList that takes its list of books from a database query
-    rather than a Lane object.
-    """
-
-    MAX_CACHE_AGE = 14*24*60*60      # two weeks
-
-    # When generating groups feeds, we want to return a sample
-    # even if there's only a single result.
-    MINIMUM_SAMPLE_SIZE = 1
-
-    def query_hook(self, qu, work_model=Work):
-        """Create the query specific to a subclass of  QueryGeneratedLane
-
-        :return: query or None
-        """
-        raise NotImplementedError()
