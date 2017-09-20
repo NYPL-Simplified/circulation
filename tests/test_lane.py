@@ -314,13 +314,56 @@ class TestPagination(DatabaseTest):
         eq_(False, pagination.has_next_page)
 
 
-class MockWorkList(object):
+class MockFeaturedWorks(object):
+    """A mock WorkList that mocks featured_works()."""
 
-    def __init__(self, featured):
-        self.featured = featured
+    def __init__(self):
+        self._featured_works = []
 
-    def featured_works(self, _db):
-        return self.featured
+    def queue_featured_works(self, works):
+        """Set the next return value for featured_works()."""
+        self._featured_works.append(works)
+
+    def featured_works(self, *args, **kwargs):
+        try:
+            return self._featured_works.pop(0)
+        except IndexError:
+            return []
+
+class MockWork(object):
+    def __init__(self, id):
+        self.id = id
+
+class MockWorks(WorkList):
+    """A WorkList that mocks works() but not featured_works()."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self._works = []
+        self.works_calls = []
+
+    def queue_works(self, works):
+        """Set the next return value for works()."""
+        self._works.append(works)
+
+    def queue_featured_works(self, works):
+        """Set the next return value for featured_works()."""
+        self._featured_works.append(works)
+
+    def works(self, _db, facets=None, pagination=None, featured=False):
+        self.works_calls.append((facets, pagination, featured))
+        try:
+            return self._works.pop(0)
+        except IndexError:
+            return []
+
+    def random_sample(self, query, target_size):
+        # The 'query' is actually a list, and we're in a test
+        # environment where randomness is not welcome. Just take
+        # a sample from the front of the list.
+        return query[:target_size]
 
 
 class TestWorkList(DatabaseTest):
@@ -349,14 +392,19 @@ class TestWorkList(DatabaseTest):
             set([x.id for x in [sf, romance]]))
         eq_([child], wl.visible_children)
 
+    def test_audience_key(self):
+        pass
+
     def test_groups(self):
-        w1 = object()
-        w2 = object()
-        w3 = object()
+        w1 = MockWork(1)
+        w2 = MockWork(2)
+        w3 = MockWork(3)
         # This child has one featured work.
-        child1 = MockWorkList(featured=[w1])
+        child1 = MockFeaturedWorks()
+        child1.queue_featured_works([w1])
         # This child has two featured works.
-        child2 = MockWorkList(featured=[w2, w1])
+        child2 = MockFeaturedWorks()
+        child2.queue_featured_works([w2, w1])
 
         # This worklist has two children.
         wl = WorkList()
@@ -369,6 +417,73 @@ class TestWorkList(DatabaseTest):
         eq_((w1, child1), wwl1)
         eq_((w2, child2), wwl2)
         eq_((w1, child2), wwl3)
+
+    def test_featured_works(self):
+        wl = MockWorks()
+        wl.initialize(library=self._default_library)
+
+        # We're going to try to get 3 featured works.
+        self._default_library.setting(Library.FEATURED_LANE_SIZE).value = 3
+
+        # Here they are!
+        w1 = MockWork(1)
+        w2 = MockWork(2)
+        w3 = MockWork(3)
+        # Here's an extra.
+        w4 = MockWork(4)
+
+        # Here, we will call works() five times times -- once for every item
+        # in the featured_collection_facets() generator -- but we will
+        # not be able to get more than one featured work.
+        queue = wl.queue_works
+        queue([w1])
+        featured = wl.featured_works(self._db)
+        eq_([w1], featured)
+
+        # Compare the actual arguments passed into works() with what
+        # featured_collection_facets() would dictate.
+        actual_facets = [
+            (facets.collection, facets.availability, featured)
+            for [facets, pagination, featured] in wl.works_calls
+        ]
+        expect_facets = list(MockWorks.featured_collection_facets())
+        eq_(actual_facets, expect_facets)
+
+        # Here, we will try three times before getting the works we
+        # need.
+        wl.reset()
+        queue([w1, w1, w3])
+        # Putting w2 at the end of this list simulates a situation
+        # where query results include a work that has not been chosen,
+        # but the random sample chooses a bunch of works that _have_
+        # already been chosen instead. If the random sample had turned
+        # out differently, we would have had slightly better results
+        # and saved some time.
+        queue([w3, w1, w1, w1, w2])
+        queue([w4])
+        featured = wl.featured_works(self._db)
+
+        # Works are presented in the order they were received, to put
+        # higher-quality works at the front. Duplicates are ignored.
+        eq_([w1.id, w3.id, w4.id], [x.id for x in featured])
+        
+        # We only had to make three calls to works() before filling
+        # our quota.
+        eq_(3, len(wl.works_calls))
+
+        # Here, the WorkList thinks that calling works() is a bad idea,
+        # and persistently returns None.
+        wl.reset()
+        for i in range(len(expect_facets)):
+            queue(None)
+
+        # featured_works() doesn't crash, but it doesn't return
+        # any values either.
+        eq_([], wl.featured_works(self._db))
+
+        # And it keep calling works() for every facet, rather than
+        # giving up after the first None.
+        eq_(len(expect_facets), len(wl.works_calls))
 
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.

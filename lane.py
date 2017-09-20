@@ -476,18 +476,20 @@ class WorkList(object):
         books = []
         book_ids = set()
         featured_subquery = None
-        target_size = self.library(_db).featured_lane_size
+        library = self.library(_db)
+        target_size = library.featured_lane_size
 
         # Try various Facets configurations in hopes of finding enough
         # books to fill the lane. Running the query multiple times is
         # the main reason why this method might be slow.
+
         for (collection, availability, 
              featured_on_list) in self.featured_collection_facets():
             facets = Facets(
-                self.library, collection=collection, availability=availability,
+                library, collection=collection, availability=availability,
                 order=Facets.ORDER_RANDOM
             )
-            query = self.works(facets=facets, featured=featured_on_list)
+            query = self.works(_db, facets=facets, featured=featured_on_list)
             if not query:
                 # works() may return None, indicating that the whole
                 # thing is a bad idea and the query should not even be
@@ -502,7 +504,7 @@ class WorkList(object):
             for book in new_books:
                 if book.id not in book_ids:
                     books.append(book)
-                    book_ids.add(book)
+                    book_ids.add(book.id)
             if len(books) >= target_size:
                 # We found enough books.
                 break
@@ -1080,9 +1082,7 @@ class Lane(Base, WorkList):
                     int(x['_id']) for x in docs['hits']['hits']
                 ]
                 if doc_ids:
-                    results = WorkList.works_for_specific_ids(
-                        _db, self.library, doc_ids
-                    )
+                    results = WorkList.works_for_specific_ids(_db, doc_ids)
 
         return results
 
