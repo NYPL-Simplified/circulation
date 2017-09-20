@@ -313,6 +313,15 @@ class TestPagination(DatabaseTest):
         eq_(False, pagination.has_next_page)
 
 
+class MockWorkList(object):
+
+    def __init__(self, featured):
+        self.featured = featured
+
+    def featured_works(self, _db):
+        return self.featured
+
+
 class TestWorkList(DatabaseTest):
 
     def add_to_materialized_view(self, *works):
@@ -323,6 +332,34 @@ class TestWorkList(DatabaseTest):
             work.simple_opds_entry = "an entry"
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
+
+    def test_initialize(self):
+        wl = WorkList()
+        child = WorkList()
+        wl.initialize(self._default_library, children=[child])
+        eq_(self._default_library, wl.library(self._db))
+        eq_([child], wl.visible_children)
+
+    def test_groups(self):
+        w1 = object()
+        w2 = object()
+        w3 = object()
+        # This child has one featured work.
+        child1 = MockWorkList(featured=[w1])
+        # This child has two featured works.
+        child2 = MockWorkList(featured=[w2, w1])
+
+        # This worklist has two children.
+        wl = WorkList()
+        wl.initialize(self._default_library, children=[child1, child2])
+        
+        # groups() returns three 2-tuples; one for each work featured by
+        # one of its children. Note that the same work appears twice, in
+        # two different lists.
+        [wwl1, wwl2, wwl3] = wl.groups(self._db)
+        eq_((w1, child1), wwl1)
+        eq_((w2, child2), wwl2)
+        eq_((w1, child2), wwl3)
 
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.

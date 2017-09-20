@@ -386,7 +386,8 @@ class WorkList(object):
     # weeks.
     MAX_CACHE_AGE = 14*24*60*60
 
-    def initialize(self, library, genres=None, audiences=None, languages=None):
+    def initialize(self, library, genres=None, audiences=None, languages=None,
+                   children=None):
         """Initialize with basic data.
 
         This is not a constructor, to avoid conflicts with `Lane`, an
@@ -405,6 +406,8 @@ class WorkList(object):
         :param languages: Only Works in one of these languages will be
         included in lists.
 
+        :param children: This WorkList has children, which are also
+        WorkLists.
         """
         self.library_id = library.id
         self.collection_ids = [
@@ -416,6 +419,7 @@ class WorkList(object):
             self.genre_ids = None
         self.audiences = audiences
         self.languages = languages
+        self.children = children or []
 
     def library(self, _db):
         """Find the Library object associated with this WorkList."""
@@ -425,10 +429,8 @@ class WorkList(object):
     def visible_children(self):
         """A WorkList's children can be used to create a grouped acquisition
         feed for that WorkList.
-
-        By default, a WorkList has no children.
         """
-        return []
+        return self.children
 
     @property
     def audience_key(self):
