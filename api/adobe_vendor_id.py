@@ -185,6 +185,7 @@ class AdobeVendorIDRequestHandler(object):
         try:
             data = parser.process(data)
         except Exception, e:
+            logging.error("Error processing %s", data, exc_info=e)
             return self.error_document(self.AUTH_ERROR_TYPE, str(e))
         user_id = label = None
         if not data:
