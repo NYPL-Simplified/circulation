@@ -363,11 +363,9 @@ class TestCirculationManager(CirculationControllerTest):
                 raise CannotLoadConfiguration("doomed!")
 
         circulation = BadSearch(self._db, lanes=None, testing=True)
-        eq_(None, circulation.external_search_initialization_exception)
-        search = circulation.external_search
 
         # We didn't get a search object.
-        eq_(None, search)
+        eq_(None, circulation.external_search)
 
         # The reason why is stored here.
         ex = circulation.external_search_initialization_exception
