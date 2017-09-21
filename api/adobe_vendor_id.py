@@ -1,3 +1,4 @@
+import argparse
 from nose.tools import set_trace
 import logging
 import uuid
@@ -6,6 +7,7 @@ import os
 import datetime
 import jwt
 from jwt.algorithms import HMACAlgorithm
+import sys
 
 import flask
 from flask import Response
@@ -29,6 +31,7 @@ from core.model import (
     ExternalIntegration,
     Library,
 )
+from core.scripts import Script
 
 class AdobeVendorIDController(object):
 
@@ -1003,3 +1006,60 @@ class AuthdataUtility(object):
         )
         return patron_identifier_credential, delegated_identifier
 
+
+class ShortClientTokenLibraryConfigurationScript(Script):
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--website-url', 
+            help="The URL to this library's patron-facing website (not their circulation manager), e.g. \"https://nypl.org/\". This is used to uniquely identify a library."
+        )
+        parser.add_argument(
+            '--short-name', 
+            help="The short name the library will use in Short Client Tokens, e.g. \"NYNYPL\"."
+        )
+        parser.add_argument(
+            '--secret', 
+            help="The secret the library will use to sign Short Client Tokens."
+        )
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(self._db, cmd_args=cmd_args)
+
+        default_library = Library.default(_db)
+        adobe_integration = ExternalIntegration.lookup(
+            _db, ExternalIntegration.ADOBE_VENDOR_ID,
+            ExternalIntegration.DRM_GOAL, library=default_library
+        )
+        if not adobe_integration:
+            self.log.error(
+                "Could not find an Adobe Vendor ID integration for default library %s.",
+                library.short_name
+            )
+            return
+
+        setting = adobe_integration.setting(
+            AuthdataUtility.OTHER_LIBRARIES_KEY
+        )
+        other_libraries = setting.json_value
+
+        chosen_website = args.website_url
+        if not chosen_website:
+            for website, (short_name, secret) in other_libraries.items():
+                self.explain(output, website, short_name, secret)
+        elif (not args.short_name and not args.secret):
+
+            short_name, secret = other_libraries[chosen_website]
+            self.explain(output, chosen_website, short_name, secret)
+        elif not args.short_name or not args.secret:
+            self.log.error("To configure a library you must provide both --short_name and --secret.")
+            return
+
+    def explain(self, output, website, short_name, secret):
+        output.write("Website: %s\n" % website)
+        output.write(" Short name: %s\n" % short_name)
+        output.write(" Short Client Token secret: %s\n" % secret)
