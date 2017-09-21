@@ -1592,10 +1592,16 @@ class Metadata(MetaToModelUtility):
             # Create a transient failure CoverageRecord for this edition
             # so it will be processed by the MetadataUploadCoverageProvider.
             internal_processing = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
-            CoverageRecord.add_for(edition, internal_processing,
-                                   operation=CoverageRecord.METADATA_UPLOAD_OPERATION,
-                                   status=CoverageRecord.TRANSIENT_FAILURE,
-                                   collection=collection)
+
+            # If there's already a CoverageRecord, don't change it to transient failure.
+            # TODO: Once the metadata wrangler can handle it, we'd like to re-sync the
+            # metadata every time there's a change. For now,
+            cr = CoverageRecord.lookup(edition, internal_processing,
+                                       operation=CoverageRecord.METADATA_UPLOAD_OPERATION)
+            if not cr:
+                CoverageRecord.add_for(edition, internal_processing,
+                                       operation=CoverageRecord.METADATA_UPLOAD_OPERATION,
+                                       status=CoverageRecord.TRANSIENT_FAILURE)
 
         # Finally, update the coverage record for this edition
         # and data source.
