@@ -181,7 +181,6 @@ class AdobeVendorIDRequestHandler(object):
         self.vendor_id = vendor_id
 
     def handle_signin_request(self, data, standard_lookup, authdata_lookup):
-        logging.error("Handling SignIn request for %s", data)
         parser = AdobeSignInRequestParser()
         try:
             data = parser.process(data)
