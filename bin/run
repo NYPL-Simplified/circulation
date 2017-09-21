@@ -20,9 +20,9 @@ SCRIPT_NAME=$(basename $SCRIPT_PATH)
 shift
 
 piddir=/var/run/libsimple
-pidfile=$piddir/$SCRIPT
+pidfile=$piddir/$SCRIPT_NAME.pid
 logdir=/var/log/libsimple
-logfile=$logdir/$SCRIPT
+logfile=$logdir/$SCRIPT_NAME.log
 
 # Assume this run file is the Library Simplified directory/core/bin
 # unless the Library Simplified directory has been set as an environment
@@ -54,7 +54,7 @@ create_pidfile () {
     echo "Could not create PID file"
     exit 1
   fi
-  echo "$SCRIPT PIDFILE created: $pidfile"
+  echo "$SCRIPT_NAME PIDFILE created: $pidfile"
 }
 
 # Create a directory for Library Simplified PID files
@@ -66,7 +66,7 @@ if [[ -f $pidfile ]]; then
   ps -p $pid > /dev/null 2>&1
   if [[ $? -eq 0 ]]; then
     # Last recorded PID was found in running processes
-    echo "$SCRIPT is already running"
+    echo "$SCRIPT_NAME is already running"
     exit 1
   else
     # Last recorded PID not running
@@ -84,9 +84,9 @@ if [[ ! -f $logfile ]]; then
 fi
 
 # Run the script and append its output to its log file.
-echo "Running $SCRIPT (PID: $$)"
+echo "Running $SCRIPT_NAME (PID: $$)"
 source $LIBSIMPLE_DIR/env/bin/activate && \
-  $LIBSIMPLE_DIR/bin/$SCRIPT "$@" >> $logfile 2>&1
+  $LIBSIMPLE_DIR/bin/$SCRIPT_PATH "$@" >> $logfile 2>&1
 
 # When it's done, remove the PID file.
 rm $pidfile
