@@ -9,9 +9,14 @@
 # /bin directory. It assumes your LIBSIMPLE_DIR is /var/www/circulation
 # unless you set the environment variable otherwise.
 
-# Grab the script name and shift so any remaining arguments can be passed
-# to the script itself.
-SCRIPT=$(basename "$1")
+# This is the full script as entered and may include a directory name
+# relative to Library Simplified directory/circulation/bin.
+SCRIPT_PATH="$1"
+
+# Grab the script name for logging purposes.
+SCRIPT_NAME=$(basename $SCRIPT_PATH)
+
+# Shift so any remaining arguments can be passed to the script itself.
 shift
 
 piddir=/var/run/libsimple
