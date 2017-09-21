@@ -181,6 +181,7 @@ class CirculationManager(object):
         # Create a CirculationAPI for each library.
         new_circulation_apis = {}
         
+        new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = make_lanes(self._db, library, self.lane_descriptions)
             
@@ -194,13 +195,12 @@ class CirculationManager(object):
                 library, self.analytics
             )
             authdata = self.setup_adobe_vendor_id(self._db, library)
-            if authdata:
+            if authdata and not new_adobe_device_management:
                 # There's at least one library on this system that
                 # wants Vendor IDs. This means we need to advertise support
                 # for the Device Management Protocol.
-                self.adobe_device_management = DeviceManagementProtocolController(self)
-            else:
-                self.adobe_device_management = None
+                new_adobe_device_management = DeviceManagementProtocolController(self)
+        self.adobe_device_management = new_adobe_device_management
         self.top_level_lanes = new_top_level_lanes
         self.circulation_apis = new_circulation_apis
         self.lending_policy = load_lending_policy(
