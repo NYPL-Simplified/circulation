@@ -194,11 +194,13 @@ class CirculationManager(object):
                 library, self.analytics
             )
             authdata = self.setup_adobe_vendor_id(self._db, library)
-            if authdata and not self.adobe_device_management:
+            if authdata:
                 # There's at least one library on this system that
                 # wants Vendor IDs. This means we need to advertise support
                 # for the Device Management Protocol.
                 self.adobe_device_management = DeviceManagementProtocolController(self)
+            else:
+                self.adobe_device_management = None
         self.top_level_lanes = new_top_level_lanes
         self.circulation_apis = new_circulation_apis
         self.lending_policy = load_lending_policy(
