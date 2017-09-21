@@ -679,6 +679,11 @@ class AuthdataUtility(object):
         incompletely configured.
         """
         _db = _db or Session.object_session(library)
+        if not _db:
+            raise ValueError(
+                "No database connection provided and could not derive one from Library object!"
+            )
+        # Use a version of the library
         library = _db.merge(library, load=False)
 
         # Try to find an external integration with a configured Vendor ID.
