@@ -10392,7 +10392,7 @@ class Collection(Base, HasFullTableCache):
 
             if protocol == ExternalIntegration.OPDS_IMPORT:
                 # Share the feed URL so the Metadata Wrangler can find it.
-               collection.external_account_id = account_id
+               collection.external_account_id = unicode(account_id)
 
         if data_source:
             collection.data_source = data_source
