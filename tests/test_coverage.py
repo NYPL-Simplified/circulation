@@ -6,6 +6,7 @@ from nose.tools import (
     set_trace,
     eq_,
 )
+import feedparser
 
 from . import (
     DatabaseTest,
@@ -48,6 +49,7 @@ from api.coverage import (
     MetadataWranglerCoverageProvider,
     MetadataWranglerCollectionSync,
     MetadataWranglerCollectionReaper,
+    MetadataUploadCoverageProvider,
     OPDSImportCoverageProvider,
     MockOPDSImportCoverageProvider,
 )
@@ -661,6 +663,99 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest
         assert doubly_sync_record not in remaining_records
         eq_(sorted([sync_cr, reaped_cr, doubly_reap_record]), sorted(remaining_records))
 
+
+class TestMetadataUploadCoverageProvider(DatabaseTest):
+
+    def create_provider(self, **kwargs):
+        upload_client = MockMetadataWranglerOPDSLookup.from_config(self._db, self.collection)
+        return MetadataUploadCoverageProvider(
+            self.collection, upload_client, **kwargs
+        )
+
+    def setup(self):
+        super(TestMetadataUploadCoverageProvider, self).setup()
+        self.integration = self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            goal=ExternalIntegration.METADATA_GOAL, url=self._url,
+            username=u'abc', password=u'def'
+        )
+        self.source = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
+        self.collection = self._collection(
+            protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
+        )
+        self.provider = self.create_provider()
+
+    def test_items_that_need_coverage_only_finds_transient_failures(self):
+        """Verify that this coverage provider only covers items that have
+        transient failure CoverageRecords.
+        """
+
+        edition, pool = self._edition(
+            with_license_pool=True, collection=self.collection,
+            identifier_type=Identifier.BIBLIOTHECA_ID
+        )
+        # We don't have a CoverageRecord yet, so the book doesn't show up.
+        items = self.provider.items_that_need_coverage().all()
+        eq_([], items)
+        
+        cr = self._coverage_record(
+            pool.identifier, self.provider.data_source,
+            operation=self.provider.OPERATION
+        )
+
+        # With a successful or persistent failure CoverageRecord, it still doesn't show up.
+        cr.status = CoverageRecord.SUCCESS
+        items = self.provider.items_that_need_coverage().all()
+        eq_([], items)
+
+        cr.status = CoverageRecord.PERSISTENT_FAILURE
+        items = self.provider.items_that_need_coverage().all()
+        eq_([], items)
+
+        # But with a transient failure record it does.
+        cr.status = CoverageRecord.TRANSIENT_FAILURE
+        items = self.provider.items_that_need_coverage().all()
+        eq_([edition.primary_identifier], items)
+
+    def test_process_batch_uploads_metadata(self):
+        class MockMetadataClient(object):
+            metadata_feed = None
+            authenticated = True
+            def canonicalize_author_name(self, identifier, working_display_name):
+                return working_display_name
+            def add_with_metadata(self, feed):
+                self.metadata_feed = feed
+        metadata_client = MockMetadataClient()
+
+        provider = MetadataUploadCoverageProvider(
+            self.collection, metadata_client
+        )
+
+
+        edition, pool = self._edition(
+            with_license_pool=True, collection=self.collection,
+            identifier_type=Identifier.BIBLIOTHECA_ID
+        )
+        work = pool.calculate_work()
+
+        # This identifier has no Work.
+        no_work = self._identifier()
+
+
+        results = provider.process_batch([pool.identifier, no_work])
+
+        # An OPDS feed of metadata was sent to the metadata wrangler.
+        assert metadata_client.metadata_feed != None
+        feed = feedparser.parse(unicode(metadata_client.metadata_feed))
+        urns = [entry.get("id") for entry in feed.get("entries", [])]
+        # Only the identifier work a work ends up in the feed.
+        eq_([pool.identifier.urn], urns)
+
+        # There are two results: the identifier with a work and a CoverageFailure.
+        eq_(2, len(results))
+        assert pool.identifier in results
+        [failure] = [r for r in results if isinstance(r, CoverageFailure)]
+        eq_(no_work, failure.obj)
 
 class TestContentServerBibliographicCoverageProvider(DatabaseTest):
 
