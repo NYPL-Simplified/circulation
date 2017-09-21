@@ -382,7 +382,8 @@ def adobe_vendor_id_get_token():
         )
     return app.manager.adobe_vendor_id.create_authdata_handler(flask.request.patron)
 
-@app.route('/AdobeAuth/SignIn', methods=['POST'])
+@library_route('/AdobeAuth/SignIn', methods=['POST'])
+@has_library
 @returns_problem_detail
 def adobe_vendor_id_signin():
     return app.manager.adobe_vendor_id.signin_handler()
