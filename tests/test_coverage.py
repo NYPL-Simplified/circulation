@@ -757,27 +757,6 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         [failure] = [r for r in results if isinstance(r, CoverageFailure)]
         eq_(no_work, failure.obj)
 
-    def test_add_coverage_record_for(self):
-        edition, pool = self._edition(
-            with_license_pool=True, collection=self.collection,
-            identifier_type=Identifier.BIBLIOTHECA_ID
-        )
-        cr, ignore = self.provider.add_coverage_record_for(edition)
-        eq_(self.collection, cr.collection)
-        eq_(edition.primary_identifier, cr.identifier)
-        eq_(self.provider.OPERATION, cr.operation)
-
-    def test_failure(self):
-        edition, pool = self._edition(
-            with_license_pool=True, collection=self.collection,
-            identifier_type=Identifier.BIBLIOTHECA_ID
-        )
-        failure = self.provider.failure(edition.primary_identifier, "Error")
-        eq_(self.collection, failure.collection)
-        eq_(edition.primary_identifier, failure.obj)
-        eq_("Error", failure.exception)
-        eq_(True, failure.transient)
-
 class TestContentServerBibliographicCoverageProvider(DatabaseTest):
 
     def test_script_instantiation(self):

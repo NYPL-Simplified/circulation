@@ -464,26 +464,6 @@ class MetadataUploadCoverageProvider(CollectionCoverageProvider):
         [result] = self.process_batch([identifier])
         return result
 
-    def add_coverage_record_for(self, item):
-        """Record this CoverageProvider's coverage for the given identifier.
-        Unlike other CoverageProviders, the CoverageRecord will be associated
-        with the collection. This is because different collections may have
-        different information about the same book that needs to be uploaded.
-        """
-        return CoverageRecord.add_for(
-            item, data_source=self.data_source, operation=self.operation,
-            collection=self.collection
-        )
-
-    def failure(self, identifier, error, transient=True):
-        """Create a CoverageFailure object. Unlike other CoverageProviders,
-        this includes the collection.
-        """
-        return CoverageFailure(
-            identifier, error, data_source=self.data_source, transient=transient,
-            collection=self.collection
-        )
-
 class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     """Make sure our records for open-access books match what the content
     server says.
