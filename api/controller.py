@@ -230,6 +230,7 @@ class CirculationManager(object):
             self.log.error(
                 "Exception loading search configuration: %s", e
             )
+            self.__external_search = None
             self.external_search_initialization_exception = e
         return self.__external_search
 
