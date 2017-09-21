@@ -1304,6 +1304,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     IMPORT_OPERATION = u'import'
     RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
     REPAIR_SORT_NAME_OPERATION = u'repair-sort-name'
+    METADATA_UPLOAD_OPERATION = u'metadata-upload'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
