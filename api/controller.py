@@ -353,7 +353,7 @@ class CirculationManager(object):
         authdata = None
         if registry:
             try:
-                authdata = AuthdataUtility.from_config(library)
+                authdata = AuthdataUtility.from_config(library, _db)
             except CannotLoadConfiguration, e:
                 self.short_client_token_initialization_exceptions[library.id] = e
                 self.log.error(
