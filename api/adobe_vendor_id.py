@@ -1036,8 +1036,8 @@ class ShortClientTokenLibraryConfigurationScript(Script):
             ExternalIntegration.DRM_GOAL, library=default_library
         )
         if not adobe_integration:
-            self.log.error(
-                "Could not find an Adobe Vendor ID integration for default library %s.",
+            output.write(
+                "Could not find an Adobe Vendor ID integration for default library %s.\n" %
                 library.short_name
             )
             return
@@ -1051,13 +1051,37 @@ class ShortClientTokenLibraryConfigurationScript(Script):
         if not chosen_website:
             for website, (short_name, secret) in other_libraries.items():
                 self.explain(output, website, short_name, secret)
-        elif (not args.short_name and not args.secret):
+            return
+
+        if (not args.short_name and not args.secret):
 
             short_name, secret = other_libraries[chosen_website]
             self.explain(output, chosen_website, short_name, secret)
-        elif not args.short_name or not args.secret:
-            self.log.error("To configure a library you must provide both --short_name and --secret.")
             return
+
+        if not args.short_name or not args.secret:
+            output.write("To configure a library you must provide both --short_name and --secret.\n")
+            return
+
+        # All three arguments are specified. Set or modify the library's
+        # SCT configuration.
+        if chosen_website in other_libraries:
+            what = "change"
+        else:
+            what = "set"
+        output.write(
+            "About to %s the Short Client Token configuration for %s.\n" % (
+                what, chosen_website
+            )
+        )
+        if chosen_website in other_libraries:
+            output.write("Current configuration:\n")
+            short_name, secret = other_libraries[chosen_website]
+            self.explain(output, chosen_website, short_name, secret)
+            other_libraries[chosen_website] = [args.short_name, args.secret)
+            output.write("New configuration:\n")
+            self.explain(output, chosen_website, short_name, secret)
+        
 
     def explain(self, output, website, short_name, secret):
         output.write("Website: %s\n" % website)
