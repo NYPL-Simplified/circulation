@@ -173,37 +173,36 @@ class CirculationManager(object):
         self.analytics = Analytics(self._db)
         self.auth = Authenticator(self._db, self.analytics)
 
-        self.__external_search = None
-        self.external_search_initialization_exception = None
+        self.setup_external_search()
         
         # Track the Lane configuration for each library by mapping its
         # short name to the top-level lane.
-        self.top_level_lanes = {}
-
+        new_top_level_lanes = {}
         # Create a CirculationAPI for each library.
-        self.circulation_apis = {}
+        new_circulation_apis = {}
         
-        self.adobe_vendor_id = None
-        self.adobe_device_management = None
-        self.short_client_token_initialization_exceptions = dict()
+        new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = make_lanes(self._db, library, self.lane_descriptions)
             
-            self.top_level_lanes[library.id] = (
+            new_top_level_lanes[library.id] = (
                 self.create_top_level_lane(
                     self._db, library, lanes
                 )
             )
 
-            self.circulation_apis[library.id] = self.setup_circulation(
+            new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
             authdata = self.setup_adobe_vendor_id(self._db, library)
-            if authdata and not self.adobe_device_management:
+            if authdata and not new_adobe_device_management:
                 # There's at least one library on this system that
                 # wants Vendor IDs. This means we need to advertise support
                 # for the Device Management Protocol.
-                self.adobe_device_management = DeviceManagementProtocolController(self)
+                new_adobe_device_management = DeviceManagementProtocolController(self)
+        self.adobe_device_management = new_adobe_device_management
+        self.top_level_lanes = new_top_level_lanes
+        self.circulation_apis = new_circulation_apis
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
@@ -222,14 +221,19 @@ class CirculationManager(object):
         affects searches, not the rest of the circulation manager.
         """
         if not self.__external_search:
-            try:
-                self.__external_search = self.setup_search()
-                self.external_search_initialization_exception = None
-            except CannotLoadConfiguration, e:
-                self.log.error(
-                    "Exception loading search configuration: %s", e
-                )
-                self.external_search_initialization_exception = e
+            self.setup_external_search()
+        return self.__external_search
+
+    def setup_external_search(self):
+        try:
+            self.__external_search = self.setup_search()
+            self.external_search_initialization_exception = None
+        except CannotLoadConfiguration, e:
+            self.log.error(
+                "Exception loading search configuration: %s", e
+            )
+            self.__external_search = None
+            self.external_search_initialization_exception = e
         return self.__external_search
 
     def create_top_level_lane(self, _db, library, lanelist):
@@ -312,6 +316,7 @@ class CirculationManager(object):
 
         :return: An Authdata object for `library`, if one could be created.
         """
+        short_client_token_initialization_exceptions = dict()
         adobe = ExternalIntegration.lookup(
             _db, ExternalIntegration.ADOBE_VENDOR_ID,
             ExternalIntegration.DRM_GOAL, library=library
@@ -353,13 +358,14 @@ class CirculationManager(object):
         authdata = None
         if registry:
             try:
-                authdata = AuthdataUtility.from_config(library)
+                authdata = AuthdataUtility.from_config(library, _db)
             except CannotLoadConfiguration, e:
-                self.short_client_token_initialization_exceptions[library.id] = e
+                short_client_token_initialization_exceptions[library.id] = e
                 self.log.error(
                     "Short Client Token configuration for %s is present but not working. This may be cause for concern. Original error: %s",
                     library.name, e
                 )
+        self.short_client_token_initialization_exceptions = short_client_token_initialization_exceptions
         return authdata
 
     def annotator(self, lane, *args, **kwargs):

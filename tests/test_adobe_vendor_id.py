@@ -625,6 +625,28 @@ class TestAuthdataUtility(VendorIDTest):
             utility.library_uris_by_short_name
         )
 
+        # If the Library object is disconnected from its database
+        # session, as may happen in production...
+        self._db.expunge(library)
+        
+        # Then an attempt to use it to get an AuthdataUtility
+        # will fail...
+        assert_raises_regexp(
+            ValueError, 
+            "No database connection provided and could not derive one from Library object!", 
+            AuthdataUtility.from_config, library
+        )
+        
+        # ...unless a database session is provided in the constructor.
+        authdata = AuthdataUtility.from_config(library, self._db)
+        eq_(
+            {"%sTOKEN" % library.short_name.upper() : library_url,
+             "%sTOKEN" % library2.short_name.upper() : library2_url },
+            authdata.library_uris_by_short_name
+        )
+        library = self._db.merge(library)
+        self._db.commit()
+
         # If an integration is set up but incomplete, from_config
         # raises CannotLoadConfiguration.
         setting = ConfigurationSetting.for_library_and_externalintegration(
@@ -681,6 +703,7 @@ class TestAuthdataUtility(VendorIDTest):
         # from_config() returns None.
         self._db.delete(registry)
         eq_(None, AuthdataUtility.from_config(library))
+
             
     def test_decode_round_trip(self):        
         patron_identifier = "Patron identifier"
