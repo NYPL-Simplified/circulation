@@ -679,6 +679,7 @@ class AuthdataUtility(object):
         incompletely configured.
         """
         _db = _db or Session.object_session(library)
+        library = _db.merge(library, load=False)
 
         # Try to find an external integration with a configured Vendor ID.
         integrations = _db.query(
