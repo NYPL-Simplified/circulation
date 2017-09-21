@@ -26,7 +26,6 @@ from core.model import (
     get_one_or_create,
 )
 from core.metadata_layer import FormatData
-from core.opds import AcquisitionFeed
 from circulation import (
     BaseCirculationAPI,
     LoanInfo,
