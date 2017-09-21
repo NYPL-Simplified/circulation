@@ -55,6 +55,7 @@ from core.model import (
     Subject,
     ExternalIntegration,
     Session,
+    Hyperlink,
 )
 
 from core.metadata_layer import (
@@ -65,6 +66,7 @@ from core.metadata_layer import (
     CirculationData,
     Metadata,
     ReplacementPolicy,
+    LinkData,
 )
 
 from core.monitor import (
@@ -553,6 +555,8 @@ class BibliographicParser(object):
             sort_name = Edition.UNKNOWN_AUTHOR
         contributors.append(ContributorData(sort_name=sort_name))
         primary_identifier = IdentifierData(EnkiAPI.ENKI_ID, element["id"])
+        image_url = element["large_image"]
+        images = [LinkData(rel=Hyperlink.THUMBNAIL_IMAGE, href=image_url, media_type=Representation.PNG_MEDIA_TYPE), LinkData(rel=Hyperlink.IMAGE, href=image_url, media_type=Representation.PNG_MEDIA_TYPE)]
         metadata = Metadata(
             data_source=DataSource.ENKI,
             title=element["title"],
@@ -562,6 +566,7 @@ class BibliographicParser(object):
             primary_identifier=primary_identifier,
             identifiers=identifiers,
             contributors=contributors,
+            links=images,
         )
         licenses_owned=element["availability"]["totalCopies"]
         licenses_available=element["availability"]["availableCopies"]

@@ -1,7 +1,10 @@
 import logging
 from lxml import etree
 from nose.tools import set_trace
-from config import Configuration
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 from StringIO import StringIO
 from core.coverage import (
     CoverageFailure,
@@ -32,7 +35,7 @@ from core.opds_import import (
     OPDSXMLParser,
     SimplifiedOPDSLookup,
 )
-
+from core.opds import AcquisitionFeed
 from core.util.http import (
     RemoteIntegrationException,
 )
@@ -399,6 +402,67 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCollectionManager):
             self._db.delete(record)
         super(MetadataWranglerCollectionReaper, self).finalize_batch()
 
+
+class MetadataUploadCoverageProvider(CollectionCoverageProvider):
+    """Provide coverage for identifiers by uploading OPDS metadata to
+    the metadata wrangler.
+    """
+    DEFAULT_BATCH_SIZE = 25
+    SERVICE_NAME = "Metadata Upload Coverage Provider"
+    OPERATION = CoverageRecord.METADATA_UPLOAD_OPERATION
+    DATA_SOURCE_NAME = DataSource.INTERNAL_PROCESSING
+    
+    def __init__(self, collection, upload_client=None, **kwargs):
+        _db = Session.object_session(collection)
+        self.upload_client = upload_client or MetadataWranglerOPDSLookup.from_config(
+            _db, collection=collection
+        )
+
+        super(MetadataUploadCoverageProvider, self).__init__(
+            collection, **kwargs
+        )
+        if not self.upload_client.authenticated:
+            raise CannotLoadConfiguration(
+                "Authentication for the Library Simplified Metadata Wrangler "
+                "is not set up. You can't upload metadata without authenticating."
+            )
+    
+    def items_that_need_coverage(self, identifiers=None, **kwargs):
+        """Find all identifiers lacking coverage from this CoverageProvider.
+        Only identifiers that have CoverageRecords in the 'transient
+        failure' state will be returned. Unlike with other
+        CoverageProviders, Identifiers that have no CoverageRecord at
+        all will not be processed.
+        """
+        qu = super(MetadataUploadCoverageProvider, self).items_that_need_coverage(
+            identifiers=identifiers, **kwargs
+        )
+        qu = qu.filter(CoverageRecord.id != None)
+        return qu
+
+    def process_batch(self, batch):
+        """Create an OPDS feed from a batch and upload it to the metadata client."""
+        works = []
+        results = []
+        for identifier in batch:
+            work = self.work(identifier)
+            if not isinstance(work, CoverageFailure):
+                works.append(work)
+                results.append(identifier)
+            else:
+                results.append(work)
+        feed = AcquisitionFeed(self._db, "Metadata Upload Feed", "", works, None)
+        self.upload_client.add_with_metadata(feed)
+        
+        # We grant coverage for all identifiers if the upload doesn't raise an exception.
+        return results
+
+    def process_item(self, identifier):
+        """Handle an individual item (e.g. through ensure_coverage) as a very
+        small batch. Not efficient, but it works.
+        """
+        [result] = self.process_batch([identifier])
+        return result
 
 class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     """Make sure our records for open-access books match what the content
