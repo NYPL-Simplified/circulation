@@ -1,5 +1,6 @@
 import argparse
 from nose.tools import set_trace
+import json
 import logging
 import uuid
 import base64
@@ -1049,14 +1050,12 @@ class ShortClientTokenLibraryConfigurationScript(Script):
 
         chosen_website = args.website_url
         if not chosen_website:
-            for website, (short_name, secret) in other_libraries.items():
-                self.explain(output, website, short_name, secret)
+            for website in other_libraries.keys():
+                self.explain(output, other_libraries, website)
             return
 
         if (not args.short_name and not args.secret):
-
-            short_name, secret = other_libraries[chosen_website]
-            self.explain(output, chosen_website, short_name, secret)
+            self.explain(output, other_libraries, chosen_website)
             return
 
         if not args.short_name or not args.secret:
@@ -1075,15 +1074,20 @@ class ShortClientTokenLibraryConfigurationScript(Script):
             )
         )
         if chosen_website in other_libraries:
-            output.write("Current configuration:\n")
+            output.write("Old configuration:\n")
             short_name, secret = other_libraries[chosen_website]
-            self.explain(output, chosen_website, short_name, secret)
-            other_libraries[chosen_website] = [args.short_name, args.secret)
-            output.write("New configuration:\n")
-            self.explain(output, chosen_website, short_name, secret)
+            self.explain(output, other_libraries, chosen_website)
+        other_libraries[chosen_website] = [args.short_name, args.secret]
         
+        output.write("New configuration:\n")
+        self.explain(output, other_libraries, chosen_website)
+        setting.value = json.dumps(other_libraries)
+        self._db.commit()
 
-    def explain(self, output, website, short_name, secret):
+    def explain(self, output, libraries, website):
+        if not website in libraries:
+            raise ValueError("Library not configured: %s" % website)
+        short_name, secret = libraries[website]
         output.write("Website: %s\n" % website)
         output.write(" Short name: %s\n" % short_name)
         output.write(" Short Client Token secret: %s\n" % secret)
