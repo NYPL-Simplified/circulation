@@ -6,12 +6,18 @@ class LocalAnalyticsProvider(object):
 
     DESCRIPTION = _("Store analytics events in the 'circulationevents' database table.")
 
-    def __init__(self, integration):
+    def __init__(self, integration, library=None):
         self.integration_id = integration.id
+        if library:
+            self.library_id = library.id
+        else:
+            self.library_id = None
 
     def collect_event(self, library, license_pool, event_type, time, 
         old_value=None, new_value=None, **kwargs):
         _db = Session.object_session(library)
+        if library and self.library_id and library.id != self.library_id:
+            return
         
         CirculationEvent.log(
           _db, license_pool, event_type, old_value, new_value, start=time)

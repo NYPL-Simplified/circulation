@@ -753,7 +753,7 @@ class CirculationData(MetaToModelUtility):
                         rights_uri = RightsStatus.GENERIC_OPEN_ACCESS
                     format_found = False
                     for format in self.formats:
-                        if format.link and format.link.href == link.href:
+                        if format and format.link and format.link.href == link.href:
                             if not format.rights_uri:
                                 format.rights_uri = rights_uri
                             format_found = True
@@ -948,7 +948,7 @@ class CirculationData(MetaToModelUtility):
         old_open_access = any(pool.open_access for pool in pools)
 
         for format in self.formats:
-            if format.link:
+            if format and format.link:
                 link = format.link
                 if not format.content_type:
                     format.content_type = link.media_type

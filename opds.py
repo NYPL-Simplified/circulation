@@ -194,7 +194,12 @@ class Annotator(object):
                 dict(term=work.audience, label=work.audience)
             ]
 
-        if work.target_age:
+        # Any book can have a target age, but the target age
+        # is only relevant for childrens' and YA books.
+        audiences_with_target_age = (
+            Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
+        )
+        if (work.target_age and work.audience in audiences_with_target_age):
             uri = Subject.uri_lookup[Subject.AGE_RANGE]
             target_age = work.target_age_string
             if target_age:
@@ -974,8 +979,11 @@ class AcquisitionFeed(OPDSFeed):
                 issued_already = (issued <= today)
             if issued_already:
                 issued_tag = AtomFeed.makeelement("{%s}created" % AtomFeed.DCTERMS_NS)
+                # Use datetime.isoformat instead of datetime.strftime because
+                # strftime only works on dates after 1890, and we have works
+                # that were issued much earlier than that.
                 # TODO: convert to local timezone, not that it matters much.
-                issued_tag.text = issued.strftime("%Y-%m-%d")
+                issued_tag.text = issued.isoformat().split('T')[0]
                 entry.extend([issued_tag])
 
         return entry

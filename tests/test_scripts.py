@@ -55,6 +55,7 @@ from scripts import (
     CustomListManagementScript,
     DatabaseMigrationInitializationScript,
     DatabaseMigrationScript,
+    Explain,
     IdentifierInputScript,
     FixInvisibleWorksScript,
     LibraryInputScript,
@@ -676,28 +677,34 @@ class TestDatabaseMigrationScript(DatabaseTest):
         """Filters out migrations that were run on or before a given timestamp"""
 
         migrations = [
+            '20271204-far-future-migration-funtime.sql',
             '20271202-future-migration-funtime.sql',
+            '20271203-do-another-thing.py',
             '20250521-make-bananas.sql',
             '20260810-last-timestamp',
             '20260811-do-a-thing.py',
-            '20260809-already-done.sql'
+            '20260809-already-done.sql',
         ]
 
         result = self.script.get_new_migrations(self.timestamp, migrations)
-        # Expected migrations will be sorted by timestamp.
+        # Expected migrations will be sorted by timestamp. Python migrations
+        # will be sorted after SQL migrations.
         expected = [
-            '20260811-do-a-thing.py', '20271202-future-migration-funtime.sql'
+            '20271202-future-migration-funtime.sql', 
+            '20271204-far-future-migration-funtime.sql',
+            '20260811-do-a-thing.py',
+            '20271203-do-another-thing.py',
         ]
 
-        eq_(2, len(result))
+        eq_(4, len(result))
         eq_(expected, result)
 
         # If the timestamp has a counter, the filter only finds new migrations
         # past the counter.
         migrations = [
-            '20271202-future-migration-funtime.sql',
             '20260810-last-timestamp.sql',
             '20260810-1-do-a-thing.sql',
+            '20271202-future-migration-funtime.sql',
             '20260810-2-do-all-the-things.sql',
             '20260809-already-done.sql'
         ]
@@ -705,7 +712,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         result = self.script.get_new_migrations(self.timestamp, migrations)
         expected = [
             '20260810-2-do-all-the-things.sql',
-            '20271202-future-migration-funtime.sql'
+            '20271202-future-migration-funtime.sql',
         ]
 
         eq_(2, len(result))
@@ -1767,6 +1774,34 @@ class TestBibliographicRefreshScript(DatabaseTest):
         eq_(False, script.refresh_metadata(identifier))
 
 
+class TestExplain(DatabaseTest):
+
+    def test_explain(self):
+        """Make sure the Explain script runs without crashing."""
+        work = self._work(with_license_pool=True, genre="Science Fiction")
+        [pool] = work.license_pools
+        edition = work.presentation_edition
+        identifier = pool.identifier
+        input = StringIO()
+        output = StringIO()
+        args = ["--identifier-type", "Database ID", str(identifier.id)]
+        Explain(self._db).do_run(cmd_args=args, stdin=input, stdout=output)
+        output = output.getvalue()
+
+        # The script ran. Spot-check that it provided various
+        # information about the work, without testing the exact
+        # output.
+        assert work.title in output
+        assert "Science Fiction" in output
+        for contributor in edition.contributors:
+            assert contributor.sort_name in output
+
+        # There is an active LicensePool that is fulfillable and has
+        # copies owned.
+        assert "%s owned" % pool.licenses_owned in output
+        assert "Fulfillable" in output
+        assert "ACTIVE" in output
+
 class TestWorkConsolidationScript(object):
     """TODO"""
     pass
@@ -1805,8 +1840,4 @@ class TestNYTBestSellerListsScript(object):
 class TestRefreshMaterializedViewsScript(object):
     """TODO"""
     pass
-
-
-class TestExplain(object):
-    """TODO"""
-    pass
+    

@@ -1648,19 +1648,27 @@ class DatabaseMigrationScript(Script):
 
     @classmethod
     def sort_migrations(self, migrations):
-        """Ensures that migrations with a counter digit are sorted after
-        migrations without one.
+        """All Python migrations sort after all SQL migrations, since a Python
+        migration requires an up-to-date database schema.
+
+        Migrations with a counter digit sort after migrations without
+        one.
         """
 
         def compare_migrations(first, second):
             """Compares migrations according to ideal sorting order.
 
+            - All Python migrations run after all SQL migrations.
             - Migrations are first ordered by timestamp (asc).
             - If two migrations have the same timestamp, any migrations
               without counters come before migrations with counters.
             - If two migrations with the same timestamp, have counters,
               migrations are sorted by counter (asc).
             """
+            if first.endswith('.py') and second.endswith('.sql'):
+                return 1
+            elif first.endswith('.sql') and second.endswith('.py'):
+                return -1
             first_datestamp = int(first[:8])
             second_datestamp = int(second[:8])
             datestamp_difference = first_datestamp - second_datestamp
@@ -1714,7 +1722,7 @@ class DatabaseMigrationScript(Script):
 
         # Try to find an existing timestamp representing the last migration
         # script that was run.
-        sql = "SELECT timestamp, counter FROM timestamps WHERE service=:service AND collection_id IS NULL LIMIT 1;"
+        sql = "SELECT timestamp, counter FROM timestamps WHERE service=:service LIMIT 1;"
         results = list(self._db.execute(text(sql), dict(service=self.name)))
         if results:
             [(date, counter)] = results
@@ -1897,7 +1905,7 @@ class DatabaseMigrationScript(Script):
         match = self.MIGRATION_WITH_COUNTER.search(migration_file)
         if match:
             timestamp.counter = int(match.groups()[0])
-        sql = "UPDATE timestamps SET timestamp=:timestamp, counter=:counter where service=:service AND collection_id IS NULL"
+        sql = "UPDATE timestamps SET timestamp=:timestamp, counter=:counter where service=:service"
         self._db.execute(text(sql), dict(timestamp=timestamp.timestamp,
                                          counter=timestamp.counter,
                                          service=self.name))
@@ -2145,51 +2153,60 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
-    def do_run(self, cmd_args=None, stdin=sys.stdin):
+    def do_run(self, cmd_args=None, stdin=sys.stdin, stdout=sys.stdout):
         param_args = self.parse_command_line(self._db, cmd_args=cmd_args, stdin=stdin)
         identifier_ids = [x.id for x in param_args.identifiers]
         editions = self._db.query(Edition).filter(
             Edition.primary_identifier_id.in_(identifier_ids)
         )
+        self.stdout = stdout
 
         policy = None
         for edition in editions:
             self.explain(self._db, edition, policy)
-            print "-" * 80
+            self.write("-" * 80)
 
-    @classmethod
-    def explain(cls, _db, edition, presentation_calculation_policy=None):
+    def write(self, s):
+        """Write a string to self.stdout."""
+        if isinstance(s, unicode):
+            s = s.encode("utf8")
+        if not s.endswith('\n'):
+            s += '\n'
+        self.stdout.write(s)
+
+    def explain(self, _db, edition, presentation_calculation_policy=None):
         if edition.medium not in ('Book', 'Audio'):
             # we haven't yet decided what to display for you
             return
 
         # Tell about the Edition record.
         output = "%s (%s, %s) according to %s" % (edition.title, edition.author, edition.medium, edition.data_source.name)
-        print output.encode("utf8")
-        print " Permanent work ID: %s" % edition.permanent_work_id
-        print " Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn
+        self.write(output)
+        self.write(" Permanent work ID: %s" % edition.permanent_work_id)
+        self.write(" Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn)
 
         seen = set()
-        cls.explain_identifier(edition.primary_identifier, True, seen, 1, 0)
+        self.explain_identifier(edition.primary_identifier, True, seen, 1, 0)
 
         # Find all contributions, and tell about the contributors.
         if edition.contributions:
             for contribution in edition.contributions:
-                cls.explain_contribution(contribution)
+                self.explain_contribution(contribution)
 
         # Tell about the LicensePool.
-        lp = edition.license_pool
-        if lp:
-            cls.explain_license_pool(lp)
+        lps = edition.license_pools
+        if lps:
+            for lp in lps:
+                self.explain_license_pool(lp)
         else:
-            print " No associated license pool."
+            self.write(" No associated license pools.")
 
         # Tell about the Work.
         work = edition.work
         if work:
-            cls.explain_work(work)
+            self.explain_work(work)
         else:
-            print " No associated work."
+            self.write(" No associated work.")
 
         # Note:  Can change DB state.
         if work and presentation_calculation_policy is not None:
@@ -2198,20 +2215,16 @@ class Explain(IdentifierInputScript):
              print "!!! All done!"
              print
              print "After recalculating presentation:"
-             cls.explain_work(work)
+             self.explain_work(work)
 
 
-    @classmethod
-    def explain_contribution(cls, contribution):
+    def explain_contribution(self, contribution):
         contributor_id = contribution.contributor.id
         contributor_sort_name = contribution.contributor.sort_name
         contributor_display_name = contribution.contributor.display_name
-        output = " Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s, " % (contributor_id, contributor_sort_name, contributor_display_name)
-        print output.encode("utf8")
+        self.write(" Contributor[%s]: contributor_sort_name=%s, contributor_display_name=%s, " % (contributor_id, contributor_sort_name, contributor_display_name))
 
-
-    @classmethod
-    def explain_identifier(cls, identifier, primary, seen, strength, level):
+    def explain_identifier(self, identifier, primary, seen, strength, level):
         indent = "  " * level
         if primary:
             ident = "Primary identifier"
@@ -2219,8 +2232,7 @@ class Explain(IdentifierInputScript):
             ident = "Identifier"
         if primary:
             strength = 1
-        output = "%s %s: %s/%s (q=%s)" % (indent, ident, identifier.type, identifier.identifier, strength)
-        print output.encode("utf8")
+        self.write("%s %s: %s/%s (q=%s)" % (indent, ident, identifier.type, identifier.identifier, strength))
 
         _db = Session.object_session(identifier)
         classifications = Identifier.classifications_for_identifier_ids(
@@ -2242,13 +2254,12 @@ class Explain(IdentifierInputScript):
                 continue
             seen.add(equivalency.id)
             output = equivalency.output
-            cls.explain_identifier(output, False, seen,
+            self.explain_identifier(output, False, seen,
                                     equivalency.strength, level+1)
 
-    @classmethod
-    def explain_license_pool(cls, pool):
-        print "Licensepool info:"
-        print " Delivery mechanisms:"
+    def explain_license_pool(self, pool):
+        self.write("Licensepool info:")
+        self.write(" Delivery mechanisms:")
         if pool.delivery_mechanisms:
             for lpdm in pool.delivery_mechanisms:
                 dm = lpdm.delivery_mechanism
@@ -2256,32 +2267,31 @@ class Explain(IdentifierInputScript):
                     fulfillable = "Fulfillable"
                 else:
                     fulfillable = "Unfulfillable"
-                print "  %s %s/%s" % (fulfillable, dm.content_type, dm.drm_scheme)
+                self.write("  %s %s/%s" % (fulfillable, dm.content_type, dm.drm_scheme))
         else:
-            print " No delivery mechanisms."
-        print " %s owned, %d available, %d holds, %d reserves" % (
+            self.write(" No delivery mechanisms.")
+        self.write(" %s owned, %d available, %d holds, %d reserves" % (
             pool.licenses_owned, pool.licenses_available, pool.patrons_in_hold_queue, pool.licenses_reserved
-        )
+        ))
 
-    @classmethod
-    def explain_work(cls, work):
-        print "Work info:"
+    def explain_work(self, work):
+        self.write("Work info:")
         if work.presentation_edition:
-            print " Identifier of presentation edition: %r" % work.presentation_edition.primary_identifier
+            self.write(" Identifier of presentation edition: %r" % work.presentation_edition.primary_identifier)
         else:
-            print " No presentation edition."
-        print " Fiction: %s" % work.fiction
-        print " Audience: %s" % work.audience
-        print " Target age: %r" % work.target_age
-        print " %s genres." % (len(work.genres))
+            self.write(" No presentation edition.")
+        self.write(" Fiction: %s" % work.fiction)
+        self.write(" Audience: %s" % work.audience)
+        self.write(" Target age: %r" % work.target_age)
+        self.write(" %s genres." % (len(work.genres)))
         for genre in work.genres:
-            print " ", genre
-        print " License pools:"
+            self.write("  %s" % genre)
+        self.write(" License pools:")
         for pool in work.license_pools:
             active = "SUPERCEDED"
             if not pool.superceded:
                 active = "ACTIVE"
-            print "  %s: %r" % (active, pool.identifier)
+            self.write("  %s: %r" % (active, pool.identifier))
 
 
 class FixInvisibleWorksScript(CollectionInputScript):

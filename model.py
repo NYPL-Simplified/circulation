@@ -6541,12 +6541,16 @@ class LicensePool(Base):
             new_licenses_reserved, new_patrons_in_hold_queue,
             analytics=None, as_of=None):
         """Update the LicensePool with new availability information.
-        Log the implied changes as CirculationEvents.
+        Log the implied changes with the analytics provider.
         """
         changes_made = False
         _db = Session.object_session(self)
         if not as_of:
             as_of = datetime.datetime.utcnow()
+        elif as_of == CirculationEvent.NO_DATE:
+            # The caller explicitly does not want
+            # LicensePool.last_checked to be updated.
+            as_of = None
 
         old_licenses_owned = self.licenses_owned
         old_licenses_available = self.licenses_available
@@ -6577,11 +6581,9 @@ class LicensePool(Base):
             if not event_name:
                 continue
 
-            if analytics:
-                for library in self.collection.libraries:
-                    analytics.collect_event(
-                        library, self, event_name, as_of,
-                        old_value=old_value, new_value=new_value)
+            self.collect_analytics_event(
+                analytics, event_name, as_of, old_value, new_value
+            )
 
         # Update the license pool with the latest information.
         any_data = False
@@ -6598,7 +6600,7 @@ class LicensePool(Base):
             self.patrons_in_hold_queue = new_patrons_in_hold_queue
             any_data = True
 
-        if any_data or changes_made:
+        if as_of and (any_data or changes_made):
             # Sometimes update_availability is called with no actual
             # numbers, but that's not the case this time. We got
             # numbers and they may have even changed our view of the
@@ -6615,6 +6617,145 @@ class LicensePool(Base):
             logging.info(message, *args)
 
         return changes_made
+
+    def collect_analytics_event(self, analytics, event_name, as_of,
+                                old_value, new_value):
+        if not analytics:
+            return
+        for library in self.collection.libraries:
+            analytics.collect_event(
+                library, self, event_name, as_of,
+                old_value=old_value, new_value=new_value
+            )
+
+    def update_availability_from_delta(self, event_type, event_date, delta, analytics=None):
+        """Call update_availability based on a single change seen in the
+        distributor data, rather than a complete snapshot of
+        distributor information as of a certain time.
+
+        This information is unlikely to be completely accurate, but it
+        should suffice until more accurate information can be
+        obtained.
+
+        No CirculationEvent is created until `update_availability` is
+        called.
+
+        Events must be processed in chronological order. Any event
+        that happened than `LicensePool.last_checked` is ignored, and
+        calling this method will update `LicensePool.last_checked` to
+        the time of the event.
+
+        :param event_type: A CirculationEvent constant representing the
+        type of change that was seen.
+
+        :param event_date: A datetime corresponding to when the 
+        change was seen.
+
+        :param delta: The magnitude of the change that was seen.
+
+        """
+        ignore = False
+        if event_date != CirculationEvent.NO_DATE and self.last_checked and event_date < self.last_checked:
+            # This is an old event and its effect on availability has
+            # already been taken into account.
+            ignore = True
+
+        elif self.last_checked and event_date == CirculationEvent.NO_DATE:
+            # We have a history for this LicensePool and we don't know
+            # where this event fits into that history. Ignore the
+            # event.
+            ignore = True
+
+        if not ignore:
+            (new_licenses_owned, new_licenses_available, 
+             new_licenses_reserved, 
+             new_patrons_in_hold_queue) = self._calculate_change_from_one_event(
+                 event_type, delta
+             )
+
+            changes_made = self.update_availability(
+                new_licenses_owned, new_licenses_available, 
+                new_licenses_reserved, new_patrons_in_hold_queue,
+                analytics=analytics, as_of=event_date
+            )
+        if ignore or not changes_made:
+            # Even if the event was ignored or didn't actually change
+            # availability, we want to record receipt of the event
+            # in the analytics.
+            self.collect_analytics_event(
+                analytics, event_type, event_date, 0, 0
+            )
+
+    def _calculate_change_from_one_event(self, type, delta):
+        new_licenses_owned = self.licenses_owned
+        new_licenses_available = self.licenses_available
+        new_licenses_reserved = self.licenses_reserved
+        new_patrons_in_hold_queue = self.patrons_in_hold_queue
+
+        def deduct(value):
+            # It's impossible for any of these numbers to be
+            # negative.
+            return max(value-delta, 0)
+
+        CE = CirculationEvent
+        added = False
+        if type == CE.DISTRIBUTOR_HOLD_PLACE:
+            new_patrons_in_hold_queue += delta
+            if new_licenses_available:
+                # If someone has put a book on hold, it must not be
+                # immediately available.
+                new_licenses_available = 0
+        elif type == CE.DISTRIBUTOR_HOLD_RELEASE:
+            new_patrons_in_hold_queue = deduct(new_patrons_in_hold_queue)
+        elif type == CE.DISTRIBUTOR_CHECKIN:
+            if self.patrons_in_hold_queue == 0:
+                new_licenses_available += delta
+            else:
+                # When there are patrons in the hold queue, checking
+                # in a single book does not make new licenses
+                # available.  Checking in more books than there are
+                # patrons in the hold queue _does_ make books
+                # available.  However, in neither case do patrons
+                # leave the hold queue. That will happen in the near
+                # future as DISTRIBUTOR_AVAILABILITY_NOTIFICATION events 
+                # are sent out.
+                if delta > new_patrons_in_hold_queue:
+                    new_licenses_available += (delta-new_patrons_in_hold_queue)
+        elif type == CE.DISTRIBUTOR_CHECKOUT:
+            if new_licenses_available == 0:
+                # The only way to borrow books while there are no
+                # licenses available is to borrow reserved copies.
+                new_licenses_reserved = deduct(new_licenses_reserved)
+            else:
+                # We don't know whether this checkout came from
+                # licenses available or from a lingering reserved
+                # copy, but in most cases it came from licenses
+                # available.
+                new_licenses_available = deduct(new_licenses_available)
+        elif type == CE.DISTRIBUTOR_LICENSE_ADD:
+            new_licenses_owned += delta
+            # Newly added licenses start out as available, unless there
+            # are patrons in the holds queue.
+            if new_patrons_in_hold_queue == 0:
+                new_licenses_available += delta
+        elif type == CE.DISTRIBUTOR_LICENSE_REMOVE:
+            new_licenses_owned = deduct(new_licenses_owned)
+            # We can't say whether or not the removed licenses should
+            # be deducted from the list of available licenses, because they
+            # might already be checked out.
+        elif type == CE.DISTRIBUTOR_AVAILABILITY_NOTIFY:
+            new_patrons_in_hold_queue = deduct(new_patrons_in_hold_queue)
+            new_licenses_reserved += delta
+        if new_licenses_owned < new_licenses_available:
+            # It's impossible to have more licenses available than
+            # owned. We don't know whether this means there are some
+            # extra licenses we never heard about, or whether some
+            # licenses expired without us being notified, but the
+            # latter is more likely.
+            new_licenses_available = new_licenses_owned
+
+        return (new_licenses_owned, new_licenses_available, 
+                new_licenses_reserved, new_patrons_in_hold_queue)
 
     def circulation_changelog(self, old_licenses_owned, old_licenses_available,
                               old_licenses_reserved, old_patrons_in_hold_queue):
@@ -7169,6 +7310,9 @@ class CirculationEvent(Base):
     """
     __tablename__ = 'circulationevents'
 
+    # Used to explicitly tag an event as happening at an unknown time.
+    NO_DATE = object()
+
     id = Column(Integer, primary_key=True)
 
     # One LicensePool can have many circulation events.
@@ -7248,6 +7392,7 @@ class CirculationEvent(Base):
                 end=end)
             )
         return event, was_new
+        
 
 Index("ix_circulationevents_start_desc_nullslast", CirculationEvent.start.desc().nullslast())
 
@@ -7683,6 +7828,18 @@ class Representation(Base):
             return True
         return False
 
+    @property
+    def is_usable(self):
+        """Returns True if the Representation has some data or received
+        a status code that's not in the 5xx series.
+        """
+        if not self.fetch_exception and (
+            self.content or self.local_path or self.status_code
+            and self.status_code / 100 != 5
+        ):
+            return True
+        return False
+
     @classmethod
     def is_media_type(cls, s):
         """Return true if the given string looks like a media type."""
@@ -7700,6 +7857,15 @@ class Representation(Base):
                    'text/', 
                    'video/'
         ])
+
+    def is_fresher_than(self, max_age):
+        # Convert a max_age timedelta to a number of seconds.
+        if isinstance(max_age, datetime.timedelta):
+            max_age = max_age.total_seconds()
+
+        if not self.is_usable:
+            return False
+        return (max_age is None or max_age > self.age)
 
     @classmethod
     def get(cls, _db, url, do_get=None, extra_request_headers=None,
@@ -7740,27 +7906,13 @@ class Representation(Base):
             a['media_type'] = accept
         representation = get_one(_db, Representation, 'interchangeable', **a)
 
-        # Convert a max_age timedelta to a number of seconds.
-        if isinstance(max_age, datetime.timedelta):
-            max_age = max_age.total_seconds()
+        usable_representation = fresh_representation = False
+        if representation:
+            # Do we already have a usable representation?
+            usable_representation = representation.is_usable
 
-        # Do we already have a usable representation?
-        #
-        # 'Usable' means we tried it and either got some data or
-        # received a status code that's not in the 5xx series.
-        usable_representation = (
-            representation and not representation.fetch_exception
-            and (
-                representation.content or representation.local_path
-                or representation.status_code and representation.status_code / 100 != 5
-            )
-        )
-
-        # Assuming we have a usable representation, is it
-        # fresh?
-        fresh_representation = (
-            usable_representation and (
-                max_age is None or max_age > representation.age))
+            # Assuming we have a usable representation, is it fresh?
+            fresh_representation = representation.is_fresher_than(max_age)
 
         if debug is True:
             debug_level = logging.DEBUG
@@ -7920,12 +8072,11 @@ class Representation(Base):
         representation.fetch_exception = traceback
 
     @classmethod
-    def cacheable_post(cls, _db, url, params, max_age=None,
-                       response_reviewer=None):
-        """Transforms cacheable POST request into a Representation"""
+    def post(cls, _db, url, data, max_age=None, response_reviewer=None):
+        """Finds or creates POST request as a Representation"""
 
         def do_post(url, headers, **kwargs):
-            kwargs.update({'data' : params})
+            kwargs.update({'data' : data})
             return cls.simple_http_post(url, headers, **kwargs)
 
         return cls.get(
@@ -8024,7 +8175,10 @@ class Representation(Base):
     @classmethod
     def simple_http_post(cls, url, headers, **kwargs):
         """The most simple HTTP-based POST."""
-        response = HTTP.post_with_timeout(url, headers=headers, **kwargs)
+        data = kwargs.get('data')
+        if 'data' in kwargs:
+            del kwargs['data']
+        response = HTTP.post_with_timeout(url, data, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
 
     @classmethod
