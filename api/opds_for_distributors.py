@@ -216,10 +216,6 @@ class OPDSForDistributorsImporter(OPDSImporter):
             pool.licenses_owned = 1
             pool.licenses_available = 1
 
-        if self.metadata_client:
-            feed = AcquisitionFeed(self._db, "OPDS for Distributors Metadata Feed", "", works, None)
-            self.metadata_client.add_with_metadata(feed)
-
         return editions, pools, works, failures
 
     @classmethod

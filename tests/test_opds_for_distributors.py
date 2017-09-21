@@ -5,7 +5,6 @@ from nose.tools import (
 )
 import os
 import json
-import feedparser
 
 from api.opds_for_distributors import (
     OPDSForDistributorsAPI,
@@ -286,11 +285,8 @@ class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest)
         )
 
         class MockMetadataClient(object):
-            metadata_feed = None
             def canonicalize_author_name(self, identifier, working_display_name):
                 return working_display_name
-            def add_with_metadata(self, feed):
-                self.metadata_feed = feed
         metadata_client = MockMetadataClient()
         importer = OPDSForDistributorsImporter(
             self._db, collection=collection,
@@ -334,14 +330,6 @@ class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest)
         southern_acquisition_url = southern_acquisition_link.resource.representation.url
         eq_("https://library.biblioboard.com/ext/api/media/04da95cd-6cfc-4e82-810f-121d418b6963/assets/content.epub",
             southern_acquisition_url)
-
-        # An OPDS feed of metadata for the newly imported works was sent to the
-        # metadata wrangler.
-        assert metadata_client.metadata_feed != None
-        feed = feedparser.parse(unicode(metadata_client.metadata_feed))
-        urns = [entry.get("id") for entry in feed.get("entries", [])]
-        eq_(set([camelot_pool.identifier.identifier, southern_pool.identifier.identifier]),
-            set(urns))
 
 
 class TestOPDSForDistributorsReaperMonitor(DatabaseTest, BaseOPDSForDistributorsTest):

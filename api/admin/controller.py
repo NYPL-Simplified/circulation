@@ -1636,6 +1636,7 @@ class SettingsController(CirculationManagerController):
                 service, do_get=do_get, do_post=do_post, key=key
             )
             if problem_detail:
+                self._db.rollback()
                 return problem_detail
 
         if is_new:
