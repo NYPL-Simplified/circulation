@@ -67,7 +67,7 @@ class NYTBestSellerAPI(NYTAPI):
     @classmethod
     def from_config(cls, _db, **kwargs):
         integration = ExternalIntegration.lookup(
-            self._db, ExternalIntegration.NYT,
+            _db, ExternalIntegration.NYT,
             ExternalIntegration.METADATA_GOAL
         )
 

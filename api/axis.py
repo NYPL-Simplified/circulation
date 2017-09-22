@@ -211,10 +211,10 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         # k books are the identifiers in `remainder`. These books have
         # been removed from the collection without us being notified.
         for removed_identifier in remainder:
-            pool = removed_identifier.licensed_through
+            pool = identifier.licensed_through_collection(self.collection)
             if not pool:
                 self.log.warn(
-                    "Was about to reap %r but no local license pool.",
+                    "Was about to reap %r but no local license pool in this collection.",
                     removed_identifier
                 )
                 continue
@@ -336,7 +336,7 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
         else:
             self.api = api_class(_db, collection)
 
-    def process_batch(self, identifiers):
+    def process_items(self, identifiers):
         self.api.update_licensepools_for_identifiers(identifiers)
 
 
