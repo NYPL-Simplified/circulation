@@ -389,6 +389,7 @@ class ItemListParser(XMLParser):
                                 value=pages)
             )
 
+        book_format = value("BookFormat")
         medium, formats = self.internal_formats(book_format)
 
         metadata = Metadata(
