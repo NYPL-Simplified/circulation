@@ -1895,7 +1895,7 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
-                ("id", auth_service.id),
+                ("id", str(auth_service.id)),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
