@@ -433,7 +433,8 @@ def oauth_callback():
 def heartbeat():
     return app.manager.heartbeat.heartbeat()
 
-@app.route('/service_status')
+@library_route("/service_status")
+@has_library
 @returns_problem_detail
 def service_status():
     return app.manager.service_status()
