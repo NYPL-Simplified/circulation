@@ -360,7 +360,7 @@ class Configuration(object):
 
     @classmethod
     def site_configuration_last_update(cls, _db, known_value=None,
-                                       timeout=60):
+                                       timeout=300):
         """Check when the site configuration was last updated.
 
         Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE]. 
@@ -399,7 +399,6 @@ class Configuration(object):
             known_value = Timestamp.value(
                 _db, cls.SITE_CONFIGURATION_CHANGED, None
             )
-            logging.error("Retrieved known value %s from database.", known_value)
         if not known_value:
             # The site configuration has never changed.
             last_update = None
