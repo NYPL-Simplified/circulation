@@ -360,7 +360,7 @@ class Configuration(object):
 
     @classmethod
     def site_configuration_last_update(cls, _db, known_value=None,
-                                       timeout=300):
+                                       timeout=600):
         """Check when the site configuration was last updated.
 
         Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE]. 
