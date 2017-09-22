@@ -1405,7 +1405,7 @@ class SettingsController(CirculationManagerController):
         is_new = False
         auth_service = ExternalIntegration.admin_authentication(self._db)
         if auth_service:
-            if id and id != auth_service.id:
+            if id and int(id) != auth_service.id:
                 return MISSING_SERVICE
             if protocol != auth_service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
