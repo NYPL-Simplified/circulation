@@ -1869,6 +1869,16 @@ class Identifier(Base):
         return Identifier.recursively_equivalent_identifier_ids(
             _db, [self.id], levels, threshold)
 
+    def licensed_through_collection(self, collection):
+        """Find the LicensePool, if any, for this Identifier
+        in the given Collection.
+
+        :return: At most one LicensePool.
+        """
+        for lp in self.licensed_through:
+            if lp.collection == collection:
+                return lp
+
     def add_link(self, rel, href, data_source, media_type=None, content=None,
                  content_path=None):
         """Create a link between this Identifier and a (potentially new)
