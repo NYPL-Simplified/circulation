@@ -217,30 +217,23 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
                     "Was about to reap %r but no local license pool in this collection.",
                     removed_identifier
                 )
-            self.reap(pool)
+                continue
+            if pool.licenses_owned == 0:
+                # Already reaped.
+                continue
+            self.log.info(
+                "Reaping %r", removed_identifier
+            )
 
-    def reap(self, pool):
-        """Actually reap a LicensePool."""
-        if pool.collection != self.collection:
-            # Safeguard to stop Collection A's API from reaping
-            # Collection B's licenses.
-            return
-        if pool.licenses_owned == 0:
-            # Already reaped.
-            return
-        self.log.info("Reaping %r", pool.identifier)
-
-        availability = CirculationData(
-            data_source=pool.data_source,
-            primary_identifier=pool.identifier,
-            licenses_owned=0,
-            licenses_available=0,
-            licenses_reserved=0,
-            patrons_in_hold_queue=0,
-        )
-        availability.apply(
-            pool, ReplacementPolicy.from_license_source(self._db)
-        )
+            availability = CirculationData(
+                data_source=pool.data_source,
+                primary_identifier=removed_identifier,
+                licenses_owned=0,
+                licenses_available=0,
+                licenses_reserved=0,
+                patrons_in_hold_queue=0,
+            )
+            availability.apply(pool, ReplacementPolicy.from_license_source(self._db))
 
 
 class Axis360CirculationMonitor(CollectionMonitor):
