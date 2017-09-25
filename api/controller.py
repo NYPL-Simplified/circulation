@@ -890,6 +890,11 @@ class LoanController(CirculationManagerController):
             return pool
 
         loan, loan_license_pool = self.get_patron_loan(patron, [pool])
+
+        if not loan or not loan_license_pool:
+            return NO_ACTIVE_LOAN.detailed(
+                _("You have no active loan for this title.")
+            )
         
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
