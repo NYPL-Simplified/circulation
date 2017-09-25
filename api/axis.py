@@ -398,15 +398,6 @@ class ResponseParser(Axis360Parser):
 
     def __init__(self, collection):
         self.collection = collection
-
-    def process_all(self, *args, **kwargs):
-        """Annotate outgoing objects with the correct Collection."""
-        for i in super(ResponseParser, self).process_all(*args, **kwargs):
-            self.post_process(i)
-            yield i
-
-    def post_process(self, i):
-        i.collection = self.collection
             
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
         """Raise an error if the given lxml node represents an Axis 360 error

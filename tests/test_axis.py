@@ -334,7 +334,7 @@ class TestCheckoutResponseParser(TestResponseParser):
         parser = CheckoutResponseParser(self._default_collection)
         parsed = parser.process_all(data)
         assert isinstance(parsed, LoanInfo)
-        eq_(self._default_collection.id, parsed.collection.id)
+        eq_(self._default_collection.id, parsed.collection_id)
         eq_(DataSource.AXIS_360, parsed.data_source_name)
         eq_(Identifier.AXIS_360_ID, parsed.identifier_type)
         eq_(datetime.datetime(2015, 8, 11, 18, 57, 42), 
@@ -343,6 +343,7 @@ class TestCheckoutResponseParser(TestResponseParser):
         assert isinstance(parsed.fulfillment_info, FulfillmentInfo)
         eq_("http://axis360api.baker-taylor.com/Services/VendorAPI/GetAxisDownload/v2?blahblah", 
             parsed.fulfillment_info.content_link)
+
 
     def test_parse_already_checked_out(self):
         data = self.sample_data("already_checked_out.xml")
@@ -365,7 +366,7 @@ class TestHoldResponseParser(TestResponseParser):
 
         # The HoldInfo is given the Collection object we passed into
         # the HoldResponseParser.
-        eq_(self._default_collection.id, parsed.collection.id)
+        eq_(self._default_collection.id, parsed.collection_id)
         
     def test_parse_already_on_hold(self):
         data = self.sample_data("already_on_hold.xml")
