@@ -1659,7 +1659,7 @@ class SettingsController(CirculationManagerController):
         try:
             response = do_get(integration.url, allowed_response_codes=['2xx', '3xx'])
         except Exception as e:
-            return REMOTE_INTEGRATION_FAILED
+            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
         if not response.headers.get('Content-Type') == 'application/opds+json':
             return REMOTE_INTEGRATION_FAILED.detailed(
@@ -1714,7 +1714,7 @@ class SettingsController(CirculationManagerController):
             )
         except Exception as e:
             public_key_setting.value = None
-            return REMOTE_INTEGRATION_FAILED
+            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
         registration_info = response.json()
         shared_secret = registration_info.get('metadata', {}).get('shared_secret')
