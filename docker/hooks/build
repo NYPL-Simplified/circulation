@@ -1,9 +1,10 @@
 #!/bin/bash
+set -ex
 
 image_branch="$IMAGE_BRANCH"
 
 if [[ -z "$image_branch" ]]; then
-  image_branch=`echo "${IMAGE_NAME}" | sed "s/\(nypl\/\)*circ-//"`;
+  image_branch=`echo "${DOCKER_REPO}" | sed "s/.*circ-//"`;
 fi
 
 # Clone the right version of the circulation code.
