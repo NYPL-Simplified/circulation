@@ -19,9 +19,9 @@ SCRIPT_NAME=$(basename $SCRIPT_PATH)
 # Shift so any remaining arguments can be passed to the script itself.
 shift
 
-piddir=/var/run/libsimple
+piddir=/var/run/simplified
 pidfile=$piddir/$SCRIPT_NAME.pid
-logdir=/var/log/libsimple
+logdir=/var/log/simplified
 logfile=$logdir/$SCRIPT_NAME.log
 
 # Assume this run file is the Library Simplified directory/core/bin
