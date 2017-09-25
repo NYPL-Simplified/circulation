@@ -4265,7 +4265,7 @@ class Work(Base):
             l.append(" No full cover.")
 
         if self.cover_thumbnail_url:
-            l.append(" Cover thumbnail: %s" % self.cover_full_url)
+            l.append(" Cover thumbnail: %s" % self.cover_thumbnail_url)
         else:
             l.append(" No thumbnail cover.")
 
