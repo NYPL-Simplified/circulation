@@ -706,7 +706,9 @@ class LoanController(CirculationManagerController):
             except Exception, e:
                 # If anything goes wrong, omit the sync step and just
                 # display the current active loans, as we understand them.
-                self.manager.log.error("ERROR DURING SYNC: %r", e, exc_info=e)
+                self.manager.log.error(
+                    "ERROR DURING SYNC for %s: %r", patron.id, e, exc_info=e
+                )
 
         # Then make the feed.
         feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
