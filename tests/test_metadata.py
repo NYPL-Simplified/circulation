@@ -723,6 +723,70 @@ class TestMetadata(DatabaseTest):
         eq_(edition_new.published, edition_old.published)
         eq_(edition_new.issued, edition_old.issued)
 
+    def test_apply_creates_coverage_records(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        metadata = Metadata(
+            data_source=DataSource.OVERDRIVE,
+            title=self._str
+        )
+
+        edition, changed = metadata.apply(edition, pool.collection)
+
+        # One success was recorded.
+        records = self._db.query(
+            CoverageRecord
+        ).filter(
+            CoverageRecord.identifier_id==edition.primary_identifier.id
+        ).filter(
+            CoverageRecord.operation==None
+        )
+        eq_(1, records.count())
+        eq_(CoverageRecord.SUCCESS, records.all()[0].status)
+
+        # No metadata upload failure was recorded, because this metadata
+        # came from Overdrive.
+        records = self._db.query(
+            CoverageRecord
+        ).filter(
+            CoverageRecord.identifier_id==edition.primary_identifier.id
+        ).filter(
+            CoverageRecord.operation==CoverageRecord.METADATA_UPLOAD_OPERATION
+        )
+        eq_(0, records.count())
+
+        # Apply metadata from a different source.
+        metadata = Metadata(
+            data_source=DataSource.GUTENBERG,
+            title=self._str
+        )
+
+        edition, changed = metadata.apply(edition, pool.collection)
+
+        # Another success record was created.
+        records = self._db.query(
+            CoverageRecord
+        ).filter(
+            CoverageRecord.identifier_id==edition.primary_identifier.id
+        ).filter(
+            CoverageRecord.operation==None
+        )
+        eq_(2, records.count())
+        for record in records.all():
+            eq_(CoverageRecord.SUCCESS, record.status)
+
+        # But now there's also a metadata upload failure.
+        records = self._db.query(
+            CoverageRecord
+        ).filter(
+            CoverageRecord.identifier_id==edition.primary_identifier.id
+        ).filter(
+            CoverageRecord.operation==CoverageRecord.METADATA_UPLOAD_OPERATION
+        )
+        eq_(1, records.count())
+        eq_(CoverageRecord.TRANSIENT_FAILURE, records.all()[0].status)
+
+
 
     def test_update_contributions(self):
         edition = self._edition()

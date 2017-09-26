@@ -1304,6 +1304,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     IMPORT_OPERATION = u'import'
     RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
     REPAIR_SORT_NAME_OPERATION = u'repair-sort-name'
+    METADATA_UPLOAD_OPERATION = u'metadata-upload'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -1867,6 +1868,16 @@ class Identifier(Base):
         _db = Session.object_session(self)
         return Identifier.recursively_equivalent_identifier_ids(
             _db, [self.id], levels, threshold)
+
+    def licensed_through_collection(self, collection):
+        """Find the LicensePool, if any, for this Identifier
+        in the given Collection.
+
+        :return: At most one LicensePool.
+        """
+        for lp in self.licensed_through:
+            if lp.collection == collection:
+                return lp
 
     def add_link(self, rel, href, data_source, media_type=None, content=None,
                  content_path=None):
@@ -4254,7 +4265,7 @@ class Work(Base):
             l.append(" No full cover.")
 
         if self.cover_thumbnail_url:
-            l.append(" Cover thumbnail: %s" % self.cover_full_url)
+            l.append(" Cover thumbnail: %s" % self.cover_thumbnail_url)
         else:
             l.append(" No thumbnail cover.")
 

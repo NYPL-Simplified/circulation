@@ -8,10 +8,12 @@ import os
 from model import (
     Contributor,
     DataSource,
+    DeliveryMechanism,
     Resource,
     Hyperlink,
     Identifier,
     Edition,
+    Representation,
     Subject,
     Measurement,
     Work,
@@ -253,3 +255,33 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         eq_("The Incense Game", pool.work.title)
         eq_(True, pool.work.presentation_ready)
        
+    def test_internal_formats(self):
+
+        m = ItemListParser.internal_formats
+        def _check_format(input, expect_medium, expect_format, expect_drm):
+            medium, formats = m(input)
+            eq_(medium, expect_medium)
+            [format] = formats
+            eq_(expect_format, format.content_type)
+            eq_(expect_drm, format.drm_scheme)
+
+        rep = Representation
+        adobe = DeliveryMechanism.ADOBE_DRM
+        book = Edition.BOOK_MEDIUM
+
+        # Verify that we handle the known strings from Bibliotheca
+        # appropriately.
+        _check_format("EPUB", book, rep.EPUB_MEDIA_TYPE, adobe)
+        _check_format("EPUB3", book, rep.EPUB_MEDIA_TYPE, adobe)
+        _check_format("PDF", book, rep.PDF_MEDIA_TYPE, adobe)
+        _check_format("MP3", Edition.AUDIO_MEDIUM, rep.MP3_MEDIA_TYPE, adobe)
+
+        # Now Try a string we don't recognize from Bibliotheca.
+        medium, formats = m("Unknown")
+        
+        # We assume it's a book.
+        eq_(Edition.BOOK_MEDIUM, medium)
+
+        # But we don't know which format.
+        eq_([], formats)
+

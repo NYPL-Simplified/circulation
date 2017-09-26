@@ -537,6 +537,20 @@ class TestIdentifier(DatabaseTest):
                  level_3_equivalent.id]),
             set(equivalent_ids))
 
+    def test_licensed_through_collection(self):
+        c1 = self._default_collection
+        c2 = self._collection()
+        c3 = self._collection()
+
+        edition, lp1 = self._edition(collection=c1, with_license_pool=True)
+        lp2 = self._licensepool(collection=c2, edition=edition)
+
+        identifier = lp1.identifier
+        eq_(lp2.identifier, identifier)
+
+        eq_(lp1, identifier.licensed_through_collection(c1))
+        eq_(lp2, identifier.licensed_through_collection(c2))
+        eq_(None, identifier.licensed_through_collection(c3))
 
     def test_missing_coverage_from(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)

@@ -1576,6 +1576,32 @@ class Metadata(MetaToModelUtility):
                 # is associated with the original image.
                 self.make_thumbnail(data_source, link, link_obj)
 
+        # The metadata wrangler doesn't need information from these data sources.
+        # We don't need to send it information it originally provided, and
+        # Overdrive makes metadata accessible to everyone without buying licenses
+        # for the book, so the metadata wrangler can obtain it directly from
+        # Overdrive.
+        # TODO: Remove Bibliotheca and Axis 360 from this list.
+        METADATA_UPLOAD_BLACKLIST = [
+            DataSource.METADATA_WRANGLER,
+            DataSource.OVERDRIVE,
+            DataSource.BIBLIOTHECA,
+            DataSource.AXIS_360,
+        ]
+        if made_core_changes and (not data_source.integration_client) and (data_source.name not in METADATA_UPLOAD_BLACKLIST):
+            # Create a transient failure CoverageRecord for this edition
+            # so it will be processed by the MetadataUploadCoverageProvider.
+            internal_processing = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+
+            # If there's already a CoverageRecord, don't change it to transient failure.
+            # TODO: Once the metadata wrangler can handle it, we'd like to re-sync the
+            # metadata every time there's a change. For now,
+            cr = CoverageRecord.lookup(edition, internal_processing,
+                                       operation=CoverageRecord.METADATA_UPLOAD_OPERATION)
+            if not cr:
+                CoverageRecord.add_for(edition, internal_processing,
+                                       operation=CoverageRecord.METADATA_UPLOAD_OPERATION,
+                                       status=CoverageRecord.TRANSIENT_FAILURE)
 
         # Finally, update the coverage record for this edition
         # and data source.

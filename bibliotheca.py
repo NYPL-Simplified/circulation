@@ -275,6 +275,22 @@ class ItemListParser(XMLParser):
 
     parenthetical = re.compile(" \([^)]+\)$")
 
+
+    format_data_for_bibliotheca_format = {
+        "EPUB" : (
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
+        ),
+        "EPUB3" : (
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
+        ),
+        "PDF" : (
+            Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
+        ),
+        "MP3" : (
+            Representation.MP3_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
+        ),
+    }
+
     @classmethod
     def contributors_from_string(cls, string):
         contributors = []
@@ -373,28 +389,8 @@ class ItemListParser(XMLParser):
                                 value=pages)
             )
 
-        medium = Edition.BOOK_MEDIUM
-
         book_format = value("BookFormat")
-        format = None
-        if book_format == 'EPUB':
-            format = FormatData(
-                content_type=Representation.EPUB_MEDIA_TYPE,
-                drm_scheme=DeliveryMechanism.ADOBE_DRM
-            )
-        elif book_format == 'PDF':
-            format = FormatData(
-                content_type=Representation.PDF_MEDIA_TYPE,
-                drm_scheme=DeliveryMechanism.ADOBE_DRM
-            )
-        elif book_format == 'MP3':
-            format = FormatData(
-                content_type=Representation.MP3_MEDIA_TYPE,
-                drm_scheme=DeliveryMechanism.ADOBE_DRM
-            )
-            medium = Edition.AUDIO_MEDIUM
-
-        formats = [format]
+        medium, formats = self.internal_formats(book_format)
 
         metadata = Metadata(
             data_source=DataSource.BIBLIOTHECA,
@@ -422,6 +418,28 @@ class ItemListParser(XMLParser):
 
         metadata.circulation = circulationdata
         return metadata
+
+    @classmethod
+    def internal_formats(cls, book_format):
+        """Convert the term Bibliotheca uses to refer to a book
+        format into a (medium [formats]) 2-tuple.
+        """
+        medium = Edition.BOOK_MEDIUM
+        format = None
+        if book_format not in cls.format_data_for_bibliotheca_format:
+            logging.error("Unrecognized BookFormat: %s", book_format)
+            return medium, []
+
+        content_type, drm_scheme = cls.format_data_for_bibliotheca_format[
+            book_format
+        ]
+
+        format = FormatData(content_type=content_type, drm_scheme=drm_scheme)
+        if book_format == 'MP3':
+            medium = Edition.AUDIO_MEDIUM
+        else:
+            medium = Edition.BOOK_MEDIUM
+        return medium, [format]
 
 
 class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
