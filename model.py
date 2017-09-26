@@ -145,7 +145,18 @@ def production_session():
     if url.startswith('"'):
         url = url[1:]
     logging.debug("Database url: %s", url)
-    return SessionManager.session(url)
+    _db = SessionManager.session(url)
+
+    # The first thing to do after getting a database connection is to
+    # set up the logging configuration.
+    #
+    # If called during a unit test, this will configure logging
+    # incorrectly, but 1) this method isn't normally called during
+    # unit tests, and 2) package_setup() will call initialize() again
+    # with the right arguments.
+    from log import LogConfiguration
+    LogConfiguration.initialize(_db)
+    return _db
 
 class PolicyException(Exception):
     pass
@@ -9557,6 +9568,10 @@ class ExternalIntegration(Base, HasFullTableCache):
     # help patrons find libraries.
     DISCOVERY_GOAL = u'discovery'
 
+    # These integrations are associated with external services that
+    # collect logs of server-side events.
+    LOGGING_GOAL = u'logging'
+
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
@@ -9621,6 +9636,10 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     # List of such ADMIN_AUTH_GOAL integrations
     ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
+
+    # Integrations with LOGGING_GOAL
+    INTERNAL_LOGGING = u'Internal logging'
+    LOGGLY = u"Loggly"
 
     # Keys for common configuration settings
 

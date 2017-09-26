@@ -43,7 +43,6 @@ from model import (
     Work,
     WorkCoverageRecord,
     get_one_or_create,
-    production_session
 )
 from classifier import Classifier
 from coverage import (
@@ -55,6 +54,7 @@ from coverage import (
 )
 
 from external_search import DummyExternalSearchIndex
+from log import LogConfiguration
 import external_search
 import mock
 import inspect
@@ -64,6 +64,10 @@ def package_setup():
     """Make sure the database schema is initialized and initial
     data is in place.
     """
+
+    # Ensure that the log configuration starts in a known state.
+    LogConfiguration.initialize(None, testing=True)
+
     engine, connection = DatabaseTest.get_database_connection()
 
     # First, recreate the schema.
