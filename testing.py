@@ -43,7 +43,6 @@ from model import (
     Work,
     WorkCoverageRecord,
     get_one_or_create,
-    production_session
 )
 from classifier import Classifier
 from coverage import (
