@@ -9557,6 +9557,10 @@ class ExternalIntegration(Base, HasFullTableCache):
     # help patrons find libraries.
     DISCOVERY_GOAL = u'discovery'
 
+    # These integrations are associated with external services that
+    # collect logs of server-side events.
+    LOGGING_GOAL = u'logging'
+
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
@@ -9619,6 +9623,10 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     # List of such ADMIN_AUTH_GOAL integrations
     ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
+
+    # Integrations with LOGGING_GOAL
+    INTERNAL_LOGGING = u'Internal logging'
+    LOGGLY = u"Loggly"
 
     # Keys for common configuration settings
 

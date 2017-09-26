@@ -329,11 +329,6 @@ class Configuration(object):
         config_instance[EI.CDN] = cdn_integration
 
     @classmethod
-    def logging_policy(cls):
-        default_logging = {}
-        return cls.get(cls.LOGGING, default_logging)
-
-    @classmethod
     def localization_languages(cls):
         languages = cls.policy(cls.LOCALIZATION_LANGUAGES, default=["eng"])
         return [LanguageCodes.three_to_two[l] for l in languages]
