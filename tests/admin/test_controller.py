@@ -3097,7 +3097,7 @@ class TestSettingsController(AdminControllerTest):
             assert ExternalIntegration.OPDS_REGISTRATION in [p.get("name") for p in protocols]
             assert "settings" in protocols[0]
             eq_(ExternalIntegration.OPDS_REGISTRATION, service.get("protocol"))
-            eq_("https://registry.librarysimplified.org", service.get("settings").get(ExternalIntegration.URL))
+            eq_("https://libraryregistry.librarysimplified.org", service.get("settings").get(ExternalIntegration.URL))
         
     def test_discovery_services_get_with_one_service(self):
         discovery_service, ignore = create(

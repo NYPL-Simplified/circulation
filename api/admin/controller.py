@@ -1920,7 +1920,7 @@ class SettingsController(CirculationManagerController):
                     goal=ExternalIntegration.DISCOVERY_GOAL,
                     protocol=ExternalIntegration.OPDS_REGISTRATION,
                     name="Library Simplified Registry")
-                default.url = "https://registry.librarysimplified.org"
+                default.url = "https://libraryregistry.librarysimplified.org"
 
             services = self._get_integration_info(ExternalIntegration.DISCOVERY_GOAL, protocols)
             return dict(
