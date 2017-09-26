@@ -88,11 +88,11 @@ class LogConfiguration(object):
         # Replace the set of handlers associated with the root logger.
         logger = logging.getLogger()
         logger.setLevel(log_level)
-        for handler in list(logger.handlers):
-            logger.removeHandler(handler)
-
+        old_handlers = list(logger.handlers)
         for handler in new_handlers:
             logger.addHandler(handler)
+        for handler in old_handlers:
+            logger.removeHandler(handler)
 
         # Set the loggers for various verbose libraries to the database
         # log level, which is probably higher than the normal log level.
