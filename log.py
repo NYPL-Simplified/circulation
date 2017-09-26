@@ -115,11 +115,13 @@ class LogConfiguration(object):
         be ignored in favor of a known test-friendly policy. (It's
         okay to pass in False during a test *of this method*.)
 
-        :return: A 3-tuple (handlers, database_log_level). `handlers`
-        is a list of Handler objects that will be associated with the
-        top-level logger. database_log_level is the log level to be
-        applied to the loggers for the database connector and other
-        verbose third-party libraries.
+        :return: A 3-tuple (internal_log_level, database_log_level,
+        handlers). `internal_log_level` is the log level to be used
+        for most log messages. `database_log_level` is the log level
+        to be applied to the loggers for the database connector and
+        other verbose third-party libraries. `handlers` is a list of
+        Handler objects that will be associated with the top-level
+        logger.
         """
 
         # Establish defaults, in case the database is not initialized or
