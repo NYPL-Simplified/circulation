@@ -10368,7 +10368,14 @@ class Collection(Base, HasFullTableCache):
         def encode(detail):
             return base64.urlsafe_b64encode(detail.encode('utf-8'))
 
-        account_id = encode(self.unique_account_id)
+        account_id = self.unique_account_id
+        if self.protocol == ExternalIntegration.OPDS_IMPORT:
+            # Remove ending / from OPDS url that could duplicate the collection
+            # on the Metadata Wrangler.
+            while account_id.endswith('/'):
+                account_id = account_id[:-1]
+
+        account_id = encode(account_id)
         protocol = encode(self.protocol)
 
         metadata_identifier = protocol + ':' + account_id

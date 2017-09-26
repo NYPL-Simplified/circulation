@@ -6763,6 +6763,15 @@ class TestCollection(DatabaseTest):
         expected = build_expected(ExternalIntegration.OPDS_IMPORT, 'id+%s' % child.external_account_id)
         eq_(expected, child.metadata_identifier)
 
+        # If it's an OPDS_IMPORT collection with a url external_account_id,
+        # closing '/' marks are removed.
+        opds = self._collection(
+            name='OPDS', protocol=ExternalIntegration.OPDS_IMPORT,
+            external_account_id=(self._url+'/')
+        )
+        expected = build_expected(ExternalIntegration.OPDS_IMPORT, opds.external_account_id[:-1])
+        eq_(expected, opds.metadata_identifier)
+
     def test_from_metadata_identifier(self):
         # If a mirrored collection doesn't exist, it is created.
         self.collection.external_account_id = 'id'
