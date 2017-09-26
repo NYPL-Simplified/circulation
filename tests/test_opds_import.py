@@ -1,5 +1,6 @@
 import os
 import datetime
+import urllib
 from StringIO import StringIO
 from lxml import builder
 from nose.tools import (
@@ -104,6 +105,18 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         eq_(None, lookup.shared_secret)
         eq_(False, lookup.authenticated)
 
+    def test_add_args(self):
+        lookup = MetadataWranglerOPDSLookup.from_config(self._db)
+        args = 'greeting=hello'
+
+        # If the base url doesn't have any arguments, args are created.
+        base_url = self._url
+        eq_(base_url + '?' + args, lookup.add_args(base_url, args))
+
+        # If the base url has an argument already, additional args are appended.
+        base_url = self._url + '?data_source=banana'
+        eq_(base_url + '&' + args, lookup.add_args(base_url, args))
+
     def test_get_collection_url(self):
         lookup = MetadataWranglerOPDSLookup.from_config(self._db)
 
@@ -126,6 +139,16 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         expected = '%s%s/banana' % (lookup.base_url, self.collection.metadata_identifier)
         eq_(expected, lookup.get_collection_url('banana'))
 
+        # With an OPDS_IMPORT collection, a data source is included
+        opds = self._collection(
+            protocol=ExternalIntegration.OPDS_IMPORT,
+            external_account_id=self._url,
+            data_source_name=DataSource.OA_CONTENT_SERVER
+        )
+        lookup.collection = opds
+        data_source_args = '?data_source=%s' % urllib.quote(opds.data_source.name)
+        assert lookup.get_collection_url('banana').endswith(data_source_args)
+
     def test_lookup_endpoint(self):
         # A Collection-specific endpoint is returned if authentication
         # and a Collection is available.
@@ -142,6 +165,11 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         lookup.shared_secret = None
         lookup.collection = self.collection
         eq_('lookup', lookup.lookup_endpoint)
+
+        # With authentication and a collection, a specific endpoint is returned.
+        lookup.shared_secret = 'secret'
+        expected = '%s/lookup' % self.collection.metadata_identifier
+        eq_(expected, lookup.lookup_endpoint)
 
 
 class OPDSImporterTest(DatabaseTest):
