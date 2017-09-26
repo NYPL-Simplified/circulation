@@ -1970,6 +1970,33 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Success")), 200)
 
     def library_registrations(self, do_get=HTTP.get_with_timeout, do_post=HTTP.post_with_timeout, key=None):
+        LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
+        SUCCESS = u"success"
+        FAILURE = u"failure"
+
+        if flask.request.method == "GET":
+            services = []
+            for service in self._db.query(ExternalIntegration).filter(
+                ExternalIntegration.goal==ExternalIntegration.DISCOVERY_GOAL):
+
+                libraries = []
+                for library in service.libraries:
+                    library_info = dict(short_name=library.short_name)
+                    status = ConfigurationSetting.for_library_and_externalintegration(
+                        self._db, LIBRARY_REGISTRATION_STATUS, library, service).value
+                    if status:
+                        library_info["status"] = status
+                        libraries.append(library_info)
+
+                services.append(
+                    dict(
+                        id=service.id,
+                        libraries=libraries,
+                    )
+                )
+
+            return dict(library_registrations=services)
+
         if flask.request.method == "POST":
 
             integration_id = flask.request.form.get("integration_id")
@@ -1984,6 +2011,11 @@ class SettingsController(CirculationManagerController):
             library = get_one(self._db, Library, short_name=library_short_name)
             if not library:
                 return NO_SUCH_LIBRARY
+
+            integration.libraries += [library]
+            status = ConfigurationSetting.for_library_and_externalintegration(
+                self._db, LIBRARY_REGISTRATION_STATUS, library, integration)
+            status.value = FAILURE
 
             response = do_get(integration.url, allowed_response_codes=["2xx", "3xx"])
             type = response.headers.get("Content-Type")
@@ -2052,5 +2084,7 @@ class SettingsController(CirculationManagerController):
 
                 # We're done with the key, so remove the setting.
                 ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = None
+
+            status.value = SUCCESS
 
         return Response(unicode(_("Success")), 200)
