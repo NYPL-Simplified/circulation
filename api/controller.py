@@ -171,7 +171,7 @@ class CirculationManager(object):
         configuration after changes are made in the administrative
         interface.
         """
-        LogConfiguration.initialize(_db)
+        LogConfiguration.initialize(self._db)
         self.analytics = Analytics(self._db)
         self.auth = Authenticator(self._db, self.analytics)
 
