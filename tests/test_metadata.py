@@ -156,9 +156,13 @@ class TestMetadataImporter(DatabaseTest):
             rel=Hyperlink.IMAGE, href="http://example.com/", thumbnail=l2,
             media_type=Representation.JPEG_MEDIA_TYPE,
         )
-        metadata = Metadata(links=[l1, l2], 
+
+        # Even though we're only passing in the primary image link...
+        metadata = Metadata(links=[l1], 
                             data_source=edition.data_source)
         metadata.apply(edition, None)
+
+        # ...a Hyperlink is also created for the thumbnail.
         [image, thumbnail] = sorted(
             edition.primary_identifier.links, key=lambda x:x.rel
         )
@@ -166,6 +170,72 @@ class TestMetadataImporter(DatabaseTest):
         eq_([thumbnail.resource.representation],
             image.resource.representation.thumbnails
         )
+
+    def test_thumbnail_isnt_a_thumbnail(self):
+        edition = self._edition()
+        not_a_thumbnail = LinkData(
+            rel=Hyperlink.DESCRIPTION, content="A great book",
+            media_type=Representation.TEXT_PLAIN,
+        )
+        image = LinkData(
+            rel=Hyperlink.IMAGE, href="http://example.com/", 
+            thumbnail=not_a_thumbnail,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+
+        metadata = Metadata(links=[image], 
+                            data_source=edition.data_source)
+        metadata.apply(edition, None)
+
+        # Only one Hyperlink was created for the image, because
+        # the alleged 'thumbnail' wasn't actually a thumbnail.
+        [image_obj] = edition.primary_identifier.links
+        eq_(Hyperlink.IMAGE, image_obj.rel)
+        eq_([], image_obj.resource.representation.thumbnails)
+
+        # If we pass in the 'thumbnail' separately, a Hyperlink is
+        # created for it, but it's still not a thumbnail of anything.
+        metadata = Metadata(links=[image, not_a_thumbnail], 
+                            data_source=edition.data_source)
+        metadata.apply(edition, None)
+        [image, description] = sorted(
+            edition.primary_identifier.links, key=lambda x:x.rel
+        )
+        eq_(Hyperlink.DESCRIPTION, description.rel)
+        eq_("A great book", description.resource.representation.content)
+        eq_([], image.resource.representation.thumbnails)
+        eq_(None, description.resource.representation.thumbnail_of)
+
+    def test_image_and_thumbnail_are_the_same(self):
+        edition = self._edition()
+        url = "http://tinyimage.com/"
+        l2 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href=url,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        l1 = LinkData(
+            rel=Hyperlink.IMAGE, href=url, thumbnail=l2,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        metadata = Metadata(links=[l1, l2], 
+                            data_source=edition.data_source)
+        metadata.apply(edition, None)
+        [image, thumbnail] = sorted(
+            edition.primary_identifier.links, key=lambda x:x.rel
+        )
+
+        # The image and its thumbnail point to the same resource.
+        eq_(image.resource, thumbnail.resource)
+
+        eq_(Hyperlink.IMAGE, image.rel)
+        eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail.rel)
+
+        # The thumbnail is marked as a thumbnail of the main image.
+        eq_([thumbnail.resource.representation],
+            image.resource.representation.thumbnails
+        )
+        eq_(url, edition.cover_full_url)
+        eq_(url, edition.cover_thumbnail_url)
 
     def sample_cover_path(self, name):
         base_path = os.path.split(__file__)[0]

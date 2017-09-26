@@ -1508,6 +1508,7 @@ class Metadata(MetaToModelUtility):
                 identifier.links = surviving_hyperlinks
         
         link_objects = {}
+        thumbnails = {}
 
         for link in self.links:
             if link.rel in Hyperlink.METADATA_ALLOWED:
@@ -1517,6 +1518,25 @@ class Metadata(MetaToModelUtility):
                     content=link.content
                 )
             link_objects[link] = link_obj
+            if link.thumbnail:
+                if link.thumbnail.rel == Hyperlink.THUMBNAIL_IMAGE:
+                    thumbnail = link.thumbnail
+                    thumbnail_obj, ignore = identifier.add_link(
+                        rel=thumbnail.rel, href=thumbnail.href, 
+                        data_source=data_source, 
+                        media_type=thumbnail.media_type,
+                        content=thumbnail.content
+                    )
+                    thumbnail_obj.resource.representation.thumbnail_of = (
+                        link_obj.resource.representation
+                    )
+                else:
+                    self.log.error(
+                        "Thumbnail link %r does not have the thumbnail link relation! Not acceptable as a thumbnail of %r." % (
+                            link.thumbnail, link
+                        )
+                    )
+                    link.thumbnail = None
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:

@@ -7791,7 +7791,7 @@ class Representation(Base):
     thumbnails = relationship(
         "Representation",
         backref=backref("thumbnail_of", remote_side = [id]),
-        lazy="joined")
+        lazy="joined", post_update=True)
 
     # The HTTP status code from the last fetch.
     status_code = Column(Integer)
