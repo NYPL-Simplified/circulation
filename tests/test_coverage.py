@@ -676,6 +676,22 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         assert "ValueError" in result.exception
         test_metadata.primary_identifier = old_identifier
 
+    def test_items_that_need_coverage_respects_registration_reqs(self):
+        provider = AlwaysSuccessfulCoverageProvider(
+            self._db, preregistered_only=True
+        )
+
+        identifier = self._identifier()
+        items = provider.items_that_need_coverage()
+        assert identifier not in items
+
+        # With a failing CoverageRecord, the item shows up.
+        record = self._coverage_record(
+            identifier, provider.data_source,
+            status=CoverageRecord.TRANSIENT_FAILURE
+        )
+        assert identifier in items
+
     def test_items_that_need_coverage_respects_operation(self):
 
         # Here's a provider that carries out the 'foo' operation.

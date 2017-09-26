@@ -418,7 +418,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
     INPUT_IDENTIFIER_TYPES = NO_SPECIFIED_TYPES
     
     def __init__(self, _db, collection=None, input_identifiers=None,
-                 replacement_policy=None, **kwargs):
+                 replacement_policy=None, preregistered_only=False, **kwargs
+    ):
         """Constructor.
 
         :param collection: Optional. If information comes in from a
@@ -434,6 +435,10 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
            Identifiers.
         :param replacement_policy: Optional. A ReplacementPolicy to use
            when updating local data with data from the third party.
+        :param preregistered_only: Optional. Determines whether this
+           CoverageProvider will only cover Identifiers that have been
+           "preregistered" with a failing CoverageRecord. This option is
+           only used on the Metadata Wrangler.
         """
         super(IdentifierCoverageProvider, self).__init__(_db, **kwargs)
 
@@ -447,7 +452,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         self.replacement_policy = (
             replacement_policy or self._default_replacement_policy(_db)
         )
-        
+        self.preregistered_only = preregistered_only
+
         if not self.DATA_SOURCE_NAME:
             raise ValueError(
                 "%s must define DATA_SOURCE_NAME" % self.__class__.__name__
@@ -653,6 +659,11 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         )
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
+
+        if self.preregistered_only:
+            # Only return Identifiers that have been "preregistered" for
+            # coverage with a failing CoverageRecord.
+            qu = qu.filter(CoverageRecord.id != None)
 
         return qu
 

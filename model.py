@@ -9565,6 +9565,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     RB_DIGITAL = DataSource.RB_DIGITAL
     ONE_CLICK = RB_DIGITAL
     OPDS_FOR_DISTRIBUTORS = u'OPDS for Distributors'
+    ENKI = DataSource.ENKI
 
     # These protocols are only used on the Content Server when mirroring
     # content from a given directory or directly from Project
@@ -9575,7 +9576,7 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, RB_DIGITAL,
-        DIRECTORY_IMPORT, GUTENBERG,
+        DIRECTORY_IMPORT, GUTENBERG, ENKI,
     ]
 
     # Some integrations with LICENSE_GOAL imply that the data and
@@ -9584,7 +9585,8 @@ class ExternalIntegration(Base, HasFullTableCache):
         OVERDRIVE : DataSource.OVERDRIVE,
         BIBLIOTHECA : DataSource.BIBLIOTHECA,
         AXIS_360 : DataSource.AXIS_360,
-        RB_DIGITAL : DataSource.RB_DIGITAL
+        RB_DIGITAL : DataSource.RB_DIGITAL,
+        ENKI : DataSource.ENKI,
     }
 
     # Integrations with METADATA_GOAL
@@ -10301,7 +10303,7 @@ class Collection(Base, HasFullTableCache):
             return self.parent.unique_account_id + '+' + unique_account_id
         return unique_account_id        
     
-    @property
+    @hybrid_property
     def data_source(self):
         """Find the data source associated with this Collection.
 
@@ -10316,9 +10318,8 @@ class Collection(Base, HasFullTableCache):
         the data source is a Collection-specific setting.
         """
         data_source = None
-        protocol = self.external_integration.protocol
         name = ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROTOCOL.get(
-            protocol
+            self.protocol
         )
         if not name:
             name = self.external_integration.setting(
@@ -10328,7 +10329,24 @@ class Collection(Base, HasFullTableCache):
         if name:
             data_source = DataSource.lookup(_db, name, autocreate=True)
         return data_source
-    
+
+    @data_source.setter
+    def data_source(self, new_value):
+        if isinstance(new_value, DataSource):
+            new_value = new_value.name
+        if self.protocol == new_value:
+            return
+
+        # Only set a DataSource for Collections that don't have an
+        # implied source.
+        if self.protocol not in ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROTOCOL:
+            setting = self.external_integration.setting(
+                Collection.DATA_SOURCE_NAME_SETTING
+            )
+            if new_value is not None:
+                new_value = unicode(new_value)
+            setting.value = new_value
+
     @property
     def parents(self):
         if self.parent_id:
@@ -10347,35 +10365,55 @@ class Collection(Base, HasFullTableCache):
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
-        account_id = base64.urlsafe_b64encode(self.unique_account_id.encode('utf8'))
-        protocol = base64.urlsafe_b64encode(
-            self.external_integration.protocol.encode('utf8')
-        )
+        def encode(detail):
+            return base64.urlsafe_b64encode(detail.encode('utf-8'))
+
+        account_id = self.unique_account_id
+        if self.protocol == ExternalIntegration.OPDS_IMPORT:
+            # Remove ending / from OPDS url that could duplicate the collection
+            # on the Metadata Wrangler.
+            while account_id.endswith('/'):
+                account_id = account_id[:-1]
+
+        account_id = encode(account_id)
+        protocol = encode(self.protocol)
 
         metadata_identifier = protocol + ':' + account_id
-        return base64.urlsafe_b64encode(metadata_identifier.encode('utf8'))
+        return encode(metadata_identifier)
 
     @classmethod
-    def from_metadata_identifier(cls, _db, metadata_identifier):
+    def from_metadata_identifier(cls, _db, metadata_identifier, data_source=None):
         """Finds or creates a Collection on the metadata wrangler, based
         on its unique metadata_identifier
         """
         collection = get_one(_db, Collection, name=metadata_identifier)
         is_new = False
 
-        if not collection:
-            details = base64.urlsafe_b64decode(metadata_identifier.encode('utf8'))
-            protocol = unicode(base64.urlsafe_b64decode(
-                details.split(':', 1)[0].encode('utf8')
-            ))
-            collection, is_new = create(_db, Collection,
-                name=metadata_identifier)
+        opds_collection_without_url = (
+            collection and collection.protocol==ExternalIntegration.OPDS_IMPORT
+            and not collection.external_account_id
+        )
 
-            integration = collection.create_external_integration(protocol)
-            collection.external_integration.goal = (
-                ExternalIntegration.LICENSE_GOAL
-            )
-            collection.external_integration.protocol = protocol
+        if not collection or opds_collection_without_url:
+            def decode(detail):
+                return base64.urlsafe_b64decode(detail.encode('utf-8'))
+
+            details = decode(metadata_identifier)
+            encoded_details  = details.split(':', 1)
+            [protocol, account_id] = [decode(d) for d in encoded_details]
+
+            if not collection:
+                collection, is_new = create(
+                    _db, Collection, name=metadata_identifier
+                )
+                collection.create_external_integration(protocol)
+
+            if protocol == ExternalIntegration.OPDS_IMPORT:
+                # Share the feed URL so the Metadata Wrangler can find it.
+               collection.external_account_id = unicode(account_id)
+
+        if data_source:
+            collection.data_source = data_source
 
         return collection, is_new
 

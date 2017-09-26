@@ -242,6 +242,9 @@ class RunCoverageProvidersScript(Script):
 
     def do_run(self):
         providers = list(self.providers)
+        if not providers:
+            self.log.info('No CoverageProviders to run.')
+
         while providers:
             random.shuffle(providers)
             for provider in providers:
