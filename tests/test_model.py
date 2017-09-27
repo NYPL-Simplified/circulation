@@ -4333,10 +4333,15 @@ class TestRepresentation(DatabaseTest):
         and extension when we mirror a representation.
         """
 
+        # An unknown file at /foo
+        representation, ignore = self._representation(self._url, "text/unknown")
+        eq_("text/unknown", representation.external_media_type)
+        eq_('', representation.extension())
+
         # A text file at /foo
         representation, ignore = self._representation(self._url, "text/plain")
         eq_("text/plain", representation.external_media_type)
-        eq_('', representation.extension())
+        eq_('.txt', representation.extension())
 
         # A JPEG at /foo.jpg
         representation, ignore = self._representation(
@@ -4585,15 +4590,15 @@ class TestRepresentation(DatabaseTest):
         url = "http://example.com/1"
         representation, ignore = self._representation(url, "text/plain")
         filename = representation.default_filename()
-        eq_("1", filename)
+        eq_("1.txt", filename)
 
         # Again, file extension is always set based on media type.
         filename = representation.default_filename(destination_type="image/png")
         eq_("1.png", filename)
 
-        # In this case, don't have an extension registered for
-        # text/plain, so the extension is omitted.
-        filename = representation.default_filename(destination_type="text/plain")
+        # In this case, we don't have an extension registered for
+        # text/unknown, so the extension is omitted.
+        filename = representation.default_filename(destination_type="text/unknown")
         eq_("1", filename)
 
         # This URL has no path component, so we can't even come up with a
