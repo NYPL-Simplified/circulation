@@ -569,6 +569,41 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(None, mouse.work)
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
+        # Three links have been added to the identifier of the 'mouse'
+        # edition.
+        image, thumbnail, description = sorted(
+            mouse.primary_identifier.links, key=lambda x: x.rel
+        )
+        
+        # A Representation was imported for the summary with known
+        # content.
+        description_rep = description.resource.representation
+        eq_("This is a summary!", description_rep.content)
+        eq_(Representation.TEXT_PLAIN, description_rep.media_type)
+
+        # A Representation was imported for the image with a media type
+        # inferred from its URL.
+        image_rep = image.resource.representation
+        assert image_rep.url.endswith('_9.png')
+        eq_(Representation.PNG_MEDIA_TYPE, image_rep.media_type)
+
+        # The thumbnail was imported similarly, and its representation
+        # was marked as a thumbnail of the full-sized image.
+        thumbnail_rep = thumbnail.resource.representation
+        eq_(Representation.PNG_MEDIA_TYPE, thumbnail_rep.media_type)
+        eq_(image_rep, thumbnail_rep.thumbnail_of)
+
+        # One link was added to the identifier of the 'crow' edition.
+        [image] = crow.primary_identifier.links
+
+        # Because this image did not have a specified media type or a
+        # distinctive extension, and we have not actually retrieves
+        # the URL yet, we were not able to determine its media type,
+        # so it has no associated Representation.
+        assert image.resource.url.endswith('/full-cover-image')
+        eq_(None, image.resource.representation)
+
+        # Three measurements have been added to the 'mouse' edition.
         popularity, quality, rating = sorted(
             [x for x in mouse.primary_identifier.measurements
              if x.is_most_recent],
