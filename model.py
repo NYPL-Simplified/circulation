@@ -2613,6 +2613,10 @@ class Edition(Base):
     MAX_THUMBNAIL_HEIGHT = 300
     MAX_THUMBNAIL_WIDTH = 200
 
+    # A full-sized image no larger than this height can be used as a thumbnail
+    # in a pinch.
+    MAX_FALLBACK_THUMBNAIL_HEIGHT = 500
+
     # This Edition is associated with one particular
     # identifier--the one used by its data source to identify
     # it. Through the Equivalency class, it is associated with a
@@ -2982,6 +2986,12 @@ class Edition(Base):
                 if scaled_down.mirror_url and scaled_down.mirrored_at:
                     self.cover_thumbnail_url = scaled_down.mirror_url
                     break
+        if (not self.cover_thumbnail_url and 
+            resource.representation.image_height
+            and resource.representation.image_height <= self.MAX_FALLBACK_THUMBNAIL_HEIGHT):
+            # The full-sized image is too large to be a thumbnail, but it's
+            # not huge, and there is no other thumbnail, so use it.
+            self.cover_thumbnail_url = resource.representation.mirror_url
         if old_cover != self.cover or old_cover_full_url != self.cover_full_url:
             logging.debug(
                 "Setting cover for %s/%s: full=%s thumb=%s", 
@@ -3259,6 +3269,8 @@ class Edition(Base):
 
     def choose_cover(self):
         """Try to find a cover that can be used for this Edition."""
+        self.cover_full_url = None
+        self.cover_thumbnail_url = None
         for distance in (0, 5):
             # If there's a cover directly associated with the
             # Edition's primary ID, use it. Otherwise, find the
@@ -3290,8 +3302,15 @@ class Edition(Base):
                 self.cover = None
                 self.cover_full_url = None
 
-            # It's possible there's a thumbnail even though there's no full-sized
-            # cover. Try to find a thumbnail the same way we'd look for a cover.
+        if not self.cover_thumbnail_url:
+            # The process we went through above did not result in the 
+            # setting of a thumbnail cover.
+            #
+            # It's possible there's a thumbnail even when there's no
+            # full-sized cover, or when the full-sized cover and
+            # thumbnail are different Resources on the same
+            # Identifier. Try to find a thumbnail the same way we'd
+            # look for a cover.
             for distance in (0, 5):
                 best_thumbnail, thumbnails = self.best_cover_within_distance(distance, rel=Hyperlink.THUMBNAIL_IMAGE)
                 if best_thumbnail:
@@ -7739,7 +7758,18 @@ class Representation(Base):
         PNG_MEDIA_TYPE: "png",
         SVG_MEDIA_TYPE: "svg",
         GIF_MEDIA_TYPE: "gif",
+        TEXT_PLAIN: "txt",
+        TEXT_HTML_MEDIA_TYPE: "html",
+        APPLICATION_XML_MEDIA_TYPE: "xml",
     }
+
+    # Invert FILE_EXTENSIONS and add some extra guesses.
+    MEDIA_TYPE_FOR_EXTENSION = {
+        ".htm" : TEXT_HTML_MEDIA_TYPE,
+        ".jpeg" : JPEG_MEDIA_TYPE,
+    }
+    for media_type, extension in FILE_EXTENSIONS.items():
+        MEDIA_TYPE_FOR_EXTENSION['.' + extension] = media_type
 
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
@@ -7791,7 +7821,7 @@ class Representation(Base):
     thumbnails = relationship(
         "Representation",
         backref=backref("thumbnail_of", remote_side = [id]),
-        lazy="joined")
+        lazy="joined", post_update=True)
 
     # The HTTP status code from the last fetch.
     status_code = Column(Integer)
@@ -7879,6 +7909,15 @@ class Representation(Base):
                    'text/', 
                    'video/'
         ])
+
+    @classmethod
+    def guess_media_type(cls, filename):
+        """Guess a likely media type from a filename."""
+        filename = filename.lower()
+        for extension, media_type in cls.MEDIA_TYPE_FOR_EXTENSION.items():
+            if filename.endswith(extension):
+                return media_type
+        return None
 
     def is_fresher_than(self, max_age):
         # Convert a max_age timedelta to a number of seconds.

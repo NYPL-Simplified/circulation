@@ -1428,6 +1428,51 @@ class TestEdition(DatabaseTest):
         edition.calculate_permanent_work_id()
         assert_not_equal(None, edition.permanent_work_id)
 
+    def test_choose_cover_can_choose_full_image_and_thumbnail_separately(self):
+        edition = self._edition()
+
+        # This edition has a full-sized image and a thumbnail image,
+        # but there is no evidence that they are the _same_ image.
+        main_image, ignore = edition.primary_identifier.add_link(
+            Hyperlink.IMAGE, self._url,
+            edition.data_source
+        )
+        main_image.resource.set_mirrored_elsewhere(
+            Representation.PNG_MEDIA_TYPE
+        )
+        thumbnail_image, ignore = edition.primary_identifier.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url,
+            edition.data_source
+        )
+        thumbnail_image.resource.set_mirrored_elsewhere(
+            Representation.PNG_MEDIA_TYPE
+        )
+
+        # Nonetheless, Edition.choose_cover() will assign the
+        # potentially unrelated images to the Edition, because there
+        # is no better option.
+        edition.choose_cover()
+        eq_(main_image.resource.url, edition.cover_full_url)
+        eq_(thumbnail_image.resource.url, edition.cover_thumbnail_url)
+
+        # If there is a clear indication that one of the thumbnails
+        # associated with the identifier is a thumbnail _of_ the
+        # full-sized image...
+        thumbnail_2, ignore = edition.primary_identifier.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url,
+            edition.data_source
+        )
+        thumbnail_2.resource.set_mirrored_elsewhere(
+            Representation.PNG_MEDIA_TYPE
+        )
+        thumbnail_2.resource.representation.thumbnail_of = main_image.resource.representation
+        edition.choose_cover()
+        
+        # ...That thumbnail will be chosen in preference to the
+        # possibly unrelated thumbnail.
+        eq_(main_image.resource.url, edition.cover_full_url)
+        eq_(thumbnail_2.resource.url, edition.cover_thumbnail_url)
+
 
 class TestLicensePool(DatabaseTest):
 
@@ -4271,15 +4316,32 @@ class TestRepresentation(DatabaseTest):
         representation.media_type = "text/plain"
         eq_(False, representation.mirrorable_media_type)
 
+    def test_guess_media_type(self):
+        m = Representation.guess_media_type
+
+        eq_(Representation.JPEG_MEDIA_TYPE, m("file.jpg"))
+
+        for extension, media_type in Representation.MEDIA_TYPE_FOR_EXTENSION.items():
+            filename = "file" + extension
+            eq_(media_type, m(filename))
+
+        eq_(None, m("file"))
+        eq_(None, m("file.unknown-extension"))
+
     def test_external_media_type_and_extension(self):
         """Test the various transformations that might happen to media type
         and extension when we mirror a representation.
         """
 
+        # An unknown file at /foo
+        representation, ignore = self._representation(self._url, "text/unknown")
+        eq_("text/unknown", representation.external_media_type)
+        eq_('', representation.extension())
+
         # A text file at /foo
         representation, ignore = self._representation(self._url, "text/plain")
         eq_("text/plain", representation.external_media_type)
-        eq_('', representation.extension())
+        eq_('.txt', representation.extension())
 
         # A JPEG at /foo.jpg
         representation, ignore = self._representation(
@@ -4528,20 +4590,20 @@ class TestRepresentation(DatabaseTest):
         url = "http://example.com/1"
         representation, ignore = self._representation(url, "text/plain")
         filename = representation.default_filename()
-        eq_("1", filename)
+        eq_("1.txt", filename)
 
         # Again, file extension is always set based on media type.
         filename = representation.default_filename(destination_type="image/png")
         eq_("1.png", filename)
 
-        # In this case, don't have an extension registered for
-        # text/plain, so the extension is omitted.
-        filename = representation.default_filename(destination_type="text/plain")
+        # In this case, we don't have an extension registered for
+        # text/unknown, so the extension is omitted.
+        filename = representation.default_filename(destination_type="text/unknown")
         eq_("1", filename)
 
         # This URL has no path component, so we can't even come up with a
         # decent default filename. We have to go with 'resource'.
-        representation, ignore = self._representation("http://example.com/", "text/plain")
+        representation, ignore = self._representation("http://example.com/", "text/unknown")
         eq_('resource', representation.default_filename())
         eq_('resource.png', representation.default_filename(destination_type="image/png"))
 
@@ -4653,6 +4715,34 @@ class TestCoverResource(DatabaseTest):
         edition.set_cover(hyperlink.resource)
         eq_(mirror, edition.cover_full_url)
         eq_(mirror, edition.cover_thumbnail_url)
+
+    def test_set_cover_for_smallish_image_uses_full_sized_image_as_thumbnail(self):
+        edition, pool = self._edition(with_license_pool=True)
+        original = self._url
+        mirror = self._url
+        sample_cover_path = self.sample_cover_path("tiny-image-cover.png")
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.IMAGE, original, edition.data_source, "image/png",
+            open(sample_cover_path).read())
+        full_rep = hyperlink.resource.representation
+        full_rep.mirror_url = mirror
+        full_rep.set_as_mirrored()
+
+        # For purposes of this test, pretend that the full-sized image is 
+        # larger than a thumbnail, but not terribly large.
+        hyperlink.resource.representation.image_height = Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT
+
+        edition.set_cover(hyperlink.resource)
+        eq_(mirror, edition.cover_full_url)
+        eq_(mirror, edition.cover_thumbnail_url)
+
+        # If the full-sized image had been slightly larger, we would have
+        # decided not to use a thumbnail at all.
+        hyperlink.resource.representation.image_height = Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT + 1
+        edition.cover_thumbnail_url = None
+        edition.set_cover(hyperlink.resource)
+        eq_(None, edition.cover_thumbnail_url)
+
 
     def test_attempt_to_scale_non_image_sets_scale_exception(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
