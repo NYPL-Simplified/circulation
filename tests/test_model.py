@@ -4666,6 +4666,34 @@ class TestCoverResource(DatabaseTest):
         eq_(mirror, edition.cover_full_url)
         eq_(mirror, edition.cover_thumbnail_url)
 
+    def test_set_cover_for_smallish_image_uses_full_sized_image_as_thumbnail(self):
+        edition, pool = self._edition(with_license_pool=True)
+        original = self._url
+        mirror = self._url
+        sample_cover_path = self.sample_cover_path("tiny-image-cover.png")
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.IMAGE, original, edition.data_source, "image/png",
+            open(sample_cover_path).read())
+        full_rep = hyperlink.resource.representation
+        full_rep.mirror_url = mirror
+        full_rep.set_as_mirrored()
+
+        # For purposes of this test, pretend that the full-sized image is 
+        # larger than a thumbnail, but not terribly large.
+        hyperlink.resource.representation.image_height = Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT
+
+        edition.set_cover(hyperlink.resource)
+        eq_(mirror, edition.cover_full_url)
+        eq_(mirror, edition.cover_thumbnail_url)
+
+        # If the full-sized image had been slightly larger, we would have
+        # decided not to use a thumbnail at all.
+        hyperlink.resource.representation.image_height = Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT + 1
+        edition.cover_thumbnail_url = None
+        edition.set_cover(hyperlink.resource)
+        eq_(None, edition.cover_thumbnail_url)
+
+
     def test_attempt_to_scale_non_image_sets_scale_exception(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
         scaled, ignore = rep.scale(300, 600, self._url, "image/png")

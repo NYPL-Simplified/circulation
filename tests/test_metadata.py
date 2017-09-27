@@ -208,14 +208,12 @@ class TestMetadataImporter(DatabaseTest):
 
     def test_image_and_thumbnail_are_the_same(self):
         edition = self._edition()
-        url = "http://tinyimage.com/"
+        url = "http://tinyimage.com/image.jpg"
         l2 = LinkData(
             rel=Hyperlink.THUMBNAIL_IMAGE, href=url,
-            media_type=Representation.JPEG_MEDIA_TYPE,
         )
         l1 = LinkData(
             rel=Hyperlink.IMAGE, href=url, thumbnail=l2,
-            media_type=Representation.JPEG_MEDIA_TYPE,
         )
         metadata = Metadata(links=[l1, l2], 
                             data_source=edition.data_source)
@@ -236,6 +234,43 @@ class TestMetadataImporter(DatabaseTest):
         )
         eq_(url, edition.cover_full_url)
         eq_(url, edition.cover_thumbnail_url)
+
+    def test_image_becomes_representation_but_thumbnail_does_not(self):
+        edition = self._edition()
+
+        # The thumbnail link has no media type, and none can be
+        # derived from the URL.
+        l2 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://tinyimage.com/",
+        )
+
+        # The full-sized image link does not have this problem.
+        l1 = LinkData(
+            rel=Hyperlink.IMAGE, href="http://largeimage.com/", thumbnail=l2,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        metadata = Metadata(links=[l1], 
+                            data_source=edition.data_source)
+        metadata.apply(edition, None)
+
+        # Both LinkData objects have been imported as Hyperlinks.
+        [image, thumbnail] = sorted(
+            edition.primary_identifier.links, key=lambda x:x.rel
+        )
+
+        # However, since no Representation was created for the thumbnail,
+        # the relationship between the main image and the thumbnail could
+        # not be imported.
+        eq_(None, thumbnail.resource.representation)
+        eq_([], image.resource.representation.thumbnails)
+
+        # The edition ends up with a full-sized image but no
+        # thumbnail. This could potentially be improved, since we know
+        # the two Resources are associated with the same Identifier.
+        # But we lose track of the fact that the two Resources are
+        # _the same image_ at different resolutions.
+        eq_("http://largeimage.com/", edition.cover_full_url)
+        eq_(None, edition.cover_thumbnail_url)
 
     def sample_cover_path(self, name):
         base_path = os.path.split(__file__)[0]

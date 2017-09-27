@@ -2613,6 +2613,10 @@ class Edition(Base):
     MAX_THUMBNAIL_HEIGHT = 300
     MAX_THUMBNAIL_WIDTH = 200
 
+    # A full-sized image no larger than this height can be used as a thumbnail
+    # in a pinch.
+    MAX_FALLBACK_THUMBNAIL_HEIGHT = 500
+
     # This Edition is associated with one particular
     # identifier--the one used by its data source to identify
     # it. Through the Equivalency class, it is associated with a
@@ -2982,6 +2986,12 @@ class Edition(Base):
                 if scaled_down.mirror_url and scaled_down.mirrored_at:
                     self.cover_thumbnail_url = scaled_down.mirror_url
                     break
+        if (not self.cover_thumbnail_url and 
+            resource.representation.image_height
+            and resource.representation.image_height <= self.MAX_FALLBACK_THUMBNAIL_HEIGHT):
+            # The full-sized image is too large to be a thumbnail, but it's
+            # not huge, and there is no other thumbnail, so use it.
+            self.cover_thumbnail_url = resource.representation.mirror_url
         if old_cover != self.cover or old_cover_full_url != self.cover_full_url:
             logging.debug(
                 "Setting cover for %s/%s: full=%s thumb=%s", 
