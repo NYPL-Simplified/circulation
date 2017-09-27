@@ -4603,7 +4603,7 @@ class TestRepresentation(DatabaseTest):
 
         # This URL has no path component, so we can't even come up with a
         # decent default filename. We have to go with 'resource'.
-        representation, ignore = self._representation("http://example.com/", "text/plain")
+        representation, ignore = self._representation("http://example.com/", "text/unknown")
         eq_('resource', representation.default_filename())
         eq_('resource.png', representation.default_filename(destination_type="image/png"))
 
