@@ -36,6 +36,7 @@ from core.external_search import (
     DummyExternalSearchIndex,
 )
 from core.facets import FacetConfig
+from core.log import LogConfiguration
 from core.lane import (
     Facets, 
     Pagination,
@@ -170,6 +171,7 @@ class CirculationManager(object):
         configuration after changes are made in the administrative
         interface.
         """
+        LogConfiguration.initialize(self._db)
         self.analytics = Analytics(self._db)
         self.auth = Authenticator(self._db, self.analytics)
 
