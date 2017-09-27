@@ -1527,9 +1527,17 @@ class Metadata(MetaToModelUtility):
                         media_type=thumbnail.media_type,
                         content=thumbnail.content
                     )
-                    thumbnail_obj.resource.representation.thumbnail_of = (
-                        link_obj.resource.representation
-                    )
+                    if (thumbnail_obj.resource
+                        and thumbnail_obj.resource.representation):
+                        thumbnail_obj.resource.representation.thumbnail_of = (
+                            link_obj.resource.representation
+                        )
+                    else:
+                        self.log.error(
+                            "Thumbnail link %r cannot be marked as a thumbnail of %r because it has no Representation, probably due to a missing media type." % (
+                                link.thumbnail, link
+                            )
+                        )
                 else:
                     self.log.error(
                         "Thumbnail link %r does not have the thumbnail link relation! Not acceptable as a thumbnail of %r." % (
