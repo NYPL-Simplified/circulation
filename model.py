@@ -3269,6 +3269,8 @@ class Edition(Base):
 
     def choose_cover(self):
         """Try to find a cover that can be used for this Edition."""
+        self.cover_full_url = None
+        self.cover_thumbnail_url = None
         for distance in (0, 5):
             # If there's a cover directly associated with the
             # Edition's primary ID, use it. Otherwise, find the
