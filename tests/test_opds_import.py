@@ -1168,7 +1168,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         200, content='I am 10557.epub.images',
         media_type=Representation.EPUB_MEDIA_TYPE,
         )
-        # The request to http://root/full-cover-image.png
+        # The request to http://root/full-cover-image
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
 
@@ -1196,18 +1196,35 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             'http://www.gutenberg.org/ebooks/10441.epub.images',
             'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
             'http://www.gutenberg.org/ebooks/10557.epub.images',
-            'http://root/full-cover-image.png',
+            'http://root/full-cover-image',
         ])
 
-        [e1_oa_link, e1_image_link, e1_description_link] = sorted(
+        [e1_oa_link, e1_image_link, e1_thumbnail_link, 
+         e1_description_link ] = sorted(
             e1.primary_identifier.links, key=lambda x: x.rel
         )
         [e2_image_link, e2_oa_link] = e2.primary_identifier.links
 
+        # The thumbnail image is associated with the Identifier, but
+        # it's not used because it's associated with a representation
+        # (cover_10441_9.png with media type "image/png") that no
+        # longer has a resource associated with it.
+        eq_(Hyperlink.THUMBNAIL_IMAGE, e1_thumbnail_link.rel)
+        hypothetical_full_representation = e1_thumbnail_link.resource.representation.thumbnail_of
+        eq_(None, hypothetical_full_representation.resource)
+        eq_(Representation.PNG_MEDIA_TYPE, 
+            hypothetical_full_representation.media_type)
+
+        # That's because when we actually got cover_10441_9.png,
+        # it turned out to be an SVG file, not a PNG, so we created a new
+        # Representation. TODO: Obviously we could do better here.
+        eq_(Representation.SVG_MEDIA_TYPE, 
+            e1_image_link.resource.representation.media_type)
+
         # The two open-access links were mirrored to S3, as was the
-        # original SVG image and its PNG thumbnail. The PNG image was
-        # not mirrored because our attempt to download it resulted in
-        # a 404 error.
+        # original SVG image and the PNG thumbnail we generated. The
+        # PNG image was not mirrored because our attempt to download
+        # it resulted in a 404 error.
         imported_representations = [
             e1_oa_link.resource.representation,
             e1_image_link.resource.representation,
@@ -1308,7 +1325,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 </svg>"""
 
         http = DummyHTTPClient()
-        # The request to http://root/full-cover-image.png
+        # The request to http://root/full-cover-image
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
         http.queue_response(
@@ -1338,7 +1355,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         # were going to make our own thumbnail anyway.
         eq_(http.requests, [
             'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
-            'http://root/full-cover-image.png',
+            'http://root/full-cover-image',
         ])
 
 
@@ -1527,7 +1544,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         # external_account_id.
         [cover]  = [x.resource.url for x in editions[0].primary_identifier.links
                     if x.rel==Hyperlink.IMAGE]
-        eq_("http://root-url/full-cover-image.png", cover)
+        eq_("http://root-url/full-cover-image", cover)
 
         # The 202 status message in the feed caused a transient failure.
         # The exception caused a persistent failure.
