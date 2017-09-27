@@ -410,6 +410,22 @@ class LinkData(object):
         # rather than each edition.
         self.rights_uri = rights_uri
 
+    @property
+    def guessed_media_type(self):
+        """If the media type of a link is unknown, take a guess."""
+        if self.media_type:
+            # We know.
+            return self.media_type
+
+        if self.href:
+            # Take a guess.
+            return Representation.guess_media_type(self.href)
+
+        # No idea.
+        # TODO: We might be able to take a further guess based on the
+        # content and the link relation.
+        return None
+
     def __repr__(self):
         if self.content:
             content = ", %d bytes content" % len(self.content)
@@ -1508,13 +1524,12 @@ class Metadata(MetaToModelUtility):
                 identifier.links = surviving_hyperlinks
         
         link_objects = {}
-        thumbnails = {}
 
         for link in self.links:
             if link.rel in Hyperlink.METADATA_ALLOWED:
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
-                    media_type=link.media_type,
+                    media_type=link.guessed_media_type,
                     content=link.content
                 )
             link_objects[link] = link_obj
@@ -1524,7 +1539,7 @@ class Metadata(MetaToModelUtility):
                     thumbnail_obj, ignore = identifier.add_link(
                         rel=thumbnail.rel, href=thumbnail.href, 
                         data_source=data_source, 
-                        media_type=thumbnail.media_type,
+                        media_type=thumbnail.guessed_media_type,
                         content=thumbnail.content
                     )
                     if (thumbnail_obj.resource

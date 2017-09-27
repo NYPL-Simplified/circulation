@@ -4271,6 +4271,18 @@ class TestRepresentation(DatabaseTest):
         representation.media_type = "text/plain"
         eq_(False, representation.mirrorable_media_type)
 
+    def test_guess_media_type(self):
+        m = Representation.guess_media_type
+
+        eq_(Representation.JPEG_MEDIA_TYPE, m("file.jpg"))
+
+        for extension, media_type in Representation.MEDIA_TYPE_FOR_EXTENSION.items():
+            filename = "file" + extension
+            eq_(media_type, m(filename))
+
+        eq_(None, m("file"))
+        eq_(None, m("file.unknown-extension"))
+
     def test_external_media_type_and_extension(self):
         """Test the various transformations that might happen to media type
         and extension when we mirror a representation.

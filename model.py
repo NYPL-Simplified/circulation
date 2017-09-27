@@ -7739,7 +7739,18 @@ class Representation(Base):
         PNG_MEDIA_TYPE: "png",
         SVG_MEDIA_TYPE: "svg",
         GIF_MEDIA_TYPE: "gif",
+        TEXT_PLAIN: "txt",
+        TEXT_HTML_MEDIA_TYPE: "html",
+        APPLICATION_XML_MEDIA_TYPE: "xml",
     }
+
+    # Invert FILE_EXTENSIONS and add some extra guesses.
+    MEDIA_TYPE_FOR_EXTENSION = {
+        ".htm" : TEXT_HTML_MEDIA_TYPE,
+        ".jpeg" : JPEG_MEDIA_TYPE,
+    }
+    for media_type, extension in FILE_EXTENSIONS.items():
+        MEDIA_TYPE_FOR_EXTENSION['.' + extension] = media_type
 
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
@@ -7879,6 +7890,15 @@ class Representation(Base):
                    'text/', 
                    'video/'
         ])
+
+    @classmethod
+    def guess_media_type(cls, filename):
+        """Guess a likely media type from a filename."""
+        filename = filename.lower()
+        for extension, media_type in cls.MEDIA_TYPE_FOR_EXTENSION.items():
+            if filename.endswith(extension):
+                return media_type
+        return None
 
     def is_fresher_than(self, max_age):
         # Convert a max_age timedelta to a number of seconds.

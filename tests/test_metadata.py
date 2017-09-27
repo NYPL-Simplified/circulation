@@ -656,6 +656,29 @@ class TestContributorData(DatabaseTest):
 
 
 
+class TestLinkData(DatabaseTest):
+
+    def test_guess_media_type(self):
+        rel = Hyperlink.IMAGE
+
+        # Sometimes we have no idea what media type is at the other
+        # end of a link.
+        unknown = LinkData(rel, href="http://foo/bar.unknown")
+        eq_(None, unknown.guessed_media_type)
+
+        # Sometimes we can guess based on the file extension.
+        jpeg = LinkData(rel, href="http://foo/bar.jpeg")
+        eq_(Representation.JPEG_MEDIA_TYPE, jpeg.guessed_media_type)
+
+        # An explicitly known media type takes precedence over 
+        # something we guess from the file extension.
+        png = LinkData(rel, href="http://foo/bar.jpeg", 
+                       media_type=Representation.PNG_MEDIA_TYPE)
+        eq_(Representation.PNG_MEDIA_TYPE, png.guessed_media_type)
+
+        description = LinkData(Hyperlink.DESCRIPTION, content="Some content")
+        eq_(None, description.guessed_media_type)
+
 class TestMetadata(DatabaseTest):
     def test_from_edition(self):
         # Makes sure Metadata.from_edition copies all the fields over.
