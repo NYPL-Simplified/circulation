@@ -3300,8 +3300,15 @@ class Edition(Base):
                 self.cover = None
                 self.cover_full_url = None
 
-            # It's possible there's a thumbnail even though there's no full-sized
-            # cover. Try to find a thumbnail the same way we'd look for a cover.
+        if not self.cover_thumbnail_url:
+            # The process we went through above did not result in the 
+            # setting of a thumbnail cover.
+            #
+            # It's possible there's a thumbnail even when there's no
+            # full-sized cover, or when the full-sized cover and
+            # thumbnail are different Resources on the same
+            # Identifier. Try to find a thumbnail the same way we'd
+            # look for a cover.
             for distance in (0, 5):
                 best_thumbnail, thumbnails = self.best_cover_within_distance(distance, rel=Hyperlink.THUMBNAIL_IMAGE)
                 if best_thumbnail:

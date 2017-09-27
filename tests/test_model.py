@@ -1428,6 +1428,51 @@ class TestEdition(DatabaseTest):
         edition.calculate_permanent_work_id()
         assert_not_equal(None, edition.permanent_work_id)
 
+    def test_choose_cover_can_choose_full_image_and_thumbnail_separately(self):
+        edition = self._edition()
+
+        # This edition has a full-sized image and a thumbnail image,
+        # but there is no evidence that they are the _same_ image.
+        main_image, ignore = edition.primary_identifier.add_link(
+            Hyperlink.IMAGE, self._url,
+            edition.data_source
+        )
+        main_image.resource.set_mirrored_elsewhere(
+            Representation.PNG_MEDIA_TYPE
+        )
+        thumbnail_image, ignore = edition.primary_identifier.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url,
+            edition.data_source
+        )
+        thumbnail_image.resource.set_mirrored_elsewhere(
+            Representation.PNG_MEDIA_TYPE
+        )
+
+        # Nonetheless, Edition.choose_cover() will assign the
+        # potentially unrelated images to the Edition, because there
+        # is no better option.
+        edition.choose_cover()
+        eq_(main_image.resource.url, edition.cover_full_url)
+        eq_(thumbnail_image.resource.url, edition.cover_thumbnail_url)
+
+        # If there is a clear indication that one of the thumbnails
+        # associated with the identifier is a thumbnail _of_ the
+        # full-sized image...
+        thumbnail_2, ignore = edition.primary_identifier.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url,
+            edition.data_source
+        )
+        thumbnail_2.resource.set_mirrored_elsewhere(
+            Representation.PNG_MEDIA_TYPE
+        )
+        thumbnail_2.resource.representation.thumbnail_of = main_image.resource.representation
+        edition.choose_cover()
+        
+        # ...That thumbnail will be chosen in preference to the
+        # possibly unrelated thumbnail.
+        eq_(main_image.resource.url, edition.cover_full_url)
+        eq_(thumbnail_2.resource.url, edition.cover_thumbnail_url)
+
 
 class TestLicensePool(DatabaseTest):
 
