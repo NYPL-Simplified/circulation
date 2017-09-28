@@ -286,7 +286,7 @@ class HTTP(object):
             # ones in a more helpful way.
             kwargs['allowed_response_codes']=["1xx", "2xx", "3xx", "4xx", "5xx"]
         response = HTTP.request_with_timeout(http_method, url, **kwargs)
-        return self.process_debuggable_response(response)
+        return cls.process_debuggable_response(response)
 
     @classmethod
     def process_debuggable_response(cls, response):
