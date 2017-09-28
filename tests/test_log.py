@@ -97,10 +97,10 @@ class TestLogConfiguration(DatabaseTest):
             cls._defaults(testing=False)
         )
 
-        # When we're running unit tests, the default log level is DEBUG
+        # When we're running unit tests, the default log level is INFO
         # and log messages are emitted in text format.
         eq_(
-            (cls.DEBUG, cls.TEXT_LOG_FORMAT, cls.WARN,
+            (cls.INFO, cls.TEXT_LOG_FORMAT, cls.WARN,
              cls.DEFAULT_MESSAGE_TEMPLATE), 
             cls._defaults(testing=True)
         )
