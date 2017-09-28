@@ -260,20 +260,23 @@ class HTTP(object):
             )
         return response
 
-    def debuggable_get(self, url, **kwargs):
+    @classmethod
+    def debuggable_get(cls, url, **kwargs):
         """Make a GET request that returns a detailed problem
         detail document on error.
         """
-        return self._debuggable_request("GET", url, **kwargs)
+        return cls._debuggable_request("GET", url, **kwargs)
 
-    def debuggable_post(self, url, payload, **kwargs):
+    @classmethod
+    def debuggable_post(cls, url, payload, **kwargs):
         """Make a POST request that returns a detailed problem
         detail document on error.
         """
         kwargs['data'] = payload
-        return self._debuggable_request("POST", url, **kwargs)
+        return cls._debuggable_request("POST", url, **kwargs)
 
-    def debuggable_request(self, http_method, url, **kwargs):
+    @classmethod
+    def debuggable_request(cls, http_method, url, **kwargs):
         """Make a request that returns a detailed problem detail document on
         error, rather than a generic "an integration error occured"
         message.
@@ -281,7 +284,7 @@ class HTTP(object):
         if not 'allowed_response_codes' in kwargs:
             # We allow all response codes so that we can handle bad
             # ones in a more helpful way.
-            kwargs['allowed_response_codes']=["2xx", "3xx", "4xx", "5xx"]
+            kwargs['allowed_response_codes']=["1xx", "2xx", "3xx", "4xx", "5xx"]
         response = HTTP.request_with_timeout(http_method, url, **kwargs)
         return self.process_debuggable_response(response)
 
