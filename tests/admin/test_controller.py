@@ -47,6 +47,7 @@ from core.testing import (
     NeverSuccessfulCoverageProvider,
     MockRequestsResponse,
 )
+from core.util.http import HTTP
 from core.util.problem_detail import ProblemDetail
 from core.classifier import (
     genres,
@@ -1278,7 +1279,8 @@ class TestSettingsController(AdminControllerTest):
     def do_request(self, url, *args, **kwargs):
         """Mock HTTP get/post method to replace HTTP.get_with_timeout or post_with_timeout."""
         self.requests.append(url)
-        return self.responses.pop()
+        response = self.responses.pop()
+        return HTTP.process_debuggable_response(response)
 
     def test_libraries_get_with_no_libraries(self):
         # Delete any existing library created by the controller test setup.
@@ -3366,7 +3368,7 @@ class TestSettingsController(AdminControllerTest):
         )
         assert isinstance(response, ProblemDetail)
         assert response.detail.startswith(
-            "The service returned a problem detail document:"
+            "Remote service returned a problem detail document:"
         )
         assert unicode(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
 
@@ -3400,19 +3402,6 @@ class TestSettingsController(AdminControllerTest):
         assert_remote_integration_error(
             response, 'The service did not provide registration information.'
         )
-
-    def test__post_authentication_document_failure_propagates_original_problem_detail(self):
-        status_code, content, headers = MULTIPLE_BASIC_AUTH_SERVICES.response
-        self.responses.append(
-            MockRequestsResponse(content, headers, status_code)
-        )
-        response = self.manager.admin_settings_controller._post_authentication_document(
-            "target", "library", self.do_request
-        )
-        assert isinstance(response, ProblemDetail)
-        eq_(502, response.status_code)
-        assert '400 response from registry server' in response.detail
-        assert unicode(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)

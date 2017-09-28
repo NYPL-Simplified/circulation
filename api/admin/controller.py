@@ -1579,8 +1579,9 @@ class SettingsController(CirculationManagerController):
         setting.value = value
         return Response(unicode(_("Success")), 200)
 
-    def metadata_services(self, do_get=HTTP.get_with_timeout,
-        do_post=HTTP.post_with_timeout, key=None
+    def metadata_services(
+            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, 
+            key=None
     ):
         provider_apis = [NYTBestSellerAPI,
                          NoveListAPI,
@@ -1647,8 +1648,8 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def sitewide_registration(self, integration, do_get=HTTP.get_with_timeout,
-        do_post=HTTP.post_with_timeout, key=None
+    def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
+                              do_post=HTTP.debuggable_post, key=None
     ):
         """Performs a sitewide registration for a particular service, currently
         only the Metadata Wrangler.
@@ -1660,19 +1661,15 @@ class SettingsController(CirculationManagerController):
 
         # Get the catalog for this service.
         try:
-            response = do_get(integration.url, allowed_response_codes=['2xx', '3xx'])
+            response = do_get(integration.url)
         except Exception as e:
             return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
-        content_type = response.headers.get('Content-Type')
+        if isinstance(response, ProblemDetail):
+            return response
 
-        if content_type == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _('The service returned a problem detail document: %r.') % (
-                    response.content
-                )
-            )
-        elif content_type != 'application/opds+json':
+        content_type = response.headers.get('Content-Type')
+        if content_type != 'application/opds+json':
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide a valid catalog.')
             )
@@ -1980,7 +1977,8 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def library_registrations(self, do_get=HTTP.get_with_timeout, do_post=HTTP.post_with_timeout, key=None):
+    def library_registrations(self, do_get=HTTP.debuggable_get, 
+                              do_post=HTTP.debuggable_post, key=None):
         if flask.request.method == "POST":
 
             integration_id = flask.request.form.get("integration_id")
@@ -1996,7 +1994,9 @@ class SettingsController(CirculationManagerController):
             if not library:
                 return NO_SUCH_LIBRARY
 
-            response = do_get(integration.url, allowed_response_codes=["2xx", "3xx"])
+            response = do_get(integration.url)
+            if isinstance(response, ProblemDetail):
+                return response
             type = response.headers.get("Content-Type")
             if type == 'application/opds+json':
                 # This is an OPDS 2 catalog.
@@ -2035,12 +2035,12 @@ class SettingsController(CirculationManagerController):
             # OPDS Authentication document.
             self._db.commit()
 
-            library_url = self.url_for(
+            auth_document_url = self.url_for(
                 "authentication_document", 
                 library_short_name=library.short_name
             )
-            response = self._post_authentication_document(
-                register_url, library_url, do_post
+            response = do_post(
+                register_url, dict(url=auth_document_url), timeout=60
             )
             if isinstance(response, ProblemDetail):
                 return response
@@ -2082,25 +2082,3 @@ class SettingsController(CirculationManagerController):
                 _("Could not decrypt shared secret %s") % shared_secret
             )
         return shared_secret
-
-    def _post_authentication_document(self, register_url, auth_document_url, do_post):
-        """Post the location of an authentication document to a 
-        registration service.
-
-        :return: A ProblemDetail if there's an error on the other side;
-        otherwise a Response object.
-        """
-        response = do_post(
-            register_url, dict(url=auth_document_url), 
-            allowed_response_codes=["2xx", "3xx", "4xx", "5xx"], timeout=60
-        )
-        if response.status_code / 100 != 2:
-            # Return the underlying explanation of what went wrong
-            # rather than "there was an integration error".
-            return REMOTE_INTEGRATION_FAILED.detailed(
-                _("%s response from registry server: %r") % (
-                    response.status_code,
-                    response.content,
-                )
-            )
-        return response
