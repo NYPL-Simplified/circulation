@@ -2052,7 +2052,7 @@ class SettingsController(CirculationManagerController):
             shared_secret = catalog.get("metadata", {}).get("shared_secret")
 
             if short_name and shared_secret:
-                shared_secret = self._descrypt_shared_secret(encryptor, shared_secret)
+                shared_secret = self._decrypt_shared_secret(encryptor, shared_secret)
                 if isinstance(shared_secret, ProblemDetail):
                     return shared_secret
 
@@ -2070,6 +2070,11 @@ class SettingsController(CirculationManagerController):
         return Response(unicode(_("Success")), 200)
 
     def _decrypt_shared_secret(self, encryptor, shared_secret):
+        """Attempt to decrypt an encrypted shared secret.
+
+        :return: The decrypted shared secret, or a ProblemDetail if
+        it could not be decrypted.
+        """
         try:
             shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
         except ValueError, e:
