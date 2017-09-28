@@ -2006,7 +2006,6 @@ class SettingsController(CirculationManagerController):
 
             return dict(library_registrations=services)
 
->>>>>>> master
         if flask.request.method == "POST":
 
             integration_id = flask.request.form.get("integration_id")
