@@ -6,6 +6,7 @@ from util.http import (
     RemoteIntegrationException,
     RequestNetworkException,
     RequestTimedOut,
+    INTEGRATION_ERROR,
 )
 from nose.tools import (
     assert_raises_regexp,
@@ -13,6 +14,8 @@ from nose.tools import (
     set_trace
 )
 from testing import MockRequestsResponse
+from util.problem_detail import ProblemDetail
+from problem_details import INVALID_INPUT
 
 class TestHTTP(object):
 
@@ -176,6 +179,29 @@ class TestHTTP(object):
             assert isinstance(k, bytes)
             assert isinstance(v, bytes)
         assert isinstance(data, bytes)
+
+    def test_process_debuggable_response(self):
+        """Test a method that gives more detailed information when a 
+        problem happens.
+        """
+        m = HTTP.process_debuggable_response
+        success = MockRequestsResponse(200, content="Success!")
+        eq_(success, m(success))
+
+        # An error is turned into a detailed ProblemDetail
+        error = MockRequestsResponse(500, content="Error!")
+        problem = m(error)
+        assert isinstance(problem, ProblemDetail)
+        eq_(INTEGRATION_ERROR.uri, problem.uri)
+        eq_("500 response from integration server: 'Error!'", problem.detail)
+
+        content, status_code, headers = INVALID_INPUT.response
+        error = MockRequestsResponse(status_code, headers, content)
+        problem = m(error)
+        assert isinstance(problem, ProblemDetail)
+        eq_(INTEGRATION_ERROR.uri, problem.uri)
+        eq_(u"Remote service returned a problem detail document: %r" % content,
+            problem.detail)
 
 class TestRemoteIntegrationException(object):
 

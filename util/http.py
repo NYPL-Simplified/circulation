@@ -2,7 +2,10 @@ from nose.tools import set_trace
 import requests
 import urlparse
 from flask_babel import lazy_gettext as _
-from problem_detail import ProblemDetail as pd
+from problem_detail import (
+    ProblemDetail as pd,
+    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
+)
 
 INTEGRATION_ERROR = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
@@ -257,3 +260,53 @@ class HTTP(object):
             )
         return response
 
+    def debuggable_get(self, url, **kwargs):
+        """Make a GET request that returns a detailed problem
+        detail document on error.
+        """
+        return self._debuggable_request("GET", url, **kwargs)
+
+    def debuggable_post(self, url, payload, **kwargs):
+        """Make a POST request that returns a detailed problem
+        detail document on error.
+        """
+        kwargs['data'] = payload
+        return self._debuggable_request("POST", url, **kwargs)
+
+    def debuggable_request(self, http_method, url, **kwargs):
+        """Make a request that returns a detailed problem detail document on
+        error, rather than a generic "an integration error occured"
+        message.
+        """
+        if not 'allowed_response_codes' in kwargs:
+            # We allow all response codes so that we can handle bad
+            # ones in a more helpful way.
+            kwargs['allowed_response_codes']=["2xx", "3xx", "4xx", "5xx"]
+        response = HTTP.request_with_timeout(http_method, url, **kwargs)
+        return self.process_debuggable_response(response)
+
+    @classmethod
+    def process_debuggable_response(cls, response):
+        """If there was a problem with an integration request,
+        return an appropriate ProblemDetail. Otherwise, return the
+        response to the original request.
+
+        :param response: A Response object from the requests library.
+        """
+        content_type = response.headers.get('Content-Type')
+        if content_type == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
+            return INTEGRATION_ERROR.detailed(
+                _('Remote service returned a problem detail document: %r') % (
+                    response.content
+                )
+            )
+        elif response.status_code / 100 not in (2,3):
+            # Return the message we got from the server, verbatim.
+            return INTEGRATION_ERROR.detailed(
+                _("%s response from integration server: %r") % (
+                    response.status_code,
+                    response.content,
+                )
+            )
+
+        return response
