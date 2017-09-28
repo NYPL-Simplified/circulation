@@ -265,7 +265,7 @@ class HTTP(object):
         """Make a GET request that returns a detailed problem
         detail document on error.
         """
-        return cls._debuggable_request("GET", url, **kwargs)
+        return cls.debuggable_request("GET", url, **kwargs)
 
     @classmethod
     def debuggable_post(cls, url, payload, **kwargs):
@@ -273,7 +273,7 @@ class HTTP(object):
         detail document on error.
         """
         kwargs['data'] = payload
-        return cls._debuggable_request("POST", url, **kwargs)
+        return cls.debuggable_request("POST", url, **kwargs)
 
     @classmethod
     def debuggable_request(cls, http_method, url, **kwargs):
