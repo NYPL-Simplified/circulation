@@ -98,7 +98,8 @@ class LogConfiguration(object):
         # log level, which is probably higher than the normal log level.
         for logger in (
                 'sqlalchemy.engine', 'elasticsearch', 
-                'requests.packages.urllib3.connectionpool'
+                'requests.packages.urllib3.connectionpool',
+                'urllib3.connectionpool',
         ):
             logging.getLogger(logger).setLevel(database_log_level)
         return log_level
