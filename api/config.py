@@ -28,6 +28,9 @@ class Configuration(CoreConfiguration):
     # The name of the sitewide secret used to sign cookies for admin login.
     SECRET_KEY = u"secret_key"
 
+    # The name of the setting that controls how long static files are cached.
+    STATIC_FILE_CACHE_TIME = u"static_file_cache_time"
+
     # A short description of the library, used in its Authentication
     # for OPDS document.
     LIBRARY_DESCRIPTION = 'library_description'
@@ -106,6 +109,10 @@ class Configuration(CoreConfiguration):
         {
             "key": PATRON_WEB_CLIENT_URL,
             "label": _("URL of the web catalog for patrons"),
+        },
+        {
+            "key": STATIC_FILE_CACHE_TIME,
+            "label": _("Cache time for static JS and CSS files for the admin interface"),
         },
     ]
 
