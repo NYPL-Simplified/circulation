@@ -505,6 +505,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         This method is primarily for use with CoverageProviders that use the
         `preregistered_only` flag to process items. It's currently only in use
         on the Metadata Wrangler.
+
+        TODO: Take identifier eligibility into account when registering.
         """
         name = cls.SERVICE_NAME or cls.__name__
         log = logging.getLogger(name)
@@ -520,7 +522,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         was_registered = False
         existing_record = CoverageRecord.lookup(identifier, source, operation)
         if existing_record:
-            log.info('[%s] FOUND %r' % (cls.__name__, existing_record))
+            log.info('FOUND %r' % existing_record)
             return existing_record, was_registered
 
         was_registered = True
@@ -528,7 +530,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             identifier, source, operation=operation,
             status=CoverageRecord.REGISTERED
         )
-        log.info('[%s] CREATED %r' % (cls.__name__, new_record))
+        log.info('CREATED %r' % new_record)
         return new_record, was_registered
 
     @property
