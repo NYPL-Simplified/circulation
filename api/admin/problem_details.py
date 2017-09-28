@@ -198,6 +198,13 @@ MISSING_PGCRYPTO_EXTENSION = pd(
     detail=_("You tried to store a password for an individual admin, but the database does not have the pgcrypto extension installed."),
 )
 
+SHARED_SECRET_DECRYPTION_ERROR = pd(
+    "http://librarysimplified.org/terms/problem/decryption-error",
+    status_code=502,
+    title=_("Decryption error"),
+    detail=_("Failed to decrypt a shared secret retrieved from another computer.")
+)
+
 MISSING_SERVICE = pd(
     "http://librarysimplified.org/terms/problem/missing-service",
     status_code=404,
