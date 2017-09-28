@@ -120,25 +120,22 @@ class NoveListAPI(object):
                 if (eq.data_source==license_source and eq.strength==1
                     and eq.output.type==Identifier.ISBN)]
 
+        # Remove None values.
+        lookup_metadata = [metadata for metadata in lookup_metadata if metadata]
         if not lookup_metadata:
-            self.log.error(
+            self.log.warn(
                 "Identifiers without an ISBN equivalent can't \
                 be looked up with NoveList: %r", identifier
             )
             return None
 
-        # Remove None values.
-        lookup_metadata = [metadata for metadata in lookup_metadata if metadata]
-        if not lookup_metadata:
-            return None
-
         best_metadata = self.choose_best_metadata(lookup_metadata, identifier)
-        if not best_metadata:
+        if best_metadata:
             metadata, confidence = best_metadata
             if round(confidence, 2) < 0.5:
                 self.log.warn(self.NO_ISBN_EQUIVALENCY, identifier)
                 return None
-        return metadata
+            return metadata
 
     @classmethod
     def _confirm_same_identifier(self, metadata_objects):
