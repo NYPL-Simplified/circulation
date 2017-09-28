@@ -3200,6 +3200,43 @@ class TestSettingsController(AdminControllerTest):
         eq_(ExternalIntegration.OPDS_REGISTRATION, discovery_service.protocol)
         eq_("new registry url", discovery_service.url)
 
+    def test_library_registrations_get(self):
+        discovery_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.OPDS_REGISTRATION,
+            goal=ExternalIntegration.DISCOVERY_GOAL,
+        )
+        succeeded, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-status", succeeded, discovery_service,
+            ).value = "success"
+        failed, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-status", failed, discovery_service,
+            ).value = "failure"
+        unregistered, ignore = create(
+            self._db, Library, name="Library 3", short_name="L3",
+        )
+        discovery_service.libraries = [succeeded, failed, unregistered]
+
+        with self.app.test_request_context("/", method="GET"):
+            response = self.manager.admin_settings_controller.library_registrations()
+
+            serviceInfo = response.get("library_registrations")
+            eq_(1, len(serviceInfo))
+            eq_(discovery_service.id, serviceInfo[0].get("id"))
+
+            libraryInfo = serviceInfo[0].get("libraries")
+            expected = [
+                dict(short_name=succeeded.short_name, status="success"),
+                dict(short_name=failed.short_name, status="failure"),
+            ]
+            eq_(expected, libraryInfo)
+
     def test_library_registrations_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -3237,6 +3274,8 @@ class TestSettingsController(AdminControllerTest):
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
             eq_("The discovery service did not return OPDS.", response.detail)
             eq_([discovery_service.url], self.requests)
+            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, "library-registration-status", library, discovery_service).value)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -3251,6 +3290,8 @@ class TestSettingsController(AdminControllerTest):
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
             eq_("The discovery service did not provide a register link.", response.detail)
             eq_([discovery_service.url], self.requests[1:])
+            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, "library-registration-status", library, discovery_service).value)
 
     def test_library_registrations_post_success(self):
         discovery_service, ignore = create(
@@ -3285,6 +3326,10 @@ class TestSettingsController(AdminControllerTest):
             eq_(None, ConfigurationSetting.for_library_and_externalintegration(
                     self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)
 
+            # The registration status was recorded.
+            eq_("success", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, "library-registration-status", library, discovery_service).value)
+
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
@@ -3316,6 +3361,10 @@ class TestSettingsController(AdminControllerTest):
                     self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
             eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)
+
+            # The registration status is the same.
+            eq_("success", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, "library-registration-status", library, discovery_service).value)
 
     def test_sitewide_registration_post_errors(self):
         def assert_remote_integration_error(response, message=None):

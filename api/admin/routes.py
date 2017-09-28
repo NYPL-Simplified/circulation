@@ -410,7 +410,7 @@ def sitewide_settings():
         return data
     return flask.jsonify(**data)
 
-@app.route("/admin/library_registrations", methods=['POST'])
+@app.route("/admin/library_registrations", methods=['GET', 'POST'])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
