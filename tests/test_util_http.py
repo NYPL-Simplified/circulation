@@ -19,6 +19,13 @@ from problem_details import INVALID_INPUT
 
 class TestHTTP(object):
 
+    def test_series(self):
+        m = HTTP.series
+        eq_("2xx", m(201))
+        eq_("3xx", m(399))
+        eq_("5xx", m(500))
+
+
     def test_request_with_timeout_success(self):
 
         def fake_200_response(*args, **kwargs):
@@ -188,6 +195,9 @@ class TestHTTP(object):
         success = MockRequestsResponse(200, content="Success!")
         eq_(success, m(success))
 
+        success = MockRequestsResponse(302, content="Success!")
+        eq_(success, m(success))
+
         # An error is turned into a detailed ProblemDetail
         error = MockRequestsResponse(500, content="Error!")
         problem = m(error)
@@ -202,6 +212,11 @@ class TestHTTP(object):
         eq_(INTEGRATION_ERROR.uri, problem.uri)
         eq_(u"Remote service returned a problem detail document: %r" % content,
             problem.detail)
+
+        # You can force a response to be treated as successful by
+        # passing in its response code as allowed_response_codes.
+        eq_(error, m(error, allowed_response_codes=[400]))
+        eq_(error, m(error, allowed_response_codes=['4xx']))
 
 class TestRemoteIntegrationException(object):
 
