@@ -3,8 +3,8 @@ These are the Docker images for Library Simplified's [Circulation Manager](https
 
 ## Supported tags and respective `Dockerfile` links
 
-- deploy: `2.0.5`, `2.0` [(2.0.5/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/610d709/deploy/Dockerfile)
-- scripts: `2.0.5`, `2.0` [(2.0.5/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/610d709/scripts/Dockerfile)
+- **circ-deploy:** `2.0.5`, `2.0` [(2.0.5/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/610d709/deploy/Dockerfile)
+- **circ-scripts:** `2.0.5`, `2.0` [(2.0.5/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/610d709/scripts/Dockerfile)
 
 Older versions of the Circulation Manager are not currently supported.
 
@@ -26,7 +26,11 @@ This image is updated via [pull requests to the `NYPL-Simplified/circulation-doc
 
 The circulation manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content from the [OA Content Server](https://github.com/NYPL-Simplified/content_server), pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
 
-This particular image builds containers to deploy the Circulation Manager API [using Nginx and uWSGI](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Nginx-&-uWSGI).
+The Dockerfiles in this directory create two distinct but necessary containers to deploy the Circulation Manager:
+  - `circ-deploy`: a container that deploys the API [using Nginx and uWSGI](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Nginx-&-uWSGI)
+  - `circ-scripts`: a container that schedules and runs important cron jobs at recommended intervals
+
+To avoid database lockups, `circ-scripts` should be deployed as a single instance.
 
 ## Using This Image
 
@@ -99,7 +103,8 @@ docker exec scripts /bin/bash -c 'source env/bin/activate && core/bin/migrate_da
 If you plan to work with stable versions of the Circulation Manager, we strongly recommend using the latest stable versions of circ-deploy and circ-scripts [published to Docker Hub](https://hub.docker.com/r/nypl/). However, there may come a time in development when you want to build Docker containers for a particular version of the Circulation Manager. If so, please use the instructions below.
 
 ### > `.deploy` and `.scripts`
-Determine which container you would like to build and 
+
+Determine which container you would like to build and update the tag and Dockerfile listed below accordingly.
 
 ```sh
 $ docker build --build-arg version=YOUR_DESIRED_BRANCH_OR_COMMIT \
