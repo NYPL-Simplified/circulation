@@ -98,9 +98,20 @@ class LogConfiguration(object):
         # log level, which is probably higher than the normal log level.
         for logger in (
                 'sqlalchemy.engine', 'elasticsearch', 
-                'requests.packages.urllib3.connectionpool'
+                'requests.packages.urllib3.connectionpool',
         ):
             logging.getLogger(logger).setLevel(database_log_level)
+
+        # These loggers can cause infinite loops if they're set to
+        # DEBUG, because their log is triggered during the process of
+        # logging something to Loggly. These loggers will never have their
+        # log level set lower than WARN.
+        if database_log_level == cls.ERROR:
+            loop_prevention_log_level = cls.ERROR
+        else:
+            loop_prevention_log_level = cls.WARN
+        for logger in ['urllib3.connectionpool']:
+            logging.getLogger(logger).setLevel(loop_prevention_log_level)
         return log_level
 
     @classmethod
