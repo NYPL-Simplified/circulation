@@ -1252,8 +1252,9 @@ class BaseCoverageRecord(object):
     SUCCESS = u'success'
     TRANSIENT_FAILURE = u'transient failure'
     PERSISTENT_FAILURE = u'persistent failure'
+    REGISTERED = u'registered'
 
-    ALL_STATUSES = [SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
+    ALL_STATUSES = [REGISTERED, SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
 
     # By default, count coverage as present if it ended in
     # success or in persistent failure. Do not count coverage
@@ -1261,7 +1262,7 @@ class BaseCoverageRecord(object):
     DEFAULT_COUNT_AS_COVERED = [SUCCESS, PERSISTENT_FAILURE]
 
     status_enum = Enum(SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE, 
-                       name='coverage_status')
+                       REGISTERED, name='coverage_status')
 
     @classmethod
     def not_covered(cls, count_as_covered=None, 
