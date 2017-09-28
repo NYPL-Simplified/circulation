@@ -81,7 +81,7 @@ class TestLogConfiguration(DatabaseTest):
         internal_log_level, database_log_level, [handler] = m(
             self._db, testing=True
         )
-        eq_(cls.DEBUG, internal_log_level)
+        eq_(cls.INFO, internal_log_level)
         eq_(cls.WARN, database_log_level)
         eq_(cls.DEFAULT_MESSAGE_TEMPLATE, handler.formatter._fmt)
 
