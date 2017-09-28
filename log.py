@@ -84,13 +84,14 @@ class LogConfiguration(object):
         log_level, database_log_level, new_handlers = (
             cls.from_configuration(_db, testing)
         )
-    
+        
         # Replace the set of handlers associated with the root logger.
         logger = logging.getLogger()
         logger.setLevel(log_level)
         old_handlers = list(logger.handlers)
         for handler in new_handlers:
             logger.addHandler(handler)
+            handler.setLevel(log_level)
         for handler in old_handlers:
             logger.removeHandler(handler)
 
@@ -186,12 +187,12 @@ class LogConfiguration(object):
     def _defaults(cls, testing=False):
         """Return default log configuration values."""
         if testing:
-            internal_log_level = 'DEBUG'
+            internal_log_level = cls.INFO
             internal_log_format = cls.TEXT_LOG_FORMAT
         else:
-            internal_log_level = 'INFO'
+            internal_log_level = cls.INFO
             internal_log_format = cls.JSON_LOG_FORMAT
-        database_log_level = 'WARN'
+        database_log_level = cls.WARN
         message_template = cls.DEFAULT_MESSAGE_TEMPLATE
         return (internal_log_level, internal_log_format, database_log_level,
                 message_template)

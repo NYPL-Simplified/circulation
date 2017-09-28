@@ -2,7 +2,10 @@ from nose.tools import set_trace
 import requests
 import urlparse
 from flask_babel import lazy_gettext as _
-from problem_detail import ProblemDetail as pd
+from problem_detail import (
+    ProblemDetail as pd,
+    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
+)
 
 INTEGRATION_ERROR = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
@@ -224,7 +227,7 @@ class HTTP(object):
             disallowed_response_codes = []
 
         code = response.status_code
-        series = "%sxx" % (code / 100)
+        series = cls.series(code)
         code = str(code)
 
         if allowed_response_codes and (
@@ -257,3 +260,81 @@ class HTTP(object):
             )
         return response
 
+    @classmethod
+    def series(cls, status_code):
+        """Return the HTTP series for the given status code."""
+        return "%sxx" % (status_code / 100)
+
+    @classmethod
+    def debuggable_get(cls, url, **kwargs):
+        """Make a GET request that returns a detailed problem
+        detail document on error.
+        """
+        return cls.debuggable_request("GET", url, **kwargs)
+
+    @classmethod
+    def debuggable_post(cls, url, payload, **kwargs):
+        """Make a POST request that returns a detailed problem
+        detail document on error.
+        """
+        kwargs['data'] = payload
+        return cls.debuggable_request("POST", url, **kwargs)
+
+    @classmethod
+    def debuggable_request(cls, http_method, url, **kwargs):
+        """Make a request that returns a detailed problem detail document on
+        error, rather than a generic "an integration error occured"
+        message.
+        """
+        if 'allowed_response_codes' in kwargs:
+            # The caller wants to treat a specific set of response codes
+            # as successful.
+            allowed_response_codes = kwargs
+        else:
+            # We want request_with_timeout to allow through all
+            # response codes so that we can handle bad ones in a more
+            # helpful way.
+            kwargs['allowed_response_codes']=["1xx", "2xx", "3xx", "4xx", "5xx"]
+            
+            # But we want to apply the normal rules when deciding whether
+            # a given response is 'bad'.
+            allowed_response_codes = None
+        response = HTTP.request_with_timeout(http_method, url, **kwargs)
+        return cls.process_debuggable_response(response, allowed_response_codes)
+
+    @classmethod
+    def process_debuggable_response(cls, response, allowed_response_codes=None):
+        """If there was a problem with an integration request,
+        return an appropriate ProblemDetail. Otherwise, return the
+        response to the original request.
+
+        :param response: A Response object from the requests library.
+        """
+
+        allowed_response_codes = allowed_response_codes or ['2xx', '3xx']
+        code = response.status_code
+        series = cls.series(code)
+        if code in allowed_response_codes or series in allowed_response_codes:
+            # Whether or not it looks like there's been a problem,
+            # we've been told to let this response code through.
+            return response
+
+        content_type = response.headers.get('Content-Type')
+        if content_type == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
+            # The server returned a problem detail document. Wrap it
+            # in a new document that represents the integration
+            # failure.
+            return INTEGRATION_ERROR.detailed(
+                _('Remote service returned a problem detail document: %r') % (
+                    response.content
+                )
+            )
+
+        # There's been a problem. Return the message we got from the
+        # server, verbatim.
+        return INTEGRATION_ERROR.detailed(
+            _("%s response from integration server: %r") % (
+                response.status_code,
+                response.content,
+            )
+        )

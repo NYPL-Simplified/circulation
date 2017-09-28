@@ -81,7 +81,7 @@ class TestLogConfiguration(DatabaseTest):
         internal_log_level, database_log_level, [handler] = m(
             self._db, testing=True
         )
-        eq_(cls.DEBUG, internal_log_level)
+        eq_(cls.INFO, internal_log_level)
         eq_(cls.WARN, database_log_level)
         eq_(cls.DEFAULT_MESSAGE_TEMPLATE, handler.formatter._fmt)
 
@@ -97,10 +97,10 @@ class TestLogConfiguration(DatabaseTest):
             cls._defaults(testing=False)
         )
 
-        # When we're running unit tests, the default log level is DEBUG
+        # When we're running unit tests, the default log level is INFO
         # and log messages are emitted in text format.
         eq_(
-            (cls.DEBUG, cls.TEXT_LOG_FORMAT, cls.WARN,
+            (cls.INFO, cls.TEXT_LOG_FORMAT, cls.WARN,
              cls.DEFAULT_MESSAGE_TEMPLATE), 
             cls._defaults(testing=True)
         )
