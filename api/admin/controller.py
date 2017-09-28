@@ -50,7 +50,10 @@ from core.model import (
     Work,
     WorkGenre,
 )
-from core.util.problem_detail import ProblemDetail
+from core.util.problem_detail import (
+    ProblemDetail, 
+    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
+)
 from core.util.http import HTTP
 from problem_details import *
 
@@ -118,7 +121,7 @@ def setup_admin_controllers(manager):
         try:
             manager.config = Configuration.load(manager._db)
         except CannotLoadConfiguration, e:
-            self.log.error("Could not load configuration file: %s" % e)
+            logging.error("Could not load configuration file: %s", e)
             sys.exit()
 
     manager.admin_view_controller = ViewController(manager)
@@ -1661,7 +1664,15 @@ class SettingsController(CirculationManagerController):
         except Exception as e:
             return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
-        if not response.headers.get('Content-Type') == 'application/opds+json':
+        content_type = response.headers.get('Content-Type')
+
+        if content_type == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _('The service returned a problem detail document: %r.') % (
+                    response.content
+                )
+            )
+        elif content_type != 'application/opds+json':
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide a valid catalog.')
             )
@@ -2028,10 +2039,11 @@ class SettingsController(CirculationManagerController):
                 "authentication_document", 
                 library_short_name=library.short_name
             )
-            response = do_post(
-                register_url, dict(url=library_url), 
-                allowed_response_codes=["2xx"], timeout=60
+            response = self._post_authentication_document(
+                register_url, library_url, do_post
             )
+            if isinstance(response, ProblemDetail):
+                return response
             catalog = json.loads(response.content)
 
             # Since we generated a public key, the catalog should have the short name
@@ -2040,7 +2052,9 @@ class SettingsController(CirculationManagerController):
             shared_secret = catalog.get("metadata", {}).get("shared_secret")
 
             if short_name and shared_secret:
-                shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+                shared_secret = self._descrypt_shared_secret(encryptor, shared_secret)
+                if isinstance(shared_secret, ProblemDetail):
+                    return shared_secret
 
                 ConfigurationSetting.for_library_and_externalintegration(
                     self._db, ExternalIntegration.USERNAME, library, integration
@@ -2054,3 +2068,34 @@ class SettingsController(CirculationManagerController):
                 ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = None
 
         return Response(unicode(_("Success")), 200)
+
+    def _decrypt_shared_secret(self, encryptor, shared_secret):
+        try:
+            shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+        except ValueError, e:
+            return SHARED_SECRET_DECRYPTION_ERROR.detailed(
+                _("Could not decrypt shared secret %s") % shared_secret
+            )
+        return shared_secret
+
+    def _post_authentication_document(self, register_url, auth_document_url, do_post):
+        """Post the location of an authentication document to a 
+        registration service.
+
+        :return: A ProblemDetail if there's an error on the other side;
+        otherwise a Response object.
+        """
+        response = do_post(
+            register_url, dict(url=auth_document_url), 
+            allowed_response_codes=["2xx", "3xx", "4xx", "5xx"], timeout=60
+        )
+        if response.status_code / 100 != 2:
+            # Return the underlying explanation of what went wrong
+            # rather than "there was an integration error".
+            return REMOTE_INTEGRATION_FAILED.detailed(
+                _("%s response from registry server: %r") % (
+                    response.status_code,
+                    response.content,
+                )
+            )
+        return response

@@ -47,6 +47,7 @@ from core.testing import (
     NeverSuccessfulCoverageProvider,
     MockRequestsResponse,
 )
+from core.util.problem_detail import ProblemDetail
 from core.classifier import (
     genres,
     SimplifiedGenreClassifier
@@ -3354,6 +3355,21 @@ class TestSettingsController(AdminControllerTest):
             response, 'The service did not provide a valid catalog.'
         )
 
+        # If the response returns a ProblemDetail, its contents are wrapped
+        # in another ProblemDetail.
+        status_code, content, headers = MULTIPLE_BASIC_AUTH_SERVICES.response
+        self.responses.append(
+            MockRequestsResponse(content, headers, status_code)
+        )
+        response = self.manager.admin_settings_controller.sitewide_registration(
+            metadata_wrangler_service, do_get=self.do_request
+        )
+        assert isinstance(response, ProblemDetail)
+        assert response.detail.startswith(
+            "The service returned a problem detail document:"
+        )
+        assert unicode(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
+
         # If no registration link is available, a ProblemDetail is returned
         catalog = dict(id=self._url, links=[])
         headers = { 'Content-Type' : 'application/opds+json' }
@@ -3384,6 +3400,40 @@ class TestSettingsController(AdminControllerTest):
         assert_remote_integration_error(
             response, 'The service did not provide registration information.'
         )
+
+    def test__post_authentication_document_failure_propagates_original_problem_detail(self):
+        status_code, content, headers = MULTIPLE_BASIC_AUTH_SERVICES.response
+        self.responses.append(
+            MockRequestsResponse(content, headers, status_code)
+        )
+        response = self.manager.admin_settings_controller._post_authentication_document(
+            "target", "library", self.do_request
+        )
+        assert isinstance(response, ProblemDetail)
+        eq_(502, response.status_code)
+        assert '400 response from registry server' in response.detail
+        assert unicode(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
+
+    def test__decrypt_shared_secret(self):
+        key = RSA.generate(2048)
+        encryptor = PKCS1_OAEP.new(key)
+
+        key2 = RSA.generate(2048)
+        encryptor2 = PKCS1_OAEP.new(key2)
+
+        shared_secret = os.urandom(24).encode('hex')
+        encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
+
+        # Success.
+        m = self.manager.admin_settings_controller._decrypt_shared_secret
+        eq_(shared_secret, m(encryptor, encrypted_secret))
+
+        # If we try to decrypt using the wrong key, a ProblemDetail is
+        # returned explaining the problem.
+        problem = m(encryptor2, encrypted_secret)
+        assert isinstance(problem, ProblemDetail)
+        eq_(SHARED_SECRET_DECRYPTION_ERROR.uri, problem.uri)
+        assert encrypted_secret in problem.detail
 
     def test_sitewide_registration_post_success(self):
         # A service to register with
