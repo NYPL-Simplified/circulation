@@ -186,7 +186,7 @@ class LogConfiguration(object):
     def _defaults(cls, testing=False):
         """Return default log configuration values."""
         if testing:
-            internal_log_level = 'INFO'
+            internal_log_level = 'DEBUG'
             internal_log_format = cls.TEXT_LOG_FORMAT
         else:
             internal_log_level = 'INFO'
