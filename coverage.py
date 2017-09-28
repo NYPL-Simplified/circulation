@@ -498,6 +498,39 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             # a list of types.
             return value
 
+    @classmethod
+    def register(cls, identifier, collection=None):
+        """Registers an identifier for future coverage
+
+        This method is primarily for use with CoverageProviders that use the
+        `preregistered_only` flag to process items. It's currently only in use
+        on the Metadata Wrangler.
+        """
+        name = cls.SERVICE_NAME or cls.__name__
+        log = logging.getLogger(name)
+        _db = Session.object_session(identifier)
+
+        source = DataSource.lookup(_db, cls.DATA_SOURCE_NAME)
+        if collection and not source:
+            # The registration DataSource is based on a given Collection
+            # instead of the class.
+            source = collection.data_source
+        operation = cls.OPERATION
+
+        was_registered = False
+        existing_record = CoverageRecord.lookup(identifier, source, operation)
+        if existing_record:
+            log.info('[%s] FOUND %r' % (cls.__name__, existing_record))
+            return existing_record, was_registered
+
+        was_registered = True
+        new_record, is_new = CoverageRecord.add_for(
+            identifier, source, operation=operation,
+            status=CoverageRecord.REGISTERED
+        )
+        log.info('[%s] CREATED %r' % (cls.__name__, new_record))
+        return new_record, was_registered
+
     @property
     def data_source(self):
         """Look up the DataSource object corresponding to the
@@ -661,8 +694,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
 
         if self.preregistered_only:
-            # Only return Identifiers that have been "preregistered" for
-            # coverage with a failing CoverageRecord.
+            # Return Identifiers that have been "preregistered" for coverage
+            # or already have a failure from previous coverage attempts.
             qu = qu.filter(CoverageRecord.id != None)
 
         return qu
