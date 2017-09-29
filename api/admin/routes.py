@@ -410,7 +410,7 @@ def sitewide_settings():
         return data
     return flask.jsonify(**data)
 
-@app.route("/admin/library_registrations", methods=['POST'])
+@app.route("/admin/library_registrations", methods=['GET', 'POST'])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
@@ -464,10 +464,16 @@ def admin_base(**kwargs):
 @returns_problem_detail
 def admin_js():
     directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
-    return flask.send_from_directory(directory, "circulation-web.js")
+    cache_timeout = ConfigurationSetting.sitewide(
+        _db, Configuration.STATIC_FILE_CACHE_TIME
+    ).int_value
+    return flask.send_from_directory(directory, "circulation-web.js", cache_timeout=cache_timeout)
 
 @app.route('/admin/static/circulation-web.css')
 @returns_problem_detail
 def admin_css():
     directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
-    return flask.send_from_directory(directory, "circulation-web.css")
+    cache_timeout = ConfigurationSetting.sitewide(
+        _db, Configuration.STATIC_FILE_CACHE_TIME
+    ).int_value
+    return flask.send_from_directory(directory, "circulation-web.css", cache_timeout=cache_timeout)

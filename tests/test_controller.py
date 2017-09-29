@@ -1263,6 +1263,15 @@ class TestLoanController(CirculationControllerTest):
 
             eq_(ALREADY_CHECKED_OUT, response)
 
+    def test_fulfill_fails_when_no_active_loan(self):
+        with self.request_context_with_library(
+                "/", headers=dict(Authorization=self.valid_auth)):
+            self.manager.loans.authenticated_patron_from_request()
+            response = self.manager.loans.fulfill(
+                self.pool.id, self.mech2.id
+            )
+
+            eq_(NO_ACTIVE_LOAN.uri, response.uri)
 
     def test_revoke_loan(self):
          with self.request_context_with_library(

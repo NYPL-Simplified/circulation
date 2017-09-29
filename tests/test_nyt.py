@@ -3,6 +3,7 @@ import os
 from nose.tools import (
     set_trace, eq_,
     assert_raises,
+    assert_raises_regexp,
 )
 import datetime
 import json
@@ -11,6 +12,7 @@ from . import (
     DatabaseTest,
 )
 from core.testing import DummyMetadataClient
+from core.config import CannotLoadConfiguration
 from api.nyt import (
     NYTBestSellerAPI,
     NYTBestSellerList,
@@ -19,6 +21,7 @@ from api.nyt import (
 from core.model import (
     Contributor,
     Edition,
+    ExternalIntegration,
     Hyperlink,
     Identifier,
     Resource,
@@ -59,6 +62,43 @@ class NYTBestSellerAPITest(DatabaseTest):
 class TestNYTBestSellerAPI(NYTBestSellerAPITest):
     
     """Test the API calls."""
+
+    def test_from_config(self):
+        # You have to have an ExternalIntegration for the NYT.
+        assert_raises_regexp(
+            CannotLoadConfiguration, 
+            "No ExternalIntegration found for the NYT.",
+            NYTBestSellerAPI.from_config, self._db
+        )
+        integration = self._external_integration(
+            protocol=ExternalIntegration.NYT,
+            goal=ExternalIntegration.METADATA_GOAL
+        )
+
+        # It has to have the api key in its 'password' setting.
+        assert_raises_regexp(
+            CannotLoadConfiguration, 
+            "NYT integration improperly configured.",
+            NYTBestSellerAPI.from_config, self._db
+        )
+
+        integration.password = "api key"
+
+        # The Metadata Wrangler must also be configured.
+        assert_raises_regexp(
+            CannotLoadConfiguration, 
+            "No ExternalIntegration found for the Metadata Wrangler.",
+            NYTBestSellerAPI.from_config, self._db
+        )
+        mw = self._external_integration(
+            protocol=ExternalIntegration.METADATA_WRANGLER,
+            goal=ExternalIntegration.METADATA_GOAL
+        )        
+        mw.url = self._url
+
+        # Now it works.
+        nyt = NYTBestSellerAPI.from_config(self._db)
+        eq_("api key", nyt.api_key)
 
     def test_list_of_lists(self):
         all_lists = self.api.list_of_lists()

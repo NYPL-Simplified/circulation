@@ -221,8 +221,8 @@ class EnkiAPI(BaseCirculationAPI):
             data = json.loads(response.content)
             self.log.debug ("Keeping existing book: " + str(identifier))
         except:
-            # Get the license pool for the ID, but make sure it's the one belonging to Enki
-            pool = [x for x in identifier.licensed_through if x.data_source.name == DataSource.ENKI][0]
+            # Get this collection's license pool for this identifier.
+            pool = identifier.licensed_through_collection(self.collection)
             if pool and (pool.licenses_owned > 0):
                 if pool.presentation_edition:
                     self.log.warn("Removing %s (%s) from circulation",
@@ -556,7 +556,7 @@ class BibliographicParser(object):
         contributors.append(ContributorData(sort_name=sort_name))
         primary_identifier = IdentifierData(EnkiAPI.ENKI_ID, element["id"])
         image_url = element["large_image"]
-        thumbnail_url = element["small_image"]
+        thumbnail_url = element["large_image"]
         images = [LinkData(rel=Hyperlink.THUMBNAIL_IMAGE, href=thumbnail_url, media_type=Representation.PNG_MEDIA_TYPE), LinkData(rel=Hyperlink.IMAGE, href=image_url, media_type=Representation.PNG_MEDIA_TYPE)]
         metadata = Metadata(
             data_source=DataSource.ENKI,

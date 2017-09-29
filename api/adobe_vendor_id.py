@@ -1,4 +1,6 @@
+import argparse
 from nose.tools import set_trace
+import json
 import logging
 import uuid
 import base64
@@ -6,6 +8,7 @@ import os
 import datetime
 import jwt
 from jwt.algorithms import HMACAlgorithm
+import sys
 
 import flask
 from flask import Response
@@ -29,6 +32,7 @@ from core.model import (
     ExternalIntegration,
     Library,
 )
+from core.scripts import Script
 
 class AdobeVendorIDController(object):
 
@@ -185,6 +189,7 @@ class AdobeVendorIDRequestHandler(object):
         try:
             data = parser.process(data)
         except Exception, e:
+            logging.error("Error processing %s", data, exc_info=e)
             return self.error_document(self.AUTH_ERROR_TYPE, str(e))
         user_id = label = None
         if not data:
@@ -1003,3 +1008,87 @@ class AuthdataUtility(object):
         )
         return patron_identifier_credential, delegated_identifier
 
+
+class ShortClientTokenLibraryConfigurationScript(Script):
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--website-url', 
+            help="The URL to this library's patron-facing website (not their circulation manager), e.g. \"https://nypl.org/\". This is used to uniquely identify a library."
+        )
+        parser.add_argument(
+            '--short-name', 
+            help="The short name the library will use in Short Client Tokens, e.g. \"NYNYPL\"."
+        )
+        parser.add_argument(
+            '--secret', 
+            help="The secret the library will use to sign Short Client Tokens."
+        )
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(self._db, cmd_args=cmd_args)
+
+        default_library = Library.default(_db)
+        adobe_integration = ExternalIntegration.lookup(
+            _db, ExternalIntegration.ADOBE_VENDOR_ID,
+            ExternalIntegration.DRM_GOAL, library=default_library
+        )
+        if not adobe_integration:
+            output.write(
+                "Could not find an Adobe Vendor ID integration for default library %s.\n" %
+                library.short_name
+            )
+            return
+
+        setting = adobe_integration.setting(
+            AuthdataUtility.OTHER_LIBRARIES_KEY
+        )
+        other_libraries = setting.json_value
+
+        chosen_website = args.website_url
+        if not chosen_website:
+            for website in other_libraries.keys():
+                self.explain(output, other_libraries, website)
+            return
+
+        if (not args.short_name and not args.secret):
+            self.explain(output, other_libraries, chosen_website)
+            return
+
+        if not args.short_name or not args.secret:
+            output.write("To configure a library you must provide both --short_name and --secret.\n")
+            return
+
+        # All three arguments are specified. Set or modify the library's
+        # SCT configuration.
+        if chosen_website in other_libraries:
+            what = "change"
+        else:
+            what = "set"
+        output.write(
+            "About to %s the Short Client Token configuration for %s.\n" % (
+                what, chosen_website
+            )
+        )
+        if chosen_website in other_libraries:
+            output.write("Old configuration:\n")
+            short_name, secret = other_libraries[chosen_website]
+            self.explain(output, other_libraries, chosen_website)
+        other_libraries[chosen_website] = [args.short_name, args.secret]
+        
+        output.write("New configuration:\n")
+        self.explain(output, other_libraries, chosen_website)
+        setting.value = json.dumps(other_libraries)
+        self._db.commit()
+
+    def explain(self, output, libraries, website):
+        if not website in libraries:
+            raise ValueError("Library not configured: %s" % website)
+        short_name, secret = libraries[website]
+        output.write("Website: %s\n" % website)
+        output.write(" Short name: %s\n" % short_name)
+        output.write(" Short Client Token secret: %s\n" % secret)

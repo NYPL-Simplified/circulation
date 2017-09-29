@@ -211,10 +211,10 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         # k books are the identifiers in `remainder`. These books have
         # been removed from the collection without us being notified.
         for removed_identifier in remainder:
-            pool = removed_identifier.licensed_through
+            pool = identifier.licensed_through_collection(self.collection)
             if not pool:
                 self.log.warn(
-                    "Was about to reap %r but no local license pool.",
+                    "Was about to reap %r but no local license pool in this collection.",
                     removed_identifier
                 )
                 continue
@@ -336,7 +336,7 @@ class AxisCollectionReaper(IdentifierSweepMonitor):
         else:
             self.api = api_class(_db, collection)
 
-    def process_batch(self, identifiers):
+    def process_items(self, identifiers):
         self.api.update_licensepools_for_identifiers(identifiers)
 
 
@@ -398,15 +398,6 @@ class ResponseParser(Axis360Parser):
 
     def __init__(self, collection):
         self.collection = collection
-
-    def process_all(self, *args, **kwargs):
-        """Annotate outgoing objects with the correct Collection."""
-        for i in super(ResponseParser, self).process_all(*args, **kwargs):
-            self.post_process(i)
-            yield i
-
-    def post_process(self, i):
-        i.collection = self.collection
             
     def raise_exception_on_error(self, e, ns, custom_error_classes={}):
         """Raise an error if the given lxml node represents an Axis 360 error

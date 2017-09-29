@@ -36,6 +36,7 @@ from core.external_search import (
     DummyExternalSearchIndex,
 )
 from core.facets import FacetConfig
+from core.log import LogConfiguration
 from core.lane import (
     Facets, 
     Pagination,
@@ -170,6 +171,7 @@ class CirculationManager(object):
         configuration after changes are made in the administrative
         interface.
         """
+        LogConfiguration.initialize(self._db)
         self.analytics = Analytics(self._db)
         self.auth = Authenticator(self._db, self.analytics)
 
@@ -327,16 +329,17 @@ class CirculationManager(object):
             ' worry about.'
         )
 
+        new_adobe_vendor_id = None
         if adobe:
             # Relatively few libraries will have this setup.
             vendor_id = adobe.username
             node_value = adobe.password
             if vendor_id and node_value:
-                if self.adobe_vendor_id:
+                if new_adobe_vendor_id:
                     self.log.warn(
                         "Multiple libraries define an Adobe Vendor ID integration. This is not supported and the last library seen will take precedence."
                     )
-                self.adobe_vendor_id = AdobeVendorIDController(
+                new_adobe_vendor_id = AdobeVendorIDController(
                     _db,
                     library,
                     vendor_id,
@@ -345,7 +348,7 @@ class CirculationManager(object):
                 )
             else:
                 self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
-                self.adobe_vendor_id = None
+        self.adobe_vendor_id = new_adobe_vendor_id
 
         # But almost all libraries will have a Short Client Token
         # setup. We're not setting anything up here, but this is useful
@@ -705,7 +708,9 @@ class LoanController(CirculationManagerController):
             except Exception, e:
                 # If anything goes wrong, omit the sync step and just
                 # display the current active loans, as we understand them.
-                self.manager.log.error("ERROR DURING SYNC: %r", e, exc_info=e)
+                self.manager.log.error(
+                    "ERROR DURING SYNC for %s: %r", patron.id, e, exc_info=e
+                )
 
         # Then make the feed.
         feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
@@ -887,6 +892,11 @@ class LoanController(CirculationManagerController):
             return pool
 
         loan, loan_license_pool = self.get_patron_loan(patron, [pool])
+
+        if not loan or not loan_license_pool:
+            return NO_ACTIVE_LOAN.detailed(
+                _("You have no active loan for this title.")
+            )
         
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None

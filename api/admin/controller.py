@@ -50,7 +50,10 @@ from core.model import (
     Work,
     WorkGenre,
 )
-from core.util.problem_detail import ProblemDetail
+from core.util.problem_detail import (
+    ProblemDetail, 
+    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
+)
 from core.util.http import HTTP
 from problem_details import *
 
@@ -118,7 +121,7 @@ def setup_admin_controllers(manager):
         try:
             manager.config = Configuration.load(manager._db)
         except CannotLoadConfiguration, e:
-            self.log.error("Could not load configuration file: %s" % e)
+            logging.error("Could not load configuration file: %s", e)
             sys.exit()
 
     manager.admin_view_controller = ViewController(manager)
@@ -1405,7 +1408,7 @@ class SettingsController(CirculationManagerController):
         is_new = False
         auth_service = ExternalIntegration.admin_authentication(self._db)
         if auth_service:
-            if id and id != auth_service.id:
+            if id and int(id) != auth_service.id:
                 return MISSING_SERVICE
             if protocol != auth_service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
@@ -1576,8 +1579,9 @@ class SettingsController(CirculationManagerController):
         setting.value = value
         return Response(unicode(_("Success")), 200)
 
-    def metadata_services(self, do_get=HTTP.get_with_timeout,
-        do_post=HTTP.post_with_timeout, key=None
+    def metadata_services(
+            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, 
+            key=None
     ):
         provider_apis = [NYTBestSellerAPI,
                          NoveListAPI,
@@ -1636,6 +1640,7 @@ class SettingsController(CirculationManagerController):
                 service, do_get=do_get, do_post=do_post, key=key
             )
             if problem_detail:
+                self._db.rollback()
                 return problem_detail
 
         if is_new:
@@ -1643,8 +1648,8 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def sitewide_registration(self, integration, do_get=HTTP.get_with_timeout,
-        do_post=HTTP.post_with_timeout, key=None
+    def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
+                              do_post=HTTP.debuggable_post, key=None
     ):
         """Performs a sitewide registration for a particular service, currently
         only the Metadata Wrangler.
@@ -1656,11 +1661,15 @@ class SettingsController(CirculationManagerController):
 
         # Get the catalog for this service.
         try:
-            response = do_get(integration.url, allowed_response_codes=['2xx', '3xx'])
+            response = do_get(integration.url)
         except Exception as e:
-            return REMOTE_INTEGRATION_FAILED
+            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
-        if not response.headers.get('Content-Type') == 'application/opds+json':
+        if isinstance(response, ProblemDetail):
+            return response
+
+        content_type = response.headers.get('Content-Type')
+        if content_type != 'application/opds+json':
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide a valid catalog.')
             )
@@ -1713,7 +1722,7 @@ class SettingsController(CirculationManagerController):
             )
         except Exception as e:
             public_key_setting.value = None
-            return REMOTE_INTEGRATION_FAILED
+            return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
         registration_info = response.json()
         shared_secret = registration_info.get('metadata', {}).get('shared_secret')
@@ -1919,7 +1928,7 @@ class SettingsController(CirculationManagerController):
                     goal=ExternalIntegration.DISCOVERY_GOAL,
                     protocol=ExternalIntegration.OPDS_REGISTRATION,
                     name="Library Simplified Registry")
-                default.url = "https://registry.librarysimplified.org"
+                default.url = "https://libraryregistry.librarysimplified.org"
 
             services = self._get_integration_info(ExternalIntegration.DISCOVERY_GOAL, protocols)
             return dict(
@@ -1968,7 +1977,35 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def library_registrations(self, do_get=HTTP.get_with_timeout, do_post=HTTP.post_with_timeout, key=None):
+    def library_registrations(self, do_get=HTTP.debuggable_get, 
+                              do_post=HTTP.debuggable_post, key=None):
+        LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
+        SUCCESS = u"success"
+        FAILURE = u"failure"
+
+        if flask.request.method == "GET":
+            services = []
+            for service in self._db.query(ExternalIntegration).filter(
+                ExternalIntegration.goal==ExternalIntegration.DISCOVERY_GOAL):
+
+                libraries = []
+                for library in service.libraries:
+                    library_info = dict(short_name=library.short_name)
+                    status = ConfigurationSetting.for_library_and_externalintegration(
+                        self._db, LIBRARY_REGISTRATION_STATUS, library, service).value
+                    if status:
+                        library_info["status"] = status
+                        libraries.append(library_info)
+
+                services.append(
+                    dict(
+                        id=service.id,
+                        libraries=libraries,
+                    )
+                )
+
+            return dict(library_registrations=services)
+
         if flask.request.method == "POST":
 
             integration_id = flask.request.form.get("integration_id")
@@ -1984,7 +2021,13 @@ class SettingsController(CirculationManagerController):
             if not library:
                 return NO_SUCH_LIBRARY
 
-            response = do_get(integration.url, allowed_response_codes=["2xx", "3xx"])
+            integration.libraries += [library]
+            status = ConfigurationSetting.for_library_and_externalintegration(
+                self._db, LIBRARY_REGISTRATION_STATUS, library, integration)
+            status.value = FAILURE
+            response = do_get(integration.url)
+            if isinstance(response, ProblemDetail):
+                return response
             type = response.headers.get("Content-Type")
             if type == 'application/opds+json':
                 # This is an OPDS 2 catalog.
@@ -2023,14 +2066,15 @@ class SettingsController(CirculationManagerController):
             # OPDS Authentication document.
             self._db.commit()
 
-            library_url = self.url_for(
+            auth_document_url = self.url_for(
                 "authentication_document", 
                 library_short_name=library.short_name
             )
             response = do_post(
-                register_url, dict(url=library_url), 
-                allowed_response_codes=["2xx"], timeout=60
+                register_url, dict(url=auth_document_url), timeout=60
             )
+            if isinstance(response, ProblemDetail):
+                return response
             catalog = json.loads(response.content)
 
             # Since we generated a public key, the catalog should have the short name
@@ -2039,7 +2083,9 @@ class SettingsController(CirculationManagerController):
             shared_secret = catalog.get("metadata", {}).get("shared_secret")
 
             if short_name and shared_secret:
-                shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+                shared_secret = self._decrypt_shared_secret(encryptor, shared_secret)
+                if isinstance(shared_secret, ProblemDetail):
+                    return shared_secret
 
                 ConfigurationSetting.for_library_and_externalintegration(
                     self._db, ExternalIntegration.USERNAME, library, integration
@@ -2052,4 +2098,20 @@ class SettingsController(CirculationManagerController):
                 # We're done with the key, so remove the setting.
                 ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = None
 
+            status.value = SUCCESS
+
         return Response(unicode(_("Success")), 200)
+
+    def _decrypt_shared_secret(self, encryptor, shared_secret):
+        """Attempt to decrypt an encrypted shared secret.
+
+        :return: The decrypted shared secret, or a ProblemDetail if
+        it could not be decrypted.
+        """
+        try:
+            shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+        except ValueError, e:
+            return SHARED_SECRET_DECRYPTION_ERROR.detailed(
+                _("Could not decrypt shared secret %s") % shared_secret
+            )
+        return shared_secret
