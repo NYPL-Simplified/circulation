@@ -6,7 +6,7 @@ ARG repo="NYPL-Simplified/circulation"
 
 ENV SIMPLIFIED_DB_TASK "ignore"
 
-# Development libraries we'll need
+# Copy over all Library Simplified build files for this image
 COPY . /ls_build
 
 RUN /bin/bash -c "/ls_build/simplified_app.sh ${repo} ${version} \
