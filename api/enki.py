@@ -556,7 +556,8 @@ class BibliographicParser(object):
         contributors.append(ContributorData(sort_name=sort_name))
         primary_identifier = IdentifierData(EnkiAPI.ENKI_ID, element["id"])
         image_url = element["large_image"]
-        images = [LinkData(rel=Hyperlink.THUMBNAIL_IMAGE, href=image_url, media_type=Representation.PNG_MEDIA_TYPE), LinkData(rel=Hyperlink.IMAGE, href=image_url, media_type=Representation.PNG_MEDIA_TYPE)]
+        thumbnail_url = element["small_image"]
+        images = [LinkData(rel=Hyperlink.THUMBNAIL_IMAGE, href=thumbnail_url, media_type=Representation.PNG_MEDIA_TYPE), LinkData(rel=Hyperlink.IMAGE, href=image_url, media_type=Representation.PNG_MEDIA_TYPE)]
         metadata = Metadata(
             data_source=DataSource.ENKI,
             title=element["title"],
