@@ -941,6 +941,11 @@ class LoanController(CirculationManagerController):
             )
 
         headers = dict()
+        encoding_header = dict()
+        if (fulfillment.data_source_name == DataSource.ENKI
+            and mechanism.delivery_mechanism.drm_scheme_media_type == DeliveryMechanism.NO_DRM):
+                encoding_header["Accept-Encoding"] = "deflate"
+
         if mechanism.delivery_mechanism.is_streaming:
             # If this is a streaming delivery mechanism, create an OPDS entry
             # with a fulfillment link to the streaming reader url.
@@ -959,7 +964,7 @@ class LoanController(CirculationManagerController):
                 # be able to access it if the remote server does not support CORS requests.
                 # We need to fetch the content and return it instead of redirecting to it.
                 try:
-                    status_code, headers, content = do_get(fulfillment.content_link, headers={})
+                    status_code, headers, content = do_get(fulfillment.content_link, headers=encoding_header)
                     headers = dict(headers)
                 except RemoteIntegrationException, e:
                     return e.as_problem_detail_document(debug=False)
