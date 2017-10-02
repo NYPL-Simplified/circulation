@@ -113,25 +113,41 @@ class NoveListAPI(object):
         """
         lookup_metadata = []
         license_sources = DataSource.license_sources_for(self._db, identifier)
-        # Look up strong ISBN equivalents.
-        for license_source in license_sources:
-            lookup_metadata += [self.lookup(eq.output)
-                for eq in identifier.equivalencies
-                if (eq.data_source==license_source and eq.strength==1
-                    and eq.output.type==Identifier.ISBN)]
 
-        # Remove None values.
-        lookup_metadata = [metadata for metadata in lookup_metadata if metadata]
-        if not lookup_metadata:
+        # Find strong ISBN equivalents.
+        isbns = list()
+        for license_source in license_sources:
+            isbns += [eq.output for eq in identifier.equivalencies if (
+                eq.data_source==license_source and
+                eq.strength==1 and
+                eq.output.type==Identifier.ISBN
+            )]
+
+        if not isbns:
             self.log.warn(
-                "Identifiers without an ISBN equivalent can't \
-                be looked up with NoveList: %r", identifier
+                ("Identifiers without an ISBN equivalent can't"
+                "be looked up with NoveList: %r"), identifier
             )
             return None
 
-        best_metadata = self.choose_best_metadata(lookup_metadata, identifier)
+        # Look up metadata for all equivalent ISBNs.
+        lookup_metadata = list()
+        for isbn in isbns:
+            metadata = self.lookup(isbn)
+            if metadata:
+                lookup_metadata.append(metadata)
+
+        if not lookup_metadata:
+            self.log.warn(
+                ("No NoveList metadata found for Identifiers without an ISBN"
+                "equivalent can't be looked up with NoveList: %r"), identifier
+            )
+            return None
+
+        best_metadata, confidence = self.choose_best_metadata(
+            lookup_metadata, identifier
+        )
         if best_metadata:
-            metadata, confidence = best_metadata
             if round(confidence, 2) < 0.5:
                 self.log.warn(self.NO_ISBN_EQUIVALENCY, identifier)
                 return None
@@ -154,9 +170,10 @@ class NoveListAPI(object):
         method returns the metadata of the ID with the highest representation
         and a float representing confidence in the result.
         """
+        confidence = 1.0
         if self._confirm_same_identifier(metadata_objects):
             # Metadata with the same NoveList ID will be identical. Take one.
-            return metadata_objects[0]
+            return metadata_objects[0], confidence
 
         # One or more of the equivalents did not return the same NoveList work
         self.log.warn("%r has inaccurate ISBN equivalents", identifier)
@@ -169,7 +186,7 @@ class NoveListAPI(object):
         if most_amount==secondmost:
             # The counts are the same, and neither can be trusted.
             self.log.warn(self.NO_ISBN_EQUIVALENCY, identifier)
-            return None
+            return None, None
         confidence = most_amount / float(len(metadata_objects))
         target_metadata = filter(
             lambda m: m.primary_identifier==target_identifier, metadata_objects
@@ -417,9 +434,10 @@ class NoveListAPI(object):
         return metadata
 
 
-class MockNoveListAPI(object):
+class MockNoveListAPI(NoveListAPI):
 
-    def __init__(self):
+    def __init__(self, _db, *args, **kwargs):
+        self._db = _db
         self.responses = []
 
     def setup(self, *args):
@@ -437,7 +455,7 @@ class NoveListCoverageProvider(IdentifierCoverageProvider):
     DATA_SOURCE_NAME = DataSource.NOVELIST
     DEFAULT_BATCH_SIZE = 25
     INPUT_IDENTIFIER_TYPES = [Identifier.ISBN]
-    
+
     def process_item(self, identifier):
         metadata = self.api.lookup(identifier)
         if not metadata:
