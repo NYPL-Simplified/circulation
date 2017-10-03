@@ -55,6 +55,7 @@ from core.model import (
     Complaint,
     ConfigurationSetting,
     DataSource,
+    DeliveryMechanism,
     ExternalIntegration,
     Hold,
     Identifier,
