@@ -1816,7 +1816,7 @@ class TestWorkController(CirculationControllerTest):
         # Prep an empty recommendation.
         source = DataSource.lookup(self._db, self.datasource)
         metadata = Metadata(source)
-        mock_api = MockNoveListAPI()
+        mock_api = MockNoveListAPI(self._db)
         mock_api.setup(metadata)
 
         SessionManager.refresh_materialized_views(self._db)
@@ -2011,7 +2011,7 @@ class TestWorkController(CirculationControllerTest):
 
         source = DataSource.lookup(self._db, self.datasource)
         metadata = Metadata(source)
-        mock_api = MockNoveListAPI()
+        mock_api = MockNoveListAPI(self._db)
         metadata.recommendations = [same_author.license_pools[0].identifier]
         mock_api.setup(metadata)
 
