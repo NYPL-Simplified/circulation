@@ -47,6 +47,8 @@ from core.testing import (
     NeverSuccessfulCoverageProvider,
     MockRequestsResponse,
 )
+from core.util.http import HTTP
+from core.util.problem_detail import ProblemDetail
 from core.classifier import (
     genres,
     SimplifiedGenreClassifier
@@ -1277,7 +1279,8 @@ class TestSettingsController(AdminControllerTest):
     def do_request(self, url, *args, **kwargs):
         """Mock HTTP get/post method to replace HTTP.get_with_timeout or post_with_timeout."""
         self.requests.append(url)
-        return self.responses.pop()
+        response = self.responses.pop()
+        return HTTP.process_debuggable_response(response)
 
     def test_libraries_get_with_no_libraries(self):
         # Delete any existing library created by the controller test setup.
@@ -3403,6 +3406,21 @@ class TestSettingsController(AdminControllerTest):
             response, 'The service did not provide a valid catalog.'
         )
 
+        # If the response returns a ProblemDetail, its contents are wrapped
+        # in another ProblemDetail.
+        status_code, content, headers = MULTIPLE_BASIC_AUTH_SERVICES.response
+        self.responses.append(
+            MockRequestsResponse(content, headers, status_code)
+        )
+        response = self.manager.admin_settings_controller.sitewide_registration(
+            metadata_wrangler_service, do_get=self.do_request
+        )
+        assert isinstance(response, ProblemDetail)
+        assert response.detail.startswith(
+            "Remote service returned a problem detail document:"
+        )
+        assert unicode(MULTIPLE_BASIC_AUTH_SERVICES.detail) in response.detail
+
         # If no registration link is available, a ProblemDetail is returned
         catalog = dict(id=self._url, links=[])
         headers = { 'Content-Type' : 'application/opds+json' }
@@ -3433,6 +3451,27 @@ class TestSettingsController(AdminControllerTest):
         assert_remote_integration_error(
             response, 'The service did not provide registration information.'
         )
+
+    def test__decrypt_shared_secret(self):
+        key = RSA.generate(2048)
+        encryptor = PKCS1_OAEP.new(key)
+
+        key2 = RSA.generate(2048)
+        encryptor2 = PKCS1_OAEP.new(key2)
+
+        shared_secret = os.urandom(24).encode('hex')
+        encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
+
+        # Success.
+        m = self.manager.admin_settings_controller._decrypt_shared_secret
+        eq_(shared_secret, m(encryptor, encrypted_secret))
+
+        # If we try to decrypt using the wrong key, a ProblemDetail is
+        # returned explaining the problem.
+        problem = m(encryptor2, encrypted_secret)
+        assert isinstance(problem, ProblemDetail)
+        eq_(SHARED_SECRET_DECRYPTION_ERROR.uri, problem.uri)
+        assert encrypted_secret in problem.detail
 
     def test_sitewide_registration_post_success(self):
         # A service to register with

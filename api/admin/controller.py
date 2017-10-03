@@ -50,7 +50,10 @@ from core.model import (
     Work,
     WorkGenre,
 )
-from core.util.problem_detail import ProblemDetail
+from core.util.problem_detail import (
+    ProblemDetail, 
+    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
+)
 from core.util.http import HTTP
 from problem_details import *
 
@@ -118,7 +121,7 @@ def setup_admin_controllers(manager):
         try:
             manager.config = Configuration.load(manager._db)
         except CannotLoadConfiguration, e:
-            self.log.error("Could not load configuration file: %s" % e)
+            logging.error("Could not load configuration file: %s", e)
             sys.exit()
 
     manager.admin_view_controller = ViewController(manager)
@@ -1576,8 +1579,9 @@ class SettingsController(CirculationManagerController):
         setting.value = value
         return Response(unicode(_("Success")), 200)
 
-    def metadata_services(self, do_get=HTTP.get_with_timeout,
-        do_post=HTTP.post_with_timeout, key=None
+    def metadata_services(
+            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, 
+            key=None
     ):
         provider_apis = [NYTBestSellerAPI,
                          NoveListAPI,
@@ -1644,8 +1648,8 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def sitewide_registration(self, integration, do_get=HTTP.get_with_timeout,
-        do_post=HTTP.post_with_timeout, key=None
+    def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
+                              do_post=HTTP.debuggable_post, key=None
     ):
         """Performs a sitewide registration for a particular service, currently
         only the Metadata Wrangler.
@@ -1657,11 +1661,15 @@ class SettingsController(CirculationManagerController):
 
         # Get the catalog for this service.
         try:
-            response = do_get(integration.url, allowed_response_codes=['2xx', '3xx'])
+            response = do_get(integration.url)
         except Exception as e:
             return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
-        if not response.headers.get('Content-Type') == 'application/opds+json':
+        if isinstance(response, ProblemDetail):
+            return response
+
+        content_type = response.headers.get('Content-Type')
+        if content_type != 'application/opds+json':
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _('The service did not provide a valid catalog.')
             )
@@ -1969,7 +1977,8 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(_("Success")), 200)
 
-    def library_registrations(self, do_get=HTTP.get_with_timeout, do_post=HTTP.post_with_timeout, key=None):
+    def library_registrations(self, do_get=HTTP.debuggable_get, 
+                              do_post=HTTP.debuggable_post, key=None):
         LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
         SUCCESS = u"success"
         FAILURE = u"failure"
@@ -2016,8 +2025,9 @@ class SettingsController(CirculationManagerController):
             status = ConfigurationSetting.for_library_and_externalintegration(
                 self._db, LIBRARY_REGISTRATION_STATUS, library, integration)
             status.value = FAILURE
-
-            response = do_get(integration.url, allowed_response_codes=["2xx", "3xx"])
+            response = do_get(integration.url)
+            if isinstance(response, ProblemDetail):
+                return response
             type = response.headers.get("Content-Type")
             if type == 'application/opds+json':
                 # This is an OPDS 2 catalog.
@@ -2056,14 +2066,15 @@ class SettingsController(CirculationManagerController):
             # OPDS Authentication document.
             self._db.commit()
 
-            library_url = self.url_for(
+            auth_document_url = self.url_for(
                 "authentication_document", 
                 library_short_name=library.short_name
             )
             response = do_post(
-                register_url, dict(url=library_url), 
-                allowed_response_codes=["2xx"], timeout=60
+                register_url, dict(url=auth_document_url), timeout=60
             )
+            if isinstance(response, ProblemDetail):
+                return response
             catalog = json.loads(response.content)
 
             # Since we generated a public key, the catalog should have the short name
@@ -2072,7 +2083,9 @@ class SettingsController(CirculationManagerController):
             shared_secret = catalog.get("metadata", {}).get("shared_secret")
 
             if short_name and shared_secret:
-                shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+                shared_secret = self._decrypt_shared_secret(encryptor, shared_secret)
+                if isinstance(shared_secret, ProblemDetail):
+                    return shared_secret
 
                 ConfigurationSetting.for_library_and_externalintegration(
                     self._db, ExternalIntegration.USERNAME, library, integration
@@ -2088,3 +2101,17 @@ class SettingsController(CirculationManagerController):
             status.value = SUCCESS
 
         return Response(unicode(_("Success")), 200)
+
+    def _decrypt_shared_secret(self, encryptor, shared_secret):
+        """Attempt to decrypt an encrypted shared secret.
+
+        :return: The decrypted shared secret, or a ProblemDetail if
+        it could not be decrypted.
+        """
+        try:
+            shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
+        except ValueError, e:
+            return SHARED_SECRET_DECRYPTION_ERROR.detailed(
+                _("Could not decrypt shared secret %s") % shared_secret
+            )
+        return shared_secret
