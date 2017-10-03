@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# Use the IMAGE_NAME to find the appropriate base image tag to inherit from.
-BASE_TAG=$(echo $IMAGE_NAME | sed -e "s/^.*://")
-
-# Update the Dockerfile accordingly.
-sed -i -E "s/FROM (.*)\/circ-base/FROM \1\/circ-base:${BASE_TAG}/" Dockerfile
