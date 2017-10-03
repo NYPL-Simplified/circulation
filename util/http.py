@@ -1,3 +1,4 @@
+import logging
 from nose.tools import set_trace
 import requests
 import urlparse
@@ -299,6 +300,8 @@ class HTTP(object):
             # But we want to apply the normal rules when deciding whether
             # a given response is 'bad'.
             allowed_response_codes = None
+        logging.info("Making debuggable %s request to %s: kwargs %r",
+                     http_method, url, kwargs)
         response = HTTP.request_with_timeout(http_method, url, **kwargs)
         return cls.process_debuggable_response(response, allowed_response_codes)
 
