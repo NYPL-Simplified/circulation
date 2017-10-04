@@ -575,7 +575,7 @@ class WorkList(object):
         # restrict the query to currently available items.
         qu = qu.join(LicensePool, LicensePool.id==mw.license_pool_id)
         qu = qu.options(contains_eager(mw.license_pool))
-        if self.collection_ids:
+        if self.collection_ids is not None:
             qu = qu.filter(
                 LicensePool.collection_id.in_(self.collection_ids)
             )

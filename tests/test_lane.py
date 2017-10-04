@@ -561,11 +561,14 @@ class TestWorkList(DatabaseTest):
         # collections.
         library2 = self._library()
         collection = self._collection()
-        libary2.collections = [collection]
+        library2.collections = [collection]
         library_2_worklist = WorkList()
         library_2_worklist.initialize(library2)
         eq_(0, library_2_worklist.works(self._db).count())
 
+        self._default_library.collections = []
+        wl.initialize(self._default_library)
+        eq_(0, wl.works(self._db).count())
 
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.
