@@ -125,11 +125,7 @@ from util.permanent_work_id import WorkIDCalculator
 from util.personal_names import display_name_to_sort_name
 from util.summary import SummaryEvaluator
 
-from sqlalchemy.orm.session import (
-    Session,
-    make_transient,
-    make_transient_to_detached,
-)
+from sqlalchemy.orm.session import Session
 
 from sqlalchemy.dialects.postgresql import (
     ARRAY,
@@ -1584,13 +1580,13 @@ class Identifier(Base):
     equivalencies = relationship(
         "Equivalency",
         primaryjoin=("Identifier.id==Equivalency.input_id"),
-        backref="input_identifiers", cascade="all, delete, delete-orphan"
+        backref="input_identifiers", cascade="all, delete-orphan"
     )
 
     inbound_equivalencies = relationship(
         "Equivalency",
         primaryjoin=("Identifier.id==Equivalency.output_id"),
-        backref="output_identifiers", cascade="all, delete, delete-orphan"
+        backref="output_identifiers", cascade="all, delete-orphan"
     )
 
     # One Identifier may have many associated CoverageRecords.
@@ -3482,7 +3478,7 @@ class Work(Base):
     genres = association_proxy('work_genres', 'genre',
                                creator=WorkGenre.from_genre)
     work_genres = relationship("WorkGenre", backref="work",
-                               cascade="all, delete, delete-orphan")
+                               cascade="all, delete-orphan")
     audience = Column(Unicode, index=True)
     target_age = Column(INT4RANGE, index=True)
     fiction = Column(Boolean, index=True)
@@ -5543,7 +5539,7 @@ class Genre(Base, HasFullTableCache):
     works = association_proxy('work_genres', 'work')
 
     work_genres = relationship("WorkGenre", backref="genre", 
-                               cascade="all, delete, delete-orphan")
+                               cascade="all, delete-orphan")
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
@@ -9157,13 +9153,13 @@ class Library(Base, HasFullTableCache):
 
     # A library may have many Patrons.
     patrons = relationship(
-        'Patron', backref='library', cascade="all, delete, delete-orphan"
+        'Patron', backref='library', cascade="all, delete-orphan"
     )
 
     # A Library may have many CachedFeeds.
     cachedfeeds = relationship(
         "CachedFeed", backref="library",
-        cascade="save-update, delete, delete-orphan",
+        cascade="all, delete-orphan",
     )
     
     # A Library may have many ExternalIntegrations.
@@ -9176,7 +9172,7 @@ class Library(Base, HasFullTableCache):
     # ConfigurationSettings.
     settings = relationship(
         "ConfigurationSetting", backref="library",
-        lazy="joined", cascade="save-update, delete, delete-orphan",
+        lazy="joined", cascade="all, delete-orphan",
     )
 
     _cache = HasFullTableCache.RESET
@@ -9711,7 +9707,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     # ConfigurationSettings.
     settings = relationship(
         "ConfigurationSetting", backref="external_integration",
-        lazy="joined", cascade="save-update, delete, delete-orphan",
+        lazy="joined", cascade="all, delete-orphan",
     )
 
     def __repr__(self):
@@ -10128,7 +10124,7 @@ class Collection(Base, HasFullTableCache):
     # A Collection can include many LicensePools.
     licensepools = relationship(
         "LicensePool", backref="collection",
-        cascade="save-update, delete"
+        cascade="all, delete-orphan"
     )
 
     # A Collection can be monitored by many Monitors, each of which
@@ -10144,7 +10140,7 @@ class Collection(Base, HasFullTableCache):
     # for Identifiers in its catalog.
     coverage_records = relationship(
         "CoverageRecord", backref="collection",
-        cascade="save-update, delete"
+        cascade="all, delete-orphan"
     )
 
     _cache = HasFullTableCache.RESET
