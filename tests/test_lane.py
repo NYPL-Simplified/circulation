@@ -566,6 +566,7 @@ class TestWorkList(DatabaseTest):
         library_2_worklist.initialize(library2)
         eq_(0, library_2_worklist.works(self._db).count())
 
+        # If a WorkList has no collections, it has no books.
         self._default_library.collections = []
         wl.initialize(self._default_library)
         eq_(0, wl.works(self._db).count())
@@ -578,7 +579,10 @@ class TestWorkList(DatabaseTest):
         wl = WorkList()
         wl.initialize(self._default_library)
 
-        # We asked for w2 only, and we got (the materialized view's
+        # Now we're going to ask for a WorkList that contains specific
+        # Works, such as those returned from a search request.
+
+        # If we ask for w2 only, we get (the materialized view's
         # version of) w2 only.
         [w2_mv] = wl.works_for_specific_ids(self._db, [w2.id])
         eq_(w2_mv.sort_title, w2.sort_title)
