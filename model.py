@@ -276,7 +276,7 @@ class HasFullTableCache(object):
                 )
                 # Try to look up a fresh copy of the object.
                 obj, new = lookup_hook()
-                if obj and obj in _db and False:
+                if obj and obj in _db:
                     logging.error("Was able to look up a fresh copy of %r", obj)
                     return obj, new
 
