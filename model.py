@@ -10149,7 +10149,7 @@ class Collection(Base, HasFullTableCache):
     # for Identifiers in its catalog.
     coverage_records = relationship(
         "CoverageRecord", backref="collection",
-        cascade="all, delete-orphan"
+        cascade="all"
     )
 
     _cache = HasFullTableCache.RESET
