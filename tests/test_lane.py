@@ -383,13 +383,25 @@ class TestWorkList(DatabaseTest):
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         romance, ignore = Genre.lookup(self._db, "Romance")
 
+        # Create a WorkList that's associated with a Library, two genres,
+        # and a child WorkList.
         wl.initialize(self._default_library, children=[child],
                       genres=[sf, romance])
+
+        # Access the Library.
         eq_(self._default_library, wl.library(self._db))
+
+        # The Collections associated with the WorkList are those associated
+        # with the Library.
         eq_(set(wl.collection_ids), 
             set([x.id for x in self._default_library.collections]))
+
+        # The Genres associated with the WorkList are the ones passed
+        # in on the constructor.
         eq_(set(wl.genre_ids),
             set([x.id for x in [sf, romance]]))
+
+        # The WorkList's child is the WorkList passed in to the constructor.
         eq_([child], wl.visible_children)
 
     def test_audience_key(self):
@@ -399,20 +411,24 @@ class TestWorkList(DatabaseTest):
         w1 = MockWork(1)
         w2 = MockWork(2)
         w3 = MockWork(3)
-        # This child has one featured work.
+
+        # This WorkList has one featured work.
         child1 = MockFeaturedWorks()
         child1.queue_featured_works([w1])
-        # This child has two featured works.
+
+        # This WorkList has two featured works.
         child2 = MockFeaturedWorks()
         child2.queue_featured_works([w2, w1])
 
-        # This worklist has two children.
+        # This WorkList has two children -- the two WorkLists created
+        # above.
         wl = WorkList()
         wl.initialize(self._default_library, children=[child1, child2])
         
-        # groups() returns three 2-tuples; one for each work featured by
-        # one of its children. Note that the same work appears twice, in
-        # two different lists.
+        # Calling groups() on the parent WorkList returns three
+        # 2-tuples; one for each work featured by one of its children
+        # WorkLists. Note that the same work appears twice, through two
+        # different children.
         [wwl1, wwl2, wwl3] = wl.groups(self._db)
         eq_((w1, child1), wwl1)
         eq_((w2, child2), wwl2)
@@ -440,9 +456,10 @@ class TestWorkList(DatabaseTest):
         featured = wl.featured_works(self._db)
         eq_([w1], featured)
 
-        # Compare the actual arguments passed into works() with what
-        # featured_collection_facets() would dictate, to verify that
-        # the information was used.
+        # To verify that works() was called multiple times and that
+        # the calls were driven by featured_collection_facets(),
+        # compare the actual arguments passed into works() with what
+        # featured_collection_facets() would dictate.
         actual_facets = [
             (facets.collection, facets.availability, featured)
             for [facets, pagination, featured] in wl.works_calls
@@ -450,11 +467,10 @@ class TestWorkList(DatabaseTest):
         expect_facets = list(MockWorks.featured_collection_facets())
         eq_(actual_facets, expect_facets)
 
-        # Here, we will try three times before getting the works we
-        # need.
+        # Here, we will try three times before getting enough works.
         wl.reset()
         queue([w1, w1, w3])
-        # Putting w2 at the end of this list simulates a situation
+        # Putting w2 at the end of the second call simulates a situation
         # where query results include a work that has not been chosen,
         # but the random sample chooses a bunch of works that _have_
         # already been chosen instead. If the random sample had turned
