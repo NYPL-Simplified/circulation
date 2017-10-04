@@ -271,7 +271,13 @@ class HasFullTableCache(object):
             cls._cache_insert(obj, cls._cache, cls._id_cache)
             
         if obj and obj not in _db:
-            obj = _db.merge(obj, load=False)
+            try:
+                obj = _db.merge(obj, load=False)
+            except Exception, e:
+                logging.error(
+                    "Unable to merge cached object %r into database session",
+                    obj, exc_info=e
+                )
         return obj, new
         
     @classmethod
@@ -9157,7 +9163,7 @@ class Library(Base, HasFullTableCache):
     # A Library may have many CachedFeeds.
     cachedfeeds = relationship(
         "CachedFeed", backref="library",
-        cascade="save-update, merge, delete, delete-orphan",
+        cascade="save-update, delete, delete-orphan",
     )
     
     # A Library may have many ExternalIntegrations.
@@ -9170,7 +9176,7 @@ class Library(Base, HasFullTableCache):
     # ConfigurationSettings.
     settings = relationship(
         "ConfigurationSetting", backref="library",
-        lazy="joined", cascade="save-update, merge, delete, delete-orphan",
+        lazy="joined", cascade="save-update, delete, delete-orphan",
     )
 
     _cache = HasFullTableCache.RESET
@@ -9705,7 +9711,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     # ConfigurationSettings.
     settings = relationship(
         "ConfigurationSetting", backref="external_integration",
-        lazy="joined", cascade="save-update, merge, delete, delete-orphan",
+        lazy="joined", cascade="save-update, delete, delete-orphan",
     )
 
     def __repr__(self):
@@ -10122,7 +10128,7 @@ class Collection(Base, HasFullTableCache):
     # A Collection can include many LicensePools.
     licensepools = relationship(
         "LicensePool", backref="collection",
-        cascade="save-update, merge, delete"
+        cascade="save-update, delete"
     )
 
     # A Collection can be monitored by many Monitors, each of which
@@ -10138,7 +10144,7 @@ class Collection(Base, HasFullTableCache):
     # for Identifiers in its catalog.
     coverage_records = relationship(
         "CoverageRecord", backref="collection",
-        cascade="save-update, merge, delete"
+        cascade="save-update, delete"
     )
 
     _cache = HasFullTableCache.RESET
