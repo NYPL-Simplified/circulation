@@ -274,6 +274,15 @@ class HasFullTableCache(object):
                     "Unable to merge cached object %r into database session",
                     obj, exc_info=e
                 )
+                # Try to look up a fresh copy of the object.
+                obj, new = lookup_hook()
+                if obj and obj in _db and False:
+                    logging.error("Was able to look up a fresh copy of %r", obj)
+                    return obj, new
+
+                # That didn't work. Re-raise the original exception.
+                logging.error("Unable to look up a fresh copy of %r", obj)
+                raise e
         return obj, new
         
     @classmethod
