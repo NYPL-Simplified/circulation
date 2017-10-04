@@ -33,6 +33,7 @@ from core.model import (
     Collection,
     Complaint,
     ConfigurationSetting,
+    CustomList,
     DataSource,
     Edition,
     ExternalIntegration,
@@ -128,6 +129,7 @@ def setup_admin_controllers(manager):
     manager.admin_sign_in_controller = SignInController(manager)
     manager.admin_work_controller = WorkController(manager)
     manager.admin_feed_controller = FeedController(manager)
+    manager.admin_custom_lists_controller = CustomListsController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
 
@@ -804,6 +806,81 @@ class FeedController(CirculationManagerController):
                 "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
             })
         return data
+
+class CustomListsController(CirculationManagerController):
+    def custom_lists(self):
+        library = flask.request.library
+
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        if flask.request.method == "GET":
+            custom_lists = []
+            for list in library.custom_lists:
+                entries = []
+                for entry in list.entries:
+                    entries.append(dict(id=entry.edition.primary_identifier.urn,
+                                        title=entry.edition.title,
+                                        authors=[author.display_name for author in entry.edition.author_contributors],
+                                        ))
+                custom_lists.append(dict(id=list.id, name=list.name, entries=entries))
+            return dict(custom_lists=custom_lists)
+
+        if flask.request.method == "POST":
+            id = flask.request.form.get("id")
+            name = flask.request.form.get("name")
+            entries = flask.request.form.get("entries")
+
+            if id:
+                is_new = False
+                list = get_one(self._db, CustomList, id=int(id), data_source=data_source)
+                if not list:
+                    return MISSING_CUSTOM_LIST
+                if list.library != library:
+                    return CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST
+            else:
+                list, is_new = create(self._db, CustomList, name=name, data_source=data_source)
+                list.created = datetime.now()
+                list.library = library
+
+            list.updated = datetime.now()
+            list.name = name
+
+            if entries:
+                entries = json.loads(entries)
+            else:
+                entries = []
+
+            old_entries = list.entries
+            for entry in entries:
+                identifier, ignore = Identifier.parse_urn(self._db, entry.get("id"))
+                pools = self._db.query(
+                    LicensePool
+                ).join(
+                    LicensePool.collection
+                ).join(
+                    LicensePool.identifier
+                ).join(
+                    Collection.libraries
+                ).filter(
+                    Identifier.id==identifier.id
+                ).filter(
+                    Library.id==library.id
+                ).all()
+                if not pools:
+                    return CANNOT_ADD_CUSTOM_LIST_ENTRY_WITHOUT_LICENSEPOOL
+
+                edition = pools[0].presentation_edition
+                list.add_entry(edition, featured=True)
+
+            new_urns = [entry.get("id") for entry in entries]
+            for entry in old_entries:
+                if entry.edition.primary_identifier.urn not in new_urns:
+                    list.remove_entry(entry.edition)
+
+            if is_new:
+                return Response(unicode(_("Success")), 201)
+            else:
+                return Response(unicode(_("Success")), 200)
 
 class DashboardController(CirculationManagerController):
 

@@ -253,3 +253,24 @@ MULTIPLE_SEARCH_SERVICES = pd(
     title=_("Multiple search services"),
     detail=_("You tried to create a new search service, but a search service is already configured."),
 )
+
+MISSING_CUSTOM_LIST = pd(
+    "http://librarysimplified.org/terms/problem/missing-custom-list",
+    status_code=404,
+    title=_("Missing custom list"),
+    detail=_("The specified custom list doesn't exist."),
+)
+
+CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-library-for-custom-list",
+    status_code=400,
+    title=_("Cannot change library for custom list"),
+    detail=_("A custom list's associated library cannot be changed once it is set.."),
+)
+
+CANNOT_ADD_CUSTOM_LIST_ENTRY_WITHOUT_LICENSEPOOL = pd(
+    "http://librarysimplified.org/terms/problem/cannot-add-entry-without-licensepool",
+    status_code=400,
+    title=_("Cannot add custom list entry without license pool."),
+    detail=_("You can't add an entry without a license pool to a custom list."),
+)

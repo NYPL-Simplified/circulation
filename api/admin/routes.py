@@ -422,6 +422,19 @@ def library_registrations():
         return data
     return flask.jsonify(**data)
 
+@library_route("/admin/custom_lists", methods=["GET", "POST"])
+@has_library
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def custom_lists():
+    data = app.manager.admin_custom_lists_controller.custom_lists()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sitewide_registration', methods=['POST'])
 @returns_problem_detail
 @requires_admin
