@@ -258,7 +258,7 @@ class TestRelatedBooksLane(DatabaseTest):
             goal=ExternalIntegration.METADATA_GOAL, username=u'library',
             password=u'sure', libraries=[self._default_library]
         )
-        mock_api = MockNoveListAPI()
+        mock_api = MockNoveListAPI(self._db)
         response = Metadata(
             self.edition.data_source, recommendations=[self._identifier()]
         )
@@ -365,7 +365,7 @@ class TestRecommendationLane(LaneTest):
         source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         metadata = Metadata(source)
 
-        mock_api = MockNoveListAPI()
+        mock_api = MockNoveListAPI(self._db)
         mock_api.setup(metadata)
         return mock_api
 
