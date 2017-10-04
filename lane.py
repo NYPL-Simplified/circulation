@@ -665,13 +665,15 @@ class WorkList(object):
     def apply_custom_filters(self, _db, qu, work_model, featured=False):
         """Apply subclass-specific filters to a query in progress.
 
+        By default, this does nothing.
+
         :return: A 2-tuple (query, distinct). `distinct` controls whether
         the query should be made DISTINCT. We never want to show duplicate
         Works in a query, but adding DISTINCT slows things down, so you
         should only return it when it's reasonable that a book might show
         up more than once.
         """
-        raise NotImplementedError()
+        return (qu, False)
 
     def apply_audience_filter(self, _db, qu, work_model):
         """Make sure that only Works classified under this lane's

@@ -467,15 +467,15 @@ class TestWorkList(DatabaseTest):
         expect_facets = list(MockWorks.featured_collection_facets())
         eq_(actual_facets, expect_facets)
 
-        # Here, we will try three times before getting enough works.
+        # Here, we will get three sets of results before we have enough works.
         wl.reset()
         queue([w1, w1, w3])
-        # Putting w2 at the end of the second call simulates a situation
-        # where query results include a work that has not been chosen,
-        # but the random sample chooses a bunch of works that _have_
-        # already been chosen instead. If the random sample had turned
-        # out differently, we would have had slightly better results
-        # and saved some time.
+        # Putting w2 at the end of the second set of results simulates
+        # a situation where query results include a work that has not
+        # been chosen, but the random sample chooses a bunch of works
+        # that _have_ already been chosen instead. If the random
+        # sample had turned out differently, we would have had
+        # slightly better results and saved some time.
         queue([w3, w1, w1, w1, w2])
         queue([w4])
         featured = wl.featured_works(self._db)
@@ -512,6 +512,10 @@ class TestWorkList(DatabaseTest):
     def test_featured_collection_facets(self):
         """Test the specific values expected from the default
         featured_collection_facets() implementation.
+
+        This encodes our belief about what aspects of a book make it
+        "featurable". We like works that have high .quality scores
+        and can be loaned out immediately.
         """
         expect = [(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False),
          (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, False),
@@ -523,20 +527,27 @@ class TestWorkList(DatabaseTest):
         eq_(expect, actual)
 
     def test_works(self):
+        """Verify that WorkList.works() correctly locates works
+        that match the criteria specified by apply_filters().
+        """
 
-        class OnlyOliverTwist(WorkList):
-            """Mock WorkList that only finds copies of Oliver Twist."""
-
-            def apply_filters(self, _db, qu, work_model, *args, **kwargs):
-                return qu.filter(work_model.sort_title=='Oliver Twist')
-
+        # Create two books and add them to the materialized view.
         oliver_twist = self._work(title='Oliver Twist', with_license_pool=True)
         not_oliver_twist = self._work(
             title='Barnaby Rudge', with_license_pool=True
         )
         self.add_to_materialized_view(oliver_twist, not_oliver_twist)
 
-        # A normal WorkList will find both books.
+        class OnlyOliverTwist(WorkList):
+            """Mock WorkList that overrides apply_filters() so that it
+            only finds copies of 'Oliver Twist'.
+            """
+
+            def apply_filters(self, _db, qu, work_model, *args, **kwargs):
+                return qu.filter(work_model.sort_title=='Oliver Twist')
+
+        # A normal WorkList will use the default apply_filters()
+        # implementation and find both books.
         wl = WorkList()
         wl.initialize(self._default_library)
         eq_(2, wl.works(self._db).count())
@@ -548,7 +559,12 @@ class TestWorkList(DatabaseTest):
 
         # A WorkList will only find books licensed through one of its
         # collections.
+        library2 = self._library()
         collection = self._collection()
+        libary2.collections = [collection]
+        library_2_worklist = WorkList()
+        library_2_worklist.initialize(library2)
+        eq_(0, library_2_worklist.works(self._db).count())
 
 
     def test_works_for_specific_ids(self):
