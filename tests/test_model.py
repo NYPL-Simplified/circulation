@@ -139,6 +139,18 @@ class TestDatabaseInterface(DatabaseTest):
         result = get_one(self._db, Edition, constraint=constraint)
         eq_(None, result)
 
+    def test_initialize_data_does_not_reset_timestamp(self):
+        # initialize_data() has already been called, so the database is
+        # initialized and the 'site configuration changed' Timestamp has
+        # been set. Calling initialize_data() again won't change the 
+        # date on the timestamp.
+        timestamp = get_one(self._db, Timestamp,
+                            collection=None, 
+                            service=Configuration.SITE_CONFIGURATION_CHANGED)
+        old_timestamp = timestamp.timestamp
+        SessionManager.initialize_data(self._db)
+        eq_(old_timestamp, timestamp.timestamp)
+
 
 class TestDataSource(DatabaseTest):
 

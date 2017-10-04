@@ -452,26 +452,15 @@ class SessionManager(object):
             )
             mechanism.default_client_can_fulfill = True
 
-        # TODO: Remove this exception catch after version 2.0.0. See
-        # SessionManager.update_timestamps_table for more details.
-        update_configuration_timestamp = lambda: Timestamp.stamp(
-            session, Configuration.SITE_CONFIGURATION_CHANGED,
-            collection=None
+        # If there is currently no 'site configuration change'
+        # Timestamp in the database, create one.
+        timestamp, is_new = get_one_or_create(
+            session, Timestamp, collection=None, 
+            service=Configuration.SITE_CONFIGURATION_CHANGED,
+            create_method_kwargs=dict(timestamp=datetime.datetime.utcnow())
         )
-        try:
-            # Set the timestamp to track site configuration changes.
-            update_configuration_timestamp()
-        except sa_exc.ProgrammingError as e:
-            message = str(e)
-            if ('timestamps.id does not exist' in message or
-                'timestamps.collection_id does not exist' in message
-            ):
-                session = cls.update_timestamps_table(session)
-                update_configuration_timestamp()
-            else:
-                raise e
-
-        site_configuration_has_changed(session)
+        if is_new:
+            site_configuration_has_changed(session)
         session.commit()
 
         # Return a potentially-new Session object in case
