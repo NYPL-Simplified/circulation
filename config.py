@@ -329,11 +329,6 @@ class Configuration(object):
         config_instance[EI.CDN] = cdn_integration
 
     @classmethod
-    def logging_policy(cls):
-        default_logging = {}
-        return cls.get(cls.LOGGING, default_logging)
-
-    @classmethod
     def localization_languages(cls):
         languages = cls.policy(cls.LOCALIZATION_LANGUAGES, default=["eng"])
         return [LanguageCodes.three_to_two[l] for l in languages]
@@ -360,7 +355,7 @@ class Configuration(object):
 
     @classmethod
     def site_configuration_last_update(cls, _db, known_value=None,
-                                       timeout=60):
+                                       timeout=600):
         """Check when the site configuration was last updated.
 
         Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE]. 
@@ -399,7 +394,6 @@ class Configuration(object):
             known_value = Timestamp.value(
                 _db, cls.SITE_CONFIGURATION_CHANGED, None
             )
-            logging.error("Retrieved known value %s from database.", known_value)
         if not known_value:
             # The site configuration has never changed.
             last_update = None

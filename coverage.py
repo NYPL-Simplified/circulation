@@ -418,7 +418,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
     INPUT_IDENTIFIER_TYPES = NO_SPECIFIED_TYPES
     
     def __init__(self, _db, collection=None, input_identifiers=None,
-                 replacement_policy=None, **kwargs):
+                 replacement_policy=None, preregistered_only=False, **kwargs
+    ):
         """Constructor.
 
         :param collection: Optional. If information comes in from a
@@ -434,6 +435,10 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
            Identifiers.
         :param replacement_policy: Optional. A ReplacementPolicy to use
            when updating local data with data from the third party.
+        :param preregistered_only: Optional. Determines whether this
+           CoverageProvider will only cover Identifiers that have been
+           "preregistered" with a failing CoverageRecord. This option is
+           only used on the Metadata Wrangler.
         """
         super(IdentifierCoverageProvider, self).__init__(_db, **kwargs)
 
@@ -447,7 +452,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         self.replacement_policy = (
             replacement_policy or self._default_replacement_policy(_db)
         )
-        
+        self.preregistered_only = preregistered_only
+
         if not self.DATA_SOURCE_NAME:
             raise ValueError(
                 "%s must define DATA_SOURCE_NAME" % self.__class__.__name__
@@ -491,6 +497,41 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             # We will be processing every identify whose type belongs to
             # a list of types.
             return value
+
+    @classmethod
+    def register(cls, identifier, collection=None):
+        """Registers an identifier for future coverage
+
+        This method is primarily for use with CoverageProviders that use the
+        `preregistered_only` flag to process items. It's currently only in use
+        on the Metadata Wrangler.
+
+        TODO: Take identifier eligibility into account when registering.
+        """
+        name = cls.SERVICE_NAME or cls.__name__
+        log = logging.getLogger(name)
+        _db = Session.object_session(identifier)
+
+        source = DataSource.lookup(_db, cls.DATA_SOURCE_NAME)
+        if collection and not source:
+            # The registration DataSource is based on a given Collection
+            # instead of the class.
+            source = collection.data_source
+        operation = cls.OPERATION
+
+        was_registered = False
+        existing_record = CoverageRecord.lookup(identifier, source, operation)
+        if existing_record:
+            log.info('FOUND %r' % existing_record)
+            return existing_record, was_registered
+
+        was_registered = True
+        new_record, is_new = CoverageRecord.add_for(
+            identifier, source, operation=operation,
+            status=CoverageRecord.REGISTERED
+        )
+        log.info('CREATED %r' % new_record)
+        return new_record, was_registered
 
     @property
     def data_source(self):
@@ -653,6 +694,11 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         )
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
+
+        if self.preregistered_only:
+            # Return Identifiers that have been "preregistered" for coverage
+            # or already have a failure from previous coverage attempts.
+            qu = qu.filter(CoverageRecord.id != None)
 
         return qu
 

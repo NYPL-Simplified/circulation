@@ -195,18 +195,34 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         kwargs['allowed_response_codes'] += ['2xx', '3xx']
         return HTTP.post_with_timeout(url, data, **kwargs)
 
+    def add_args(self, url, arg_string):
+        joiner = '?'
+        if joiner in url:
+            # This URL already has an argument (namely: data_source), so
+            # append the new arguments.
+            joiner = '&'
+        return url + joiner + arg_string
+
     def get_collection_url(self, endpoint):
         if not self.authenticated:
             raise AccessNotAuthenticated("Metadata Wrangler access not authenticated.")
         if not self.collection:
             raise ValueError("No Collection provided.")
 
-        return self.base_url + self.collection.metadata_identifier + '/' + endpoint
+        data_source = ''
+        if self.collection.protocol == ExternalIntegration.OPDS_IMPORT:
+            # Open access OPDS_IMPORT collections need to send a DataSource to
+            # allow OPDS lookups on the Metadata Wrangler.
+            data_source = '?data_source=' + urllib.quote(self.collection.data_source.name)
+
+        return (self.base_url
+            + self.collection.metadata_identifier
+            + '/' + endpoint + data_source)
 
     def add(self, identifiers):
         """Add items to an authenticated Metadata Wrangler Collection"""
         add_url = self.get_collection_url(self.ADD_ENDPOINT)
-        url = add_url + "?" + self.urn_args(identifiers)
+        url = self.add_args(add_url, self.urn_args(identifiers))
 
         logging.info("Metadata Wrangler Collection Addition URL: %s", url)
         return self._post(url)
@@ -219,7 +235,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
     def remove(self, identifiers):
         """Remove items from an authenticated Metadata Wrangler Collection"""
         remove_url = self.get_collection_url(self.REMOVE_ENDPOINT)
-        url = remove_url + "?" + self.urn_args(identifiers)
+        url = self.add_args(remove_url, self.urn_args(identifiers))
 
         logging.info("Metadata Wrangler Collection Removal URL: %s", url)
         return self._post(url)
@@ -234,7 +250,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         url = self.get_collection_url(self.UPDATES_ENDPOINT)
         if last_update_time:
             formatted_time = last_update_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-            url += ('?last_update_time=' + formatted_time)
+            url = self.add_args(url, ('last_update_time='+formatted_time))
         logging.info("Metadata Wrangler Collection Updates URL: %s", url)
         return self._get(url)
 

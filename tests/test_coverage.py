@@ -478,7 +478,33 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
             self._db, replacement_policy=policy
         )
         eq_(policy, provider.replacement_policy)
+
+    def test_register(self):
+        # The identifier has no coverage.
+        eq_(0, len(self.identifier.coverage_records))
+
+        provider = AlwaysSuccessfulCoverageProvider
         
+        # If a CoverageRecord doesn't exist for the provider,
+        # a 'registered' record is created.
+        provider.register(self.identifier)
+
+        [record] = self.identifier.coverage_records
+        eq_(provider.DATA_SOURCE_NAME, record.data_source.name)
+        eq_(CoverageRecord.REGISTERED, record.status)
+        eq_(None, record.exception)
+
+        # If a CoverageRecord exists already, it's returned.
+        existing = record
+        existing.status = CoverageRecord.SUCCESS
+
+        provider.register(self.identifier)
+        [record] = self.identifier.coverage_records
+        eq_(existing, record)
+        # Its details haven't been changed in any way.
+        eq_(CoverageRecord.SUCCESS, record.status)
+        eq_(None, record.exception)
+
     def test_ensure_coverage(self):
         """Verify that ensure_coverage creates a CoverageRecord for an
         Identifier, assuming that the CoverageProvider succeeds.
@@ -675,6 +701,24 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         assert isinstance(result, CoverageFailure)
         assert "ValueError" in result.exception
         test_metadata.primary_identifier = old_identifier
+
+    def test_items_that_need_coverage_respects_registration_reqs(self):
+        provider = AlwaysSuccessfulCoverageProvider(
+            self._db, preregistered_only=True
+        )
+
+        items = provider.items_that_need_coverage()
+        assert self.identifier not in items
+
+        # Once the identifier is registered, it shows up.
+        provider.register(self.identifier)
+        assert self.identifier in items
+
+        # With a failing CoverageRecord, the item shows up.
+        [record] = self.identifier.coverage_records
+        record.status = CoverageRecord.TRANSIENT_FAILURE
+        record.exception = 'Oh no!'
+        assert self.identifier in items
 
     def test_items_that_need_coverage_respects_operation(self):
 

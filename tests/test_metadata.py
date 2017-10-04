@@ -156,9 +156,13 @@ class TestMetadataImporter(DatabaseTest):
             rel=Hyperlink.IMAGE, href="http://example.com/", thumbnail=l2,
             media_type=Representation.JPEG_MEDIA_TYPE,
         )
-        metadata = Metadata(links=[l1, l2], 
+
+        # Even though we're only passing in the primary image link...
+        metadata = Metadata(links=[l1], 
                             data_source=edition.data_source)
         metadata.apply(edition, None)
+
+        # ...a Hyperlink is also created for the thumbnail.
         [image, thumbnail] = sorted(
             edition.primary_identifier.links, key=lambda x:x.rel
         )
@@ -166,6 +170,107 @@ class TestMetadataImporter(DatabaseTest):
         eq_([thumbnail.resource.representation],
             image.resource.representation.thumbnails
         )
+
+    def test_thumbnail_isnt_a_thumbnail(self):
+        edition = self._edition()
+        not_a_thumbnail = LinkData(
+            rel=Hyperlink.DESCRIPTION, content="A great book",
+            media_type=Representation.TEXT_PLAIN,
+        )
+        image = LinkData(
+            rel=Hyperlink.IMAGE, href="http://example.com/", 
+            thumbnail=not_a_thumbnail,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+
+        metadata = Metadata(links=[image], 
+                            data_source=edition.data_source)
+        metadata.apply(edition, None)
+
+        # Only one Hyperlink was created for the image, because
+        # the alleged 'thumbnail' wasn't actually a thumbnail.
+        [image_obj] = edition.primary_identifier.links
+        eq_(Hyperlink.IMAGE, image_obj.rel)
+        eq_([], image_obj.resource.representation.thumbnails)
+
+        # If we pass in the 'thumbnail' separately, a Hyperlink is
+        # created for it, but it's still not a thumbnail of anything.
+        metadata = Metadata(links=[image, not_a_thumbnail], 
+                            data_source=edition.data_source)
+        metadata.apply(edition, None)
+        [image, description] = sorted(
+            edition.primary_identifier.links, key=lambda x:x.rel
+        )
+        eq_(Hyperlink.DESCRIPTION, description.rel)
+        eq_("A great book", description.resource.representation.content)
+        eq_([], image.resource.representation.thumbnails)
+        eq_(None, description.resource.representation.thumbnail_of)
+
+    def test_image_and_thumbnail_are_the_same(self):
+        edition = self._edition()
+        url = "http://tinyimage.com/image.jpg"
+        l2 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href=url,
+        )
+        l1 = LinkData(
+            rel=Hyperlink.IMAGE, href=url, thumbnail=l2,
+        )
+        metadata = Metadata(links=[l1, l2], 
+                            data_source=edition.data_source)
+        metadata.apply(edition, None)
+        [image, thumbnail] = sorted(
+            edition.primary_identifier.links, key=lambda x:x.rel
+        )
+
+        # The image and its thumbnail point to the same resource.
+        eq_(image.resource, thumbnail.resource)
+
+        eq_(Hyperlink.IMAGE, image.rel)
+        eq_(Hyperlink.THUMBNAIL_IMAGE, thumbnail.rel)
+
+        # The thumbnail is marked as a thumbnail of the main image.
+        eq_([thumbnail.resource.representation],
+            image.resource.representation.thumbnails
+        )
+        eq_(url, edition.cover_full_url)
+        eq_(url, edition.cover_thumbnail_url)
+
+    def test_image_becomes_representation_but_thumbnail_does_not(self):
+        edition = self._edition()
+
+        # The thumbnail link has no media type, and none can be
+        # derived from the URL.
+        l2 = LinkData(
+            rel=Hyperlink.THUMBNAIL_IMAGE, href="http://tinyimage.com/",
+        )
+
+        # The full-sized image link does not have this problem.
+        l1 = LinkData(
+            rel=Hyperlink.IMAGE, href="http://largeimage.com/", thumbnail=l2,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+        )
+        metadata = Metadata(links=[l1], 
+                            data_source=edition.data_source)
+        metadata.apply(edition, None)
+
+        # Both LinkData objects have been imported as Hyperlinks.
+        [image, thumbnail] = sorted(
+            edition.primary_identifier.links, key=lambda x:x.rel
+        )
+
+        # However, since no Representation was created for the thumbnail,
+        # the relationship between the main image and the thumbnail could
+        # not be imported.
+        eq_(None, thumbnail.resource.representation)
+        eq_([], image.resource.representation.thumbnails)
+
+        # The edition ends up with a full-sized image but no
+        # thumbnail. This could potentially be improved, since we know
+        # the two Resources are associated with the same Identifier.
+        # But we lose track of the fact that the two Resources are
+        # _the same image_ at different resolutions.
+        eq_("http://largeimage.com/", edition.cover_full_url)
+        eq_(None, edition.cover_thumbnail_url)
 
     def sample_cover_path(self, name):
         base_path = os.path.split(__file__)[0]
@@ -586,6 +691,29 @@ class TestContributorData(DatabaseTest):
 
 
 
+class TestLinkData(DatabaseTest):
+
+    def test_guess_media_type(self):
+        rel = Hyperlink.IMAGE
+
+        # Sometimes we have no idea what media type is at the other
+        # end of a link.
+        unknown = LinkData(rel, href="http://foo/bar.unknown")
+        eq_(None, unknown.guessed_media_type)
+
+        # Sometimes we can guess based on the file extension.
+        jpeg = LinkData(rel, href="http://foo/bar.jpeg")
+        eq_(Representation.JPEG_MEDIA_TYPE, jpeg.guessed_media_type)
+
+        # An explicitly known media type takes precedence over 
+        # something we guess from the file extension.
+        png = LinkData(rel, href="http://foo/bar.jpeg", 
+                       media_type=Representation.PNG_MEDIA_TYPE)
+        eq_(Representation.PNG_MEDIA_TYPE, png.guessed_media_type)
+
+        description = LinkData(Hyperlink.DESCRIPTION, content="Some content")
+        eq_(None, description.guessed_media_type)
+
 class TestMetadata(DatabaseTest):
     def test_from_edition(self):
         # Makes sure Metadata.from_edition copies all the fields over.
@@ -722,6 +850,70 @@ class TestMetadata(DatabaseTest):
         eq_(edition_new.imprint, edition_old.imprint)
         eq_(edition_new.published, edition_old.published)
         eq_(edition_new.issued, edition_old.issued)
+
+    def test_apply_creates_coverage_records(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        metadata = Metadata(
+            data_source=DataSource.OVERDRIVE,
+            title=self._str
+        )
+
+        edition, changed = metadata.apply(edition, pool.collection)
+
+        # One success was recorded.
+        records = self._db.query(
+            CoverageRecord
+        ).filter(
+            CoverageRecord.identifier_id==edition.primary_identifier.id
+        ).filter(
+            CoverageRecord.operation==None
+        )
+        eq_(1, records.count())
+        eq_(CoverageRecord.SUCCESS, records.all()[0].status)
+
+        # No metadata upload failure was recorded, because this metadata
+        # came from Overdrive.
+        records = self._db.query(
+            CoverageRecord
+        ).filter(
+            CoverageRecord.identifier_id==edition.primary_identifier.id
+        ).filter(
+            CoverageRecord.operation==CoverageRecord.METADATA_UPLOAD_OPERATION
+        )
+        eq_(0, records.count())
+
+        # Apply metadata from a different source.
+        metadata = Metadata(
+            data_source=DataSource.GUTENBERG,
+            title=self._str
+        )
+
+        edition, changed = metadata.apply(edition, pool.collection)
+
+        # Another success record was created.
+        records = self._db.query(
+            CoverageRecord
+        ).filter(
+            CoverageRecord.identifier_id==edition.primary_identifier.id
+        ).filter(
+            CoverageRecord.operation==None
+        )
+        eq_(2, records.count())
+        for record in records.all():
+            eq_(CoverageRecord.SUCCESS, record.status)
+
+        # But now there's also a metadata upload failure.
+        records = self._db.query(
+            CoverageRecord
+        ).filter(
+            CoverageRecord.identifier_id==edition.primary_identifier.id
+        ).filter(
+            CoverageRecord.operation==CoverageRecord.METADATA_UPLOAD_OPERATION
+        )
+        eq_(1, records.count())
+        eq_(CoverageRecord.TRANSIENT_FAILURE, records.all()[0].status)
+
 
 
     def test_update_contributions(self):

@@ -1,5 +1,6 @@
 import os
 import datetime
+import urllib
 from StringIO import StringIO
 from lxml import builder
 from nose.tools import (
@@ -104,6 +105,18 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         eq_(None, lookup.shared_secret)
         eq_(False, lookup.authenticated)
 
+    def test_add_args(self):
+        lookup = MetadataWranglerOPDSLookup.from_config(self._db)
+        args = 'greeting=hello'
+
+        # If the base url doesn't have any arguments, args are created.
+        base_url = self._url
+        eq_(base_url + '?' + args, lookup.add_args(base_url, args))
+
+        # If the base url has an argument already, additional args are appended.
+        base_url = self._url + '?data_source=banana'
+        eq_(base_url + '&' + args, lookup.add_args(base_url, args))
+
     def test_get_collection_url(self):
         lookup = MetadataWranglerOPDSLookup.from_config(self._db)
 
@@ -126,6 +139,16 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         expected = '%s%s/banana' % (lookup.base_url, self.collection.metadata_identifier)
         eq_(expected, lookup.get_collection_url('banana'))
 
+        # With an OPDS_IMPORT collection, a data source is included
+        opds = self._collection(
+            protocol=ExternalIntegration.OPDS_IMPORT,
+            external_account_id=self._url,
+            data_source_name=DataSource.OA_CONTENT_SERVER
+        )
+        lookup.collection = opds
+        data_source_args = '?data_source=%s' % urllib.quote(opds.data_source.name)
+        assert lookup.get_collection_url('banana').endswith(data_source_args)
+
     def test_lookup_endpoint(self):
         # A Collection-specific endpoint is returned if authentication
         # and a Collection is available.
@@ -142,6 +165,11 @@ class TestMetadataWranglerOPDSLookup(DatabaseTest):
         lookup.shared_secret = None
         lookup.collection = self.collection
         eq_('lookup', lookup.lookup_endpoint)
+
+        # With authentication and a collection, a specific endpoint is returned.
+        lookup.shared_secret = 'secret'
+        expected = '%s/lookup' % self.collection.metadata_identifier
+        eq_(expected, lookup.lookup_endpoint)
 
 
 class OPDSImporterTest(DatabaseTest):
@@ -541,6 +569,41 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(None, mouse.work)
         eq_(Edition.PERIODICAL_MEDIUM, mouse.medium)
 
+        # Three links have been added to the identifier of the 'mouse'
+        # edition.
+        image, thumbnail, description = sorted(
+            mouse.primary_identifier.links, key=lambda x: x.rel
+        )
+        
+        # A Representation was imported for the summary with known
+        # content.
+        description_rep = description.resource.representation
+        eq_("This is a summary!", description_rep.content)
+        eq_(Representation.TEXT_PLAIN, description_rep.media_type)
+
+        # A Representation was imported for the image with a media type
+        # inferred from its URL.
+        image_rep = image.resource.representation
+        assert image_rep.url.endswith('_9.png')
+        eq_(Representation.PNG_MEDIA_TYPE, image_rep.media_type)
+
+        # The thumbnail was imported similarly, and its representation
+        # was marked as a thumbnail of the full-sized image.
+        thumbnail_rep = thumbnail.resource.representation
+        eq_(Representation.PNG_MEDIA_TYPE, thumbnail_rep.media_type)
+        eq_(image_rep, thumbnail_rep.thumbnail_of)
+
+        # One link was added to the identifier of the 'crow' edition.
+        [image] = crow.primary_identifier.links
+
+        # Because this image did not have a specified media type or a
+        # distinctive extension, and we have not actually retrieves
+        # the URL yet, we were not able to determine its media type,
+        # so it has no associated Representation.
+        assert image.resource.url.endswith('/full-cover-image')
+        eq_(None, image.resource.representation)
+
+        # Three measurements have been added to the 'mouse' edition.
         popularity, quality, rating = sorted(
             [x for x in mouse.primary_identifier.measurements
              if x.is_most_recent],
@@ -1105,7 +1168,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         200, content='I am 10557.epub.images',
         media_type=Representation.EPUB_MEDIA_TYPE,
         )
-        # The request to http://root/full-cover-image.png
+        # The request to http://root/full-cover-image
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
 
@@ -1133,18 +1196,35 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             'http://www.gutenberg.org/ebooks/10441.epub.images',
             'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
             'http://www.gutenberg.org/ebooks/10557.epub.images',
-            'http://root/full-cover-image.png',
+            'http://root/full-cover-image',
         ])
 
-        [e1_oa_link, e1_image_link, e1_description_link] = sorted(
+        [e1_oa_link, e1_image_link, e1_thumbnail_link, 
+         e1_description_link ] = sorted(
             e1.primary_identifier.links, key=lambda x: x.rel
         )
         [e2_image_link, e2_oa_link] = e2.primary_identifier.links
 
+        # The thumbnail image is associated with the Identifier, but
+        # it's not used because it's associated with a representation
+        # (cover_10441_9.png with media type "image/png") that no
+        # longer has a resource associated with it.
+        eq_(Hyperlink.THUMBNAIL_IMAGE, e1_thumbnail_link.rel)
+        hypothetical_full_representation = e1_thumbnail_link.resource.representation.thumbnail_of
+        eq_(None, hypothetical_full_representation.resource)
+        eq_(Representation.PNG_MEDIA_TYPE, 
+            hypothetical_full_representation.media_type)
+
+        # That's because when we actually got cover_10441_9.png,
+        # it turned out to be an SVG file, not a PNG, so we created a new
+        # Representation. TODO: Obviously we could do better here.
+        eq_(Representation.SVG_MEDIA_TYPE, 
+            e1_image_link.resource.representation.media_type)
+
         # The two open-access links were mirrored to S3, as was the
-        # original SVG image and its PNG thumbnail. The PNG image was
-        # not mirrored because our attempt to download it resulted in
-        # a 404 error.
+        # original SVG image and the PNG thumbnail we generated. The
+        # PNG image was not mirrored because our attempt to download
+        # it resulted in a 404 error.
         imported_representations = [
             e1_oa_link.resource.representation,
             e1_image_link.resource.representation,
@@ -1245,7 +1325,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
 </svg>"""
 
         http = DummyHTTPClient()
-        # The request to http://root/full-cover-image.png
+        # The request to http://root/full-cover-image
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
         http.queue_response(
@@ -1275,7 +1355,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         # were going to make our own thumbnail anyway.
         eq_(http.requests, [
             'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
-            'http://root/full-cover-image.png',
+            'http://root/full-cover-image',
         ])
 
 
@@ -1464,7 +1544,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         # external_account_id.
         [cover]  = [x.resource.url for x in editions[0].primary_identifier.links
                     if x.rel==Hyperlink.IMAGE]
-        eq_("http://root-url/full-cover-image.png", cover)
+        eq_("http://root-url/full-cover-image", cover)
 
         # The 202 status message in the feed caused a transient failure.
         # The exception caused a persistent failure.

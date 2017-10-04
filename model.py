@@ -145,7 +145,18 @@ def production_session():
     if url.startswith('"'):
         url = url[1:]
     logging.debug("Database url: %s", url)
-    return SessionManager.session(url)
+    _db = SessionManager.session(url)
+
+    # The first thing to do after getting a database connection is to
+    # set up the logging configuration.
+    #
+    # If called during a unit test, this will configure logging
+    # incorrectly, but 1) this method isn't normally called during
+    # unit tests, and 2) package_setup() will call initialize() again
+    # with the right arguments.
+    from log import LogConfiguration
+    LogConfiguration.initialize(_db)
+    return _db
 
 class PolicyException(Exception):
     pass
@@ -441,26 +452,15 @@ class SessionManager(object):
             )
             mechanism.default_client_can_fulfill = True
 
-        # TODO: Remove this exception catch after version 2.0.0. See
-        # SessionManager.update_timestamps_table for more details.
-        update_configuration_timestamp = lambda: Timestamp.stamp(
-            session, Configuration.SITE_CONFIGURATION_CHANGED,
-            collection=None
+        # If there is currently no 'site configuration change'
+        # Timestamp in the database, create one.
+        timestamp, is_new = get_one_or_create(
+            session, Timestamp, collection=None, 
+            service=Configuration.SITE_CONFIGURATION_CHANGED,
+            create_method_kwargs=dict(timestamp=datetime.datetime.utcnow())
         )
-        try:
-            # Set the timestamp to track site configuration changes.
-            update_configuration_timestamp()
-        except sa_exc.ProgrammingError as e:
-            message = str(e)
-            if ('timestamps.id does not exist' in message or
-                'timestamps.collection_id does not exist' in message
-            ):
-                session = cls.update_timestamps_table(session)
-                update_configuration_timestamp()
-            else:
-                raise e
-
-        site_configuration_has_changed(session)
+        if is_new:
+            site_configuration_has_changed(session)
         session.commit()
 
         # Return a potentially-new Session object in case
@@ -1241,8 +1241,9 @@ class BaseCoverageRecord(object):
     SUCCESS = u'success'
     TRANSIENT_FAILURE = u'transient failure'
     PERSISTENT_FAILURE = u'persistent failure'
+    REGISTERED = u'registered'
 
-    ALL_STATUSES = [SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
+    ALL_STATUSES = [REGISTERED, SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
 
     # By default, count coverage as present if it ended in
     # success or in persistent failure. Do not count coverage
@@ -1250,7 +1251,7 @@ class BaseCoverageRecord(object):
     DEFAULT_COUNT_AS_COVERED = [SUCCESS, PERSISTENT_FAILURE]
 
     status_enum = Enum(SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE, 
-                       name='coverage_status')
+                       REGISTERED, name='coverage_status')
 
     @classmethod
     def not_covered(cls, count_as_covered=None, 
@@ -1304,6 +1305,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
     IMPORT_OPERATION = u'import'
     RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
     REPAIR_SORT_NAME_OPERATION = u'repair-sort-name'
+    METADATA_UPLOAD_OPERATION = u'metadata-upload'
 
     id = Column(Integer, primary_key=True)
     identifier_id = Column(
@@ -1867,6 +1869,16 @@ class Identifier(Base):
         _db = Session.object_session(self)
         return Identifier.recursively_equivalent_identifier_ids(
             _db, [self.id], levels, threshold)
+
+    def licensed_through_collection(self, collection):
+        """Find the LicensePool, if any, for this Identifier
+        in the given Collection.
+
+        :return: At most one LicensePool.
+        """
+        for lp in self.licensed_through:
+            if lp.collection == collection:
+                return lp
 
     def add_link(self, rel, href, data_source, media_type=None, content=None,
                  content_path=None):
@@ -2591,6 +2603,10 @@ class Edition(Base):
     MAX_THUMBNAIL_HEIGHT = 300
     MAX_THUMBNAIL_WIDTH = 200
 
+    # A full-sized image no larger than this height can be used as a thumbnail
+    # in a pinch.
+    MAX_FALLBACK_THUMBNAIL_HEIGHT = 500
+
     # This Edition is associated with one particular
     # identifier--the one used by its data source to identify
     # it. Through the Equivalency class, it is associated with a
@@ -2960,6 +2976,12 @@ class Edition(Base):
                 if scaled_down.mirror_url and scaled_down.mirrored_at:
                     self.cover_thumbnail_url = scaled_down.mirror_url
                     break
+        if (not self.cover_thumbnail_url and 
+            resource.representation.image_height
+            and resource.representation.image_height <= self.MAX_FALLBACK_THUMBNAIL_HEIGHT):
+            # The full-sized image is too large to be a thumbnail, but it's
+            # not huge, and there is no other thumbnail, so use it.
+            self.cover_thumbnail_url = resource.representation.mirror_url
         if old_cover != self.cover or old_cover_full_url != self.cover_full_url:
             logging.debug(
                 "Setting cover for %s/%s: full=%s thumb=%s", 
@@ -3237,6 +3259,8 @@ class Edition(Base):
 
     def choose_cover(self):
         """Try to find a cover that can be used for this Edition."""
+        self.cover_full_url = None
+        self.cover_thumbnail_url = None
         for distance in (0, 5):
             # If there's a cover directly associated with the
             # Edition's primary ID, use it. Otherwise, find the
@@ -3268,8 +3292,15 @@ class Edition(Base):
                 self.cover = None
                 self.cover_full_url = None
 
-            # It's possible there's a thumbnail even though there's no full-sized
-            # cover. Try to find a thumbnail the same way we'd look for a cover.
+        if not self.cover_thumbnail_url:
+            # The process we went through above did not result in the 
+            # setting of a thumbnail cover.
+            #
+            # It's possible there's a thumbnail even when there's no
+            # full-sized cover, or when the full-sized cover and
+            # thumbnail are different Resources on the same
+            # Identifier. Try to find a thumbnail the same way we'd
+            # look for a cover.
             for distance in (0, 5):
                 best_thumbnail, thumbnails = self.best_cover_within_distance(distance, rel=Hyperlink.THUMBNAIL_IMAGE)
                 if best_thumbnail:
@@ -4254,7 +4285,7 @@ class Work(Base):
             l.append(" No full cover.")
 
         if self.cover_thumbnail_url:
-            l.append(" Cover thumbnail: %s" % self.cover_full_url)
+            l.append(" Cover thumbnail: %s" % self.cover_thumbnail_url)
         else:
             l.append(" No thumbnail cover.")
 
@@ -7717,7 +7748,18 @@ class Representation(Base):
         PNG_MEDIA_TYPE: "png",
         SVG_MEDIA_TYPE: "svg",
         GIF_MEDIA_TYPE: "gif",
+        TEXT_PLAIN: "txt",
+        TEXT_HTML_MEDIA_TYPE: "html",
+        APPLICATION_XML_MEDIA_TYPE: "xml",
     }
+
+    # Invert FILE_EXTENSIONS and add some extra guesses.
+    MEDIA_TYPE_FOR_EXTENSION = {
+        ".htm" : TEXT_HTML_MEDIA_TYPE,
+        ".jpeg" : JPEG_MEDIA_TYPE,
+    }
+    for media_type, extension in FILE_EXTENSIONS.items():
+        MEDIA_TYPE_FOR_EXTENSION['.' + extension] = media_type
 
     __tablename__ = 'representations'
     id = Column(Integer, primary_key=True)
@@ -7769,7 +7811,7 @@ class Representation(Base):
     thumbnails = relationship(
         "Representation",
         backref=backref("thumbnail_of", remote_side = [id]),
-        lazy="joined")
+        lazy="joined", post_update=True)
 
     # The HTTP status code from the last fetch.
     status_code = Column(Integer)
@@ -7857,6 +7899,15 @@ class Representation(Base):
                    'text/', 
                    'video/'
         ])
+
+    @classmethod
+    def guess_media_type(cls, filename):
+        """Guess a likely media type from a filename."""
+        filename = filename.lower()
+        for extension, media_type in cls.MEDIA_TYPE_FOR_EXTENSION.items():
+            if filename.endswith(extension):
+                return media_type
+        return None
 
     def is_fresher_than(self, max_age):
         # Convert a max_age timedelta to a number of seconds.
@@ -9546,6 +9597,10 @@ class ExternalIntegration(Base, HasFullTableCache):
     # help patrons find libraries.
     DISCOVERY_GOAL = u'discovery'
 
+    # These integrations are associated with external services that
+    # collect logs of server-side events.
+    LOGGING_GOAL = u'logging'
+
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
@@ -9554,6 +9609,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     RB_DIGITAL = DataSource.RB_DIGITAL
     ONE_CLICK = RB_DIGITAL
     OPDS_FOR_DISTRIBUTORS = u'OPDS for Distributors'
+    ENKI = DataSource.ENKI
 
     # These protocols are only used on the Content Server when mirroring
     # content from a given directory or directly from Project
@@ -9564,7 +9620,7 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, RB_DIGITAL,
-        DIRECTORY_IMPORT, GUTENBERG,
+        DIRECTORY_IMPORT, GUTENBERG, ENKI,
     ]
 
     # Some integrations with LICENSE_GOAL imply that the data and
@@ -9573,7 +9629,8 @@ class ExternalIntegration(Base, HasFullTableCache):
         OVERDRIVE : DataSource.OVERDRIVE,
         BIBLIOTHECA : DataSource.BIBLIOTHECA,
         AXIS_360 : DataSource.AXIS_360,
-        RB_DIGITAL : DataSource.RB_DIGITAL
+        RB_DIGITAL : DataSource.RB_DIGITAL,
+        ENKI : DataSource.ENKI,
     }
 
     # Integrations with METADATA_GOAL
@@ -9608,6 +9665,10 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     # List of such ADMIN_AUTH_GOAL integrations
     ADMIN_AUTH_PROTOCOLS = [GOOGLE_OAUTH]
+
+    # Integrations with LOGGING_GOAL
+    INTERNAL_LOGGING = u'Internal logging'
+    LOGGLY = u"Loggly"
 
     # Keys for common configuration settings
 
@@ -10290,7 +10351,7 @@ class Collection(Base, HasFullTableCache):
             return self.parent.unique_account_id + '+' + unique_account_id
         return unique_account_id        
     
-    @property
+    @hybrid_property
     def data_source(self):
         """Find the data source associated with this Collection.
 
@@ -10305,9 +10366,8 @@ class Collection(Base, HasFullTableCache):
         the data source is a Collection-specific setting.
         """
         data_source = None
-        protocol = self.external_integration.protocol
         name = ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROTOCOL.get(
-            protocol
+            self.protocol
         )
         if not name:
             name = self.external_integration.setting(
@@ -10317,7 +10377,24 @@ class Collection(Base, HasFullTableCache):
         if name:
             data_source = DataSource.lookup(_db, name, autocreate=True)
         return data_source
-    
+
+    @data_source.setter
+    def data_source(self, new_value):
+        if isinstance(new_value, DataSource):
+            new_value = new_value.name
+        if self.protocol == new_value:
+            return
+
+        # Only set a DataSource for Collections that don't have an
+        # implied source.
+        if self.protocol not in ExternalIntegration.DATA_SOURCE_FOR_LICENSE_PROTOCOL:
+            setting = self.external_integration.setting(
+                Collection.DATA_SOURCE_NAME_SETTING
+            )
+            if new_value is not None:
+                new_value = unicode(new_value)
+            setting.value = new_value
+
     @property
     def parents(self):
         if self.parent_id:
@@ -10336,35 +10413,55 @@ class Collection(Base, HasFullTableCache):
         In the metadata wrangler, this identifier is used as the unique
         name of the collection.
         """
-        account_id = base64.urlsafe_b64encode(self.unique_account_id.encode('utf8'))
-        protocol = base64.urlsafe_b64encode(
-            self.external_integration.protocol.encode('utf8')
-        )
+        def encode(detail):
+            return base64.urlsafe_b64encode(detail.encode('utf-8'))
+
+        account_id = self.unique_account_id
+        if self.protocol == ExternalIntegration.OPDS_IMPORT:
+            # Remove ending / from OPDS url that could duplicate the collection
+            # on the Metadata Wrangler.
+            while account_id.endswith('/'):
+                account_id = account_id[:-1]
+
+        account_id = encode(account_id)
+        protocol = encode(self.protocol)
 
         metadata_identifier = protocol + ':' + account_id
-        return base64.urlsafe_b64encode(metadata_identifier.encode('utf8'))
+        return encode(metadata_identifier)
 
     @classmethod
-    def from_metadata_identifier(cls, _db, metadata_identifier):
+    def from_metadata_identifier(cls, _db, metadata_identifier, data_source=None):
         """Finds or creates a Collection on the metadata wrangler, based
         on its unique metadata_identifier
         """
         collection = get_one(_db, Collection, name=metadata_identifier)
         is_new = False
 
-        if not collection:
-            details = base64.urlsafe_b64decode(metadata_identifier.encode('utf8'))
-            protocol = unicode(base64.urlsafe_b64decode(
-                details.split(':', 1)[0].encode('utf8')
-            ))
-            collection, is_new = create(_db, Collection,
-                name=metadata_identifier)
+        opds_collection_without_url = (
+            collection and collection.protocol==ExternalIntegration.OPDS_IMPORT
+            and not collection.external_account_id
+        )
 
-            integration = collection.create_external_integration(protocol)
-            collection.external_integration.goal = (
-                ExternalIntegration.LICENSE_GOAL
-            )
-            collection.external_integration.protocol = protocol
+        if not collection or opds_collection_without_url:
+            def decode(detail):
+                return base64.urlsafe_b64decode(detail.encode('utf-8'))
+
+            details = decode(metadata_identifier)
+            encoded_details  = details.split(':', 1)
+            [protocol, account_id] = [decode(d) for d in encoded_details]
+
+            if not collection:
+                collection, is_new = create(
+                    _db, Collection, name=metadata_identifier
+                )
+                collection.create_external_integration(protocol)
+
+            if protocol == ExternalIntegration.OPDS_IMPORT:
+                # Share the feed URL so the Metadata Wrangler can find it.
+               collection.external_account_id = unicode(account_id)
+
+        if data_source:
+            collection.data_source = data_source
 
         return collection, is_new
 

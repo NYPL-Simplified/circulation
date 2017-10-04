@@ -6,6 +6,7 @@ from util.http import (
     RemoteIntegrationException,
     RequestNetworkException,
     RequestTimedOut,
+    INTEGRATION_ERROR,
 )
 from nose.tools import (
     assert_raises_regexp,
@@ -13,8 +14,17 @@ from nose.tools import (
     set_trace
 )
 from testing import MockRequestsResponse
+from util.problem_detail import ProblemDetail
+from problem_details import INVALID_INPUT
 
 class TestHTTP(object):
+
+    def test_series(self):
+        m = HTTP.series
+        eq_("2xx", m(201))
+        eq_("3xx", m(399))
+        eq_("5xx", m(500))
+
 
     def test_request_with_timeout_success(self):
 
@@ -176,6 +186,37 @@ class TestHTTP(object):
             assert isinstance(k, bytes)
             assert isinstance(v, bytes)
         assert isinstance(data, bytes)
+
+    def test_process_debuggable_response(self):
+        """Test a method that gives more detailed information when a 
+        problem happens.
+        """
+        m = HTTP.process_debuggable_response
+        success = MockRequestsResponse(200, content="Success!")
+        eq_(success, m(success))
+
+        success = MockRequestsResponse(302, content="Success!")
+        eq_(success, m(success))
+
+        # An error is turned into a detailed ProblemDetail
+        error = MockRequestsResponse(500, content="Error!")
+        problem = m(error)
+        assert isinstance(problem, ProblemDetail)
+        eq_(INTEGRATION_ERROR.uri, problem.uri)
+        eq_("500 response from integration server: 'Error!'", problem.detail)
+
+        content, status_code, headers = INVALID_INPUT.response
+        error = MockRequestsResponse(status_code, headers, content)
+        problem = m(error)
+        assert isinstance(problem, ProblemDetail)
+        eq_(INTEGRATION_ERROR.uri, problem.uri)
+        eq_(u"Remote service returned a problem detail document: %r" % content,
+            problem.detail)
+
+        # You can force a response to be treated as successful by
+        # passing in its response code as allowed_response_codes.
+        eq_(error, m(error, allowed_response_codes=[400]))
+        eq_(error, m(error, allowed_response_codes=['4xx']))
 
 class TestRemoteIntegrationException(object):
 

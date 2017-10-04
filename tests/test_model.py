@@ -139,6 +139,18 @@ class TestDatabaseInterface(DatabaseTest):
         result = get_one(self._db, Edition, constraint=constraint)
         eq_(None, result)
 
+    def test_initialize_data_does_not_reset_timestamp(self):
+        # initialize_data() has already been called, so the database is
+        # initialized and the 'site configuration changed' Timestamp has
+        # been set. Calling initialize_data() again won't change the 
+        # date on the timestamp.
+        timestamp = get_one(self._db, Timestamp,
+                            collection=None, 
+                            service=Configuration.SITE_CONFIGURATION_CHANGED)
+        old_timestamp = timestamp.timestamp
+        SessionManager.initialize_data(self._db)
+        eq_(old_timestamp, timestamp.timestamp)
+
 
 class TestDataSource(DatabaseTest):
 
@@ -537,6 +549,20 @@ class TestIdentifier(DatabaseTest):
                  level_3_equivalent.id]),
             set(equivalent_ids))
 
+    def test_licensed_through_collection(self):
+        c1 = self._default_collection
+        c2 = self._collection()
+        c3 = self._collection()
+
+        edition, lp1 = self._edition(collection=c1, with_license_pool=True)
+        lp2 = self._licensepool(collection=c2, edition=edition)
+
+        identifier = lp1.identifier
+        eq_(lp2.identifier, identifier)
+
+        eq_(lp1, identifier.licensed_through_collection(c1))
+        eq_(lp2, identifier.licensed_through_collection(c2))
+        eq_(None, identifier.licensed_through_collection(c3))
 
     def test_missing_coverage_from(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
@@ -1413,6 +1439,51 @@ class TestEdition(DatabaseTest):
         edition.title = u'something'
         edition.calculate_permanent_work_id()
         assert_not_equal(None, edition.permanent_work_id)
+
+    def test_choose_cover_can_choose_full_image_and_thumbnail_separately(self):
+        edition = self._edition()
+
+        # This edition has a full-sized image and a thumbnail image,
+        # but there is no evidence that they are the _same_ image.
+        main_image, ignore = edition.primary_identifier.add_link(
+            Hyperlink.IMAGE, self._url,
+            edition.data_source
+        )
+        main_image.resource.set_mirrored_elsewhere(
+            Representation.PNG_MEDIA_TYPE
+        )
+        thumbnail_image, ignore = edition.primary_identifier.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url,
+            edition.data_source
+        )
+        thumbnail_image.resource.set_mirrored_elsewhere(
+            Representation.PNG_MEDIA_TYPE
+        )
+
+        # Nonetheless, Edition.choose_cover() will assign the
+        # potentially unrelated images to the Edition, because there
+        # is no better option.
+        edition.choose_cover()
+        eq_(main_image.resource.url, edition.cover_full_url)
+        eq_(thumbnail_image.resource.url, edition.cover_thumbnail_url)
+
+        # If there is a clear indication that one of the thumbnails
+        # associated with the identifier is a thumbnail _of_ the
+        # full-sized image...
+        thumbnail_2, ignore = edition.primary_identifier.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, self._url,
+            edition.data_source
+        )
+        thumbnail_2.resource.set_mirrored_elsewhere(
+            Representation.PNG_MEDIA_TYPE
+        )
+        thumbnail_2.resource.representation.thumbnail_of = main_image.resource.representation
+        edition.choose_cover()
+        
+        # ...That thumbnail will be chosen in preference to the
+        # possibly unrelated thumbnail.
+        eq_(main_image.resource.url, edition.cover_full_url)
+        eq_(thumbnail_2.resource.url, edition.cover_thumbnail_url)
 
 
 class TestLicensePool(DatabaseTest):
@@ -4257,15 +4328,32 @@ class TestRepresentation(DatabaseTest):
         representation.media_type = "text/plain"
         eq_(False, representation.mirrorable_media_type)
 
+    def test_guess_media_type(self):
+        m = Representation.guess_media_type
+
+        eq_(Representation.JPEG_MEDIA_TYPE, m("file.jpg"))
+
+        for extension, media_type in Representation.MEDIA_TYPE_FOR_EXTENSION.items():
+            filename = "file" + extension
+            eq_(media_type, m(filename))
+
+        eq_(None, m("file"))
+        eq_(None, m("file.unknown-extension"))
+
     def test_external_media_type_and_extension(self):
         """Test the various transformations that might happen to media type
         and extension when we mirror a representation.
         """
 
+        # An unknown file at /foo
+        representation, ignore = self._representation(self._url, "text/unknown")
+        eq_("text/unknown", representation.external_media_type)
+        eq_('', representation.extension())
+
         # A text file at /foo
         representation, ignore = self._representation(self._url, "text/plain")
         eq_("text/plain", representation.external_media_type)
-        eq_('', representation.extension())
+        eq_('.txt', representation.extension())
 
         # A JPEG at /foo.jpg
         representation, ignore = self._representation(
@@ -4514,20 +4602,20 @@ class TestRepresentation(DatabaseTest):
         url = "http://example.com/1"
         representation, ignore = self._representation(url, "text/plain")
         filename = representation.default_filename()
-        eq_("1", filename)
+        eq_("1.txt", filename)
 
         # Again, file extension is always set based on media type.
         filename = representation.default_filename(destination_type="image/png")
         eq_("1.png", filename)
 
-        # In this case, don't have an extension registered for
-        # text/plain, so the extension is omitted.
-        filename = representation.default_filename(destination_type="text/plain")
+        # In this case, we don't have an extension registered for
+        # text/unknown, so the extension is omitted.
+        filename = representation.default_filename(destination_type="text/unknown")
         eq_("1", filename)
 
         # This URL has no path component, so we can't even come up with a
         # decent default filename. We have to go with 'resource'.
-        representation, ignore = self._representation("http://example.com/", "text/plain")
+        representation, ignore = self._representation("http://example.com/", "text/unknown")
         eq_('resource', representation.default_filename())
         eq_('resource.png', representation.default_filename(destination_type="image/png"))
 
@@ -4639,6 +4727,34 @@ class TestCoverResource(DatabaseTest):
         edition.set_cover(hyperlink.resource)
         eq_(mirror, edition.cover_full_url)
         eq_(mirror, edition.cover_thumbnail_url)
+
+    def test_set_cover_for_smallish_image_uses_full_sized_image_as_thumbnail(self):
+        edition, pool = self._edition(with_license_pool=True)
+        original = self._url
+        mirror = self._url
+        sample_cover_path = self.sample_cover_path("tiny-image-cover.png")
+        hyperlink, ignore = pool.add_link(
+            Hyperlink.IMAGE, original, edition.data_source, "image/png",
+            open(sample_cover_path).read())
+        full_rep = hyperlink.resource.representation
+        full_rep.mirror_url = mirror
+        full_rep.set_as_mirrored()
+
+        # For purposes of this test, pretend that the full-sized image is 
+        # larger than a thumbnail, but not terribly large.
+        hyperlink.resource.representation.image_height = Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT
+
+        edition.set_cover(hyperlink.resource)
+        eq_(mirror, edition.cover_full_url)
+        eq_(mirror, edition.cover_thumbnail_url)
+
+        # If the full-sized image had been slightly larger, we would have
+        # decided not to use a thumbnail at all.
+        hyperlink.resource.representation.image_height = Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT + 1
+        edition.cover_thumbnail_url = None
+        edition.set_cover(hyperlink.resource)
+        eq_(None, edition.cover_thumbnail_url)
+
 
     def test_attempt_to_scale_non_image_sets_scale_exception(self):
         rep, ignore = self._representation(media_type="text/plain", content="foo")
@@ -6652,7 +6768,33 @@ class TestCollection(DatabaseTest):
         # automatically updated.
         self.collection.protocol = bibliotheca
         eq_(bibliotheca, child.protocol)
-        
+
+    def test_data_source(self):
+        opds = self._collection()
+        bibliotheca = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
+
+        # The rote data_source is returned for the obvious collection.
+        eq_(DataSource.BIBLIOTHECA, bibliotheca.data_source.name)
+
+        # The less obvious OPDS collection doesn't have a DataSource.
+        eq_(None, opds.data_source)
+
+        # Trying to change the Bibliotheca collection's data_source does nothing.
+        bibliotheca.data_source = DataSource.AXIS_360
+        eq_(DataSource.BIBLIOTHECA, bibliotheca.data_source.name)
+
+        # Trying to change the opds collection's data_source is fine.
+        opds.data_source = DataSource.PLYMPTON
+        eq_(DataSource.PLYMPTON, opds.data_source.name)
+
+        # Resetting it to something else is fine.
+        opds.data_source = DataSource.OA_CONTENT_SERVER
+        eq_(DataSource.OA_CONTENT_SERVER, opds.data_source.name)
+
+        # Resetting it to None is fine.
+        opds.data_source = None
+        eq_(None, opds.data_source)
+
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
         about a Collection.
@@ -6723,6 +6865,15 @@ class TestCollection(DatabaseTest):
         expected = build_expected(ExternalIntegration.OPDS_IMPORT, 'id+%s' % child.external_account_id)
         eq_(expected, child.metadata_identifier)
 
+        # If it's an OPDS_IMPORT collection with a url external_account_id,
+        # closing '/' marks are removed.
+        opds = self._collection(
+            name='OPDS', protocol=ExternalIntegration.OPDS_IMPORT,
+            external_account_id=(self._url+'/')
+        )
+        expected = build_expected(ExternalIntegration.OPDS_IMPORT, opds.external_account_id[:-1])
+        eq_(expected, opds.metadata_identifier)
+
     def test_from_metadata_identifier(self):
         # If a mirrored collection doesn't exist, it is created.
         self.collection.external_account_id = 'id'
@@ -6731,7 +6882,9 @@ class TestCollection(DatabaseTest):
         )
         eq_(True, is_new)
         eq_(self.collection.metadata_identifier, mirror_collection.name)
-        eq_(self.collection.external_integration.protocol, mirror_collection.external_integration.protocol)
+        eq_(self.collection.protocol, mirror_collection.protocol)
+        # Because this isn't an OPDS collection, no account details are held.
+        eq_(None, mirror_collection.external_account_id)
 
         # If the mirrored collection already exists, it is returned.
         collection = self._collection(external_account_id=self._url)
@@ -6739,12 +6892,20 @@ class TestCollection(DatabaseTest):
             self._db, Collection,
             name=collection.metadata_identifier,
         )[0]
+        mirror_collection.create_external_integration(collection.protocol)
+        # Confirm that there's no external_account_id and no DataSource.
+        eq_(None, mirror_collection.external_account_id)
+        eq_(None, mirror_collection.data_source)
 
+        source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
         result, is_new = Collection.from_metadata_identifier(
-            self._db, collection.metadata_identifier
+            self._db, collection.metadata_identifier, data_source=source
         )
         eq_(False, is_new)
         eq_(mirror_collection, result)
+        # The external_account_id and data_source have been set now.
+        eq_(collection.external_account_id, mirror_collection.external_account_id)
+        eq_(source, mirror_collection.data_source)
 
     def test_catalog_identifier(self):
         """#catalog_identifier associates an identifier with the catalog"""

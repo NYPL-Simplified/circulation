@@ -45,7 +45,7 @@
     <updated>2015-01-02T16:56:40Z</updated>
     <published>2014-01-02T16:56:40Z</published>
     <simplified:pwid>9acabf17-cea8-c7dd-8440-f12dfa75caa9</simplified:pwid>
-    <link href="/full-cover-image.png" rel="http://opds-spec.org/image"/>
+    <link href="/full-cover-image" rel="http://opds-spec.org/image"/>
     <category term="Animals -- Juvenile poetry" scheme="http://purl.org/dc/terms/LCSH"/>
     <category term="Nursery rhymes" scheme="http://purl.org/dc/terms/LCSH"/>
     <category term="PZ" label="Juvenile Fiction" scheme="http://purl.org/dc/terms/LCC"/>

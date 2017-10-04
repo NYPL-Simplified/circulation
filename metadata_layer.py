@@ -410,6 +410,22 @@ class LinkData(object):
         # rather than each edition.
         self.rights_uri = rights_uri
 
+    @property
+    def guessed_media_type(self):
+        """If the media type of a link is unknown, take a guess."""
+        if self.media_type:
+            # We know.
+            return self.media_type
+
+        if self.href:
+            # Take a guess.
+            return Representation.guess_media_type(self.href)
+
+        # No idea.
+        # TODO: We might be able to take a further guess based on the
+        # content and the link relation.
+        return None
+
     def __repr__(self):
         if self.content:
             content = ", %d bytes content" % len(self.content)
@@ -1513,10 +1529,37 @@ class Metadata(MetaToModelUtility):
             if link.rel in Hyperlink.METADATA_ALLOWED:
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
-                    media_type=link.media_type,
+                    media_type=link.guessed_media_type,
                     content=link.content
                 )
             link_objects[link] = link_obj
+            if link.thumbnail:
+                if link.thumbnail.rel == Hyperlink.THUMBNAIL_IMAGE:
+                    thumbnail = link.thumbnail
+                    thumbnail_obj, ignore = identifier.add_link(
+                        rel=thumbnail.rel, href=thumbnail.href, 
+                        data_source=data_source, 
+                        media_type=thumbnail.guessed_media_type,
+                        content=thumbnail.content
+                    )
+                    if (thumbnail_obj.resource
+                        and thumbnail_obj.resource.representation):
+                        thumbnail_obj.resource.representation.thumbnail_of = (
+                            link_obj.resource.representation
+                        )
+                    else:
+                        self.log.error(
+                            "Thumbnail link %r cannot be marked as a thumbnail of %r because it has no Representation, probably due to a missing media type." % (
+                                link.thumbnail, link
+                            )
+                        )
+                else:
+                    self.log.error(
+                        "Thumbnail link %r does not have the thumbnail link relation! Not acceptable as a thumbnail of %r." % (
+                            link.thumbnail, link
+                        )
+                    )
+                    link.thumbnail = None
 
         # Apply all measurements to the primary identifier
         for measurement in self.measurements:
@@ -1576,6 +1619,32 @@ class Metadata(MetaToModelUtility):
                 # is associated with the original image.
                 self.make_thumbnail(data_source, link, link_obj)
 
+        # The metadata wrangler doesn't need information from these data sources.
+        # We don't need to send it information it originally provided, and
+        # Overdrive makes metadata accessible to everyone without buying licenses
+        # for the book, so the metadata wrangler can obtain it directly from
+        # Overdrive.
+        # TODO: Remove Bibliotheca and Axis 360 from this list.
+        METADATA_UPLOAD_BLACKLIST = [
+            DataSource.METADATA_WRANGLER,
+            DataSource.OVERDRIVE,
+            DataSource.BIBLIOTHECA,
+            DataSource.AXIS_360,
+        ]
+        if made_core_changes and (not data_source.integration_client) and (data_source.name not in METADATA_UPLOAD_BLACKLIST):
+            # Create a transient failure CoverageRecord for this edition
+            # so it will be processed by the MetadataUploadCoverageProvider.
+            internal_processing = DataSource.lookup(_db, DataSource.INTERNAL_PROCESSING)
+
+            # If there's already a CoverageRecord, don't change it to transient failure.
+            # TODO: Once the metadata wrangler can handle it, we'd like to re-sync the
+            # metadata every time there's a change. For now,
+            cr = CoverageRecord.lookup(edition, internal_processing,
+                                       operation=CoverageRecord.METADATA_UPLOAD_OPERATION)
+            if not cr:
+                CoverageRecord.add_for(edition, internal_processing,
+                                       operation=CoverageRecord.METADATA_UPLOAD_OPERATION,
+                                       status=CoverageRecord.TRANSIENT_FAILURE)
 
         # Finally, update the coverage record for this edition
         # and data source.
