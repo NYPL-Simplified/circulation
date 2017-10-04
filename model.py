@@ -8745,6 +8745,7 @@ class CustomList(Base):
     created = Column(DateTime, index=True)
     updated = Column(DateTime, index=True)
     responsible_party = Column(Unicode)
+    library_id = Column(Integer, ForeignKey('libraries.id'), index=True, nullable=True)
 
     entries = relationship(
         "CustomListEntry", backref="customlist", lazy="joined")
@@ -9158,6 +9159,11 @@ class Library(Base, HasFullTableCache):
     cachedfeeds = relationship(
         "CachedFeed", backref="library",
         cascade="save-update, merge, delete, delete-orphan",
+    )
+
+    # A Library may have many CustomLists.
+    custom_lists = relationship(
+        "CustomList", backref="library", lazy='joined',
     )
     
     # A Library may have many ExternalIntegrations.
