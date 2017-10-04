@@ -273,6 +273,61 @@ class TestNoveListAPI(DatabaseTest):
         eq_(False, self.novelist._confirm_same_identifier([metadata, mistake]))
         eq_(True, self.novelist._confirm_same_identifier([metadata, match]))
 
+    def test_lookup_equivalent_isbns(self):
+        identifier = self._identifier(identifier_type=Identifier.OVERDRIVE_ID)
+        api = MockNoveListAPI.from_config(self._default_library)
+
+        # If there are no ISBN equivalents, it returns None.
+        eq_(None, api.lookup_equivalent_isbns(identifier))
+
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        identifier.equivalent_to(source, self._identifier(), strength=1)
+        self._db.commit()
+        eq_(None, api.lookup_equivalent_isbns(identifier))
+
+        # If there's an ISBN equivalent, but it doesn't result in metadata,
+        # it returns none.
+        isbn = self._identifier(identifier_type=Identifier.ISBN)
+        identifier.equivalent_to(source, isbn, strength=1)
+        self._db.commit()
+        api.responses.append(None)
+        eq_(None, api.lookup_equivalent_isbns(identifier))
+
+        # Create an API class that can mockout NoveListAPI.choose_best_metadata
+        class MockBestMetadataAPI(MockNoveListAPI):
+            choose_best_metadata_return = None
+            def choose_best_metadata(self, *args, **kwargs):
+                return self.choose_best_metadata_return
+        api = MockBestMetadataAPI.from_config(self._default_library)
+
+        # Give the identifier another ISBN equivalent.
+        isbn2 = self._identifier(identifier_type=Identifier.ISBN)
+        identifier.equivalent_to(source, isbn2, strength=1)
+        self._db.commit()
+
+        # Queue metadata responses for each ISBN lookup.
+        metadatas = [object(), object()]
+        api.responses.extend(metadatas)
+
+        # If choose_best_metadata returns None, the lookup returns None.
+        api.choose_best_metadata_return = (None, None)
+        eq_(None, api.lookup_equivalent_isbns(identifier))
+
+        # Lookup was performed for both ISBNs.
+        eq_([], api.responses)
+
+        # If choose_best_metadata returns a low confidence metadata, the
+        # lookup returns None.
+        api.responses.extend(metadatas)
+        api.choose_best_metadata_return = (metadatas[0], 0.33)
+        eq_(None, api.lookup_equivalent_isbns(identifier))
+
+        # If choose_best_metadata returns a high confidence metadata, the
+        # lookup returns the metadata.
+        api.responses.extend(metadatas)
+        api.choose_best_metadata_return = (metadatas[1], 0.67)
+        eq_(metadatas[1], api.lookup_equivalent_isbns(identifier))
+
     def test_choose_best_metadata(self):
         more_identifier = self._identifier(identifier_type=Identifier.NOVELIST_ID)
         less_identifier = self._identifier(identifier_type=Identifier.NOVELIST_ID)
@@ -280,12 +335,14 @@ class TestNoveListAPI(DatabaseTest):
 
         # When only one Metadata object is given, that object is returned.
         result = self.novelist.choose_best_metadata(metadatas, self._identifier())
-        eq_(True, isinstance(result, Metadata))
-        eq_(metadatas[0], self.novelist.choose_best_metadata(metadatas, self._identifier()))
+        eq_(True, isinstance(result, tuple))
+        eq_(metadatas[0], result[0])
+        # A default confidence of 1.0 is returned.
+        eq_(1.0, result[1])
 
         # When top identifiers have equal representation, the method returns none.
         metadatas.append(Metadata(DataSource.NOVELIST, primary_identifier=less_identifier))
-        eq_(None, self.novelist.choose_best_metadata(metadatas, self._identifier()))
+        eq_((None, None), self.novelist.choose_best_metadata(metadatas, self._identifier()))
 
         # But when one pulls ahead, we get the metadata object again.
         metadatas.append(Metadata(DataSource.NOVELIST, primary_identifier=more_identifier))
@@ -308,7 +365,7 @@ class TestNoveListCoverageProvider(DatabaseTest):
         )
 
         self.novelist = NoveListCoverageProvider(self._db)
-        self.novelist.api = MockNoveListAPI()
+        self.novelist.api = MockNoveListAPI.from_config(self._default_library)
 
         self.metadata = Metadata(
             data_source = self.novelist.data_source,
