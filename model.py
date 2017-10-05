@@ -4599,6 +4599,21 @@ class Work(Base):
             )
         ).alias('works_alias')
 
+        # This subquery gets Collection IDs.
+        collections = select(
+            [LicensePool.collection_id]
+        ).where(
+            LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name)
+        ).alias("collections_subquery")
+
+        # Create a json array from the set of Collections.
+        collections_json = select(
+            [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(collections.name)
+                        )))]
+        ).select_from(collections)
 
         # This subquery gets Contributors, filtered on edition_id.
         contributors = select(
@@ -4745,6 +4760,7 @@ class Work(Base):
              works_alias.c.popularity,
 
              # Here are all the subqueries.
+             collections_json.label("collections"),
              contributors_json.label("contributors"),
              subjects_json.label("classifications"),
              genres_json.label('genres'),

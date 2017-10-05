@@ -270,14 +270,25 @@ class ExternalSearchIndex(object):
 
         return base_works_index
 
-    def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
+    def query_works(self, library, query_string, media, languages, exclude_languages, fiction, audience,
                     age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
         if not self.works_alias:
             return []
 
+        if library is None:
+            # TODO: We're searching the entire index and filtering out
+            # books that aren't available to the patron's current
+            # library in a later step. To avoid search disruption,
+            # this is the behavior we'll use until we're able to
+            # migrate all existing search indexes to the new document
+            # format.
+            collection_ids = None
+        else:
+            collection_ids = [x.id for x in library.collections]
+
         filter = self.make_filter(
-            media, languages, exclude_languages, fiction, audience,
-            age_range, in_any_of_these_genres
+            collection_ids, media, languages, exclude_languages, fiction, 
+            audience, age_range, in_any_of_these_genres
         )
         q = dict(
             filtered=dict(
@@ -521,13 +532,15 @@ class ExternalSearchIndex(object):
             }
         }
         
-    def make_filter(self, media, languages, exclude_languages, fiction, audience, age_range, genres):
+    def make_filter(self, collection_ids, media, languages, exclude_languages, fiction, audience, age_range, genres):
         def _f(s):
             if not s:
                 return s
             return s.lower().replace(" ", "")
 
         clauses = []
+        if collection_ids is not None:
+            clauses.append(dict(terms=dict(collection_id=list(collection_ids))))
         if languages:
             clauses.append(dict(terms=dict(language=list(languages))))
         if exclude_languages:

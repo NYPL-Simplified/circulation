@@ -2920,6 +2920,17 @@ class TestWork(DatabaseTest):
         edition, pool = self._edition(authors=[self._str, self._str], with_license_pool=True)
         work = self._work(presentation_edition=edition)
 
+        # Create a second Collection that has a different LicensePool
+        # for the same Work.
+        collection2 = self._collection()
+        self._default_library.collections.append(collection2)
+        pool2 = self._licensepool(edition=edition, collection=collection2)
+        pool2.work_id = work.id
+
+        # Create a third Collection that's just hanging around, not
+        # doing anything.
+        collection3 = self._collection()
+
         # These are the edition's authors.
         [contributor1] = [c.contributor for c in edition.contributions if c.role == Contributor.PRIMARY_AUTHOR_ROLE]
         contributor1.family_name = self._str
@@ -2997,6 +3008,13 @@ class TestWork(DatabaseTest):
         eq_(work.quality, search_doc['quality'])
         eq_(work.rating, search_doc['rating'])
         eq_(work.popularity, search_doc['popularity'])
+
+        # Each collection in which the Work is found is listed in
+        # the 'collections' section.
+        collections = search_doc['collections']
+        eq_(2, len(collections))
+        for collection in self._default_library.collections:
+            assert dict(collection_id=collection.id) in collections
 
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
