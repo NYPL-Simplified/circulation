@@ -283,7 +283,10 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
             self.pride_audio.set_presentation_ready()
 
-            self.sherlock = _work(title="The Adventures of Sherlock Holmes")
+            self.sherlock = _work(
+                title="The Adventures of Sherlock Holmes", 
+                with_open_access_download=True
+            )
             self.sherlock.presentation_edition.language = "en"
             self.sherlock.set_presentation_ready()
 
@@ -291,14 +294,25 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             self.sherlock_spanish.presentation_edition.language = "es"
             self.sherlock_spanish.set_presentation_ready()
 
-            # Create a second collection that only contains one book.
-            self.tiny_collection = self._collection()
+            # Create a second collection that only contains a few books.
+            self.tiny_collection = self._collection("A Tiny Collection")
             self.tiny_book = self._work(
                 title="A Tiny Book", with_license_pool=True, 
                 collection=self.tiny_collection
             )
             self.tiny_book.set_presentation_ready()
 
+            # Both collections contain 'The Adventures of Sherlock
+            # Holmes", but each collection licenses the book through a
+            # different mechanism.
+            self.sherlock_pool_2 = self._licensepool(
+                edition=self.sherlock.presentation_edition,
+                collection=self.tiny_collection
+            )
+
+            sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
+            eq_(self.sherlock, sherlock_2)
+            eq_(2, len(self.sherlock.license_pools))
             time.sleep(2)
 
     def test_query_works(self):
@@ -732,6 +746,55 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
 
+        # Although the English edition of 'The Adventures of Sherlock
+        # Holmes' is available through two different collections
+        # associated with the default library, it only shows up once
+        # in search results.
+        results = query(
+            "sherlock holmes", None, ['en'], None, None, 
+            None, None, None
+        )
+        hits = results['hits']['hits']
+        eq_(1, len(hits))
+        [doc] = hits
+
+        # When the second English LicensePool for 'The Adventures of
+        # Sherlock Holmes' was associated with its Work, the Work was
+        # automatically reindexed to incorporate with a new set of
+        # collection IDs.
+        collections = [x['collection_id'] for x in doc['_source']['collections']]
+        expect_collections = [
+            self.tiny_collection.id, self._default_collection.id
+        ]
+        eq_(set(collections), set(expect_collections))
+
+
+        # Now let's do something that never happens in real life -- move 
+        # a book from one collection to another.
+        #
+        # Here's a tiny library with a tiny collection.
+        tiny_library = self._library()
+        tiny_library.collections.append(self.tiny_collection)
+        self._default_library.collections.remove(self.tiny_collection)
+
+        # It doesn't have Moby-Dick.
+        results = self.search.query_works(
+            tiny_library, "moby", None, None, None, None, None, None, None
+        )
+        eq_(0, len(results['hits']['hits']))
+
+        # Move Moby-Dick from one collection to another...
+        self.moby_dick.license_pools[0].collection = self.tiny_collection
+
+        # Now the tiny library has it, and the default library doesn't.
+        default_results = self.search.query_works(
+            self._default_library, "moby", None, None, None, None, None, None, None
+        )
+
+        tiny_results = self.search.query_works(
+            tiny_library, "moby", None, None, None, None, None, None, None
+        )
+        set_trace()
 
 class TestSearchQuery(DatabaseTest):
     def test_make_query(self):
@@ -890,6 +953,22 @@ class TestSearchQuery(DatabaseTest):
 
 
 class TestSearchFilterFromLane(DatabaseTest):
+
+    def test_make_filter_handles_collection_id(self):
+        search = DummyExternalSearchIndex()
+
+        lane = Lane(
+            self._db, self._default_library, "anything", 
+        )
+        collection_ids = [x.id for x in lane.library.collections]
+        filter = search.make_filter(
+            collection_ids,
+            lane.media, lane.languages, lane.exclude_languages,
+            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.genre_ids,
+        )
+        collection_filter, medium_filter = filter['and']
+        eq_(collection_filter['terms'], dict(collection_id=collection_ids))
         
     def test_query_works_from_lane_definition_handles_age_range(self):
         search = DummyExternalSearchIndex()
