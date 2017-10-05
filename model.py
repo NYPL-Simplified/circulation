@@ -4603,9 +4603,7 @@ class Work(Base):
         collections = select(
             [LicensePool.collection_id]
         ).where(
-            LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name
-        ).select_from(
-            LicensePool
+            LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name)
         ).alias("collections_subquery")
 
         # Create a json array from the set of Collections.
@@ -4613,7 +4611,7 @@ class Work(Base):
             [func.array_to_json(
                     func.array_agg(
                         func.row_to_json(
-                            literal_column(collections.id)
+                            literal_column(collections.name)
                         )))]
         ).select_from(collections)
 
