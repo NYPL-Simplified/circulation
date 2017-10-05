@@ -830,6 +830,8 @@ class CustomListsController(CirculationManagerController):
             name = flask.request.form.get("name")
             entries = flask.request.form.get("entries")
 
+            old_list_with_name = CustomList.find(self._db, data_source, name, library)
+
             if id:
                 is_new = False
                 list = get_one(self._db, CustomList, id=int(id), data_source=data_source)
@@ -837,6 +839,10 @@ class CustomListsController(CirculationManagerController):
                     return MISSING_CUSTOM_LIST
                 if list.library != library:
                     return CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST
+                if old_list_with_name and old_list_with_name != list:
+                    return CUSTOM_LIST_NAME_ALREADY_IN_USE
+            elif old_list_with_name:
+                return CUSTOM_LIST_NAME_ALREADY_IN_USE
             else:
                 list, is_new = create(self._db, CustomList, name=name, data_source=data_source)
                 list.created = datetime.now()

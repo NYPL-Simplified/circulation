@@ -1123,6 +1123,24 @@ class TestCustomListsController(AdminControllerTest):
             response = self.manager.admin_custom_lists_controller.custom_lists()
             eq_(CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST, response)
 
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", list.name),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
+
+        l1, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
+        l2, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", l2.id),
+                ("name", l1.name),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
+
     def test_custom_lists_create(self):
         work = self._work(with_open_access_download=True)
 

@@ -268,3 +268,9 @@ CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST = pd(
     detail=_("A custom list's associated library cannot be changed once it is set.."),
 )
 
+CUSTOM_LIST_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/custom-list-name-already-in-use",
+    status_code=400,
+    title=_("Custom list name already in use"),
+    detail=_("The library already has a custom list with that name."),
+)
