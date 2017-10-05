@@ -1283,8 +1283,11 @@ class Lane(object):
             docs = None
             a = time.time()
             try:
+                # TODO: once we migrate all existing search indexes,
+                # the first argument should become the Library associated
+                # with this Lane.
                 docs = search_client.query_works(
-                    query, search_lane.media, search_lane.languages, search_lane.exclude_languages,
+                    None, query, search_lane.media, search_lane.languages, search_lane.exclude_languages,
                     fiction, list(search_lane.audiences), search_lane.age_range,
                     search_lane.genre_ids,
                     fields=["_id", "title", "author", "license_pool_id"],
