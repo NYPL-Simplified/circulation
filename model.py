@@ -8763,7 +8763,7 @@ class CustomList(Base):
 
     __table_args__ = (
         UniqueConstraint('data_source_id', 'foreign_identifier'),
-        UniqueConstraint('data_source_id', 'name'),
+        UniqueConstraint('data_source_id', 'name', 'library_id'),
     )
 
     # TODO: It should be possible to associate a CustomList with an
