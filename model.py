@@ -8787,7 +8787,7 @@ class CustomList(Base):
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
 
     @classmethod
-    def find(cls, _db, source, foreign_identifier_or_name):
+    def find(cls, _db, source, foreign_identifier_or_name, library=None):
         """Finds a foreign list in the database by its foreign_identifier
         or its name.
         """
@@ -8796,10 +8796,16 @@ class CustomList(Base):
             source_name = source.name
         foreign_identifier = unicode(foreign_identifier_or_name)
 
-        custom_lists = _db.query(cls).join(CustomList.data_source).filter(
+        qu = _db.query(cls).join(CustomList.data_source).filter(
             DataSource.name==unicode(source_name),
             or_(CustomList.foreign_identifier==foreign_identifier,
-                CustomList.name==foreign_identifier)).all()
+                CustomList.name==foreign_identifier))
+        if library:
+            qu = qu.filter(CustomList.library_id==library.id)
+        else:
+            qu = qu.filter(CustomList.library_id==None)
+
+        custom_lists = qu.all()
 
         if not custom_lists:
             return None
