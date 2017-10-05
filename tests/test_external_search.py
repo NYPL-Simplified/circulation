@@ -769,33 +769,6 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         eq_(set(collections), set(expect_collections))
 
 
-        # Now let's do something that never happens in real life -- move 
-        # a book from one collection to another.
-        #
-        # Here's a tiny library with a tiny collection.
-        tiny_library = self._library()
-        tiny_library.collections.append(self.tiny_collection)
-        self._default_library.collections.remove(self.tiny_collection)
-
-        # It doesn't have Moby-Dick.
-        results = self.search.query_works(
-            tiny_library, "moby", None, None, None, None, None, None, None
-        )
-        eq_(0, len(results['hits']['hits']))
-
-        # Move Moby-Dick from one collection to another...
-        self.moby_dick.license_pools[0].collection = self.tiny_collection
-
-        # Now the tiny library has it, and the default library doesn't.
-        default_results = self.search.query_works(
-            self._default_library, "moby", None, None, None, None, None, None, None
-        )
-
-        tiny_results = self.search.query_works(
-            tiny_library, "moby", None, None, None, None, None, None, None
-        )
-        set_trace()
-
 class TestSearchQuery(DatabaseTest):
     def test_make_query(self):
 
