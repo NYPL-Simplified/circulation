@@ -1091,7 +1091,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(one_entry.name, l1.get("name"))
             eq_(1, len(l1.get("entries")))
             [entry] = l1.get("entries")
-            eq_(edition.primary_identifier.urn, entry.get("id"))
+            eq_(edition.permanent_work_id, entry.get("pwid"))
             eq_(edition.title, entry.get("title"))
             eq_(2, len(entry.get("authors")))
             eq_(set([c1.display_name, c2.display_name]),
@@ -1110,15 +1110,6 @@ class TestCustomListsController(AdminControllerTest):
             response = self.manager.admin_custom_lists_controller.custom_lists()
             eq_(MISSING_CUSTOM_LIST, response)
 
-        edition = self._edition()
-        with self.request_context_with_library("/", method='POST'):
-            flask.request.form = MultiDict([
-                ("name", "name"),
-                ("entries", json.dumps([dict(id=edition.primary_identifier.urn)])),
-            ])
-            response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(CANNOT_ADD_CUSTOM_LIST_ENTRY_WITHOUT_LICENSEPOOL, response)
-
         library = self._library()
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
@@ -1133,12 +1124,12 @@ class TestCustomListsController(AdminControllerTest):
             eq_(CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST, response)
 
     def test_custom_lists_create(self):
-        edition, pool = self._edition(with_license_pool=True)
+        work = self._work(with_open_access_download=True)
 
         with self.request_context_with_library("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "List"),
-                ("entries", json.dumps([dict(id=edition.primary_identifier.urn)])),
+                ("entries", json.dumps([dict(pwid=work.presentation_edition.permanent_work_id)])),
             ])
 
             response = self.manager.admin_custom_lists_controller.custom_lists()
@@ -1148,7 +1139,8 @@ class TestCustomListsController(AdminControllerTest):
             eq_(self._default_library, list.library)
             eq_("List", list.name)
             eq_(1, len(list.entries))
-            eq_(edition, list.entries[0].edition)
+            eq_(work, list.entries[0].work)
+            eq_(work.presentation_edition, list.entries[0].edition)
             eq_(True, list.entries[0].featured)
 
     def test_custom_lists_edit(self):
@@ -1156,13 +1148,13 @@ class TestCustomListsController(AdminControllerTest):
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
         list.library = self._default_library
 
-        e1, ignore = self._edition(with_license_pool=True)
-        e2, ignore = self._edition(with_license_pool=True)
-        e3, ignore = self._edition(with_license_pool=True)
-        list.add_entry(e1)
-        list.add_entry(e2)
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+        list.add_entry(w1)
+        list.add_entry(w2)
 
-        new_entries = [dict(id=edition.primary_identifier.urn) for edition in [e2, e3]]
+        new_entries = [dict(pwid=work.presentation_edition.permanent_work_id) for work in [w2, w3]]
         
         with self.request_context_with_library("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1175,8 +1167,8 @@ class TestCustomListsController(AdminControllerTest):
             eq_(200, response.status_code)
 
             eq_("new name", list.name)
-            eq_(set([e2, e3]),
-                set([entry.edition for entry in list.entries]))
+            eq_(set([w2, w3]),
+                set([entry.work for entry in list.entries]))
 
 class TestDashboardController(AdminControllerTest):
 

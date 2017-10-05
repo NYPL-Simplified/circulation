@@ -818,7 +818,7 @@ class CustomListsController(CirculationManagerController):
             for list in library.custom_lists:
                 entries = []
                 for entry in list.entries:
-                    entries.append(dict(id=entry.edition.primary_identifier.urn,
+                    entries.append(dict(pwid=entry.edition.permanent_work_id,
                                         title=entry.edition.title,
                                         authors=[author.display_name for author in entry.edition.author_contributors],
                                         ))
@@ -852,29 +852,16 @@ class CustomListsController(CirculationManagerController):
 
             old_entries = list.entries
             for entry in entries:
-                identifier, ignore = Identifier.parse_urn(self._db, entry.get("id"))
-                pools = self._db.query(
-                    LicensePool
-                ).join(
-                    LicensePool.collection
-                ).join(
-                    LicensePool.identifier
-                ).join(
-                    Collection.libraries
-                ).filter(
-                    Identifier.id==identifier.id
-                ).filter(
-                    Library.id==library.id
-                ).all()
-                if not pools:
-                    return CANNOT_ADD_CUSTOM_LIST_ENTRY_WITHOUT_LICENSEPOOL
+                pwid = entry.get("pwid")
+                edition = get_one(self._db, Edition,
+                                  on_multiple='interchangeable',
+                                  permanent_work_id=pwid)
+                if edition and edition.work:
+                    list.add_entry(edition.work, featured=True)
 
-                edition = pools[0].presentation_edition
-                list.add_entry(edition, featured=True)
-
-            new_urns = [entry.get("id") for entry in entries]
+            new_pwids = [entry.get("pwid") for entry in entries]
             for entry in old_entries:
-                if entry.edition.primary_identifier.urn not in new_urns:
+                if entry.edition.permanent_work_id not in new_pwids:
                     list.remove_entry(entry.edition)
 
             if is_new:

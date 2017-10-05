@@ -268,9 +268,3 @@ CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST = pd(
     detail=_("A custom list's associated library cannot be changed once it is set.."),
 )
 
-CANNOT_ADD_CUSTOM_LIST_ENTRY_WITHOUT_LICENSEPOOL = pd(
-    "http://librarysimplified.org/terms/problem/cannot-add-entry-without-licensepool",
-    status_code=400,
-    title=_("Cannot add custom list entry without license pool."),
-    detail=_("You can't add an entry without a license pool to a custom list."),
-)
