@@ -286,7 +286,7 @@ class MembershipManager(object):
                 # This is a new list entry.
                 self.log.debug("Adding %s" % new_edition.title)
                 self.custom_list.add_entry(
-                    edition=new_edition, first_appearance=update_time
+                    work_or_edition=new_edition, first_appearance=update_time
                 )
 
         # Anything still left in current_membership used to be in the
