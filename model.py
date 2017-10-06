@@ -4353,6 +4353,19 @@ class Work(Base):
         )
 
 
+    def external_index_needs_updating(self):
+        """Mark this work as needing to have its search document reindexed.
+        
+        This can be used when it's not possible to reindex the Work
+        immediately, e.g. because the new state of the Work is not known,
+        or because there is no current reference to the search index.
+        """
+        record, is_new = WorkCoverageRecord.add_for(
+            self, operation=WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+            status=CoverageRecord.REGISTERED
+        )
+        return record
+
     def update_external_index(self, client, add_coverage_record=True):
         if not client:
             from external_search import ExternalSearchIndex
@@ -4599,11 +4612,15 @@ class Work(Base):
             )
         ).alias('works_alias')
 
-        # This subquery gets Collection IDs.
+        # This subquery gets Collection IDs for collections
+        # that own more than zero licenses for this book.
         collections = select(
             [LicensePool.collection_id]
         ).where(
-            LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name)
+            and_(
+                LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name),
+                or_(LicensePool.open_access, LicensePool.licenses_owned>0)
+            )
         ).alias("collections_subquery")
 
         # Create a json array from the set of Collections.
@@ -10721,6 +10738,50 @@ def site_configuration_has_changed(_db, timeout=1):
         Configuration.site_configuration_last_update(
             _db, known_value=now
         )
+
+# Certain ORM events, however they occur, indicate that a work's
+# external index needs updating.
+
+@event.listens_for(LicensePool, 'after_delete')
+def licensepool_deleted(mapper, connection, target):
+    """A LicensePool should never be deleted, but if it is, we need to
+    keep the search index up to date.
+    """
+    work = target.work
+    if work:
+        record = work.external_index_needs_updating()
+
+@event.listens_for(LicensePool.licenses_owned, 'set')
+def licenses_owned_change(target, value, oldvalue, initiator):
+    """A Work may need to have its search document re-indexed if one of 
+    its LicensePools changes the number of licenses_owned to or from zero.
+    """
+    work = target.work
+    if not work:
+        return
+    if target.open_access:
+        # For open-access works, the licenses_owned value doesn't
+        # matter.
+        return
+    if (value == oldvalue) or (value > 0 and oldvalue > 0):
+        # The availability of this LicensePool has not changed. No need
+        # to reindex anything.
+        return
+    work.external_index_needs_updating()
+
+@event.listens_for(LicensePool.open_access, 'set')
+def licensepool_open_access_change(target, value, oldvalue, initiator):
+    """A Work may need to have its search document re-indexed if one of 
+    its LicensePools changes its open-access status.
+
+    This shouldn't ever happen.
+    """
+    work = target.work
+    if not work:
+        return
+    if value == oldvalue:
+        return
+    work.external_index_needs_updating()
 
             
 # Most of the time, we can know whether a change to the database is

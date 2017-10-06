@@ -3066,6 +3066,74 @@ class TestWork(DatabaseTest):
         work.target_age = NumericRange(None, 8, '[]')
         eq_("8", work.target_age_string)
 
+    def test_reindex_on_availability_change(self):
+        """A change in a LicensePool's availability creates a 
+        WorkCoverageRecord indicating that the work needs to be
+        re-indexed.
+        """
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        def find_record(work):
+            """Find the Work's 'update search index operation' 
+            WorkCoverageRecord.
+            """
+            records = [
+                x for x in work.coverage_records 
+                if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            ]
+            if records:
+                return records[0]
+            return None
+        registered = WorkCoverageRecord.REGISTERED
+        success = WorkCoverageRecord.SUCCESS
+
+        # The work starts off with no relevant WorkCoverageRecord.
+        eq_(None, find_record(work))
+
+        # If it stops being open-access, it needs to be reindexed.
+        pool.open_access = False
+        record = find_record(work)
+        eq_(registered, record.status)
+
+        # If its licenses_owned goes from zero to nonzero, it needs to
+        # be reindexed.
+        record.status = success
+        pool.licenses_owned = 10
+        pool.licenses_available = 10
+        eq_(registered, record.status)
+
+        # If its licenses_owned changes, but not to zero, nothing happens.
+        record.status = success
+        pool.licenses_owned = 1
+        eq_(success, record.status)
+
+        # If its licenses_available changes, nothing happens
+        pool.licenses_available = 0
+        eq_(success, record.status)
+
+        # If its licenses_owned goes from nonzero to zero, it needs to
+        # be reindexed.
+        pool.licenses_owned = 0
+        eq_(registered, record.status)
+
+        # If it becomes open-access again, it needs to be reindexed.
+        record.status = success
+        pool.open_access = True
+        eq_(registered, record.status)
+
+        # If a LicensePool is deleted, its former Work needs to be
+        # reindexed.
+        record.status = success
+        self._db.delete(pool)
+        work = self._db.query(Work).one()
+        record = find_record(work)
+
+        # TODO: This assertion fails. The record we end up is the same Python
+        # object as the record obtained in the licensepool_deleted listener,
+        # but its timestamp is earlier and its .status is 'success'.
+        # Basically, it's the record as it existed just before the delete()
+        # statement. I can't figure out why this happens.
+        eq_(registered, record.status)
 
 class TestCirculationEvent(DatabaseTest):
 
