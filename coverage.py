@@ -102,6 +102,8 @@ class BaseCoverageProvider(object):
 
     # In your subclass, you _may_ set this to a string that distinguishes
     # two different CoverageProviders from the same data source.
+    # (You may also override the get_operation() method, if you need 
+    # database access to determine which operation to use.)
     OPERATION = None
     
     # The database session will be committed each time the
@@ -127,7 +129,7 @@ class BaseCoverageProvider(object):
                 "%s must define SERVICE_NAME." % self.__class__.__name__
             )
         service_name = self.__class__.SERVICE_NAME
-        self.operation = self.OPERATION
+        self.operation = self.get_operation()
         
         if self.operation:
             service_name += ' (%s)' % self.operation
@@ -152,6 +154,13 @@ class BaseCoverageProvider(object):
         if not self.collection_id:
             return None
         return get_one(self._db, Collection, id=self.collection_id)
+
+    def get_operation(self):
+        """Which operation should this CoverageProvider use to
+        distinguish between multiple CoverageRecords from the same data
+        source?
+        """
+        return self.OPERATION
     
     def run(self):
         self.run_once_and_update_timestamp()

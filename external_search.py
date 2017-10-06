@@ -16,6 +16,10 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
+from coverage import (
+    CoverageFailure,
+    WorkCoverageProvider,
+)
 import os
 import logging
 import re
@@ -647,9 +651,12 @@ class ExternalSearchIndex(object):
         )
 
         # If the entire update failed, try it one more time before giving up on the batch.
-        if retry_on_batch_failure and len(errors) == len(docs):
-            self.log.info("Elasticsearch bulk update timed out, trying again.")
-            return self.bulk_update(works, retry_on_batch_failure=False)
+        if len(errors) == len(docs):
+            if retry_on_batch_failure:
+                self.log.info("Elasticsearch bulk update timed out, trying again.")
+                return self.bulk_update(works, retry_on_batch_failure=False)
+            else:
+                docs = []
 
         time3 = time.time()
         self.log.info("Created %i search documents in %.2f seconds" % (len(docs), time2 - time1))
@@ -659,14 +666,15 @@ class ExternalSearchIndex(object):
         
         # We weren't able to create search documents for these works, maybe
         # because they don't have presentation editions yet.
-        missing_works = [work for work in works if work.id not in doc_ids]
-            
-        error_ids = [
-            error.get('data', {}).get("_id", None) or
-            error.get('index', {}).get('_id', None)
-            for error in errors
-        ]
+        def get_error_id(error):
+            return error.get('data', {}).get('_id', None) or error.get('index', {}).get('_id', None)   
+        error_ids = [get_error_id(error) for error in errors]
 
+        missing_works = [
+            work for work in works 
+            if work.id not in doc_ids and work.id not in error_ids
+        ]
+            
         successes = [work for work in works if work.id in doc_ids and work.id not in error_ids]
 
         failures = []
@@ -677,8 +685,8 @@ class ExternalSearchIndex(object):
                 failures.append((work, "Work not indexed"))
 
         for error in errors:
-            error_id = error.get('data', {}).get('_id', None) or error.get('index', {}).get('_id', None)
-
+            
+            error_id = get_error_id(error)
             work = None
             works_with_error = [work for work in works if work.id == error_id]
             if works_with_error:
@@ -825,3 +833,40 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         for doc in docs:
             self.index(doc['_index'], doc['_type'], doc['_id'], doc)
         return len(docs), []
+
+
+class SearchIndexCoverageProvider(WorkCoverageProvider):
+    """Make sure all Works have up-to-date representation in the
+    search index.
+    """
+
+    SERVICE_NAME = 'Search index coverage provider'
+
+    DEFAULT_BATCH_SIZE = 500
+
+    def __init__(self, *args, **kwargs):
+        search_index_client = kwargs.pop('search_index_client', None)
+        super(SearchIndexCoverageProvider, self).__init__(*args, **kwargs)
+        self.search_index_client = (
+            search_index_client or ExternalSearchIndex(self._db)
+        )
+
+    def get_operation(self):
+        return ExternalSearchIndex.search_index_update_operation(self._db)
+
+    def process_batch(self, works):
+        """:return: A 2-tuple (counts, records). 
+
+        `counts` is a 3-tuple (successes, transient failures,
+        persistent_failures).
+
+        `records` is a mixed list of Works and CoverageFailure objects.
+        """
+        successes, failures = self.search_index_client.bulk_update(works)
+        counts = (len(successes), len(failures), 0)
+
+        records = list(successes)
+        for (work, error) in failures:
+            records.append(CoverageFailure(work, error))
+
+        return counts, records

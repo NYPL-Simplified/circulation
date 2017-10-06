@@ -20,6 +20,7 @@ from external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
     DummyExternalSearchIndex,
+    SearchIndexCoverageProvider,
 )
 from classifier import Classifier
 
@@ -1059,3 +1060,54 @@ class TestSearchErrors(ExternalSearchTest):
         eq_(1, len(failures))
         eq_(failing_work, failures[0][0])
         eq_("There was an error!", failures[0][1])
+
+
+class TestSearchIndexCoverageProvider(DatabaseTest):
+
+    def test_operation(self):
+        index = DummyExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(
+            self._db, search_index_client=index
+        )
+        eq_(ExternalSearchIndex.search_index_update_operation(self._db),
+            provider.operation)
+
+    def test_success(self):
+        work = self._work()
+        index = DummyExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(
+            self._db, search_index_client=index
+        )
+        counts, results = provider.process_batch([work])
+
+        # We got one success and no failures.
+        eq_((1,0,0), counts)
+        eq_([work], results)
+
+        # The work was added to the search index.
+        eq_(1, len(index.docs))
+
+    def test_failure(self):
+        class DoomedExternalSearchIndex(DummyExternalSearchIndex):
+            """All documents sent to this index will fail."""
+            def bulk(self, docs, **kwargs):                
+                return 0, [
+                    dict(data=dict(_id=failing_work['_id']),
+                         error="There was an error!",
+                         exception="Exception")
+                    for failing_work in docs
+                ]
+
+        work = self._work()
+        index = DoomedExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(
+            self._db, search_index_client=index
+        )
+        counts, results = provider.process_batch([work])
+
+        # We have one transient failure.
+        eq_((0,1,0), counts)
+        [record] = results
+        eq_(work, record.obj)
+        eq_(True, record.transient)
+        eq_('There was an error!', record.exception)
