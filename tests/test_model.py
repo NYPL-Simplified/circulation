@@ -2922,6 +2922,7 @@ class TestWork(DatabaseTest):
 
         # Create a second Collection that has a different LicensePool
         # for the same Work.
+        collection1 = self._default_collection
         collection2 = self._collection()
         self._default_library.collections.append(collection2)
         pool2 = self._licensepool(edition=edition, collection=collection2)
@@ -3051,6 +3052,30 @@ class TestWork(DatabaseTest):
         target_age_doc = search_doc['target_age']
         eq_(work.target_age.lower, target_age_doc['lower'])
         eq_(work.target_age.upper, target_age_doc['upper'])
+
+        # Each collection in which the Work is found is listed in
+        # the 'collections' section.
+        collections = search_doc['collections']
+        eq_(2, len(collections))
+        for collection in self._default_library.collections:
+            assert dict(collection_id=collection.id) in collections
+
+        # If the book stops being available through a collection
+        # (because its LicensePool loses all its licenses or stops
+        # being open access), that collection will not be listed
+        # in the search document.
+        [pool] = collection1.licensepools
+        pool.licenses_owned = 0
+        self._db.commit()
+        search_doc = work.to_search_document()
+        eq_([dict(collection_id=collection2.id)], search_doc['collections'])
+
+        # If the book becomes available again, the collection will
+        # start showing up again.
+        pool.open_access = True
+        self._db.commit()
+        search_doc = work.to_search_document()
+        eq_(2, len(search_doc['collections']))
 
     def test_target_age_string(self):
         work = self._work()
