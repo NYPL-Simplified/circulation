@@ -16,11 +16,14 @@ docker exec -u postgres pg psql -c "create database docker_test;";
 docker exec -u postgres pg psql -c "grant all privileges on database docker_prod to simplified;";
 docker exec -u postgres pg psql -c "grant all privileges on database docker_test to simplified;";
 
+pghost=$(docker inspect pg --format="{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}")
+echo $pghost
+
 # Create a base and deployment container with this tag.
 docker run -d -p 80:80 \
-  -e SIMPLIFIED_DB_TASK='init' \
-  -e SIMPLIFIED_TEST_DATABASE='postgres://simplified:test@172.17.0.2:5432/docker_test' \
-  -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://simplified:test@172.17.0.2:5432/docker_prod' \
+  -e SIMPLIFIED_DB_TASK="init" \
+  -e SIMPLIFIED_TEST_DATABASE="postgres://simplified:test@${pghost}:5432/docker_test" \
+  -e SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:test@${pghost}:5432/docker_prod" \
   --name circ --rm "$IMAGE_NAME" 
 
 # Run the tests in the container.
