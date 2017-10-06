@@ -104,7 +104,7 @@ class ExternalSearchIndex(object):
                 )
             url = url or integration.url
             if not works_index:
-                works_index = cls.works_index(_db)
+                works_index = cls.works_index_name(_db)
         if not url:
             raise CannotLoadConfiguration(
                 "No URL configured to Elasticsearch server."
