@@ -11,7 +11,11 @@ from classifier import (
     GradeLevelClassifier,
     AgeClassifier,
 )
-from model import ExternalIntegration, Work
+from model import (
+    ExternalIntegration, 
+    Work,
+    WorkCoverageRecord,
+)
 import os
 import logging
 import re
@@ -48,6 +52,35 @@ class ExternalSearchIndex(object):
         """
         cls.__client = None
 
+    @classmethod
+    def search_index_update_operation(cls, _db):
+        """Determine the current name of the WorkCoverageRecord operation that
+        denotes "this work needs to be updated in the search index".
+
+        Because the name of the search index changes over time,
+        so does the name of the operation.
+        """
+        index_name = cls.works_index_name(_db) or ''
+        return (WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+                + '-' + index_name)
+
+    @classmethod
+    def search_integration(cls, _db):
+        """Look up the ExternalIntegration for ElasticSearch."""
+        return ExternalIntegration.lookup(
+            _db, ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL
+        )
+
+    @classmethod
+    def works_index_name(cls, _db):
+        """Look up the name of the search index."""
+        integration = cls.search_integration(_db)
+        if not integration:
+            return None
+        setting = integration.setting(self.WORKS_INDEX_KEY)
+        works_index = setting.value_or_default(self.DEFAULT_WORKS_INDEX)
+
     def __init__(self, _db, url=None, works_index=None):
     
         self.log = logging.getLogger("External search index")
@@ -60,21 +93,14 @@ class ExternalSearchIndex(object):
                 "Cannot load Elasticsearch configuration without a database.",
             )
         if not url or not works_index:
-            integration = ExternalIntegration.lookup(
-                _db, ExternalIntegration.ELASTICSEARCH,
-                goal=ExternalIntegration.SEARCH_GOAL
-            )
-
+            integration = cls.search_integration(_db)
             if not integration:
                 raise CannotLoadConfiguration(
                     "No Elasticsearch integration configured."
                 )
             url = url or integration.url
             if not works_index:
-                setting = integration.setting(self.WORKS_INDEX_KEY)
-                works_index = setting.value_or_default(
-                    self.DEFAULT_WORKS_INDEX
-                )
+                works_index = cls.works_index(_db)
         if not url:
             raise CannotLoadConfiguration(
                 "No URL configured to Elasticsearch server."

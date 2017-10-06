@@ -4352,17 +4352,17 @@ class Work(Base):
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
 
-
     def external_index_needs_updating(self):
         """Mark this work as needing to have its search document reindexed.
-        
-        This can be used when it's not possible to reindex the Work
-        immediately, e.g. because the new state of the Work is not known,
-        or because there is no current reference to the search index.
+
+        This is a more efficient alternative to reindexing immediately,
+        since these WorkCoverageRecords are handled in large batches.
         """
+        _db = Session.object_session(self)
+        from external_search import ExternalSearchIndex
+        operation = ExternalSearchIndex.search_index_update_operation(_db)
         record, is_new = WorkCoverageRecord.add_for(
-            self, operation=WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
-            status=CoverageRecord.REGISTERED
+            self, operation=operation, status=CoverageRecord.REGISTERED
         )
         return record
 
@@ -10022,6 +10022,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         
     @hybrid_property
     def value(self):
+
         """What's the current value of this configuration setting?
         
         If not present, the value may be inherited from some other

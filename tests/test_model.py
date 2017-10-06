@@ -3104,7 +3104,9 @@ class TestWork(DatabaseTest):
             """
             records = [
                 x for x in work.coverage_records 
-                if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+                if x.operation.startswith(
+                        WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+                )
             ]
             if records:
                 return records[0]
@@ -3152,12 +3154,6 @@ class TestWork(DatabaseTest):
         self._db.delete(pool)
         work = self._db.query(Work).one()
         record = find_record(work)
-
-        # TODO: This assertion fails. The record we end up is the same Python
-        # object as the record obtained in the licensepool_deleted listener,
-        # but its timestamp is earlier and its .status is 'success'.
-        # Basically, it's the record as it existed just before the delete()
-        # statement. I can't figure out why this happens.
         eq_(registered, record.status)
 
 class TestCirculationEvent(DatabaseTest):
