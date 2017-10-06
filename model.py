@@ -8848,10 +8848,14 @@ class CustomList(Base):
         identifiers = [ed.primary_identifier for ed in editions]
         return Work.from_identifiers(_db, identifiers)
 
-    def add_entry(self, edition, annotation=None, first_appearance=None,
+    def add_entry(self, work_or_edition, annotation=None, first_appearance=None,
                   featured=None):
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
+
+        edition = work_or_edition
+        if isinstance(work_or_edition, Work):
+            edition = work_or_edition.presentation_edition
 
         existing = list(self.entries_for_work(edition))
         if existing:
@@ -8883,11 +8887,15 @@ class CustomList(Base):
 
         return entry, was_new
 
-    def remove_entry(self, edition):
-        """Remove the entry for a particular Edition and/or any of its
+    def remove_entry(self, work_or_edition):
+        """Remove the entry for a particular Work or Edition and/or any of its
         equivalent Editions.
         """
         _db = Session.object_session(self)
+
+        edition = work_or_edition
+        if isinstance(work_or_edition, Work):
+            edition = work_or_edition.presentation_edition
 
         existing_entries = list(self.entries_for_work(edition))
         for entry in existing_entries:

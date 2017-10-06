@@ -5855,6 +5855,14 @@ class TestCustomList(DatabaseTest):
         eq_(worked_edition, worked_entry.edition)
         eq_(True, worked_entry.first_appearance > now)
 
+        # A work can create an entry.
+        work = self._work(with_open_access_download=True)
+        work_entry, is_new = custom_list.add_entry(work)
+        eq_(True, is_new)
+        eq_(work.presentation_edition, work_entry.edition)
+        eq_(work, work_entry.work)
+        eq_(True, work_entry.first_appearance > now)
+
         # Annotations can be passed to the entry.
         annotated_edition = self._edition()
         annotated_entry = custom_list.add_entry(
@@ -5908,14 +5916,14 @@ class TestCustomList(DatabaseTest):
         eq_(lp.work, equivalent_entry.work)
 
     def test_remove_entry(self):
-        custom_list, editions = self._customlist(num_entries=2)
-        [first, second] = editions
+        custom_list, editions = self._customlist(num_entries=3)
+        [first, second, third] = editions
         now = datetime.datetime.utcnow()
 
         # An entry is removed if its edition is passed in.
         custom_list.remove_entry(first)
-        eq_(1, len(custom_list.entries))
-        eq_(second, custom_list.entries[0].edition)
+        eq_(2, len(custom_list.entries))
+        eq_(set([second, third]), set([entry.edition for entry in custom_list.entries]))
         # And CustomList.updated is changed.
         eq_(True, custom_list.updated > now)
 
@@ -5927,6 +5935,13 @@ class TestCustomList(DatabaseTest):
             equivalent.data_source, equivalent.primary_identifier, 1
         )
         custom_list.remove_entry(second)
+        eq_(1, len(custom_list.entries))
+        eq_(third, custom_list.entries[0].edition)
+        eq_(True, custom_list.updated > previous_list_update_time)
+
+        # An entry is also removed if its work is passed in.
+        previous_list_update_time = custom_list.updated
+        custom_list.remove_entry(third.work)
         eq_([], custom_list.entries)
         eq_(True, custom_list.updated > previous_list_update_time)
 
