@@ -1128,6 +1128,11 @@ class OPDSImporter(object):
             cls.extract_link(link_tag, feed_url, rights_uri)
             for link_tag in parser._xpath(entry_tag, 'atom:link')
         ])
+
+        series_tag = parser._xpath(entry_tag, 'schema:Series')
+        if series_tag:
+            data['series'], data['series_position'] = cls.extract_series(series_tag[0])
+
         return data
 
     @classmethod
@@ -1339,6 +1344,12 @@ class OPDSImporter(object):
         except ValueError:
             return None
 
+    @classmethod
+    def extract_series(cls, series_tag):
+        attr = series_tag.attrib
+        series_name = attr.get('{http://schema.org/}name', None)
+        series_position = attr.get('{http://schema.org/}position', None)
+        return series_name, series_position
 
 class OPDSImportMonitor(CollectionMonitor):
 
