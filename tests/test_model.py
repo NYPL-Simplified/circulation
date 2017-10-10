@@ -5884,6 +5884,17 @@ class TestCustomList(DatabaseTest):
         result = CustomList.find(self._db, source.name, 'My List')
         eq_(custom_list, result)
 
+        # By default, we only find lists with no associated Library.
+        # If we look for a list from a library, there isn't one.
+        result = CustomList.find(self._db, source, 'My List', library=self._default_library)
+        eq_(None, result)
+
+        # If we add the Library to the list, it's returned.
+        custom_list.library = self._default_library
+        result = CustomList.find(self._db, source, 'My List', library=self._default_library)
+        eq_(custom_list, result)
+        
+
     def test_add_entry(self):
         custom_list = self._customlist(num_entries=0)[0]
         now = datetime.datetime.utcnow()
