@@ -24,10 +24,13 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("URL") },
         { "key": PORT, "label": _("Port") },
-        { "key": ExternalIntegration.USERNAME, "label": _("Login User ID") },
-        { "key": ExternalIntegration.PASSWORD, "label": _("Login Password") },
-        { "key": LOCATION_CODE, "label": _("Location Code") },
-        { "key": FIELD_SEPARATOR, "label": _("Field Separator") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Login User ID"), "optional": True },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Login Password"), "optional": True },
+        { "key": LOCATION_CODE, "label": _("Location Code"), "optional": True },
+        { "key": FIELD_SEPARATOR, "label": _("Field Separator"),
+          "optional": True,
+          "default": "|",
+        },
     ] + BasicAuthenticationProvider.SETTINGS
     
     # Map the reasons why SIP2 might report a patron is blocked to the
