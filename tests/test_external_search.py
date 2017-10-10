@@ -949,7 +949,7 @@ class TestSearchFilterFromLane(DatabaseTest):
         )
         collection_filter, medium_filter = filter['and']
         expect = [
-            {'term': {'collection_id': collection_ids}},
+            {'terms': {'collection_id': collection_ids}},
             {'bool': {'must_not': {'exists': {'field': 'collection_id'}}}}
         ]
         eq_(expect, collection_filter['or'])
