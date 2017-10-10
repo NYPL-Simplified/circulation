@@ -3148,8 +3148,15 @@ class TestWork(DatabaseTest):
         pool.open_access = True
         eq_(registered, record.status)
 
-        # If a LicensePool is deleted, its former Work needs to be
-        # reindexed.
+        # If its collection changes (which shouldn't happen), it needs
+        # to be reindexed.
+        record.status = success
+        collection2 = self._collection()
+        pool.collection_id = collection2.id
+        eq_(registered, record.status)
+
+        # If a LicensePool is deleted (which also shouldn't happen),
+        # its former Work needs to be reindexed.
         record.status = success
         self._db.delete(pool)
         work = self._db.query(Work).one()

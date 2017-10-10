@@ -10760,6 +10760,19 @@ def licensepool_deleted(mapper, connection, target):
     if work:
         record = work.external_index_needs_updating()
 
+@event.listens_for(LicensePool.collection_id, 'set')
+def licensepool_collection_change(target, value, oldvalue, initiator):
+    """A LicensePool should never change collections, but if it is,
+    we need to keep the search index up to date.
+    """
+    work = target.work
+    if not work:
+        return
+    if value == oldvalue:
+        return
+    work.external_index_needs_updating()
+
+
 @event.listens_for(LicensePool.licenses_owned, 'set')
 def licenses_owned_change(target, value, oldvalue, initiator):
     """A Work may need to have its search document re-indexed if one of 

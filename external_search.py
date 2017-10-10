@@ -855,12 +855,8 @@ class SearchIndexCoverageProvider(WorkCoverageProvider):
         return ExternalSearchIndex.search_index_update_operation(self._db)
 
     def process_batch(self, works):
-        """:return: A 2-tuple (counts, records). 
-
-        `counts` is a 3-tuple (successes, transient failures,
-        persistent_failures).
-
-        `records` is a mixed list of Works and CoverageFailure objects.
+        """
+        :return: a mixed list of Works and CoverageFailure objects.
         """
         successes, failures = self.search_index_client.bulk_update(works)
 
