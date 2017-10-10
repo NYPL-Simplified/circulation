@@ -2443,7 +2443,7 @@ class TestWork(DatabaseTest):
             WorkCoverageRecord.SUMMARY_OPERATION,
             WorkCoverageRecord.QUALITY_OPERATION,
             WorkCoverageRecord.GENERATE_OPDS_OPERATION,
-            WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + index.works_index,
+            WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
         ])
         eq_(expect, set([x.operation for x in records]))
         
