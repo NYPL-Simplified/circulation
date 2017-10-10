@@ -4359,8 +4359,7 @@ class Work(Base):
         since these WorkCoverageRecords are handled in large batches.
         """
         _db = Session.object_session(self)
-        from external_search import ExternalSearchIndex
-        operation = ExternalSearchIndex.search_index_update_operation(_db)
+        operation = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
         record, is_new = WorkCoverageRecord.add_for(
             self, operation=operation, status=CoverageRecord.REGISTERED
         )
@@ -4400,7 +4399,7 @@ class Work(Base):
                 client.delete(**args)
         if add_coverage_record and present_in_index:
             WorkCoverageRecord.add_for(
-                self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
+                self, operation=WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
             )
         return present_in_index
 
