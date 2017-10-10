@@ -57,18 +57,6 @@ class ExternalSearchIndex(object):
         cls.__client = None
 
     @classmethod
-    def search_index_update_operation(cls, _db):
-        """Determine the current name of the WorkCoverageRecord operation that
-        denotes "this work needs to be updated in the search index".
-
-        Because the name of the search index changes over time,
-        so does the name of the operation.
-        """
-        index_name = cls.works_index_name(_db) or ''
-        return (WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
-                + '-' + index_name)
-
-    @classmethod
     def search_integration(cls, _db):
         """Look up the ExternalIntegration for ElasticSearch."""
         return ExternalIntegration.lookup(
@@ -844,15 +832,14 @@ class SearchIndexCoverageProvider(WorkCoverageProvider):
 
     DEFAULT_BATCH_SIZE = 500
 
+    OPERATION = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+
     def __init__(self, *args, **kwargs):
         search_index_client = kwargs.pop('search_index_client', None)
         super(SearchIndexCoverageProvider, self).__init__(*args, **kwargs)
         self.search_index_client = (
             search_index_client or ExternalSearchIndex(self._db)
         )
-
-    def get_operation(self):
-        return ExternalSearchIndex.search_index_update_operation(self._db)
 
     def process_batch(self, works):
         """
