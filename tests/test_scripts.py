@@ -65,6 +65,7 @@ from scripts import (
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
     RunMonitorScript,
+    RunWorkCoverageProviderScript,
     Script,
     ShowCollectionsScript,
     ShowIntegrationsScript,
@@ -74,6 +75,7 @@ from scripts import (
 from testing import(
     AlwaysSuccessfulBibliographicCoverageProvider,
     BrokenBibliographicCoverageProvider,
+    AlwaysSuccessfulWorkCoverageProvider,
 )
 from monitor import (
     CollectionMonitor,
@@ -441,7 +443,7 @@ class TestLibraryInputScript(DatabaseTest):
         eq_(True, l1.processed)
         eq_(False, l2.processed)
 
-        
+
 class TestRunCoverageProviderScript(DatabaseTest):
 
     def test_parse_command_line(self):
@@ -454,6 +456,18 @@ class TestRunCoverageProviderScript(DatabaseTest):
         eq_(datetime.datetime(2016, 5, 1), parsed.cutoff_time)
         eq_([identifier], parsed.identifiers)
         eq_(identifier.type, parsed.identifier_type)
+
+
+class TestRunWorkCoverageProviderScript(DatabaseTest):
+
+    def test_constructor(self):
+        script = RunWorkCoverageProviderScript(
+            AlwaysSuccessfulWorkCoverageProvider, _db=self._db,
+            batch_size=123
+        )
+        [provider] = script.providers
+        assert isinstance(provider, AlwaysSuccessfulWorkCoverageProvider)
+        eq_(123, provider.batch_size)
 
         
 class TestWorkProcessingScript(DatabaseTest):
