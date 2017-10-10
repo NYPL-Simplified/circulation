@@ -562,7 +562,7 @@ class ExternalSearchIndex(object):
             # missing (as it will be in older indexes) or it must
             # include one of the collection IDs we're looking for.
             collection_id_matches = dict(
-                term=dict(collection_id=list(collection_ids))
+                terms=dict(collection_id=list(collection_ids))
             )
             no_collection_id = dict(
                 bool=dict(must_not=dict(exists=dict(field="collection_id")))
