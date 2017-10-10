@@ -3163,6 +3163,29 @@ class TestWork(DatabaseTest):
         record = find_record(work)
         eq_(registered, record.status)
 
+
+    def test_update_external_index(self):
+        work = self._work()
+        work.presentation_ready = True
+        records = [
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        index = DummyExternalSearchIndex()
+        work.update_external_index(index)
+
+        # The work was added to the search index.
+        eq_([work.to_search_document()], index.docs.values())
+
+        # A WorkCoverageRecord was created to memorialize the work done.
+        [record] = [
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        eq_(WorkCoverageRecord.SUCCESS, record.status)
+
+        
+
 class TestCirculationEvent(DatabaseTest):
 
     def _event_data(self, **kwargs):
