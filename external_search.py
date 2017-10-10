@@ -558,7 +558,16 @@ class ExternalSearchIndex(object):
 
         clauses = []
         if collection_ids is not None:
-            clauses.append(dict(terms=dict(collection_id=list(collection_ids))))
+            # Either the collection ID field must be completely
+            # missing (as it will be in older indexes) or it must
+            # include one of the collection IDs we're looking for.
+            collection_id_matches = dict(
+                term=dict(collection_id=list(collection_ids))
+            )
+            no_collection_id = dict(
+                bool=dict(must_not=dict(exists=dict(field="collection_id")))
+            )
+            clauses.append({'or': [collection_id_matches, no_collection_id]})
         if languages:
             clauses.append(dict(terms=dict(language=list(languages))))
         if exclude_languages:

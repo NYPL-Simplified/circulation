@@ -15,6 +15,7 @@ from lane import Lane
 from model import (
     Edition,
     ExternalIntegration,
+    WorkCoverageRecord,
 )
 from external_search import (
     ExternalSearchIndex,
@@ -947,7 +948,11 @@ class TestSearchFilterFromLane(DatabaseTest):
             lane.genre_ids,
         )
         collection_filter, medium_filter = filter['and']
-        eq_(collection_filter['terms'], dict(collection_id=collection_ids))
+        expect = [
+            {'term': {'collection_id': collection_ids}},
+            {'bool': {'must_not': {'exists': {'field': 'collection_id'}}}}
+        ]
+        eq_(expect, collection_filter['or'])
         
     def test_query_works_from_lane_definition_handles_age_range(self):
         search = DummyExternalSearchIndex()
@@ -1074,7 +1079,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
         )
-        eq_(ExternalSearchIndex.search_index_update_operation(self._db),
+        eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
             provider.operation)
 
     def test_success(self):
