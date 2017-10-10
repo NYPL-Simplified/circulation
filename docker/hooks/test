@@ -16,8 +16,9 @@ docker exec -u postgres pg psql -c "create database docker_test;";
 docker exec -u postgres pg psql -c "grant all privileges on database docker_prod to simplified;";
 docker exec -u postgres pg psql -c "grant all privileges on database docker_test to simplified;";
 
+# Find the Postgres host IP address dynamically.
 pghost=$(docker inspect pg --format="{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}")
-echo $pghost
+echo "Postgres IP: $pghost"
 
 # Create a base and deployment container with this tag.
 docker run -d -p 80:80 \
