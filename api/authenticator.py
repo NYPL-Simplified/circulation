@@ -1197,7 +1197,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
           "description": _("A valid identifier that can be used to test that patron authentication is working."),
           "optional": True,
         },
-        { "key": TEST_PASSWORD, "label": _("Test Password"), "description": _("The password for the test identifier.") 
+        { "key": TEST_PASSWORD, "label": _("Test Password"), "description": _("The password for the test identifier."),
           "optional": True,
         },
         { "key": IDENTIFIER_REGULAR_EXPRESSION,
