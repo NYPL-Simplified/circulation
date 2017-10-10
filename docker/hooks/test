@@ -1,0 +1,52 @@
+#!/bin/bash
+
+set -ex
+
+# Create a container with test and production postgres databases.
+docker pull postgres:9.5;
+docker run -d --name pg postgres:9.5;
+
+# Sleep to let PostgreSQL start up.
+sleep 10;
+
+# Create production and test databases.
+docker exec -u postgres pg psql -c "create user simplified with password 'test';";
+docker exec -u postgres pg psql -c "create database docker_prod;";
+docker exec -u postgres pg psql -c "create database docker_test;";
+docker exec -u postgres pg psql -c "grant all privileges on database docker_prod to simplified;";
+docker exec -u postgres pg psql -c "grant all privileges on database docker_test to simplified;";
+
+# Find the Postgres host IP address dynamically.
+pghost=$(docker inspect pg --format="{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}")
+echo "Postgres IP: $pghost"
+
+# Create a base and deployment container with this tag.
+docker run -d -p 80:80 \
+  -e SIMPLIFIED_DB_TASK="init" \
+  -e SIMPLIFIED_TEST_DATABASE="postgres://simplified:test@${pghost}:5432/docker_test" \
+  -e SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:test@${pghost}:5432/docker_prod" \
+  --name circ --rm "$IMAGE_NAME" 
+
+# Run the tests in the container.
+docker exec -u simplified circ /bin/bash \
+  -c "cd ~/circulation && source env/bin/activate && ./verbose-test && cd core && ./test -v";
+
+# If this is a scripts container, there's nothing more to be done. 
+if [[ ${IMAGE_NAME} == *"scripts"* ]]; then exit 0; fi
+
+# If this is a webapp container, create a library so the app will start.
+docker exec -u postgres pg psql -U simplified -d docker_prod \
+  -c "insert into libraries(name, short_name, uuid, is_default) values ('default', 'default', '1234', 't');";
+
+# Check to make sure the deployed app is running.
+healthcheck=$(curl --write-out "%{http_code}" --silent --output /dev/null http://localhost/healthcheck.html);
+if ! [[ ${healthcheck} == '200' ]]; then exit 1; fi
+
+# And it's showing an OPDS feed.
+feed_type=$(curl --write-out "%{content_type}" --silent --output /dev/null http://localhost/groups);
+if ! [[ ${feed_type} == 'application/atom+xml;profile=opds-catalog;kind=acquisition' ]]; then\
+  exit 1;
+fi
+
+exit 0;
+
