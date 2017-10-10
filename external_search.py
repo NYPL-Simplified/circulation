@@ -82,8 +82,8 @@ class ExternalSearchIndex(object):
         integration = cls.search_integration(_db)
         if not integration:
             return None
-        setting = integration.setting(self.WORKS_INDEX_KEY)
-        works_index = setting.value_or_default(self.DEFAULT_WORKS_INDEX)
+        setting = integration.setting(cls.WORKS_INDEX_KEY)
+        return setting.value_or_default(cls.DEFAULT_WORKS_INDEX)
 
     def __init__(self, _db, url=None, works_index=None):
     
@@ -97,14 +97,14 @@ class ExternalSearchIndex(object):
                 "Cannot load Elasticsearch configuration without a database.",
             )
         if not url or not works_index:
-            integration = cls.search_integration(_db)
+            integration = self.search_integration(_db)
             if not integration:
                 raise CannotLoadConfiguration(
                     "No Elasticsearch integration configured."
                 )
             url = url or integration.url
             if not works_index:
-                works_index = cls.works_index_name(_db)
+                works_index = self.works_index_name(_db)
         if not url:
             raise CannotLoadConfiguration(
                 "No URL configured to Elasticsearch server."
@@ -863,10 +863,9 @@ class SearchIndexCoverageProvider(WorkCoverageProvider):
         `records` is a mixed list of Works and CoverageFailure objects.
         """
         successes, failures = self.search_index_client.bulk_update(works)
-        counts = (len(successes), len(failures), 0)
 
         records = list(successes)
         for (work, error) in failures:
             records.append(CoverageFailure(work, error))
 
-        return counts, records
+        return records

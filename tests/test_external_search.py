@@ -64,6 +64,11 @@ class ExternalSearchTest(DatabaseTest):
 
 class TestExternalSearch(ExternalSearchTest):
 
+    def test_works_index_name(self):
+        if not self.search:
+            return
+        eq_("test_index-v0", self.search.works_index_name(self._db))
+
     def test_setup_index_creates_new_index(self):
         if not self.search:
             return
@@ -1078,10 +1083,9 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
         )
-        counts, results = provider.process_batch([work])
+        results = provider.process_batch([work])
 
         # We got one success and no failures.
-        eq_((1,0,0), counts)
         eq_([work], results)
 
         # The work was added to the search index.
@@ -1103,10 +1107,9 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
         )
-        counts, results = provider.process_batch([work])
+        results = provider.process_batch([work])
 
         # We have one transient failure.
-        eq_((0,1,0), counts)
         [record] = results
         eq_(work, record.obj)
         eq_(True, record.transient)
