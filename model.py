@@ -574,14 +574,27 @@ def get_one_or_create(db, model, create_method='',
             __transaction.rollback()
             return db.query(model).filter_by(**kwargs).one(), False
 
+def flush(db):
+    """Flush the database connection unless it's known to already be flushing."""
+    is_flushing = False
+    if hasattr(db, '_flushing'):
+        # This is a regular database session.
+        is_flushing = db._flushing
+    elif hasattr(db, 'registry'):
+        # This is a flask_scoped_session scoped session.
+        is_flushing = db.registry()._flushing
+    else:
+        logging.error("Unknown database connection type: %r", db)
+    if not is_flushing:
+        db.flush()
+
 def create(db, model, create_method='',
            create_method_kwargs=None,
            **kwargs):
     kwargs.update(create_method_kwargs or {})
     created = getattr(model, create_method, model)(**kwargs)
     db.add(created)
-    if not db._flushing:
-        db.flush()
+    flush(db)
     return created, True
 
 Base = declarative_base()
@@ -2325,8 +2338,7 @@ class Contributor(Base):
                 try:
                     contributor = Contributor(**create_method_kwargs)
                     _db.add(contributor)
-                    if not _db._flushing:
-                        _db.flush()
+                    flush(_db)
                     contributors = [contributor]
                     new = True
                 except IntegrityError:
@@ -3957,8 +3969,7 @@ class Work(Base):
             cover.reject()
             if len(cover.cover_editions) > 1:
                 editions += cover.cover_editions
-        if not _db._flushing:
-            _db.flush()
+        flush(_db)
 
         editions = list(set(editions))
         if editions:
@@ -4252,8 +4263,7 @@ class Work(Base):
         if (changed or policy.update_search_index) and not exclude_search:
             # Ensure new changes are reflected in database queries
             _db = Session.object_session(self)
-            if not _db._flushing:
-                _db.flush()
+            flush(_db)
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
@@ -6209,8 +6219,7 @@ class CachedFeed(Base):
     def update(self, _db, content):
         self.content = content
         self.timestamp = datetime.datetime.utcnow()
-        if not _db._flushing:
-            _db.flush()
+        flush(_db)
 
     def __repr__(self):
         if self.content:
@@ -7093,8 +7102,7 @@ class LicensePool(Base):
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
-            if not _db._flushing:
-                _db.flush()
+            flush(_db)
             licensepools_changed = True
 
         # Associate this LicensePool and its Edition with the work we
@@ -10559,8 +10567,7 @@ class Collection(Base, HasFullTableCache):
         """Inserts an identifier into a catalog"""
         if identifier not in self.catalog:
             self.catalog.append(identifier)
-            if not _db._flushing:
-                _db.flush()
+            flush(_db)
 
     def works_updated_since(self, _db, timestamp):
         """Returns all works in a collection's catalog that have been updated
