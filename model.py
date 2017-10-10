@@ -574,13 +574,27 @@ def get_one_or_create(db, model, create_method='',
             __transaction.rollback()
             return db.query(model).filter_by(**kwargs).one(), False
 
+def flush(db):
+    """Flush the database connection unless it's known to already be flushing."""
+    is_flushing = False
+    if hasattr(db, '_flushing'):
+        # This is a regular database session.
+        is_flushing = db._flushing
+    elif hasattr(db, 'registry'):
+        # This is a flask_scoped_session scoped session.
+        is_flushing = db.registry()._flushing
+    else:
+        logging.error("Unknown database connection type: %r", db)
+    if not is_flushing:
+        db.flush()
+
 def create(db, model, create_method='',
            create_method_kwargs=None,
            **kwargs):
     kwargs.update(create_method_kwargs or {})
     created = getattr(model, create_method, model)(**kwargs)
     db.add(created)
-    db.flush()
+    flush(db)
     return created, True
 
 Base = declarative_base()
@@ -2324,7 +2338,7 @@ class Contributor(Base):
                 try:
                     contributor = Contributor(**create_method_kwargs)
                     _db.add(contributor)
-                    _db.flush()
+                    flush(_db)
                     contributors = [contributor]
                     new = True
                 except IntegrityError:
@@ -3955,7 +3969,7 @@ class Work(Base):
             cover.reject()
             if len(cover.cover_editions) > 1:
                 editions += cover.cover_editions
-        _db.flush()
+        flush(_db)
 
         editions = list(set(editions))
         if editions:
@@ -4249,7 +4263,7 @@ class Work(Base):
         if (changed or policy.update_search_index) and not exclude_search:
             # Ensure new changes are reflected in database queries
             _db = Session.object_session(self)
-            _db.flush()
+            flush(_db)
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
@@ -4352,6 +4366,18 @@ class Work(Base):
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
 
+    def external_index_needs_updating(self):
+        """Mark this work as needing to have its search document reindexed.
+
+        This is a more efficient alternative to reindexing immediately,
+        since these WorkCoverageRecords are handled in large batches.
+        """
+        _db = Session.object_session(self)
+        operation = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        record, is_new = WorkCoverageRecord.add_for(
+            self, operation=operation, status=CoverageRecord.REGISTERED
+        )
+        return record
 
     def update_external_index(self, client, add_coverage_record=True):
         if not client:
@@ -4387,7 +4413,7 @@ class Work(Base):
                 client.delete(**args)
         if add_coverage_record and present_in_index:
             WorkCoverageRecord.add_for(
-                self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
+                self, operation=WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
             )
         return present_in_index
 
@@ -4599,11 +4625,15 @@ class Work(Base):
             )
         ).alias('works_alias')
 
-        # This subquery gets Collection IDs.
+        # This subquery gets Collection IDs for collections
+        # that own more than zero licenses for this book.
         collections = select(
             [LicensePool.collection_id]
         ).where(
-            LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name)
+            and_(
+                LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name),
+                or_(LicensePool.open_access, LicensePool.licenses_owned>0)
+            )
         ).alias("collections_subquery")
 
         # Create a json array from the set of Collections.
@@ -6189,7 +6219,7 @@ class CachedFeed(Base):
     def update(self, _db, content):
         self.content = content
         self.timestamp = datetime.datetime.utcnow()
-        _db.flush()
+        flush(_db)
 
     def __repr__(self):
         if self.content:
@@ -7072,7 +7102,7 @@ class LicensePool(Base):
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
-            _db.flush()
+            flush(_db)
             licensepools_changed = True
 
         # Associate this LicensePool and its Edition with the work we
@@ -10005,6 +10035,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         
     @hybrid_property
     def value(self):
+
         """What's the current value of this configuration setting?
         
         If not present, the value may be inherited from some other
@@ -10536,7 +10567,7 @@ class Collection(Base, HasFullTableCache):
         """Inserts an identifier into a catalog"""
         if identifier not in self.catalog:
             self.catalog.append(identifier)
-            _db.flush()
+            flush(_db)
 
     def works_updated_since(self, _db, timestamp):
         """Returns all works in a collection's catalog that have been updated
@@ -10729,6 +10760,63 @@ def site_configuration_has_changed(_db, timeout=1):
         Configuration.site_configuration_last_update(
             _db, known_value=now
         )
+
+# Certain ORM events, however they occur, indicate that a work's
+# external index needs updating.
+
+@event.listens_for(LicensePool, 'after_delete')
+def licensepool_deleted(mapper, connection, target):
+    """A LicensePool should never be deleted, but if it is, we need to
+    keep the search index up to date.
+    """
+    work = target.work
+    if work:
+        record = work.external_index_needs_updating()
+
+@event.listens_for(LicensePool.collection_id, 'set')
+def licensepool_collection_change(target, value, oldvalue, initiator):
+    """A LicensePool should never change collections, but if it is,
+    we need to keep the search index up to date.
+    """
+    work = target.work
+    if not work:
+        return
+    if value == oldvalue:
+        return
+    work.external_index_needs_updating()
+
+
+@event.listens_for(LicensePool.licenses_owned, 'set')
+def licenses_owned_change(target, value, oldvalue, initiator):
+    """A Work may need to have its search document re-indexed if one of 
+    its LicensePools changes the number of licenses_owned to or from zero.
+    """
+    work = target.work
+    if not work:
+        return
+    if target.open_access:
+        # For open-access works, the licenses_owned value doesn't
+        # matter.
+        return
+    if (value == oldvalue) or (value > 0 and oldvalue > 0):
+        # The availability of this LicensePool has not changed. No need
+        # to reindex anything.
+        return
+    work.external_index_needs_updating()
+
+@event.listens_for(LicensePool.open_access, 'set')
+def licensepool_open_access_change(target, value, oldvalue, initiator):
+    """A Work may need to have its search document re-indexed if one of 
+    its LicensePools changes its open-access status.
+
+    This shouldn't ever happen.
+    """
+    work = target.work
+    if not work:
+        return
+    if value == oldvalue:
+        return
+    work.external_index_needs_updating()
 
             
 # Most of the time, we can know whether a change to the database is

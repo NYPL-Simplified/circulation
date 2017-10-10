@@ -2443,7 +2443,7 @@ class TestWork(DatabaseTest):
             WorkCoverageRecord.SUMMARY_OPERATION,
             WorkCoverageRecord.QUALITY_OPERATION,
             WorkCoverageRecord.GENERATE_OPDS_OPERATION,
-            WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + index.works_index,
+            WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
         ])
         eq_(expect, set([x.operation for x in records]))
         
@@ -2922,6 +2922,7 @@ class TestWork(DatabaseTest):
 
         # Create a second Collection that has a different LicensePool
         # for the same Work.
+        collection1 = self._default_collection
         collection2 = self._collection()
         self._default_library.collections.append(collection2)
         pool2 = self._licensepool(edition=edition, collection=collection2)
@@ -3052,6 +3053,30 @@ class TestWork(DatabaseTest):
         eq_(work.target_age.lower, target_age_doc['lower'])
         eq_(work.target_age.upper, target_age_doc['upper'])
 
+        # Each collection in which the Work is found is listed in
+        # the 'collections' section.
+        collections = search_doc['collections']
+        eq_(2, len(collections))
+        for collection in self._default_library.collections:
+            assert dict(collection_id=collection.id) in collections
+
+        # If the book stops being available through a collection
+        # (because its LicensePool loses all its licenses or stops
+        # being open access), that collection will not be listed
+        # in the search document.
+        [pool] = collection1.licensepools
+        pool.licenses_owned = 0
+        self._db.commit()
+        search_doc = work.to_search_document()
+        eq_([dict(collection_id=collection2.id)], search_doc['collections'])
+
+        # If the book becomes available again, the collection will
+        # start showing up again.
+        pool.open_access = True
+        self._db.commit()
+        search_doc = work.to_search_document()
+        eq_(2, len(search_doc['collections']))
+
     def test_target_age_string(self):
         work = self._work()
         work.target_age = NumericRange(7, 8, '[]')
@@ -3066,6 +3091,100 @@ class TestWork(DatabaseTest):
         work.target_age = NumericRange(None, 8, '[]')
         eq_("8", work.target_age_string)
 
+    def test_reindex_on_availability_change(self):
+        """A change in a LicensePool's availability creates a 
+        WorkCoverageRecord indicating that the work needs to be
+        re-indexed.
+        """
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        def find_record(work):
+            """Find the Work's 'update search index operation' 
+            WorkCoverageRecord.
+            """
+            records = [
+                x for x in work.coverage_records 
+                if x.operation.startswith(
+                        WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+                )
+            ]
+            if records:
+                return records[0]
+            return None
+        registered = WorkCoverageRecord.REGISTERED
+        success = WorkCoverageRecord.SUCCESS
+
+        # The work starts off with no relevant WorkCoverageRecord.
+        eq_(None, find_record(work))
+
+        # If it stops being open-access, it needs to be reindexed.
+        pool.open_access = False
+        record = find_record(work)
+        eq_(registered, record.status)
+
+        # If its licenses_owned goes from zero to nonzero, it needs to
+        # be reindexed.
+        record.status = success
+        pool.licenses_owned = 10
+        pool.licenses_available = 10
+        eq_(registered, record.status)
+
+        # If its licenses_owned changes, but not to zero, nothing happens.
+        record.status = success
+        pool.licenses_owned = 1
+        eq_(success, record.status)
+
+        # If its licenses_available changes, nothing happens
+        pool.licenses_available = 0
+        eq_(success, record.status)
+
+        # If its licenses_owned goes from nonzero to zero, it needs to
+        # be reindexed.
+        pool.licenses_owned = 0
+        eq_(registered, record.status)
+
+        # If it becomes open-access again, it needs to be reindexed.
+        record.status = success
+        pool.open_access = True
+        eq_(registered, record.status)
+
+        # If its collection changes (which shouldn't happen), it needs
+        # to be reindexed.
+        record.status = success
+        collection2 = self._collection()
+        pool.collection_id = collection2.id
+        eq_(registered, record.status)
+
+        # If a LicensePool is deleted (which also shouldn't happen),
+        # its former Work needs to be reindexed.
+        record.status = success
+        self._db.delete(pool)
+        work = self._db.query(Work).one()
+        record = find_record(work)
+        eq_(registered, record.status)
+
+
+    def test_update_external_index(self):
+        work = self._work()
+        work.presentation_ready = True
+        records = [
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        index = DummyExternalSearchIndex()
+        work.update_external_index(index)
+
+        # The work was added to the search index.
+        eq_([work.to_search_document()], index.docs.values())
+
+        # A WorkCoverageRecord was created to memorialize the work done.
+        [record] = [
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        eq_(WorkCoverageRecord.SUCCESS, record.status)
+
+        
 
 class TestCirculationEvent(DatabaseTest):
 
