@@ -175,6 +175,8 @@ class TestBibliographicCoverageProvider(TestEnkiAPI):
         # A Work was created and made presentation ready.
         eq_("1984", pool.work.title)
         eq_(True, pool.work.presentation_ready)
+        eq_("https://enkilibrary.org/bookcover.php?id=1&isn=9780547249643&size=large&upc=English&category=EMedia&econtent=true",pool.presentation_edition.cover_full_url)
+        eq_("https://enkilibrary.org/bookcover.php?id=1&isn=9780547249643&size=large&upc=English&category=EMedia&econtent=true",pool.presentation_edition.cover_thumbnail_url)
 
 class TestEnkiCollectionReaper(TestEnkiAPI):
 
