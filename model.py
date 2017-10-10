@@ -580,7 +580,8 @@ def create(db, model, create_method='',
     kwargs.update(create_method_kwargs or {})
     created = getattr(model, create_method, model)(**kwargs)
     db.add(created)
-    db.flush()
+    if not db._flushing:
+        db.flush()
     return created, True
 
 Base = declarative_base()
@@ -2324,7 +2325,8 @@ class Contributor(Base):
                 try:
                     contributor = Contributor(**create_method_kwargs)
                     _db.add(contributor)
-                    _db.flush()
+                    if not _db._flushing:
+                        _db.flush()
                     contributors = [contributor]
                     new = True
                 except IntegrityError:
@@ -3955,7 +3957,8 @@ class Work(Base):
             cover.reject()
             if len(cover.cover_editions) > 1:
                 editions += cover.cover_editions
-        _db.flush()
+        if not _db._flushing:
+            _db.flush()
 
         editions = list(set(editions))
         if editions:
@@ -4249,7 +4252,8 @@ class Work(Base):
         if (changed or policy.update_search_index) and not exclude_search:
             # Ensure new changes are reflected in database queries
             _db = Session.object_session(self)
-            _db.flush()
+            if not _db._flushing:
+                _db.flush()
             self.update_external_index(search_index_client)
 
         # Now that everything's calculated, print it out.
@@ -6205,7 +6209,8 @@ class CachedFeed(Base):
     def update(self, _db, content):
         self.content = content
         self.timestamp = datetime.datetime.utcnow()
-        _db.flush()
+        if not _db._flushing:
+            _db.flush()
 
     def __repr__(self):
         if self.content:
@@ -7088,7 +7093,8 @@ class LicensePool(Base):
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
-            _db.flush()
+            if not _db.flushing:
+                _db.flush()
             licensepools_changed = True
 
         # Associate this LicensePool and its Edition with the work we
@@ -10553,7 +10559,8 @@ class Collection(Base, HasFullTableCache):
         """Inserts an identifier into a catalog"""
         if identifier not in self.catalog:
             self.catalog.append(identifier)
-            _db.flush()
+            if not _db._flushing:
+                _db.flush()
 
     def works_updated_since(self, _db, timestamp):
         """Returns all works in a collection's catalog that have been updated
