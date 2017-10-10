@@ -57,11 +57,11 @@ For troubleshooting information and installation directions for the entire Circu
 ```
 # See the section "Environment Variables" below for more information
 # about the values listed here and their alternatives.
-$ docker run --name deploy -d \
+$ docker run --name scripts -d \
     -e TZ='YOUR_TIMEZONE_STRING' \
     -e SIMPLIFIED_DB_TASK='migrate' \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
-    nypl/circ-deploy:2.0
+    nypl/circ-scripts:2.0
 ```
 
 Using `docker exec -it deploy /bin/bash` in your console, navigate to `/var/log/simplified` in the container. After 5-20 minutes, you'll begin to see log files populate that directory.
@@ -110,7 +110,7 @@ Determine which container you would like to build and update the tag and Dockerf
 $ docker build --build-arg version=YOUR_DESIRED_BRANCH_OR_COMMIT \
     --tag circ-scripts:development \
     --file Dockerfile.scripts \
-    --no-cache base/
+    --no-cache .
 ```
 
 You must run this command with the `--no-cache` option or the code in the container will not be updated from the last build, defeating the purpose of the build and enhancing overall confusion. Feel free to change the image tag as you like.
