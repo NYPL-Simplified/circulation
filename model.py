@@ -7093,7 +7093,7 @@ class LicensePool(Base):
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
-            if not _db.flushing:
+            if not _db._flushing:
                 _db.flush()
             licensepools_changed = True
 
