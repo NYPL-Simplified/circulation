@@ -5727,6 +5727,64 @@ class TestWorkCoverageRecord(DatabaseTest):
         eq_(record5, record)
         eq_(WorkCoverageRecord.PERSISTENT_FAILURE, record.status)
 
+    def test_bulk_add(self):
+
+        operation = "relevant"
+        irrelevant_operation = "irrelevant"
+
+        # This Work will get a new WorkCoverageRecord for the relevant
+        # operation, even though it already has a WorkCoverageRecord
+        # for an irrelevant operation.
+        not_already_covered = self._work()
+        irrelevant_record, ignore = WorkCoverageRecord.add_for(
+            not_already_covered, irrelevant_operation, 
+            status=WorkCoverageRecord.SUCCESS
+        )
+
+        # This Work will have its existing, relevant CoverageRecord
+        # updated.
+        already_covered = self._work()
+        WorkCoverageRecord.add_for(
+            already_covered, operation, 
+            status=WorkCoverageRecord.TRANSIENT_FAILURE
+        )
+
+        # This Work will not be affected at all.
+        not_affected = self._work()
+        WorkCoverageRecord.add_for(
+            not_affected, irrelevant_operation, 
+            status=WorkCoverageRecord.SUCCESS
+        )
+
+        # Tell bulk_add to update or create WorkCoverageRecords for
+        # not_already_covered and already_covered, but not not_affected.
+        new_timestamp = datetime.datetime.utcnow()
+        new_status = WorkCoverageRecord.REGISTERED
+        WorkCoverageRecord.bulk_add(
+            [not_already_covered],
+            operation, new_timestamp, status=new_status
+        )
+        def relevant_records(work):
+            return [x for x in work.coverage_records
+                    if x.operation == operation]
+
+        # not_affected was not affected.
+        eq_([], relevant_records(not_affected))
+
+        # The record associated with already_covered has been updated.
+        [record] = relevant_records(already_covered)
+        eq_(new_timestamp, record.timestamp)
+        eq_(new_status, record.status)
+
+        # A new record has been associated with not_already_covered
+        [record] = relevant_records(not_already_covered)
+        eq_(new_timestamp, record.timestamp)
+        eq_(new_status, record.status)
+
+        # The irrelevant WorkCoverageRecord is not affected by the update.
+        eq_(WorkCoverageRecord.SUCCESS, irrelevant_record.status)
+        assert irrelevant_record.timestamp < new_timestamp
+
 class TestComplaint(DatabaseTest):
 
     def setup(self):
