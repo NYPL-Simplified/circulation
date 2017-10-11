@@ -1514,12 +1514,17 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
 
         # Make sure that any works that are missing a
         # WorkCoverageRecord for this operation get one.
+
+        # Works that already have a WorkCoverageRecord will be ignored
+        # by the INSERT but handled by the UPDATE.
         already_covered = _db.query(WorkCoverageRecord.id).select_from(
             WorkCoverageRecord).filter(
                 WorkCoverageRecord.work_id.in_(work_ids)
             ).filter(
                 WorkCoverageRecord.operation==operation
             )
+
+        # The SELECT part of the INSERT...SELECT query.
         new_records = _db.query(
             Work.id.label('work_id'), 
             literal(operation, type_=BaseCoverageRecord.status_enum).label('operation'),
@@ -1534,6 +1539,8 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         ).filter(
             ~Work.id.in_(already_covered)
         )
+
+        # The INSERT part.
         insert = WorkCoverageRecord.__table__.insert().from_select(
             [
                 literal_column('work_id'),
@@ -1543,10 +1550,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
             ], 
             new_records
         )
-        ct = _db.query(WorkCoverageRecord)
-        before = ct.count()
         _db.execute(insert)
-        after = ct.count()
 
         # Make sure that works that previously had a
         # WorkCoverageRecord for this operation have their timestamp
