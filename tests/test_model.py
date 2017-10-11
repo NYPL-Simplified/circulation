@@ -5773,6 +5773,7 @@ class TestWorkCoverageRecord(DatabaseTest):
             [not_already_covered, already_covered],
             operation, new_timestamp, status=new_status
         )
+        self._db.commit()
         def relevant_records(work):
             return [x for x in work.coverage_records
                     if x.operation == operation]
@@ -5782,7 +5783,8 @@ class TestWorkCoverageRecord(DatabaseTest):
         eq_([], relevant_records(not_affected))
         assert not_modified.timestamp < new_timestamp
 
-        # The record associated with already_covered has been updated.
+        # The record associated with already_covered has been updated,
+        # and its exception removed.
         [record] = relevant_records(already_covered)
         eq_(new_timestamp, record.timestamp)
         eq_(new_status, record.status)
@@ -5793,9 +5795,12 @@ class TestWorkCoverageRecord(DatabaseTest):
         eq_(new_timestamp, record.timestamp)
         eq_(new_status, record.status)
 
-        # The irrelevant WorkCoverageRecord is not affected by the update.
+        # The irrelevant WorkCoverageRecord is not affected by the update,
+        # even though its Work was affected, because it's a record for
+        # a different operation.
         eq_(WorkCoverageRecord.SUCCESS, irrelevant_record.status)
         assert irrelevant_record.timestamp < new_timestamp
+
 
 class TestComplaint(DatabaseTest):
 

@@ -1501,7 +1501,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
 
     @classmethod
     def bulk_add(self, works, operation, timestamp=None, 
-                 status=CoverageRecord.SUCCESS):
+                 status=CoverageRecord.SUCCESS, exception=None):
         """Create and update WorkCoverageRecords so that every Work in 
         `works` has an identical record.
         """
@@ -1517,7 +1517,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
 
         # Works that already have a WorkCoverageRecord will be ignored
         # by the INSERT but handled by the UPDATE.
-        already_covered = _db.query(WorkCoverageRecord.id).select_from(
+        already_covered = _db.query(WorkCoverageRecord.work_id).select_from(
             WorkCoverageRecord).filter(
                 WorkCoverageRecord.work_id.in_(work_ids)
             ).filter(
@@ -1555,13 +1555,10 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         # Make sure that works that previously had a
         # WorkCoverageRecord for this operation have their timestamp
         # and status updated.
-        #
-        # We always set exception to None because if there are
-        # individual differences between the records being created,
-        # they need to be created one at a time and not in a batch.
         update = WorkCoverageRecord.__table__.update().where(
-            Work.id.in_(work_ids)
-        ).values(dict(timestamp=timestamp, status=status, exception=None))
+            and_(WorkCoverageRecord.work_id.in_(work_ids),
+                 WorkCoverageRecord.operation==operation)
+        ).values(dict(timestamp=timestamp, status=status, exception=exception))
         _db.execute(update)
 
 
