@@ -8,7 +8,6 @@ addons:
 
 services:
   - postgresql
-  - docker
 
 language: python
 
@@ -45,4 +44,3 @@ env:
 
 script:
   - ./verbose-test
-  - ./docker-test
