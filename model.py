@@ -1512,6 +1512,15 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         timestamp = timestamp or datetime.datetime.utcnow()
         work_ids = [w.id for w in works]
 
+        # Make sure that works that previously had a
+        # WorkCoverageRecord for this operation have their timestamp
+        # and status updated.
+        update = WorkCoverageRecord.__table__.update().where(
+            and_(WorkCoverageRecord.work_id.in_(work_ids),
+                 WorkCoverageRecord.operation==operation)
+        ).values(dict(timestamp=timestamp, status=status, exception=exception))
+        _db.execute(update)
+
         # Make sure that any works that are missing a
         # WorkCoverageRecord for this operation get one.
 
@@ -1551,16 +1560,6 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
             new_records
         )
         _db.execute(insert)
-
-        # Make sure that works that previously had a
-        # WorkCoverageRecord for this operation have their timestamp
-        # and status updated.
-        update = WorkCoverageRecord.__table__.update().where(
-            and_(WorkCoverageRecord.work_id.in_(work_ids),
-                 WorkCoverageRecord.operation==operation)
-        ).values(dict(timestamp=timestamp, status=status, exception=exception))
-        _db.execute(update)
-
 
 Index("ix_workcoveragerecords_operation_work_id", WorkCoverageRecord.operation, WorkCoverageRecord.work_id)
 
