@@ -186,6 +186,7 @@ class Configuration(object):
               { "key": facet, "label": FacetConstants.FACET_DISPLAY_TITLES.get(facet) }
               for facet in FacetConstants.FACETS_BY_GROUP.get(group)
           ],
+          "default": FacetConstants.DEFAULT_FACET.get(group)
         } for group, display_name in FacetConstants.GROUP_DISPLAY_TITLES.iteritems()
     ]
 
