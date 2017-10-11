@@ -77,7 +77,6 @@ from sqlalchemy.sql.expression import (
     literal_column,
     case,
     table,
-    Insert,
 )
 from sqlalchemy.exc import (
     IntegrityError
