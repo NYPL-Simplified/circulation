@@ -1626,6 +1626,9 @@ class DatabaseMigrationScript(Script):
     name = "Database Migration"
     MIGRATION_WITH_COUNTER = re.compile("\d{8}-(\d+)-(.)+\.(py|sql)")
 
+    # There are some SQL commands that can't be run inside a transaction.
+    TRANSACTIONLESS_COMMANDS = ['alter type']
+
     class TimestampInfo(object):
         """Act like a ORM Timestamp object, but with no database connection."""
         def __init__(self, timestamp, counter):
@@ -1893,10 +1896,16 @@ class DatabaseMigrationScript(Script):
 
         if migration_path.endswith('.sql'):
             with open(migration_path) as clause:
-                # By wrapping the action in a transation, we can avoid
-                # rolling over errors and losing data in files
-                # with multiple interrelated SQL actions.
-                sql = 'BEGIN;\n%s\nCOMMIT;' % clause.read()
+                sql = clause.read()
+
+                transactionless = any(filter(
+                    lambda c: c in sql.lower(), self.TRANSACTIONLESS_COMMANDS
+                ))
+                if not transactionless:
+                    # By wrapping the action in a transation, we can avoid
+                    # rolling over errors and losing data in files
+                    # with multiple interrelated SQL actions.
+                    sql = 'BEGIN;\n%s\nCOMMIT;' % sql
                 self._db.execute(sql)
         if migration_path.endswith('.py'):
             module_name = migration_filename[:-3]
