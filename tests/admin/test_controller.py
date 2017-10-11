@@ -1377,6 +1377,15 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+            ])
+            response = self.manager.admin_settings_controller.libraries()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
         
     def test_libraries_post_create(self):
         class TestFileUpload(StringIO):
@@ -1480,18 +1489,6 @@ class TestSettingsController(AdminControllerTest):
         eq_("A tiny image", 
             ConfigurationSetting.for_library(Configuration.LOGO, library).value
         )
-
-    def test_libraries_post_errors(self):
-        library = get_one(self._db, Library)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("uuid", library.uuid),
-                ("name", "The New York Public Library"),
-                ("short_name", "nypl"),
-            ])
-            response = self.manager.admin_settings_controller.libraries()
-            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-
         
     def test_collections_get_with_no_collections(self):
         # Delete any existing collections created by the test setup.
