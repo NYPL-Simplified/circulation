@@ -1387,6 +1387,8 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),
                 ("short_name", "nypl"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
                 (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                  FacetConstants.ORDER_RANDOM),
