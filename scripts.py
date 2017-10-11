@@ -1901,18 +1901,52 @@ class DatabaseMigrationScript(Script):
                 transactionless = any(filter(
                     lambda c: c in sql.lower(), self.TRANSACTIONLESS_COMMANDS
                 ))
-                if not transactionless:
+                if transactionless:
+                    new_session = self._run_migration_without_transaction(sql)
+                else:
                     # By wrapping the action in a transation, we can avoid
                     # rolling over errors and losing data in files
                     # with multiple interrelated SQL actions.
                     sql = 'BEGIN;\n%s\nCOMMIT;' % sql
-                self._db.execute(sql)
+                    self._db.execute(sql)
+
         if migration_path.endswith('.py'):
             module_name = migration_filename[:-3]
             imp.load_source(module_name, migration_path)
 
         # Update timestamp for the migration.
         self.update_timestamp(timestamp, migration_filename)
+
+    def _run_migration_without_transaction(self, sql_statement):
+        """Runs a single SQL statement outside of a transaction."""
+        # Go back up to engine-level.
+        connection = self._db.get_bind()
+        engine = connection.engine
+
+        # Close the Session so it benefits from the changes.
+        self._session.close()
+
+        # Get each individual SQL command from the migration text.
+        #
+        # In the case of 'ALTER TYPE' (at least), running commands
+        # simultaneously raises psycopg2.InternalError ending with 'cannot be
+        # executed from a fuction or multi-command string'
+        sql_commands = [command.strip()+';'
+                        for command in sql_statement.split(';')
+                        if command.strip()]
+
+        # Run each command in the sql statement right up against the
+        # database: no transactions, no guardrails.
+        for command in sql_commands:
+            connection.execution_options(isolation_level='AUTOCOMMIT')\
+                .execute(text(command))
+
+        # Update the script's Session to a new one that has the changed schema
+        # and other important info.
+        self._session = Session(connection)
+        SessionManager.initialize_data(self._db)
+        self.load_configuration()
+        DataSource.well_known_sources(self._db)
 
     def update_timestamp(self, timestamp, migration_file):
         """Updates this service's timestamp to match a given migration"""

@@ -478,46 +478,6 @@ class SessionManager(object):
         # it was updated by cls.update_timestamps_table
         return session
 
-    @classmethod
-    def update_timestamps_table(cls, session):
-        """Adds required columns 'id' and 'collection_id' to the Timestamp table.
-
-        TODO: Remove this after version 2.0.0. This is a stopgap measure
-        to keep database initialization and migrations working before
-        changes to Timestamps have taken place in migration [20170713-1].
-
-        :return: updated Session object
-        """
-        logging.warning(
-            'Timestamp schema has been altered without db migration.'
-            ' Running migration [20170713-1] schema change in advance.'
-        )
-
-        # Get the SQL to run.
-        migration = '20170713-1-timestamp-has-numeric-primary-key.sql'
-        base_path = os.path.split(__file__)[0]
-        migration_filename = os.path.join(base_path, 'migration', migration)
-
-        sql_statement = 'BEGIN;\n%s\nCOMMIT;'
-        with open(migration_filename) as f:
-            sql_statement = sql_statement % f.read()
-
-        # Go back up to engine-level to make the schema change.
-        connection = session.get_bind()
-        engine = connection.engine
-
-        # Close the Session so it benefits from the changes.
-        session.close()
-        connection.close()
-
-        # Run the migration.
-        engine.execute(sql_statement)
-
-        # Create a new Session that has the changed schema.
-        session = Session(engine.connect())
-        session = cls.initialize_data(session)
-        return session
-
 def get_one(db, model, on_multiple='error', constraint=None, **kwargs):
     """Gets an object from the database based on its attributes.
 
