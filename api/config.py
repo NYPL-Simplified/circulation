@@ -124,7 +124,8 @@ class Configuration(CoreConfiguration):
         },
         {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
-            "label": _("Default email address to use when notifying patrons of changes. This should be an address that the library controls. Holds cannot be placed on Overdrive, Bibliotheca, or Axis 360 books unless this address is specified."),
+            "label": _("Default email address to use when notifying patrons of changes."),
+            "description": _("This should be an address that the library controls, but it is currently not used for anything. Holds cannot be placed on Overdrive, Bibliotheca, or Axis 360 books unless this address is specified.")
         },
         {
             "key": COLOR_SCHEME,
@@ -140,6 +141,7 @@ class Configuration(CoreConfiguration):
                 { "key": "purple", "label": _("Purple") },
             ],
             "type": "select",
+            "default": DEFAULT_COLOR_SCHEME,
         },
         {
             "key": LOGO,

@@ -1442,6 +1442,8 @@ class TestSettingsController(AdminControllerTest):
                 ("short_name", "nypl"),
                 (Configuration.FEATURED_LANE_SIZE, "20"),
                 (Configuration.MINIMUM_FEATURED_QUALITY, "0.9"),
+                (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
                  FacetConstants.ORDER_AUTHOR),
                 (Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME + "_" + FacetConstants.ORDER_AUTHOR,
@@ -1459,21 +1461,35 @@ class TestSettingsController(AdminControllerTest):
         eq_(library.short_name, "nypl")
 
         # The library-wide settings were updated.
-        eq_("20", ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value)
-        eq_("0.9", ConfigurationSetting.for_library(Configuration.MINIMUM_FEATURED_QUALITY, library).value)
+        def val(x):
+            return ConfigurationSetting.for_library(x, library).value 
+        eq_("https://library.library/", val(Configuration.WEBSITE_URL))
+        eq_("email@example.com", val(Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS))
+        eq_("20", val(Configuration.FEATURED_LANE_SIZE))
+        eq_("0.9", val(Configuration.MINIMUM_FEATURED_QUALITY))
         eq_(FacetConstants.ORDER_AUTHOR,
-            ConfigurationSetting.for_library(
-                Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
-                library).value)
+            val(Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME)
+        )
         eq_(json.dumps([FacetConstants.ORDER_AUTHOR, FacetConstants.ORDER_RANDOM]),
-            ConfigurationSetting.for_library(
-                Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
-                library).value)
+            val(Configuration.ENABLED_FACETS_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME)
+        )
 
         # The library-wide logo was not updated and has been left alone.
         eq_("A tiny image", 
             ConfigurationSetting.for_library(Configuration.LOGO, library).value
         )
+
+    def test_libraries_post_errors(self):
+        library = get_one(self._db, Library)
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("uuid", library.uuid),
+                ("name", "The New York Public Library"),
+                ("short_name", "nypl"),
+            ])
+            response = self.manager.admin_settings_controller.libraries()
+            eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
+
         
     def test_collections_get_with_no_collections(self):
         # Delete any existing collections created by the test setup.
