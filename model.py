@@ -1555,9 +1555,13 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         # Make sure that works that previously had a
         # WorkCoverageRecord for this operation have their timestamp
         # and status updated.
+        #
+        # We always set exception to None because if there are
+        # individual differences between the records being created,
+        # they need to be created one at a time and not in a batch.
         update = WorkCoverageRecord.__table__.update().where(
             Work.id.in_(work_ids)
-        ).values(timestamp=timestamp, status=status)
+        ).values(dict(timestamp=timestamp, status=status, exception=None))
         _db.execute(update)
 
 

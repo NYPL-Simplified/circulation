@@ -5744,16 +5744,25 @@ class TestWorkCoverageRecord(DatabaseTest):
         # This Work will have its existing, relevant CoverageRecord
         # updated.
         already_covered = self._work()
-        WorkCoverageRecord.add_for(
+        previously_failed, ignore = WorkCoverageRecord.add_for(
             already_covered, operation, 
-            status=WorkCoverageRecord.TRANSIENT_FAILURE
+            status=WorkCoverageRecord.TRANSIENT_FAILURE,
         )
+        previously_failed.exception="Some exception"
 
-        # This Work will not be affected at all.
+        # This work will not have a record created for it, because
+        # we're not passing it in to the method.
         not_affected = self._work()
         WorkCoverageRecord.add_for(
             not_affected, irrelevant_operation, 
             status=WorkCoverageRecord.SUCCESS
+        )
+
+        # This work will not have its existing record updated, because
+        # we're not passing it in to the method.
+        not_affected_2 = self._work()
+        not_modified, ignore = WorkCoverageRecord.add_for(
+            not_affected_2, operation, status=WorkCoverageRecord.SUCCESS
         )
 
         # Tell bulk_add to update or create WorkCoverageRecords for
@@ -5761,20 +5770,23 @@ class TestWorkCoverageRecord(DatabaseTest):
         new_timestamp = datetime.datetime.utcnow()
         new_status = WorkCoverageRecord.REGISTERED
         WorkCoverageRecord.bulk_add(
-            [not_already_covered],
+            [not_already_covered, already_covered],
             operation, new_timestamp, status=new_status
         )
         def relevant_records(work):
             return [x for x in work.coverage_records
                     if x.operation == operation]
 
-        # not_affected was not affected.
+        # No coverage records were added or modified for works not
+        # passed in to the method.
         eq_([], relevant_records(not_affected))
+        assert not_modified.timestamp < new_timestamp
 
         # The record associated with already_covered has been updated.
         [record] = relevant_records(already_covered)
         eq_(new_timestamp, record.timestamp)
         eq_(new_status, record.status)
+        eq_(None, previously_failed.exception)
 
         # A new record has been associated with not_already_covered
         [record] = relevant_records(not_already_covered)
