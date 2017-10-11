@@ -120,6 +120,12 @@ class Configuration(CoreConfiguration):
         {
             "key": LIBRARY_DESCRIPTION,
             "label": _("A short description of this library, shown to people who aren't sure they've chosen the right library."),
+            "optional": True,
+        },
+        {
+            "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
+            "label": _("Default email address to use when notifying patrons of changes."),
+            "description": _("This should be an address that the library controls, but it is currently not used for anything. Holds cannot be placed on Overdrive, Bibliotheca, or Axis 360 books unless this address is specified.")
         },
         {
             "key": COLOR_SCHEME,
@@ -135,6 +141,7 @@ class Configuration(CoreConfiguration):
                 { "key": "purple", "label": _("Purple") },
             ],
             "type": "select",
+            "default": DEFAULT_COLOR_SCHEME,
         },
         {
             "key": LOGO,
@@ -146,50 +153,56 @@ class Configuration(CoreConfiguration):
         {
             "key": MAX_OUTSTANDING_FINES,
             "label": _("Maximum amount of fines a patron can have before losing lending privileges"),
-        },
-        {
-            "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
-            "label": _("Default email address to use when notifying patrons of changes"),
+            "optional": True,
         },
         {
             "key": TERMS_OF_SERVICE,
             "label": _("Terms of Service URL"),
+            "optional": True,
         },
         {
             "key": PRIVACY_POLICY,
             "label": _("Privacy Policy URL"),
+            "optional": True,
         },
         {
             "key": COPYRIGHT,
             "label": _("Copyright URL"),
+            "optional": True,
         },
         {
             "key": ABOUT,
             "label": _("About URL"),
+            "optional": True,
         },
         {
             "key": LICENSE,
             "label": _("License URL"),
+            "optional": True,
         },
         {
             "key": REGISTER,
             "label": _("Patron registration URL"),
             "description": _("A URL where someone who doesn't have a library card yet can sign up for one."),
+            "optional": True,
         },
         {
             "key": HELP_EMAIL,
             "label": _("Patron support email address"),
             "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@nypl.org'."),
+            "optional": True,
         },
         {
             "key": HELP_WEB,
             "label": _("Patron support web site"),
             "description": _("A URL for patrons to get help."),
+            "optional": True,
         },
         {
             "key": HELP_URI,
             "label": _("Patron support custom integration URI"),
             "description": _("A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'."),
+            "optional": True,
         },
         {
             "key": LARGE_COLLECTION_LANGUAGES,
