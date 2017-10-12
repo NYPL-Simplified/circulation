@@ -990,9 +990,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         """
         remote_patron_info = self.remote_patron_lookup(patron)
         if isinstance(remote_patron_info, PatronData):
-            remote_patron_info.apply(patron)
-        if self.external_type_regular_expression:
-            self.update_patron_external_type(patron)
+            self.apply_patrondata(remote_patron_info, patron)
 
     def update_patron_external_type(self, patron):
         """Make sure the patron's external type reflects
@@ -1355,7 +1353,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         if patron:
             # We found them! Make sure their data is up to date
             # with whatever we just got from remote.
-            patrondata.apply(patron)
+            self.apply_patrondata(patrondata, patron)
             return patron
         
         # We didn't find them. Now the question is: _why_ didn't the
@@ -1397,8 +1395,17 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         # the patron's identifiers changed. Either way, we need to
         # update the Patron record with the account information we
         # just got from the source of truth.
-        patrondata.apply(patron)
+        self.apply_patrondata(patrondata, patron)
         return patron
+
+    def apply_patrondata(self, patrondata, patron):
+        """Apply a PatronData object to the given patron and make sure
+        any fields that need to be updated as a result of new data
+        are updated.
+        """
+        patrondata.apply(patron)
+        if self.external_type_regular_expression:
+            self.update_patron_external_type(patron)
 
     def get_credential_from_header(self, header):
         """Extract a password credential from a WWW-Authenticate header
