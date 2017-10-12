@@ -1709,6 +1709,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         )
 
         provider = self.mock_basic(patrondata=patrondata)
+        provider.external_type_regular_expression = re.compile("^(.)")
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1719,6 +1720,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         # new identifiers.
         eq_(new_identifier, patron.authorization_identifier)
         eq_(new_username, patron.username)
+        eq_(patron.authorization_identifier[0], patron.external_type)
 
     def test_authentication_updates_outdated_patron_on_username_match(self):
         # This patron has no permanent ID. Their library card number has
