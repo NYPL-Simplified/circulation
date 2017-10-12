@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import shutil
+import stat
 import tempfile
 from StringIO import StringIO
 
@@ -572,6 +573,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
             core = os.path.split(self.core_migration_dir)[0]
             target_dir = os.path.join(core, 'tests')
             content = (
+                "#!/usr/bin/env python\n\n"+
                 "import tempfile\nimport os\n\n"+
                 "file_info = tempfile.mkstemp(prefix='"+
                 unique_string+"-', suffix='.py', dir='"+target_dir+"')\n\n"+
@@ -587,12 +589,22 @@ class TestDatabaseMigrationScript(DatabaseTest):
         migration_file_info = tempfile.mkstemp(
             prefix=prefix, suffix=suffix, dir=directory
         )
-        # Hold onto details about the file for deletion in teardown().
-        self.migration_files.append(migration_file_info)
+        # Hold onto the filename for deletion in teardown().
+        fd, migration_file = migration_file_info
+        self.migration_files.append(migration_file)
 
-        with open(migration_file_info[1], 'w') as migration:
+        with open(migration_file, 'w') as migration:
             # Write content to the file.
             migration.write(content)
+
+        # If it's a python migration, make it executable.
+        if migration_file.endswith('py'):
+            original_mode = os.stat(migration_file).st_mode
+            mode = original_mode | (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            os.chmod(migration_file, mode)
+
+        # Close the file descriptor.
+        os.close(fd)
 
     def setup(self):
         super(TestDatabaseMigrationScript, self).setup()
@@ -609,15 +621,8 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
     def teardown(self):
         """Delete any files and directories created during testing."""
-        for fd, fpath in self.migration_files:
-            os.close(fd)
+        for fpath in self.migration_files:
             os.remove(fpath)
-            if fpath.endswith('.py'):
-                # Remove compiled files.
-                try:
-                    os.remove(fpath+'c')
-                except OSError:
-                    pass
 
         for directory in self.script.directories_by_priority:
             os.rmdir(directory)
@@ -649,15 +654,14 @@ class TestDatabaseMigrationScript(DatabaseTest):
         result = self.script.fetch_migration_files()
         result_migrations, result_migrations_by_dir = result
 
-        for desc, migration_file in self.migration_files:
+        for migration_file in self.migration_files:
             assert os.path.split(migration_file)[1] in result_migrations
 
         def extract_filenames(core=True):
-            pathnames = [pathname for desc, pathname in self.migration_files]
             if core:
-                pathnames = [p for p in pathnames if 'core' in p]
+                pathnames = filter(lambda p: 'core' in p, self.migration_files)
             else:
-                pathnames = [p for p in pathnames if 'core' not in p]
+                pathnames = filter(lambda p: 'core' not in p, self.migration_files)
 
             return [os.path.split(p)[1] for p in pathnames]
 
@@ -788,7 +792,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         # Pop the last migration filepath off and run the migration with
         # the relevant information.
-        migration_filepath = self.migration_files[-1][1]
+        migration_filepath = self.migration_files[-1]
         migration_filename = os.path.split(migration_filepath)[1]
         migrations_by_dir = {
             self.core_migration_dir : [migration_filename],
@@ -806,7 +810,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
             self.core_migration_dir, 'COUNTER', 'sql',
             migration_date='20261203-3'
         )
-        migration_filename = os.path.split(self.migration_files[-1][1])[1]
+        migration_filename = os.path.split(self.migration_files[-1])[1]
         migrations_by_dir[self.core_migration_dir] = [migration_filename]
         self.script.run_migrations(
             [migration_filename], migrations_by_dir, self.timestamp
