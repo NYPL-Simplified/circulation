@@ -16,6 +16,7 @@ from core.model import (
     DataSource,
     Edition,
     LicensePool,
+    WorkCoverageRecord,
 )
 from core.opds_import import (
     MetadataWranglerOPDSLookup,
@@ -57,6 +58,10 @@ class SearchIndexMonitor(WorkSweepMonitor):
             for work, message in failures:
                 self.log.error(
                     "Failed to update search index for %s: %s", work, message
+                )
+            for work in successes:
+                WorkCoverageRecord.add_for(
+                    work, WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
                 )
             # Start work on the next batch.
             return batch[-1].id
