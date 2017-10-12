@@ -320,11 +320,18 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
             eq_(self.sherlock, sherlock_2)
             eq_(2, len(self.sherlock.license_pools))
-            time.sleep(2)
 
     def test_query_works(self):
         if not self.search:
             return
+
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(2)
 
         # Convenience method to query the default library.
         def query(*args, **kwargs):
@@ -1016,6 +1023,29 @@ class TestSearchFilterFromLane(DatabaseTest):
         assert 'language' in exclude_languages_filter['not']['terms']
         eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))
 
+
+class TestBulkUpdate(DatabaseTest):
+
+    def test_works_not_presentation_ready_removed_from_index(self):
+        w1 = self._work()
+        w1.set_presentation_ready()
+        w2 = self._work()
+        w2.set_presentation_ready()
+        w3 = self._work()
+        index = DummyExternalSearchIndex()
+        index.bulk_update([w1, w2, w3])
+
+        # Only the presentation-ready works are inserted into the index.
+        ids = set(x[-1] for x in index.docs.keys())
+        eq_(set([w1.id, w2.id]), ids)
+
+        # If a work stops being presentation-ready, it is removed from
+        # the index.
+        w2.presentation_ready = False
+        index.bulk_update([w1, w2, w3])
+        eq_([w1.id], [x[-1] for x in index.docs.keys()])
+
+
 class TestSearchErrors(ExternalSearchTest):
 
     def test_search_connection_timeout(self):
@@ -1039,6 +1069,7 @@ class TestSearchErrors(ExternalSearchTest):
         self.search.bulk = bulk_with_timeout
         
         work = self._work()
+        work.set_presentation_ready()
         successes, failures = self.search.bulk_update([work])
         eq_([], successes)
         eq_(1, len(failures))
@@ -1054,8 +1085,10 @@ class TestSearchErrors(ExternalSearchTest):
             return
 
         successful_work = self._work()
+        successful_work.set_presentation_ready()
         failing_work = self._work()
-        
+        failing_work.set_presentation_ready()
+
         def bulk_with_error(docs, raise_on_error=False, raise_on_exception=False):
             failures = [dict(data=dict(_id=failing_work.id),
                              error="There was an error!",
@@ -1084,6 +1117,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
 
     def test_success(self):
         work = self._work()
+        work.set_presentation_ready()
         index = DummyExternalSearchIndex()
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
@@ -1108,6 +1142,7 @@ class TestSearchIndexCoverageProvider(DatabaseTest):
                 ]
 
         work = self._work()
+        work.set_presentation_ready()
         index = DoomedExternalSearchIndex()
         provider = SearchIndexCoverageProvider(
             self._db, search_index_client=index
