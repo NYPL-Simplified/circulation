@@ -7,6 +7,7 @@ import random
 import re
 import requests
 import string
+import subprocess
 import time
 import uuid
 from requests.exceptions import (
@@ -1912,7 +1913,7 @@ class DatabaseMigrationScript(Script):
 
         if migration_path.endswith('.py'):
             module_name = migration_filename[:-3]
-            imp.load_source(module_name, migration_path)
+            subprocess.call(migration_path)
 
         # Update timestamp for the migration.
         self.update_timestamp(timestamp, migration_filename)
@@ -1921,7 +1922,6 @@ class DatabaseMigrationScript(Script):
         """Runs a single SQL statement outside of a transaction."""
         # Go back up to engine-level.
         connection = self._db.get_bind()
-        engine = connection.engine
 
         # Close the Session so it benefits from the changes.
         self._session.close()
