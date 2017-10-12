@@ -871,9 +871,9 @@ class CustomListsController(CirculationManagerController):
                     list.remove_entry(entry.edition)
 
             if is_new:
-                return Response(unicode(_("Success")), 201)
+                return Response(unicode(list.id), 201)
             else:
-                return Response(unicode(_("Success")), 200)
+                return Response(unicode(list.id), 200)
 
 class DashboardController(CirculationManagerController):
 

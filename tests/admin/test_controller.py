@@ -1154,6 +1154,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(201, response.status_code)
 
             [list] = self._db.query(CustomList).all()
+            eq_(list.id, int(response.response[0]))
             eq_(self._default_library, list.library)
             eq_("List", list.name)
             eq_(1, len(list.entries))
@@ -1183,6 +1184,7 @@ class TestCustomListsController(AdminControllerTest):
 
             response = self.manager.admin_custom_lists_controller.custom_lists()
             eq_(200, response.status_code)
+            eq_(list.id, int(response.response[0]))
 
             eq_("new name", list.name)
             eq_(set([w2, w3]),
