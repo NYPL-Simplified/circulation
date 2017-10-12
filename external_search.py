@@ -16,6 +16,7 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
+from monitor import WorkSweepMonitor
 from coverage import (
     CoverageFailure,
     WorkCoverageProvider,
@@ -655,7 +656,7 @@ class ExternalSearchIndex(object):
 
         success_count, errors = self.bulk(
             docs,
-            raise_on_error=False,
+q            raise_on_error=False,
             raise_on_exception=False,
         )
 
@@ -852,6 +853,52 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         for doc in docs:
             self.index(doc['_index'], doc['_type'], doc['_id'], doc)
         return len(docs), []
+
+
+class SearchIndexMonitor(WorkSweepMonitor):
+    """Make sure the search index is up-to-date for every work.
+
+    This operates on all Works, not just the ones with registered
+    WorkCoverageRecords indicating that work needs to be done.
+    """
+    SERVICE_NAME = "Search index update"
+    DEFAULT_BATCH_SIZE = 500
+    
+    def __init__(self, _db, collection, index_name=None, index_client=None,
+                 **kwargs):
+        super(SearchIndexMonitor, self).__init__(_db, collection, **kwargs)
+        
+        if index_client:
+            # This would only happen during a test.
+            self.search_index_client = index_client
+        else:
+            self.search_index_client = ExternalSearchIndex(
+                _db, works_index=index_name
+            )
+
+        index_name = self.search_index_client.works_index
+        # We got a generic service name. Replace it with a more
+        # specific one.
+        self.service_name = "Search index update (%s)" % index_name
+
+    def process_batch(self, offset):
+        """Update the search index for a set of Works."""
+        batch = self.fetch_batch(offset).all()
+        if batch:
+            successes, failures = self.search_index_client.bulk_update(batch)
+
+            for work, message in failures:
+                self.log.error(
+                    "Failed to update search index for %s: %s", work, message
+                )
+            WorkCoverageRecord.bulk_add(
+                successes, WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            )
+            # Start work on the next batch.
+            return batch[-1].id
+        else:
+            # We're done.
+            return 0
 
 
 class SearchIndexCoverageProvider(WorkCoverageProvider):

@@ -18,7 +18,10 @@ import traceback
 import unicodedata
 
 from collections import defaultdict
-from external_search import ExternalSearchIndex
+from external_search import (
+    ExternalSearchIndex,
+    SearchIndexMonitor,
+)
 import json
 from nose.tools import set_trace
 from sqlalchemy import (
@@ -70,7 +73,6 @@ from model import (
 from monitor import (
     SubjectAssignmentMonitor,
     CollectionMonitor,
-    SearchIndexMonitor
 )
 from opds_import import (
     OPDSImportMonitor,
