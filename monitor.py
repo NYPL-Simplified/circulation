@@ -13,6 +13,7 @@ from sqlalchemy.sql.expression import (
 import log # This sets the appropriate log format and level.
 from config import Configuration
 from coverage import CoverageFailure
+from external_search import ExternalSearchIndex
 from model import (
     get_one,
     get_one_or_create,
@@ -28,6 +29,7 @@ from model import (
     Subject,
     Timestamp,
     Work,
+    WorkCoverageRecord,
 )
 
 
@@ -634,3 +636,49 @@ class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):
     
     def process_item(self, item):
         item.set_work()
+
+
+class SearchIndexMonitor(WorkSweepMonitor):
+    """Make sure the search index is up-to-date for every work.
+
+    This operates on all Works, not just the ones with registered
+    WorkCoverageRecords indicating that work needs to be done.
+    """
+    SERVICE_NAME = "Search index update"
+    DEFAULT_BATCH_SIZE = 500
+    
+    def __init__(self, _db, collection, index_name=None, index_client=None,
+                 **kwargs):
+        super(SearchIndexMonitor, self).__init__(_db, collection, **kwargs)
+        
+        if index_client:
+            # This would only happen during a test.
+            self.search_index_client = index_client
+        else:
+            self.search_index_client = ExternalSearchIndex(
+                _db, works_index=index_name
+            )
+
+        index_name = self.search_index_client.works_index
+        # We got a generic service name. Replace it with a more
+        # specific one.
+        self.service_name = "Search index update (%s)" % index_name
+
+    def process_batch(self, offset):
+        """Update the search index for a set of Works."""
+        batch = self.fetch_batch(offset).all()
+        if batch:
+            successes, failures = self.search_index_client.bulk_update(batch)
+
+            for work, message in failures:
+                self.log.error(
+                    "Failed to update search index for %s: %s", work, message
+                )
+            WorkCoverageRecord.bulk_add(
+                successes, WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            )
+            # Start work on the next batch.
+            return batch[-1].id
+        else:
+            # We're done.
+            return 0

@@ -70,6 +70,7 @@ from model import (
 from monitor import (
     SubjectAssignmentMonitor,
     CollectionMonitor,
+    SearchIndexMonitor
 )
 from opds_import import (
     OPDSImportMonitor,
@@ -229,6 +230,22 @@ class RunCollectionMonitorScript(Script):
                     self.name, monitor.collection.name,
                     e, exc_info=e
                 )
+
+
+class UpdateSearchIndexScript(RunMonitorScript):
+
+    def __init__(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--works-index', 
+            help='The ElasticSearch index to update, if other than the default.'
+        )
+        parsed = parser.parse_args()
+
+        super(UpdateSearchIndexScript, self).__init__(
+            SearchIndexMonitor,
+            index_name=parsed.works_index,
+        )
 
 
 class RunCoverageProvidersScript(Script):
