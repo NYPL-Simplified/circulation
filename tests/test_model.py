@@ -2447,8 +2447,8 @@ class TestWork(DatabaseTest):
             (wcr.CHOOSE_EDITION_OPERATION, success),
             (wcr.CLASSIFY_OPERATION, success),
             (wcr.SUMMARY_OPERATION, success),
-            (wcr.WorkCoverageRecord.QUALITY_OPERATION, success),
-            (wcr.WorkCoverageRecord.GENERATE_OPDS_OPERATION, success),
+            (wcr.QUALITY_OPERATION, success),
+            (wcr.GENERATE_OPDS_OPERATION, success),
             (wcr.UPDATE_SEARCH_INDEX_OPERATION, wcr.REGISTERED),
         ])
         eq_(expect, set([(x.operation, x.status) for x in records]))
@@ -2549,7 +2549,6 @@ class TestWork(DatabaseTest):
         presentation.title = u"foo"
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)        
-        eq_([index_key], search.docs.keys())
 
         # Remove the fiction status, and the work stops being
         # presentation ready.
@@ -2557,15 +2556,11 @@ class TestWork(DatabaseTest):
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(False, work.presentation_ready)        
 
-        # It's gone from the search index again.
-        eq_([], search.docs.keys())
-
         # Restore the fiction status, and everything is fixed.
         work.fiction = False
         work.set_presentation_ready_based_on_content(search_index_client=search)
 
         eq_(True, work.presentation_ready)
-        eq_([index_key], search.docs.keys())
 
     def test_assign_genres_from_weights(self):
         work = self._work()
