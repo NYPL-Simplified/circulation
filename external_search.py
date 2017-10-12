@@ -637,6 +637,7 @@ class ExternalSearchIndex(object):
         time1 = time.time()
         needs_add = []
         needs_delete = []
+        successes = []
         for work in works:
             if work.presentation_ready:
                 needs_add.append(work)
@@ -645,6 +646,7 @@ class ExternalSearchIndex(object):
                 # pose a performance problem because works almost never
                 # stop being presentation ready.
                 self.remove_work(work)
+                successes.append(work)
 
         # Add any works that need adding.
         docs = Work.to_search_documents(needs_add)
@@ -656,7 +658,7 @@ class ExternalSearchIndex(object):
 
         success_count, errors = self.bulk(
             docs,
-q            raise_on_error=False,
+            raise_on_error=False,
             raise_on_exception=False,
         )
 
@@ -686,16 +688,17 @@ q            raise_on_error=False,
         missing_works = [
             work for work in works 
             if work.id not in doc_ids and work.id not in error_ids
+            and work not in successes
         ]
             
-        successes = [work for work in works if work.id in doc_ids and work.id not in error_ids]
+        successes.extend(
+            [work for work in works 
+             if work.id in doc_ids and work.id not in error_ids]
+        )
 
         failures = []
         for missing in missing_works:
-            if not missing.presentation_ready:
-                failures.append((work, "Work not indexed because not presentation-ready."))
-            else:
-                failures.append((work, "Work not indexed"))
+            failures.append((work, "Work not indexed"))
 
         for error in errors:
             

@@ -22,6 +22,7 @@ from external_search import (
     ExternalSearchIndexVersions,
     DummyExternalSearchIndex,
     SearchIndexCoverageProvider,
+    SearchIndexMonitor,
 )
 from classifier import Classifier
 
@@ -1033,18 +1034,25 @@ class TestBulkUpdate(DatabaseTest):
         w2.set_presentation_ready()
         w3 = self._work()
         index = DummyExternalSearchIndex()
-        index.bulk_update([w1, w2, w3])
+        successes, failures = index.bulk_update([w1, w2, w3])
+        
+        # All three works are regarded as successes, because their
+        # state was successfully mirrored to the index.
+        eq_(set([w1, w2, w3]), set(successes))
+        eq_([], failures)
 
-        # Only the presentation-ready works are inserted into the index.
+        # But only the presentation-ready works are actually inserted
+        # into the index.
         ids = set(x[-1] for x in index.docs.keys())
         eq_(set([w1.id, w2.id]), ids)
 
         # If a work stops being presentation-ready, it is removed from
-        # the index.
+        # the index, and its removal is treated as a success.
         w2.presentation_ready = False
-        index.bulk_update([w1, w2, w3])
+        successes, failures = index.bulk_update([w1, w2, w3])
         eq_([w1.id], [x[-1] for x in index.docs.keys()])
-
+        eq_(set([w1, w2, w3]), set(successes))
+        eq_([], failures)
 
 class TestSearchErrors(ExternalSearchTest):
 

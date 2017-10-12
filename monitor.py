@@ -13,7 +13,6 @@ from sqlalchemy.sql.expression import (
 import log # This sets the appropriate log format and level.
 from config import Configuration
 from coverage import CoverageFailure
-from external_search import ExternalSearchIndex
 from model import (
     get_one,
     get_one_or_create,
