@@ -249,6 +249,7 @@ class BaseCoverageProvider(object):
         records = []
 
         unhandled_items = set(batch)
+        success_items = []
         for item in results:
             if isinstance(item, CoverageFailure):
                 if item.obj in unhandled_items:
@@ -259,7 +260,6 @@ class BaseCoverageProvider(object):
                         "Transient failure covering %r: %s", 
                         item.obj, item.exception
                     )
-
                     record.status = BaseCoverageRecord.TRANSIENT_FAILURE
                     transient_failures += 1
                 else:
@@ -269,17 +269,17 @@ class BaseCoverageProvider(object):
                     )
                     record.status = BaseCoverageRecord.PERSISTENT_FAILURE
                     persistent_failures += 1
+                records.append(record)
             else:
-                # Count this as a success and add a coverage record for
-                # it. It won't show up anymore, on this run or
-                # subsequent runs.
+                # Count this as a success and prepare to add a
+                # coverage record for it. It won't show up anymore, on
+                # this run or subsequent runs.
                 if item in unhandled_items:
                     unhandled_items.remove(item)
                 successes += 1
-                record, ignore = self.add_coverage_record_for(item)
-                record.status = BaseCoverageRecord.SUCCESS
-                record.exception = None
-            records.append(record)
+                success_items.append(item)
+
+        records.extend(self.add_coverage_records_for(success_items))
 
         # Perhaps some records were ignored--they neither succeeded nor
         # failed. Treat them as transient failures.
@@ -320,6 +320,12 @@ class BaseCoverageProvider(object):
                 self.handle_success(item)
             results.append(result)
         return results
+
+    def add_coverage_records_for(self, items):
+        """Add CoverageRecords for a group of items from a batch,
+        each of which was successful.
+        """
+        return [self.add_coverage_record_for(item) for item in items]
 
     def handle_success(self, item):
         """Do something special to mark the successful coverage of the
@@ -715,9 +721,12 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         """Record this CoverageProvider's coverage for the given
         Edition/Identifier, as a CoverageRecord.
         """
-        return CoverageRecord.add_for(
+        record, is_new = CoverageRecord.add_for(
             item, data_source=self.data_source, operation=self.operation
         )
+        record.status = CoverageRecord.SUCCESS
+        record.exception = None
+        return record
 
     def record_failure_as_coverage_record(self, failure):
         """Turn a CoverageFailure into a CoverageRecord object."""
@@ -1076,13 +1085,24 @@ class WorkCoverageProvider(BaseCoverageProvider):
             work, "Was ignored by WorkCoverageProvider.", transient=True
         )
 
+    def add_coverage_records_for(self, works):
+        """Add WorkCoverageRecords for a group of works from a batch,
+        each of which was successful.
+        """
+        WorkCoverageRecord.bulk_add(
+            works, operation=self.operation
+        )
+
+        # We can't return the specific WorkCoverageRecords that were
+        # created, but it doesn't matter because they're not used except
+        # in tests.
+        return []
+
     def add_coverage_record_for(self, work):
         """Record this CoverageProvider's coverage for the given
         Edition/Identifier, as a WorkCoverageRecord.
         """
-        return WorkCoverageRecord.add_for(
-            work, operation=self.operation
-        )
+        return WorkCoverageRecord.add_for(work, operation=self.operation)
 
     def record_failure_as_coverage_record(self, failure):
         """Turn a CoverageFailure into a WorkCoverageRecord object."""
