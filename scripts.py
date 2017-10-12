@@ -60,6 +60,10 @@ from core.scripts import (
     PatronInputScript,
     RunMonitorScript,
 )
+# TODO: This class used to be defined in this file and was moved into core.
+# The import statement can be removed once we're sure all references to it
+# have been changed.
+from core.scripts import UpdateSearchIndexScript
 from core.lane import (
     Pagination,
     Facets,
@@ -88,7 +92,6 @@ from api.adobe_vendor_id import (
 )
 from api.lanes import make_lanes
 from api.controller import CirculationManager
-from api.monitor import SearchIndexMonitor
 from api.overdrive import OverdriveAPI
 from api.circulation import CirculationAPI
 from api.opds import CirculationManagerAnnotator
@@ -785,22 +788,6 @@ class InstanceInitializationScript(Script):
 
         # Create a secret key if one doesn't already exist.
         ConfigurationSetting.sitewide_secret(self._db, Configuration.SECRET_KEY)
-
-
-class UpdateSearchIndexScript(RunMonitorScript):
-
-    def __init__(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--works-index', 
-            help='The ElasticSearch index to update, if other than the default.'
-        )
-        parsed = parser.parse_args()
-
-        super(UpdateSearchIndexScript, self).__init__(
-            SearchIndexMonitor,
-            index_name=parsed.works_index,
-        )
 
 
 class LoanReaperScript(Script):
