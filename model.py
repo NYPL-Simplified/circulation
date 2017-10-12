@@ -4325,10 +4325,7 @@ class Work(Base):
             self.calculate_opds_entries()
 
         if (changed or policy.update_search_index) and not exclude_search:
-            # Ensure new changes are reflected in database queries
-            _db = Session.object_session(self)
-            flush(_db)
-            self.update_external_index(search_index_client)
+            self.external_index_needs_updating()
 
         # Now that everything's calculated, print it out.
         if policy.verbose:            
@@ -4444,42 +4441,13 @@ class Work(Base):
         return record
 
     def update_external_index(self, client, add_coverage_record=True):
-        if not client:
-            from external_search import ExternalSearchIndex
-            _db = Session.object_session(self)
-            client = ExternalSearchIndex(_db)
-        args = dict(index=client.works_index,
-                    doc_type=client.work_document_type,
-                    id=self.id)
-        if not client.works_index:
-            # There is no index set up on this instance.
-            return
-        present_in_index = False
-        if self.presentation_ready:
-            doc = self.to_search_document()
-            if doc:
-                args['body'] = doc
-                if logging.getLogger().level == logging.DEBUG:
-                    logging.debug(
-                        "Indexed work %d (%s): %r", self.id, self.title, doc
-                    )
-                else:
-                    logging.info("Indexed work %d (%s)", self.id, self.title)
-                client.index(**args)
-                present_in_index = True
-            else:
-                logging.warn(
-                    "Could not generate a search document for allegedly presentation-ready work %d (%s).",
-                    self.id, self.title
-                )
-        else:
-            if client.exists(**args):
-                client.delete(**args)
-        if add_coverage_record and present_in_index:
-            WorkCoverageRecord.add_for(
-                self, operation=WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
-            )
-        return present_in_index
+        """Create a WorkCoverageRecord so that this work's 
+        entry in the search index can be modified or deleted.
+
+        This method is deprecated -- call
+        external_index_needs_updating() instead.
+        """
+        self.external_index_needs_updating()
 
     def set_presentation_ready(
         self, as_of=None, search_index_client=None, exclude_search=False
@@ -4490,7 +4458,7 @@ class Work(Base):
         self.presentation_ready_attempt = as_of
         self.random = random.random()
         if not exclude_search:
-            self.update_external_index(search_index_client)
+            self.external_index_needs_updating()
 
     def set_presentation_ready_based_on_content(self, search_index_client=None):
         """Set this work as presentation ready, if it appears to
@@ -4512,8 +4480,10 @@ class Work(Base):
             or self.fiction is None
         ):
             self.presentation_ready = False
-            # This will remove the work from the search index.
-            self.update_external_index(search_index_client)
+            # The next time the search index WorkCoverageRecords are
+            # processed, this work will be removed from the search
+            # index.
+            self.external_index_needs_updating()
         else:
             self.set_presentation_ready(search_index_client=search_index_client)
 

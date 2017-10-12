@@ -2429,24 +2429,30 @@ class TestWork(DatabaseTest):
         # Updating availability also modified work.last_update_time.
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
-        # The index has been updated with a document.
-        [[args, doc]] = index.docs.items()
-        eq_(doc, work.to_search_document())
+        # The index has not been updated.
+        eq_([], index.docs.items())
 
         # The Work now has a complete set of WorkCoverageRecords
         # associated with it, reflecting all the operations that
         # occured as part of calculate_presentation().
+        #
+        # All the work has actually been done, except for the work of
+        # updating the search index, which has been registered and
+        # will be done later.
         records = work.coverage_records
+
+        wcr = WorkCoverageRecord
+        success = wcr.SUCCESS
         expect = set([
-            WorkCoverageRecord.CHOOSE_EDITION_OPERATION,
-            WorkCoverageRecord.CLASSIFY_OPERATION,
-            WorkCoverageRecord.SUMMARY_OPERATION,
-            WorkCoverageRecord.QUALITY_OPERATION,
-            WorkCoverageRecord.GENERATE_OPDS_OPERATION,
-            WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+            (wcr.CHOOSE_EDITION_OPERATION, success),
+            (wcr.CLASSIFY_OPERATION, success),
+            (wcr.SUMMARY_OPERATION, success),
+            (wcr.WorkCoverageRecord.QUALITY_OPERATION, success),
+            (wcr.WorkCoverageRecord.GENERATE_OPDS_OPERATION, success),
+            (wcr.UPDATE_SEARCH_INDEX_OPERATION, wcr.REGISTERED),
         ])
-        eq_(expect, set([x.operation for x in records]))
-        
+        eq_(expect, set([(x.operation, x.status) for x in records]))
+
         # Now mark the pool with the presentation edition as suppressed.
         # work.calculate_presentation() will call work.mark_licensepools_as_superceded(), 
         # which will mark the suppressed pool as superceded and take its edition out of the running.
@@ -2516,8 +2522,16 @@ class TestWork(DatabaseTest):
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
 
-        # The work has been added to the search index.
-        eq_([index_key], search.docs.keys())
+        # The work has not been added to the search index.
+        eq_([], search.docs.keys())
+
+        # But the work of adding it to the search engine has been
+        # registered.
+        [record] = [
+            x for x in work.coverage_records 
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        eq_(WorkCoverageRecord.REGISTERED, record.status)
         
         # This work is presentation ready because it has a title
         # and a fiction status.
@@ -3165,6 +3179,7 @@ class TestWork(DatabaseTest):
 
 
     def test_update_external_index(self):
+        """Test the deprecated update_external_index method."""
         work = self._work()
         work.presentation_ready = True
         records = [
@@ -3174,16 +3189,17 @@ class TestWork(DatabaseTest):
         index = DummyExternalSearchIndex()
         work.update_external_index(index)
 
-        # The work was added to the search index.
-        eq_([work.to_search_document()], index.docs.values())
-
-        # A WorkCoverageRecord was created to memorialize the work done.
+        # A WorkCoverageRecord was created to register the work that
+        # needs to be done.
         [record] = [
             x for x in work.coverage_records
             if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
         ]
-        eq_(WorkCoverageRecord.SUCCESS, record.status)
+        eq_(WorkCoverageRecord.REGISTERED, record.status)
 
+        # The work was not added to the search index -- that happens
+        # later, when the WorkCoverageRecord is processed.
+        eq_([], index.docs.values())
         
 
 class TestCirculationEvent(DatabaseTest):
