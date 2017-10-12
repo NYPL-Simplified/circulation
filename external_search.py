@@ -636,7 +636,6 @@ class ExternalSearchIndex(object):
 
         time1 = time.time()
         needs_add = []
-        needs_delete = []
         successes = []
         for work in works:
             if work.presentation_ready:
