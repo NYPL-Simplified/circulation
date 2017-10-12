@@ -73,6 +73,7 @@ from sqlalchemy.sql.expression import (
     or_,
     select,
     join,
+    literal,
     literal_column,
     case,
     table,
@@ -1457,6 +1458,69 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         coverage_record.status = status
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
+
+    @classmethod
+    def bulk_add(self, works, operation, timestamp=None, 
+                 status=CoverageRecord.SUCCESS, exception=None):
+        """Create and update WorkCoverageRecords so that every Work in 
+        `works` has an identical record.
+        """
+        if not works:
+            # Nothing to do.
+            return
+        _db = Session.object_session(works[0])
+        timestamp = timestamp or datetime.datetime.utcnow()
+        work_ids = [w.id for w in works]
+
+        # Make sure that works that previously had a
+        # WorkCoverageRecord for this operation have their timestamp
+        # and status updated.
+        update = WorkCoverageRecord.__table__.update().where(
+            and_(WorkCoverageRecord.work_id.in_(work_ids),
+                 WorkCoverageRecord.operation==operation)
+        ).values(dict(timestamp=timestamp, status=status, exception=exception))
+        _db.execute(update)
+
+        # Make sure that any works that are missing a
+        # WorkCoverageRecord for this operation get one.
+
+        # Works that already have a WorkCoverageRecord will be ignored
+        # by the INSERT but handled by the UPDATE.
+        already_covered = _db.query(WorkCoverageRecord.work_id).select_from(
+            WorkCoverageRecord).filter(
+                WorkCoverageRecord.work_id.in_(work_ids)
+            ).filter(
+                WorkCoverageRecord.operation==operation
+            )
+
+        # The SELECT part of the INSERT...SELECT query.
+        new_records = _db.query(
+            Work.id.label('work_id'), 
+            literal(operation, type_=BaseCoverageRecord.status_enum).label('operation'),
+            literal(timestamp, type_=DateTime).label('timestamp'), 
+
+            literal(status, type_=BaseCoverageRecord.status_enum).label('status')
+        ).select_from(
+            Work
+        )
+        new_records = new_records.filter(
+            Work.id.in_(work_ids)
+        ).filter(
+            ~Work.id.in_(already_covered)
+        )
+
+        # The INSERT part.
+        insert = WorkCoverageRecord.__table__.insert().from_select(
+            [
+                literal_column('work_id'),
+                literal_column('operation'),
+                literal_column('timestamp'),
+                literal_column('status'),
+            ], 
+            new_records
+        )
+        _db.execute(insert)
+
 Index("ix_workcoveragerecords_operation_work_id", WorkCoverageRecord.operation, WorkCoverageRecord.work_id)
 
 class Equivalency(Base):
