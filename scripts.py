@@ -1736,8 +1736,7 @@ class DatabaseMigrationScript(Script):
         return [core, server]
 
     def load_configuration(self):
-        # TODO: Remove after 2.0.0 release, when CDNs are loaded from
-        # the database before the ExternalIntegration has been uploaded.
+        """Load configuration without accessing the database."""
         Configuration.load(None)
 
     def run(self, test=False, cmd_args=None):
@@ -1960,7 +1959,6 @@ class DatabaseMigrationScript(Script):
         # Update the script's Session to a new one that has the changed schema
         # and other important info.
         self._session = Session(connection)
-        SessionManager.initialize_data(self._db)
         self.load_configuration()
         DataSource.well_known_sources(self._db)
 
