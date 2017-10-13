@@ -7,7 +7,7 @@ docker pull postgres:9.5;
 docker run -d --name pg postgres:9.5;
 
 # Sleep to let PostgreSQL start up.
-sleep 10;
+sleep 15;
 
 # Create production and test databases.
 docker exec -u postgres pg psql -c "create user simplified with password 'test';";
