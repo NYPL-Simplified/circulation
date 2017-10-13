@@ -1196,9 +1196,16 @@ class SettingsController(CirculationManagerController):
                     b64 = base64.b64encode(buffer.getvalue())
                     value = "data:image/png;base64,%s" % b64
             else:
-                value = flask.request.form.get(setting['key'], None)
+                default = setting.get('default')
+                value = flask.request.form.get(setting['key'], default)
             if value != NO_VALUE:
                 ConfigurationSetting.for_library(setting['key'], library).value = value
+            if not value and not setting.get("optional"):
+                self._db.rollback()
+                return INCOMPLETE_CONFIGURATION.detailed(
+                    _("The configuration is missing a required setting: %(setting)s",
+                      setting=setting.get("label"),
+                    ))
 
         if is_new:
             return Response(unicode(_("Success")), 201)

@@ -1709,6 +1709,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         )
 
         provider = self.mock_basic(patrondata=patrondata)
+        provider.external_type_regular_expression = re.compile("^(.)")
         patron2 = provider.authenticate(self._db, self.credentials)
 
         # We were able to match our local patron to the patron held by the
@@ -1719,6 +1720,7 @@ class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
         # new identifiers.
         eq_(new_identifier, patron.authorization_identifier)
         eq_(new_username, patron.username)
+        eq_(patron.authorization_identifier[0], patron.external_type)
 
     def test_authentication_updates_outdated_patron_on_username_match(self):
         # This patron has no permanent ID. Their library card number has
@@ -1835,7 +1837,7 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         data_source = provider.token_data_source(self._db)
 
         # Until we call create_token, this won't work.
-        eq_(None, provider.authenticated_patron(self._db, "some other token"))
+        eq_(None, provider.authenticated_patron(self._db, "some token"))
 
         token, is_new = provider.create_token(self._db, patron, "some token")
         eq_(True, is_new)
@@ -2073,3 +2075,12 @@ class TestOAuthController(AuthenticatorTest):
         eq_(None, fragments.get('access_token'))
         error = json.loads(fragments.get('error')[0])
         eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('type'))
+
+    def test_oauth_authentication_invalid_token(self):
+        """If an invalid bearer token is provided, an appropriate problem
+        detail is returned.
+        """
+        problem = self.library_auth.authenticated_patron(
+            self._db, "Bearer - this is a bad token"
+        )
+        eq_(INVALID_OAUTH_BEARER_TOKEN, problem)
