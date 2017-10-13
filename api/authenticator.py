@@ -598,9 +598,12 @@ class LibraryAuthenticator(object):
 
             # The patron wants to use an
             # OAuthAuthenticationProvider. Figure out which one.
-            provider_name, provider_token = self.decode_bearer_token_from_header(
-                header
-            )
+            try:
+                provider_name, provider_token = self.decode_bearer_token_from_header(
+                    header
+                )
+            except jwt.exceptions.InvalidTokenError, e:
+                return INVALID_OAUTH_BEARER_TOKEN
             provider = self.oauth_provider_lookup(provider_name)
             if isinstance(provider, ProblemDetail):
                 # There was a problem turning the provider name into

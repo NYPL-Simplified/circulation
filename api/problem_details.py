@@ -205,6 +205,13 @@ UNKNOWN_OAUTH_PROVIDER = pd(
     detail=_("The specified OAuth provider name isn't one of the known providers."),
 )
 
+INVALID_OAUTH_BEARER_TOKEN = pd(
+    "http://librarysimplified.org/terms/problem/credentials-invalid",
+    status_code=400,
+    title=_("Invalid OAuth bearer token."),
+    detail=_("The provided OAuth bearer token couldn't be verified."),
+)
+
 UNSUPPORTED_AUTHENTICATION_MECHANISM = pd(
     "http://librarysimplified.org/terms/problem/unsupported-authentication-mechanism",
     status_code=400,
