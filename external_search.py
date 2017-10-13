@@ -16,6 +16,7 @@ from model import (
     Work,
     WorkCoverageRecord,
 )
+from monitor import WorkSweepMonitor
 from coverage import (
     CoverageFailure,
     WorkCoverageProvider,
@@ -634,7 +635,20 @@ class ExternalSearchIndex(object):
         """Upload a batch of works to the search index at once."""
 
         time1 = time.time()
-        docs = Work.to_search_documents(works)
+        needs_add = []
+        successes = []
+        for work in works:
+            if work.presentation_ready:
+                needs_add.append(work)
+            else:
+                # Works are removed one at a time, which shouldn't
+                # pose a performance problem because works almost never
+                # stop being presentation ready.
+                self.remove_work(work)
+                successes.append(work)
+
+        # Add any works that need adding.
+        docs = Work.to_search_documents(needs_add)
 
         for doc in docs:
             doc["_index"] = self.works_index
@@ -647,11 +661,14 @@ class ExternalSearchIndex(object):
             raise_on_exception=False,
         )
 
-        # If the entire update failed, try it one more time before giving up on the batch.
+        # If the entire update failed, try it one more time before
+        # giving up on the batch.
+        #
+        # Removed works were already removed, so no need to try them again.
         if len(errors) == len(docs):
             if retry_on_batch_failure:
                 self.log.info("Elasticsearch bulk update timed out, trying again.")
-                return self.bulk_update(works, retry_on_batch_failure=False)
+                return self.bulk_update(needs_add, retry_on_batch_failure=False)
             else:
                 docs = []
 
@@ -670,16 +687,17 @@ class ExternalSearchIndex(object):
         missing_works = [
             work for work in works 
             if work.id not in doc_ids and work.id not in error_ids
+            and work not in successes
         ]
             
-        successes = [work for work in works if work.id in doc_ids and work.id not in error_ids]
+        successes.extend(
+            [work for work in works 
+             if work.id in doc_ids and work.id not in error_ids]
+        )
 
         failures = []
         for missing in missing_works:
-            if not missing.presentation_ready:
-                failures.append((work, "Work not indexed because not presentation-ready."))
-            else:
-                failures.append((work, "Work not indexed"))
+            failures.append((work, "Work not indexed"))
 
         for error in errors:
             
@@ -700,6 +718,13 @@ class ExternalSearchIndex(object):
 
         return successes, failures
 
+    def remove_work(self, work):
+        """Remove the search document for `work` from the search index.
+        """
+        args = dict(index=self.works_index, doc_type=self.work_document_type, 
+                    id=work.id)
+        if self.exists(**args):
+            self.delete(**args)
 
 class ExternalSearchIndexVersions(object):
 
@@ -830,6 +855,52 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         for doc in docs:
             self.index(doc['_index'], doc['_type'], doc['_id'], doc)
         return len(docs), []
+
+
+class SearchIndexMonitor(WorkSweepMonitor):
+    """Make sure the search index is up-to-date for every work.
+
+    This operates on all Works, not just the ones with registered
+    WorkCoverageRecords indicating that work needs to be done.
+    """
+    SERVICE_NAME = "Search index update"
+    DEFAULT_BATCH_SIZE = 500
+    
+    def __init__(self, _db, collection, index_name=None, index_client=None,
+                 **kwargs):
+        super(SearchIndexMonitor, self).__init__(_db, collection, **kwargs)
+        
+        if index_client:
+            # This would only happen during a test.
+            self.search_index_client = index_client
+        else:
+            self.search_index_client = ExternalSearchIndex(
+                _db, works_index=index_name
+            )
+
+        index_name = self.search_index_client.works_index
+        # We got a generic service name. Replace it with a more
+        # specific one.
+        self.service_name = "Search index update (%s)" % index_name
+
+    def process_batch(self, offset):
+        """Update the search index for a set of Works."""
+        batch = self.fetch_batch(offset).all()
+        if batch:
+            successes, failures = self.search_index_client.bulk_update(batch)
+
+            for work, message in failures:
+                self.log.error(
+                    "Failed to update search index for %s: %s", work, message
+                )
+            WorkCoverageRecord.bulk_add(
+                successes, WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            )
+            # Start work on the next batch.
+            return batch[-1].id
+        else:
+            # We're done.
+            return 0
 
 
 class SearchIndexCoverageProvider(WorkCoverageProvider):

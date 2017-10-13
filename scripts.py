@@ -19,7 +19,10 @@ import traceback
 import unicodedata
 
 from collections import defaultdict
-from external_search import ExternalSearchIndex
+from external_search import (
+    ExternalSearchIndex,
+    SearchIndexMonitor,
+)
 import json
 from nose.tools import set_trace
 from sqlalchemy import (
@@ -230,6 +233,22 @@ class RunCollectionMonitorScript(Script):
                     self.name, monitor.collection.name,
                     e, exc_info=e
                 )
+
+
+class UpdateSearchIndexScript(RunMonitorScript):
+
+    def __init__(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--works-index', 
+            help='The ElasticSearch index to update, if other than the default.'
+        )
+        parsed = parser.parse_args()
+
+        super(UpdateSearchIndexScript, self).__init__(
+            SearchIndexMonitor,
+            index_name=parsed.works_index,
+        )
 
 
 class RunCoverageProvidersScript(Script):
