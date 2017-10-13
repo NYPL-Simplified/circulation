@@ -201,11 +201,17 @@ class AdminController(object):
         return admin
 
     def check_csrf_token(self):
-        """Verifies that the CSRF token in the form data matches the one in the session."""
-        token = self.get_csrf_token()
-        if not token or token != flask.request.form.get("csrf_token"):
+        """Verifies that the CSRF token in the form data or X-CSRF-Token header
+        matches the one in the session cookie.
+        TODO: Change all requests to use the X-CSRF-Token header instead of form
+        data.
+        """
+        cookie_token = self.get_csrf_token()
+        form_token = flask.request.form.get("csrf_token")
+        header_token = flask.request.headers.get("X-CSRF-Token")
+        if not cookie_token or cookie_token != (form_token or header_token):
             return INVALID_CSRF_TOKEN
-        return token
+        return cookie_token
 
     def get_csrf_token(self):
         """Returns the CSRF token for the current session."""
@@ -874,6 +880,19 @@ class CustomListsController(CirculationManagerController):
                 return Response(unicode(list.id), 201)
             else:
                 return Response(unicode(list.id), 200)
+
+    def custom_list(self, list_id):
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        if flask.request.method == "DELETE":
+            list = get_one(self._db, CustomList, id=list_id, data_source=data_source)
+            if not list:
+                return MISSING_CUSTOM_LIST
+            for entry in list.entries:
+                self._db.delete(entry)
+            self._db.delete(list)
+            return Response(unicode(_("Deleted")), 200)
+
 
 class DashboardController(CirculationManagerController):
 

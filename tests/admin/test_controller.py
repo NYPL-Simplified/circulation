@@ -1190,6 +1190,28 @@ class TestCustomListsController(AdminControllerTest):
             eq_(set([w2, w3]),
                 set([entry.work for entry in list.entries]))
 
+    def test_custom_list_delete_success(self):
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list.library = self._default_library
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        list.add_entry(w1)
+        list.add_entry(w2)
+
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_custom_lists_controller.custom_list(list.id)
+            eq_(200, response.status_code)
+
+            eq_(0, self._db.query(CustomList).count())
+            eq_(0, self._db.query(CustomListEntry).count())
+
+    def test_custom_list_delete_errors(self):
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_custom_lists_controller.custom_list(123)
+            eq_(MISSING_CUSTOM_LIST, response)
+
 class TestDashboardController(AdminControllerTest):
 
     def test_circulation_events(self):

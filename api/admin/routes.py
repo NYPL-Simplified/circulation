@@ -435,6 +435,19 @@ def custom_lists():
         return data
     return flask.jsonify(**data)
 
+@library_route("/admin/custom_list/<list_id>", methods=["DELETE"])
+@has_library
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def custom_list(list_id):
+    data = app.manager.admin_custom_lists_controller.custom_list(list_id)
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route('/admin/sitewide_registration', methods=['POST'])
 @returns_problem_detail
 @requires_admin
