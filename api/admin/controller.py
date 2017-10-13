@@ -865,11 +865,16 @@ class CustomListsController(CirculationManagerController):
             old_entries = list.entries
             for entry in entries:
                 pwid = entry.get("pwid")
-                edition = get_one(self._db, Edition,
-                                  on_multiple='interchangeable',
-                                  permanent_work_id=pwid)
-                if edition and edition.work:
-                    list.add_entry(edition.work, featured=True)
+                work = self._db.query(
+                    Work
+                ).join(
+                    Edition, Edition.id==Work.presentation_edition_id
+                ).filter(
+                    Edition.permanent_work_id==pwid
+                ).one()
+
+                if work:
+                    list.add_entry(work, featured=True)
 
             new_pwids = [entry.get("pwid") for entry in entries]
             for entry in old_entries:
