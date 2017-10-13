@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import shutil
+import stat
 import tempfile
 from StringIO import StringIO
 
@@ -65,6 +66,7 @@ from scripts import (
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
     RunMonitorScript,
+    RunWorkCoverageProviderScript,
     Script,
     ShowCollectionsScript,
     ShowIntegrationsScript,
@@ -74,6 +76,7 @@ from scripts import (
 from testing import(
     AlwaysSuccessfulBibliographicCoverageProvider,
     BrokenBibliographicCoverageProvider,
+    AlwaysSuccessfulWorkCoverageProvider,
 )
 from monitor import (
     CollectionMonitor,
@@ -441,7 +444,7 @@ class TestLibraryInputScript(DatabaseTest):
         eq_(True, l1.processed)
         eq_(False, l2.processed)
 
-        
+
 class TestRunCoverageProviderScript(DatabaseTest):
 
     def test_parse_command_line(self):
@@ -454,6 +457,18 @@ class TestRunCoverageProviderScript(DatabaseTest):
         eq_(datetime.datetime(2016, 5, 1), parsed.cutoff_time)
         eq_([identifier], parsed.identifiers)
         eq_(identifier.type, parsed.identifier_type)
+
+
+class TestRunWorkCoverageProviderScript(DatabaseTest):
+
+    def test_constructor(self):
+        script = RunWorkCoverageProviderScript(
+            AlwaysSuccessfulWorkCoverageProvider, _db=self._db,
+            batch_size=123
+        )
+        [provider] = script.providers
+        assert isinstance(provider, AlwaysSuccessfulWorkCoverageProvider)
+        eq_(123, provider.batch_size)
 
         
 class TestWorkProcessingScript(DatabaseTest):
@@ -558,6 +573,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
             core = os.path.split(self.core_migration_dir)[0]
             target_dir = os.path.join(core, 'tests')
             content = (
+                "#!/usr/bin/env python\n\n"+
                 "import tempfile\nimport os\n\n"+
                 "file_info = tempfile.mkstemp(prefix='"+
                 unique_string+"-', suffix='.py', dir='"+target_dir+"')\n\n"+
@@ -573,12 +589,22 @@ class TestDatabaseMigrationScript(DatabaseTest):
         migration_file_info = tempfile.mkstemp(
             prefix=prefix, suffix=suffix, dir=directory
         )
-        # Hold onto details about the file for deletion in teardown().
-        self.migration_files.append(migration_file_info)
+        # Hold onto the filename for deletion in teardown().
+        fd, migration_file = migration_file_info
+        self.migration_files.append(migration_file)
 
-        with open(migration_file_info[1], 'w') as migration:
+        with open(migration_file, 'w') as migration:
             # Write content to the file.
             migration.write(content)
+
+        # If it's a python migration, make it executable.
+        if migration_file.endswith('py'):
+            original_mode = os.stat(migration_file).st_mode
+            mode = original_mode | (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            os.chmod(migration_file, mode)
+
+        # Close the file descriptor.
+        os.close(fd)
 
     def setup(self):
         super(TestDatabaseMigrationScript, self).setup()
@@ -595,15 +621,8 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
     def teardown(self):
         """Delete any files and directories created during testing."""
-        for fd, fpath in self.migration_files:
-            os.close(fd)
+        for fpath in self.migration_files:
             os.remove(fpath)
-            if fpath.endswith('.py'):
-                # Remove compiled files.
-                try:
-                    os.remove(fpath+'c')
-                except OSError:
-                    pass
 
         for directory in self.script.directories_by_priority:
             os.rmdir(directory)
@@ -635,15 +654,14 @@ class TestDatabaseMigrationScript(DatabaseTest):
         result = self.script.fetch_migration_files()
         result_migrations, result_migrations_by_dir = result
 
-        for desc, migration_file in self.migration_files:
+        for migration_file in self.migration_files:
             assert os.path.split(migration_file)[1] in result_migrations
 
         def extract_filenames(core=True):
-            pathnames = [pathname for desc, pathname in self.migration_files]
             if core:
-                pathnames = [p for p in pathnames if 'core' in p]
+                pathnames = filter(lambda p: 'core' in p, self.migration_files)
             else:
-                pathnames = [p for p in pathnames if 'core' not in p]
+                pathnames = filter(lambda p: 'core' not in p, self.migration_files)
 
             return [os.path.split(p)[1] for p in pathnames]
 
@@ -774,7 +792,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         # Pop the last migration filepath off and run the migration with
         # the relevant information.
-        migration_filepath = self.migration_files[-1][1]
+        migration_filepath = self.migration_files[-1]
         migration_filename = os.path.split(migration_filepath)[1]
         migrations_by_dir = {
             self.core_migration_dir : [migration_filename],
@@ -792,7 +810,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
             self.core_migration_dir, 'COUNTER', 'sql',
             migration_date='20261203-3'
         )
-        migration_filename = os.path.split(self.migration_files[-1][1])[1]
+        migration_filename = os.path.split(self.migration_files[-1])[1]
         migrations_by_dir[self.core_migration_dir] = [migration_filename]
         self.script.run_migrations(
             [migration_filename], migrations_by_dir, self.timestamp
@@ -1038,7 +1056,7 @@ class TestConfigureSiteScript(DatabaseTest):
             SITEWIDE_SETTINGS = [
                 { "key": "setting1" },
                 { "key": "setting2" },
-                { "key": "secret_setting" },
+                { "key": "setting_secret" },
             ]
 
         script = ConfigureSiteScript(config=TestConfig)
@@ -1047,32 +1065,28 @@ class TestConfigureSiteScript(DatabaseTest):
             self._db, [
                 "--setting=setting1=value1",
                 "--setting=setting2=[1,2,\"3\"]",
-                "--setting=secret_setting=secretvalue",
+                "--setting=setting_secret=secretvalue",
             ],
             output
         )
         # The secret was set, but is not shown.
-        eq_("""Current site-wide settings:
-setting1='value1'
-setting2='[1,2,"3"]'
-""",
-            output.getvalue()
+        expect = "\n".join(
+            ConfigurationSetting.explain(self._db, include_secrets=False)
         )
+        eq_(expect, output.getvalue())
+        assert 'setting_secret' not in expect
         eq_("value1", ConfigurationSetting.sitewide(self._db, "setting1").value)
         eq_('[1,2,"3"]', ConfigurationSetting.sitewide(self._db, "setting2").value)
-        eq_("secretvalue", ConfigurationSetting.sitewide(self._db, "secret_setting").value)
+        eq_("secretvalue", ConfigurationSetting.sitewide(self._db, "setting_secret").value)
 
         # If we run again with --show-secrets, the secret is shown.
         output = StringIO()
         script.do_run(self._db, ["--show-secrets"], output)
-        eq_("""Current site-wide settings:
-secret_setting='secretvalue'
-setting1='value1'
-setting2='[1,2,"3"]'
-""",
-            output.getvalue()
+        expect = "\n".join(
+            ConfigurationSetting.explain(self._db, include_secrets=True)
         )
-
+        eq_(expect, output.getvalue())
+        assert 'setting_secret' in expect
 
 class TestConfigureLibraryScript(DatabaseTest):
     

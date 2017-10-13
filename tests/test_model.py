@@ -2429,24 +2429,30 @@ class TestWork(DatabaseTest):
         # Updating availability also modified work.last_update_time.
         assert (datetime.datetime.utcnow() - work.last_update_time) < datetime.timedelta(seconds=2)
 
-        # The index has been updated with a document.
-        [[args, doc]] = index.docs.items()
-        eq_(doc, work.to_search_document())
+        # The index has not been updated.
+        eq_([], index.docs.items())
 
         # The Work now has a complete set of WorkCoverageRecords
         # associated with it, reflecting all the operations that
         # occured as part of calculate_presentation().
+        #
+        # All the work has actually been done, except for the work of
+        # updating the search index, which has been registered and
+        # will be done later.
         records = work.coverage_records
+
+        wcr = WorkCoverageRecord
+        success = wcr.SUCCESS
         expect = set([
-            WorkCoverageRecord.CHOOSE_EDITION_OPERATION,
-            WorkCoverageRecord.CLASSIFY_OPERATION,
-            WorkCoverageRecord.SUMMARY_OPERATION,
-            WorkCoverageRecord.QUALITY_OPERATION,
-            WorkCoverageRecord.GENERATE_OPDS_OPERATION,
-            WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + index.works_index,
+            (wcr.CHOOSE_EDITION_OPERATION, success),
+            (wcr.CLASSIFY_OPERATION, success),
+            (wcr.SUMMARY_OPERATION, success),
+            (wcr.QUALITY_OPERATION, success),
+            (wcr.GENERATE_OPDS_OPERATION, success),
+            (wcr.UPDATE_SEARCH_INDEX_OPERATION, wcr.REGISTERED),
         ])
-        eq_(expect, set([x.operation for x in records]))
-        
+        eq_(expect, set([(x.operation, x.status) for x in records]))
+
         # Now mark the pool with the presentation edition as suppressed.
         # work.calculate_presentation() will call work.mark_licensepools_as_superceded(), 
         # which will mark the suppressed pool as superceded and take its edition out of the running.
@@ -2516,8 +2522,16 @@ class TestWork(DatabaseTest):
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)
 
-        # The work has been added to the search index.
-        eq_([index_key], search.docs.keys())
+        # The work has not been added to the search index.
+        eq_([], search.docs.keys())
+
+        # But the work of adding it to the search engine has been
+        # registered.
+        [record] = [
+            x for x in work.coverage_records 
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        eq_(WorkCoverageRecord.REGISTERED, record.status)
         
         # This work is presentation ready because it has a title
         # and a fiction status.
@@ -2535,7 +2549,6 @@ class TestWork(DatabaseTest):
         presentation.title = u"foo"
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(True, work.presentation_ready)        
-        eq_([index_key], search.docs.keys())
 
         # Remove the fiction status, and the work stops being
         # presentation ready.
@@ -2543,15 +2556,11 @@ class TestWork(DatabaseTest):
         work.set_presentation_ready_based_on_content(search_index_client=search)
         eq_(False, work.presentation_ready)        
 
-        # It's gone from the search index again.
-        eq_([], search.docs.keys())
-
         # Restore the fiction status, and everything is fixed.
         work.fiction = False
         work.set_presentation_ready_based_on_content(search_index_client=search)
 
         eq_(True, work.presentation_ready)
-        eq_([index_key], search.docs.keys())
 
     def test_assign_genres_from_weights(self):
         work = self._work()
@@ -2920,6 +2929,18 @@ class TestWork(DatabaseTest):
         edition, pool = self._edition(authors=[self._str, self._str], with_license_pool=True)
         work = self._work(presentation_edition=edition)
 
+        # Create a second Collection that has a different LicensePool
+        # for the same Work.
+        collection1 = self._default_collection
+        collection2 = self._collection()
+        self._default_library.collections.append(collection2)
+        pool2 = self._licensepool(edition=edition, collection=collection2)
+        pool2.work_id = work.id
+
+        # Create a third Collection that's just hanging around, not
+        # doing anything.
+        collection3 = self._collection()
+
         # These are the edition's authors.
         [contributor1] = [c.contributor for c in edition.contributions if c.role == Contributor.PRIMARY_AUTHOR_ROLE]
         contributor1.family_name = self._str
@@ -2998,6 +3019,13 @@ class TestWork(DatabaseTest):
         eq_(work.rating, search_doc['rating'])
         eq_(work.popularity, search_doc['popularity'])
 
+        # Each collection in which the Work is found is listed in
+        # the 'collections' section.
+        collections = search_doc['collections']
+        eq_(2, len(collections))
+        for collection in self._default_library.collections:
+            assert dict(collection_id=collection.id) in collections
+
         contributors = search_doc['contributors']
         eq_(2, len(contributors))
         [contributor1_doc] = [c for c in contributors if c['sort_name'] == contributor1.sort_name]
@@ -3034,6 +3062,30 @@ class TestWork(DatabaseTest):
         eq_(work.target_age.lower, target_age_doc['lower'])
         eq_(work.target_age.upper, target_age_doc['upper'])
 
+        # Each collection in which the Work is found is listed in
+        # the 'collections' section.
+        collections = search_doc['collections']
+        eq_(2, len(collections))
+        for collection in self._default_library.collections:
+            assert dict(collection_id=collection.id) in collections
+
+        # If the book stops being available through a collection
+        # (because its LicensePool loses all its licenses or stops
+        # being open access), that collection will not be listed
+        # in the search document.
+        [pool] = collection1.licensepools
+        pool.licenses_owned = 0
+        self._db.commit()
+        search_doc = work.to_search_document()
+        eq_([dict(collection_id=collection2.id)], search_doc['collections'])
+
+        # If the book becomes available again, the collection will
+        # start showing up again.
+        pool.open_access = True
+        self._db.commit()
+        search_doc = work.to_search_document()
+        eq_(2, len(search_doc['collections']))
+
     def test_target_age_string(self):
         work = self._work()
         work.target_age = NumericRange(7, 8, '[]')
@@ -3048,6 +3100,102 @@ class TestWork(DatabaseTest):
         work.target_age = NumericRange(None, 8, '[]')
         eq_("8", work.target_age_string)
 
+    def test_reindex_on_availability_change(self):
+        """A change in a LicensePool's availability creates a 
+        WorkCoverageRecord indicating that the work needs to be
+        re-indexed.
+        """
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        def find_record(work):
+            """Find the Work's 'update search index operation' 
+            WorkCoverageRecord.
+            """
+            records = [
+                x for x in work.coverage_records 
+                if x.operation.startswith(
+                        WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+                )
+            ]
+            if records:
+                return records[0]
+            return None
+        registered = WorkCoverageRecord.REGISTERED
+        success = WorkCoverageRecord.SUCCESS
+
+        # The work starts off with no relevant WorkCoverageRecord.
+        eq_(None, find_record(work))
+
+        # If it stops being open-access, it needs to be reindexed.
+        pool.open_access = False
+        record = find_record(work)
+        eq_(registered, record.status)
+
+        # If its licenses_owned goes from zero to nonzero, it needs to
+        # be reindexed.
+        record.status = success
+        pool.licenses_owned = 10
+        pool.licenses_available = 10
+        eq_(registered, record.status)
+
+        # If its licenses_owned changes, but not to zero, nothing happens.
+        record.status = success
+        pool.licenses_owned = 1
+        eq_(success, record.status)
+
+        # If its licenses_available changes, nothing happens
+        pool.licenses_available = 0
+        eq_(success, record.status)
+
+        # If its licenses_owned goes from nonzero to zero, it needs to
+        # be reindexed.
+        pool.licenses_owned = 0
+        eq_(registered, record.status)
+
+        # If it becomes open-access again, it needs to be reindexed.
+        record.status = success
+        pool.open_access = True
+        eq_(registered, record.status)
+
+        # If its collection changes (which shouldn't happen), it needs
+        # to be reindexed.
+        record.status = success
+        collection2 = self._collection()
+        pool.collection_id = collection2.id
+        eq_(registered, record.status)
+
+        # If a LicensePool is deleted (which also shouldn't happen),
+        # its former Work needs to be reindexed.
+        record.status = success
+        self._db.delete(pool)
+        work = self._db.query(Work).one()
+        record = find_record(work)
+        eq_(registered, record.status)
+
+
+    def test_update_external_index(self):
+        """Test the deprecated update_external_index method."""
+        work = self._work()
+        work.presentation_ready = True
+        records = [
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        index = DummyExternalSearchIndex()
+        work.update_external_index(index)
+
+        # A WorkCoverageRecord was created to register the work that
+        # needs to be done.
+        [record] = [
+            x for x in work.coverage_records
+            if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        ]
+        eq_(WorkCoverageRecord.REGISTERED, record.status)
+
+        # The work was not added to the search index -- that happens
+        # later, when the WorkCoverageRecord is processed.
+        eq_([], index.docs.values())
+        
 
 class TestCirculationEvent(DatabaseTest):
 
@@ -5590,6 +5738,81 @@ class TestWorkCoverageRecord(DatabaseTest):
         eq_(record5, record)
         eq_(WorkCoverageRecord.PERSISTENT_FAILURE, record.status)
 
+    def test_bulk_add(self):
+
+        operation = "relevant"
+        irrelevant_operation = "irrelevant"
+
+        # This Work will get a new WorkCoverageRecord for the relevant
+        # operation, even though it already has a WorkCoverageRecord
+        # for an irrelevant operation.
+        not_already_covered = self._work()
+        irrelevant_record, ignore = WorkCoverageRecord.add_for(
+            not_already_covered, irrelevant_operation, 
+            status=WorkCoverageRecord.SUCCESS
+        )
+
+        # This Work will have its existing, relevant CoverageRecord
+        # updated.
+        already_covered = self._work()
+        previously_failed, ignore = WorkCoverageRecord.add_for(
+            already_covered, operation, 
+            status=WorkCoverageRecord.TRANSIENT_FAILURE,
+        )
+        previously_failed.exception="Some exception"
+
+        # This work will not have a record created for it, because
+        # we're not passing it in to the method.
+        not_affected = self._work()
+        WorkCoverageRecord.add_for(
+            not_affected, irrelevant_operation, 
+            status=WorkCoverageRecord.SUCCESS
+        )
+
+        # This work will not have its existing record updated, because
+        # we're not passing it in to the method.
+        not_affected_2 = self._work()
+        not_modified, ignore = WorkCoverageRecord.add_for(
+            not_affected_2, operation, status=WorkCoverageRecord.SUCCESS
+        )
+
+        # Tell bulk_add to update or create WorkCoverageRecords for
+        # not_already_covered and already_covered, but not not_affected.
+        new_timestamp = datetime.datetime.utcnow()
+        new_status = WorkCoverageRecord.REGISTERED
+        WorkCoverageRecord.bulk_add(
+            [not_already_covered, already_covered],
+            operation, new_timestamp, status=new_status
+        )
+        self._db.commit()
+        def relevant_records(work):
+            return [x for x in work.coverage_records
+                    if x.operation == operation]
+
+        # No coverage records were added or modified for works not
+        # passed in to the method.
+        eq_([], relevant_records(not_affected))
+        assert not_modified.timestamp < new_timestamp
+
+        # The record associated with already_covered has been updated,
+        # and its exception removed.
+        [record] = relevant_records(already_covered)
+        eq_(new_timestamp, record.timestamp)
+        eq_(new_status, record.status)
+        eq_(None, previously_failed.exception)
+
+        # A new record has been associated with not_already_covered
+        [record] = relevant_records(not_already_covered)
+        eq_(new_timestamp, record.timestamp)
+        eq_(new_status, record.status)
+
+        # The irrelevant WorkCoverageRecord is not affected by the update,
+        # even though its Work was affected, because it's a record for
+        # a different operation.
+        eq_(WorkCoverageRecord.SUCCESS, irrelevant_record.status)
+        assert irrelevant_record.timestamp < new_timestamp
+
+
 class TestComplaint(DatabaseTest):
 
     def setup(self):
@@ -5747,6 +5970,17 @@ class TestCustomList(DatabaseTest):
         result = CustomList.find(self._db, source.name, 'My List')
         eq_(custom_list, result)
 
+        # By default, we only find lists with no associated Library.
+        # If we look for a list from a library, there isn't one.
+        result = CustomList.find(self._db, source, 'My List', library=self._default_library)
+        eq_(None, result)
+
+        # If we add the Library to the list, it's returned.
+        custom_list.library = self._default_library
+        result = CustomList.find(self._db, source, 'My List', library=self._default_library)
+        eq_(custom_list, result)
+        
+
     def test_add_entry(self):
         custom_list = self._customlist(num_entries=0)[0]
         now = datetime.datetime.utcnow()
@@ -5768,6 +6002,14 @@ class TestCustomList(DatabaseTest):
         eq_(True, is_new)
         eq_(worked_edition, worked_entry.edition)
         eq_(True, worked_entry.first_appearance > now)
+
+        # A work can create an entry.
+        work = self._work(with_open_access_download=True)
+        work_entry, is_new = custom_list.add_entry(work)
+        eq_(True, is_new)
+        eq_(work.presentation_edition, work_entry.edition)
+        eq_(work, work_entry.work)
+        eq_(True, work_entry.first_appearance > now)
 
         # Annotations can be passed to the entry.
         annotated_edition = self._edition()
@@ -5822,14 +6064,14 @@ class TestCustomList(DatabaseTest):
         eq_(lp.work, equivalent_entry.work)
 
     def test_remove_entry(self):
-        custom_list, editions = self._customlist(num_entries=2)
-        [first, second] = editions
+        custom_list, editions = self._customlist(num_entries=3)
+        [first, second, third] = editions
         now = datetime.datetime.utcnow()
 
         # An entry is removed if its edition is passed in.
         custom_list.remove_entry(first)
-        eq_(1, len(custom_list.entries))
-        eq_(second, custom_list.entries[0].edition)
+        eq_(2, len(custom_list.entries))
+        eq_(set([second, third]), set([entry.edition for entry in custom_list.entries]))
         # And CustomList.updated is changed.
         eq_(True, custom_list.updated > now)
 
@@ -5841,6 +6083,13 @@ class TestCustomList(DatabaseTest):
             equivalent.data_source, equivalent.primary_identifier, 1
         )
         custom_list.remove_entry(second)
+        eq_(1, len(custom_list.entries))
+        eq_(third, custom_list.entries[0].edition)
+        eq_(True, custom_list.updated > previous_list_update_time)
+
+        # An entry is also removed if its work is passed in.
+        previous_list_update_time = custom_list.updated
+        custom_list.remove_entry(third.work)
         eq_([], custom_list.entries)
         eq_(True, custom_list.updated > previous_list_update_time)
 
@@ -6568,11 +6817,10 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         timestamp = Timestamp.stamp(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
-        last_update_after_sneaky_change = timestamp.timestamp
 
         # Calling Configuration.check_for_site_configuration_update
         # doesn't detect the change because by default we only go to
-        # the database once a minute.
+        # the database every ten minutes.
         eq_(new_last_update_time,
             Configuration.site_configuration_last_update(self._db))
 
@@ -6583,11 +6831,25 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         )
         assert newer_update > last_update
         
+        # It's also possible to change the timeout value through a
+        # site-wide ConfigurationSetting
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.SITE_CONFIGURATION_TIMEOUT
+        ).value = 0
+        timestamp = Timestamp.stamp(
+            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
+        )
+        even_newer_update = Configuration.site_configuration_last_update(
+            self._db, timeout=0
+        )
+        assert even_newer_update > newer_update
+
+
         # If ConfigurationSettings are updated twice within the
         # timeout period (default 1 second), the last update time is
         # only set once, to avoid spamming the Timestamp with updates.
         
-        # The high value for 'timeout' saves this code. If we decided
+        # The high site-wide value for 'timeout' saves this code. If we decided
         # that the timeout had expired and tried to check the
         # Timestamp, the code would crash because we're not passing
         # a database connection in.
@@ -6595,7 +6857,8 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
         # Nothing has changed -- how could it, with no database connection
         # to modify anything?
-        eq_(newer_update, Configuration.site_configuration_last_update(self._db))
+        eq_(even_newer_update, 
+            Configuration.site_configuration_last_update(self._db))
 
     # We don't test every event listener, but we do test one of each type.
     def test_configuration_relevant_lifecycle_event_updates_configuration(self):

@@ -15,11 +15,14 @@ from lane import Lane
 from model import (
     Edition,
     ExternalIntegration,
+    WorkCoverageRecord,
 )
 from external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
     DummyExternalSearchIndex,
+    SearchIndexCoverageProvider,
+    SearchIndexMonitor,
 )
 from classifier import Classifier
 
@@ -62,6 +65,11 @@ class ExternalSearchTest(DatabaseTest):
 
 
 class TestExternalSearch(ExternalSearchTest):
+
+    def test_works_index_name(self):
+        if not self.search:
+            return
+        eq_("test_index-v0", self.search.works_index_name(self._db))
 
     def test_setup_index_creates_new_index(self):
         if not self.search:
@@ -172,134 +180,180 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
     def setup(self):
         super(TestExternalSearchWithWorks, self).setup()
+
+        def _work(*args, **kwargs):
+            """Convenience method to create a work with a license pool
+            in the default collection.
+            """
+            return self._work(
+                *args, with_license_pool=True, 
+                collection=self._default_collection, **kwargs
+            )
+
         if self.search:
 
-            self.moby_dick = self._work(title="Moby Dick", authors="Herman Melville", fiction=True)
+            self.moby_dick = _work(title="Moby Dick", authors="Herman Melville", fiction=True)
             self.moby_dick.presentation_edition.subtitle = "Or, the Whale"
             self.moby_dick.presentation_edition.series = "Classics"
             self.moby_dick.summary_text = "Ishmael"
             self.moby_dick.presentation_edition.publisher = "Project Gutenberg"
             self.moby_dick.set_presentation_ready()
 
-            self.moby_duck = self._work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
+            self.moby_duck = _work(title="Moby Duck", authors="Donovan Hohn", fiction=False)
             self.moby_duck.presentation_edition.subtitle = "The True Story of 28,800 Bath Toys Lost at Sea"
             self.moby_duck.summary_text = "A compulsively readable narrative"
             self.moby_duck.presentation_edition.publisher = "Penguin"
             self.moby_duck.set_presentation_ready()
 
-            self.title_match = self._work(title="Match")
+            self.title_match = _work(title="Match")
             self.title_match.set_presentation_ready()
 
-            self.subtitle_match = self._work()
+            self.subtitle_match = _work()
             self.subtitle_match.presentation_edition.subtitle = "Match"
             self.subtitle_match.set_presentation_ready()
 
-            self.summary_match = self._work()
+            self.summary_match = _work()
             self.summary_match.summary_text = "Match"
             self.summary_match.set_presentation_ready()
         
-            self.publisher_match = self._work()
+            self.publisher_match = _work()
             self.publisher_match.presentation_edition.publisher = "Match"
             self.publisher_match.set_presentation_ready()
 
-            self.tess = self._work(title="Tess of the d'Urbervilles")
+            self.tess = _work(title="Tess of the d'Urbervilles")
             self.tess.set_presentation_ready()
 
-            self.tiffany = self._work(title="Breakfast at Tiffany's")
+            self.tiffany = _work(title="Breakfast at Tiffany's")
             self.tiffany.set_presentation_ready()
             
-            self.les_mis = self._work()
+            self.les_mis = _work()
             self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
             self.les_mis.set_presentation_ready()
 
-            self.lincoln = self._work(genre="Biography & Memoir", title="Abraham Lincoln")
+            self.lincoln = _work(genre="Biography & Memoir", title="Abraham Lincoln")
             self.lincoln.set_presentation_ready()
 
-            self.washington = self._work(genre="Biography", title="George Washington")
+            self.washington = _work(genre="Biography", title="George Washington")
             self.washington.set_presentation_ready()
 
-            self.lincoln_vampire = self._work(title="Abraham Lincoln: Vampire Hunter", genre="Fantasy")
+            self.lincoln_vampire = _work(title="Abraham Lincoln: Vampire Hunter", genre="Fantasy")
             self.lincoln_vampire.set_presentation_ready()
 
-            self.children_work = self._work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
+            self.children_work = _work(title="Alice in Wonderland", audience=Classifier.AUDIENCE_CHILDREN)
             self.children_work.set_presentation_ready()
 
-            self.ya_work = self._work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
+            self.ya_work = _work(title="Go Ask Alice", audience=Classifier.AUDIENCE_YOUNG_ADULT)
             self.ya_work.set_presentation_ready()
 
-            self.adult_work = self._work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
+            self.adult_work = _work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
             self.adult_work.set_presentation_ready()
 
-            self.ya_romance = self._work(audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance")
+            self.ya_romance = _work(audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance")
             self.ya_romance.set_presentation_ready()
 
-            self.no_age = self._work()
+            self.no_age = _work()
             self.no_age.summary_text = "President Barack Obama's election in 2008 energized the United States"
             self.no_age.set_presentation_ready()
 
-            self.age_4_5 = self._work()
+            self.age_4_5 = _work()
             self.age_4_5.target_age = NumericRange(4, 5, '[]')
             self.age_4_5.summary_text = "President Barack Obama's election in 2008 energized the United States"
             self.age_4_5.set_presentation_ready()
 
-            self.age_5_6 = self._work(fiction=False)
+            self.age_5_6 = _work(fiction=False)
             self.age_5_6.target_age = NumericRange(5, 6, '[]')
             self.age_5_6.set_presentation_ready()
 
-            self.obama = self._work(genre="Biography & Memoir")
+            self.obama = _work(genre="Biography & Memoir")
             self.obama.target_age = NumericRange(8, 8, '[]')
             self.obama.summary_text = "President Barack Obama's election in 2008 energized the United States"
             self.obama.set_presentation_ready()
 
-            self.dodger = self._work()
+            self.dodger = _work()
             self.dodger.target_age = NumericRange(8, 8, '[]')
             self.dodger.summary_text = "Willie finds himself running for student council president"
             self.dodger.set_presentation_ready()
 
-            self.age_9_10 = self._work()
+            self.age_9_10 = _work()
             self.age_9_10.target_age = NumericRange(9, 10, '[]')
             self.age_9_10.summary_text = "President Barack Obama's election in 2008 energized the United States"
             self.age_9_10.set_presentation_ready()
 
-            self.age_2_10 = self._work()
+            self.age_2_10 = _work()
             self.age_2_10.target_age = NumericRange(2, 10, '[]')
             self.age_2_10.set_presentation_ready()
 
-            self.pride = self._work(title="Pride and Prejudice")
+            self.pride = _work(title="Pride and Prejudice")
             self.pride.presentation_edition.medium = Edition.BOOK_MEDIUM
             self.pride.set_presentation_ready()
 
-            self.pride_audio = self._work(title="Pride and Prejudice")
+            self.pride_audio = _work(title="Pride and Prejudice")
             self.pride_audio.presentation_edition.medium = Edition.AUDIO_MEDIUM
             self.pride_audio.set_presentation_ready()
 
-            self.sherlock = self._work(title="The Adventures of Sherlock Holmes")
+            self.sherlock = _work(
+                title="The Adventures of Sherlock Holmes", 
+                with_open_access_download=True
+            )
             self.sherlock.presentation_edition.language = "en"
             self.sherlock.set_presentation_ready()
 
-            self.sherlock_spanish = self._work(title="Las Aventuras de Sherlock Holmes")
+            self.sherlock_spanish = _work(title="Las Aventuras de Sherlock Holmes")
             self.sherlock_spanish.presentation_edition.language = "es"
             self.sherlock_spanish.set_presentation_ready()
 
-            time.sleep(2)
+            # Create a second collection that only contains a few books.
+            self.tiny_collection = self._collection("A Tiny Collection")
+            self.tiny_book = self._work(
+                title="A Tiny Book", with_license_pool=True, 
+                collection=self.tiny_collection
+            )
+            self.tiny_book.set_presentation_ready()
+
+            # Both collections contain 'The Adventures of Sherlock
+            # Holmes", but each collection licenses the book through a
+            # different mechanism.
+            self.sherlock_pool_2 = self._licensepool(
+                edition=self.sherlock.presentation_edition,
+                collection=self.tiny_collection
+            )
+
+            sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
+            eq_(self.sherlock, sherlock_2)
+            eq_(2, len(self.sherlock.license_pools))
 
     def test_query_works(self):
         if not self.search:
             return
 
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(2)
+
+        # Convenience method to query the default library.
+        def query(*args, **kwargs):
+            return self.search.query_works(
+                self._default_library, *args, **kwargs
+            )
+        
+
         # Pagination
 
-        results = self.search.query_works("moby dick", None, None, None, None, None, None, None, size=1, offset=0)
+        results = query("moby dick", None, None, None, None, None, None, None, size=1, offset=0)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.moby_dick.id), hits[0]["_id"])
 
-        results = self.search.query_works("moby dick", None, None, None, None, None, None, None, size=1, offset=1)
+        results = query("moby dick", None, None, None, None, None, None, None, size=1, offset=1)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.moby_duck.id), hits[0]["_id"])
 
-        results = self.search.query_works("moby dick", None, None, None, None, None, None, None, size=2, offset=0)
+        results = query("moby dick", None, None, None, None, None, None, None, size=2, offset=0)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.moby_dick.id), hits[0]["_id"])
@@ -307,28 +361,28 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches all main fields
 
-        title_results = self.search.query_works("moby", None, None, None, None, None, None, None)
+        title_results = query("moby", None, None, None, None, None, None, None)
         eq_(2, len(title_results["hits"]["hits"]))
 
-        author_results = self.search.query_works("melville", None, None, None, None, None, None, None)
+        author_results = query("melville", None, None, None, None, None, None, None)
         eq_(1, len(author_results["hits"]["hits"]))
 
-        subtitle_results = self.search.query_works("whale", None, None, None, None, None, None, None)
+        subtitle_results = query("whale", None, None, None, None, None, None, None)
         eq_(1, len(subtitle_results["hits"]["hits"]))
 
-        series_results = self.search.query_works("classics", None, None, None, None, None, None, None)
+        series_results = query("classics", None, None, None, None, None, None, None)
         eq_(1, len(series_results["hits"]["hits"]))
 
-        summary_results = self.search.query_works("ishmael", None, None, None, None, None, None, None)
+        summary_results = query("ishmael", None, None, None, None, None, None, None)
         eq_(1, len(summary_results["hits"]["hits"]))
 
-        publisher_results = self.search.query_works("gutenberg", None, None, None, None, None, None, None)
+        publisher_results = query("gutenberg", None, None, None, None, None, None, None)
         eq_(1, len(summary_results["hits"]["hits"]))
 
 
         # Ranks title above subtitle above summary above publisher
 
-        results = self.search.query_works("match", None, None, None, None, None, None, None)
+        results = query("match", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(4, len(hits))
         eq_(unicode(self.title_match.id), hits[0]['_id'])
@@ -339,7 +393,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Ranks both title and author higher than only title
 
-        results = self.search.query_works("moby melville", None, None, None, None, None, None, None)
+        results = query("moby melville", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.moby_dick.id), hits[0]['_id'])
@@ -348,7 +402,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches a quoted phrase
 
-        results = self.search.query_works("\"moby dick\"", None, None, None, None, None, None, None)
+        results = query("\"moby dick\"", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.moby_dick.id), hits[0]["_id"])
@@ -356,7 +410,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches stemmed word
 
-        results = self.search.query_works("runs", None, None, None, None, None, None, None)
+        results = query("runs", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.dodger.id), hits[0]['_id'])
@@ -364,27 +418,27 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches misspelled phrase
 
-        results = self.search.query_works("movy", None, None, None, None, None, None, None)
+        results = query("movy", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
-        results = self.search.query_works("mleville", None, None, None, None, None, None, None)
+        results = query("mleville", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
 
-        results = self.search.query_works("mo by dick", None, None, None, None, None, None, None)
+        results = query("mo by dick", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
 
         # Matches word with apostrophe
 
-        results = self.search.query_works("durbervilles", None, None, None, None, None, None, None)
+        results = query("durbervilles", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.tess.id), hits[0]['_id'])
 
-        results = self.search.query_works("tiffanys", None, None, None, None, None, None, None)
+        results = query("tiffanys", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.tiffany.id), hits[0]['_id'])
@@ -392,7 +446,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches work with unicode character
 
-        results = self.search.query_works("les miserables", None, None, None, None, None, None, None)
+        results = query("les miserables", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.les_mis.id), hits[0]['_id'])
@@ -400,12 +454,12 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches fiction
 
-        results = self.search.query_works("fiction moby", None, None, None, None, None, None, None)
+        results = query("fiction moby", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.moby_dick.id), hits[0]['_id'])
 
-        results = self.search.query_works("nonfiction moby", None, None, None, None, None, None, None)
+        results = query("nonfiction moby", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.moby_duck.id), hits[0]['_id'])
@@ -413,7 +467,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches genre
 
-        results = self.search.query_works("romance", None, None, None, None, None, None, None)
+        results = query("romance", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.ya_romance.id), hits[0]['_id'])
@@ -421,12 +475,12 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches audience
 
-        results = self.search.query_works("children's", None, None, None, None, None, None, None)
+        results = query("children's", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.children_work.id), hits[0]['_id'])
 
-        results = self.search.query_works("young adult", None, None, None, None, None, None, None)
+        results = query("young adult", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         work_ids = sorted([unicode(self.ya_work.id), unicode(self.ya_romance.id)])
@@ -436,12 +490,12 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches grade
 
-        results = self.search.query_works("grade 4", None, None, None, None, None, None, None)
+        results = query("grade 4", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.age_9_10.id), hits[0]['_id'])
         
-        results = self.search.query_works("grade 4-6", None, None, None, None, None, None, None)
+        results = query("grade 4-6", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.age_9_10.id), hits[0]['_id'])
@@ -449,12 +503,12 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches age
 
-        results = self.search.query_works("age 9", None, None, None, None, None, None, None)
+        results = query("age 9", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.age_9_10.id), hits[0]['_id'])
         
-        results = self.search.query_works("age 10-12", None, None, None, None, None, None, None)
+        results = query("age 10-12", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.age_9_10.id), hits[0]['_id'])
@@ -462,7 +516,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Ranks closest target age range highest
 
-        results = self.search.query_works("age 3-5", None, None, None, None, None, None, None)
+        results = query("age 3-5", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(3, len(hits))
         eq_(unicode(self.age_4_5.id), hits[0]['_id'])
@@ -472,7 +526,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches genre + audience
 
-        results = self.search.query_works("young adult romance", None, None, None, None, None, None, None)
+        results = query("young adult romance", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.ya_romance.id), hits[0]['_id'])
@@ -480,7 +534,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches age + fiction
 
-        results = self.search.query_works("age 5 fiction", None, None, None, None, None, None, None)
+        results = query("age 5 fiction", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.age_4_5.id), hits[0]['_id'])
@@ -488,7 +542,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches genre + title
 
-        results = self.search.query_works("lincoln biography", None, None, None, None, None, None, None)
+        results = query("lincoln biography", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         eq_(unicode(self.lincoln.id), hits[0]['_id'])
@@ -497,7 +551,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches age + genre + summary
 
-        results = self.search.query_works("age 8 president biography", None, None, None, None, None, None, None)
+        results = query("age 8 president biography", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(5, len(hits))
         eq_(unicode(self.obama.id), hits[0]['_id'])
@@ -508,12 +562,12 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         book_lane = Lane(self._db, self._default_library, "Books", media=Edition.BOOK_MEDIUM)
         audio_lane = Lane(self._db, self._default_library, "Audio", media=Edition.AUDIO_MEDIUM)
 
-        results = self.search.query_works("pride and prejudice", book_lane.media, None, None, None, None, None, None)
+        results = query("pride and prejudice", book_lane.media, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.pride.id), hits[0]["_id"])
 
-        results = self.search.query_works("pride and prejudice", audio_lane.media, None, None, None, None, None, None)
+        results = query("pride and prejudice", audio_lane.media, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.pride_audio.id), hits[0]["_id"])
@@ -525,17 +579,17 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         spanish_lane = Lane(self._db, self._default_library, "Spanish", languages="es")
         both_lane = Lane(self._db, self._default_library, "Both", languages=["en", "es"])
 
-        results = self.search.query_works("sherlock", None, english_lane.languages, None, None, None, None, None)
+        results = query("sherlock", None, english_lane.languages, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.sherlock.id), hits[0]["_id"])
 
-        results = self.search.query_works("sherlock", None, spanish_lane.languages, None, None, None, None, None)
+        results = query("sherlock", None, spanish_lane.languages, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.sherlock_spanish.id), hits[0]["_id"])
 
-        results = self.search.query_works("sherlock", None, both_lane.languages, None, None, None, None, None)
+        results = query("sherlock", None, both_lane.languages, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
@@ -546,17 +600,17 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         no_spanish_lane = Lane(self._db, self._default_library, "Spanish", exclude_languages="es")
         neither_lane = Lane(self._db, self._default_library, "Both", exclude_languages=["en", "es"])
 
-        results = self.search.query_works("sherlock", None, None, no_english_lane.exclude_languages, None, None, None, None)
+        results = query("sherlock", None, None, no_english_lane.exclude_languages, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.sherlock_spanish.id), hits[0]["_id"])
 
-        results = self.search.query_works("sherlock", None, None, no_spanish_lane.exclude_languages, None, None, None, None)
+        results = query("sherlock", None, None, no_spanish_lane.exclude_languages, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.sherlock.id), hits[0]["_id"])
 
-        results = self.search.query_works("sherlock", None, None, neither_lane.exclude_languages, None, None, None, None)
+        results = query("sherlock", None, None, neither_lane.exclude_languages, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(0, len(hits))
         
@@ -567,17 +621,17 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         nonfiction_lane = Lane(self._db, self._default_library, "nonfiction", fiction=False)
         both_lane = Lane(self._db, self._default_library, "both", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
 
-        results = self.search.query_works("moby dick", None, None, None, fiction_lane.fiction, None, None, None)
+        results = query("moby dick", None, None, None, fiction_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.moby_dick.id), hits[0]["_id"])
 
-        results = self.search.query_works("moby dick", None, None, None, nonfiction_lane.fiction, None, None, None)
+        results = query("moby dick", None, None, None, nonfiction_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.moby_duck.id), hits[0]["_id"])
 
-        results = self.search.query_works("moby dick", None, None, None, both_lane.fiction, None, None, None)
+        results = query("moby dick", None, None, None, both_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
@@ -589,22 +643,22 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         children_lane = Lane(self._db, self._default_library, "Children", audiences=Classifier.AUDIENCE_CHILDREN)
         ya_and_children_lane = Lane(self._db, self._default_library, "YA and Children", audiences=[Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_CHILDREN])
 
-        results = self.search.query_works("alice", None, None, None, None, adult_lane.audiences, None, None)
+        results = query("alice", None, None, None, None, adult_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.adult_work.id), hits[0]["_id"])
 
-        results = self.search.query_works("alice", None, None, None, None, ya_lane.audiences, None, None)
+        results = query("alice", None, None, None, None, ya_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.ya_work.id), hits[0]["_id"])
 
-        results = self.search.query_works("alice", None, None, None, None, children_lane.audiences, None, None)
+        results = query("alice", None, None, None, None, children_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.children_work.id), hits[0]["_id"])
 
-        results = self.search.query_works("alice", None, None, None, None, ya_and_children_lane.audiences, None, None)
+        results = query("alice", None, None, None, None, ya_and_children_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         work_ids = sorted([unicode(self.ya_work.id), unicode(self.children_work.id)])
@@ -619,14 +673,14 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         age_5_10_lane = Lane(self._db, self._default_library, "Age 5-10", age_range=[5, 10])
         age_8_10_lane = Lane(self._db, self._default_library, "Age 8-10", age_range=[8, 10])
 
-        results = self.search.query_works("president", None, None, None, None, None, age_8_lane.age_range, None)
+        results = query("president", None, None, None, None, None, age_8_lane.age_range, None)
         hits = results["hits"]["hits"]
         eq_(3, len(hits))
         work_ids = sorted([unicode(self.no_age.id), unicode(self.obama.id), unicode(self.dodger.id)])
         result_ids = sorted([hit["_id"] for hit in hits])
         eq_(work_ids, result_ids)
 
-        results = self.search.query_works("president", None, None, None, None, None, age_5_8_lane.age_range, None)
+        results = query("president", None, None, None, None, None, age_5_8_lane.age_range, None)
         hits = results["hits"]["hits"]
         eq_(4, len(hits))
         work_ids = sorted([unicode(self.no_age.id),
@@ -636,7 +690,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         result_ids = sorted([hit["_id"] for hit in hits])
         eq_(work_ids, result_ids)
 
-        results = self.search.query_works("president", None, None, None, None, None, age_5_10_lane.age_range, None)
+        results = query("president", None, None, None, None, None, age_5_10_lane.age_range, None)
         hits = results["hits"]["hits"]
         eq_(5, len(hits))
         work_ids = sorted([unicode(self.no_age.id),
@@ -647,7 +701,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         result_ids = sorted([hit["_id"] for hit in hits])
         eq_(work_ids, result_ids)
 
-        results = self.search.query_works("president", None, None, None, None, None, age_8_10_lane.age_range, None)
+        results = query("president", None, None, None, None, None, age_8_10_lane.age_range, None)
         hits = results["hits"]["hits"]
         eq_(4, len(hits))
         work_ids = sorted([unicode(self.no_age.id),
@@ -664,19 +718,71 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         fantasy_lane = Lane(self._db, self._default_library, "Fantasy", genres=["Fantasy"])
         both_lane = Lane(self._db, self._default_library, "Both", genres=["Biography & Memoir", "Fantasy"], fiction=Lane.BOTH_FICTION_AND_NONFICTION)
 
-        results = self.search.query_works("lincoln", None, None, None, None, None, None, biography_lane.genre_ids)
+        results = query("lincoln", None, None, None, None, None, None, biography_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln.id), hits[0]["_id"])
 
-        results = self.search.query_works("lincoln", None, None, None, None, None, None, fantasy_lane.genre_ids)
+        results = query("lincoln", None, None, None, None, None, None, fantasy_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln_vampire.id), hits[0]["_id"])
 
-        results = self.search.query_works("lincoln", None, None, None, None, None, None, both_lane.genre_ids)
+        results = query("lincoln", None, None, None, None, None, None, both_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
+
+        # This query does not match anything because the book in
+        # question is not in a collection associated with the default
+        # library.
+        results = query("a tiny book", None, None, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(0, len(hits))
+
+        # If we don't pass in a library to query_works, the entire index is
+        # searched and we can see everything regardless of which collection
+        # it's in.
+        results = self.search.query_works(
+            None, "book", None, None, None, None, None, None, None
+        )
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))        
+        results = self.search.query_works(
+            None, "moby dick", None, None, None, None, None, None, None
+        )
+        hits = results["hits"]["hits"]
+        eq_(2, len(hits))        
+
+        # If we add the missing collection to the default library, "A
+        # Tiny Book" starts showing up in searches against that
+        # library.
+        self._default_library.collections.append(self.tiny_collection)
+        results = query("a tiny book", None, None, None, None, None, None, None)
+        hits = results["hits"]["hits"]
+        eq_(1, len(hits))
+
+        # Although the English edition of 'The Adventures of Sherlock
+        # Holmes' is available through two different collections
+        # associated with the default library, it only shows up once
+        # in search results.
+        results = query(
+            "sherlock holmes", None, ['en'], None, None, 
+            None, None, None
+        )
+        hits = results['hits']['hits']
+        eq_(1, len(hits))
+        [doc] = hits
+
+        # When the second English LicensePool for 'The Adventures of
+        # Sherlock Holmes' was associated with its Work, the Work was
+        # automatically reindexed to incorporate with a new set of
+        # collection IDs.
+        collections = [x['collection_id'] for x in doc['_source']['collections']]
+        expect_collections = [
+            self.tiny_collection.id, self._default_collection.id
+        ]
+        eq_(set(collections), set(expect_collections))
+
 
 class TestSearchQuery(DatabaseTest):
     def test_make_query(self):
@@ -833,7 +939,28 @@ class TestSearchQuery(DatabaseTest):
         assert "5" not in remaining_query['query']
         assert "years" not in remaining_query['query']
 
+
 class TestSearchFilterFromLane(DatabaseTest):
+
+    def test_make_filter_handles_collection_id(self):
+        search = DummyExternalSearchIndex()
+
+        lane = Lane(
+            self._db, self._default_library, "anything", 
+        )
+        collection_ids = [x.id for x in lane.library.collections]
+        filter = search.make_filter(
+            collection_ids,
+            lane.media, lane.languages, lane.exclude_languages,
+            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.genre_ids,
+        )
+        collection_filter, medium_filter = filter['and']
+        expect = [
+            {'terms': {'collection_id': collection_ids}},
+            {'bool': {'must_not': {'exists': {'field': 'collection_id'}}}}
+        ]
+        eq_(expect, collection_filter['or'])
         
     def test_query_works_from_lane_definition_handles_age_range(self):
         search = DummyExternalSearchIndex()
@@ -843,12 +970,13 @@ class TestSearchFilterFromLane(DatabaseTest):
             age_range=[5,10]
         )
         filter = search.make_filter(
+            [self._default_collection.id],
             lane.media, lane.languages, lane.exclude_languages,
             lane.fiction, list(lane.audiences), lane.age_range,
             lane.genre_ids,
         )
 
-        medium_filter, audience_filter, target_age_filter = filter['and']
+        collection_filter, medium_filter, audience_filter, target_age_filter = filter['and']
         upper_filter, lower_filter = target_age_filter['and']
         expect_upper = {'or': [{'range': {'target_age.upper': {'gte': 5}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.upper'}}}}]}
         expect_lower = {'or': [{'range': {'target_age.lower': {'lte': 10}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.lower'}}}}]}
@@ -863,12 +991,13 @@ class TestSearchFilterFromLane(DatabaseTest):
             languages=set(['eng', 'spa']),
         )
         filter = search.make_filter(
+            [self._default_collection.id],
             lane.media, lane.languages, lane.exclude_languages,
             lane.fiction, list(lane.audiences), lane.age_range,
             lane.genre_ids,
         )
         
-        languages_filter, medium_filter = filter['and']
+        collection_filter, languages_filter, medium_filter = filter['and']
         expect_languages = ['eng', 'spa']
         assert 'terms' in languages_filter
         assert 'language' in languages_filter['terms']
@@ -882,17 +1011,48 @@ class TestSearchFilterFromLane(DatabaseTest):
             exclude_languages=set(['eng', 'spa']),
         )
         filter = search.make_filter(
+            [self._default_collection.id],
             lane.media, lane.languages, lane.exclude_languages,
             lane.fiction, list(lane.audiences), lane.age_range,
             lane.genre_ids,
         )
         
-        exclude_languages_filter, medium_filter = filter['and']
+        collection_filter, exclude_languages_filter, medium_filter = filter['and']
         expect_exclude_languages = ['eng', 'spa']
         assert 'not' in exclude_languages_filter
         assert 'terms' in exclude_languages_filter['not']
         assert 'language' in exclude_languages_filter['not']['terms']
         eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))
+
+
+class TestBulkUpdate(DatabaseTest):
+
+    def test_works_not_presentation_ready_removed_from_index(self):
+        w1 = self._work()
+        w1.set_presentation_ready()
+        w2 = self._work()
+        w2.set_presentation_ready()
+        w3 = self._work()
+        index = DummyExternalSearchIndex()
+        successes, failures = index.bulk_update([w1, w2, w3])
+        
+        # All three works are regarded as successes, because their
+        # state was successfully mirrored to the index.
+        eq_(set([w1, w2, w3]), set(successes))
+        eq_([], failures)
+
+        # But only the presentation-ready works are actually inserted
+        # into the index.
+        ids = set(x[-1] for x in index.docs.keys())
+        eq_(set([w1.id, w2.id]), ids)
+
+        # If a work stops being presentation-ready, it is removed from
+        # the index, and its removal is treated as a success.
+        w2.presentation_ready = False
+        successes, failures = index.bulk_update([w1, w2, w3])
+        eq_([w1.id], [x[-1] for x in index.docs.keys()])
+        eq_(set([w1, w2, w3]), set(successes))
+        eq_([], failures)
 
 class TestSearchErrors(ExternalSearchTest):
 
@@ -917,6 +1077,7 @@ class TestSearchErrors(ExternalSearchTest):
         self.search.bulk = bulk_with_timeout
         
         work = self._work()
+        work.set_presentation_ready()
         successes, failures = self.search.bulk_update([work])
         eq_([], successes)
         eq_(1, len(failures))
@@ -932,8 +1093,10 @@ class TestSearchErrors(ExternalSearchTest):
             return
 
         successful_work = self._work()
+        successful_work.set_presentation_ready()
         failing_work = self._work()
-        
+        failing_work.set_presentation_ready()
+
         def bulk_with_error(docs, raise_on_error=False, raise_on_exception=False):
             failures = [dict(data=dict(_id=failing_work.id),
                              error="There was an error!",
@@ -948,3 +1111,97 @@ class TestSearchErrors(ExternalSearchTest):
         eq_(1, len(failures))
         eq_(failing_work, failures[0][0])
         eq_("There was an error!", failures[0][1])
+
+
+class TestSearchIndexCoverageProvider(DatabaseTest):
+
+    def test_operation(self):
+        index = DummyExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(
+            self._db, search_index_client=index
+        )
+        eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+            provider.operation)
+
+    def test_success(self):
+        work = self._work()
+        work.set_presentation_ready()
+        index = DummyExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(
+            self._db, search_index_client=index
+        )
+        results = provider.process_batch([work])
+
+        # We got one success and no failures.
+        eq_([work], results)
+
+        # The work was added to the search index.
+        eq_(1, len(index.docs))
+
+    def test_failure(self):
+        class DoomedExternalSearchIndex(DummyExternalSearchIndex):
+            """All documents sent to this index will fail."""
+            def bulk(self, docs, **kwargs):                
+                return 0, [
+                    dict(data=dict(_id=failing_work['_id']),
+                         error="There was an error!",
+                         exception="Exception")
+                    for failing_work in docs
+                ]
+
+        work = self._work()
+        work.set_presentation_ready()
+        index = DoomedExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(
+            self._db, search_index_client=index
+        )
+        results = provider.process_batch([work])
+
+        # We have one transient failure.
+        [record] = results
+        eq_(work, record.obj)
+        eq_(True, record.transient)
+        eq_('There was an error!', record.exception)
+
+
+class TestSearchIndexMonitor(DatabaseTest):
+
+    def test_process_batch(self):
+        index = DummyExternalSearchIndex()
+
+        # Here's a work.
+        work = self._work()
+        work.presentation_ready = True
+
+        # There is no record that it has ever been indexed
+        def _record(work):
+            records = [
+                x for x in work.coverage_records 
+                if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            ]
+            if not records:
+                return None
+            [record] = records
+            return record
+        eq_(None, _record(work))            
+
+        # Here's a Monitor that can index it.
+        monitor = SearchIndexMonitor(self._db, None, "works-index", 
+                                     index_client=index)
+        eq_("Search index update (works)", monitor.service_name)
+
+        # The first time we call process_batch we handle the one and
+        # only work in the database. The ID of that work is returned for
+        # next time.
+        eq_(work.id, monitor.process_batch(0))
+        self._db.commit()
+
+        # The work was added to the search index.
+        eq_([('works', 'work-type', work.id)], index.docs.keys())
+
+        # A WorkCoverageRecord was created for the Work.
+        assert _record(work) is not None
+
+        # The next time we call process_batch, no work is done and the
+        # result is 0, meaning we're done with every work in the system.
+        eq_(0, monitor.process_batch(work.id))

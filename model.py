@@ -73,6 +73,7 @@ from sqlalchemy.sql.expression import (
     or_,
     select,
     join,
+    literal,
     literal_column,
     case,
     table,
@@ -478,46 +479,6 @@ class SessionManager(object):
         # it was updated by cls.update_timestamps_table
         return session
 
-    @classmethod
-    def update_timestamps_table(cls, session):
-        """Adds required columns 'id' and 'collection_id' to the Timestamp table.
-
-        TODO: Remove this after version 2.0.0. This is a stopgap measure
-        to keep database initialization and migrations working before
-        changes to Timestamps have taken place in migration [20170713-1].
-
-        :return: updated Session object
-        """
-        logging.warning(
-            'Timestamp schema has been altered without db migration.'
-            ' Running migration [20170713-1] schema change in advance.'
-        )
-
-        # Get the SQL to run.
-        migration = '20170713-1-timestamp-has-numeric-primary-key.sql'
-        base_path = os.path.split(__file__)[0]
-        migration_filename = os.path.join(base_path, 'migration', migration)
-
-        sql_statement = 'BEGIN;\n%s\nCOMMIT;'
-        with open(migration_filename) as f:
-            sql_statement = sql_statement % f.read()
-
-        # Go back up to engine-level to make the schema change.
-        connection = session.get_bind()
-        engine = connection.engine
-
-        # Close the Session so it benefits from the changes.
-        session.close()
-        connection.close()
-
-        # Run the migration.
-        engine.execute(sql_statement)
-
-        # Create a new Session that has the changed schema.
-        session = Session(engine.connect())
-        session = cls.initialize_data(session)
-        return session
-
 def get_one(db, model, on_multiple='error', constraint=None, **kwargs):
     """Gets an object from the database based on its attributes.
 
@@ -574,13 +535,27 @@ def get_one_or_create(db, model, create_method='',
             __transaction.rollback()
             return db.query(model).filter_by(**kwargs).one(), False
 
+def flush(db):
+    """Flush the database connection unless it's known to already be flushing."""
+    is_flushing = False
+    if hasattr(db, '_flushing'):
+        # This is a regular database session.
+        is_flushing = db._flushing
+    elif hasattr(db, 'registry'):
+        # This is a flask_scoped_session scoped session.
+        is_flushing = db.registry()._flushing
+    else:
+        logging.error("Unknown database connection type: %r", db)
+    if not is_flushing:
+        db.flush()
+
 def create(db, model, create_method='',
            create_method_kwargs=None,
            **kwargs):
     kwargs.update(create_method_kwargs or {})
     created = getattr(model, create_method, model)(**kwargs)
     db.add(created)
-    db.flush()
+    flush(db)
     return created, True
 
 Base = declarative_base()
@@ -1483,6 +1458,69 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         coverage_record.status = status
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
+
+    @classmethod
+    def bulk_add(self, works, operation, timestamp=None, 
+                 status=CoverageRecord.SUCCESS, exception=None):
+        """Create and update WorkCoverageRecords so that every Work in 
+        `works` has an identical record.
+        """
+        if not works:
+            # Nothing to do.
+            return
+        _db = Session.object_session(works[0])
+        timestamp = timestamp or datetime.datetime.utcnow()
+        work_ids = [w.id for w in works]
+
+        # Make sure that works that previously had a
+        # WorkCoverageRecord for this operation have their timestamp
+        # and status updated.
+        update = WorkCoverageRecord.__table__.update().where(
+            and_(WorkCoverageRecord.work_id.in_(work_ids),
+                 WorkCoverageRecord.operation==operation)
+        ).values(dict(timestamp=timestamp, status=status, exception=exception))
+        _db.execute(update)
+
+        # Make sure that any works that are missing a
+        # WorkCoverageRecord for this operation get one.
+
+        # Works that already have a WorkCoverageRecord will be ignored
+        # by the INSERT but handled by the UPDATE.
+        already_covered = _db.query(WorkCoverageRecord.work_id).select_from(
+            WorkCoverageRecord).filter(
+                WorkCoverageRecord.work_id.in_(work_ids)
+            ).filter(
+                WorkCoverageRecord.operation==operation
+            )
+
+        # The SELECT part of the INSERT...SELECT query.
+        new_records = _db.query(
+            Work.id.label('work_id'), 
+            literal(operation, type_=BaseCoverageRecord.status_enum).label('operation'),
+            literal(timestamp, type_=DateTime).label('timestamp'), 
+
+            literal(status, type_=BaseCoverageRecord.status_enum).label('status')
+        ).select_from(
+            Work
+        )
+        new_records = new_records.filter(
+            Work.id.in_(work_ids)
+        ).filter(
+            ~Work.id.in_(already_covered)
+        )
+
+        # The INSERT part.
+        insert = WorkCoverageRecord.__table__.insert().from_select(
+            [
+                literal_column('work_id'),
+                literal_column('operation'),
+                literal_column('timestamp'),
+                literal_column('status'),
+            ], 
+            new_records
+        )
+        _db.execute(insert)
+
 Index("ix_workcoveragerecords_operation_work_id", WorkCoverageRecord.operation, WorkCoverageRecord.work_id)
 
 class Equivalency(Base):
@@ -2324,7 +2362,7 @@ class Contributor(Base):
                 try:
                     contributor = Contributor(**create_method_kwargs)
                     _db.add(contributor)
-                    _db.flush()
+                    flush(_db)
                     contributors = [contributor]
                     new = True
                 except IntegrityError:
@@ -3955,7 +3993,7 @@ class Work(Base):
             cover.reject()
             if len(cover.cover_editions) > 1:
                 editions += cover.cover_editions
-        _db.flush()
+        flush(_db)
 
         editions = list(set(editions))
         if editions:
@@ -4247,10 +4285,7 @@ class Work(Base):
             self.calculate_opds_entries()
 
         if (changed or policy.update_search_index) and not exclude_search:
-            # Ensure new changes are reflected in database queries
-            _db = Session.object_session(self)
-            _db.flush()
-            self.update_external_index(search_index_client)
+            self.external_index_needs_updating()
 
         # Now that everything's calculated, print it out.
         if policy.verbose:            
@@ -4352,44 +4387,27 @@ class Work(Base):
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
 
+    def external_index_needs_updating(self):
+        """Mark this work as needing to have its search document reindexed.
+
+        This is a more efficient alternative to reindexing immediately,
+        since these WorkCoverageRecords are handled in large batches.
+        """
+        _db = Session.object_session(self)
+        operation = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+        record, is_new = WorkCoverageRecord.add_for(
+            self, operation=operation, status=CoverageRecord.REGISTERED
+        )
+        return record
 
     def update_external_index(self, client, add_coverage_record=True):
-        if not client:
-            from external_search import ExternalSearchIndex
-            _db = Session.object_session(self)
-            client = ExternalSearchIndex(_db)
-        args = dict(index=client.works_index,
-                    doc_type=client.work_document_type,
-                    id=self.id)
-        if not client.works_index:
-            # There is no index set up on this instance.
-            return
-        present_in_index = False
-        if self.presentation_ready:
-            doc = self.to_search_document()
-            if doc:
-                args['body'] = doc
-                if logging.getLogger().level == logging.DEBUG:
-                    logging.debug(
-                        "Indexed work %d (%s): %r", self.id, self.title, doc
-                    )
-                else:
-                    logging.info("Indexed work %d (%s)", self.id, self.title)
-                client.index(**args)
-                present_in_index = True
-            else:
-                logging.warn(
-                    "Could not generate a search document for allegedly presentation-ready work %d (%s).",
-                    self.id, self.title
-                )
-        else:
-            if client.exists(**args):
-                client.delete(**args)
-        if add_coverage_record and present_in_index:
-            WorkCoverageRecord.add_for(
-                self, operation=(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION + "-" + client.works_index)
-            )
-        return present_in_index
+        """Create a WorkCoverageRecord so that this work's 
+        entry in the search index can be modified or deleted.
+
+        This method is deprecated -- call
+        external_index_needs_updating() instead.
+        """
+        self.external_index_needs_updating()
 
     def set_presentation_ready(
         self, as_of=None, search_index_client=None, exclude_search=False
@@ -4400,7 +4418,7 @@ class Work(Base):
         self.presentation_ready_attempt = as_of
         self.random = random.random()
         if not exclude_search:
-            self.update_external_index(search_index_client)
+            self.external_index_needs_updating()
 
     def set_presentation_ready_based_on_content(self, search_index_client=None):
         """Set this work as presentation ready, if it appears to
@@ -4422,8 +4440,10 @@ class Work(Base):
             or self.fiction is None
         ):
             self.presentation_ready = False
-            # This will remove the work from the search index.
-            self.update_external_index(search_index_client)
+            # The next time the search index WorkCoverageRecords are
+            # processed, this work will be removed from the search
+            # index.
+            self.external_index_needs_updating()
         else:
             self.set_presentation_ready(search_index_client=search_index_client)
 
@@ -4599,6 +4619,25 @@ class Work(Base):
             )
         ).alias('works_alias')
 
+        # This subquery gets Collection IDs for collections
+        # that own more than zero licenses for this book.
+        collections = select(
+            [LicensePool.collection_id]
+        ).where(
+            and_(
+                LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name),
+                or_(LicensePool.open_access, LicensePool.licenses_owned>0)
+            )
+        ).alias("collections_subquery")
+
+        # Create a json array from the set of Collections.
+        collections_json = select(
+            [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(collections.name)
+                        )))]
+        ).select_from(collections)
 
         # This subquery gets Contributors, filtered on edition_id.
         contributors = select(
@@ -4745,6 +4784,7 @@ class Work(Base):
              works_alias.c.popularity,
 
              # Here are all the subqueries.
+             collections_json.label("collections"),
              contributors_json.label("contributors"),
              subjects_json.label("classifications"),
              genres_json.label('genres'),
@@ -6173,7 +6213,7 @@ class CachedFeed(Base):
     def update(self, _db, content):
         self.content = content
         self.timestamp = datetime.datetime.utcnow()
-        _db.flush()
+        flush(_db)
 
     def __repr__(self):
         if self.content:
@@ -7056,7 +7096,7 @@ class LicensePool(Base):
             work = Work()
             _db = Session.object_session(self)
             _db.add(work)
-            _db.flush()
+            flush(_db)
             licensepools_changed = True
 
         # Associate this LicensePool and its Edition with the work we
@@ -8763,7 +8803,7 @@ class CustomList(Base):
 
     __table_args__ = (
         UniqueConstraint('data_source_id', 'foreign_identifier'),
-        UniqueConstraint('data_source_id', 'name'),
+        UniqueConstraint('data_source_id', 'name', 'library_id'),
     )
 
     # TODO: It should be possible to associate a CustomList with an
@@ -8787,7 +8827,7 @@ class CustomList(Base):
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
 
     @classmethod
-    def find(cls, _db, source, foreign_identifier_or_name):
+    def find(cls, _db, source, foreign_identifier_or_name, library=None):
         """Finds a foreign list in the database by its foreign_identifier
         or its name.
         """
@@ -8796,10 +8836,16 @@ class CustomList(Base):
             source_name = source.name
         foreign_identifier = unicode(foreign_identifier_or_name)
 
-        custom_lists = _db.query(cls).join(CustomList.data_source).filter(
+        qu = _db.query(cls).join(CustomList.data_source).filter(
             DataSource.name==unicode(source_name),
             or_(CustomList.foreign_identifier==foreign_identifier,
-                CustomList.name==foreign_identifier)).all()
+                CustomList.name==foreign_identifier))
+        if library:
+            qu = qu.filter(CustomList.library_id==library.id)
+        else:
+            qu = qu.filter(CustomList.library_id==None)
+
+        custom_lists = qu.all()
 
         if not custom_lists:
             return None
@@ -8815,10 +8861,14 @@ class CustomList(Base):
         identifiers = [ed.primary_identifier for ed in editions]
         return Work.from_identifiers(_db, identifiers)
 
-    def add_entry(self, edition, annotation=None, first_appearance=None,
+    def add_entry(self, work_or_edition, annotation=None, first_appearance=None,
                   featured=None):
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
+
+        edition = work_or_edition
+        if isinstance(work_or_edition, Work):
+            edition = work_or_edition.presentation_edition
 
         existing = list(self.entries_for_work(edition))
         if existing:
@@ -8850,11 +8900,15 @@ class CustomList(Base):
 
         return entry, was_new
 
-    def remove_entry(self, edition):
-        """Remove the entry for a particular Edition and/or any of its
+    def remove_entry(self, work_or_edition):
+        """Remove the entry for a particular Work or Edition and/or any of its
         equivalent Editions.
         """
         _db = Session.object_session(self)
+
+        edition = work_or_edition
+        if isinstance(work_or_edition, Work):
+            edition = work_or_edition.presentation_edition
 
         existing_entries = list(self.entries_for_work(edition))
         for entry in existing_entries:
@@ -9482,7 +9536,7 @@ class Library(Base, HasFullTableCache):
             lines.append("Configuration settings:")
             lines.append("-----------------------")
         for setting in settings:
-            if include_secrets or not setting.is_secret:
+            if (include_secrets or not setting.is_secret) and setting.value is not None:
                 lines.append("%s='%s'" % (setting.key, setting.value))
             
         integrations = list(self.integrations)
@@ -9833,6 +9887,9 @@ class ExternalIntegration(Base, HasFullTableCache):
                 # This is a different library's specialization of
                 # this integration. Ignore it.
                 continue
+            if setting.value is None:
+                # The setting has no value. Ignore it.
+                continue
             explanation = "%s='%s'" % (setting.key, setting.value)
             if setting.library:
                 explanation = "%s (applies only to %s)" % (
@@ -9917,6 +9974,8 @@ class ConfigurationSetting(Base, HasFullTableCache):
             lines.append("Site-wide configuration settings:")
             lines.append("---------------------------------")
         for setting in sorted(site_wide_settings, key=lambda s: s.key):
+            if setting.value is None:
+                continue
             lines.append("%s='%s'" % (setting.key, setting.value))
         return lines
 
@@ -9981,6 +10040,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         
     @hybrid_property
     def value(self):
+
         """What's the current value of this configuration setting?
         
         If not present, the value may be inherited from some other
@@ -10504,7 +10564,7 @@ class Collection(Base, HasFullTableCache):
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
         for setting in sorted(integration.settings, key=lambda x: x.key):
-            if include_secrets or not setting.is_secret:
+            if (include_secrets or not setting.is_secret) and setting.value is not None:
                 lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
@@ -10512,7 +10572,7 @@ class Collection(Base, HasFullTableCache):
         """Inserts an identifier into a catalog"""
         if identifier not in self.catalog:
             self.catalog.append(identifier)
-            _db.flush()
+            flush(_db)
 
     def works_updated_since(self, _db, timestamp):
         """Returns all works in a collection's catalog that have been updated
@@ -10705,6 +10765,63 @@ def site_configuration_has_changed(_db, timeout=1):
         Configuration.site_configuration_last_update(
             _db, known_value=now
         )
+
+# Certain ORM events, however they occur, indicate that a work's
+# external index needs updating.
+
+@event.listens_for(LicensePool, 'after_delete')
+def licensepool_deleted(mapper, connection, target):
+    """A LicensePool should never be deleted, but if it is, we need to
+    keep the search index up to date.
+    """
+    work = target.work
+    if work:
+        record = work.external_index_needs_updating()
+
+@event.listens_for(LicensePool.collection_id, 'set')
+def licensepool_collection_change(target, value, oldvalue, initiator):
+    """A LicensePool should never change collections, but if it is,
+    we need to keep the search index up to date.
+    """
+    work = target.work
+    if not work:
+        return
+    if value == oldvalue:
+        return
+    work.external_index_needs_updating()
+
+
+@event.listens_for(LicensePool.licenses_owned, 'set')
+def licenses_owned_change(target, value, oldvalue, initiator):
+    """A Work may need to have its search document re-indexed if one of 
+    its LicensePools changes the number of licenses_owned to or from zero.
+    """
+    work = target.work
+    if not work:
+        return
+    if target.open_access:
+        # For open-access works, the licenses_owned value doesn't
+        # matter.
+        return
+    if (value == oldvalue) or (value > 0 and oldvalue > 0):
+        # The availability of this LicensePool has not changed. No need
+        # to reindex anything.
+        return
+    work.external_index_needs_updating()
+
+@event.listens_for(LicensePool.open_access, 'set')
+def licensepool_open_access_change(target, value, oldvalue, initiator):
+    """A Work may need to have its search document re-indexed if one of 
+    its LicensePools changes its open-access status.
+
+    This shouldn't ever happen.
+    """
+    work = target.work
+    if not work:
+        return
+    if value == oldvalue:
+        return
+    work.external_index_needs_updating()
 
             
 # Most of the time, we can know whether a change to the database is

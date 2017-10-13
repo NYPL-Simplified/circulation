@@ -11,7 +11,16 @@ from classifier import (
     GradeLevelClassifier,
     AgeClassifier,
 )
-from model import ExternalIntegration, Work
+from model import (
+    ExternalIntegration, 
+    Work,
+    WorkCoverageRecord,
+)
+from monitor import WorkSweepMonitor
+from coverage import (
+    CoverageFailure,
+    WorkCoverageProvider,
+)
 import os
 import logging
 import re
@@ -48,6 +57,23 @@ class ExternalSearchIndex(object):
         """
         cls.__client = None
 
+    @classmethod
+    def search_integration(cls, _db):
+        """Look up the ExternalIntegration for ElasticSearch."""
+        return ExternalIntegration.lookup(
+            _db, ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL
+        )
+
+    @classmethod
+    def works_index_name(cls, _db):
+        """Look up the name of the search index."""
+        integration = cls.search_integration(_db)
+        if not integration:
+            return None
+        setting = integration.setting(cls.WORKS_INDEX_KEY)
+        return setting.value_or_default(cls.DEFAULT_WORKS_INDEX)
+
     def __init__(self, _db, url=None, works_index=None):
     
         self.log = logging.getLogger("External search index")
@@ -60,21 +86,14 @@ class ExternalSearchIndex(object):
                 "Cannot load Elasticsearch configuration without a database.",
             )
         if not url or not works_index:
-            integration = ExternalIntegration.lookup(
-                _db, ExternalIntegration.ELASTICSEARCH,
-                goal=ExternalIntegration.SEARCH_GOAL
-            )
-
+            integration = self.search_integration(_db)
             if not integration:
                 raise CannotLoadConfiguration(
                     "No Elasticsearch integration configured."
                 )
             url = url or integration.url
             if not works_index:
-                setting = integration.setting(self.WORKS_INDEX_KEY)
-                works_index = setting.value_or_default(
-                    self.DEFAULT_WORKS_INDEX
-                )
+                works_index = self.works_index_name(_db)
         if not url:
             raise CannotLoadConfiguration(
                 "No URL configured to Elasticsearch server."
@@ -270,14 +289,25 @@ class ExternalSearchIndex(object):
 
         return base_works_index
 
-    def query_works(self, query_string, media, languages, exclude_languages, fiction, audience,
+    def query_works(self, library, query_string, media, languages, exclude_languages, fiction, audience,
                     age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
         if not self.works_alias:
             return []
 
+        if library is None:
+            # TODO: We're searching the entire index and filtering out
+            # books that aren't available to the patron's current
+            # library in a later step. To avoid search disruption,
+            # this is the behavior we'll use until we're able to
+            # migrate all existing search indexes to the new document
+            # format.
+            collection_ids = None
+        else:
+            collection_ids = [x.id for x in library.collections]
+
         filter = self.make_filter(
-            media, languages, exclude_languages, fiction, audience,
-            age_range, in_any_of_these_genres
+            collection_ids, media, languages, exclude_languages, fiction, 
+            audience, age_range, in_any_of_these_genres
         )
         q = dict(
             filtered=dict(
@@ -521,13 +551,24 @@ class ExternalSearchIndex(object):
             }
         }
         
-    def make_filter(self, media, languages, exclude_languages, fiction, audience, age_range, genres):
+    def make_filter(self, collection_ids, media, languages, exclude_languages, fiction, audience, age_range, genres):
         def _f(s):
             if not s:
                 return s
             return s.lower().replace(" ", "")
 
         clauses = []
+        if collection_ids is not None:
+            # Either the collection ID field must be completely
+            # missing (as it will be in older indexes) or it must
+            # include one of the collection IDs we're looking for.
+            collection_id_matches = dict(
+                terms=dict(collection_id=list(collection_ids))
+            )
+            no_collection_id = dict(
+                bool=dict(must_not=dict(exists=dict(field="collection_id")))
+            )
+            clauses.append({'or': [collection_id_matches, no_collection_id]})
         if languages:
             clauses.append(dict(terms=dict(language=list(languages))))
         if exclude_languages:
@@ -594,7 +635,20 @@ class ExternalSearchIndex(object):
         """Upload a batch of works to the search index at once."""
 
         time1 = time.time()
-        docs = Work.to_search_documents(works)
+        needs_add = []
+        successes = []
+        for work in works:
+            if work.presentation_ready:
+                needs_add.append(work)
+            else:
+                # Works are removed one at a time, which shouldn't
+                # pose a performance problem because works almost never
+                # stop being presentation ready.
+                self.remove_work(work)
+                successes.append(work)
+
+        # Add any works that need adding.
+        docs = Work.to_search_documents(needs_add)
 
         for doc in docs:
             doc["_index"] = self.works_index
@@ -607,10 +661,16 @@ class ExternalSearchIndex(object):
             raise_on_exception=False,
         )
 
-        # If the entire update failed, try it one more time before giving up on the batch.
-        if retry_on_batch_failure and len(errors) == len(docs):
-            self.log.info("Elasticsearch bulk update timed out, trying again.")
-            return self.bulk_update(works, retry_on_batch_failure=False)
+        # If the entire update failed, try it one more time before
+        # giving up on the batch.
+        #
+        # Removed works were already removed, so no need to try them again.
+        if len(errors) == len(docs):
+            if retry_on_batch_failure:
+                self.log.info("Elasticsearch bulk update timed out, trying again.")
+                return self.bulk_update(needs_add, retry_on_batch_failure=False)
+            else:
+                docs = []
 
         time3 = time.time()
         self.log.info("Created %i search documents in %.2f seconds" % (len(docs), time2 - time1))
@@ -620,26 +680,28 @@ class ExternalSearchIndex(object):
         
         # We weren't able to create search documents for these works, maybe
         # because they don't have presentation editions yet.
-        missing_works = [work for work in works if work.id not in doc_ids]
-            
-        error_ids = [
-            error.get('data', {}).get("_id", None) or
-            error.get('index', {}).get('_id', None)
-            for error in errors
-        ]
+        def get_error_id(error):
+            return error.get('data', {}).get('_id', None) or error.get('index', {}).get('_id', None)   
+        error_ids = [get_error_id(error) for error in errors]
 
-        successes = [work for work in works if work.id in doc_ids and work.id not in error_ids]
+        missing_works = [
+            work for work in works 
+            if work.id not in doc_ids and work.id not in error_ids
+            and work not in successes
+        ]
+            
+        successes.extend(
+            [work for work in works 
+             if work.id in doc_ids and work.id not in error_ids]
+        )
 
         failures = []
         for missing in missing_works:
-            if not missing.presentation_ready:
-                failures.append((work, "Work not indexed because not presentation-ready."))
-            else:
-                failures.append((work, "Work not indexed"))
+            failures.append((work, "Work not indexed"))
 
         for error in errors:
-            error_id = error.get('data', {}).get('_id', None) or error.get('index', {}).get('_id', None)
-
+            
+            error_id = get_error_id(error)
             work = None
             works_with_error = [work for work in works if work.id == error_id]
             if works_with_error:
@@ -656,6 +718,13 @@ class ExternalSearchIndex(object):
 
         return successes, failures
 
+    def remove_work(self, work):
+        """Remove the search document for `work` from the search index.
+        """
+        args = dict(index=self.works_index, doc_type=self.work_document_type, 
+                    id=work.id)
+        if self.exists(**args):
+            self.delete(**args)
 
 class ExternalSearchIndexVersions(object):
 
@@ -786,3 +855,80 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         for doc in docs:
             self.index(doc['_index'], doc['_type'], doc['_id'], doc)
         return len(docs), []
+
+
+class SearchIndexMonitor(WorkSweepMonitor):
+    """Make sure the search index is up-to-date for every work.
+
+    This operates on all Works, not just the ones with registered
+    WorkCoverageRecords indicating that work needs to be done.
+    """
+    SERVICE_NAME = "Search index update"
+    DEFAULT_BATCH_SIZE = 500
+    
+    def __init__(self, _db, collection, index_name=None, index_client=None,
+                 **kwargs):
+        super(SearchIndexMonitor, self).__init__(_db, collection, **kwargs)
+        
+        if index_client:
+            # This would only happen during a test.
+            self.search_index_client = index_client
+        else:
+            self.search_index_client = ExternalSearchIndex(
+                _db, works_index=index_name
+            )
+
+        index_name = self.search_index_client.works_index
+        # We got a generic service name. Replace it with a more
+        # specific one.
+        self.service_name = "Search index update (%s)" % index_name
+
+    def process_batch(self, offset):
+        """Update the search index for a set of Works."""
+        batch = self.fetch_batch(offset).all()
+        if batch:
+            successes, failures = self.search_index_client.bulk_update(batch)
+
+            for work, message in failures:
+                self.log.error(
+                    "Failed to update search index for %s: %s", work, message
+                )
+            WorkCoverageRecord.bulk_add(
+                successes, WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            )
+            # Start work on the next batch.
+            return batch[-1].id
+        else:
+            # We're done.
+            return 0
+
+
+class SearchIndexCoverageProvider(WorkCoverageProvider):
+    """Make sure all Works have up-to-date representation in the
+    search index.
+    """
+
+    SERVICE_NAME = 'Search index coverage provider'
+
+    DEFAULT_BATCH_SIZE = 500
+
+    OPERATION = WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+
+    def __init__(self, *args, **kwargs):
+        search_index_client = kwargs.pop('search_index_client', None)
+        super(SearchIndexCoverageProvider, self).__init__(*args, **kwargs)
+        self.search_index_client = (
+            search_index_client or ExternalSearchIndex(self._db)
+        )
+
+    def process_batch(self, works):
+        """
+        :return: a mixed list of Works and CoverageFailure objects.
+        """
+        successes, failures = self.search_index_client.bulk_update(works)
+
+        records = list(successes)
+        for (work, error) in failures:
+            records.append(CoverageFailure(work, error))
+
+        return records

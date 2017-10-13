@@ -7,6 +7,7 @@ import random
 import re
 import requests
 import string
+import subprocess
 import time
 import uuid
 from requests.exceptions import (
@@ -18,7 +19,10 @@ import traceback
 import unicodedata
 
 from collections import defaultdict
-from external_search import ExternalSearchIndex
+from external_search import (
+    ExternalSearchIndex,
+    SearchIndexMonitor,
+)
 import json
 from nose.tools import set_trace
 from sqlalchemy import (
@@ -231,6 +235,22 @@ class RunCollectionMonitorScript(Script):
                 )
 
 
+class UpdateSearchIndexScript(RunMonitorScript):
+
+    def __init__(self):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--works-index', 
+            help='The ElasticSearch index to update, if other than the default.'
+        )
+        parsed = parser.parse_args()
+
+        super(UpdateSearchIndexScript, self).__init__(
+            SearchIndexMonitor,
+            index_name=parsed.works_index,
+        )
+
+
 class RunCoverageProvidersScript(Script):
     """Alternate between multiple coverage providers."""
     def __init__(self, providers):
@@ -260,7 +280,7 @@ class RunCoverageProvidersScript(Script):
 
                 self.log.debug("Completed %s", provider.service_name)
                 providers.remove(provider)
-
+    
 
 class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
     """Run the same CoverageProvider code for all Collections that
@@ -275,6 +295,17 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
 
     def get_providers(self, _db, provider_class, **kwargs):
         return list(provider_class.all(_db, **kwargs))
+
+
+class RunWorkCoverageProviderScript(RunCollectionCoverageProviderScript):
+    """Run a WorkCoverageProvider on every relevant Work in the system."""
+
+    # This class overrides RunCollectionCoverageProviderScript just to
+    # take advantage of the constructor; it doesn't actually use the
+    # concept of 'collections' at all.
+
+    def get_providers(self, _db, provider_class, **kwargs):
+        return [provider_class(_db, **kwargs)]
 
 
 class InputScript(Script):
@@ -860,14 +891,11 @@ class ConfigureSiteScript(ConfigurationSettingScript):
                     )
                 else:
                     ConfigurationSetting.sitewide(_db, key).value = value
-        settings = _db.query(ConfigurationSetting).filter(
-            ConfigurationSetting.library==None).filter(
-                ConfigurationSetting.external_integration==None
-            ).order_by(ConfigurationSetting.key)
-        output.write("Current site-wide settings:\n")
-        for setting in settings:
-            if args.show_secrets or not setting.is_secret:
-                output.write("%s='%s'\n" % (setting.key, setting.value))
+        output.write(
+            "\n".join(ConfigurationSetting.explain(
+                _db, include_secrets=args.show_secrets
+            ))
+        )
         site_configuration_has_changed(_db)
         _db.commit()
         
@@ -1615,6 +1643,9 @@ class DatabaseMigrationScript(Script):
     name = "Database Migration"
     MIGRATION_WITH_COUNTER = re.compile("\d{8}-(\d+)-(.)+\.(py|sql)")
 
+    # There are some SQL commands that can't be run inside a transaction.
+    TRANSACTIONLESS_COMMANDS = ['alter type']
+
     class TimestampInfo(object):
         """Act like a ORM Timestamp object, but with no database connection."""
         def __init__(self, timestamp, counter):
@@ -1882,17 +1913,56 @@ class DatabaseMigrationScript(Script):
 
         if migration_path.endswith('.sql'):
             with open(migration_path) as clause:
-                # By wrapping the action in a transation, we can avoid
-                # rolling over errors and losing data in files
-                # with multiple interrelated SQL actions.
-                sql = 'BEGIN;\n%s\nCOMMIT;' % clause.read()
-                self._db.execute(sql)
+                sql = clause.read()
+
+                transactionless = any(filter(
+                    lambda c: c in sql.lower(), self.TRANSACTIONLESS_COMMANDS
+                ))
+                if transactionless:
+                    new_session = self._run_migration_without_transaction(sql)
+                else:
+                    # By wrapping the action in a transation, we can avoid
+                    # rolling over errors and losing data in files
+                    # with multiple interrelated SQL actions.
+                    sql = 'BEGIN;\n%s\nCOMMIT;' % sql
+                    self._db.execute(sql)
+
         if migration_path.endswith('.py'):
             module_name = migration_filename[:-3]
-            imp.load_source(module_name, migration_path)
+            subprocess.call(migration_path)
 
         # Update timestamp for the migration.
         self.update_timestamp(timestamp, migration_filename)
+
+    def _run_migration_without_transaction(self, sql_statement):
+        """Runs a single SQL statement outside of a transaction."""
+        # Go back up to engine-level.
+        connection = self._db.get_bind()
+
+        # Close the Session so it benefits from the changes.
+        self._session.close()
+
+        # Get each individual SQL command from the migration text.
+        #
+        # In the case of 'ALTER TYPE' (at least), running commands
+        # simultaneously raises psycopg2.InternalError ending with 'cannot be
+        # executed from a fuction or multi-command string'
+        sql_commands = [command.strip()+';'
+                        for command in sql_statement.split(';')
+                        if command.strip()]
+
+        # Run each command in the sql statement right up against the
+        # database: no transactions, no guardrails.
+        for command in sql_commands:
+            connection.execution_options(isolation_level='AUTOCOMMIT')\
+                .execute(text(command))
+
+        # Update the script's Session to a new one that has the changed schema
+        # and other important info.
+        self._session = Session(connection)
+        SessionManager.initialize_data(self._db)
+        self.load_configuration()
+        DataSource.well_known_sources(self._db)
 
     def update_timestamp(self, timestamp, migration_file):
         """Updates this service's timestamp to match a given migration"""
