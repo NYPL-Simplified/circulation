@@ -2339,9 +2339,12 @@ class TestFeedController(CirculationControllerTest):
             eq_(1, counter['Other Languages'])
 
     def test_search(self):
-        # Put two works into the search index
-        self.english_1.update_external_index(self.manager.external_search)  # english_1 is "Quite British" by John Bull
-        self.english_2.update_external_index(self.manager.external_search)  # english_2 is "Totally American" by Uncle Sam
+        # Update the index for two works.
+        # english_1 is "Quite British" by John Bull
+        # english_2 is "Totally American" by Uncle Sam
+        self.manager.external_search.bulk_update(
+            [self.english_1, self.english_2]
+        )
 
         # Update the materialized view to make sure the works show up.
         SessionManager.refresh_materialized_views(self._db)
