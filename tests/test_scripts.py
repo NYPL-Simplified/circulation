@@ -619,6 +619,10 @@ class TestDatabaseMigrationScript(DatabaseTest):
         self.timestamp = Timestamp(service=self.script.name, timestamp=stamp)
         self._db.add(self.timestamp)
 
+        self.timestamp_info = self.script.TimestampInfo(
+            self.timestamp.service, self.timestamp.timestamp
+        )
+
     def teardown(self):
         """Delete any files and directories created during testing."""
         for fpath in self.migration_files:
@@ -704,7 +708,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
             '20260809-already-done.sql',
         ]
 
-        result = self.script.get_new_migrations(self.timestamp, migrations)
+        result = self.script.get_new_migrations(self.timestamp_info, migrations)
         # Expected migrations will be sorted by timestamp. Python migrations
         # will be sorted after SQL migrations.
         expected = [
@@ -726,8 +730,8 @@ class TestDatabaseMigrationScript(DatabaseTest):
             '20260810-2-do-all-the-things.sql',
             '20260809-already-done.sql'
         ]
-        self.timestamp.counter = 1
-        result = self.script.get_new_migrations(self.timestamp, migrations)
+        self.timestamp_info.counter = 1
+        result = self.script.get_new_migrations(self.timestamp_info, migrations)
         expected = [
             '20260810-2-do-all-the-things.sql',
             '20271202-future-migration-funtime.sql',
@@ -746,9 +750,9 @@ class TestDatabaseMigrationScript(DatabaseTest):
             '20260809-already-done.sql',
             '20271202-future-migration-funtime.sql',
         ]
-        self.timestamp.counter = None
+        self.timestamp_info.counter = None
 
-        result = self.script.get_new_migrations(self.timestamp, migrations)
+        result = self.script.get_new_migrations(self.timestamp_info, migrations)
         expected = [
             '20260810-1-do-all-the-things.sql',
             '20271202-future-migration-funtime.sql',
@@ -762,26 +766,32 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         migration = '20271202-future-migration-funtime.sql'
 
-        assert self.timestamp.timestamp.strftime('%Y%m%d') != migration[0:8]
-        self.script.update_timestamp(self.timestamp, migration)
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+        assert self.timestamp_info.timestamp.strftime('%Y%m%d') != migration[0:8]
+        self.script.update_timestamp(self.timestamp_info, migration)
+        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), migration[0:8])
 
         # It also takes care of counter digits when multiple migrations
         # exist for the same date.
         migration = '20260810-2-do-all-the-things.sql'
-        self.script.update_timestamp(self.timestamp, migration)
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
-        eq_(str(self.timestamp.counter), migration[9])
+        self.script.update_timestamp(self.timestamp_info, migration)
+        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), migration[0:8])
+        eq_(str(self.timestamp_info.counter), migration[9])
 
         # And removes those counter digits when the timestamp is updated.
         migration = '20260101-what-it-do.sql'
-        self.script.update_timestamp(self.timestamp, migration)
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
-        eq_(self.timestamp.counter, None)
+        self.script.update_timestamp(self.timestamp_info, migration)
+        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), migration[0:8])
+        eq_(self.timestamp_info.counter, None)
+
+        # If the migration is a python migration and it is earlier than
+        # the existing timestamp, the timestamp is not updated.
+        migration = '20251202-before-the-existing-timestamp.py'
+        self.script.update_timestamp(self.timestamp_info, migration)
+        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), '20260101')
 
     def test_running_a_migration_updates_the_timestamp(self):
         future_time = datetime.datetime.strptime('20261030', '%Y%m%d')
-        self.timestamp.timestamp = future_time
+        self.timestamp_info.timestamp = future_time
 
         # Create a test migration after that point and grab relevant info
         # about it.
@@ -801,9 +811,9 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         # Running the migration updates the timestamp
         self.script.run_migrations(
-            [migration_filename], migrations_by_dir, self.timestamp
+            [migration_filename], migrations_by_dir, self.timestamp_info
         )
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), '20261202')
+        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), '20261202')
 
         # Even when there are counters.
         self._create_test_migration_file(
@@ -813,10 +823,10 @@ class TestDatabaseMigrationScript(DatabaseTest):
         migration_filename = os.path.split(self.migration_files[-1])[1]
         migrations_by_dir[self.core_migration_dir] = [migration_filename]
         self.script.run_migrations(
-            [migration_filename], migrations_by_dir, self.timestamp
+            [migration_filename], migrations_by_dir, self.timestamp_info
         )
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), '20261203')
-        eq_(self.timestamp.counter, 3)
+        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), '20261203')
+        eq_(self.timestamp_info.counter, 3)
 
     def test_all_migration_files_are_run(self):
         self.script.run(test=True, cmd_args=["--last-run-date", "2010-01-01"])

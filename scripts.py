@@ -1648,13 +1648,53 @@ class DatabaseMigrationScript(Script):
 
     class TimestampInfo(object):
         """Act like a ORM Timestamp object, but with no database connection."""
-        def __init__(self, timestamp, counter):
+
+        @classmethod
+        def find(cls, _db, service):
+            """Find or create an existing timestamp representing the last
+            migration script that was run.
+
+            :return: A TimestampInfo object or None
+            """
+            sql = "SELECT timestamp, counter FROM timestamps WHERE service=:service LIMIT 1;"
+            results = list(_db.execute(text(sql), dict(service=service)))
+
+            if not results:
+                # Make sure there's a row for this service in the timestamps
+                # table so that we can update it later.
+                sql = "INSERT INTO timestamps (service) values (:service);"
+                _db.execute(text(sql), dict(service=service))
+                return None
+
+            [(date, counter)] = results
+            return cls(service, date, counter)
+
+        def __init__(self, service, timestamp, counter=None):
+            self.service = service
             if isinstance(timestamp, basestring):
                 timestamp = Script.parse_time(timestamp)
             self.timestamp = timestamp
             if isinstance(counter, basestring):
                 counter = int(counter)
             self.counter = counter
+
+        def save(self, _db, migration=None):
+            """Saves a TimestampInfo object to the database"""
+
+            sql = "UPDATE timestamps SET timestamp=:timestamp, counter=:counter where service=:service"
+            keys = dict(
+                timestamp=self.timestamp,
+                counter=self.counter,
+                service=self.service,
+            )
+
+            _db.execute(text(sql), keys)
+            _db.commit()
+
+            message = "New timestamp created at "+self.timestamp.strftime('%Y-%m-%d')
+            if migration:
+                message += " for %s" % migration
+            print message
 
     @classmethod
     def arg_parser(cls):
@@ -1735,6 +1775,10 @@ class DatabaseMigrationScript(Script):
         # the data itself.
         return [core, server]
 
+    def __init__(self, *args, **kwargs):
+        super(DatabaseMigrationScript, self).__init__(*args, **kwargs)
+        self.timestamp = None
+
     def load_configuration(self):
         """Load configuration without accessing the database."""
         Configuration.load(None)
@@ -1743,9 +1787,10 @@ class DatabaseMigrationScript(Script):
         parsed = self.parse_command_line(cmd_args=cmd_args)
         last_run_date = parsed.last_run_date
         last_run_counter = parsed.last_run_counter
-        timestamp = None
         if last_run_date:
-            timestamp = self.TimestampInfo(last_run_date, last_run_counter)
+            self.timestamp = self.TimestampInfo(
+                self.name, last_run_date, last_run_counter
+            )
 
         # Create a special database session that doesn't initialize
         # the ORM. As long as we only execute SQL and don't try to use
@@ -1753,42 +1798,35 @@ class DatabaseMigrationScript(Script):
         url = Configuration.database_url(test=test)
         self._session = SessionManager.session(url, initialize_data=False)
 
-        # Try to find an existing timestamp representing the last migration
-        # script that was run.
-        sql = "SELECT timestamp, counter FROM timestamps WHERE service=:service LIMIT 1;"
-        results = list(self._db.execute(text(sql), dict(service=self.name)))
-        if results:
-            [(date, counter)] = results
-            current_timestamp = self.TimestampInfo(date, counter)
-            if not timestamp:
-                timestamp = current_timestamp
-        else:
-            # Make sure there's a "Database Migration" row in the
-            # timestamps table so that we can update the row later.
-            sql = "INSERT INTO timestamps (service) values (:service);"
-            self._db.execute(text(sql), dict(service=self.name))
+        if not self.timestamp:
+            # No timestamp was given. Get the timestamp from the database.
+            self.timestamp = TimestampInfo.find(self._db, self.name)
 
-        if timestamp:
-            migrations, migrations_by_dir = self.fetch_migration_files()
-
-            new_migrations = self.get_new_migrations(timestamp, migrations)
-            if new_migrations:
-                # Log the new migrations.
-                print "%d new migrations found." % len(new_migrations)
-                for migration in new_migrations:
-                    print "  - %s" % migration
-                self.run_migrations(
-                    new_migrations, migrations_by_dir, timestamp
-                )
-            else:
-                print "No new migrations found. Your database is up-to-date."
-        else:
+        if not self.timestamp:
+            # There's no timestamp in the database! Raise an error.
             print ""
             print (
-                "NO TIMESTAMP FOUND. Run script with timestamp that indicates"
-                " the last migration run against this database."
+                "NO TIMESTAMP FOUND. Either initialize your untouched database "
+                "with the script `core/bin/initialize_database` OR run this "
+                "script with a timestamp that indicates the last migration run "
+                "against your existing-but-uninitialized database."
             )
             self.arg_parser().print_help()
+            sys.exit(1)
+
+        migrations, migrations_by_dir = self.fetch_migration_files()
+
+        new_migrations = self.get_new_migrations(self.timestamp, migrations)
+        if new_migrations:
+            # Log the new migrations.
+            print "%d new migrations found." % len(new_migrations)
+            for migration in new_migrations:
+                print "  - %s" % migration
+            self.run_migrations(
+                new_migrations, migrations_by_dir, self.timestamp
+            )
+        else:
+            print "No new migrations found. Your database is up-to-date."
 
     def fetch_migration_files(self):
         """Pulls migration files from the expected locations
@@ -1976,15 +2014,8 @@ class DatabaseMigrationScript(Script):
         match = self.MIGRATION_WITH_COUNTER.search(migration_file)
         if match:
             timestamp.counter = int(match.groups()[0])
-        sql = "UPDATE timestamps SET timestamp=:timestamp, counter=:counter where service=:service"
-        self._db.execute(text(sql), dict(timestamp=timestamp.timestamp,
-                                         counter=timestamp.counter,
-                                         service=self.name))
-        self._db.commit()
 
-        print "New timestamp created at %s for %s" % (
-            last_run_date.strftime('%Y-%m-%d'), migration_file
-        )
+        timestamp.save(self._db, migration=migration_file)
 
 
 class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
