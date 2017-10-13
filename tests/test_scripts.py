@@ -1056,7 +1056,7 @@ class TestConfigureSiteScript(DatabaseTest):
             SITEWIDE_SETTINGS = [
                 { "key": "setting1" },
                 { "key": "setting2" },
-                { "key": "secret_setting" },
+                { "key": "setting_secret" },
             ]
 
         script = ConfigureSiteScript(config=TestConfig)
@@ -1065,32 +1065,28 @@ class TestConfigureSiteScript(DatabaseTest):
             self._db, [
                 "--setting=setting1=value1",
                 "--setting=setting2=[1,2,\"3\"]",
-                "--setting=secret_setting=secretvalue",
+                "--setting=setting_secret=secretvalue",
             ],
             output
         )
         # The secret was set, but is not shown.
-        eq_("""Current site-wide settings:
-setting1='value1'
-setting2='[1,2,"3"]'
-""",
-            output.getvalue()
+        expect = "\n".join(
+            ConfigurationSetting.explain(self._db, include_secrets=False)
         )
+        eq_(expect, output.getvalue())
+        assert 'setting_secret' not in expect
         eq_("value1", ConfigurationSetting.sitewide(self._db, "setting1").value)
         eq_('[1,2,"3"]', ConfigurationSetting.sitewide(self._db, "setting2").value)
-        eq_("secretvalue", ConfigurationSetting.sitewide(self._db, "secret_setting").value)
+        eq_("secretvalue", ConfigurationSetting.sitewide(self._db, "setting_secret").value)
 
         # If we run again with --show-secrets, the secret is shown.
         output = StringIO()
         script.do_run(self._db, ["--show-secrets"], output)
-        eq_("""Current site-wide settings:
-secret_setting='secretvalue'
-setting1='value1'
-setting2='[1,2,"3"]'
-""",
-            output.getvalue()
+        expect = "\n".join(
+            ConfigurationSetting.explain(self._db, include_secrets=True)
         )
-
+        eq_(expect, output.getvalue())
+        assert 'setting_secret' in expect
 
 class TestConfigureLibraryScript(DatabaseTest):
     

@@ -891,14 +891,11 @@ class ConfigureSiteScript(ConfigurationSettingScript):
                     )
                 else:
                     ConfigurationSetting.sitewide(_db, key).value = value
-        settings = _db.query(ConfigurationSetting).filter(
-            ConfigurationSetting.library==None).filter(
-                ConfigurationSetting.external_integration==None
-            ).order_by(ConfigurationSetting.key)
-        output.write("Current site-wide settings:\n")
-        for setting in settings:
-            if args.show_secrets or not setting.is_secret:
-                output.write("%s='%s'\n" % (setting.key, setting.value))
+        output.write(
+            "\n".join(ConfigurationSetting.explain(
+                _db, include_secrets=args.show_secrets
+            ))
+        )
         site_configuration_has_changed(_db)
         _db.commit()
         
