@@ -380,10 +380,13 @@ class Configuration(object):
         """
         now = datetime.datetime.utcnow()
 
+        if _db and timeout is None:
+            from model import ConfigurationSetting
+            timeout = ConfigurationSetting.sitewide(
+                _db, cls.SITE_CONFIGURATION_TIMEOUT
+            ).value
         if timeout is None:
-            timeout = ConfigurationSettings.sitewide(
-                cls.SITE_CONFIGURATION_TIMEOUT
-            ).value_or_default(600)
+            timeout = 600
 
         last_check = cls.instance.get(
             cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE
