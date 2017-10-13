@@ -601,3 +601,18 @@ class TestWorkList(DatabaseTest):
         for lpdm in w2.license_pools[0].delivery_mechanisms:
             self._db.delete(lpdm)
         eq_([], wl.works_for_specific_ids(self._db, [w2.id]))
+
+    def test_apply_filters(self):
+        
+        qu = self._db.query(Work)
+
+        work = self._work()
+
+        wl = WorkList()
+        wl.apply_filters(qu).count()
+
+        work.presentation_ready = False
+
+        # Only ready works are displayed to patrons.
+
+        # Only deliverable works are displayed to patrons.
