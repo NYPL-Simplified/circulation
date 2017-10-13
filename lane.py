@@ -271,7 +271,7 @@ class Facets(FacetConstants):
             # Exclude books with a quality of less than the library's
             # minimum featured quality.
             qu = qu.filter(
-                work_model.quality >= self.library(_db).minimum_featured_quality
+                work_model.quality >= self.library.minimum_featured_quality
             )
 
         # Set the ORDER BY clause.
