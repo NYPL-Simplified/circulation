@@ -341,6 +341,10 @@ class Configuration(object):
     # changed.
     LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE = "last_checked_for_site_configuration_update"
 
+    # A sitewide configuration setting controlling *how often* to check
+    # whether the database configuration has changed.
+    SITE_CONFIGURATION_TIMEOUT = 'site_configuration_timeout'
+
     # The name of the service associated with a Timestamp that tracks
     # the last time the site's configuration changed in the database.
     SITE_CONFIGURATION_CHANGED = "Site Configuration Changed"
@@ -356,7 +360,7 @@ class Configuration(object):
 
     @classmethod
     def site_configuration_last_update(cls, _db, known_value=None,
-                                       timeout=600):
+                                       timeout=None):
         """Check when the site configuration was last updated.
 
         Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE]. 
@@ -375,6 +379,14 @@ class Configuration(object):
         :return: a datetime object.
         """
         now = datetime.datetime.utcnow()
+
+        if _db and timeout is None:
+            from model import ConfigurationSetting
+            timeout = ConfigurationSetting.sitewide(
+                _db, cls.SITE_CONFIGURATION_TIMEOUT
+            ).value
+        if timeout is None:
+            timeout = 600
 
         last_check = cls.instance.get(
             cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE

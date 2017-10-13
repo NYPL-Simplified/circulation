@@ -9536,7 +9536,7 @@ class Library(Base, HasFullTableCache):
             lines.append("Configuration settings:")
             lines.append("-----------------------")
         for setting in settings:
-            if include_secrets or not setting.is_secret:
+            if (include_secrets or not setting.is_secret) and setting.value is not None:
                 lines.append("%s='%s'" % (setting.key, setting.value))
             
         integrations = list(self.integrations)
@@ -9887,6 +9887,9 @@ class ExternalIntegration(Base, HasFullTableCache):
                 # This is a different library's specialization of
                 # this integration. Ignore it.
                 continue
+            if setting.value is None:
+                # The setting has no value. Ignore it.
+                continue
             explanation = "%s='%s'" % (setting.key, setting.value)
             if setting.library:
                 explanation = "%s (applies only to %s)" % (
@@ -9971,6 +9974,8 @@ class ConfigurationSetting(Base, HasFullTableCache):
             lines.append("Site-wide configuration settings:")
             lines.append("---------------------------------")
         for setting in sorted(site_wide_settings, key=lambda s: s.key):
+            if setting.value is None:
+                continue
             lines.append("%s='%s'" % (setting.key, setting.value))
         return lines
 
@@ -10559,7 +10564,7 @@ class Collection(Base, HasFullTableCache):
         if self.external_account_id:
             lines.append('External account ID: "%s"' % self.external_account_id)
         for setting in sorted(integration.settings, key=lambda x: x.key):
-            if include_secrets or not setting.is_secret:
+            if (include_secrets or not setting.is_secret) and setting.value is not None:
                 lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 

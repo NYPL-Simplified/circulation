@@ -6817,11 +6817,10 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         timestamp = Timestamp.stamp(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
-        last_update_after_sneaky_change = timestamp.timestamp
 
         # Calling Configuration.check_for_site_configuration_update
         # doesn't detect the change because by default we only go to
-        # the database once a minute.
+        # the database every ten minutes.
         eq_(new_last_update_time,
             Configuration.site_configuration_last_update(self._db))
 
@@ -6832,11 +6831,25 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         )
         assert newer_update > last_update
         
+        # It's also possible to change the timeout value through a
+        # site-wide ConfigurationSetting
+        ConfigurationSetting.sitewide(
+            self._db, Configuration.SITE_CONFIGURATION_TIMEOUT
+        ).value = 0
+        timestamp = Timestamp.stamp(
+            self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
+        )
+        even_newer_update = Configuration.site_configuration_last_update(
+            self._db, timeout=0
+        )
+        assert even_newer_update > newer_update
+
+
         # If ConfigurationSettings are updated twice within the
         # timeout period (default 1 second), the last update time is
         # only set once, to avoid spamming the Timestamp with updates.
         
-        # The high value for 'timeout' saves this code. If we decided
+        # The high site-wide value for 'timeout' saves this code. If we decided
         # that the timeout had expired and tried to check the
         # Timestamp, the code would crash because we're not passing
         # a database connection in.
@@ -6844,7 +6857,8 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
         # Nothing has changed -- how could it, with no database connection
         # to modify anything?
-        eq_(newer_update, Configuration.site_configuration_last_update(self._db))
+        eq_(even_newer_update, 
+            Configuration.site_configuration_last_update(self._db))
 
     # We don't test every event listener, but we do test one of each type.
     def test_configuration_relevant_lifecycle_event_updates_configuration(self):
