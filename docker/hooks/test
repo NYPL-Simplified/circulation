@@ -29,7 +29,7 @@ docker run -d -p 80:80 \
 
 # Run the tests in the container.
 docker exec -u simplified circ /bin/bash \
-  -c "cd ~/circulation && source env/bin/activate && ./verbose-test && cd core && ./test -v";
+  -c "cd ~/circulation && source env/bin/activate && ./test && cd core && ./test";
 
 # If this is a scripts container, there's nothing more to be done. 
 if [[ ${IMAGE_NAME} == *"scripts"* ]]; then exit 0; fi
