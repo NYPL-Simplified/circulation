@@ -60,10 +60,6 @@ from core.scripts import (
     PatronInputScript,
     RunMonitorScript,
 )
-# TODO: This class used to be defined in this file and was moved into core.
-# The import statement can be removed once we're sure all references to it
-# have been changed.
-from core.scripts import UpdateSearchIndexScript
 from core.lane import (
     Pagination,
     Facets,
