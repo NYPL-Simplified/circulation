@@ -42,18 +42,14 @@ docker ps
 docker exec -u postgres pg psql -U simplified -d docker_prod \
   -c "insert into libraries(name, short_name, uuid, is_default) values ('default', 'default', '1234', 't');";
 
-# DEBUG:
-curl -v http://localhost/default/groups
-
 # Check to make sure the deployed app is running.
-# healthcheck=$(curl --write-out "%{http_code}" --silent --output /dev/null http://localhost/healthcheck.html);
-# if ! [[ ${healthcheck} == '200' ]]; then exit 1; fi
+healthcheck=$(docker exec circ /bin/bash -c "curl --write-out \"%{http_code}\" --silent --output /dev/null http://localhost/healthcheck.html")
+if ! [[ ${healthcheck} == '200' ]]; then exit 1; fi
 
 # And it's showing an OPDS feed.
-# feed_type=$(curl --write-out "%{content_type}" --silent --output /dev/null http://localhost/groups);
-# if ! [[ ${feed_type} == 'application/atom+xml;profile=opds-catalog;kind=acquisition' ]]; then\
-#   exit 1;
-# fi
+feed_type=$(docker exec circ /bin/bash -c "curl --write-out \"%{content_type}\" --silent --output /dev/null http://localhost/groups")
+if ! [[ ${feed_type} == 'application/atom+xml;profile=opds-catalog;kind=acquisition' ]]; then
+  exit 1;
+fi
 
 exit 0;
-
