@@ -916,7 +916,6 @@ class Lane(Base, WorkList):
 
     @property
     def visible_children(self):
-        set_trace()
         for lane in self.sublanes:
             if lane.visible:
                 yield lane
