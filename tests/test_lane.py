@@ -638,10 +638,11 @@ class TestWorkList(DatabaseTest):
                 called['pagination.apply'] = True
                 return query
 
-        original_qu = self._db.query(Work)
+        original_qu = self._db.query(MaterializedWork)
         wl = MockWorkList()
         final_qu = wl.apply_filters(
-            self._db, original_qu, Work, MockFacets(), MockPagination()
+            self._db, original_qu, MaterializedWork, MockFacets(), 
+            MockPagination()
         )
         
         # The hook methods were called with the right arguments.
@@ -660,7 +661,9 @@ class TestWorkList(DatabaseTest):
         # Test that apply_filters() makes a query distinct if there is
         # no Facets object to do the job.
         called = dict()
-        distinct_qu = wl.apply_filters(self._db, original_qu, Work, None, None)
+        distinct_qu = wl.apply_filters(
+            self._db, original_qu, MaterializedWork, None, None
+        )
         eq_(str(original_qu.distinct()), str(distinct_qu))
         assert 'facets.apply' not in called
         assert 'pagination.apply' not in called
@@ -678,5 +681,98 @@ class TestWorkList(DatabaseTest):
                 return None
 
         wl = MockWorkList()
-        qu = self._db.query(Work)
-        eq_(None, wl.apply_filters(self._db, qu, Work, None, None))
+        from model import MaterializedWork
+        qu = self._db.query(MaterializedWork)
+        eq_(None, wl.apply_filters(self._db, qu, MaterializedWork, None, None))
+
+    def test_apply_bibliographic_filters(self):
+        called = dict()
+
+        class MockWorkList(WorkList):
+            """Mock WorkList that simply verifies that apply_filters()
+            calls various hook methods.
+            """
+
+            def __init__(self, languages=None, genre_ids=None):
+                self.languages = languages
+                self.genre_ids = genre_ids
+
+            def apply_audience_filter(self, _db, qu, work_model):
+                called['apply_audience_filter'] = True
+                return qu
+
+            def apply_custom_filters(self, _db, qu, work_model, featured):
+                called['apply_custom_filters'] = True
+                called['apply_custom_filters.featured'] = featured
+                return qu, featured
+
+        wl = MockWorkList()
+        from model import MaterializedWorkWithGenre as wg
+        original_qu = self._db.query(wg)
+
+        # If no languages or genre IDs are specified, and the hook
+        # methods do nothing, then apply_bibliographic_filters() has
+        # no effect.
+        featured_object = object()
+        final_qu, distinct = wl.apply_bibliographic_filters(
+            self._db, original_qu, wg, featured_object
+        )
+        eq_(original_qu, final_qu)
+
+        # But the hook methods were called with the correct arguments.
+        eq_(True, called['apply_audience_filter'])
+        eq_(True, called['apply_custom_filters'])
+        eq_(featured_object, called['apply_custom_filters.featured'])
+
+        # If languages and genre IDs are specified, then they are
+        # incorporated into the query.
+        english_sf = self._work(language="eng", with_license_pool=True)
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        english_sf.genres.append(sf)
+        self.add_to_materialized_view(english_sf)
+
+        # Create a WorkList that will find the MaterializedWorkWithGenre
+        # for the English SF book.
+        english_sf_list = MockWorkList(languages=["eng"], genre_ids=[sf.id])
+        english_sf_qu, distinct = english_sf_list.apply_bibliographic_filters(
+            self._db, original_qu, wg, False
+        )
+
+        # Here it is!
+        eq_([english_sf.sort_title], [x.sort_title for x in english_sf_qu])
+
+        # WorkLists that do not match by language or genre will not
+        # find the English SF book.
+        spanish_sf_list = MockWorkList(languages=["spa"], genre_ids=[sf.id])
+        spanish_sf_qu, distinct = spanish_sf_list.apply_bibliographic_filters(
+            self._db, original_qu, wg, False
+        )
+        eq_(0, spanish_sf_qu.count())
+        
+        romance, ignore = Genre.lookup(self._db, "Romance")
+        english_romance_list = MockWorkList(
+            languages=["eng"], genre_ids=[romance.id]
+        )
+        english_romance_qu, distinct = english_romance_list.apply_bibliographic_filters(
+            self._db, original_qu, wg, False
+        )
+        eq_(0, english_romance_qu.count())
+
+    def test_apply_custom_filters_default_noop(self):
+        """WorkList.apply_custom_filters is a no-op."""
+        wl = WorkList()
+        from model import MaterializedWork
+        qu = self._db.query(MaterializedWork)
+        eq_(qu, wl.apply_custom_filters(None, None, None))
+
+    def test_apply_audience_filter(self):
+        pass
+
+    def test_only_show_ready_deliverable_works(self):
+        pass
+
+    def test_random_sample(self):
+        pass
+
+    
+    

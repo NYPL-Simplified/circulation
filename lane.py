@@ -659,7 +659,7 @@ class WorkList(object):
         if self.languages:
             qu = qu.filter(work_model.language.in_(self.languages))
         if self.genre_ids:
-            qu = qu.filter(mw.genre_id.in_(self.genre_ids))
+            qu = qu.filter(work_model.genre_id.in_(self.genre_ids))
         return self.apply_custom_filters(_db, qu, work_model, featured)
 
     def apply_custom_filters(self, _db, qu, work_model, featured=False):
