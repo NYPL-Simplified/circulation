@@ -43,7 +43,7 @@ docker exec -u postgres pg psql -U simplified -d docker_prod \
   -c "insert into libraries(name, short_name, uuid, is_default) values ('default', 'default', '1234', 't');";
 
 # DEBUG:
-curl -V http://localhost/default/groups
+curl -v http://localhost/default/groups
 
 # Check to make sure the deployed app is running.
 # healthcheck=$(curl --write-out "%{http_code}" --silent --output /dev/null http://localhost/healthcheck.html);
