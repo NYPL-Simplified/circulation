@@ -906,11 +906,29 @@ class TestLane(DatabaseTest):
         # But now you can modify .audiences.
         lane.audiences = [Classifier.AUDIENCE_CHILDREN]
 
-    def test_setting_list_datasource_resets_specific_custom_lists(self):
-        pass
-
     def test_uses_customlists(self):
-        pass
+        lane = self._lane()
+        eq_(False, lane.uses_customlists)
+
+        customlist = self._customlist()
+        lane.custom_lists = [customlist]
+        eq_(True, lane.uses_customlists)
+
+        lane.custom_list_data_source = DataSource.lookup(
+            self._db, DataSource.GUTENBERG
+        )
+        eq_(True, lane.uses_customlists)
+
+        # Note that the specific custom list was removed from this
+        # Lane when it switched to using all lists from a certain data
+        # source.
+        eq_([], lane.customlists)
+
+        # A Lane may use custom lists by virtue of inheriting
+        # restrictions from its parent.
+        child = self._lane(parent=lane)
+        child.inherit_parent_restrictions = True
+        eq_(True, child.uses_customlists)        
 
     def test_genre_ids(self):
         pass
