@@ -4,6 +4,7 @@ from nose.tools import (
     eq_,
     set_trace,
     assert_raises,
+    assert_raises_regexp,
 )
 
 from . import DatabaseTest
@@ -877,7 +878,33 @@ class TestLane(DatabaseTest):
         eq_("Fantasy", lane.url_name)
 
     def test_setting_target_age_locks_audiences(self):
-        pass
+        lane = self._lane()
+        lane.target_age = (16, 18)
+        eq_(
+            sorted([Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_ADULT]),
+            sorted(lane.audiences)
+        )
+        lane.target_age = (0, 2)
+        eq_([Classifier.AUDIENCE_CHILDREN], lane.audiences)
+        lane.target_age = 14
+        eq_([Classifier.AUDIENCE_YOUNG_ADULT], lane.audiences)
+
+        # It's not possible to modify .audiences to a value that's
+        # incompatible with .target_age.
+        lane.audiences = lane.audiences
+        def doomed():
+            lane.audiences = [Classifier.AUDIENCE_CHILDREN]
+        assert_raises_regexp(
+            ValueError, 
+            "Cannot modify Lane.audiences when Lane.target_age is set", doomed
+        ) 
+
+        # Setting target_age to None leaves preexisting .audiences in place.
+        lane.target_age = None
+        eq_([Classifier.AUDIENCE_YOUNG_ADULT], lane.audiences)
+
+        # But now you can modify .audiences.
+        lane.audiences = [Classifier.AUDIENCE_CHILDREN]
 
     def test_setting_list_datasource_resets_specific_custom_lists(self):
         pass

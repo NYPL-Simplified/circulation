@@ -25,6 +25,9 @@ from sqlalchemy import (
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
 )
+from sqlalchemy.ext.hybrid import (
+    hybrid_property,
+)
 from sqlalchemy.orm import (
     backref,
     contains_eager,
@@ -930,7 +933,7 @@ class Lane(Base, WorkList):
         """
         return self.identifier.replace("/", "__")
 
-    @property
+    @hybrid_property
     def audiences(self):
         return self._audiences
 
@@ -943,7 +946,7 @@ class Lane(Base, WorkList):
             raise ValueError("Cannot modify Lane.audiences when Lane.target_age is set!")
         self._audiences = value
 
-    @property
+    @hybrid_property
     def target_age(self):
         return self._target_age
 
@@ -963,30 +966,18 @@ class Lane(Base, WorkList):
         In no case is the "Adults Only" audience allowed, since target
         age only makes sense in lanes intended for minors.
         """
-        if not audiences:
-            if self.parent:
-                audiences = self.parent.audiences
-            else:
-                audiences = []
-        if isinstance(audiences, basestring):
-            audiences = [audiences]
-        if isinstance(audiences, set):
-            audiences = audiences
-        else:
-            audiences = set(audiences)
-        if not age_range:
-            return audiences
-
-        if not isinstance(age_range, list):
-            age_range = [age_range]
-
-        if age_range[-1] >= 18:
-            audiences.add(Classifier.AUDIENCE_ADULT)
-        if age_range[0] < Classifier.YOUNG_ADULT_AGE_CUTOFF:
-            audiences.add(Classifier.AUDIENCE_CHILDREN)
-        if age_range[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
-            audiences.add(Classifier.AUDIENCE_YOUNG_ADULT)
-        self._target_age = age_range
+        audiences = []
+        self._target_age = value
+        if not value:
+            return
+        if isinstance(value, int):
+            value = [value]
+        if value[-1] >= 18:
+            audiences.append(Classifier.AUDIENCE_ADULT)
+        if value[0] < Classifier.YOUNG_ADULT_AGE_CUTOFF:
+            audiences.append(Classifier.AUDIENCE_CHILDREN)
+        if value[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
+            audiences.append(Classifier.AUDIENCE_YOUNG_ADULT)
         self._audiences = audiences
 
     @property
