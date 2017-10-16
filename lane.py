@@ -22,6 +22,9 @@ from sqlalchemy import (
     not_,
     Table,
 )
+from sqlalchemy.ext.associationproxy import (
+    association_proxy,
+)
 from sqlalchemy.orm import (
     backref,
     contains_eager,
@@ -749,6 +752,43 @@ class WorkList(object):
             return query.options(defer(work_model.simple_opds_entry))
 
 
+class LaneGenre(Base):
+    """Relationship object between Lane and Genre."""
+    __tablename__ = 'lanes_genres'
+    id = Column(Integer, primary_key=True)
+    lane_id = Column(Integer, ForeignKey('lanes.id'), index=True,
+                     nullable=False)
+    genre_id = Column(Integer, ForeignKey('genres.id'), index=True,
+                      nullable=False)
+
+    # An inclusive relationship means that books classified under the
+    # genre are included in the lane. An exclusive relationship means
+    # that books classified under the genre are excluded, even if they
+    # would otherwise be included.
+    inclusive = Column(Boolean, default=True, nullable=False)
+
+    # By default, this relationship applies not only to the genre
+    # itself but to all of its subgenres. Setting recursive=false
+    # means that only the genre itself is affected.
+    recursive = Column(Boolean, default=True, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('lane_id', 'genre_id'),
+    )
+
+    @classmethod
+    def from_genre(cls, genre):
+        """Used in the Lane.genres association proxy."""
+        lg = LaneGenre()
+        lg.genre = genre
+        return lg
+
+
+Genre.lane_genres = relationship(
+    "LaneGenre", foreign_keys=LaneGenre.genre_id, backref="genre"
+)
+
+
 class Lane(Base, WorkList):
     """A WorkList that draws its search criteria from a row in a
     database table.
@@ -771,11 +811,15 @@ class Lane(Base, WorkList):
 
     # A lane may have one parent lane and many sublanes.
     parent = relationship(
-        "Lane", foreign_keys=parent_id, backref=backref("sublanes", remote_side=[id]),
+        "Lane", foreign_keys=parent_id, 
+        backref=backref("sublanes", remote_side=[id]), 
+        uselist=False
     )
 
     # A lane may have multiple associated LaneGenres. For most lanes,
     # this is how the contents of the lanes are defined.
+    genres = association_proxy('lane_genres', 'genre',
+                               creator=LaneGenre.from_genre)
     lane_genres = relationship(
         "LaneGenre", foreign_keys="LaneGenre.lane_id", backref="lane"
     )
@@ -1228,35 +1272,6 @@ class Lane(Base, WorkList):
 
 Library.lanes = relationship("Lane", backref="library")
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
-
-
-class LaneGenre(Base):
-    """Relationship object between Lane and Genre."""
-    __tablename__ = 'lanes_genres'
-    id = Column(Integer, primary_key=True)
-    lane_id = Column(Integer, ForeignKey('lanes.id'), index=True,
-                     nullable=False)
-    genre_id = Column(Integer, ForeignKey('genres.id'), index=True,
-                      nullable=False)
-
-    # An inclusive relationship means that books classified under the
-    # genre are included in the lane. An exclusive relationship means
-    # that books classified under the genre are excluded, even if they
-    # would otherwise be included.
-    inclusive = Column(Boolean, default=True, nullable=False)
-
-    # By default, this relationship applies not only to the genre
-    # itself but to all of its subgenres. Setting recursive=false
-    # means that only the genre itself is affected.
-    recursive = Column(Boolean, default=True, nullable=False)
-
-    __table_args__ = (
-        UniqueConstraint('lane_id', 'genre_id'),
-    )
-
-Genre.lane_genres = relationship(
-    "LaneGenre", foreign_keys=LaneGenre.genre_id, backref="genre"
-)
 
 
 lanes_customlists = Table(

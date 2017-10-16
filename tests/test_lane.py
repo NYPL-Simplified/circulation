@@ -642,6 +642,7 @@ class TestWorkList(DatabaseTest):
                 called['pagination.apply'] = True
                 return query
 
+        from model import MaterializedWork
         original_qu = self._db.query(MaterializedWork)
         wl = MockWorkList()
         final_qu = wl.apply_filters(
@@ -682,9 +683,10 @@ class TestWorkList(DatabaseTest):
             def apply_bibliographic_filters(
                     self, _db, query, work_model, featured
             ):
-                return None
+                return None, False
 
         wl = MockWorkList()
+        wl.initialize(self._default_library)
         from model import MaterializedWork
         qu = self._db.query(MaterializedWork)
         eq_(None, wl.apply_filters(self._db, qu, MaterializedWork, None, None))
@@ -767,7 +769,7 @@ class TestWorkList(DatabaseTest):
         wl = WorkList()
         from model import MaterializedWork
         qu = self._db.query(MaterializedWork)
-        eq_(qu, wl.apply_custom_filters(None, None, None))
+        eq_((qu, False), wl.apply_custom_filters(self._db, qu, None))
 
     def test_apply_audience_filter(self):
 
@@ -855,10 +857,11 @@ class TestWorkList(DatabaseTest):
         eq_([i1, i2, i3, i4, i5], sorted(sample, key=lambda x: x.id))
 
 
-class TestLane(self):
+class TestLane(DatabaseTest):
 
     def test_library(self):
-        pass
+        lane = self._lane(genres=["Science Fiction"])
+        eq_(self._default_library, lane.library)
 
     def test_visible_children(self):
         pass
