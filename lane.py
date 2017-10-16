@@ -39,6 +39,8 @@ from sqlalchemy.orm import (
 
 from model import (
     get_one_or_create,
+    numericrange_to_tuple,
+    tuple_to_numericrange,
     Base,
     CustomList,
     CustomListEntry,
@@ -593,10 +595,10 @@ class WorkList(object):
 
     def works_for_specific_ids(self, _db, work_ids):
         """Create the appearance of having called works(),
-        but return the specific Works identified by `work_ids`.
+        but return the specific MaterializedWorks identified by `work_ids`.
         """
 
-        # Get a list of MaterializedWorks as though we had called works()
+        # Get a list of MaterializedWorks as though we had called works().
         from model import MaterializedWork as mw
         qu = _db.query(mw).join(
             LicensePool, mw.license_pool_id==LicensePool.id
@@ -610,7 +612,8 @@ class WorkList(object):
         a = time.time()
         works = qu.all()
 
-        # Put the Work objects in the same order as their work_ids were.
+        # Put the MaterializedWork objects in the same order as their
+        # work_ids were.
         for mw in works:
             work_by_id[mw.works_id] = mw
         results = [work_by_id[x] for x in work_ids if x in work_by_id]
@@ -807,8 +810,8 @@ class Lane(Base, WorkList):
 
     __tablename__ = 'lanes'
     id = Column(Integer, primary_key=True)
-    library_id = Column(Integer, ForeignKey('libraries.id'), index=True,
-                        nullable=False)
+    _library_id = Column(Integer, ForeignKey('libraries.id'), index=True,
+                     nullable=False, name="library_id")
     parent_id = Column(Integer, ForeignKey('lanes.id'), index=True,
                        nullable=True)
 
@@ -848,7 +851,7 @@ class Lane(Base, WorkList):
 
     # A lane may be restricted to works classified for specific audiences
     # (e.g. only Young Adult works).
-    audiences = Column(ARRAY(Unicode))
+    _audiences = Column(ARRAY(Unicode), name='audiences')
 
     # A lane may further be restricted to works classified as suitable
     # for a specific age range.
@@ -912,10 +915,15 @@ class Lane(Base, WorkList):
         UniqueConstraint('parent_id', 'display_name'),
     )
 
+    def library(self, _db):
+        """This takes a database connection for compatibility with
+        WorkList.library().
+        """
+        return self._library
+
     @property
-    def library(self):
-        _db = Session.object_session(self)
-        return Library.by_id(_db, self.library_id)
+    def collection_ids(self):
+        return [x.id for x in self._library.collections]
 
     @property
     def visible_children(self):
@@ -966,17 +974,20 @@ class Lane(Base, WorkList):
         In no case is the "Adults Only" audience allowed, since target
         age only makes sense in lanes intended for minors.
         """
-        audiences = []
-        self._target_age = value
-        if not value:
+        if value is None:
+            self._target_age = None
             return
+        audiences = []
         if isinstance(value, int):
-            value = [value]
-        if value[-1] >= 18:
+            value = (value, value)
+        if isinstance(value, tuple):
+            value = tuple_to_numericrange(value)
+        self._target_age = value
+        if value.upper >= 18:
             audiences.append(Classifier.AUDIENCE_ADULT)
-        if value[0] < Classifier.YOUNG_ADULT_AGE_CUTOFF:
+        if value.lower < Classifier.YOUNG_ADULT_AGE_CUTOFF:
             audiences.append(Classifier.AUDIENCE_CHILDREN)
-        if value[0] >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
+        if value.upper >= Classifier.YOUNG_ADULT_AGE_CUTOFF:
             audiences.append(Classifier.AUDIENCE_YOUNG_ADULT)
         self._audiences = audiences
 
@@ -1079,7 +1090,7 @@ class Lane(Base, WorkList):
             # other lanes.)
             return self
 
-        if not self.genres and not self.list_ids:
+        if not self.genres and not self.customlists:
             # This lane is not restricted to any particular genres or
             # lists. It can be searched and any lane below it should
             # search this one.
@@ -1089,7 +1100,7 @@ class Lane(Base, WorkList):
         # parent can be searched.
         logging.debug(
             "Lane %s is not searchable; using parent %s" % (
-                self.name, self.parent.name)
+                self.identifier, self.parent.identifier)
         )
         return self.parent.search_target
 
@@ -1105,7 +1116,8 @@ class Lane(Base, WorkList):
         search_lane = self.search_target
         if not search_lane:
             # This lane is not searchable, and neither are any of its
-            # parents. There are no search results.
+            # parents. There are no search results. This should not
+            # happen because a top-level lane is always searchable.
             return []
 
         if search_lane.fiction in (True, False):
@@ -1122,11 +1134,19 @@ class Lane(Base, WorkList):
                 # TODO: once we migrate all existing search indexes,
                 # the first argument should become the Library associated
                 # with this Lane.
+                if search_lane.audiences:
+                    audiences = list(search_lane.audiences)
+                else:
+                    audiences = []
                 docs = search_client.query_works(
-                    None, query, search_lane.media, search_lane.languages,
-                    fiction, list(search_lane.audiences), 
-                    search_lane.target_age,
-                    search_lane.genre_ids,
+                    library=None, 
+                    query_string=query, 
+                    media=search_lane.media,
+                    languages=search_lane.languages,
+                    fiction=fiction, 
+                    audiences=audiences, 
+                    target_age=numericrange_to_tuple(search_lane.target_age),
+                    in_any_of_these_genres=search_lane.genre_ids,
                     fields=["_id", "title", "author", "license_pool_id"],
                     size=pagination.size,
                     offset=pagination.offset,
@@ -1143,7 +1163,7 @@ class Lane(Base, WorkList):
                     int(x['_id']) for x in docs['hits']['hits']
                 ]
                 if doc_ids:
-                    results = WorkList.works_for_specific_ids(_db, doc_ids)
+                    results = self.works_for_specific_ids(_db, doc_ids)
 
         return results
 
@@ -1280,7 +1300,7 @@ class Lane(Base, WorkList):
         # DISTINCT to True on the query.
         return qu, True
 
-Library.lanes = relationship("Lane", backref="library")
+Library.lanes = relationship("Lane", backref="_library", foreign_keys=Lane._library_id)
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
 
 

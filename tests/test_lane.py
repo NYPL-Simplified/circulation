@@ -11,6 +11,10 @@ from . import DatabaseTest
 
 from classifier import Classifier
 
+from external_search import (
+    DummyExternalSearchIndex,
+)
+
 from lane import (
     Facets,
     Pagination,
@@ -371,7 +375,7 @@ class MockWorks(WorkList):
         return query[:target_size]
 
 
-class TestWorkList(DatabaseTest):
+class WorkListTest(DatabaseTest):
 
     def add_to_materialized_view(self, *works):
         """Make sure all the works show up in the materialized view.
@@ -381,6 +385,9 @@ class TestWorkList(DatabaseTest):
             work.simple_opds_entry = "an entry"
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
+
+
+class TestWorkList(WorkListTest):
 
     def test_initialize(self):
         wl = WorkList()
@@ -858,7 +865,7 @@ class TestWorkList(DatabaseTest):
         eq_([i1, i2, i3, i4, i5], sorted(sample, key=lambda x: x.id))
 
 
-class TestLane(DatabaseTest):
+class TestLane(WorkListTest):
 
     def test_library(self):
         lane = self._lane()
@@ -966,10 +973,69 @@ class TestLane(DatabaseTest):
         # sub-subgenre would be excluded), but it should work.
 
     def test_search_target(self):
-        pass
+
+        # A top-level lane can be searched.
+        top_level = self._lane()
+        eq_(top_level, top_level.search_target)
+
+        # A lane with a parent can be searched, unless it is
+        # associated with particular genres or lists -- then its
+        # parent is searched instead.
+        genre = self._lane(parent=top_level)
+        eq_(genre, genre.search_target)
+        
+        genre.add_genre("Science Fiction")
+        eq_(top_level, genre.search_target)
+
+        customlist, ignore = self._customlist()
+        list_lane = self._lane(parent=top_level)
+        list_lane.customlists.append(customlist)
+        eq_(top_level, list_lane.search_target)
+        
+        # An otherwise unsearchable lane can be searched if 
+        # it is the root lane for a certain patron type.
+        genre.root_for_patron_type = ['12']
+        eq_(genre, genre.search_target)
 
     def test_search(self):
-        pass
+        work = self._work(with_license_pool=True)
+        self.add_to_materialized_view(work)
+
+        pagination = Pagination(offset=0, size=1)
+        
+        lane = self._lane()
+
+        lane.media = Edition.BOOK_MEDIUM
+        lane.languages = ['eng', 'spa']
+        lane.fiction = True
+        lane.target_age = 2
+        lane.add_genre("Science Fiction")
+        search_client = DummyExternalSearchIndex()
+        search_client.bulk_update([work])
+
+        results = lane.search(
+            self._db, work.title, search_client, pagination
+        )
+
+        # The Lane configuration was passed on to the search client
+        # as parameters to use when creating the search query.
+        [query] = search_client.queries
+        [fixed, kw] = query
+        eq_((), fixed)
+        eq_(lane.fiction, kw['fiction'])
+        eq_((2,2), kw['target_age'])
+        eq_(lane.languages, kw['languages'])
+        eq_(lane.media, kw['media'])
+        eq_(lane.audiences, kw['audiences'])
+        eq_(lane._genre_ids, kw['in_any_of_these_genres'])
+        eq_(1, kw['size'])
+        eq_(0, kw['offset'])
+        
+        # The single search result was converted to a MaterializedWork.
+        [result] = results
+        from model import MaterializedWork
+        assert isinstance(result, MaterializedWork)
+        eq_(work.id, result.works_id)
 
     def test_featured_collection_facets(self):
         pass

@@ -352,7 +352,7 @@ class DatabaseTest(object):
         library = library or self._default_library
         lane, is_new = get_one_or_create(
             self._db, Lane,
-            identifier=identifier, library=library,
+            identifier=identifier, _library=library,
             parent=parent, display_name=display_name
         )
         if genres:
