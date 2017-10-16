@@ -1,4 +1,5 @@
 import json
+import random
 from nose.tools import (
     eq_,
     set_trace,
@@ -6,6 +7,8 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
+
+from classifier import Classifier
 
 from lane import (
     Facets,
@@ -18,6 +21,7 @@ from model import (
     DataSource,
     Edition,
     Genre,
+    Identifier,
     Library,
     LicensePool,
     SessionManager,
@@ -766,13 +770,86 @@ class TestWorkList(DatabaseTest):
         eq_(qu, wl.apply_custom_filters(None, None, None))
 
     def test_apply_audience_filter(self):
-        pass
 
-    def test_only_show_ready_deliverable_works(self):
-        pass
+        # Create two childrens' books (one from Gutenberg, one not)
+        # and one book for adults.
+
+        gutenberg_children = self._work(
+            title="Beloved Treasury of Racist Nursery Rhymes",
+            with_license_pool=True,
+            with_open_access_download=True,
+        )
+        eq_(DataSource.GUTENBERG, 
+            gutenberg_children.license_pools[0].data_source.name)
+
+        # _work() will not create a test Gutenberg book for children
+        # to avoid exactly the problem we're trying to test, so
+        # we need to set it manually.
+        gutenberg_children.audience=Classifier.AUDIENCE_CHILDREN
+
+        gutenberg_adult = self._work(
+            title="Diseases of the Horse",
+            with_license_pool=True, with_open_access_download=True,
+            audience=Classifier.AUDIENCE_ADULT
+        )
+
+        edition, lp = self._edition(
+            title="Wholesome Nursery Rhymes For All Children",
+            data_source_name=DataSource.OVERDRIVE,
+            with_license_pool=True
+        )
+        non_gutenberg_children = self._work(
+            presentation_edition=edition, audience=Classifier.AUDIENCE_CHILDREN
+        )
+
+        def for_audiences(*audiences):
+            """Invoke WorkList.apply_audience_filter using the given 
+            `audiences`, and return all the matching Work objects.
+            """
+            wl = WorkList()
+            wl.audiences = audiences
+            qu = self._db.query(Work).join(Work.license_pools)
+            return wl.apply_audience_filter(self._db, qu, Work).all()
+
+        eq_([gutenberg_adult], 
+            for_audiences(Classifier.AUDIENCE_ADULT))
+
+        # The Gutenberg "children's" book is filtered out because it we have
+        # no guarantee it is actually suitable for children.
+        eq_([non_gutenberg_children], 
+            for_audiences(Classifier.AUDIENCE_CHILDREN))
+
+        # This can sometimes lead to unexpected results, but the whole
+        # thing is a hack and needs to be improved anyway.
+        eq_([non_gutenberg_children], 
+            for_audiences(Classifier.AUDIENCE_ADULT, 
+                          Classifier.AUDIENCE_CHILDREN))
 
     def test_random_sample(self):
-        pass
+        # This lets me test which items are chosen in a random sample,
+        # but for some reason the shuffled lists still come out in an
+        # unpredictable order.
+        random.seed(42)
 
-    
-    
+        # It doesn't matter what type of model object the query
+        # returns, so query something that's faster to create than
+        # Works.
+        i1 = self._identifier()
+        i2 = self._identifier()
+        i3 = self._identifier()
+        i4 = self._identifier()
+        i5 = self._identifier()
+        qu = self._db.query(Identifier)
+
+        # If the random sample is smaller than the population, a
+        # randomly located slice is chosen, and the slice is
+        # shuffled. (It's presumed that the query sorts items by some
+        # randomly generated number such as Work.random, so that choosing
+        # a slice gets you a random sample -- that's not the case here.)
+        sample = WorkList.random_sample(qu, 2)
+        eq_([i3, i4], sorted(sample, key=lambda x: x.id))
+
+        # If the random sample is larger than the sample population,
+        # the population is shuffled.
+        sample = WorkList.random_sample(qu, 6)
+        eq_([i1, i2, i3, i4, i5], sorted(sample, key=lambda x: x.id))

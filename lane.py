@@ -711,6 +711,7 @@ class WorkList(object):
             collection_ids=self.collection_ids
         )
 
+    @classmethod
     def random_sample(self, query, target_size):
         """Find a random sample of items obtained from a query"""
         total_size = fast_query_count(query)
@@ -718,10 +719,11 @@ class WorkList(object):
         if total_size > target_size:
             # We have enough results to randomly offset the selection.
             offset = random.randint(0, total_size-target_size)
-
+        else:
+            offset = 0
         items = query.offset(offset).limit(target_size).all()
         random.shuffle(items)
-        return works
+        return items
 
     @classmethod
     def _lazy_load(cls, qu, work_model):
