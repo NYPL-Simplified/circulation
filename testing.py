@@ -355,10 +355,13 @@ class DatabaseTest(object):
             identifier=identifier, library=library,
             parent=parent, display_name=display_name
         )
-        for genre in genres:
-            if isinstance(genre, basestring):
-                genre, ignore = Genre.lookup(self._db, genre)
-            lane.genres.append(genre)
+        if genres:
+            if not isinstance(genres, list):
+                genres = [genres]
+            for genre in genres:
+                if isinstance(genre, basestring):
+                    genre, ignore = Genre.lookup(self._db, genre)
+                lane.genres.append(genre)
         return lane
 
     def _add_generic_delivery_mechanism(self, license_pool):

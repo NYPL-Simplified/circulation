@@ -860,11 +860,15 @@ class TestWorkList(DatabaseTest):
 class TestLane(DatabaseTest):
 
     def test_library(self):
-        lane = self._lane(genres=["Science Fiction"])
+        lane = self._lane()
         eq_(self._default_library, lane.library)
 
     def test_visible_children(self):
-        pass
+        parent = self._lane()
+        visible_child = self._lane(parent=parent)
+        invisible_child = self._lane(parent=parent)
+        invisible_child.visible = False
+        eq_([visible_child], list(parent.visible_children))
 
     def test_url_name(self):
         pass

@@ -810,10 +810,9 @@ class Lane(Base, WorkList):
                        nullable=True)
 
     # A lane may have one parent lane and many sublanes.
-    parent = relationship(
-        "Lane", foreign_keys=parent_id, 
-        backref=backref("sublanes", remote_side=[id]), 
-        uselist=False
+    sublanes = relationship(
+        "Lane", 
+        backref=backref("parent", remote_side = [id]),
     )
 
     # A lane may have multiple associated LaneGenres. For most lanes,
@@ -917,6 +916,7 @@ class Lane(Base, WorkList):
 
     @property
     def visible_children(self):
+        set_trace()
         for lane in self.sublanes:
             if lane.visible:
                 yield lane
