@@ -980,7 +980,7 @@ class Lane(Base, WorkList):
             audiences.append(Classifier.AUDIENCE_YOUNG_ADULT)
         self._audiences = audiences
 
-    @property
+    @hybrid_property
     def list_datasource(self):
         return self._list_datasource
 
@@ -1002,7 +1002,7 @@ class Lane(Base, WorkList):
         if self.customlists or self.list_datasource:
             return True
         if (self.parent and self.inherit_parent_restrictions 
-            and self.parent_uses_customlists):
+            and self.parent.uses_customlists):
             return True
         return False        
 

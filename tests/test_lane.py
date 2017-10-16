@@ -910,14 +910,13 @@ class TestLane(DatabaseTest):
         lane = self._lane()
         eq_(False, lane.uses_customlists)
 
-        customlist = self._customlist()
-        lane.custom_lists = [customlist]
-        set_trace()
+        customlist, ignore = self._customlist()
+        lane.customlists = [customlist]
         eq_(True, lane.uses_customlists)
 
-        lane.list_datasource = DataSource.lookup(
-            self._db, DataSource.GUTENBERG
-        )
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        lane.list_datasource = gutenberg
+        self._db.commit()
         eq_(True, lane.uses_customlists)
 
         # Note that the specific custom list was removed from this
