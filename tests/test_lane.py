@@ -603,16 +603,80 @@ class TestWorkList(DatabaseTest):
         eq_([], wl.works_for_specific_ids(self._db, [w2.id]))
 
     def test_apply_filters(self):
+
+        called = dict()
+
+        class MockWorkList(WorkList):
+            """Mock WorkList that simply verifies that apply_filters()
+            calls various hook methods.
+            """
+
+            def __init__(self, distinct=True):
+                self.distinct = distinct
+            
+            def only_show_ready_deliverable_works(
+                    self, _db, query, *args, **kwargs
+            ):
+                called['only_show_ready_deliverable_works'] = True
+                return query
+
+            def apply_bibliographic_filters(
+                    self, _db, query, work_model, featured
+            ):
+                called['apply_bibliographic_filters'] = True
+                called['apply_bibliographic_filters.featured'] = featured
+                return query, self.distinct
+
+        class MockFacets(object):
+            def apply(self, _db, query, work_model, distinct):
+                called['facets.apply'] = True
+                called['facets.apply.distinct'] = distinct
+                return query
+
+        class MockPagination(object):
+            def apply(self, query):
+                called['pagination.apply'] = True
+                return query
+
+        original_qu = self._db.query(Work)
+        wl = MockWorkList()
+        final_qu = wl.apply_filters(
+            self._db, original_qu, Work, MockFacets(), MockPagination()
+        )
         
+        # The hook methods were called with the right arguments.
+        eq_(called['only_show_ready_deliverable_works'], True)
+        eq_(called['apply_bibliographic_filters'], True)
+        eq_(called['facets.apply'], True)
+        eq_(called['pagination.apply'], True)
+
+        eq_(called['apply_bibliographic_filters.featured'], False)
+        eq_(called['facets.apply.distinct'], True)
+
+        # We mocked everything that might have changed the final query,
+        # and the end result was the query wasn't modified.
+        eq_(original_qu, final_qu)
+
+        # Test that apply_filters() makes a query distinct if there is
+        # no Facets object to do the job.
+        called = dict()
+        distinct_qu = wl.apply_filters(self._db, original_qu, Work, None, None)
+        eq_(str(original_qu.distinct()), str(distinct_qu))
+        assert 'facets.apply' not in called
+        assert 'pagination.apply' not in called
+
+
+    def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
+        class MockWorkList(WorkList):
+            """Mock WorkList whose apply_bibliographic_filters implementation
+            believes the WorkList should not exist at all.
+            """
+
+            def apply_bibliographic_filters(
+                    self, _db, query, work_model, featured
+            ):
+                return None
+
+        wl = MockWorkList()
         qu = self._db.query(Work)
-
-        work = self._work()
-
-        wl = WorkList()
-        wl.apply_filters(qu).count()
-
-        work.presentation_ready = False
-
-        # Only ready works are displayed to patrons.
-
-        # Only deliverable works are displayed to patrons.
+        eq_(None, wl.apply_filters(self._db, qu, Work, None, None))

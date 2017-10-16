@@ -637,7 +637,7 @@ class WorkList(object):
             return None
 
         if facets:
-            qu = facets.apply(self._db, qu, work_model, distinct=distinct)
+            qu = facets.apply(_db, qu, work_model, distinct=distinct)
         elif distinct:
             # Something about the query makes it possible that the same
             # book might show up twice. We set the query as DISTINCT
