@@ -914,7 +914,7 @@ class TestLane(DatabaseTest):
         lane.custom_lists = [customlist]
         eq_(True, lane.uses_customlists)
 
-        lane.custom_list_data_source = DataSource.lookup(
+        lane.list_datasource = DataSource.lookup(
             self._db, DataSource.GUTENBERG
         )
         eq_(True, lane.uses_customlists)
@@ -931,7 +931,39 @@ class TestLane(DatabaseTest):
         eq_(True, child.uses_customlists)        
 
     def test_genre_ids(self):
-        pass
+        # By default, when you add a genre to a lane, you are saying
+        # that Works classified under it and all its subgenres should 
+        # show up in the lane.
+        fantasy = self._lane()
+        fantasy.add_genre("Fantasy")
+
+        # At this point the lane picks up Fantasy and all of its
+        # subgenres.
+        expect = [
+            Genre.lookup(self._db, genre)[0].id for genre in [
+                "Fantasy", "Epic Fantasy","Historical Fantasy", 
+                "Urban Fantasy"
+            ]
+        ]
+        eq_(set(expect), fantasy.genre_ids)
+
+        # Let's exclude one of the subgenres.
+        fantasy.add_genre("Urban Fantasy", inclusive=False)
+        urban_fantasy, ignore = Genre.lookup(self._db, "Urban Fantasy")
+        # That genre's ID has disappeared from .genre_ids.
+        assert urban_fantasy.id not in fantasy.genre_ids
+
+        # Let's add Science Fiction, but not its subgenres.
+        fantasy.add_genre("Science Fiction", recursive=False)
+        science_fiction, ignore = Genre.lookup(self._db, "Science Fiction")
+        space_opera, ignore = Genre.lookup(self._db, "Space Opera")
+        assert science_fiction.id in fantasy.genre_ids
+        assert space_opera.id not in fantasy.genre_ids
+
+        # NOTE: We don't have any doubly nested subgenres, so we can't
+        # test the case where a genre is included recursively but one
+        # of its subgenres is exclused recursively (in which case the
+        # sub-subgenre would be excluded), but it should work.
 
     def test_search_target(self):
         pass

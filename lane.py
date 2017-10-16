@@ -38,6 +38,7 @@ from sqlalchemy.orm import (
 )
 
 from model import (
+    get_one_or_create,
     Base,
     CustomList,
     CustomListEntry,
@@ -786,7 +787,6 @@ class LaneGenre(Base):
         lg.genre = genre
         return lg
 
-
 Genre.lane_genres = relationship(
     "LaneGenre", foreign_keys=LaneGenre.genre_id, backref="genre"
 )
@@ -981,7 +981,7 @@ class Lane(Base, WorkList):
         self._audiences = audiences
 
     @property
-    def list_datasource(self, value):
+    def list_datasource(self):
         return self._list_datasource
 
     @list_datasource.setter
@@ -999,7 +999,7 @@ class Lane(Base, WorkList):
         """Does the works() implementation for this Lane look for works on
         CustomLists?
         """
-        if self.customlists or self.list_data_source:
+        if self.customlists or self.list_datasource:
             return True
         if (self.parent and self.inherit_parent_restrictions 
             and self.parent_uses_customlists):
@@ -1037,10 +1037,30 @@ class Lane(Base, WorkList):
                     bucket.add(subgenre.id)
         genre_ids = included_ids - excluded_ids
         if not genre_ids:
+            # NOTE: This can't happen because you can't have two
+            # LaneGenres for the same Lane and Genre, and because
+            # every Genre has at most one parent. 
             logging.error(
                 "Lane %s has a self-negating set of genre IDs.", self.identifier
             )
         return genre_ids
+
+    def add_genre(self, genre, inclusive=True, recursive=True):
+        """Create a new LaneGenre for the given genre and
+        associate it with this Lane.
+
+        Mainly used in tests.
+        """
+        _db = Session.object_session(self)
+        if isinstance(genre, basestring):
+            genre, ignore = Genre.lookup(_db, genre)
+        lanegenre, is_new = get_one_or_create(
+            _db, LaneGenre, lane=self, genre=genre
+        )
+        lanegenre.inclusive=inclusive
+        lanegenre.recursive=recursive
+        self._genre_ids = self._gather_genre_ids()
+        return lanegenre, is_new
 
     @property
     def search_target(self):
