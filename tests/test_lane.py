@@ -853,3 +853,46 @@ class TestWorkList(DatabaseTest):
         # the population is shuffled.
         sample = WorkList.random_sample(qu, 6)
         eq_([i1, i2, i3, i4, i5], sorted(sample, key=lambda x: x.id))
+
+
+class TestLane(self):
+
+    def test_library(self):
+        pass
+
+    def test_visible_children(self):
+        pass
+
+    def test_url_name(self):
+        pass
+
+    def test_setting_target_age_locks_audiences(self):
+        pass
+
+    def test_setting_list_datasource_resets_specific_custom_lists(self):
+        pass
+
+    def test_uses_customlists(self):
+        pass
+
+    def test_genre_ids(self):
+        pass
+
+    def test_search_target(self):
+        pass
+
+    def test_search(self):
+        pass
+
+    def test_featured_collection_facets(self):
+        pass
+
+    def test_apply_custom_filters(self):
+        pass
+
+    def test_apply_age_range_filter(self):
+        pass
+
+    def test_apply_customlist_filter(self):
+        pass
+
