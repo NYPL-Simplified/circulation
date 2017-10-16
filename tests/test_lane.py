@@ -912,6 +912,7 @@ class TestLane(DatabaseTest):
 
         customlist = self._customlist()
         lane.custom_lists = [customlist]
+        set_trace()
         eq_(True, lane.uses_customlists)
 
         lane.list_datasource = DataSource.lookup(
