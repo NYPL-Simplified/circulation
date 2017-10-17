@@ -36,7 +36,6 @@ from lane import (
     Facets,
     Pagination,
     Lane,
-    LaneList,
 )
 
 from opds import (    
@@ -349,40 +348,28 @@ class TestOPDS(DatabaseTest):
     def setup(self):
         super(TestOPDS, self).setup()
 
-        self.lanes = LaneList.from_description(
-            self._db,
-            self._default_library,
-            None,
-            [dict(full_name="Fiction",
-                  fiction=True,
-                  audiences=Classifier.AUDIENCE_ADULT,
-                  genres=[],
-                  sublanes=[Fantasy],
-              ),
-             History,
-             dict(
-                 full_name="Young Adult",
-                 fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-                 audiences=Classifier.AUDIENCE_YOUNG_ADULT,
-                 genres=[]),
-             dict(full_name="Romance", fiction=True, genres=[],
-                  sublanes=[
-                      dict(full_name="Contemporary Romance")
-                  ]
-              ),
-         ]
-        )
+        top = self._lane()
+        fiction = self._lane("Fiction", parent=top)
+        fiction.fiction = True
+        fiction.audiences = Classifier.AUDIENCE_ADULT
 
-        mock_top_level = Lane(
-            self._db, self._default_library, '', display_name='',
-            sublanes=self.lanes.lanes, include_all=False, invisible=True
+        fantasy = self._lane("Fantasy", parent=fiction, genres="Fantasy")
+        history = self._lane("History", parent=top, genres="History")
+        ya = self._lane("Young Adult", parent=top)
+        ya.history = None
+        ya.audiences = Classifier.AUDIENCE_YOUNG_ADULT
+        romance = self._lane("Romance", parent=top, genres="Romance")
+        romance.fiction = True
+        contemporary_romance = self._lane(
+            "Contemporary Romance", parent=top, 
+            genres="Contemporary Romance"
         )
 
         class FakeConf(object):
             name = None
             display_name = None
             sublanes = self.lanes
-            top_level_lane = mock_top_level
+            top_level_lane = top
 
         self.conf = FakeConf()
 

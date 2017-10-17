@@ -348,7 +348,7 @@ class DatabaseTest(object):
     def _lane(self, identifier=None, display_name=None, library=None, 
               parent=None, genres=None):
         identifier = identifier or self._str
-        display_name = display_name or self._str
+        display_name = display_name or identifier
         library = library or self._default_library
         lane, is_new = get_one_or_create(
             self._db, Lane,
