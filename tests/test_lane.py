@@ -1,3 +1,4 @@
+import datetime
 import json
 import random
 from nose.tools import (
@@ -918,7 +919,7 @@ class TestLane(WorkListTest):
         lane = self._lane()
         eq_(False, lane.uses_customlists)
 
-        customlist, ignore = self._customlist()
+        customlist, ignore = self._customlist(num_entries=0)
         lane.customlists = [customlist]
         eq_(True, lane.uses_customlists)
 
@@ -988,7 +989,7 @@ class TestLane(WorkListTest):
         genre.add_genre("Science Fiction")
         eq_(top_level, genre.search_target)
 
-        customlist, ignore = self._customlist()
+        customlist, ignore = self._customlist(num_entries=0)
         list_lane = self._lane(parent=top_level)
         list_lane.customlists.append(customlist)
         eq_(top_level, list_lane.search_target)
@@ -1124,7 +1125,7 @@ class TestLane(WorkListTest):
         match_works(children_lane, [childrens_fiction])
 
         # A lane may restrict itself to works on certain CustomLists.
-        best_sellers, ignore = self._customlist()
+        best_sellers, ignore = self._customlist(num_entries=0)
         childrens_fiction_entry, ignore = best_sellers.add_entry(
             childrens_fiction
         )
@@ -1149,14 +1150,14 @@ class TestLane(WorkListTest):
         match_works(best_sellers_lane, [childrens_fiction], featured=True)
 
         # A lane may inherit restrictions from its parent.
-        all_time_classics, ignore = self._customlist()
+        all_time_classics, ignore = self._customlist(num_entries=0)
         all_time_classics.add_entry(childrens_fiction)
         all_time_classics.add_entry(nonfiction)
 
         # This lane takes its entries from a list, and is the child
         # of a lane that takes its entries from a second list.
         best_selling_classics = self._lane(parent=best_sellers_lane)
-        best_selling_classics.custom_lists.append(all_time_classics)
+        best_selling_classics.customlists.append(all_time_classics)
         match_works(best_selling_classics, [childrens_fiction, nonfiction])
 
         # When it inherits its parent's restrictions, only the
@@ -1230,5 +1231,77 @@ class TestLane(WorkListTest):
         eq_([adult], older_ya_q.all())
 
     def test_apply_customlist_filter(self):
-        pass
+        """Standalone test of apply_age_range_filter.
+        
+        Some of this code is also tested by test_apply_custom_filters.
+        """
+        qu = self._db.query(Work)
 
+        # If the lane has nothing to do with CustomLists,
+        # apply_customlist_filter does nothing.
+        no_lists = self._lane()
+        eq_((qu, False), no_lists.apply_customlist_filter(qu, Work))
+
+        # Set up a Work and a CustomList that contains the work.
+        work = self._work(with_license_pool=True)
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        eq_(gutenberg, work.license_pools[0].data_source)
+        gutenberg_list, ignore = self._customlist(num_entries=0)
+        gutenberg_list.data_source = gutenberg
+        gutenberg_list_entry, ignore = gutenberg_list.add_entry(work)
+
+        # This lane gets every work on a specific list.
+        gutenberg_list_lane = self._lane()
+        gutenberg_list_lane.customlists.append(gutenberg_list)
+
+        # This lane gets every work on every list associated with Project
+        # Gutenberg.
+        gutenberg_lists_lane = self._lane()
+        gutenberg_lists_lane.list_datasource = gutenberg
+
+        def results(lane=gutenberg_lists_lane, must_be_featured=False):
+            modified, distinct = lane.apply_customlist_filter(
+                qu, Work, must_be_featured=must_be_featured
+            )
+            # Whenver a CustomList is in play, the query needs to be made
+            # distinct.
+            eq_(distinct, True)
+            return modified.all()
+
+        # Both lanes contain the work.
+        eq_([work], results(gutenberg_list_lane))
+        eq_([work], results(gutenberg_lists_lane))
+
+        # This lane gets every work on a list associated with Overdrive.
+        # There are no such lists, so the lane is empty.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        overdrive_lists_lane = self._lane()
+        overdrive_lists_lane.list_datasource = overdrive
+        modified, distinct = overdrive_lists_lane.apply_customlist_filter(
+            qu, Work
+        )
+        eq_([], modified.all())
+
+        # It's possible to restrict a lane so that only works that are
+        # _featured_ on a list show up. The work isn't featured, so it
+        # doesn't show up.
+        eq_([], results(must_be_featured=True))
+
+        # Now it's featured, and it shows up.
+        gutenberg_list_entry.featured = True
+        eq_([work], results(must_be_featured=True))
+
+        # It's possible to restrict a lane to works that were seen on
+        # a certain list in a given timeframe.
+        now = datetime.datetime.utcnow()
+        two_days_ago = now - datetime.timedelta(days=2)
+        gutenberg_list_entry.most_recent_appearance = two_days_ago
+
+        # The lane will only show works that were seen within the last
+        # day. There are no such works.
+        gutenberg_lists_lane.list_seen_in_previous_days = 1
+        eq_([], results())
+
+        # Now it's been loosened to three days, and the work shows up.
+        gutenberg_lists_lane.list_seen_in_previous_days = 3
+        eq_([work], results())
