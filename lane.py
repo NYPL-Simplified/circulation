@@ -29,6 +29,7 @@ from sqlalchemy.ext.hybrid import (
     hybrid_property,
 )
 from sqlalchemy.orm import (
+    aliased,
     backref,
     contains_eager,
     defer,
@@ -1204,12 +1205,10 @@ class Lane(Base, WorkList):
 
         # If a license source is specified, only show books from that
         # source.
-        if self.license_source:
-            qu = qu.filter(LicensePool.data_source==self.license_source)
+        if self.license_datasource:
+            qu = qu.filter(LicensePool.data_source==self.license_datasource)
 
-        if self.fiction == self.UNCLASSIFIED:
-            qu = qu.filter(work_model.fiction==None)
-        elif self.fiction != self.BOTH_FICTION_AND_NONFICTION:
+        if self.fiction is not None:
             qu = qu.filter(work_model.fiction==self.fiction)
 
         if self.media:
@@ -1236,24 +1235,16 @@ class Lane(Base, WorkList):
         else:
             audience_has_no_target_age = False
 
-        if len(self.target_age) == 1:
-            # The target age must include this number.
-            r = NumericRange(self.target_age[0], self.target_age[0], '[]')
-            qu = qu.filter(
-                or_(
-                    work_model.target_age.contains(r),
-                    audience_has_no_target_age
-                )
+        # The lane's target age is an inclusive NumericRange --
+        # set_target_age makes sure of that. The work's target age
+        # must overlap that of the lane.
+        qu = qu.filter(
+            or_(
+                work_model.target_age.overlaps(self.target_age),
+                audience_has_no_target_age
             )
-        else:
-            # The target age range must overlap this age range
-            r = NumericRange(self.target_age[0], self.target_age[-1], '[]')
-            qu = qu.filter(
-                or_(
-                    work_model.target_age.overlaps(r),
-                    audience_has_no_target_age
-                )
-            )
+        )
+        return qu
 
     def apply_customlist_filter(
             self, qu, work_model, must_be_featured=False
@@ -1264,7 +1255,7 @@ class Lane(Base, WorkList):
         :param must_be_featured: It's not enough for the book to be on
         an appropriate list; it must be _featured_ on an appropriate list.
         """
-        if not self.customlists and not self.list_data_source:
+        if not self.customlists and not self.list_datasource:
             # This lane does not require that books be on any particular
             # CustomList.
             return qu, False
@@ -1274,16 +1265,16 @@ class Lane(Base, WorkList):
         # confusion, create a different join every time.
         a_entry = aliased(CustomListEntry)
         if work_model == Work:
-            clause = CustomListEntry.work_id==work_model.id
+            clause = a_entry.work_id==work_model.id
         else:
-            clause = CustomListEntry.work_id==work_model.works_id
+            clause = a_entry.work_id==work_model.works_id
         qu = qu.join(a_entry, clause)
         a_list = aliased(CustomListEntry.customlist)
-        qu = qu.join(a_entry).join(a_list)
+        qu = qu.join(a_list, a_entry.list_id==a_list.id)
 
         # Actually apply the restriction.
-        if self.list_data_source:
-            qu = qu.filter(a_list.data_source==self.list_data_source)
+        if self.list_datasource:
+            qu = qu.filter(a_list.data_source==self.list_datasource)
         else:
             customlist_ids = [x.id for x in self.customlists]
             if customlist_ids:
@@ -1302,6 +1293,7 @@ class Lane(Base, WorkList):
 
 Library.lanes = relationship("Lane", backref="_library", foreign_keys=Lane._library_id)
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
+DataSource.license_lanes = relationship("Lane", backref="license_datasource", foreign_keys=Lane.license_datasource_id)
 
 
 lanes_customlists = Table(

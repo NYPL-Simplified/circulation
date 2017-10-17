@@ -23,6 +23,7 @@ from lane import (
 )
 
 from model import (
+    tuple_to_numericrange,
     DataSource,
     Edition,
     Genre,
@@ -1038,17 +1039,163 @@ class TestLane(WorkListTest):
         eq_(work.id, result.works_id)
 
     def test_featured_collection_facets(self):
-        expect = [
-            (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False),
-            (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, False),
-            (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW, False),
-            (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False),
-            (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False)
-        ]
-        eq_(expect, list(Lane.featured_collection_facets()))
+        default_facets = list(WorkList.featured_collection_facets())
+        
+        # A Lane that's not based on CustomLists has a generic set of
+        # facets.
+        lane = self._lane()
+        eq_(False, lane.uses_customlists)
+        eq_(default_facets, list(lane.featured_collection_facets()))
+
+        # A Lane that's based on CustomLists uses the same facets to
+        # build its featured collection, but before it tries them it
+        # tries to build a collection based on items that are featured
+        # _within the CustomLists_.
+        lane.list_datasource = DataSource.lookup(
+            self._db, DataSource.GUTENBERG
+        )
+        self._db.commit()
+        eq_(True, lane.uses_customlists)
+        additional = [(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, True),
+                      (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, True)]
+        eq_(additional + default_facets, 
+            list(lane.featured_collection_facets()))
 
     def test_apply_custom_filters(self):
-        pass
+
+        # Create some works that will or won't show up in various
+        # lanes.
+        childrens_fiction = self._work(
+            fiction=True, with_license_pool=True, 
+            audience=Classifier.AUDIENCE_CHILDREN
+        )
+        nonfiction = self._work(fiction=False, with_license_pool=True)
+        childrens_fiction.target_age = tuple_to_numericrange((8,8))
+        self.add_to_materialized_view(childrens_fiction, nonfiction)
+
+        def match_works(lane, works, featured=False):
+            """Verify that calling apply_custom_filters to the given
+            lane yields the given list of works.
+            """
+            from model import MaterializedWork
+            base_query = self._db.query(MaterializedWork).join(
+                LicensePool, MaterializedWork.license_pool_id==LicensePool.id
+            )
+            query, distinct = lane.apply_custom_filters(
+                self._db, base_query, MaterializedWork, featured
+            )
+            results = query.all()
+            works = sorted([(x.id, x.sort_title) for x in works])
+            materialized_works = sorted(
+                [(x.works_id, x.sort_title) for x in results]
+            )
+            eq_(works, materialized_works)
+            return distinct
+
+        # A lane may show only titles that come from a specific license source.
+        gutenberg_only = self._lane()
+        gutenberg_only.license_datasource = DataSource.lookup(
+            self._db, DataSource.GUTENBERG
+        )
+
+        distinct = match_works(gutenberg_only, [nonfiction])
+        # No custom list is involved, so there's no need to make the query
+        # distinct.
+        eq_(False, distinct)
+
+        # A lane may show fiction, nonfiction, or both.
+        fiction_lane = self._lane()
+        fiction_lane.fiction = True
+        match_works(fiction_lane, [childrens_fiction])
+
+        nonfiction_lane = self._lane()
+        nonfiction_lane.fiction = False
+        match_works(nonfiction_lane, [nonfiction])
+
+        both_lane = self._lane()
+        both_lane.fiction = None
+        match_works(both_lane, [childrens_fiction, nonfiction])
+
+        # A lane may include a target age range.
+        children_lane = self._lane()
+        children_lane.target_age = (0,2)
+        match_works(children_lane, [])
+        children_lane.target_age = (8,10)
+        match_works(children_lane, [childrens_fiction])
+
+        # A lane may restrict itself to works on certain CustomLists.
+        best_sellers, ignore = self._customlist()
+        childrens_fiction_entry, ignore = best_sellers.add_entry(
+            childrens_fiction
+        )
+        best_sellers_lane = self._lane()
+        best_sellers_lane.customlists.append(best_sellers)
+        distinct = match_works(
+            best_sellers_lane, [childrens_fiction], featured=False
+        )
+
+        # Now that CustomLists are in play, the query needs to be made
+        # distinct, because a single work can show up on more than one
+        # list.
+        eq_(True, distinct)
+
+        # Also, the `featured` argument makes a difference now. The
+        # work isn't featured on its list, so the lane appears empty
+        # when featured=True.
+        match_works(best_sellers_lane, [], featured=True)
+
+        # If the work becomes featured, it starts showing up again.
+        childrens_fiction_entry.featured = True
+        match_works(best_sellers_lane, [childrens_fiction], featured=True)
+
+        # A lane may inherit restrictions from its parent.
+        all_time_classics, ignore = self._customlist()
+        all_time_classics.add_entry(childrens_fiction)
+        all_time_classics.add_entry(nonfiction)
+
+        # This lane takes its entries from a list, and is the child
+        # of a lane that takes its entries from a second list.
+        best_selling_classics = self._lane(parent=best_sellers_lane)
+        best_selling_classics.custom_lists.append(all_time_classics)
+        match_works(best_selling_classics, [childrens_fiction, nonfiction])
+
+        # When it inherits its parent's restrictions, only the
+        # works that are on _both_ lists show up in the lane,
+        best_selling_classics.inherit_parent_restrictions = True
+        match_works(best_selling_classics, [childrens_fiction])
+
+        # Other restrictions are inherited as well. Here, a title must
+        # show up on both lists _and_ be a nonfiction book. There are
+        # no titles that meet all three criteria.
+        best_sellers_lane.fiction = False
+        match_works(best_selling_classics, [])
+
+        best_sellers_lane.fiction = True
+        match_works(best_selling_classics, [childrens_fiction])       
+
+    def test_apply_custom_filters_medium_restriction(self):
+        """We have to test the medium query specially in a kind of hacky way,
+        since currently the materialized view only includes ebooks.
+        """
+        audiobook = self._work(fiction=False, with_license_pool=True)
+        audiobook.presentation_edition.medium = Edition.AUDIO_MEDIUM
+        lane = self._lane()
+
+        # This lane only includes ebooks, and it's empty.
+        lane.media = [Edition.BOOK_MEDIUM]
+        qu = self._db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
+        qu, distinct = lane.apply_custom_filters(
+            self._db, qu, Edition, False
+        )
+        eq_([], qu.all())
+
+        # This lane only includes audiobooks, and it contains one book.
+        lane.media = [Edition.AUDIO_MEDIUM]
+        qu = self._db.query(Work).join(Work.license_pools)
+        qu, distinct = lane.apply_custom_filters(
+            self._db, qu, Edition, False
+        )
+        eq_([audiobook], qu.all())
 
     def test_apply_age_range_filter(self):
         pass
