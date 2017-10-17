@@ -1001,10 +1001,8 @@ class TestLane(WorkListTest):
         work = self._work(with_license_pool=True)
         self.add_to_materialized_view(work)
 
-        pagination = Pagination(offset=0, size=1)
-        
+        # Create a lane that has very specific requirements.
         lane = self._lane()
-
         lane.media = Edition.BOOK_MEDIUM
         lane.languages = ['eng', 'spa']
         lane.fiction = True
@@ -1013,6 +1011,8 @@ class TestLane(WorkListTest):
         search_client = DummyExternalSearchIndex()
         search_client.bulk_update([work])
 
+        # Do a search within that lane.
+        pagination = Pagination(offset=0, size=1)
         results = lane.search(
             self._db, work.title, search_client, pagination
         )
@@ -1038,7 +1038,14 @@ class TestLane(WorkListTest):
         eq_(work.id, result.works_id)
 
     def test_featured_collection_facets(self):
-        pass
+        expect = [
+            (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False),
+            (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, False),
+            (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW, False),
+            (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False),
+            (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False)
+        ]
+        eq_(expect, list(Lane.featured_collection_facets()))
 
     def test_apply_custom_filters(self):
         pass
