@@ -1198,7 +1198,36 @@ class TestLane(WorkListTest):
         eq_([audiobook], qu.all())
 
     def test_apply_age_range_filter(self):
-        pass
+        """Standalone test of apply_age_range_filter.
+        
+        Some of this code is also tested by test_apply_custom_filters.
+        """
+        adult = self._work(audience=Classifier.AUDIENCE_ADULT)
+        eq_(None, adult.target_age)
+        fourteen_or_fifteen = self._work(
+            audience=Classifier.AUDIENCE_YOUNG_ADULT
+        )
+        fourteen_or_fifteen.target_age = tuple_to_numericrange((14,15))
+
+        qu = self._db.query(Work)
+
+        # This lane contains the YA book because its age range overlaps
+        # the age range of the book.
+        younger_ya = self._lane()
+        younger_ya.target_age = (12,13)
+
+        # This lane contains no books because it skews too old for the YA
+        # book, but books for adults are not allowed.
+        older_ya = self._lane()
+        older_ya.target_age = (16,17)
+        older_ya_q = older_ya.apply_age_range_filter(self._db, qu, Work)
+        eq_([], older_ya_q.all())
+
+        # Expand it to include books for adults, and the adult book
+        # shows up despite having no target age at all.
+        older_ya.target_age = (16,18)
+        older_ya_q = older_ya.apply_age_range_filter(self._db, qu, Work)
+        eq_([adult], older_ya_q.all())
 
     def test_apply_customlist_filter(self):
         pass
