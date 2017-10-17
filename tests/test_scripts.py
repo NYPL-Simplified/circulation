@@ -519,6 +519,20 @@ class TestWorkProcessingScript(DatabaseTest):
         eq_([standard_ebooks], one_standard_ebook.all())
 
 
+class TestTimestampInfo(DatabaseTest):
+
+    TimestampInfo = DatabaseMigrationScript.TimestampInfo
+
+    def test_find(self):
+        pass
+
+    def test_save(self):
+        pass
+
+    def test_update(self):
+        pass
+
+
 class MockDatabaseMigrationScript(DatabaseMigrationScript):
 
     @property
@@ -617,7 +631,11 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         stamp = datetime.datetime.strptime('20260810', '%Y%m%d')
         self.timestamp = Timestamp(service=self.script.name, timestamp=stamp)
-        self._db.add(self.timestamp)
+        self.python_timestamp = Timestamp(
+            service=self.script.PY_TIMESTAMP_SERVICE_NAME, timestamp=stamp
+        )
+        self._db.add_all([self.timestamp, self.python_timestamp])
+        self._db.flush()
 
         self.timestamp_info = self.script.TimestampInfo(
             self.timestamp.service, self.timestamp.timestamp
@@ -638,7 +656,70 @@ class TestDatabaseMigrationScript(DatabaseTest):
         for filename in test_generated_files:
             os.remove(os.path.join(test_dir, filename))
 
+        timestamps = self._db.query(Timestamp).filter(
+            Timestamp.service.like('%Database Migration%')
+        ).delete(synchronize_session=False)
+
         super(TestDatabaseMigrationScript, self).teardown()
+
+    def test_name(self):
+        """DatabaseMigrationScript.name returns an appropriate timestamp service
+        name, depending on whether it is running only Python migrations or not.
+        """
+
+        # The default script returns the default timestamp name.
+        eq_("Database Migration", self.script.name)
+
+        # A python-only script returns a Python-specific timestamp name.
+        self.script.python_only=True
+        eq_("Database Migration - Python", self.script.name)
+
+    def test_timestamp_properties(self):
+        """DatabaseMigrationScript provides the appropriate TimestampInfo
+        objects as properties.
+        """
+        # If there aren't any Database Migrations in the database, no
+        # timestamps are returned.
+        timestamps = self._db.query(Timestamp).filter(
+            Timestamp.service.like('Database Migration%')
+        )
+        for timestamp in timestamps:
+            self._db.delete(timestamp)
+        self._db.commit()
+
+        self.script._session = self._db
+        eq_(None, self.script.python_timestamp)
+        eq_(None, self.script.overall_timestamp)
+
+        # If the Timestamps exist in the database, but they don't have
+        # a timestamp, nothing is returned. Timestamps must be initialized.
+        overall = self._db.query(Timestamp).filter(
+            Timestamp.service==self.script.SERVICE_NAME
+        ).one()
+        python = self._db.query(Timestamp).filter(
+            Timestamp.service==self.script.PY_TIMESTAMP_SERVICE_NAME
+        ).one()
+
+        # Neither Timestamp object has a timestamp.
+        eq_((None, None), (python.timestamp, overall.timestamp))
+        # So neither timestamp is returned as a property.
+        eq_(None, self.script.python_timestamp)
+        eq_(None, self.script.overall_timestamp)
+
+        # If you give the Timestamps data, suddenly they show up.
+        overall.timestamp = self.script.parse_time('1998-08-25')
+        python.timestamp = self.script.parse_time('1993-06-11')
+        python.counter = 2
+        self._db.flush()
+
+        overall_timestamp_info = self.script.overall_timestamp
+        assert isinstance(overall_timestamp_info, self.script.TimestampInfo)
+        eq_(overall.timestamp, overall_timestamp_info.timestamp)
+
+        python_timestamp_info = self.script.python_timestamp
+        assert isinstance(python_timestamp_info, self.script.TimestampInfo)
+        eq_(python.timestamp, python_timestamp_info.timestamp)
+        eq_(2, self.script.python_timestamp.counter)
 
     def test_directories_by_priority(self):
         core = os.path.split(os.path.split(__file__)[0])[0]
@@ -661,13 +742,14 @@ class TestDatabaseMigrationScript(DatabaseTest):
         for migration_file in self.migration_files:
             assert os.path.split(migration_file)[1] in result_migrations
 
-        def extract_filenames(core=True):
+        def extract_filenames(core=True, extensions=['.py', '.sql']):
+            extensions = tuple(extensions)
             if core:
                 pathnames = filter(lambda p: 'core' in p, self.migration_files)
             else:
                 pathnames = filter(lambda p: 'core' not in p, self.migration_files)
 
-            return [os.path.split(p)[1] for p in pathnames]
+            return [os.path.split(p)[1] for p in pathnames if p.endswith(extensions)]
 
         # Ensure that all the expected migrations from CORE are included in
         # the 'core' directory array in migrations_by_directory.
@@ -683,17 +765,40 @@ class TestDatabaseMigrationScript(DatabaseTest):
         for filename in parent_migration_files:
             assert filename in result_migrations_by_dir[self.parent_migration_dir]
 
+        # When the script is python_only, only python migrations are returned.
+        self.script.python_only = True
+        result_migrations, result_migrations_by_dir = self.script.fetch_migration_files()
+
+        py_migration_files = [m for m in self.migration_files if m.endswith('.py')]
+        py_migration_filenames = [os.path.split(f)[1] for f in py_migration_files]
+        eq_(sorted(py_migration_filenames), sorted(result_migrations))
+
+        core_migration_files = [m for m in extract_filenames() if m.endswith('.py')]
+        eq_(1, len(core_migration_files))
+        eq_(result_migrations_by_dir[self.core_migration_dir], core_migration_files)
+
+        parent_migration_files = [m for m in extract_filenames(False) if m.endswith('.py')]
+        eq_(1, len(parent_migration_files))
+        eq_(result_migrations_by_dir[self.parent_migration_dir], parent_migration_files)
+
     def test_migratable_files(self):
-        """Removes migration files that aren't python or SQL from a list."""
+        """Returns migrations that end with particular extensions."""
 
         migrations = [
             '.gitkeep', '20250521-make-bananas.sql', '20260810-do-a-thing.py',
             '20260802-did-a-thing.pyc', 'why-am-i-here.rb'
         ]
 
-        result = self.script.migratable_files(migrations)
+        result = self.script.migratable_files(migrations, ['.sql', '.py'])
         eq_(2, len(result))
         eq_(['20250521-make-bananas.sql', '20260810-do-a-thing.py'], result)
+
+        result = self.script.migratable_files(migrations, ['.rb'])
+        eq_(1, len(result))
+        eq_(['why-am-i-here.rb'], result)
+
+        result = self.script.migratable_files(migrations, ['banana'])
+        eq_([], result)
 
     def test_get_new_migrations(self):
         """Filters out migrations that were run on or before a given timestamp"""
@@ -712,7 +817,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         # Expected migrations will be sorted by timestamp. Python migrations
         # will be sorted after SQL migrations.
         expected = [
-            '20271202-future-migration-funtime.sql', 
+            '20271202-future-migration-funtime.sql',
             '20271204-far-future-migration-funtime.sql',
             '20260811-do-a-thing.py',
             '20271203-do-another-thing.py',
@@ -761,35 +866,35 @@ class TestDatabaseMigrationScript(DatabaseTest):
         eq_(3, len(result))
         eq_(expected, result)
 
-    def test_update_timestamp(self):
+    def test_update_timestamps(self):
         """Resets a timestamp according to the date of a migration file"""
 
         migration = '20271202-future-migration-funtime.sql'
 
         assert self.timestamp_info.timestamp.strftime('%Y%m%d') != migration[0:8]
-        self.script.update_timestamp(self.timestamp_info, migration)
-        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), migration[0:8])
+        self.script.update_timestamps(migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
 
         # It also takes care of counter digits when multiple migrations
         # exist for the same date.
-        migration = '20260810-2-do-all-the-things.sql'
-        self.script.update_timestamp(self.timestamp_info, migration)
-        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), migration[0:8])
-        eq_(str(self.timestamp_info.counter), migration[9])
+        migration = '20280810-2-do-all-the-things.sql'
+        self.script.update_timestamps(migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+        eq_(str(self.timestamp.counter), migration[9])
 
         # And removes those counter digits when the timestamp is updated.
-        migration = '20260101-what-it-do.sql'
-        self.script.update_timestamp(self.timestamp_info, migration)
-        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), migration[0:8])
-        eq_(self.timestamp_info.counter, None)
+        migration = '20280901-what-it-do.sql'
+        self.script.update_timestamps(migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+        eq_(self.timestamp.counter, None)
 
-        # If the migration is a python migration and it is earlier than
-        # the existing timestamp, the timestamp is not updated.
-        migration = '20251202-before-the-existing-timestamp.py'
-        self.script.update_timestamp(self.timestamp_info, migration)
-        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), '20260101')
+        # If the migration is earlier than the existing timestamp,
+        # the timestamp is not updated.
+        migration = '20280801-before-the-existing-timestamp.sql'
+        self.script.update_timestamps(migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), '20280901')
 
-    def test_running_a_migration_updates_the_timestamp(self):
+    def test_running_a_migration_updates_the_timestamps(self):
         future_time = datetime.datetime.strptime('20261030', '%Y%m%d')
         self.timestamp_info.timestamp = future_time
 
@@ -809,11 +914,11 @@ class TestDatabaseMigrationScript(DatabaseTest):
             self.parent_migration_dir : []
         }
 
-        # Running the migration updates the timestamp
+        # Running the migration updates the timestamps
         self.script.run_migrations(
             [migration_filename], migrations_by_dir, self.timestamp_info
         )
-        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), '20261202')
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), '20261202')
 
         # Even when there are counters.
         self._create_test_migration_file(
@@ -825,11 +930,14 @@ class TestDatabaseMigrationScript(DatabaseTest):
         self.script.run_migrations(
             [migration_filename], migrations_by_dir, self.timestamp_info
         )
-        eq_(self.timestamp_info.timestamp.strftime('%Y%m%d'), '20261203')
-        eq_(self.timestamp_info.counter, 3)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), '20261203')
+        eq_(self.timestamp.counter, 3)
 
     def test_all_migration_files_are_run(self):
-        self.script.run(test=True, cmd_args=["--last-run-date", "2010-01-01"])
+        self.script.run(
+            test_db=self._db, test=True,
+            cmd_args=["--last-run-date", "2010-01-01"]
+        )
 
         # There are two test timestamps in the database, confirming that
         # the test SQL files created by self._create_test_migration_files()
@@ -853,6 +961,33 @@ class TestDatabaseMigrationScript(DatabaseTest):
         all_files = os.listdir(test_dir)
         test_generated_files = sorted([f for f in all_files
                                        if f.startswith(('CORE', 'SERVER'))])
+        eq_(2, len(test_generated_files))
+
+        # A file has been generated from each migration directory.
+        assert 'CORE' in test_generated_files[0]
+        assert 'SERVER' in test_generated_files[1]
+
+    def test_python_migration_files_can_be_run_independently(self):
+        self.script.run(
+            test_db=self._db, test=True,
+            cmd_args=["--last-run-date", "2010-01-01", "--python-only"]
+        )
+
+        # There are no test timestamps in the database, confirming that
+        # no test SQL files created by self._create_test_migration_files()
+        # have been run.
+        timestamps = self._db.query(Timestamp).filter(
+            Timestamp.service.like('Test Database Migration Script - %')
+        ).order_by(Timestamp.service).all()
+        eq_([], timestamps)
+
+        # There are two temporary files in core/tests, confirming that the test
+        # Python files created by self._create_test_migration_files() were run.
+        test_dir = os.path.split(__file__)[0]
+        all_files = os.listdir(test_dir)
+        test_generated_files = sorted([f for f in all_files
+                                       if f.startswith(('CORE', 'SERVER'))])
+
         eq_(2, len(test_generated_files))
 
         # A file has been generated from each migration directory.
