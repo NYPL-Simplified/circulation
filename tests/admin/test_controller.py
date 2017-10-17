@@ -28,7 +28,10 @@ from core.model import (
     Collection,
     Complaint,
     ConfigurationSetting,
+    Contributor,
     CoverageRecord,
+    CustomList,
+    CustomListEntry,
     create,
     DataSource,
     Edition,
@@ -1061,6 +1064,153 @@ class TestFeedController(AdminControllerTest):
                     "parents": [parent.name for parent in genres[name].parents],
                     "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
                 }))        
+
+class TestCustomListsController(AdminControllerTest):
+    def test_custom_lists_get(self):
+        # This list has no associated Library and should not be included.
+        no_library, ignore = create(self._db, CustomList, name=self._str)
+
+        one_entry, ignore = create(self._db, CustomList, name=self._str, library=self._default_library)
+        edition = self._edition()
+        [c1] = edition.author_contributors
+        c1.display_name = self._str
+        c2, ignore = self._contributor()
+        c2.display_name = self._str
+        edition.add_contributor(c2, Contributor.AUTHOR_ROLE)
+        one_entry.add_entry(edition)
+
+        no_entries, ignore = create(self._db, CustomList, name=self._str, library=self._default_library)
+
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(2, len(response.get("custom_lists")))
+            lists = response.get("custom_lists")
+            [l1, l2] = sorted(lists, key=lambda l: l.get("id"))
+
+            eq_(one_entry.id, l1.get("id"))
+            eq_(one_entry.name, l1.get("name"))
+            eq_(1, len(l1.get("entries")))
+            [entry] = l1.get("entries")
+            eq_(edition.permanent_work_id, entry.get("pwid"))
+            eq_(edition.title, entry.get("title"))
+            eq_(2, len(entry.get("authors")))
+            eq_(set([c1.display_name, c2.display_name]),
+                set(entry.get("authors")))
+
+            eq_(no_entries.id, l2.get("id"))
+            eq_(no_entries.name, l2.get("name"))
+            eq_(0, len(l2.get("entries")))
+
+    def test_custom_lists_post_errors(self):
+        with self.request_context_with_library("/", method='POST'):
+            flask.request.form = MultiDict([
+                ("id", "4"),
+                ("name", "name"),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(MISSING_CUSTOM_LIST, response)
+
+        library = self._library()
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list.library = library
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", list.id),
+                ("name", list.name),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST, response)
+
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", list.name),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
+
+        l1, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
+        l2, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", l2.id),
+                ("name", l1.name),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
+
+    def test_custom_lists_create(self):
+        work = self._work(with_open_access_download=True)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "List"),
+                ("entries", json.dumps([dict(pwid=work.presentation_edition.permanent_work_id)])),
+            ])
+
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(201, response.status_code)
+
+            [list] = self._db.query(CustomList).all()
+            eq_(list.id, int(response.response[0]))
+            eq_(self._default_library, list.library)
+            eq_("List", list.name)
+            eq_(1, len(list.entries))
+            eq_(work, list.entries[0].work)
+            eq_(work.presentation_edition, list.entries[0].edition)
+            eq_(True, list.entries[0].featured)
+
+    def test_custom_lists_edit(self):
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list.library = self._default_library
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+        list.add_entry(w1)
+        list.add_entry(w2)
+
+        new_entries = [dict(pwid=work.presentation_edition.permanent_work_id) for work in [w2, w3]]
+        
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", str(list.id)),
+                ("name", "new name"),
+                ("entries", json.dumps(new_entries)),
+            ])
+
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(200, response.status_code)
+            eq_(list.id, int(response.response[0]))
+
+            eq_("new name", list.name)
+            eq_(set([w2, w3]),
+                set([entry.work for entry in list.entries]))
+
+    def test_custom_list_delete_success(self):
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list.library = self._default_library
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        list.add_entry(w1)
+        list.add_entry(w2)
+
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_custom_lists_controller.custom_list(list.id)
+            eq_(200, response.status_code)
+
+            eq_(0, self._db.query(CustomList).count())
+            eq_(0, self._db.query(CustomListEntry).count())
+
+    def test_custom_list_delete_errors(self):
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_custom_lists_controller.custom_list(123)
+            eq_(MISSING_CUSTOM_LIST, response)
 
 class TestDashboardController(AdminControllerTest):
 

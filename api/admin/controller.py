@@ -33,6 +33,7 @@ from core.model import (
     Collection,
     Complaint,
     ConfigurationSetting,
+    CustomList,
     DataSource,
     Edition,
     ExternalIntegration,
@@ -128,6 +129,7 @@ def setup_admin_controllers(manager):
     manager.admin_sign_in_controller = SignInController(manager)
     manager.admin_work_controller = WorkController(manager)
     manager.admin_feed_controller = FeedController(manager)
+    manager.admin_custom_lists_controller = CustomListsController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
 
@@ -199,11 +201,17 @@ class AdminController(object):
         return admin
 
     def check_csrf_token(self):
-        """Verifies that the CSRF token in the form data matches the one in the session."""
-        token = self.get_csrf_token()
-        if not token or token != flask.request.form.get("csrf_token"):
+        """Verifies that the CSRF token in the form data or X-CSRF-Token header
+        matches the one in the session cookie.
+        TODO: Change all requests to use the X-CSRF-Token header instead of form
+        data.
+        """
+        cookie_token = self.get_csrf_token()
+        form_token = flask.request.form.get("csrf_token")
+        header_token = flask.request.headers.get("X-CSRF-Token")
+        if not cookie_token or cookie_token != (form_token or header_token):
             return INVALID_CSRF_TOKEN
-        return token
+        return cookie_token
 
     def get_csrf_token(self):
         """Returns the CSRF token for the current session."""
@@ -804,6 +812,92 @@ class FeedController(CirculationManagerController):
                 "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
             })
         return data
+
+class CustomListsController(CirculationManagerController):
+    def custom_lists(self):
+        library = flask.request.library
+
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        if flask.request.method == "GET":
+            custom_lists = []
+            for list in library.custom_lists:
+                entries = []
+                for entry in list.entries:
+                    entries.append(dict(pwid=entry.edition.permanent_work_id,
+                                        title=entry.edition.title,
+                                        authors=[author.display_name for author in entry.edition.author_contributors],
+                                        ))
+                custom_lists.append(dict(id=list.id, name=list.name, entries=entries))
+            return dict(custom_lists=custom_lists)
+
+        if flask.request.method == "POST":
+            id = flask.request.form.get("id")
+            name = flask.request.form.get("name")
+            entries = flask.request.form.get("entries")
+
+            old_list_with_name = CustomList.find(self._db, data_source, name, library)
+
+            if id:
+                is_new = False
+                list = get_one(self._db, CustomList, id=int(id), data_source=data_source)
+                if not list:
+                    return MISSING_CUSTOM_LIST
+                if list.library != library:
+                    return CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST
+                if old_list_with_name and old_list_with_name != list:
+                    return CUSTOM_LIST_NAME_ALREADY_IN_USE
+            elif old_list_with_name:
+                return CUSTOM_LIST_NAME_ALREADY_IN_USE
+            else:
+                list, is_new = create(self._db, CustomList, name=name, data_source=data_source)
+                list.created = datetime.now()
+                list.library = library
+
+            list.updated = datetime.now()
+            list.name = name
+
+            if entries:
+                entries = json.loads(entries)
+            else:
+                entries = []
+
+            old_entries = list.entries
+            for entry in entries:
+                pwid = entry.get("pwid")
+                work = self._db.query(
+                    Work
+                ).join(
+                    Edition, Edition.id==Work.presentation_edition_id
+                ).filter(
+                    Edition.permanent_work_id==pwid
+                ).one()
+
+                if work:
+                    list.add_entry(work, featured=True)
+
+            new_pwids = [entry.get("pwid") for entry in entries]
+            for entry in old_entries:
+                if entry.edition.permanent_work_id not in new_pwids:
+                    list.remove_entry(entry.edition)
+
+            if is_new:
+                return Response(unicode(list.id), 201)
+            else:
+                return Response(unicode(list.id), 200)
+
+    def custom_list(self, list_id):
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        if flask.request.method == "DELETE":
+            list = get_one(self._db, CustomList, id=list_id, data_source=data_source)
+            if not list:
+                return MISSING_CUSTOM_LIST
+            for entry in list.entries:
+                self._db.delete(entry)
+            self._db.delete(list)
+            return Response(unicode(_("Deleted")), 200)
+
 
 class DashboardController(CirculationManagerController):
 

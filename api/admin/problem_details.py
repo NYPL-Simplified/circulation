@@ -253,3 +253,24 @@ MULTIPLE_SEARCH_SERVICES = pd(
     title=_("Multiple search services"),
     detail=_("You tried to create a new search service, but a search service is already configured."),
 )
+
+MISSING_CUSTOM_LIST = pd(
+    "http://librarysimplified.org/terms/problem/missing-custom-list",
+    status_code=404,
+    title=_("Missing custom list"),
+    detail=_("The specified custom list doesn't exist."),
+)
+
+CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-library-for-custom-list",
+    status_code=400,
+    title=_("Cannot change library for custom list"),
+    detail=_("A custom list's associated library cannot be changed once it is set.."),
+)
+
+CUSTOM_LIST_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/custom-list-name-already-in-use",
+    status_code=400,
+    title=_("Custom list name already in use"),
+    detail=_("The library already has a custom list with that name."),
+)
