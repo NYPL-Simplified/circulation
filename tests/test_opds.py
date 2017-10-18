@@ -349,27 +349,31 @@ class TestOPDS(DatabaseTest):
     def setup(self):
         super(TestOPDS, self).setup()
 
-        top = self._lane()
-        fiction = self._lane("Fiction", parent=top)
-        fiction.fiction = True
-        fiction.audiences = Classifier.AUDIENCE_ADULT
+        self.fiction = self._lane("Fiction")
+        self.fiction.fiction = True
+        self.fiction.audiences = Classifier.AUDIENCE_ADULT
 
-        fantasy = self._lane("Fantasy", parent=fiction, genres="Fantasy")
-        history = self._lane("History", parent=top, genres="History")
-        ya = self._lane("Young Adult", parent=top)
-        ya.history = None
-        ya.audiences = Classifier.AUDIENCE_YOUNG_ADULT
-        romance = self._lane("Romance", parent=top, genres="Romance")
-        romance.fiction = True
-        contemporary_romance = self._lane(
-            "Contemporary Romance", parent=top, 
+        self.fantasy = self._lane(
+            "Fantasy", parent=self.fiction, genres="Fantasy"
+        )
+        self.history = self._lane(
+            "History", genres="History"
+        )
+        self.ya = self._lane("Young Adult")
+        self.ya.history = None
+        self.ya.audiences = Classifier.AUDIENCE_YOUNG_ADULT
+        self.romance = self._lane("Romance", genres="Romance")
+        self.romance.fiction = True
+        self.contemporary_romance = self._lane(
+            "Contemporary Romance", parent=self.romance,
             genres="Contemporary Romance"
         )
 
         self.conf = WorkList()
         self.conf.initialize(
             self._default_library,
-            children=[fiction, fantasy, history, ya, romance]
+            children=[self.fiction, self.fantasy, self.history, self.ya, 
+                      self.romance]
         )
 
     def test_acquisition_link(self):
@@ -735,21 +739,18 @@ class TestOPDS(DatabaseTest):
         )
 
     def test_acquisition_feed_includes_image_links(self):
-        lane=self.lanes.by_languages['']['Fantasy']
-        work = self._work(genre=Fantasy, language="eng",
-                          with_open_access_download=True)
+        work = self._work(genre=Fantasy, with_open_access_download=True)
         work.presentation_edition.cover_thumbnail_url = "http://thumbnail/b"
         work.presentation_edition.cover_full_url = "http://full/a"
-
         work.calculate_opds_entries(verbose=False)
+
         feed = feedparser.parse(unicode(work.simple_opds_entry))
         links = sorted([x['href'] for x in feed['entries'][0]['links'] if
                         'image' in x['rel']])
         eq_(['http://full/a', 'http://thumbnail/b'], links)
 
     def test_acquisition_feed_image_links_respect_cdn(self):
-        work = self._work(genre=Fantasy, language="eng",
-                          with_open_access_download=True)
+        work = self._work(genre=Fantasy, with_open_access_download=True)
         work.presentation_edition.cover_thumbnail_url = "http://thumbnail.com/b"
         work.presentation_edition.cover_full_url = "http://full.com/a"
 
