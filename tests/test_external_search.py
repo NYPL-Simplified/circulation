@@ -559,8 +559,10 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Filters on media
 
-        book_lane = Lane(self._db, self._default_library, "Books", media=Edition.BOOK_MEDIUM)
-        audio_lane = Lane(self._db, self._default_library, "Audio", media=Edition.AUDIO_MEDIUM)
+        book_lane = self._lane("Books")
+        book_lane.media=[Edition.BOOK_MEDIUM]
+        audio_lane = self._lane("Audio")
+        audio_lane.media=[Edition.AUDIO_MEDIUM]
 
         results = query("pride and prejudice", book_lane.media, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
@@ -575,9 +577,9 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Filters on languages
 
-        english_lane = Lane(self._db, self._default_library, "English", languages="en")
-        spanish_lane = Lane(self._db, self._default_library, "Spanish", languages="es")
-        both_lane = Lane(self._db, self._default_library, "Both", languages=["en", "es"])
+        english_lane = self._lane("English", languages="en")
+        spanish_lane = self._lane("Spanish", languages="es")
+        both_lane = self._lane("Both", languages=["en", "es"])
 
         results = query("sherlock", None, english_lane.languages, None, None, None, None, None)
         hits = results["hits"]["hits"]
@@ -595,48 +597,55 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Filters on fiction
 
-        fiction_lane = Lane(self._db, self._default_library, "fiction", fiction=True)
-        nonfiction_lane = Lane(self._db, self._default_library, "nonfiction", fiction=False)
-        both_lane = Lane(self._db, self._default_library, "both", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+        fiction_lane = self._lane("fiction")
+        fiction_lane.fiction = True
+        nonfiction_lane = self._lane("nonfiction")
+        nonfiction_lane.fiction = False
+        both_lane = self._lane("both")
 
-        results = query("moby dick", None, None, None, fiction_lane.fiction, None, None, None)
+        results = query("moby dick", None, None, fiction_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.moby_dick.id), hits[0]["_id"])
 
-        results = query("moby dick", None, None, None, nonfiction_lane.fiction, None, None, None)
+        results = query("moby dick", None, None, nonfiction_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.moby_duck.id), hits[0]["_id"])
 
-        results = query("moby dick", None, None, None, both_lane.fiction, None, None, None)
+        results = query("moby dick", None, None, both_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
 
         # Filters on audience
 
-        adult_lane = Lane(self._db, self._default_library, "Adult", audiences=Classifier.AUDIENCE_ADULT)
-        ya_lane = Lane(self._db, self._default_library, "YA", audiences=Classifier.AUDIENCE_YOUNG_ADULT)
-        children_lane = Lane(self._db, self._default_library, "Children", audiences=Classifier.AUDIENCE_CHILDREN)
-        ya_and_children_lane = Lane(self._db, self._default_library, "YA and Children", audiences=[Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_CHILDREN])
+        adult_lane = self._lane("Adult")
+        adult_lane.audiences = [Classifier.AUDIENCE_ADULT]
+        ya_lane = self._lane("YA")
+        ya_lane.audiences = [Classifier.AUDIENCE_YOUNG_ADULT]
+        children_lane = self._lane("Children")
+        children_lane.audiences = [Classifier.AUDIENCE_CHILDREN]
+        ya_and_children_lane = self._lane("YA and Children")
+        ya_and_children_lane.audiences = [Classifier.AUDIENCE_CHILDREN,
+                                          Classifier.AUDIENCE_YOUNG_ADULT]
 
-        results = query("alice", None, None, None, None, adult_lane.audiences, None, None)
+        results = query("alice", None, None, None, adult_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.adult_work.id), hits[0]["_id"])
 
-        results = query("alice", None, None, None, None, ya_lane.audiences, None, None)
+        results = query("alice", None, None, None, ya_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.ya_work.id), hits[0]["_id"])
 
-        results = query("alice", None, None, None, None, children_lane.audiences, None, None)
+        results = query("alice", None, None, None, children_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.children_work.id), hits[0]["_id"])
 
-        results = query("alice", None, None, None, None, ya_and_children_lane.audiences, None, None)
+        results = query("alice", None, None, None, ya_and_children_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         work_ids = sorted([unicode(self.ya_work.id), unicode(self.children_work.id)])
@@ -649,23 +658,23 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         age_8_lane = self._lane("Age 8")
         age_8_lane.target_age = 8
 
-        age_5_8_lane = Lane("Age 5-8")
+        age_5_8_lane = self._lane("Age 5-8")
         age_5_8_lane.target_age = (5,8)
 
-        age_5_10_lane = Lane("Age 5-10")
+        age_5_10_lane = self._lane("Age 5-10")
         age_5_10_lane.target_age = (5,10)
 
-        age_8_10_lane = Lane("Age 8-10")
+        age_8_10_lane = self._lane("Age 8-10")
         age_8_10_lane.target_age = (8,10)
 
-        results = query("president", None, None, None, None, None, age_8_lane.target_age, None)
+        results = query("president", None, None, None, None, age_8_lane.target_age, None)
         hits = results["hits"]["hits"]
         eq_(3, len(hits))
         work_ids = sorted([unicode(self.no_age.id), unicode(self.obama.id), unicode(self.dodger.id)])
         result_ids = sorted([hit["_id"] for hit in hits])
         eq_(work_ids, result_ids)
 
-        results = query("president", None, None, None, None, None, age_5_8_lane.target_age, None)
+        results = query("president", None, None, None, None, age_5_8_lane.target_age, None)
         hits = results["hits"]["hits"]
         eq_(4, len(hits))
         work_ids = sorted([unicode(self.no_age.id),
@@ -675,7 +684,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         result_ids = sorted([hit["_id"] for hit in hits])
         eq_(work_ids, result_ids)
 
-        results = query("president", None, None, None, None, None, age_5_10_lane.target_age, None)
+        results = query("president", None, None, None, None, age_5_10_lane.target_age, None)
         hits = results["hits"]["hits"]
         eq_(5, len(hits))
         work_ids = sorted([unicode(self.no_age.id),
@@ -686,7 +695,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         result_ids = sorted([hit["_id"] for hit in hits])
         eq_(work_ids, result_ids)
 
-        results = query("president", None, None, None, None, None, age_8_10_lane.target_age, None)
+        results = query("president", None, None, None, None, age_8_10_lane.target_age, None)
         hits = results["hits"]["hits"]
         eq_(4, len(hits))
         work_ids = sorted([unicode(self.no_age.id),
@@ -699,28 +708,28 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Filters on genre
 
-        biography_lane = Lane(self._db, self._default_library, "Biography", genres=["Biography & Memoir"])
-        fantasy_lane = Lane(self._db, self._default_library, "Fantasy", genres=["Fantasy"])
-        both_lane = Lane(self._db, self._default_library, "Both", genres=["Biography & Memoir", "Fantasy"], fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+        biography_lane = self._lane("Biography", genres=["Biography & Memoir"])
+        fantasy_lane = self._lane("Fantasy", genres=["Fantasy"])
+        both_lane = self._lane("Both", genres=["Biography & Memoir", "Fantasy"])
 
-        results = query("lincoln", None, None, None, None, None, None, biography_lane.genre_ids)
+        results = query("lincoln", None, None, None, None, None, biography_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln.id), hits[0]["_id"])
 
-        results = query("lincoln", None, None, None, None, None, None, fantasy_lane.genre_ids)
+        results = query("lincoln", None, None, None, None, None, fantasy_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln_vampire.id), hits[0]["_id"])
 
-        results = query("lincoln", None, None, None, None, None, None, both_lane.genre_ids)
+        results = query("lincoln", None, None, None, None, None, both_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
         # This query does not match anything because the book in
         # question is not in a collection associated with the default
         # library.
-        results = query("a tiny book", None, None, None, None, None, None, None)
+        results = query("a tiny book", None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(0, len(hits))
 

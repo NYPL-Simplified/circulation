@@ -572,8 +572,9 @@ class ExternalSearchIndex(object):
         if languages:
             clauses.append(dict(terms=dict(language=list(languages))))
         if genres:
+            genres = [x for x in genres]
             if isinstance(genres[0], int):
-                # We were given genre IDs.
+                # We were given genre IDs. Leave them alone.
                 genre_ids = genres
             else:
                 # We were given genre objects. This should

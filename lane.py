@@ -930,7 +930,7 @@ class Lane(Base, WorkList):
     )
 
     def get_library(self, _db):
-        """For compatibility with WorkList.library()."""
+        """For compatibility with WorkList.get_library()."""
         return self.library
 
     @property
