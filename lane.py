@@ -388,6 +388,9 @@ class WorkList(object):
     # weeks.
     MAX_CACHE_AGE = 14*24*60*60
 
+    # By default, a WorkList is always visible.
+    visible = True
+
     def initialize(self, library, display_name=None, genres=None, 
                    audiences=None, languages=None, children=None):
         """Initialize with basic data.
@@ -904,8 +907,8 @@ class Lane(Base, WorkList):
     root_for_patron_type = Column(ARRAY(Unicode), nullable=True)
 
     # Only a visible lane will show up in the user interface.  The
-    # admin interface can see all the lanes.
-    visible = Column(Boolean, default=True, nullable=False)
+    # admin interface can see all the lanes, visible or not.
+    _visible = Column(Boolean, default=True, nullable=False, name="visible")
 
     __table_args__ = (
         UniqueConstraint('library_id', 'identifier'),
@@ -926,6 +929,14 @@ class Lane(Base, WorkList):
             if lane.visible:
                 yield lane
     
+    @hybrid_property
+    def visible(self):
+        return self._visible and (not self.parent or self.parent.visible)
+
+    @visible.setter
+    def set_visible(self, value):
+        self._visible = value
+
     @property
     def url_name(self):
         """Return the name of this lane to be used in URLs.

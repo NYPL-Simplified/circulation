@@ -870,12 +870,22 @@ class TestLane(DatabaseTest):
         lane = self._lane()
         eq_(self._default_library, lane.get_library(self._db))
 
-    def test_visible_children(self):
+    def test_visibility(self):
         parent = self._lane()
         visible_child = self._lane(parent=parent)
         invisible_child = self._lane(parent=parent)
         invisible_child.visible = False
         eq_([visible_child], list(parent.visible_children))
+
+        grandchild = self._lane(parent=invisible_child)
+        eq_(True, parent.visible)
+        eq_(True, visible_child.visible)
+        eq_(False, invisible_child.visible)
+
+        # The grandchild lane is set to visible in the database, but
+        # it is not visible because its parent is not visible.
+        eq_(True, grandchild._visible)
+        eq_(False, grandchild.visible)
 
     def test_url_name(self):
         lane = self._lane("Fantasy / Science Fiction")
