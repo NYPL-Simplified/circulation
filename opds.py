@@ -998,7 +998,7 @@ class AcquisitionFeed(OPDSFeed):
             )
             
             # Add links for all visible ancestors that aren't root
-            for ancestor in reversed(lane.visible_ancestors()):
+            for ancestor in lane.parentage:
                 lane_url = annotator.lane_url(ancestor)
                 if lane_url != root_url:
                     breadcrumbs.append(
@@ -1285,10 +1285,10 @@ class TestAnnotator(Annotator):
     @classmethod
     def groups_url(cls, lane):
         if lane:
-            name = lane.name
+            identifier = lane.identifier
         else:
-            name = ""
-        return "http://groups/%s" % name
+            identifier = ""
+        return "http://groups/%s" % identifier
 
     @classmethod
     def default_lane_url(cls):

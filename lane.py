@@ -442,6 +442,20 @@ class WorkList(object):
         return self.children
 
     @property
+    def has_visible_children(self):
+        for lane in self.visible_children:
+            if lane:
+                return True
+        return False
+
+    @property
+    def parentage(self):
+        """WorkLists have no parentage. This method is defined for compatibility
+        with Lane.
+        """
+        return []
+
+    @property
     def audience_key(self):
         """Translates audiences list into url-safe string"""
         key = u''
@@ -930,11 +944,21 @@ class Lane(Base, WorkList):
                 yield lane
 
     @property
-    def has_visible_children(self):
-        for lane in self.visible_children:
-            if lane:
-                return True
-        return False
+    def parentage(self):
+        """Yield the parent, grandparent, etc. of this Lane.
+
+        The Lane may be inside one or more non-Lane WorkLists, but those
+        WorkLists are not counted in the parentage.
+        """
+        seen = set()
+        if not self.parent:
+            return
+        yield self.parent
+        for parent in self.parent.parentage:
+            if parent in seen:
+                raise ValueError("Lane parentage loop detected")
+            seen.add(parent)
+            yield parent
     
     @hybrid_property
     def visible(self):

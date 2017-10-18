@@ -887,9 +887,27 @@ class TestLane(DatabaseTest):
         eq_(True, grandchild._visible)
         eq_(False, grandchild.visible)
 
-        eq_(True, parent.has_visible_children)
-        eq_(False, visible_child.has_visible_children)
-        eq_(False, invisible_child.has_visible_children)
+    def test_parentage(self):
+        worklist = WorkList()
+        lane = self._lane()
+        child_lane = self._lane(parent=lane)
+        unrelated = self._lane()
+        worklist.sublanes = [child_lane]
+
+        # A WorkList has no parentage.
+        eq_([], list(worklist.parentage))
+
+        # The WorkList has the Lane as a child, but the Lane doesn't know
+        # this.
+        eq_([], list(lane.parentage))
+        eq_([lane], list(child_lane.parentage))
+
+        # TODO: The error should be raised when we try to set the parent
+        # to an illegal value, not afterwards.
+        lane.parent = child_lane
+        assert_raises_regexp(
+            ValueError, "Lane parentage loop detected", list, lane.parentage
+        )
 
     def test_url_name(self):
         lane = self._lane("Fantasy / Science Fiction")
