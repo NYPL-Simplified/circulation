@@ -988,10 +988,9 @@ class TestOPDS(DatabaseTest):
         search query.
         """
         fantasy_lane = self.fantasy
-        fantasy_lane.searchable = True
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
-        self.add_to_materialized_views([work1, work2])
+        self.add_to_materialized_view([work1, work2], True)
 
         pagination = Pagination(size=1)
         search_client = DummyExternalSearchIndex()
@@ -1033,14 +1032,14 @@ class TestOPDS(DatabaseTest):
         eq_(work2.title, parsed['entries'][0]['title'])
 
         # The feed has breadcrumb links
-        ancestors = fantasy_lane.visible_ancestors()
+        parentage = list(fantasy_lane.parentage)
         root = ET.fromstring(feed)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
-        eq_(len(ancestors) + 2, len(links))
+        eq_(len(parentage) + 2, len(links))
         eq_(TestAnnotator.top_level_title(), links[0].get("title"))
         eq_(TestAnnotator.default_lane_url(), links[0].get("href"))
-        for i, lane in enumerate(reversed(ancestors)):
+        for i, lane in enumerate(parentage):
             eq_(lane.display_name, links[i+1].get("title"))
             eq_(TestAnnotator.lane_url(lane), links[i+1].get("href"))
         eq_(fantasy_lane.display_name, links[-1].get("title"))

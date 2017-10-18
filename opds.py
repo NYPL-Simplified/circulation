@@ -597,7 +597,9 @@ class AcquisitionFeed(OPDSFeed):
         else:
             search_lane = lane
 
-        results = search_lane.search(query, search_engine, pagination=pagination)
+        results = search_lane.search(
+            _db, query, search_engine, pagination=pagination
+        )
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
 
