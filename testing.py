@@ -363,7 +363,7 @@ class DatabaseTest(object):
         SessionManager.refresh_materialized_views(self._db)
 
     def _lane(self, identifier=None, display_name=None, library=None, 
-              parent=None, genres=None):
+              parent=None, genres=None, languages=None):
         identifier = identifier or self._str
         display_name = display_name or identifier
         library = library or self._default_library
@@ -379,6 +379,10 @@ class DatabaseTest(object):
                 if isinstance(genre, basestring):
                     genre, ignore = Genre.lookup(self._db, genre)
                 lane.genres.append(genre)
+        if languages:
+            if not isinstance(languages, list):
+                languages = [languages]
+            lane.languages = languages
         return lane
 
     def _add_generic_delivery_mechanism(self, license_pool):

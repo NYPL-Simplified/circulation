@@ -6194,7 +6194,7 @@ class CachedFeed(Base):
                 # default page-type feed, which should be cheap to fetch.
                 cls.log.warn(
                     "Could not generate a groups feed for %s, falling back to a page feed.",
-                    lane.name
+                    lane.identifier
                 )
                 return cls.fetch(
                     _db, lane, CachedFeed.PAGE_TYPE, facets, pagination, 
