@@ -216,44 +216,34 @@ class Facets(FacetConstants):
                 yield dy(facet)
 
     @classmethod
-    def order_facet_to_database_field(
-            cls, order_facet, work_model, edition_model
-    ):
-        """Turn the name of an order facet into a database field
+    def order_facet_to_database_field(cls, order_facet, work_model):
+        """Turn the name of an order facet into a materialized-view field
         for use in an ORDER BY clause.
+
+        :param work_model: Either MaterializedWork or
+        MaterializedWorkWithGenre.
         """
-        if order_facet == cls.ORDER_WORK_ID:
-            if work_model is Work:
-                return work_model.id
-            else:
-                # This is a materialized view and the field name is
-                # different.
-                return work_model.works_id
-
-        if order_facet == cls.ORDER_ADDED_TO_COLLECTION:
-            if work_model is Work:
-                # We must get this data from LicensePool.
-                return LicensePool.availability_time
-            else:
-                # We can get this data from the materialized view.
-                return work_model.availability_time
-
-        # In all other cases the field names are the same whether
-        # we are using Work/Edition or a materialized view.
         order_facet_to_database_field = {
-            cls.ORDER_TITLE : edition_model.sort_title,
-            cls.ORDER_AUTHOR : edition_model.sort_author,
+            cls.ORDER_ADDED_TO_COLLECTION: work_model.availability_time,
+            cls.ORDER_WORK_ID : work_model.works_id,
+            cls.ORDER_TITLE : work_model.sort_title,
+            cls.ORDER_AUTHOR : work_model.sort_author,
             cls.ORDER_LAST_UPDATE : work_model.last_update_time,
-            cls.ORDER_SERIES_POSITION : edition_model.series_position,
+            cls.ORDER_SERIES_POSITION : work_model.series_position,
             cls.ORDER_RANDOM : work_model.random,
         }
         return order_facet_to_database_field[order_facet]
 
-    def apply(self, _db, qu, work_model=Work, edition_model=Edition,
-              distinct=False):
+    def apply(self, _db, qu, work_model=None, distinct=False):
         """Restrict a query so that it only matches works that fit
         the given facets, and the query is ordered appropriately.
+
+        :param work_model: Either MaterializedWork or
+        MaterializedWorkWithGenre.
         """
+        if work_model is None:
+            from model import MaterializedWork
+            work_model = MaterializedWork
         if self.availability == self.AVAILABLE_NOW:
             availability_clause = or_(
                 LicensePool.open_access==True,
@@ -285,27 +275,29 @@ class Facets(FacetConstants):
             )
 
         # Set the ORDER BY clause.
-        order_by, order_distinct = self.order_by(
-            work_model, edition_model
-        )
+        order_by, order_distinct = self.order_by(work_model)
         qu = qu.order_by(*order_by)
         if distinct:
             qu = qu.distinct(*order_distinct)
 
         return qu
 
-    def order_by(self, work_model, edition_model):
-        """Establish a complete ORDER BY clause for books."""
+    def order_by(self, work_model):
+        """Establish a complete ORDER BY clause for works.
+
+        :param work_model: Either MaterializedWork or
+        MaterializedWorkWithGenre.
+        """
         if work_model == Work:
             work_id = Work.id
         else:
             work_id = work_model.works_id
         default_sort_order = [
-            edition_model.sort_author, edition_model.sort_title, work_id
+            work_model.sort_author, work_model.sort_title, work_id
         ]
     
         primary_order_by = self.order_facet_to_database_field(
-            self.order, work_model, edition_model
+            self.order, work_model
         )
         if primary_order_by:
             # Promote the field designated by the sort facet to the top of
@@ -396,8 +388,8 @@ class WorkList(object):
     # weeks.
     MAX_CACHE_AGE = 14*24*60*60
 
-    def initialize(self, library, genres=None, audiences=None, languages=None,
-                   children=None):
+    def initialize(self, library, display_name=None, genres=None, 
+                   audiences=None, languages=None, children=None):
         """Initialize with basic data.
 
         This is not a constructor, to avoid conflicts with `Lane`, an
@@ -406,6 +398,9 @@ class WorkList(object):
         
         :param library: Only Works available in this Library will be
         included in lists.
+
+        :param display_name: Name to display for this WorkList in the
+        user interface.
 
         :param genres: Only Works classified under one of these Genres
         will be included in lists.
@@ -423,6 +418,7 @@ class WorkList(object):
         self.collection_ids = [
             collection.id for collection in library.all_collections
         ]
+        self.display_name = display_name
         if genres:
             self.genre_ids = [x.id for x in genres]
         else:

@@ -121,32 +121,32 @@ class TestFacets(DatabaseTest):
 
         def fields(facet):
             return [
-                Facets.order_facet_to_database_field(facet, w, e)
-                for w, e in ((Work, Edition), (mw, mw), (mwg, mwg))
+                Facets.order_facet_to_database_field(facet, w)
+                for w in (mw, mwg)
             ]
 
         # You can sort by title...
-        eq_([Edition.sort_title, mw.sort_title, mwg.sort_title],
+        eq_([mw.sort_title, mwg.sort_title],
             fields(Facets.ORDER_TITLE))
 
         # ...by author...
-        eq_([Edition.sort_author, mw.sort_author, mwg.sort_author],
+        eq_([mw.sort_author, mwg.sort_author],
             fields(Facets.ORDER_AUTHOR))
 
         # ...by work ID...
-        eq_([Work.id, mw.works_id, mwg.works_id],
+        eq_([mw.works_id, mwg.works_id],
             fields(Facets.ORDER_WORK_ID))
 
         # ...by last update time...
-        eq_([Work.last_update_time, mw.last_update_time, mwg.last_update_time],
+        eq_([mw.last_update_time, mwg.last_update_time],
             fields(Facets.ORDER_LAST_UPDATE))
 
         # ...by most recently added...
-        eq_([LicensePool.availability_time, mw.availability_time, mwg.availability_time],
+        eq_([mw.availability_time, mwg.availability_time],
             fields(Facets.ORDER_ADDED_TO_COLLECTION))
 
         # ...or randomly.
-        eq_([Work.random, mw.random, mwg.random],
+        eq_([mw.random, mwg.random],
             fields(Facets.ORDER_RANDOM))
 
     def test_order_by(self):
@@ -155,7 +155,7 @@ class TestFacets(DatabaseTest):
             MaterializedWorkWithGenre as mwg,
         )
 
-        def order(facet, work, edition, ascending=None):
+        def order(facet, work, ascending=None):
             f = Facets(
                 self._default_library,
                 collection=Facets.COLLECTION_FULL, 
@@ -163,37 +163,40 @@ class TestFacets(DatabaseTest):
                 order=facet,
                 order_ascending=ascending,
             )
-            return f.order_by(work, edition)[0]
+            return f.order_by(work)[0]
 
         def compare(a, b):
             assert(len(a) == len(b))
             for i in range(0, len(a)):
+                if not a[i].compare(b[i]):
+                    set_trace()
                 assert(a[i].compare(b[i]))
 
-        expect = [Edition.sort_author.asc(), Edition.sort_title.asc(), Work.id.asc()]
-        actual = order(Facets.ORDER_AUTHOR, Work, Edition, True)  
-        compare(expect, actual)
+        for m in mw, mwg:
+            expect = [m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+            actual = order(Facets.ORDER_AUTHOR, m, True)  
+            compare(expect, actual)
 
-        expect = [Edition.sort_author.desc(), Edition.sort_title.asc(), Work.id.asc()]
-        actual = order(Facets.ORDER_AUTHOR, Work, Edition, False)  
-        compare(expect, actual)
+            expect = [m.sort_author.desc(), m.sort_title.asc(), m.works_id.asc()]
+            actual = order(Facets.ORDER_AUTHOR, m, False)  
+            compare(expect, actual)
 
-        expect = [mw.sort_title.asc(), mw.sort_author.asc(), mw.works_id.asc()]
-        actual = order(Facets.ORDER_TITLE, mw, mw, True)
-        compare(expect, actual)
+            expect = [m.sort_title.asc(), m.sort_author.asc(), m.works_id.asc()]
+            actual = order(Facets.ORDER_TITLE, m, True)
+            compare(expect, actual)
 
-        expect = [Work.last_update_time.asc(), Edition.sort_author.asc(), Edition.sort_title.asc(), Work.id.asc()]
-        actual = order(Facets.ORDER_LAST_UPDATE, Work, Edition, True)
-        compare(expect, actual)
+            expect = [m.last_update_time.asc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+            actual = order(Facets.ORDER_LAST_UPDATE, m, True)
+            compare(expect, actual)
 
-        expect = [mw.random.asc(), mw.sort_author.asc(), mw.sort_title.asc(),
-                  mw.works_id.asc()]
-        actual = order(Facets.ORDER_RANDOM, mw, mw, True)
-        compare(expect, actual)
+            expect = [m.random.asc(), m.sort_author.asc(), m.sort_title.asc(),
+                      m.works_id.asc()]
+            actual = order(Facets.ORDER_RANDOM, m, True)
+            compare(expect, actual)
 
-        expect = [LicensePool.availability_time.desc(), Edition.sort_author.asc(), Edition.sort_title.asc(), Work.id.asc()]
-        actual = order(Facets.ORDER_ADDED_TO_COLLECTION, Work, Edition, None)  
-        compare(expect, actual)
+            expect = [m.availability_time.desc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+            actual = order(Facets.ORDER_ADDED_TO_COLLECTION, m, None)  
+            compare(expect, actual)
 
 
 class TestFacetsApply(DatabaseTest):
@@ -234,9 +237,13 @@ class TestFacetsApply(DatabaseTest):
         licensed_p2.licenses_owned = 1
         licensed_p2.licenses_available = 1
         licensed_low.random = 0.1
+        
+        self.add_to_materialized_view([open_access_high, open_access_low,
+                                       licensed_high, licensed_low])
 
-        qu = self._db.query(Work).join(Work.presentation_edition).join(
-            Work.license_pools
+        from model import MaterializedWork as mw
+        qu = self._db.query(mw).join(
+            LicensePool, mw.license_pool_id==LicensePool.id
         )
         def facetify(collection=Facets.COLLECTION_FULL, 
                      available=Facets.AVAILABLE_ALL,
@@ -286,12 +293,14 @@ class TestFacetsApply(DatabaseTest):
         assert licensed_low not in featured_collection
 
         title_order = facetify(order=Facets.ORDER_TITLE)
-        eq_([open_access_high, open_access_low, licensed_high, licensed_low],
-            title_order.all())
+        eq_([open_access_high.id, open_access_low.id, licensed_high.id, 
+             licensed_low.id],
+            [x.works_id for x in title_order])
 
         random_order = facetify(order=Facets.ORDER_RANDOM)
-        eq_([licensed_low, open_access_high, licensed_high, open_access_low],
-            random_order.all())
+        eq_([licensed_low.id, open_access_high.id, licensed_high.id, 
+             open_access_low.id],
+            [x.works_id for x in random_order])
 
 class TestPagination(DatabaseTest):
 
@@ -377,19 +386,7 @@ class MockWorks(WorkList):
         return query[:target_size]
 
 
-class WorkListTest(DatabaseTest):
-
-    def add_to_materialized_view(self, *works):
-        """Make sure all the works show up in the materialized view.
-        """
-        for work in works:
-            work.presentation_ready = True
-            work.simple_opds_entry = "an entry"
-        self._db.commit()
-        SessionManager.refresh_materialized_views(self._db)
-
-
-class TestWorkList(WorkListTest):
+class TestWorkList(DatabaseTest):
 
     def test_initialize(self):
         wl = WorkList()
@@ -550,7 +547,7 @@ class TestWorkList(WorkListTest):
         not_oliver_twist = self._work(
             title='Barnaby Rudge', with_license_pool=True
         )
-        self.add_to_materialized_view(oliver_twist, not_oliver_twist)
+        self.add_to_materialized_view([oliver_twist, not_oliver_twist])
 
         class OnlyOliverTwist(WorkList):
             """Mock WorkList that overrides apply_filters() so that it
@@ -589,7 +586,7 @@ class TestWorkList(WorkListTest):
         # Create two works and put them in the materialized view.
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
-        self.add_to_materialized_view(w1, w2)
+        self.add_to_materialized_view([w1, w2])
         wl = WorkList()
         wl.initialize(self._default_library)
 
@@ -867,7 +864,7 @@ class TestWorkList(WorkListTest):
         eq_([i1, i2, i3, i4, i5], sorted(sample, key=lambda x: x.id))
 
 
-class TestLane(WorkListTest):
+class TestLane(DatabaseTest):
 
     def test_get_library(self):
         lane = self._lane()
@@ -1072,7 +1069,7 @@ class TestLane(WorkListTest):
         )
         nonfiction = self._work(fiction=False, with_license_pool=True)
         childrens_fiction.target_age = tuple_to_numericrange((8,8))
-        self.add_to_materialized_view(childrens_fiction, nonfiction)
+        self.add_to_materialized_view([childrens_fiction, nonfiction])
 
         def match_works(lane, works, featured=False):
             """Verify that calling apply_custom_filters to the given

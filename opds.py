@@ -560,12 +560,9 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached
 
-        if use_materialized_works:
-            works_q = lane.materialized_works(facets, pagination)
-        else:
-            works_q = lane.works(facets, pagination)
-
+        works_q = lane.works(_db, facets, pagination)
         if not works_q:
+            # The Lane believes that creating this feed is a bad idea.
             works = []
         else:
             works = works_q.all()

@@ -6137,7 +6137,7 @@ class CachedFeed(Base):
             max_age = datetime.timedelta(seconds=max_age)
         work = None
         if lane:
-            lane_name = unicode(lane.name)
+            lane_name = unicode(lane.identifier)
             work = getattr(lane, 'work', None)
         else:
             lane_name = None

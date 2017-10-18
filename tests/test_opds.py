@@ -36,6 +36,7 @@ from lane import (
     Facets,
     Pagination,
     Lane,
+    WorkList,
 )
 
 from opds import (    
@@ -365,13 +366,11 @@ class TestOPDS(DatabaseTest):
             genres="Contemporary Romance"
         )
 
-        class FakeConf(object):
-            name = None
-            display_name = None
-            sublanes = self.lanes
-            top_level_lane = top
-
-        self.conf = FakeConf()
+        self.conf = WorkList()
+        self.conf.initialize(
+            self._default_library,
+            children=[fiction, fantasy, history, ya, romance]
+        )
 
     def test_acquisition_link(self):
         m = AcquisitionFeed.acquisition_link
@@ -441,11 +440,13 @@ class TestOPDS(DatabaseTest):
     def test_lane_feed_contains_facet_links(self):
         work = self._work(with_open_access_download=True)
 
-        lane = Lane(self._db, self._default_library, "lane")
+        lane = self._lane()
         facets = Facets.default(self._default_library)
 
-        cached_feed = AcquisitionFeed.page(self._db, "title", "http://the-url.com/",
-                                    lane, TestAnnotator, facets=facets)
+        cached_feed = AcquisitionFeed.page(
+            self._db, "title", "http://the-url.com/",
+            lane, TestAnnotator, facets=facets
+        )
         
         u = unicode(cached_feed.content)
         parsed = feedparser.parse(u)

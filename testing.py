@@ -345,6 +345,23 @@ class DatabaseTest(object):
 
         return work
 
+    def add_to_materialized_view(self, works, calculate_presentation=False):
+        """Make sure all the works in `works` show up in the materialized view.
+
+        :param calculate_presentation: Call calculate_presentation() for each work
+        (which is quite slow) rather than faking it.
+        """
+        if not isinstance(works, list):
+            works = [works]
+        for work in works:
+            if calculate_presentation:
+                work.calculate_presentation()
+            else:
+                work.presentation_ready = True
+                work.simple_opds_entry = "<entry>an entry</entry>"
+        self._db.commit()
+        SessionManager.refresh_materialized_views(self._db)
+
     def _lane(self, identifier=None, display_name=None, library=None, 
               parent=None, genres=None):
         identifier = identifier or self._str
