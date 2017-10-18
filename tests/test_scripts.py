@@ -524,13 +524,55 @@ class TestTimestampInfo(DatabaseTest):
     TimestampInfo = DatabaseMigrationScript.TimestampInfo
 
     def test_find(self):
-        pass
+        # If there isn't a timestamp for the given service,
+        # nothing is returned.
+        result = self.TimestampInfo.find(self._db, 'test')
+        eq_(None, result)
 
-    def test_save(self):
-        pass
+        # But an empty Timestamp has been placed into the database.
+        timestamp = self._db.query(Timestamp).filter(Timestamp.service=='test').one()
+        eq_(None, timestamp.timestamp)
+        eq_(None, timestamp.counter)
+
+        # A repeat search for the empty Timestamp also results in None.
+        eq_(None, self.TimestampInfo.find(self._db, 'test'))
+
+        # If the Timestamp is stamped, it is returned.
+        timestamp.timestamp = datetime.datetime.utcnow()
+        timestamp.counter = 1
+        self._db.flush()
+
+        result = self.TimestampInfo.find(self._db, 'test')
+        eq_(timestamp.timestamp, result.timestamp)
+        eq_(1, result.counter)
 
     def test_update(self):
-        pass
+        # Create a Timestamp to be updated.
+        past = datetime.datetime.strptime('19980101', '%Y%m%d')
+        stamp = Timestamp.stamp(self._db, 'test', None, date=past)
+        timestamp_info = self.TimestampInfo.find(self._db, 'test')
+
+        now = datetime.datetime.utcnow()
+        timestamp_info.update(self._db, now, 2)
+
+        # When we refresh the Timestamp object, it's been updated.
+        self._db.refresh(stamp)
+        eq_(now, stamp.timestamp)
+        eq_(2, stamp.counter)
+
+    def save(self):
+        # The Timestamp doesn't exist.
+        timestamp_qu = self._db.query(Timestamp).filter(Timestamp.service=='test')
+        eq_(False, timestamp_qu.exists())
+
+        now = datetime.datetime.utcnow()
+        timestamp_info = self.TimestampInfo('test', now, 47)
+        timestamp_info.save(self._db)
+
+        # The Timestamp exists now.
+        timestamp = timestamp_qu.one()
+        eq_(now, timestamp.timestamp)
+        eq_(47, timestamp.counter)
 
 
 class MockDatabaseMigrationScript(DatabaseMigrationScript):

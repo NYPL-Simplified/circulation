@@ -1652,7 +1652,7 @@ class DatabaseMigrationScript(Script):
         """Act like a ORM Timestamp object, but with no database connection."""
 
         @classmethod
-        def find(cls, _db, service, ignore_empty=True):
+        def find(cls, _db, service):
             """Find or create an existing timestamp representing the last
             migration script that was run.
 
@@ -1669,7 +1669,7 @@ class DatabaseMigrationScript(Script):
                 return None
 
             [(date, counter)] = results
-            if ignore_empty and not date:
+            if not date:
                 # This is an empty Timestamp created during a previous
                 # TimestampInfo.find attempt. It shouldn't be returned or
                 # worked with in any way.
@@ -1685,30 +1685,26 @@ class DatabaseMigrationScript(Script):
                 counter = int(counter)
             self.counter = counter
 
-        def save(self, _db, migration_name=None):
-            """Saves a TimestampInfo object to the database"""
+        def save(self, _db):
+            self.update(_db, self.timestamp, self.counter)
 
-            sql = "UPDATE timestamps SET timestamp=:timestamp, counter=:counter where service=:service"
-            keys = dict(
-                timestamp=self.timestamp,
-                counter=self.counter,
-                service=self.service,
+        def update(self, _db, timestamp, counter, migration_name=None):
+            """Saves a TimestampInfo object to the database"""
+            sql = (
+                "UPDATE timestamps SET timestamp=:timestamp, counter=:counter"
+                " where service=:service"
+            )
+            values = dict(
+                timestamp=timestamp, counter=counter, service=self.service,
             )
 
-            _db.execute(text(sql), keys)
-            _db.commit()
+            _db.execute(text(sql), values)
+            _db.flush()
 
             message = "New timestamp created at "+self.timestamp.strftime('%Y-%m-%d')
             if migration_name:
                 message += " for %s" % migration_name
             print message
-
-        def update(self, _db, timestamp, counter, migration_name=None):
-            """Updates a TimestampInfo object in the database"""
-            self.timestamp = timestamp
-            self.counter = counter
-
-            self.save(_db, migration_name=migration_name)
 
     @classmethod
     def arg_parser(cls):
@@ -2136,7 +2132,7 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 
         # Initialize the required timestamps with the Space Jame release date.
         init_timestamp = self.parse_time('1996-11-15')
-        overall_timestamp = existing_timestamp or Timestamp.find(
+        overall_timestamp = existing_timestamp or Timestamp.stamp(
             self._db, self.SERVICE_NAME, None, date=init_timestamp
         )
         python_timestamp = Timestamp.stamp(
