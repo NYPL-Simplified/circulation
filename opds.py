@@ -585,14 +585,14 @@ class AcquisitionFeed(OPDSFeed):
 
         # Add "up" link and breadcrumbs
         top_level_title = annotator.top_level_title() or "Collection Home"
-        visible_parent = lane.visible_parent()
-        if isinstance(visible_parent, Lane):
-            title = visible_parent.display_name
+        parent = lane.parent
+        if parent and parent.display_name:
+            parent_title = parent.display_name
         else:
-            title = top_level_title
-        if visible_parent:
-            up_uri = annotator.lane_url(visible_parent)
-            OPDSFeed.add_link_to_feed(feed=feed.feed, href=up_uri, rel="up", title=title)
+            parent_title = top_level_title
+        if parent:
+            up_uri = annotator.lane_url(parent)
+            OPDSFeed.add_link_to_feed(feed=feed.feed, href=up_uri, rel="up", title=parent_title)
             feed.add_breadcrumbs(lane, annotator)
 
         OPDSFeed.add_link_to_feed(feed=feed.feed, rel='start', href=annotator.default_lane_url(), title=top_level_title)
