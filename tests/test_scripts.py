@@ -592,26 +592,7 @@ class MockDatabaseMigrationScript(DatabaseMigrationScript):
         return test_directories
 
 
-class TestDatabaseMigrationScript(DatabaseTest):
-
-    def _create_test_migrations(self):
-        """Sets up migrations in the expected locations"""
-
-        directories = self.script.directories_by_priority
-        [self.core_migration_dir, self.parent_migration_dir] = directories
-
-        # Create temporary migration directories where
-        # DatabaseMigrationScript expects them.
-        for migration_dir in directories:
-            if not os.path.isdir(migration_dir):
-                temp_migration_dir = tempfile.mkdtemp()
-                shutil.move(temp_migration_dir, migration_dir)
-
-        # Put a file of each migratable type in both directories.
-        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql')
-        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'py')
-        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'sql')
-        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'py')
+class DatabaseMigrationScriptTest(DatabaseTest):
 
     def _create_test_migration_file(self, directory, unique_string,
                                     migration_type, migration_date=None):
@@ -663,12 +644,60 @@ class TestDatabaseMigrationScript(DatabaseTest):
         os.close(fd)
 
     def setup(self):
-        super(TestDatabaseMigrationScript, self).setup()
-        self.script = MockDatabaseMigrationScript(_db=self._db)
+        super(DatabaseMigrationScriptTest, self).setup()
 
         # This list holds any temporary files created during tests
         # so they can be deleted during teardown().
         self.migration_files = []
+
+        # Create temporary migration directories where
+        # DatabaseMigrationScript expects them.
+        script = MockDatabaseMigrationScript(self._db)
+        self.directories = script.directories_by_priority
+        [self.core_migration_dir, self.parent_migration_dir] = self.directories
+        for migration_dir in self.directories:
+            if not os.path.isdir(migration_dir):
+                temp_migration_dir = tempfile.mkdtemp()
+                shutil.move(temp_migration_dir, migration_dir)
+
+    def teardown(self):
+        """Delete any files and directories created during testing."""
+        for fpath in self.migration_files:
+            os.remove(fpath)
+
+        if self.migration_files:
+            for directory in self.directories:
+                os.rmdir(directory)
+
+        test_dir = os.path.split(__file__)[0]
+        all_files = os.listdir(test_dir)
+        test_generated_files = sorted(
+            [f for f in all_files if f.startswith(('CORE', 'SERVER'))]
+        )
+        for filename in test_generated_files:
+            os.remove(os.path.join(test_dir, filename))
+
+        timestamps = self._db.query(Timestamp).filter(
+            Timestamp.service.like('%Database Migration%')
+        ).delete(synchronize_session=False)
+
+        super(DatabaseMigrationScriptTest, self).teardown()
+
+
+class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
+
+    def _create_test_migrations(self):
+        """Sets up migrations in the expected locations"""
+        # Put a file of each migratable type in each temporary migration
+        # directory.
+        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql')
+        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'py')
+        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'sql')
+        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'py')
+
+    def setup(self):
+        super(TestDatabaseMigrationScript, self).setup()
+        self.script = MockDatabaseMigrationScript(_db=self._db)
         self._create_test_migrations()
 
         stamp = datetime.datetime.strptime('20260810', '%Y%m%d')
@@ -682,27 +711,6 @@ class TestDatabaseMigrationScript(DatabaseTest):
         self.timestamp_info = self.script.TimestampInfo(
             self.timestamp.service, self.timestamp.timestamp
         )
-
-    def teardown(self):
-        """Delete any files and directories created during testing."""
-        for fpath in self.migration_files:
-            os.remove(fpath)
-
-        for directory in self.script.directories_by_priority:
-            os.rmdir(directory)
-
-        test_dir = os.path.split(__file__)[0]
-        all_files = os.listdir(test_dir)
-        test_generated_files = sorted([f for f in all_files
-                                       if f.startswith(('CORE', 'SERVER'))])
-        for filename in test_generated_files:
-            os.remove(os.path.join(test_dir, filename))
-
-        timestamps = self._db.query(Timestamp).filter(
-            Timestamp.service.like('%Database Migration%')
-        ).delete(synchronize_session=False)
-
-        super(TestDatabaseMigrationScript, self).teardown()
 
     def test_name(self):
         """DatabaseMigrationScript.name returns an appropriate timestamp service
@@ -1037,7 +1045,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
         assert 'SERVER' in test_generated_files[1]
 
 
-class TestDatabaseMigrationInitializationScript(DatabaseTest):
+class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
 
     def setup(self):
         super(TestDatabaseMigrationInitializationScript, self).setup()
