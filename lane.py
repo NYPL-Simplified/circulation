@@ -928,6 +928,13 @@ class Lane(Base, WorkList):
         for lane in self.sublanes:
             if lane.visible:
                 yield lane
+
+    @property
+    def has_visible_children(self):
+        for lane in self.visible_children:
+            if lane:
+                return True
+        return False
     
     @hybrid_property
     def visible(self):

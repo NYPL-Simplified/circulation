@@ -1256,7 +1256,7 @@ class TestAnnotator(Annotator):
 
     @classmethod
     def lane_url(cls, lane):
-        if lane and lane.has_visible_sublane():
+        if lane and lane.has_visible_children:
             return cls.groups_url(lane)
         elif lane:
             return cls.feed_url(lane)

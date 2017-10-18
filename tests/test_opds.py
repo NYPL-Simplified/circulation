@@ -59,7 +59,7 @@ from util.opds_writer import (
 
 from classifier import (
     Classifier,
-    Epic_Fantasy,
+    Contemporary_Romance,
     Fantasy,
     Urban_Fantasy,
     History,
@@ -798,17 +798,18 @@ class TestOPDS(DatabaseTest):
         """Test the ability to create a paginated feed of works for a given
         lane.
         """       
-        fantasy_lane = self.lanes.by_languages['']['Epic Fantasy']        
-        work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
-        work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
+        lane = self.contemporary_romance
+        work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
+        work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
 
+        self.add_to_materialized_view([work1, work2], True)
         facets = Facets.default(self._default_library)
         pagination = Pagination(size=1)
 
         def make_page(pagination):
             return AcquisitionFeed.page(
-                self._db, "test", self._url, fantasy_lane, TestAnnotator, 
-                pagination=pagination, use_materialized_works=False
+                self._db, "test", self._url, lane, TestAnnotator, 
+                pagination=pagination
             )
         cached_works = make_page(pagination)
         parsed = feedparser.parse(unicode(cached_works.content))

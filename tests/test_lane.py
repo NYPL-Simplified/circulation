@@ -887,6 +887,10 @@ class TestLane(DatabaseTest):
         eq_(True, grandchild._visible)
         eq_(False, grandchild.visible)
 
+        eq_(True, parent.has_visible_children)
+        eq_(False, visible_child.has_visible_children)
+        eq_(False, invisible_child.has_visible_children)
+
     def test_url_name(self):
         lane = self._lane("Fantasy / Science Fiction")
         eq_("Fantasy __ Science Fiction", lane.url_name)
