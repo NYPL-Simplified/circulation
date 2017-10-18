@@ -920,29 +920,46 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
         """Resets a timestamp according to the date of a migration file"""
 
         migration = '20271202-future-migration-funtime.sql'
+        py_last_run_time = self.python_timestamp.timestamp
+
+        def assert_unchanged_python_timestamp():
+            eq_(py_last_run_time, self.python_timestamp.timestamp)
+
+        def assert_timestamp_matches_migration(timestamp, migration, counter=None):
+            self._db.refresh(timestamp)
+            timestamp_str = timestamp.timestamp.strftime('%Y%m%d')
+            eq_(migration[0:8], timestamp_str)
+            eq_(counter, timestamp.counter)
 
         assert self.timestamp_info.timestamp.strftime('%Y%m%d') != migration[0:8]
         self.script.update_timestamps(migration)
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+        assert_timestamp_matches_migration(self.timestamp, migration)
+        assert_unchanged_python_timestamp()
 
         # It also takes care of counter digits when multiple migrations
         # exist for the same date.
         migration = '20280810-2-do-all-the-things.sql'
         self.script.update_timestamps(migration)
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
-        eq_(str(self.timestamp.counter), migration[9])
+        assert_timestamp_matches_migration(self.timestamp, migration, counter=2)
+        assert_unchanged_python_timestamp()
 
         # And removes those counter digits when the timestamp is updated.
         migration = '20280901-what-it-do.sql'
         self.script.update_timestamps(migration)
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
-        eq_(self.timestamp.counter, None)
+        assert_timestamp_matches_migration(self.timestamp, migration)
+        assert_unchanged_python_timestamp()
 
         # If the migration is earlier than the existing timestamp,
         # the timestamp is not updated.
         migration = '20280801-before-the-existing-timestamp.sql'
         self.script.update_timestamps(migration)
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), '20280901')
+
+        # Python migrations update both timestamps.
+        migration = '20281001-new-task.py'
+        self.script.update_timestamps(migration)
+        assert_timestamp_matches_migration(self.timestamp, migration)
+        assert_timestamp_matches_migration(self.python_timestamp, migration)
 
     def test_running_a_migration_updates_the_timestamps(self):
         future_time = datetime.datetime.strptime('20261030', '%Y%m%d')
