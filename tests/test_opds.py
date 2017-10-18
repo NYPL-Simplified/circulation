@@ -875,8 +875,12 @@ class TestOPDS(DatabaseTest):
         a given lane.
         """
         lane = self.fantasy
-        epic_fantasy = self._lane("Epic Fantasy", parent=lane)
-        urban_fantasy = self._lane("Urban Fantasy", parent=lane)
+        epic_fantasy = self._lane(
+            "Epic Fantasy", parent=lane, genres=["Epic Fantasy"]
+        )
+        urban_fantasy = self._lane(
+            "Urban Fantasy", parent=lane, genres=["Urban Fantasy"]
+        )
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work1.quality = 0.75
         work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
@@ -921,7 +925,7 @@ class TestOPDS(DatabaseTest):
         eq_(annotator.top_level_title(), start_link['title'])
 
         # The feed has breadcrumb links
-        ancestors = lane.visible_ancestors()
+        ancestors = lane.parentage
         root = ET.fromstring(cached_groups.content)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()

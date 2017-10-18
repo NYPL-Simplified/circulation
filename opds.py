@@ -455,7 +455,6 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached
 
-        set_trace()
         works_and_lanes = lane.groups(_db)
         if not works_and_lanes:
             # We did not find enough works for a groups feed.
@@ -501,7 +500,7 @@ class AcquisitionFeed(OPDSFeed):
         all_works = annotator.sort_works_for_groups_feed(all_works)
         feed = AcquisitionFeed(_db, title, url, all_works, annotator)
 
-        cls.add_breadcrumbs(feed, lane, annotator)        
+        cls.add_breadcrumb_links(feed, lane, annotator)        
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
@@ -561,7 +560,7 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        cls.add_breadcrumbs(lane, annotator)
+        cls.add_breadcrumb_links(lane, annotator)
         
         annotator.annotate_feed(feed, lane)
 
@@ -572,7 +571,7 @@ class AcquisitionFeed(OPDSFeed):
         return content
 
     @classmethod
-    def add_breadcrumbs(self, feed, lane, annotator):
+    def add_breadcrumb_links(self, feed, lane, annotator):
         # Add "up" link and breadcrumbs
         top_level_title = annotator.top_level_title() or "Collection Home"
         parent = lane.parent
