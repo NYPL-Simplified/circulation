@@ -525,9 +525,9 @@ class WorkList(object):
             # reduced) standards.
             new_books = self.random_sample(query, target_size)
             for book in new_books:
-                if book.id not in book_ids:
+                if book.works_id not in book_ids:
                     books.append(book)
-                    book_ids.add(book.id)
+                    book_ids.add(book.works_id)
             if len(books) >= target_size:
                 # We found enough books.
                 break

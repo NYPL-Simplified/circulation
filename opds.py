@@ -433,8 +433,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator,
-               cache_type=None, force_refresh=False,
-               use_materialized_works=True):
+               cache_type=None, force_refresh=False):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
 
@@ -456,18 +455,13 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached
 
-        works_and_lanes = lane.sublane_samples(
-            use_materialized_works=use_materialized_works
-        )
+        set_trace()
+        works_and_lanes = lane.groups(_db)
         if not works_and_lanes:
             # We did not find enough works for a groups feed.
             # Instead we need to display a flat feed--the
             # contents of what would have been the 'all' feed.
-            if not isinstance(lane, Lane):
-                # This is probably a top-level controller or
-                # application object.  Create a dummy lane that
-                # contains everything.
-                lane = Lane(_db, "Everything")
+            #
             # Generate a page-type feed that is filed as a
             # groups-type feed so it will show up when the client
             # asks for it.
@@ -475,16 +469,13 @@ class AcquisitionFeed(OPDSFeed):
                 _db, title, url, lane, annotator,
                 cache_type=cache_type,
                 force_refresh=force_refresh,
-                use_materialized_works=use_materialized_works
             )
             return cached
 
-        if lane.include_all_feed:
+        if isinstance(lane, Lane):
             # Create an 'all' group so that patrons can browse every
             # book in this lane.
-            works = lane.featured_works(
-                use_materialized_works=use_materialized_works
-            )
+            works = lane.featured_works(_db)
             for work in works:
                 works_and_lanes.append((work, None))
 
@@ -510,20 +501,7 @@ class AcquisitionFeed(OPDSFeed):
         all_works = annotator.sort_works_for_groups_feed(all_works)
         feed = AcquisitionFeed(_db, title, url, all_works, annotator)
 
-        # Render a 'start' link and an 'up' link.
-        top_level_title = annotator.top_level_title() or "Collection Home"
-        AcquisitionFeed.add_link_to_feed(feed=feed.feed, href=annotator.default_lane_url(), rel="start", title=top_level_title)
-
-        if isinstance(lane, Lane):
-            visible_parent = lane.visible_parent()
-            if isinstance(visible_parent, Lane):
-                title = visible_parent.display_name
-            else:
-                title = top_level_title
-            up_uri = annotator.groups_url(visible_parent)
-            AcquisitionFeed.add_link_to_feed(feed=feed.feed, href=up_uri, rel="up", title=title)
-            feed.add_breadcrumbs(lane, annotator)
-        
+        cls.add_breadcrumbs(feed, lane, annotator)        
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
@@ -535,7 +513,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False, use_materialized_works=True,
+             force_refresh=False
     ):
         """Create a feed representing one page of works from a given lane.
 
@@ -583,6 +561,18 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
+        cls.add_breadcrumbs(lane, annotator)
+        
+        annotator.annotate_feed(feed, lane)
+
+        content = unicode(feed)
+        if cached and use_cache:
+            cached.update(_db, content)
+            return cached
+        return content
+
+    @classmethod
+    def add_breadcrumbs(self, feed, lane, annotator):
         # Add "up" link and breadcrumbs
         top_level_title = annotator.top_level_title() or "Collection Home"
         parent = lane.parent
@@ -596,14 +586,7 @@ class AcquisitionFeed(OPDSFeed):
             feed.add_breadcrumbs(lane, annotator)
 
         OPDSFeed.add_link_to_feed(feed=feed.feed, rel='start', href=annotator.default_lane_url(), title=top_level_title)
-        
-        annotator.annotate_feed(feed, lane)
 
-        content = unicode(feed)
-        if cached and use_cache:
-            cached.update(_db, content)
-            return cached
-        return content
 
     @classmethod
     def search(cls, _db, title, url, lane, search_engine, query, pagination=None,

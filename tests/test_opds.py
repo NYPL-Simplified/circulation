@@ -60,6 +60,7 @@ from util.opds_writer import (
 from classifier import (
     Classifier,
     Contemporary_Romance,
+    Epic_Fantasy,
     Fantasy,
     Urban_Fantasy,
     History,
@@ -873,12 +874,14 @@ class TestOPDS(DatabaseTest):
         """Test the ability to create a grouped feed of recommended works for
         a given lane.
         """
-        fantasy_lane = self.lanes.by_languages['']['Fantasy']
-        fantasy_lane.include_all_feed = False
+        lane = self.fantasy
+        epic_fantasy = self._lane("Epic Fantasy", parent=lane)
+        urban_fantasy = self._lane("Urban Fantasy", parent=lane)
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work1.quality = 0.75
         work2 = self._work(genre=Urban_Fantasy, with_open_access_download=True)
         work2.quality = 0.75
+        self.add_to_materialized_view([work1, work2])
 
         library = self._default_library
         library.setting(library.FEATURED_LANE_SIZE).value = 2
@@ -886,16 +889,16 @@ class TestOPDS(DatabaseTest):
         annotator = TestAnnotatorWithGroup()
 
         cached_groups = AcquisitionFeed.groups(
-            self._db, "test", self._url, fantasy_lane, annotator, 
-            force_refresh=True, use_materialized_works=False
+            self._db, "test", self._url, lane, annotator, 
+            force_refresh=True
         )
         parsed = feedparser.parse(cached_groups.content)
             
-        # There are two entries, one for each work.
-        e1, e2 = parsed['entries']
+        # There are four entries in three lanes.
+        e1, e2, e3, e4 = parsed['entries']
 
         # Each entry has one and only one link.
-        [l1], [l2] = e1['links'], e2['links']
+        [l1], [l2], [l3], [l4] = [x['links'] for x in parsed['entries']]
             
         # Those links are 'collection' links that classify the
         # works under their subgenres.
@@ -918,7 +921,7 @@ class TestOPDS(DatabaseTest):
         eq_(annotator.top_level_title(), start_link['title'])
 
         # The feed has breadcrumb links
-        ancestors = fantasy_lane.visible_ancestors()
+        ancestors = lane.visible_ancestors()
         root = ET.fromstring(cached_groups.content)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
@@ -933,8 +936,8 @@ class TestOPDS(DatabaseTest):
         # CachedFeeds aren't used.
         old_cache_count = self._db.query(CachedFeed).count()
         raw_groups = AcquisitionFeed.groups(
-            self._db, "test", self._url, fantasy_lane, annotator,
-            cache_type=AcquisitionFeed.NO_CACHE, use_materialized_works=False
+            self._db, "test", self._url, lane, annotator,
+            cache_type=AcquisitionFeed.NO_CACHE
         )
 
         # Unicode is returned instead of a CachedFeed object.
@@ -962,7 +965,7 @@ class TestOPDS(DatabaseTest):
 
         feed = AcquisitionFeed.groups(
             self._db, "test", self._url, test_lane, annotator,
-            force_refresh=True, use_materialized_works=False
+            force_refresh=True
         )
 
         # The feed is filed as a groups feed, even though in
@@ -981,7 +984,7 @@ class TestOPDS(DatabaseTest):
         """Test the ability to create a paginated feed of works for a given
         search query.
         """
-        fantasy_lane = self.lanes.by_languages['']['Epic Fantasy']
+        fantasy_lane = self.fantasy
         fantasy_lane.searchable = True
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
@@ -1043,12 +1046,12 @@ class TestOPDS(DatabaseTest):
     def test_cache(self):
         work1 = self._work(title="The Original Title",
                            genre=Epic_Fantasy, with_open_access_download=True)
-        fantasy_lane = self.lanes.by_languages['']['Fantasy']
+        fantasy_lane = self.fantasy
 
         def make_page():
             return AcquisitionFeed.page(
                 self._db, "test", self._url, fantasy_lane, TestAnnotator, 
-                pagination=Pagination.default(), use_materialized_works=False
+                pagination=Pagination.default()
             )
 
         af = AcquisitionFeed
