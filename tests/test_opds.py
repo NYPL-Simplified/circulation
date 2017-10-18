@@ -858,8 +858,7 @@ class TestOPDS(DatabaseTest):
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
             self._db, "test", self._url, lane, TestAnnotator,
-            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
-            use_materialized_works=False
+            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE
         )
 
         # Unicode is returned instead of a CachedFeed object.
@@ -956,12 +955,13 @@ class TestOPDS(DatabaseTest):
         feed has no books in the groups.
         """
         library = self._default_library
-        test_lane = Lane(self._db, library, "Test Lane", genres=['Mystery'])
+        test_lane = self._lane("Test Lane", genres=['Mystery'])
 
         work1 = self._work(genre=Mystery, with_open_access_download=True)
         work1.quality = 0.75
         work2 = self._work(genre=Mystery, with_open_access_download=True)
         work2.quality = 0.75
+        self.add_to_materialized_view([work1, work2], True)
 
         library.setting(library.FEATURED_LANE_SIZE).value = 2
         annotator = TestAnnotator()
@@ -1049,6 +1049,7 @@ class TestOPDS(DatabaseTest):
         work1 = self._work(title="The Original Title",
                            genre=Epic_Fantasy, with_open_access_download=True)
         fantasy_lane = self.fantasy
+        self.add_to_materialized_view([work1], True)
 
         def make_page():
             return AcquisitionFeed.page(
@@ -1068,7 +1069,8 @@ class TestOPDS(DatabaseTest):
         work2 = self._work(
             title="A Brand New Title", 
             genre=Epic_Fantasy, with_open_access_download=True
-        )
+        )        
+        self.add_to_materialized_view([work2], True)
 
         # The new work does not show up in the feed because 
         # we get the old cached version.

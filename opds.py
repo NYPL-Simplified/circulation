@@ -560,7 +560,7 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        cls.add_breadcrumb_links(lane, annotator)
+        cls.add_breadcrumb_links(feed, lane, annotator)
         
         annotator.annotate_feed(feed, lane)
 

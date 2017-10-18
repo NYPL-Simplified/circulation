@@ -6127,12 +6127,14 @@ class CachedFeed(Base):
               force_refresh=False, max_age=None):
         from opds import AcquisitionFeed
         if max_age is None:
-            if lane and hasattr(lane, 'MAX_CACHE_AGE'):
-                max_age = lane.MAX_CACHE_AGE
-            elif type == cls.GROUPS_TYPE:
+            if type == cls.GROUPS_TYPE:
                 max_age = AcquisitionFeed.grouped_max_age(_db)
             elif type == cls.PAGE_TYPE:
                 max_age = AcquisitionFeed.nongrouped_max_age(_db)
+            elif hasattr(lane, 'MAX_CACHE_AGE'):
+                max_age = lane.MAX_CACHE_AGE
+            else:
+                max_age = 0
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
         work = None

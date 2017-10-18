@@ -384,8 +384,8 @@ class WorkList(object):
     for use in generating an OPDS feed.
     """
 
-    # By default, the set of Works in a WorkList is cacheable for two
-    # weeks.
+    # Unless a sitewide setting intervenes, the set of Works in a
+    # WorkList is cacheable for two weeks by default.
     MAX_CACHE_AGE = 14*24*60*60
 
     # By default, a WorkList is always visible.
@@ -818,8 +818,8 @@ class Lane(Base, WorkList):
     books.
     """
 
-    # By default, the set of Works in a Lane is cacheable for twenty
-    # minutes.
+    # Unless a sitewide setting intervenes, the set of Works in a
+    # Lane is cacheable for twenty minutes by default.
     MAX_CACHE_AGE = 20*60
 
     __tablename__ = 'lanes'
