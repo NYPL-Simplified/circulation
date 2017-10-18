@@ -874,12 +874,11 @@ class TestOPDS(DatabaseTest):
         """Test the ability to create a grouped feed of recommended works for
         a given lane.
         """
-        lane = self.fantasy
         epic_fantasy = self._lane(
-            "Epic Fantasy", parent=lane, genres=["Epic Fantasy"]
+            "Epic Fantasy", parent=self.fantasy, genres=["Epic Fantasy"]
         )
         urban_fantasy = self._lane(
-            "Urban Fantasy", parent=lane, genres=["Urban Fantasy"]
+            "Urban Fantasy", parent=self.fantasy, genres=["Urban Fantasy"]
         )
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work1.quality = 0.75
@@ -893,7 +892,7 @@ class TestOPDS(DatabaseTest):
         annotator = TestAnnotatorWithGroup()
 
         cached_groups = AcquisitionFeed.groups(
-            self._db, "test", self._url, lane, annotator, 
+            self._db, "test", self._url, self.fantasy, annotator, 
             force_refresh=True
         )
         parsed = feedparser.parse(cached_groups.content)
@@ -925,7 +924,7 @@ class TestOPDS(DatabaseTest):
         eq_(annotator.top_level_title(), start_link['title'])
 
         # The feed has breadcrumb links
-        ancestors = lane.parentage
+        ancestors = list(self.fantasy.parentage)
         root = ET.fromstring(cached_groups.content)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
@@ -940,7 +939,7 @@ class TestOPDS(DatabaseTest):
         # CachedFeeds aren't used.
         old_cache_count = self._db.query(CachedFeed).count()
         raw_groups = AcquisitionFeed.groups(
-            self._db, "test", self._url, lane, annotator,
+            self._db, "test", self._url, self.fantasy, annotator,
             cache_type=AcquisitionFeed.NO_CACHE
         )
 

@@ -939,9 +939,8 @@ class Lane(Base, WorkList):
 
     @property
     def visible_children(self):
-        for lane in self.sublanes:
-            if lane.visible:
-                yield lane
+        children = [lane for lane in self.sublanes if lane.visible]
+        return sorted(children, key=lambda x: x.display_name)
 
     @property
     def parentage(self):
