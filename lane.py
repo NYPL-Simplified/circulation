@@ -431,7 +431,7 @@ class WorkList(object):
         self.languages = languages
         self.children = children or []
 
-    def library(self, _db):
+    def get_library(self, _db):
         """Find the Library object associated with this WorkList."""
         return Library.by_id(_db, self.library_id)
 
@@ -486,7 +486,7 @@ class WorkList(object):
         books = []
         book_ids = set()
         featured_subquery = None
-        library = self.library(_db)
+        library = self.get_library(_db)
         target_size = library.featured_lane_size
 
         # Try various Facets configurations in hopes of finding enough
@@ -717,7 +717,7 @@ class WorkList(object):
         Note that this assumes the query has an active join against
         LicensePool.
         """
-        return self.library(_db).restrict_to_ready_deliverable_works(
+        return self.get_library(_db).restrict_to_ready_deliverable_works(
             query, work_model, show_suppressed=show_suppressed,
             collection_ids=self.collection_ids
         )
@@ -811,8 +811,8 @@ class Lane(Base, WorkList):
 
     __tablename__ = 'lanes'
     id = Column(Integer, primary_key=True)
-    _library_id = Column(Integer, ForeignKey('libraries.id'), index=True,
-                     nullable=False, name="library_id")
+    library_id = Column(Integer, ForeignKey('libraries.id'), index=True,
+                        nullable=False)
     parent_id = Column(Integer, ForeignKey('lanes.id'), index=True,
                        nullable=True)
 
@@ -916,15 +916,13 @@ class Lane(Base, WorkList):
         UniqueConstraint('parent_id', 'display_name'),
     )
 
-    def library(self, _db):
-        """This takes a database connection for compatibility with
-        WorkList.library().
-        """
-        return self._library
+    def get_library(self, _db):
+        """For compatibility with WorkList.library()."""
+        return self.library
 
     @property
     def collection_ids(self):
-        return [x.id for x in self._library.collections]
+        return [x.id for x in self.library.collections]
 
     @property
     def visible_children(self):
@@ -1291,7 +1289,7 @@ class Lane(Base, WorkList):
         # DISTINCT to True on the query.
         return qu, True
 
-Library.lanes = relationship("Lane", backref="_library", foreign_keys=Lane._library_id)
+Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id)
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
 DataSource.license_lanes = relationship("Lane", backref="license_datasource", foreign_keys=Lane.license_datasource_id)
 

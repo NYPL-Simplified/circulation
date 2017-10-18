@@ -403,7 +403,7 @@ class TestWorkList(WorkListTest):
                       genres=[sf, romance])
 
         # Access the Library.
-        eq_(self._default_library, wl.library(self._db))
+        eq_(self._default_library, wl.get_library(self._db))
 
         # The Collections associated with the WorkList are those associated
         # with the Library.
@@ -869,9 +869,9 @@ class TestWorkList(WorkListTest):
 
 class TestLane(WorkListTest):
 
-    def test_library(self):
+    def test_get_library(self):
         lane = self._lane()
-        eq_(self._default_library, lane.library)
+        eq_(self._default_library, lane.get_library(self._db))
 
     def test_visible_children(self):
         parent = self._lane()
