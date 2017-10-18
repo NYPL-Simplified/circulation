@@ -289,7 +289,7 @@ class ExternalSearchIndex(object):
 
         return base_works_index
 
-    def query_works(self, library, query_string, media, languages, exclude_languages, fiction, audience,
+    def query_works(self, library, query_string, media, languages, fiction, audience,
                     age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
         if not self.works_alias:
             return []
@@ -306,7 +306,7 @@ class ExternalSearchIndex(object):
             collection_ids = [x.id for x in library.collections]
 
         filter = self.make_filter(
-            collection_ids, media, languages, exclude_languages, fiction, 
+            collection_ids, media, languages, fiction, 
             audience, age_range, in_any_of_these_genres
         )
         q = dict(
@@ -551,7 +551,7 @@ class ExternalSearchIndex(object):
             }
         }
         
-    def make_filter(self, collection_ids, media, languages, exclude_languages, fiction, audience, age_range, genres):
+    def make_filter(self, collection_ids, media, languages, fiction, audience, age_range, genres):
         def _f(s):
             if not s:
                 return s
@@ -571,8 +571,6 @@ class ExternalSearchIndex(object):
             clauses.append({'or': [collection_id_matches, no_collection_id]})
         if languages:
             clauses.append(dict(terms=dict(language=list(languages))))
-        if exclude_languages:
-            clauses.append({'not': dict(terms=dict(language=list(exclude_languages)))})
         if genres:
             if isinstance(genres[0], int):
                 # We were given genre IDs.
@@ -594,8 +592,11 @@ class ExternalSearchIndex(object):
                 audience = [_f(aud) for aud in audience]
                 clauses.append(dict(terms=dict(audience=audience)))
         if age_range:
-            lower = age_range[0]
-            upper = age_range[-1]
+            if isinstance(age_range, tuple) and len(age_range) == 2:
+                lower, upper = age_range
+            else:
+                lower = age_range.lower
+                upper = age_range.upper
 
             age_clause = {
                 "and": [

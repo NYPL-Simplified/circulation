@@ -979,7 +979,7 @@ class Lane(Base, WorkList):
 
     @hybrid_property
     def audiences(self):
-        return self._audiences
+        return self._audiences or []
 
     @audiences.setter
     def set_audiences(self, value):
