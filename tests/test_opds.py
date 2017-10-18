@@ -982,9 +982,7 @@ class TestOPDS(DatabaseTest):
         fantasy_lane.searchable = True
         work1 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
         work2 = self._work(genre=Epic_Fantasy, with_open_access_download=True)
-        work1.set_presentation_ready()
-        work2.set_presentation_ready()
-        SessionManager.refresh_materialized_views(self._db)
+        self.add_to_materialized_views([work1, work2])
 
         pagination = Pagination(size=1)
         search_client = DummyExternalSearchIndex()
