@@ -351,8 +351,10 @@ class MockFeaturedWorks(object):
             return []
 
 class MockWork(object):
+    """Acts as a Work or a MaterializedWork interchangeably."""
     def __init__(self, id):
         self.id = id
+        self.works_id = id
 
 class MockWorks(WorkList):
     """A WorkList that mocks works() but not featured_works()."""
