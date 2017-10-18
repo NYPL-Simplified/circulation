@@ -345,17 +345,17 @@ class DatabaseTest(object):
 
         return work
 
-    def add_to_materialized_view(self, works, calculate_presentation=False):
+    def add_to_materialized_view(self, works, true_opds=False):
         """Make sure all the works in `works` show up in the materialized view.
 
-        :param calculate_presentation: Call calculate_presentation() for each work
-        (which is quite slow) rather than faking it.
+        :param true_opds: Generate real OPDS entries for each each work,
+        rather than faking it.
         """
         if not isinstance(works, list):
             works = [works]
         for work in works:
-            if calculate_presentation:
-                work.calculate_presentation()
+            if true_opds:
+                work.calculate_opds_entries(verbose=False)
             else:
                 work.presentation_ready = True
                 work.simple_opds_entry = "<entry>an entry</entry>"

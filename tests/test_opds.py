@@ -817,15 +817,15 @@ class TestOPDS(DatabaseTest):
 
         # Make sure the links are in place.
         [up_link] = self.links(parsed, 'up')
-        eq_(TestAnnotator.groups_url(Fantasy), up_link['href'])
-        eq_(fantasy_lane.parent.display_name, up_link['title'])
+        eq_(TestAnnotator.groups_url(lane.parent), up_link['href'])
+        eq_(lane.parent.display_name, up_link['title'])
 
         [start] = self.links(parsed, 'start')
         eq_(TestAnnotator.groups_url(None), start['href'])
         eq_(TestAnnotator.top_level_title(), start['title'])
 
         [next_link] = self.links(parsed, 'next')
-        eq_(TestAnnotator.feed_url(fantasy_lane, facets, pagination.next_page), next_link['href'])
+        eq_(TestAnnotator.feed_url(lane, facets, pagination.next_page), next_link['href'])
 
         # This was the first page, so no previous link.
         eq_([], self.links(parsed, 'previous'))
@@ -834,18 +834,21 @@ class TestOPDS(DatabaseTest):
         cached_works = make_page(pagination.next_page)
         parsed = feedparser.parse(cached_works.content)
         [previous] = self.links(parsed, 'previous')
-        eq_(TestAnnotator.feed_url(fantasy_lane, facets, pagination), previous['href'])
+        eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
         eq_(work2.title, parsed['entries'][0]['title'])
 
         # The feed has breadcrumb links
-        ancestors = fantasy_lane.visible_ancestors()
+        parentage = list(lane.parentage)
         root = ET.fromstring(cached_works.content)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
-        eq_(len(ancestors) + 1, len(links))
+
+        # There's one breadcrumb link for each parent Lane, plus one for
+        # the top-level.
+        eq_(len(parentage) + 1, len(links))
         eq_(TestAnnotator.top_level_title(), links[0].get("title"))
         eq_(TestAnnotator.default_lane_url(), links[0].get("href"))
-        for i, lane in enumerate(reversed(ancestors)):
+        for i, lane in enumerate(parentage):
             eq_(lane.display_name, links[i+1].get("title"))
             eq_(TestAnnotator.lane_url(lane), links[i+1].get("href"))
 
@@ -853,7 +856,7 @@ class TestOPDS(DatabaseTest):
         # CachedFeeds aren't used.
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
-            self._db, "test", self._url, fantasy_lane, TestAnnotator,
+            self._db, "test", self._url, lane, TestAnnotator,
             pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE,
             use_materialized_works=False
         )
