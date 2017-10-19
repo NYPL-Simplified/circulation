@@ -967,10 +967,10 @@ class Lane(Base, WorkList):
         The Lane may be inside one or more non-Lane WorkLists, but those
         WorkLists are not counted in the parentage.
         """
-        seen = set()
         if not self.parent:
             return
         yield self.parent
+        seen = set(self, self.parent)
         for parent in self.parent.parentage:
             if parent in seen:
                 raise ValueError("Lane parentage loop detected")
@@ -1020,7 +1020,7 @@ class Lane(Base, WorkList):
         are [Young Adult, Adult].
 
         If you set target_age 12-15, you're saying that the audiences are
-        [Adult, Children].
+        [Young Adult, Children].
 
         If you set target age 0-2, you're saying that the audiences are
         [Children].
@@ -1036,8 +1036,19 @@ class Lane(Base, WorkList):
             value = (value, value)
         if isinstance(value, tuple):
             value = tuple_to_numericrange(value)
+        if value.lower >= Classifier.ADULT_AGE_CUTOFF:
+            # Adults are adults and there's no point in tracking
+            # precise age gradations for them.
+            value = tuple_to_numericrange(
+                (Classifier.ADULT_AGE_CUTOFF, value.upper)
+            )
+        if value.upper >= Classifier.ADULT_AGE_CUTOFF:
+            value = tuple_to_numericrange(
+                (value.lower, Classifier.ADULT_AGE_CUTOFF)
+            )
         self._target_age = value
-        if value.upper >= 18:
+
+        if value.upper >= Classifier.ADULT_AGE_CUTOFF:
             audiences.append(Classifier.AUDIENCE_ADULT)
         if value.lower < Classifier.YOUNG_ADULT_AGE_CUTOFF:
             audiences.append(Classifier.AUDIENCE_CHILDREN)
@@ -1185,15 +1196,12 @@ class Lane(Base, WorkList):
             docs = None
             a = time.time()
             try:
-                # TODO: once we migrate all existing search indexes,
-                # the first argument should become the Library associated
-                # with this Lane.
                 if search_lane.audiences:
                     audiences = list(search_lane.audiences)
                 else:
                     audiences = []
                 docs = search_client.query_works(
-                    library=None, 
+                    library=self.library, 
                     query_string=query, 
                     media=search_lane.media,
                     languages=search_lane.languages,

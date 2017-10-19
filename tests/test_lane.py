@@ -968,6 +968,13 @@ class TestLane(DatabaseTest):
         # But now you can modify .audiences.
         lane.audiences = [Classifier.AUDIENCE_CHILDREN]
 
+    def test_target_age_treats_all_adults_equally(self):
+        """We don't distinguish between different age groups for adults.
+        """
+        lane = self._lane()
+        lane.target_age = (35,40)
+        eq_((18, 18), tuple_to_numericrange(lane.target_age))
+
     def test_uses_customlists(self):
         lane = self._lane()
         eq_(False, lane.uses_customlists)
