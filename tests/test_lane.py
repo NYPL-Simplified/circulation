@@ -1275,7 +1275,9 @@ class TestLane(DatabaseTest):
         # This lane contains the YA book because its age range overlaps
         # the age range of the book.
         younger_ya = self._lane()
-        younger_ya.target_age = (12,13)
+        younger_ya.target_age = (12,14)
+        younger_ya_q = younger_ya.apply_age_range_filter(self._db, qu, Work)
+        eq_([fourteen_or_fifteen], younger_ya_q.all())
 
         # This lane contains no books because it skews too old for the YA
         # book, but books for adults are not allowed.
