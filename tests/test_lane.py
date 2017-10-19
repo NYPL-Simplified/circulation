@@ -168,8 +168,6 @@ class TestFacets(DatabaseTest):
         def compare(a, b):
             assert(len(a) == len(b))
             for i in range(0, len(a)):
-                if not a[i].compare(b[i]):
-                    set_trace()
                 assert(a[i].compare(b[i]))
 
         for m in mw, mwg:
@@ -370,10 +368,6 @@ class MockWorks(WorkList):
     def queue_works(self, works):
         """Set the next return value for works()."""
         self._works.append(works)
-
-    def queue_featured_works(self, works):
-        """Set the next return value for featured_works()."""
-        self._featured_works.append(works)
 
     def works(self, _db, facets=None, pagination=None, featured=False):
         self.works_calls.append((facets, pagination, featured))
