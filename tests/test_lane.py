@@ -973,7 +973,7 @@ class TestLane(DatabaseTest):
         """
         lane = self._lane()
         lane.target_age = (35,40)
-        eq_((18, 18), tuple_to_numericrange(lane.target_age))
+        eq_(tuple_to_numericrange((18, 18)), lane.target_age)
 
     def test_uses_customlists(self):
         lane = self._lane()

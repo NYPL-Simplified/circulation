@@ -970,7 +970,7 @@ class Lane(Base, WorkList):
         if not self.parent:
             return
         yield self.parent
-        seen = set(self, self.parent)
+        seen = set([self, self.parent])
         for parent in self.parent.parentage:
             if parent in seen:
                 raise ValueError("Lane parentage loop detected")
