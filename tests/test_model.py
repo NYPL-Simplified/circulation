@@ -36,6 +36,7 @@ from config import (
     temp_config,
 )
 
+import lane
 import model
 from model import (
     Admin,
@@ -6772,11 +6773,13 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # Mock model.site_configuration_has_changed
         self.old_site_configuration_has_changed = model.site_configuration_has_changed
         self.mock = self.MockSiteConfigurationHasChanged()
-        model.site_configuration_has_changed = self.mock.run
+        for module in model, lane:
+            module.site_configuration_has_changed = self.mock.run
 
     def teardown(self):
         super(TestSiteConfigurationHasChanged, self).teardown()
-        model.site_configuration_has_changed = self.old_site_configuration_has_changed
+        for module in model, lane:
+            module.site_configuration_has_changed = self.old_site_configuration_has_changed
         
     def test_site_configuration_has_changed(self):
         """Test the site_configuration_has_changed() function and its
@@ -6869,6 +6872,16 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         self.mock.assert_was_called()
         
         ConfigurationSetting.sitewide(self._db, "setting").value = "value2"
+        self.mock.assert_was_called()
+
+    def test_lane_change_updates_configuration(self):
+        """Verify that configuration-relevant changes work the same way
+        in the lane module as they do in the model module.
+        """
+        lane = self._lane()
+        self.mock.assert_was_called()
+        
+        lane.add_genre("Science Fiction")
         self.mock.assert_was_called()
 
     def test_configuration_relevant_collection_change_updates_configuration(self):

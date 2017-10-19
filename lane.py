@@ -41,6 +41,7 @@ from sqlalchemy.orm import (
 from model import (
     get_one_or_create,
     numericrange_to_tuple,
+    site_configuration_has_changed,
     tuple_to_numericrange,
     Base,
     CustomList,
@@ -62,6 +63,7 @@ from util import fast_query_count
 import elasticsearch
 
 from sqlalchemy import (
+    event,
     Boolean,
     Column,
     ForeignKey,
@@ -1339,3 +1341,12 @@ lanes_customlists = Table(
     ),
     UniqueConstraint('lane_id', 'customlist_id'),
 )
+
+@event.listens_for(Lane, 'after_insert')
+@event.listens_for(Lane, 'after_delete')
+@event.listens_for(Lane, 'after_update')
+@event.listens_for(LaneGenre, 'after_insert')
+@event.listens_for(LaneGenre, 'after_delete')
+@event.listens_for(LaneGenre, 'after_update')
+def configuration_relevant_lifecycle_event(mapper, connection, target):
+    site_configuration_has_changed(target)
