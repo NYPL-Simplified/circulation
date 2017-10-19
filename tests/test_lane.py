@@ -758,8 +758,6 @@ class TestWorkList(DatabaseTest):
 
         # But the hook methods were called with the correct arguments.
         eq_(True, called['apply_audience_filter'])
-        eq_(True, called['apply_custom_filters'])
-        eq_(featured_object, called['apply_custom_filters.featured'])
 
         # If languages and genre IDs are specified, then they are
         # incorporated into the query.
@@ -794,13 +792,6 @@ class TestWorkList(DatabaseTest):
             self._db, original_qu, wg, False
         )
         eq_(0, english_romance_qu.count())
-
-    def test_apply_custom_filters_default_noop(self):
-        """WorkList.apply_custom_filters is a no-op."""
-        wl = WorkList()
-        from model import MaterializedWork
-        qu = self._db.query(MaterializedWork)
-        eq_((qu, False), wl.apply_custom_filters(self._db, qu, None))
 
     def test_apply_audience_filter(self):
 
@@ -1144,14 +1135,14 @@ class TestLane(DatabaseTest):
         self.add_to_materialized_view([childrens_fiction, nonfiction])
 
         def match_works(lane, works, featured=False):
-            """Verify that calling apply_custom_filters to the given
+            """Verify that calling apply_bibliographic_filters to the given
             lane yields the given list of works.
             """
             from model import MaterializedWork
             base_query = self._db.query(MaterializedWork).join(
                 LicensePool, MaterializedWork.license_pool_id==LicensePool.id
             )
-            query, distinct = lane.apply_custom_filters(
+            query, distinct = lane.apply_bibliographic_filters(
                 self._db, base_query, MaterializedWork, featured
             )
             results = query.all()
@@ -1254,7 +1245,7 @@ class TestLane(DatabaseTest):
         # This lane only includes ebooks, and it's empty.
         lane.media = [Edition.BOOK_MEDIUM]
         qu = self._db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
-        qu, distinct = lane.apply_custom_filters(
+        qu, distinct = lane.apply_bibliographic_filters(
             self._db, qu, Edition, False
         )
         eq_([], qu.all())
@@ -1262,7 +1253,7 @@ class TestLane(DatabaseTest):
         # This lane only includes audiobooks, and it contains one book.
         lane.media = [Edition.AUDIO_MEDIUM]
         qu = self._db.query(Work).join(Work.license_pools)
-        qu, distinct = lane.apply_custom_filters(
+        qu, distinct = lane.apply_bibliographic_filters(
             self._db, qu, Edition, False
         )
         eq_([audiobook], qu.all())

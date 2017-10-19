@@ -703,20 +703,7 @@ class WorkList(object):
             qu = qu.filter(work_model.language.in_(self.languages))
         if self.genre_ids:
             qu = qu.filter(work_model.genre_id.in_(self.genre_ids))
-        return self.apply_custom_filters(_db, qu, work_model, featured)
-
-    def apply_custom_filters(self, _db, qu, work_model, featured=False):
-        """Apply subclass-specific filters to a query in progress.
-
-        By default, this does nothing.
-
-        :return: A 2-tuple (query, distinct). `distinct` controls whether
-        the query should be made DISTINCT. We never want to show duplicate
-        Works in a query, but adding DISTINCT slows things down, so you
-        should only return it when it's reasonable that a book might show
-        up more than once.
-        """
-        return (qu, False)
+        return qu, False
 
     def apply_audience_filter(self, _db, qu, work_model):
         """Make sure that only Works classified under this lane's
@@ -1229,13 +1216,15 @@ class Lane(Base, WorkList):
 
         return results
 
-    def apply_custom_filters(self, _db, qu, work_model, featured=False):
+    def apply_bibliographic_filters(self, _db, qu, work_model, featured=False):
         """Apply filters to a base query against a materialized view,
         yielding a query that only finds books in this Lane.
 
         :param work_model: Either MaterializedWork or MaterializedWorkWithGenre
         """
-        parent_distinct = False
+        qu, superclass_distinct = super(Lane, self).apply_bibliographic_filters(
+            _db, qu, work_model, featured
+        )
         if self.parent and self.inherit_parent_restrictions:
             # In addition to the other restrictions imposed by this
             # Lane, books will show up here only if they would
@@ -1243,6 +1232,8 @@ class Lane(Base, WorkList):
             qu, parent_distinct = self.parent.apply_bibliographic_filters(
                 _db, qu, work_model, featured
             )
+        else:
+            parent_distinct = False
 
         # If a license source is specified, only show books from that
         # source.
@@ -1259,7 +1250,7 @@ class Lane(Base, WorkList):
         qu, child_distinct = self.apply_customlist_filter(
             qu, work_model, featured
         )
-        return qu, (parent_distinct or child_distinct)
+        return qu, (superclass_distinct or parent_distinct or child_distinct)
 
     def apply_age_range_filter(self, _db, qu, work_model):
         """Filter out all books that are not classified as suitable for this
