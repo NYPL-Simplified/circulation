@@ -982,7 +982,7 @@ class AcquisitionFeed(OPDSFeed):
             )
             
             # Add links for all visible ancestors that aren't root
-            for ancestor in lane.parentage:
+            for ancestor in reversed(lane.parentage):
                 lane_url = annotator.lane_url(ancestor)
                 if lane_url != root_url:
                     breadcrumbs.append(
