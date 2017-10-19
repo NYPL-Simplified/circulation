@@ -594,6 +594,26 @@ class MockDatabaseMigrationScript(DatabaseMigrationScript):
 
 class DatabaseMigrationScriptTest(DatabaseTest):
 
+    def create_mock_script(self, cls, _db):
+        """Creates a mock version of a DatabaseMigrationScript"""
+
+        class MockDatabaseMigrationScript(cls):
+
+            @property
+            def directories_by_priority(self):
+                """Uses test migration directories to find migration files."""
+                real_migration_directories = super(
+                    MockDatabaseMigrationScript, self
+                ).directories_by_priority
+
+                test_directories = [
+                    os.path.join(os.path.split(d)[0], 'test_migration')
+                    for d in real_migration_directories
+                ]
+                return test_directories
+
+        return MockDatabaseMigrationScript(_db=_db)
+
     def _create_test_migration_file(self, directory, unique_string,
                                     migration_type, migration_date=None):
         suffix = '.'+migration_type
@@ -652,7 +672,7 @@ class DatabaseMigrationScriptTest(DatabaseTest):
 
         # Create temporary migration directories where
         # DatabaseMigrationScript expects them.
-        script = MockDatabaseMigrationScript(self._db)
+        script = self.create_mock_script(DatabaseMigrationScript, self._db)
         self.directories = script.directories_by_priority
         [self.core_migration_dir, self.parent_migration_dir] = self.directories
         for migration_dir in self.directories:
@@ -697,7 +717,7 @@ class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
 
     def setup(self):
         super(TestDatabaseMigrationScript, self).setup()
-        self.script = MockDatabaseMigrationScript(_db=self._db)
+        self.script = self.create_mock_script(DatabaseMigrationScript, self._db)
         self._create_test_migrations()
 
         stamp = datetime.datetime.strptime('20260810', '%Y%m%d')
@@ -1066,45 +1086,66 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
 
     def setup(self):
         super(TestDatabaseMigrationInitializationScript, self).setup()
-        self.script = DatabaseMigrationInitializationScript(_db=self._db)
+        self.script = DatabaseMigrationInitializationScript(self._db)
 
-    @property
-    def timestamp(self):
-        return self._db.query(Timestamp).\
-            filter(Timestamp.service==self.script.name).one()
+    def assert_matches_latest_migration(self, timestamp, script=None, last_migration_date=None):
+        script = script or self.script
+        migrations = script.fetch_migration_files()[0]
+        if not last_migration_date:
+            last_migration_date = script.sort_migrations(migrations)[-1][:8]
+        eq_(timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
 
-    def assert_matches_latest_migration(self):
-        migrations = self.script.fetch_migration_files()[0]
-        last_migration_date = self.script.sort_migrations(migrations)[-1][:8]
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
-
-    def test_accurate_timestamp_created(self):
+    def test_accurate_timestamps_created(self):
         eq_(None, Timestamp.value(self._db, self.script.name, collection=None))
 
         self.script.run()
-        self.assert_matches_latest_migration()
+        self.assert_matches_latest_migration(self.script.overall_timestamp)
+        self.assert_matches_latest_migration(self.script.python_timestamp)
+
+    def test_accurate_python_timestamp_craeted(self):
+        script = self.create_mock_script(
+            DatabaseMigrationInitializationScript, self._db
+        )
+        eq_(None, Timestamp.value(self._db, script.name, collection=None))
+
+        # If the last python migration and the last SQL migration have
+        # different timestamps, they're set accordingly.
+        self._create_test_migration_file(
+            self.core_migration_dir, 'CORE', 'sql', '20310101'
+        )
+        self._create_test_migration_file(
+            self.parent_migration_dir, 'SERVER', 'py', '20300101'
+        )
+
+        script.run()
+        self.assert_matches_latest_migration(script.overall_timestamp, script)
+        self.assert_matches_latest_migration(
+            script.python_timestamp, script, '20300101'
+        )
 
     def test_error_raised_when_timestamp_exists(self):
         Timestamp.stamp(self._db, self.script.name, None)
         assert_raises(RuntimeError, self.script.run)
 
     def test_error_not_raised_when_timestamp_forced(self):
-        Timestamp.stamp(self._db, self.script.name, None)
+        past = self.script.parse_time('19951127')
+        Timestamp.stamp(self._db, self.script.name, None, date=past)
         self.script.run(['-f'])
-        self.assert_matches_latest_migration()
+        self.assert_matches_latest_migration(self.script.overall_timestamp)
+        self.assert_matches_latest_migration(self.script.python_timestamp)
 
     def test_accepts_last_run_date(self):
         # A timestamp can be passed via the command line.
         self.script.run(['--last-run-date', '20101010'])
         expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
-        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(expected_stamp, self.script.overall_timestamp.timestamp)
 
         # It will override an existing timestamp if forced.
-        previous_timestamp = self.timestamp
+        previous_timestamp = Timestamp.stamp(self._db, self.script.name, None)
         self.script.run(['--last-run-date', '20111111', '--force'])
         expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d')
-        eq_(previous_timestamp, self.timestamp)
-        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(expected_stamp, self.script.overall_timestamp.timestamp)
+        eq_(expected_stamp, self.script.python_timestamp.timestamp)
 
     def test_accepts_last_run_counter(self):
         # If a counter is passed without a date, an error is raised.
@@ -1113,16 +1154,17 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
         # With a date, the counter can be set.
         self.script.run(['--last-run-date', '20101010', '--last-run-counter', '7'])
         expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
-        eq_(expected_stamp, self.timestamp.timestamp)
-        eq_(7, self.timestamp.counter)
+        eq_(expected_stamp, self.script.overall_timestamp.timestamp)
+        eq_(7, self.script.overall_timestamp.counter)
 
         # When forced, the counter can be reset on an existing timestamp.
-        previous_timestamp = self.timestamp
+        previous_timestamp = self.script.overall_timestamp.timestamp
         self.script.run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
         expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d')
-        eq_(previous_timestamp, self.timestamp)
-        eq_(expected_stamp, self.timestamp.timestamp)
-        eq_(2, self.timestamp.counter)
+        eq_(expected_stamp, self.script.overall_timestamp.timestamp)
+        eq_(expected_stamp, self.script.python_timestamp.timestamp)
+        eq_(2, self.script.overall_timestamp.counter)
+        eq_(2, self.script.python_timestamp.counter)
 
 
 class TestAddClassificationScript(DatabaseTest):
