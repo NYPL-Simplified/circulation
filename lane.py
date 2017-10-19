@@ -391,6 +391,9 @@ class WorkList(object):
     # By default, a WorkList is always visible.
     visible = True
 
+    # By default, a WorkList does not draw from CustomLists
+    uses_customlists = False
+
     def initialize(self, library, display_name=None, genres=None, 
                    audiences=None, languages=None, children=None):
         """Initialize with basic data.
@@ -533,8 +536,7 @@ class WorkList(object):
                 break
         return books[:target_size]
 
-    @classmethod
-    def featured_collection_facets(cls):
+    def featured_collection_facets(self):
         """Yield a sequence of Facets settings to use when trying to find
         featured works.
 
@@ -542,12 +544,20 @@ class WorkList(object):
         to find enough books to fill a 'featured' lane.
 
         :yield: A series of 3-tuples (collection_facet,
-                availability_facet, featured_on_customlist). Since
-                generic WorkLists don't take their content from
-                CustomLists, featured_on_customlist is always False
-                here, but a Lane based on a CustomList will sometimes
-                yield a 3-tuple with featured_on_customlist=True
+                availability_facet, featured_on_customlist).
         """
+        if self.uses_customlists:
+            # If a WorkList uses CustomLists, then the surest way to
+            # know that a work is featured is to check whether its
+            # entry on one of its CustomLists has been explicitly
+            # marked as 'featured'. The work's 'quality' setting is
+            # irrelevant.
+            #
+            # However, we still prefer currently available books to
+            # books that have a holds queue.
+            yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, True)
+            yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, True)
+
         # The 'featured' collection contains high quality works.
         yield (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False)
         yield (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, False)
@@ -1208,31 +1218,6 @@ class Lane(Base, WorkList):
                     results = self.works_for_specific_ids(_db, doc_ids)
 
         return results
-
-    def featured_collection_facets(self):
-        """Yield a sequence of Facets settings to use when trying to find
-        featured works.
-
-        The sequence represents our becoming more and more desperate
-        to find enough books to fill a 'featured' lane.
-
-        :yield: A series of 3-tuples (collection_facet, availability_facet,
-                featured_on_customlist).
-        """
-        if self.uses_customlists:
-            # If a Lane uses CustomLists, then the surest way to know
-            # that a work is featured is to check whether its entry on
-            # one of its CustomLists has been explicitly marked as
-            # 'featured'. The work's 'quality' setting is irrelevant.
-            #
-            # However, we still prefer currently available books to
-            # books that have a holds queue.
-            yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, True)
-            yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, True)
-
-        # If that didn't get us enough books, use the default facet sets.
-        for i in WorkList.featured_collection_facets():
-            yield i
 
     def apply_custom_filters(self, _db, qu, work_model, featured=False):
         """Apply filters to a base query against a materialized view,

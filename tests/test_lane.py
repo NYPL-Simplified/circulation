@@ -502,7 +502,7 @@ class TestWorkList(DatabaseTest):
             (facets.collection, facets.availability, featured)
             for [facets, pagination, featured] in wl.works_calls
         ]
-        expect_facets = list(MockWorks.featured_collection_facets())
+        expect_facets = list(MockWorks().featured_collection_facets())
         eq_(actual_facets, expect_facets)
 
         # Here, we will get three sets of results before we have enough works.
@@ -561,8 +561,11 @@ class TestWorkList(DatabaseTest):
          (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False),
          (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False)
         ]
-        actual = list(WorkList.featured_collection_facets())
+        actual = list(WorkList().featured_collection_facets())
         eq_(expect, actual)
+
+        # See TestLane.test_featured_collection_facets to see what
+        # changes when a WorkList can draw from CustomLists.
 
     def test_works(self):
         """Verify that WorkList.works() correctly locates works
@@ -1105,7 +1108,7 @@ class TestLane(DatabaseTest):
         eq_(work.id, result.works_id)
 
     def test_featured_collection_facets(self):
-        default_facets = list(WorkList.featured_collection_facets())
+        default_facets = list(WorkList().featured_collection_facets())
         
         # A Lane that's not based on CustomLists has a generic set of
         # facets.
