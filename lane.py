@@ -540,6 +540,13 @@ class WorkList(object):
 
         The sequence represents our becoming more and more desperate
         to find enough books to fill a 'featured' lane.
+
+        :yield: A series of 3-tuples (collection_facet,
+                availability_facet, featured_on_customlist). Since
+                generic WorkLists don't take their content from
+                CustomLists, featured_on_customlist is always False
+                here, but a Lane based on a CustomList will sometimes
+                yield a 3-tuple with featured_on_customlist=True
         """
         # The 'featured' collection contains high quality works.
         yield (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False)
@@ -840,7 +847,8 @@ class Lane(Base, WorkList):
     genres = association_proxy('lane_genres', 'genre',
                                creator=LaneGenre.from_genre)
     lane_genres = relationship(
-        "LaneGenre", foreign_keys="LaneGenre.lane_id", backref="lane"
+        "LaneGenre", foreign_keys="LaneGenre.lane_id", backref="lane",
+        cascade='all, delete-orphan'
     )
 
     # identifier is a name for this lane that is unique across the
@@ -902,16 +910,14 @@ class Lane(Base, WorkList):
 
     # This has no effect unless list_datasource_id or
     # list_identifier_id is also set. If this is set, then a book will
-    # only be shown if it was seen on an appropriate list within this
-    # number of days. If the number is zero, the book must be
-    # _currently_ on an appropriate list.
+    # only be shown if it has a CustomListEntry on an appropriate list
+    # where `most_recent_appearance` is within this number of days. If
+    # the number is zero, then the lane contains _every_ book with a
+    # CustomListEntry associated with an appropriate list.
     list_seen_in_previous_days = Column(Integer, nullable=True)
 
     # If this is set to True, then a book will show up in a lane only
     # if it would _also_ show up in its parent lane.
-    #
-    # Currently this has no effect unless list_datasource_id or
-    # list_identifier_id is also set.
     inherit_parent_restrictions = Column(Boolean, default=False, nullable=False)
 
     # Patrons whose external type is in this list will be sent to this
@@ -1084,9 +1090,9 @@ class Lane(Base, WorkList):
                     bucket.add(subgenre.id)
         genre_ids = included_ids - excluded_ids
         if not genre_ids:
-            # NOTE: This can't happen because you can't have two
-            # LaneGenres for the same Lane and Genre, and because
-            # every Genre has at most one parent. 
+            # This can happen if you create a lane where 'Epic
+            # Fantasy' is included but 'Fantasy' and its subgenres are
+            # excluded.
             logging.error(
                 "Lane %s has a self-negating set of genre IDs.", self.identifier
             )
@@ -1204,9 +1210,14 @@ class Lane(Base, WorkList):
         return results
 
     def featured_collection_facets(self):
-        """In descending order of preference, yield (collection_type,
-        availability, featured_on_list) 3-tuples that featured_works()
-        will use to find the 'best' works in this lane.
+        """Yield a sequence of Facets settings to use when trying to find
+        featured works.
+
+        The sequence represents our becoming more and more desperate
+        to find enough books to fill a 'featured' lane.
+
+        :yield: A series of 3-tuples (collection_facet, availability_facet,
+                featured_on_customlist).
         """
         if self.uses_customlists:
             # If a Lane uses CustomLists, then the surest way to know

@@ -1025,6 +1025,15 @@ class TestLane(DatabaseTest):
         assert science_fiction.id in fantasy.genre_ids
         assert space_opera.id not in fantasy.genre_ids
 
+        # Let's add Space Opera, but exclude Science Fiction and its
+        # subgenres.
+        fantasy.lane_genres = []
+        fantasy.add_genre("Space Opera")
+        fantasy.add_genre("Science Fiction", inclusive=False, recursive=True)
+        
+        # That eliminates everything.
+        eq_(set([]), fantasy.genre_ids)
+
         # NOTE: We don't have any doubly nested subgenres, so we can't
         # test the case where a genre is included recursively but one
         # of its subgenres is exclused recursively (in which case the
