@@ -339,6 +339,7 @@ class MockFeaturedWorks(object):
 
     def __init__(self):
         self._featured_works = []
+        self.visible = True
 
     def queue_featured_works(self, works):
         """Set the next return value for featured_works()."""
@@ -418,7 +419,31 @@ class TestWorkList(DatabaseTest):
         eq_([child], wl.visible_children)
 
     def test_audience_key(self):
-        pass
+        wl = WorkList()
+        wl.initialize(library=self._default_library)
+
+        # No audience.
+        eq_(u'', wl.audience_key)
+
+        # All audiences.
+        wl.audiences = Classifier.AUDIENCES
+        eq_(u'', wl.audience_key)
+
+        # Specific audiences.
+        wl.audiences = [Classifier.AUDIENCE_CHILDREN, 
+                        Classifier.AUDIENCE_YOUNG_ADULT]
+        eq_(u'Children,Young+Adult', wl.audience_key)
+
+    def test_visible_children(self):
+        wl = WorkList()
+        visible = self._lane()
+        invisible = self._lane()
+        invisible.visible = False
+        child_wl = WorkList()
+        wl.initialize(
+            self._default_library, children=[visible, invisible, child_wl]
+        )
+        eq_([visible, child_wl], wl.visible_children)
 
     def test_groups(self):
         w1 = MockWork(1)

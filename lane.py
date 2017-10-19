@@ -439,7 +439,7 @@ class WorkList(object):
         """A WorkList's children can be used to create a grouped acquisition
         feed for that WorkList.
         """
-        return self.children
+        return [x for x in self.children if x.visible]
 
     @property
     def has_visible_children(self):
