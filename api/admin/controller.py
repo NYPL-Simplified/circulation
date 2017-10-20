@@ -203,8 +203,6 @@ class AdminController(object):
     def check_csrf_token(self):
         """Verifies that the CSRF token in the form data or X-CSRF-Token header
         matches the one in the session cookie.
-        TODO: Change all requests to use the X-CSRF-Token header instead of form
-        data.
         """
         cookie_token = self.get_csrf_token()
         header_token = flask.request.headers.get("X-CSRF-Token")
