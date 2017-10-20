@@ -340,6 +340,8 @@ class MockFeaturedWorks(object):
     def __init__(self):
         self._featured_works = []
         self.visible = True
+        self.priority = 0
+        self.display_name = "name"
 
     def queue_featured_works(self, works):
         """Set the next return value for featured_works()."""
@@ -394,6 +396,7 @@ class TestWorkList(DatabaseTest):
     def test_initialize(self):
         wl = WorkList()
         child = WorkList()
+        child.initialize(self._default_library)
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         romance, ignore = Genre.lookup(self._db, "Romance")
 
@@ -441,6 +444,7 @@ class TestWorkList(DatabaseTest):
         invisible = self._lane()
         invisible.visible = False
         child_wl = WorkList()
+        child_wl.initialize(self._default_library)
         wl.initialize(
             self._default_library, children=[visible, invisible, child_wl]
         )
