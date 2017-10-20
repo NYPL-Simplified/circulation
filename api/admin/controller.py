@@ -207,9 +207,8 @@ class AdminController(object):
         data.
         """
         cookie_token = self.get_csrf_token()
-        form_token = flask.request.form.get("csrf_token")
         header_token = flask.request.headers.get("X-CSRF-Token")
-        if not cookie_token or cookie_token != (form_token or header_token):
+        if not cookie_token or cookie_token != header_token:
             return INVALID_CSRF_TOKEN
         return cookie_token
 
@@ -383,8 +382,10 @@ class WorkController(CirculationManagerController):
             return work
 
         annotator = AdminAnnotator(self.circulation, flask.request.library)
+        # Don't cache these OPDS entries - they should update immediately
+        # in the admin interface when an admin makes a change.
         return entry_response(
-            AcquisitionFeed.single_entry(self._db, work, annotator)
+            AcquisitionFeed.single_entry(self._db, work, annotator), cache_for=0,
         )
         
     def complaints(self, identifier_type, identifier):
@@ -524,12 +525,15 @@ class WorkController(CirculationManagerController):
 
     def refresh_metadata(self, identifier_type, identifier, provider=None):
         """Refresh the metadata for a book from the content server"""
-        if not provider:
-            provider = MetadataWranglerCoverageProvider(self._db)
-
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
+
+        if not provider and work.license_pools:
+            provider = MetadataWranglerCoverageProvider(work.license_pools[0].collection)
+
+        if not provider:
+            return METADATA_REFRESH_FAILURE
 
         identifier = work.presentation_edition.primary_identifier
         try:
@@ -540,8 +544,8 @@ class WorkController(CirculationManagerController):
 
         if record.exception:
             # There was a coverage failure.
-            if (isinstance(record.exception, int)
-                and record.exception in [201, 202]):
+            if (str(record.exception).startswith("201") or
+                str(record.exception).startswith("202")):
                 # A 201/202 error means it's never looked up this work before
                 # so it's started the resolution process or looking for sources.
                 return METADATA_REFRESH_PENDING
@@ -767,7 +771,7 @@ class WorkController(CirculationManagerController):
         return Response("", 200)
 
     def _count_complaints_for_work(self, work):
-        complaint_types = [complaint.type for complaint in work.complaints]
+        complaint_types = [complaint.type for complaint in work.complaints if not complaint.resolved]
         return Counter(complaint_types)
 
     
@@ -784,7 +788,7 @@ class FeedController(CirculationManagerController):
             url=this_url, annotator=annotator,
             pagination=pagination
         )
-        return feed_response(opds_feed)    
+        return feed_response(opds_feed, cache_for=0)
 
     def suppressed(self):
         this_url = self.url_for('suppressed')
@@ -797,7 +801,7 @@ class FeedController(CirculationManagerController):
             url=this_url, annotator=annotator,
             pagination=pagination
         )
-        return feed_response(opds_feed)
+        return feed_response(opds_feed, cache_for=0)
 
     def genres(self):
         data = dict({
