@@ -1690,6 +1690,10 @@ class DatabaseMigrationScript(Script):
 
         def update(self, _db, timestamp, counter, migration_name=None):
             """Saves a TimestampInfo object to the database"""
+            # Reset values locally.
+            self.timestamp = timestamp
+            self.counter = counter
+
             sql = (
                 "UPDATE timestamps SET timestamp=:timestamp, counter=:counter"
                 " where service=:service"
@@ -1701,7 +1705,9 @@ class DatabaseMigrationScript(Script):
             _db.execute(text(sql), values)
             _db.flush()
 
-            message = "New timestamp created at "+self.timestamp.strftime('%Y-%m-%d')
+            message = "%s Timestamp stamped at %s" % (
+                self.service, self.timestamp.strftime('%Y-%m-%d')
+            )
             if migration_name:
                 message += " for %s" % migration_name
             print message
@@ -1858,7 +1864,7 @@ class DatabaseMigrationScript(Script):
 
         if not timestamp:
             # No timestamp was given. Get the timestamp from the database.
-            timestamp = TimestampInfo.find(self._db, self.name)
+            timestamp = self.TimestampInfo.find(self._db, self.name)
 
         if not timestamp or not self.overall_timestamp:
             # There's no timestamp in the database! Raise an error.
@@ -2130,7 +2136,7 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
                     "%s timestamp already exists: %r. Use --force to update." %
                     (self.name, existing_timestamp))
 
-        # Initialize the required timestamps with the Space Jame release date.
+        # Initialize the required timestamps with the Space Jam release date.
         init_timestamp = self.parse_time('1996-11-15')
         overall_timestamp = existing_timestamp or Timestamp.stamp(
             self._db, self.SERVICE_NAME, None, date=init_timestamp
