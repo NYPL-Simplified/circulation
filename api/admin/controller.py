@@ -1215,9 +1215,9 @@ class SettingsController(CirculationManagerController):
                     ))
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(library.uuid), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(library.uuid), 200)
 
     def _get_integration_protocols(self, provider_apis, protocol_name_attr="__module__"):
         protocols = []
@@ -1487,9 +1487,9 @@ class SettingsController(CirculationManagerController):
                 library.collections.remove(collection)
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(collection.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(collection.id), 200)
 
     def admin_auth_services(self):
         provider_apis = [GoogleOAuthAdminAuthenticationProvider]
@@ -1536,9 +1536,9 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(auth_service.protocol), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(auth_service.protocol), 200)
 
     def individual_admins(self):
         if flask.request.method == 'GET':
@@ -1566,9 +1566,9 @@ class SettingsController(CirculationManagerController):
             return MISSING_PGCRYPTO_EXTENSION
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(admin.email), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(admin.email), 200)
 
     def patron_auth_services(self):
         provider_apis = [SimpleAuthenticationProvider,
@@ -1653,9 +1653,9 @@ class SettingsController(CirculationManagerController):
                     return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(auth_service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(auth_service.id), 200)
 
     def sitewide_settings(self):
         if flask.request.method == 'GET':
@@ -1680,7 +1680,7 @@ class SettingsController(CirculationManagerController):
 
         setting = ConfigurationSetting.sitewide(self._db, key)
         setting.value = value
-        return Response(unicode(_("Success")), 200)
+        return Response(unicode(setting.key), 200)
 
     def metadata_services(
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, 
@@ -1747,9 +1747,9 @@ class SettingsController(CirculationManagerController):
                 return problem_detail
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
 
     def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
                               do_post=HTTP.debuggable_post, key=None
@@ -1890,9 +1890,9 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
 
     def cdn_services(self):
         protocols = [
@@ -1950,9 +1950,9 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
 
 
     def search_services(self):
@@ -2007,9 +2007,9 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
 
     def discovery_services(self):
         protocols = [
@@ -2076,9 +2076,9 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
 
     def library_registrations(self, do_get=HTTP.debuggable_get, 
                               do_post=HTTP.debuggable_post, key=None):
