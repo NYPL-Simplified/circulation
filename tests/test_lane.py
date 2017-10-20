@@ -338,6 +338,8 @@ class MockFeaturedWorks(object):
     def __init__(self):
         self._featured_works = []
         self.visible = True
+        self.priority = 0
+        self.display_name = "name"
 
     def queue_featured_works(self, works):
         """Set the next return value for featured_works()."""
@@ -388,6 +390,7 @@ class TestWorkList(DatabaseTest):
     def test_initialize(self):
         wl = WorkList()
         child = WorkList()
+        child.initialize(self._default_library)
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         romance, ignore = Genre.lookup(self._db, "Romance")
 
@@ -429,15 +432,43 @@ class TestWorkList(DatabaseTest):
         eq_(u'Children,Young+Adult', wl.audience_key)
 
     def test_visible_children(self):
+        """Invisible children don't show up in WorkList.visible_children."""
         wl = WorkList()
         visible = self._lane()
         invisible = self._lane()
         invisible.visible = False
         child_wl = WorkList()
+        child_wl.initialize(self._default_library)
         wl.initialize(
             self._default_library, children=[visible, invisible, child_wl]
         )
-        eq_([visible, child_wl], wl.visible_children)
+        eq_(set([child_wl, visible]), set(wl.visible_children))
+
+    def test_visible_children_sorted(self):
+        """Visible children are sorted by priority and then by display name."""
+        wl = WorkList()
+
+        lane_child = self._lane()
+        lane_child.display_name='ZZ'
+        lane_child.priority = 0
+
+        wl_child = WorkList()
+        wl_child.priority = 1
+        wl_child.display_name='AA'
+
+        wl.initialize(
+            self._default_library, children=[lane_child, wl_child]
+        )
+
+        # lane_child has a higher priority so it shows up first even
+        # though its display name starts with a Z.
+        eq_([lane_child, wl_child], wl.visible_children)
+
+        # If the priorities are the same, wl_child shows up first,
+        # because its display name starts with an A.
+        wl_child.priority = 0
+        eq_([wl_child, lane_child], wl.visible_children)
+
 
     def test_groups(self):
         w1 = MockWork(1)
