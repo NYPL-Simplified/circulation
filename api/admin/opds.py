@@ -19,16 +19,11 @@ class AdminAnnotator(CirculationManagerAnnotator):
 
         super(AdminAnnotator, self).annotate_work_entry(work, active_license_pool, edition, identifier, feed, entry)
 
-        if isinstance(work, BaseMaterializedWork):
-            data_source_name = work.name
-        else:
-            data_source_name = active_license_pool.data_source.name
-
         feed.add_link_to_entry(
             entry,
             rel="http://librarysimplified.org/terms/rel/refresh",
             href=self.url_for(
-                "refresh", data_source=data_source_name,
+                "refresh",
                 identifier_type=identifier.type,
                 identifier=identifier.identifier, _external=True)
         )
@@ -38,7 +33,7 @@ class AdminAnnotator(CirculationManagerAnnotator):
                 entry,
                 rel="http://librarysimplified.org/terms/rel/restore",
                 href=self.url_for(
-                    "unsuppress", data_source=data_source_name,
+                    "unsuppress",
                     identifier_type=identifier.type,
                     identifier=identifier.identifier, _external=True)
             )
@@ -47,7 +42,7 @@ class AdminAnnotator(CirculationManagerAnnotator):
                 entry,
                 rel="http://librarysimplified.org/terms/rel/hide",
                 href=self.url_for(
-                    "suppress", data_source=data_source_name,
+                    "suppress",
                     identifier_type=identifier.type,
                     identifier=identifier.identifier, _external=True)
             )
@@ -56,7 +51,7 @@ class AdminAnnotator(CirculationManagerAnnotator):
             entry,
             rel="edit",
             href=self.url_for(
-                "edit", data_source=data_source_name,
+                "edit",
                 identifier_type=identifier.type,
                 identifier=identifier.identifier, _external=True)
         )
