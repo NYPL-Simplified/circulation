@@ -774,6 +774,9 @@ class Loan(Base, LoanAndHoldMixin):
     fulfillment_id = Column(Integer, ForeignKey('licensepooldeliveries.id'))
     start = Column(DateTime)
     end = Column(DateTime)
+    # Some distributors (e.g. Feedbooks) may have an identifier that can
+    # be used to check the status of a specific Loan.
+    external_identifier = Column(Unicode, unique=True, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('patron_id', 'license_pool_id'),
