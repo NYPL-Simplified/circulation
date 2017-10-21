@@ -342,6 +342,11 @@ class OPDSImporter(object):
         }
     ]
 
+    # Subclasses of OPDSImporter may define a different parser class that's
+    # a subclass of OPDSXMLParser. For example, a subclass may want to use
+    # tags from an additional namespace.
+    PARSER_CLASS = OPDSXMLParser
+
     def __init__(self, _db, collection, data_source_name=None,
                  identifier_mapping=None, mirror=None, http_get=None,
                  metadata_client=None, content_modifier=None,
@@ -371,7 +376,6 @@ class OPDSImporter(object):
         :param content_modifier: A function that may modify-in-place
         representations (such as images and EPUB documents) as they
         come in from the network.
-
         """
         self._db = _db
         self.log = logging.getLogger("OPDS Importer")
@@ -757,7 +761,7 @@ class OPDSImporter(object):
         """
         values = {}
         failures = {}
-        parser = OPDSXMLParser()
+        parser = cls.PARSER_CLASS()
         root = etree.parse(StringIO(feed))
 
         # Some OPDS feeds (eg Standard Ebooks) contain relative urls,
@@ -961,7 +965,7 @@ class OPDSImporter(object):
 
         :return: A rights URI.
         """
-        rights = OPDSXMLParser._xpath1(entry, 'rights')
+        rights = cls.PARSER_CLASS._xpath1(entry, 'rights')
         if rights:
             return cls.rights_uri(rights)
     
