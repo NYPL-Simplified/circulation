@@ -23,6 +23,7 @@ from model import (
     Subject,
     Timestamp,
     Work,
+    WorkCoverageRecord,
 )
 
 from monitor import (

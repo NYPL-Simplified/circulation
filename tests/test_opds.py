@@ -998,8 +998,7 @@ class TestOPDS(DatabaseTest):
 
         pagination = Pagination(size=1)
         search_client = DummyExternalSearchIndex()
-        work1.update_external_index(search_client)
-        work2.update_external_index(search_client)
+        search_client.bulk_update([work1, work2])
 
         def make_page(pagination):
             return AcquisitionFeed.search(

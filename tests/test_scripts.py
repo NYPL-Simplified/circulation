@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import shutil
+import stat
 import tempfile
 from StringIO import StringIO
 
@@ -65,6 +66,7 @@ from scripts import (
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
     RunMonitorScript,
+    RunWorkCoverageProviderScript,
     Script,
     ShowCollectionsScript,
     ShowIntegrationsScript,
@@ -74,6 +76,7 @@ from scripts import (
 from testing import(
     AlwaysSuccessfulBibliographicCoverageProvider,
     BrokenBibliographicCoverageProvider,
+    AlwaysSuccessfulWorkCoverageProvider,
 )
 from monitor import (
     CollectionMonitor,
@@ -441,7 +444,7 @@ class TestLibraryInputScript(DatabaseTest):
         eq_(True, l1.processed)
         eq_(False, l2.processed)
 
-        
+
 class TestRunCoverageProviderScript(DatabaseTest):
 
     def test_parse_command_line(self):
@@ -454,6 +457,18 @@ class TestRunCoverageProviderScript(DatabaseTest):
         eq_(datetime.datetime(2016, 5, 1), parsed.cutoff_time)
         eq_([identifier], parsed.identifiers)
         eq_(identifier.type, parsed.identifier_type)
+
+
+class TestRunWorkCoverageProviderScript(DatabaseTest):
+
+    def test_constructor(self):
+        script = RunWorkCoverageProviderScript(
+            AlwaysSuccessfulWorkCoverageProvider, _db=self._db,
+            batch_size=123
+        )
+        [provider] = script.providers
+        assert isinstance(provider, AlwaysSuccessfulWorkCoverageProvider)
+        eq_(123, provider.batch_size)
 
         
 class TestWorkProcessingScript(DatabaseTest):
@@ -504,6 +519,62 @@ class TestWorkProcessingScript(DatabaseTest):
         eq_([standard_ebooks], one_standard_ebook.all())
 
 
+class TestTimestampInfo(DatabaseTest):
+
+    TimestampInfo = DatabaseMigrationScript.TimestampInfo
+
+    def test_find(self):
+        # If there isn't a timestamp for the given service,
+        # nothing is returned.
+        result = self.TimestampInfo.find(self._db, 'test')
+        eq_(None, result)
+
+        # But an empty Timestamp has been placed into the database.
+        timestamp = self._db.query(Timestamp).filter(Timestamp.service=='test').one()
+        eq_(None, timestamp.timestamp)
+        eq_(None, timestamp.counter)
+
+        # A repeat search for the empty Timestamp also results in None.
+        eq_(None, self.TimestampInfo.find(self._db, 'test'))
+
+        # If the Timestamp is stamped, it is returned.
+        timestamp.timestamp = datetime.datetime.utcnow()
+        timestamp.counter = 1
+        self._db.flush()
+
+        result = self.TimestampInfo.find(self._db, 'test')
+        eq_(timestamp.timestamp, result.timestamp)
+        eq_(1, result.counter)
+
+    def test_update(self):
+        # Create a Timestamp to be updated.
+        past = datetime.datetime.strptime('19980101', '%Y%m%d')
+        stamp = Timestamp.stamp(self._db, 'test', None, date=past)
+        timestamp_info = self.TimestampInfo.find(self._db, 'test')
+
+        now = datetime.datetime.utcnow()
+        timestamp_info.update(self._db, now, 2)
+
+        # When we refresh the Timestamp object, it's been updated.
+        self._db.refresh(stamp)
+        eq_(now, stamp.timestamp)
+        eq_(2, stamp.counter)
+
+    def save(self):
+        # The Timestamp doesn't exist.
+        timestamp_qu = self._db.query(Timestamp).filter(Timestamp.service=='test')
+        eq_(False, timestamp_qu.exists())
+
+        now = datetime.datetime.utcnow()
+        timestamp_info = self.TimestampInfo('test', now, 47)
+        timestamp_info.save(self._db)
+
+        # The Timestamp exists now.
+        timestamp = timestamp_qu.one()
+        eq_(now, timestamp.timestamp)
+        eq_(47, timestamp.counter)
+
+
 class MockDatabaseMigrationScript(DatabaseMigrationScript):
 
     @property
@@ -521,26 +592,27 @@ class MockDatabaseMigrationScript(DatabaseMigrationScript):
         return test_directories
 
 
-class TestDatabaseMigrationScript(DatabaseTest):
+class DatabaseMigrationScriptTest(DatabaseTest):
 
-    def _create_test_migrations(self):
-        """Sets up migrations in the expected locations"""
+    def create_mock_script(self, cls, _db):
+        """Creates a mock version of a DatabaseMigrationScript"""
 
-        directories = self.script.directories_by_priority
-        [self.core_migration_dir, self.parent_migration_dir] = directories
+        class MockDatabaseMigrationScript(cls):
 
-        # Create temporary migration directories where
-        # DatabaseMigrationScript expects them.
-        for migration_dir in directories:
-            if not os.path.isdir(migration_dir):
-                temp_migration_dir = tempfile.mkdtemp()
-                shutil.move(temp_migration_dir, migration_dir)
+            @property
+            def directories_by_priority(self):
+                """Uses test migration directories to find migration files."""
+                real_migration_directories = super(
+                    MockDatabaseMigrationScript, self
+                ).directories_by_priority
 
-        # Put a file of each migratable type in both directories.
-        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql')
-        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'py')
-        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'sql')
-        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'py')
+                test_directories = [
+                    os.path.join(os.path.split(d)[0], 'test_migration')
+                    for d in real_migration_directories
+                ]
+                return test_directories
+
+        return MockDatabaseMigrationScript(_db=_db)
 
     def _create_test_migration_file(self, directory, unique_string,
                                     migration_type, migration_date=None):
@@ -558,6 +630,7 @@ class TestDatabaseMigrationScript(DatabaseTest):
             core = os.path.split(self.core_migration_dir)[0]
             target_dir = os.path.join(core, 'tests')
             content = (
+                "#!/usr/bin/env python\n\n"+
                 "import tempfile\nimport os\n\n"+
                 "file_info = tempfile.mkstemp(prefix='"+
                 unique_string+"-', suffix='.py', dir='"+target_dir+"')\n\n"+
@@ -573,49 +646,150 @@ class TestDatabaseMigrationScript(DatabaseTest):
         migration_file_info = tempfile.mkstemp(
             prefix=prefix, suffix=suffix, dir=directory
         )
-        # Hold onto details about the file for deletion in teardown().
-        self.migration_files.append(migration_file_info)
+        # Hold onto the filename for deletion in teardown().
+        fd, migration_file = migration_file_info
+        self.migration_files.append(migration_file)
 
-        with open(migration_file_info[1], 'w') as migration:
+        with open(migration_file, 'w') as migration:
             # Write content to the file.
             migration.write(content)
 
+        # If it's a python migration, make it executable.
+        if migration_file.endswith('py'):
+            original_mode = os.stat(migration_file).st_mode
+            mode = original_mode | (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            os.chmod(migration_file, mode)
+
+        # Close the file descriptor.
+        os.close(fd)
+
     def setup(self):
-        super(TestDatabaseMigrationScript, self).setup()
-        self.script = MockDatabaseMigrationScript(_db=self._db)
+        super(DatabaseMigrationScriptTest, self).setup()
 
         # This list holds any temporary files created during tests
         # so they can be deleted during teardown().
         self.migration_files = []
+
+        # Create temporary migration directories where
+        # DatabaseMigrationScript expects them.
+        script = self.create_mock_script(DatabaseMigrationScript, self._db)
+        self.directories = script.directories_by_priority
+        [self.core_migration_dir, self.parent_migration_dir] = self.directories
+        for migration_dir in self.directories:
+            if not os.path.isdir(migration_dir):
+                temp_migration_dir = tempfile.mkdtemp()
+                shutil.move(temp_migration_dir, migration_dir)
+
+    def teardown(self):
+        """Delete any files and directories created during testing."""
+        for fpath in self.migration_files:
+            os.remove(fpath)
+
+        if self.migration_files:
+            for directory in self.directories:
+                os.rmdir(directory)
+
+        test_dir = os.path.split(__file__)[0]
+        all_files = os.listdir(test_dir)
+        test_generated_files = sorted(
+            [f for f in all_files if f.startswith(('CORE', 'SERVER'))]
+        )
+        for filename in test_generated_files:
+            os.remove(os.path.join(test_dir, filename))
+
+        timestamps = self._db.query(Timestamp).filter(
+            Timestamp.service.like('%Database Migration%')
+        ).delete(synchronize_session=False)
+
+        super(DatabaseMigrationScriptTest, self).teardown()
+
+
+class TestDatabaseMigrationScript(DatabaseMigrationScriptTest):
+
+    def _create_test_migrations(self):
+        """Sets up migrations in the expected locations"""
+        # Put a file of each migratable type in each temporary migration
+        # directory.
+        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'sql')
+        self._create_test_migration_file(self.core_migration_dir, 'CORE', 'py')
+        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'sql')
+        self._create_test_migration_file(self.parent_migration_dir, 'SERVER', 'py')
+
+    def setup(self):
+        super(TestDatabaseMigrationScript, self).setup()
+        self.script = self.create_mock_script(DatabaseMigrationScript, self._db)
         self._create_test_migrations()
 
         stamp = datetime.datetime.strptime('20260810', '%Y%m%d')
         self.timestamp = Timestamp(service=self.script.name, timestamp=stamp)
-        self._db.add(self.timestamp)
+        self.python_timestamp = Timestamp(
+            service=self.script.PY_TIMESTAMP_SERVICE_NAME, timestamp=stamp
+        )
+        self._db.add_all([self.timestamp, self.python_timestamp])
+        self._db.flush()
 
-    def teardown(self):
-        """Delete any files and directories created during testing."""
-        for fd, fpath in self.migration_files:
-            os.close(fd)
-            os.remove(fpath)
-            if fpath.endswith('.py'):
-                # Remove compiled files.
-                try:
-                    os.remove(fpath+'c')
-                except OSError:
-                    pass
+        self.timestamp_info = self.script.TimestampInfo(
+            self.timestamp.service, self.timestamp.timestamp
+        )
 
-        for directory in self.script.directories_by_priority:
-            os.rmdir(directory)
+    def test_name(self):
+        """DatabaseMigrationScript.name returns an appropriate timestamp service
+        name, depending on whether it is running only Python migrations or not.
+        """
 
-        test_dir = os.path.split(__file__)[0]
-        all_files = os.listdir(test_dir)
-        test_generated_files = sorted([f for f in all_files
-                                       if f.startswith(('CORE', 'SERVER'))])
-        for filename in test_generated_files:
-            os.remove(os.path.join(test_dir, filename))
+        # The default script returns the default timestamp name.
+        eq_("Database Migration", self.script.name)
 
-        super(TestDatabaseMigrationScript, self).teardown()
+        # A python-only script returns a Python-specific timestamp name.
+        self.script.python_only=True
+        eq_("Database Migration - Python", self.script.name)
+
+    def test_timestamp_properties(self):
+        """DatabaseMigrationScript provides the appropriate TimestampInfo
+        objects as properties.
+        """
+        # If there aren't any Database Migrations in the database, no
+        # timestamps are returned.
+        timestamps = self._db.query(Timestamp).filter(
+            Timestamp.service.like('Database Migration%')
+        )
+        for timestamp in timestamps:
+            self._db.delete(timestamp)
+        self._db.commit()
+
+        self.script._session = self._db
+        eq_(None, self.script.python_timestamp)
+        eq_(None, self.script.overall_timestamp)
+
+        # If the Timestamps exist in the database, but they don't have
+        # a timestamp, nothing is returned. Timestamps must be initialized.
+        overall = self._db.query(Timestamp).filter(
+            Timestamp.service==self.script.SERVICE_NAME
+        ).one()
+        python = self._db.query(Timestamp).filter(
+            Timestamp.service==self.script.PY_TIMESTAMP_SERVICE_NAME
+        ).one()
+
+        # Neither Timestamp object has a timestamp.
+        eq_((None, None), (python.timestamp, overall.timestamp))
+        # So neither timestamp is returned as a property.
+        eq_(None, self.script.python_timestamp)
+        eq_(None, self.script.overall_timestamp)
+
+        # If you give the Timestamps data, suddenly they show up.
+        overall.timestamp = self.script.parse_time('1998-08-25')
+        python.timestamp = self.script.parse_time('1993-06-11')
+        python.counter = 2
+        self._db.flush()
+
+        overall_timestamp_info = self.script.overall_timestamp
+        assert isinstance(overall_timestamp_info, self.script.TimestampInfo)
+        eq_(overall.timestamp, overall_timestamp_info.timestamp)
+
+        python_timestamp_info = self.script.python_timestamp
+        assert isinstance(python_timestamp_info, self.script.TimestampInfo)
+        eq_(python.timestamp, python_timestamp_info.timestamp)
+        eq_(2, self.script.python_timestamp.counter)
 
     def test_directories_by_priority(self):
         core = os.path.split(os.path.split(__file__)[0])[0]
@@ -635,17 +809,17 @@ class TestDatabaseMigrationScript(DatabaseTest):
         result = self.script.fetch_migration_files()
         result_migrations, result_migrations_by_dir = result
 
-        for desc, migration_file in self.migration_files:
+        for migration_file in self.migration_files:
             assert os.path.split(migration_file)[1] in result_migrations
 
-        def extract_filenames(core=True):
-            pathnames = [pathname for desc, pathname in self.migration_files]
+        def extract_filenames(core=True, extensions=['.py', '.sql']):
+            extensions = tuple(extensions)
             if core:
-                pathnames = [p for p in pathnames if 'core' in p]
+                pathnames = filter(lambda p: 'core' in p, self.migration_files)
             else:
-                pathnames = [p for p in pathnames if 'core' not in p]
+                pathnames = filter(lambda p: 'core' not in p, self.migration_files)
 
-            return [os.path.split(p)[1] for p in pathnames]
+            return [os.path.split(p)[1] for p in pathnames if p.endswith(extensions)]
 
         # Ensure that all the expected migrations from CORE are included in
         # the 'core' directory array in migrations_by_directory.
@@ -661,17 +835,40 @@ class TestDatabaseMigrationScript(DatabaseTest):
         for filename in parent_migration_files:
             assert filename in result_migrations_by_dir[self.parent_migration_dir]
 
+        # When the script is python_only, only python migrations are returned.
+        self.script.python_only = True
+        result_migrations, result_migrations_by_dir = self.script.fetch_migration_files()
+
+        py_migration_files = [m for m in self.migration_files if m.endswith('.py')]
+        py_migration_filenames = [os.path.split(f)[1] for f in py_migration_files]
+        eq_(sorted(py_migration_filenames), sorted(result_migrations))
+
+        core_migration_files = [m for m in extract_filenames() if m.endswith('.py')]
+        eq_(1, len(core_migration_files))
+        eq_(result_migrations_by_dir[self.core_migration_dir], core_migration_files)
+
+        parent_migration_files = [m for m in extract_filenames(False) if m.endswith('.py')]
+        eq_(1, len(parent_migration_files))
+        eq_(result_migrations_by_dir[self.parent_migration_dir], parent_migration_files)
+
     def test_migratable_files(self):
-        """Removes migration files that aren't python or SQL from a list."""
+        """Returns migrations that end with particular extensions."""
 
         migrations = [
             '.gitkeep', '20250521-make-bananas.sql', '20260810-do-a-thing.py',
             '20260802-did-a-thing.pyc', 'why-am-i-here.rb'
         ]
 
-        result = self.script.migratable_files(migrations)
+        result = self.script.migratable_files(migrations, ['.sql', '.py'])
         eq_(2, len(result))
         eq_(['20250521-make-bananas.sql', '20260810-do-a-thing.py'], result)
+
+        result = self.script.migratable_files(migrations, ['.rb'])
+        eq_(1, len(result))
+        eq_(['why-am-i-here.rb'], result)
+
+        result = self.script.migratable_files(migrations, ['banana'])
+        eq_([], result)
 
     def test_get_new_migrations(self):
         """Filters out migrations that were run on or before a given timestamp"""
@@ -686,11 +883,11 @@ class TestDatabaseMigrationScript(DatabaseTest):
             '20260809-already-done.sql',
         ]
 
-        result = self.script.get_new_migrations(self.timestamp, migrations)
+        result = self.script.get_new_migrations(self.timestamp_info, migrations)
         # Expected migrations will be sorted by timestamp. Python migrations
         # will be sorted after SQL migrations.
         expected = [
-            '20271202-future-migration-funtime.sql', 
+            '20271202-future-migration-funtime.sql',
             '20271204-far-future-migration-funtime.sql',
             '20260811-do-a-thing.py',
             '20271203-do-another-thing.py',
@@ -708,8 +905,8 @@ class TestDatabaseMigrationScript(DatabaseTest):
             '20260810-2-do-all-the-things.sql',
             '20260809-already-done.sql'
         ]
-        self.timestamp.counter = 1
-        result = self.script.get_new_migrations(self.timestamp, migrations)
+        self.timestamp_info.counter = 1
+        result = self.script.get_new_migrations(self.timestamp_info, migrations)
         expected = [
             '20260810-2-do-all-the-things.sql',
             '20271202-future-migration-funtime.sql',
@@ -728,9 +925,9 @@ class TestDatabaseMigrationScript(DatabaseTest):
             '20260809-already-done.sql',
             '20271202-future-migration-funtime.sql',
         ]
-        self.timestamp.counter = None
+        self.timestamp_info.counter = None
 
-        result = self.script.get_new_migrations(self.timestamp, migrations)
+        result = self.script.get_new_migrations(self.timestamp_info, migrations)
         expected = [
             '20260810-1-do-all-the-things.sql',
             '20271202-future-migration-funtime.sql',
@@ -739,31 +936,54 @@ class TestDatabaseMigrationScript(DatabaseTest):
         eq_(3, len(result))
         eq_(expected, result)
 
-    def test_update_timestamp(self):
+    def test_update_timestamps(self):
         """Resets a timestamp according to the date of a migration file"""
 
         migration = '20271202-future-migration-funtime.sql'
+        py_last_run_time = self.python_timestamp.timestamp
 
-        assert self.timestamp.timestamp.strftime('%Y%m%d') != migration[0:8]
-        self.script.update_timestamp(self.timestamp, migration)
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
+        def assert_unchanged_python_timestamp():
+            eq_(py_last_run_time, self.python_timestamp.timestamp)
+
+        def assert_timestamp_matches_migration(timestamp, migration, counter=None):
+            self._db.refresh(timestamp)
+            timestamp_str = timestamp.timestamp.strftime('%Y%m%d')
+            eq_(migration[0:8], timestamp_str)
+            eq_(counter, timestamp.counter)
+
+        assert self.timestamp_info.timestamp.strftime('%Y%m%d') != migration[0:8]
+        self.script.update_timestamps(migration)
+        assert_timestamp_matches_migration(self.timestamp, migration)
+        assert_unchanged_python_timestamp()
 
         # It also takes care of counter digits when multiple migrations
         # exist for the same date.
-        migration = '20260810-2-do-all-the-things.sql'
-        self.script.update_timestamp(self.timestamp, migration)
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
-        eq_(str(self.timestamp.counter), migration[9])
+        migration = '20280810-2-do-all-the-things.sql'
+        self.script.update_timestamps(migration)
+        assert_timestamp_matches_migration(self.timestamp, migration, counter=2)
+        assert_unchanged_python_timestamp()
 
         # And removes those counter digits when the timestamp is updated.
-        migration = '20260101-what-it-do.sql'
-        self.script.update_timestamp(self.timestamp, migration)
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), migration[0:8])
-        eq_(self.timestamp.counter, None)
+        migration = '20280901-what-it-do.sql'
+        self.script.update_timestamps(migration)
+        assert_timestamp_matches_migration(self.timestamp, migration)
+        assert_unchanged_python_timestamp()
 
-    def test_running_a_migration_updates_the_timestamp(self):
+        # If the migration is earlier than the existing timestamp,
+        # the timestamp is not updated.
+        migration = '20280801-before-the-existing-timestamp.sql'
+        self.script.update_timestamps(migration)
+        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), '20280901')
+
+        # Python migrations update both timestamps.
+        migration = '20281001-new-task.py'
+        self.script.update_timestamps(migration)
+        assert_timestamp_matches_migration(self.timestamp, migration)
+        assert_timestamp_matches_migration(self.python_timestamp, migration)
+
+    def test_running_a_migration_updates_the_timestamps(self):
         future_time = datetime.datetime.strptime('20261030', '%Y%m%d')
-        self.timestamp.timestamp = future_time
+        self.timestamp_info.timestamp = future_time
 
         # Create a test migration after that point and grab relevant info
         # about it.
@@ -774,16 +994,16 @@ class TestDatabaseMigrationScript(DatabaseTest):
 
         # Pop the last migration filepath off and run the migration with
         # the relevant information.
-        migration_filepath = self.migration_files[-1][1]
+        migration_filepath = self.migration_files[-1]
         migration_filename = os.path.split(migration_filepath)[1]
         migrations_by_dir = {
             self.core_migration_dir : [migration_filename],
             self.parent_migration_dir : []
         }
 
-        # Running the migration updates the timestamp
+        # Running the migration updates the timestamps
         self.script.run_migrations(
-            [migration_filename], migrations_by_dir, self.timestamp
+            [migration_filename], migrations_by_dir, self.timestamp_info
         )
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), '20261202')
 
@@ -792,16 +1012,19 @@ class TestDatabaseMigrationScript(DatabaseTest):
             self.core_migration_dir, 'COUNTER', 'sql',
             migration_date='20261203-3'
         )
-        migration_filename = os.path.split(self.migration_files[-1][1])[1]
+        migration_filename = os.path.split(self.migration_files[-1])[1]
         migrations_by_dir[self.core_migration_dir] = [migration_filename]
         self.script.run_migrations(
-            [migration_filename], migrations_by_dir, self.timestamp
+            [migration_filename], migrations_by_dir, self.timestamp_info
         )
         eq_(self.timestamp.timestamp.strftime('%Y%m%d'), '20261203')
         eq_(self.timestamp.counter, 3)
 
     def test_all_migration_files_are_run(self):
-        self.script.run(test=True, cmd_args=["--last-run-date", "2010-01-01"])
+        self.script.run(
+            test_db=self._db, test=True,
+            cmd_args=["--last-run-date", "2010-01-01"]
+        )
 
         # There are two test timestamps in the database, confirming that
         # the test SQL files created by self._create_test_migration_files()
@@ -831,50 +1054,98 @@ class TestDatabaseMigrationScript(DatabaseTest):
         assert 'CORE' in test_generated_files[0]
         assert 'SERVER' in test_generated_files[1]
 
+    def test_python_migration_files_can_be_run_independently(self):
+        self.script.run(
+            test_db=self._db, test=True,
+            cmd_args=["--last-run-date", "2010-01-01", "--python-only"]
+        )
 
-class TestDatabaseMigrationInitializationScript(DatabaseTest):
+        # There are no test timestamps in the database, confirming that
+        # no test SQL files created by self._create_test_migration_files()
+        # have been run.
+        timestamps = self._db.query(Timestamp).filter(
+            Timestamp.service.like('Test Database Migration Script - %')
+        ).order_by(Timestamp.service).all()
+        eq_([], timestamps)
+
+        # There are two temporary files in core/tests, confirming that the test
+        # Python files created by self._create_test_migration_files() were run.
+        test_dir = os.path.split(__file__)[0]
+        all_files = os.listdir(test_dir)
+        test_generated_files = sorted([f for f in all_files
+                                       if f.startswith(('CORE', 'SERVER'))])
+
+        eq_(2, len(test_generated_files))
+
+        # A file has been generated from each migration directory.
+        assert 'CORE' in test_generated_files[0]
+        assert 'SERVER' in test_generated_files[1]
+
+
+class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
 
     def setup(self):
         super(TestDatabaseMigrationInitializationScript, self).setup()
-        self.script = DatabaseMigrationInitializationScript(_db=self._db)
+        self.script = DatabaseMigrationInitializationScript(self._db)
 
-    @property
-    def timestamp(self):
-        return self._db.query(Timestamp).\
-            filter(Timestamp.service==self.script.name).one()
+    def assert_matches_latest_migration(self, timestamp, script=None, last_migration_date=None):
+        script = script or self.script
+        migrations = script.fetch_migration_files()[0]
+        if not last_migration_date:
+            last_migration_date = script.sort_migrations(migrations)[-1][:8]
+        eq_(timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
 
-    def assert_matches_latest_migration(self):
-        migrations = self.script.fetch_migration_files()[0]
-        last_migration_date = self.script.sort_migrations(migrations)[-1][:8]
-        eq_(self.timestamp.timestamp.strftime('%Y%m%d'), last_migration_date)
-
-    def test_accurate_timestamp_created(self):
+    def test_accurate_timestamps_created(self):
         eq_(None, Timestamp.value(self._db, self.script.name, collection=None))
 
         self.script.run()
-        self.assert_matches_latest_migration()
+        self.assert_matches_latest_migration(self.script.overall_timestamp)
+        self.assert_matches_latest_migration(self.script.python_timestamp)
+
+    def test_accurate_python_timestamp_craeted(self):
+        script = self.create_mock_script(
+            DatabaseMigrationInitializationScript, self._db
+        )
+        eq_(None, Timestamp.value(self._db, script.name, collection=None))
+
+        # If the last python migration and the last SQL migration have
+        # different timestamps, they're set accordingly.
+        self._create_test_migration_file(
+            self.core_migration_dir, 'CORE', 'sql', '20310101'
+        )
+        self._create_test_migration_file(
+            self.parent_migration_dir, 'SERVER', 'py', '20300101'
+        )
+
+        script.run()
+        self.assert_matches_latest_migration(script.overall_timestamp, script)
+        self.assert_matches_latest_migration(
+            script.python_timestamp, script, '20300101'
+        )
 
     def test_error_raised_when_timestamp_exists(self):
         Timestamp.stamp(self._db, self.script.name, None)
         assert_raises(RuntimeError, self.script.run)
 
     def test_error_not_raised_when_timestamp_forced(self):
-        Timestamp.stamp(self._db, self.script.name, None)
+        past = self.script.parse_time('19951127')
+        Timestamp.stamp(self._db, self.script.name, None, date=past)
         self.script.run(['-f'])
-        self.assert_matches_latest_migration()
+        self.assert_matches_latest_migration(self.script.overall_timestamp)
+        self.assert_matches_latest_migration(self.script.python_timestamp)
 
     def test_accepts_last_run_date(self):
         # A timestamp can be passed via the command line.
         self.script.run(['--last-run-date', '20101010'])
         expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
-        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(expected_stamp, self.script.overall_timestamp.timestamp)
 
         # It will override an existing timestamp if forced.
-        previous_timestamp = self.timestamp
+        previous_timestamp = Timestamp.stamp(self._db, self.script.name, None)
         self.script.run(['--last-run-date', '20111111', '--force'])
         expected_stamp = datetime.datetime.strptime('20111111', '%Y%m%d')
-        eq_(previous_timestamp, self.timestamp)
-        eq_(expected_stamp, self.timestamp.timestamp)
+        eq_(expected_stamp, self.script.overall_timestamp.timestamp)
+        eq_(expected_stamp, self.script.python_timestamp.timestamp)
 
     def test_accepts_last_run_counter(self):
         # If a counter is passed without a date, an error is raised.
@@ -883,16 +1154,17 @@ class TestDatabaseMigrationInitializationScript(DatabaseTest):
         # With a date, the counter can be set.
         self.script.run(['--last-run-date', '20101010', '--last-run-counter', '7'])
         expected_stamp = datetime.datetime.strptime('20101010', '%Y%m%d')
-        eq_(expected_stamp, self.timestamp.timestamp)
-        eq_(7, self.timestamp.counter)
+        eq_(expected_stamp, self.script.overall_timestamp.timestamp)
+        eq_(7, self.script.overall_timestamp.counter)
 
         # When forced, the counter can be reset on an existing timestamp.
-        previous_timestamp = self.timestamp
+        previous_timestamp = self.script.overall_timestamp.timestamp
         self.script.run(['--last-run-date', '20121212', '--last-run-counter', '2', '-f'])
         expected_stamp = datetime.datetime.strptime('20121212', '%Y%m%d')
-        eq_(previous_timestamp, self.timestamp)
-        eq_(expected_stamp, self.timestamp.timestamp)
-        eq_(2, self.timestamp.counter)
+        eq_(expected_stamp, self.script.overall_timestamp.timestamp)
+        eq_(expected_stamp, self.script.python_timestamp.timestamp)
+        eq_(2, self.script.overall_timestamp.counter)
+        eq_(2, self.script.python_timestamp.counter)
 
 
 class TestAddClassificationScript(DatabaseTest):
@@ -1038,7 +1310,7 @@ class TestConfigureSiteScript(DatabaseTest):
             SITEWIDE_SETTINGS = [
                 { "key": "setting1" },
                 { "key": "setting2" },
-                { "key": "secret_setting" },
+                { "key": "setting_secret" },
             ]
 
         script = ConfigureSiteScript(config=TestConfig)
@@ -1047,32 +1319,28 @@ class TestConfigureSiteScript(DatabaseTest):
             self._db, [
                 "--setting=setting1=value1",
                 "--setting=setting2=[1,2,\"3\"]",
-                "--setting=secret_setting=secretvalue",
+                "--setting=setting_secret=secretvalue",
             ],
             output
         )
         # The secret was set, but is not shown.
-        eq_("""Current site-wide settings:
-setting1='value1'
-setting2='[1,2,"3"]'
-""",
-            output.getvalue()
+        expect = "\n".join(
+            ConfigurationSetting.explain(self._db, include_secrets=False)
         )
+        eq_(expect, output.getvalue())
+        assert 'setting_secret' not in expect
         eq_("value1", ConfigurationSetting.sitewide(self._db, "setting1").value)
         eq_('[1,2,"3"]', ConfigurationSetting.sitewide(self._db, "setting2").value)
-        eq_("secretvalue", ConfigurationSetting.sitewide(self._db, "secret_setting").value)
+        eq_("secretvalue", ConfigurationSetting.sitewide(self._db, "setting_secret").value)
 
         # If we run again with --show-secrets, the secret is shown.
         output = StringIO()
         script.do_run(self._db, ["--show-secrets"], output)
-        eq_("""Current site-wide settings:
-secret_setting='secretvalue'
-setting1='value1'
-setting2='[1,2,"3"]'
-""",
-            output.getvalue()
+        expect = "\n".join(
+            ConfigurationSetting.explain(self._db, include_secrets=True)
         )
-
+        eq_(expect, output.getvalue())
+        assert 'setting_secret' in expect
 
 class TestConfigureLibraryScript(DatabaseTest):
     

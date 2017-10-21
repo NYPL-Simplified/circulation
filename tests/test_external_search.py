@@ -15,11 +15,14 @@ from lane import Lane
 from model import (
     Edition,
     ExternalIntegration,
+    WorkCoverageRecord,
 )
 from external_search import (
     ExternalSearchIndex,
     ExternalSearchIndexVersions,
     DummyExternalSearchIndex,
+    SearchIndexCoverageProvider,
+    SearchIndexMonitor,
 )
 from classifier import Classifier
 
@@ -62,6 +65,11 @@ class ExternalSearchTest(DatabaseTest):
 
 
 class TestExternalSearch(ExternalSearchTest):
+
+    def test_works_index_name(self):
+        if not self.search:
+            return
+        eq_("test_index-v0", self.search.works_index_name(self._db))
 
     def test_setup_index_creates_new_index(self):
         if not self.search:
@@ -313,11 +321,18 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             sherlock_2, is_new = self.sherlock_pool_2.calculate_work()
             eq_(self.sherlock, sherlock_2)
             eq_(2, len(self.sherlock.license_pools))
-            time.sleep(2)
 
     def test_query_works(self):
         if not self.search:
             return
+
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(2)
 
         # Convenience method to query the default library.
         def query(*args, **kwargs):
@@ -941,7 +956,11 @@ class TestSearchFilterFromLane(DatabaseTest):
             lane.genre_ids,
         )
         collection_filter, medium_filter = filter['and']
-        eq_(collection_filter['terms'], dict(collection_id=collection_ids))
+        expect = [
+            {'terms': {'collection_id': collection_ids}},
+            {'bool': {'must_not': {'exists': {'field': 'collection_id'}}}}
+        ]
+        eq_(expect, collection_filter['or'])
         
     def test_query_works_from_lane_definition_handles_age_range(self):
         search = DummyExternalSearchIndex()
@@ -1005,6 +1024,36 @@ class TestSearchFilterFromLane(DatabaseTest):
         assert 'language' in exclude_languages_filter['not']['terms']
         eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))
 
+
+class TestBulkUpdate(DatabaseTest):
+
+    def test_works_not_presentation_ready_removed_from_index(self):
+        w1 = self._work()
+        w1.set_presentation_ready()
+        w2 = self._work()
+        w2.set_presentation_ready()
+        w3 = self._work()
+        index = DummyExternalSearchIndex()
+        successes, failures = index.bulk_update([w1, w2, w3])
+        
+        # All three works are regarded as successes, because their
+        # state was successfully mirrored to the index.
+        eq_(set([w1, w2, w3]), set(successes))
+        eq_([], failures)
+
+        # But only the presentation-ready works are actually inserted
+        # into the index.
+        ids = set(x[-1] for x in index.docs.keys())
+        eq_(set([w1.id, w2.id]), ids)
+
+        # If a work stops being presentation-ready, it is removed from
+        # the index, and its removal is treated as a success.
+        w2.presentation_ready = False
+        successes, failures = index.bulk_update([w1, w2, w3])
+        eq_([w1.id], [x[-1] for x in index.docs.keys()])
+        eq_(set([w1, w2, w3]), set(successes))
+        eq_([], failures)
+
 class TestSearchErrors(ExternalSearchTest):
 
     def test_search_connection_timeout(self):
@@ -1028,6 +1077,7 @@ class TestSearchErrors(ExternalSearchTest):
         self.search.bulk = bulk_with_timeout
         
         work = self._work()
+        work.set_presentation_ready()
         successes, failures = self.search.bulk_update([work])
         eq_([], successes)
         eq_(1, len(failures))
@@ -1043,8 +1093,10 @@ class TestSearchErrors(ExternalSearchTest):
             return
 
         successful_work = self._work()
+        successful_work.set_presentation_ready()
         failing_work = self._work()
-        
+        failing_work.set_presentation_ready()
+
         def bulk_with_error(docs, raise_on_error=False, raise_on_exception=False):
             failures = [dict(data=dict(_id=failing_work.id),
                              error="There was an error!",
@@ -1059,3 +1111,97 @@ class TestSearchErrors(ExternalSearchTest):
         eq_(1, len(failures))
         eq_(failing_work, failures[0][0])
         eq_("There was an error!", failures[0][1])
+
+
+class TestSearchIndexCoverageProvider(DatabaseTest):
+
+    def test_operation(self):
+        index = DummyExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(
+            self._db, search_index_client=index
+        )
+        eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+            provider.operation)
+
+    def test_success(self):
+        work = self._work()
+        work.set_presentation_ready()
+        index = DummyExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(
+            self._db, search_index_client=index
+        )
+        results = provider.process_batch([work])
+
+        # We got one success and no failures.
+        eq_([work], results)
+
+        # The work was added to the search index.
+        eq_(1, len(index.docs))
+
+    def test_failure(self):
+        class DoomedExternalSearchIndex(DummyExternalSearchIndex):
+            """All documents sent to this index will fail."""
+            def bulk(self, docs, **kwargs):                
+                return 0, [
+                    dict(data=dict(_id=failing_work['_id']),
+                         error="There was an error!",
+                         exception="Exception")
+                    for failing_work in docs
+                ]
+
+        work = self._work()
+        work.set_presentation_ready()
+        index = DoomedExternalSearchIndex()
+        provider = SearchIndexCoverageProvider(
+            self._db, search_index_client=index
+        )
+        results = provider.process_batch([work])
+
+        # We have one transient failure.
+        [record] = results
+        eq_(work, record.obj)
+        eq_(True, record.transient)
+        eq_('There was an error!', record.exception)
+
+
+class TestSearchIndexMonitor(DatabaseTest):
+
+    def test_process_batch(self):
+        index = DummyExternalSearchIndex()
+
+        # Here's a work.
+        work = self._work()
+        work.presentation_ready = True
+
+        # There is no record that it has ever been indexed
+        def _record(work):
+            records = [
+                x for x in work.coverage_records 
+                if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
+            ]
+            if not records:
+                return None
+            [record] = records
+            return record
+        eq_(None, _record(work))            
+
+        # Here's a Monitor that can index it.
+        monitor = SearchIndexMonitor(self._db, None, "works-index", 
+                                     index_client=index)
+        eq_("Search index update (works)", monitor.service_name)
+
+        # The first time we call process_batch we handle the one and
+        # only work in the database. The ID of that work is returned for
+        # next time.
+        eq_(work.id, monitor.process_batch(0))
+        self._db.commit()
+
+        # The work was added to the search index.
+        eq_([('works', 'work-type', work.id)], index.docs.keys())
+
+        # A WorkCoverageRecord was created for the Work.
+        assert _record(work) is not None
+
+        # The next time we call process_batch, no work is done and the
+        # result is 0, meaning we're done with every work in the system.
+        eq_(0, monitor.process_batch(work.id))
