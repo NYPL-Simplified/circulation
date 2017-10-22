@@ -6889,7 +6889,7 @@ class LicensePool(Base):
         )
         return message, tuple(args)
 
-    def loan_to(self, patron, start=None, end=None, fulfillment=None):
+    def loan_to(self, patron, start=None, end=None, fulfillment=None, external_identifier=None):
         _db = Session.object_session(patron)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
                       end=end)
@@ -6898,6 +6898,8 @@ class LicensePool(Base):
             create_method_kwargs=kwargs)
         if fulfillment:
             loan.fulfillment = fulfillment
+        if external_identifier:
+            loan.external_identifier = external_identifier
         return loan, is_new
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
