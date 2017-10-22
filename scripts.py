@@ -109,6 +109,10 @@ from api.opds_for_distributors import (
     OPDSForDistributorsImportMonitor,
     OPDSForDistributorsReaperMonitor,
 )
+from api.odl import (
+    ODLBibliographicImporter,
+    ODLBibliographicImportMonitor,
+)
 from core.scripts import OPDSImportScript
 
 class Script(CoreScript):
@@ -1018,3 +1022,11 @@ class OPDSForDistributorsReaperScript(OPDSImportScript):
     IMPORTER_CLASS = OPDSForDistributorsImporter
     MONITOR_CLASS = OPDSForDistributorsReaperMonitor
     PROTOCOL = OPDSForDistributorsImporter.NAME
+
+class ODLBibliographicImportScript(OPDSImportScript):
+    """Import bibliographic information from the feed associated
+    with an ODL collection."""
+
+    IMPORTER_CLASS = ODLBibliographicImporter
+    MONITOR_CLASS = ODLBibliographicImportMonitor
+    PROTOCOL = ODLBibliographicImporter.NAME

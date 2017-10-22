@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom" xmlns:app="http://www.w3.org/2007/app" xmlns:odl="http://opds-spec.org/odl" xmlns:schema="http://schema.org/" xml:lang="en" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:thr="http://purl.org/syndication/thread/1.0" xmlns:opds="http://opds-spec.org/2010/catalog">
+  <id>http://www.feedbooks.com/library/last_update.atom</id>
+  <title>Feedbooks</title>
+  <updated>2017-10-21T16:19:01Z</updated>
+  <icon>https://www.feedbooks.com/images/favicon.ico?t=1508512633</icon>
+  <author>
+    <name>Feedbooks</name>
+    <uri>http://www.feedbooks.com</uri>
+    <email>support@feedbooks.zendesk.com</email>
+  </author>
+  <link type="application/atom+xml;profile=odl" href="http://www.feedbooks.com/library/last_update.atom" rel="self"/>
+<opensearch:totalResults>4</opensearch:totalResults>
+<opensearch:itemsPerPage>100</opensearch:itemsPerPage>
+<opensearch:startIndex>1</opensearch:startIndex>
+<entry>
+<title>The Blazing World</title>
+<id>https://www.feedbooks.com/book/6896</id>
+<author>
+  <name>Margaret Cavendish</name>
+  <uri>https://www.feedbooks.com/author/2252</uri>
+</author>
+<published>2014-03-13T10:58:59Z</published>
+<updated>2017-09-27T12:08:15Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:issued>1666</dcterms:issued>
+<category scheme="http://www.feedbooks.com/categories" label="Fiction" term="FBFIC000000"/>
+<category scheme="http://www.feedbooks.com/categories" label="Science Fiction" term="FBFIC028000"/>
+<category scheme="http://www.feedbooks.com/categories" label="Dystopia and uchronia" term="FBFIC028060N"/>
+<content type="html">&lt;p&gt;The Description of a New World, Called The Blazing-World, better known as The Blazing World, is a 1666 work of prose fiction by English writer Margaret Cavendish, the Duchess of Newcastle. It has been described as an early forerunner of science fiction.&lt;/p&gt;</content>
+<dcterms:extent>40,353 words</dcterms:extent>
+<dcterms:source>http://digital.library.upenn.edu/women/newcastle/blazing/blazing.html</dcterms:source>
+<link type="text/html" href="https://www.feedbooks.com/book/6896" rel="alternate" title="View on Feedbooks"/>
+<link type="application/epub+zip" href="https://loan.feedbooks.net/loan/get_public_domain/?uuid=70e0a564-b669-11e7-b321-6c626d85bd27" rel="http://opds-spec.org/acquisition/open-access"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/book/6896.jpg?size=large&amp;t=1491315432" rel="http://opds-spec.org/image"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/book/6896.jpg?t=1491315432" rel="http://opds-spec.org/image/thumbnail"/>
+</entry>
+<entry>
+<title>Sun Warrior</title>
+<id>http://www.feedbooks.com/item/2505887</id>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9781250100771</dcterms:identifier>
+<author>
+  <name>P. C. Cast</name>
+  <uri>http://www.feedbooks.com/search?query=contributor%3A%22P.+C.+Cast%22</uri>
+</author>
+<published>2017-09-25T07:41:57Z</published>
+<updated>2017-10-16T08:09:58Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:publisher>St. Martin's Press</dcterms:publisher>
+<dcterms:issued>2017-10-16</dcterms:issued>
+<summary>The blockbuster bestselling series is back!  #1 New York Times bestselling author of the House of Night series, P.C. Cast, brings us Sun Warrior, an epic fantasy set in a world where humans, their animal allies, and the earth itself has been drast...</summary>
+<link type="text/html" href="http://www.feedbooks.com/item/2505887" rel="alternate" title="View on Feedbooks"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/item/2505887.jpg?size=large&amp;t=1506356002" rel="http://opds-spec.org/image"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/item/2505887.jpg?t=1506356002" rel="http://opds-spec.org/image/thumbnail"/>
+<link type="text/html" href="https://www.feedbooks.com/item/2505887/buy" rel="http://opds-spec.org/acquisition/buy">
+  <opds:price currencycode="USD">9.99</opds:price>
+  <opds:indirectAcquisition type="application/vnd.adobe.adept+xml">
+    <opds:indirectAcquisition type="application/epub+zip"/>
+  </opds:indirectAcquisition>
+</link>
+<link type="application/epub+zip" href="https://www.feedbooks.com/item/2505887/preview" rel="http://opds-spec.org/acquisition/sample"/>
+<content type="html">&lt;p&gt;&lt;i&gt;&lt;b&gt;&lt;/b&gt;&lt;/i&gt;&lt;i&gt;&lt;b&gt;The blockbuster bestselling series is back!  &lt;/b&gt;&lt;/i&gt;#1 &lt;i&gt;New York Time&lt;/i&gt;s bestselling author of the &lt;i&gt;House of Night &lt;/i&gt;series, P.C. Cast, brings us &lt;i&gt;Sun Warrior&lt;/i&gt;, an epic fantasy set in a world where humans, their animal allies, and the earth itself has been drastically changed. A world filled with beauty and danger and cruelty&#8230;The battle lines have been drawn and Mari, an Earth Walker and Nik, a Companion, who were once from rival clans now find themselves fighting to save each other and their people from destruction.Thaddeus betrayed his own people, killing Nik&#8217;s father and destroying their entire clan. But he wants more. He wants the power he believes Mari has stolen from him and his people and he will do anything he must to get them back, even if it means destroying everything in his path. There is only way to stop Thaddeus, but it means a harrowing journey for Mari and Nik into the heart of darkness. Meanwhile, Dead Eye becomes a willing vessel for the newly awakened god, Death. Death has plans of his own and he, too, will use whatever and whomever he must, including the mad Thaddeus.&lt;/p&gt;</content>
+<odl:license>
+  <dcterms:format>application/epub+zip</dcterms:format>
+  <dcterms:source>http://www.feedbooks.com</dcterms:source>
+  <opds:price currencycode="USD">60.00</opds:price>
+  <dcterms:source xsi:type="dcterms:URI">urn:ISBN:9781250100771</dcterms:source>
+  <created>2017-10-21T16:00:20+02:00</created>
+  <odl:terms>
+    <odl:total_checkouts>52</odl:total_checkouts>
+    <odl:expires>2019-10-21T00:00:00+02:00</odl:expires>
+    <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
+    <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
+  </odl:terms>
+  <odl:protection>
+    <dcterms:format>application/vnd.adobe.adept+xml</dcterms:format>
+    <odl:max_devices>6</odl:max_devices>
+    <odl:copy>false</odl:copy>
+    <odl:print>false</odl:print>
+    <odl:tts>false</odl:tts>
+  </odl:protection>
+  <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+</odl:license>
+</entry>
+<entry>
+<title>Canadianity</title>
+<id>http://www.feedbooks.com/item/2225381</id>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9781443449304</dcterms:identifier>
+<author>
+  <name>Jeremy Taggart</name>
+  <uri>http://www.feedbooks.com/search?query=contributor%3A%22Jeremy+Taggart%22</uri>
+</author>
+<author>
+  <name>Jonathan Torrens</name>
+  <uri>http://www.feedbooks.com/search?query=contributor%3A%22Jonathan+Torrens%22</uri>
+</author>
+<published>2017-01-24T04:09:21Z</published>
+<updated>2017-10-17T04:42:01Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:publisher>HarperCollins Publishers</dcterms:publisher>
+<dcterms:issued>2017-10-16</dcterms:issued>
+<summary>No Description Available</summary>
+<category scheme="http://www.feedbooks.com/categories" term="FBNFC000000" label="Non-Fiction"/>
+<category scheme="http://www.feedbooks.com/categories" term="FBSOC000000" label="Social science"/>
+<category scheme="http://www.feedbooks.com/categories" term="FBSOC026000" label="Sociology"/>
+<category scheme="http://www.feedbooks.com/categories" term="FBHIS000000" label="History"/>
+<category scheme="http://www.feedbooks.com/categories" term="FBHIS000000N" label="History by country"/>
+<category scheme="http://www.feedbooks.com/categories" term="FBHIS006000" label="Canada"/>
+<link type="text/html" href="http://www.feedbooks.com/item/2225381" rel="alternate" title="View on Feedbooks"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/item/2225381.jpg?size=large&amp;t=1503000709" rel="http://opds-spec.org/image"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/item/2225381.jpg?t=1503000709" rel="http://opds-spec.org/image/thumbnail"/>
+<link type="text/html" href="https://www.feedbooks.com/item/2225381/buy" rel="http://opds-spec.org/acquisition/buy">
+  <opds:price currencycode="USD">13.99</opds:price>
+  <opds:indirectAcquisition type="application/vnd.adobe.adept+xml">
+    <opds:indirectAcquisition type="application/epub+zip"/>
+  </opds:indirectAcquisition>
+</link>
+<link type="application/epub+zip" href="https://www.feedbooks.com/item/2225381/preview" rel="http://opds-spec.org/acquisition/sample"/>
+<odl:license>
+  <dcterms:format>application/epub+zip</dcterms:format>
+  <dcterms:source>http://www.feedbooks.com</dcterms:source>
+  <opds:price currencycode="USD">13.99</opds:price>
+  <dcterms:source xsi:type="dcterms:URI">urn:ISBN:9781443449304</dcterms:source>
+  <created>2017-10-21T16:00:18+02:00</created>
+  <odl:terms>
+    <odl:total_checkouts>26</odl:total_checkouts>
+    <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
+    <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
+  </odl:terms>
+  <odl:protection>
+    <dcterms:format>application/vnd.adobe.adept+xml</dcterms:format>
+    <odl:max_devices>6</odl:max_devices>
+    <odl:copy>false</odl:copy>
+    <odl:print>false</odl:print>
+    <odl:tts>false</odl:tts>
+  </odl:protection>
+  <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+</odl:license>
+<odl:license>
+  <dcterms:format>application/epub+zip</dcterms:format>
+  <dcterms:source>http://www.feedbooks.com</dcterms:source>
+  <opds:price currencycode="USD">13.99</opds:price>
+  <dcterms:source xsi:type="dcterms:URI">urn:ISBN:9781443449304</dcterms:source>
+  <created>2017-10-21T16:00:19+02:00</created>
+  <odl:terms>
+    <odl:total_checkouts>26</odl:total_checkouts>
+    <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
+    <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
+  </odl:terms>
+  <odl:protection>
+    <dcterms:format>application/vnd.adobe.adept+xml</dcterms:format>
+    <odl:max_devices>6</odl:max_devices>
+    <odl:copy>false</odl:copy>
+    <odl:print>false</odl:print>
+    <odl:tts>false</odl:tts>
+  </odl:protection>
+  <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+</odl:license>
+</entry>
+<entry>
+<title>The Midnight Dance</title>
+<id>http://www.feedbooks.com/item/2505900</id>
+<dcterms:identifier xsi:type="dcterms:URI">urn:ISBN:9781250123725</dcterms:identifier>
+<author>
+  <name>Nikki Katz</name>
+  <uri>http://www.feedbooks.com/search?query=contributor%3A%22Nikki+Katz%22</uri>
+</author>
+<published>2017-09-25T07:47:33Z</published>
+<updated>2017-09-29T19:48:27Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:publisher>Feiwel &amp; Friends</dcterms:publisher>
+<dcterms:issued>2017-10-16</dcterms:issued>
+<summary>&quot;A dark adventure, stunningly written!&quot; &#8212;Jay Asher, #1 New York Times-bestselling author of Thirteen Reasons WhySet against the fascinating and moody backdrop of a mysterious boarding school, this intricately crafted novel is filled with magical r...</summary>
+<link type="text/html" href="http://www.feedbooks.com/item/2505900" rel="alternate" title="View on Feedbooks"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/item/2505900.jpg?size=large&amp;t=1506355926" rel="http://opds-spec.org/image"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/item/2505900.jpg?t=1506355926" rel="http://opds-spec.org/image/thumbnail"/>
+<link type="text/html" href="https://www.feedbooks.com/item/2505900/buy" rel="http://opds-spec.org/acquisition/buy">
+  <opds:price currencycode="USD">9.99</opds:price>
+  <opds:indirectAcquisition type="application/vnd.adobe.adept+xml">
+    <opds:indirectAcquisition type="application/epub+zip"/>
+  </opds:indirectAcquisition>
+</link>
+<link type="application/epub+zip" href="https://www.feedbooks.com/item/2505900/preview" rel="http://opds-spec.org/acquisition/sample"/>
+<content type="html">&lt;p&gt;&lt;b&gt;&quot;A dark adventure, stunningly written!&quot; &#8212;Jay Asher, #1 &lt;i&gt;New York Times&lt;/i&gt;-bestselling author of &lt;i&gt;Thirteen Reasons Why&lt;/i&gt;&lt;/b&gt;&lt;b&gt;&lt;/b&gt;&lt;b&gt;Set against the fascinating and moody backdrop of a mysterious boarding school, this intricately crafted novel is filled with magical realism, gothic settings, and the perfect hint of romance. &lt;/b&gt;Seventeen-year-old Penny is a lead dancer at the Grande Teatro, a finishing school where she and eleven other young women are training to become the finest ballerinas in Italy. Tucked deep in the woods, the school is overseen by the mysterious and handsome young Master, who keeps the girls ensconced in the estate &#8211; and in the only life Penny has ever known.But when flashes of memories &#8211; memories of a life very different from the one she thinks she&#8217;s been leading &#8211; start to appear, Penny begins to question the Grande Teatro and the motivations of Master. With a kind and attractive kitchen boy, Cricket, at her side, Penny vows to escape the confines of her school and the strict rules that dictate every step she takes. But at every turn, Master finds a way to stop her, and Penny must uncover the secrets of her past before it&#8217;s too late.Debut author Nikki Katz delivers a unique and haunting twist on a classic fairy tale with &lt;i&gt;The Midnight Dance,&lt;/i&gt; chosen by readers like you for Macmillan's young adult imprint Swoon Reads.&lt;b&gt;Praise for &lt;i&gt;The Midnight Dance&lt;/i&gt;, from the Swoon Reads community: &lt;/b&gt;&#8220;This is such a &lt;b&gt;fun, well written twisted story&lt;/b&gt;&#8230; The writing is superb. I love the premise and the Gothic feel to it.&#8221; &#8212;Angie Taylor, reader on SwoonReads.com&#8220;So imaginative and unique! &lt;b&gt;This was a joy to read.&lt;/b&gt;&#8221; &#8212;Anna S., reader on SwoonReads.com&#8220;&lt;b&gt;Well-written and charming&lt;/b&gt; with cheeky bits of humor that will engage any fairytale lover.&#8221; &#8212;Jennifer McKenzie, reader on SwoonReads.com&#8220;A&lt;b&gt; beautifully written&lt;/b&gt; story.&#8221; &#8212;Chen Yan Chang, reader on SwoonReads.com&lt;/p&gt;</content>
+<odl:license>
+  <dcterms:format>application/epub+zip</dcterms:format>
+  <dcterms:source>http://www.feedbooks.com</dcterms:source>
+  <opds:price currencycode="USD">60.00</opds:price>
+  <dcterms:source xsi:type="dcterms:URI">urn:ISBN:9781250123725</dcterms:source>
+  <created>2017-10-21T16:00:19+02:00</created>
+  <odl:terms>
+    <odl:total_checkouts>52</odl:total_checkouts>
+    <odl:expires>2019-10-21T00:00:00+02:00</odl:expires>
+    <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
+    <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
+  </odl:terms>
+  <odl:protection>
+    <dcterms:format>application/vnd.adobe.adept+xml</dcterms:format>
+    <odl:max_devices>6</odl:max_devices>
+    <odl:copy>false</odl:copy>
+    <odl:print>false</odl:print>
+    <odl:tts>false</odl:tts>
+  </odl:protection>
+  <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+</odl:license>
+<odl:license>
+  <dcterms:format>application/pdf</dcterms:format>
+  <dcterms:source>http://www.feedbooks.com</dcterms:source>
+  <opds:price currencycode="USD">60.00</opds:price>
+  <dcterms:source xsi:type="dcterms:URI">urn:ISBN:9781250123725</dcterms:source>
+  <created>2017-10-21T16:00:19+02:00</created>
+  <odl:terms>
+    <odl:total_checkouts>52</odl:total_checkouts>
+    <odl:expires>2019-10-21T00:00:00+02:00</odl:expires>
+    <odl:concurrent_checkouts>1</odl:concurrent_checkouts>
+    <odl:maximum_checkout_length>5097600</odl:maximum_checkout_length>
+  </odl:terms>
+  <odl:protection>
+    <dcterms:format>application/vnd.adobe.adept+xml</dcterms:format>
+    <odl:max_devices>6</odl:max_devices>
+    <odl:copy>false</odl:copy>
+    <odl:print>false</odl:print>
+    <odl:tts>false</odl:tts>
+  </odl:protection>
+  <odl:tlink type="application/vnd.readium.lcp.status.1-0+json" href="https://loan.feedbooks.net/loan/get/{?id,checkout_id,expires,patron_id,notification_url}" rel="http://opds-spec.org/acquisition/borrow"/>
+</odl:license>
+</entry>
+</feed>

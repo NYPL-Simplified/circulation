@@ -93,6 +93,7 @@ from api.adobe_vendor_id import (
     AuthdataUtility,
     DeviceManagementProtocolController,
 )
+from api.odl import MockODLWithConsolidatedCopiesAPI
 from api.lanes import make_lanes_default
 import base64
 import feedparser
@@ -2571,6 +2572,48 @@ class TestDeviceManagementProtocolController(ControllerTest):
             eq_(405, response.status_code)
             eq_("Only DELETE is supported.", response.detail)
 
+
+class TestODLNotificationController(ControllerTest):
+    """Test that an ODL distributor can notify the circulation manager
+    when a loan's status changes."""
+
+    def test_notify_success(self):
+        collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+        patron = self._patron()
+        pool = self._licensepool(None, collection=collection)
+        pool.licenses_owned = 10
+        pool.licenses_available = 5
+        loan, ignore = pool.loan_to(patron)
+        loan.external_identifier = self._str
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.data = json.dumps({
+               "id": loan.external_identifier,
+               "status": "revoked",
+            })
+            response = self.manager.odl_notification_controller.notify(
+                loan.external_identifier)
+            eq_(200, response.status_code)
+
+            # The pool's availability has been updated.
+            api = self.manager.circulation_apis[self._default_library.id].api_for_license_pool(loan.license_pool)
+            eq_([loan.license_pool], api.availability_updated_for)
+
+    def test_notify_errors(self):
+        # No loan.
+        with self.request_context_with_library("/", method="POST"):
+            response = self.manager.odl_notification_controller.notify(self._str)
+            eq_(NO_ACTIVE_LOAN.uri, response.uri)
+
+        # Loan from a non-ODL collection.
+        patron = self._patron()
+        pool = self._licensepool(None)
+        loan, ignore = pool.loan_to(patron)
+        loan.external_identifier = self._str
+
+        with self.request_context_with_library("/", method="POST"):
+            response = self.manager.odl_notification_controller.notify(loan.external_identifier)
+            eq_(INVALID_LOAN_FOR_ODL_NOTIFICATION, response)
 
 class TestProfileController(ControllerTest):
     """Test that a client can interact with the User Profile Management
