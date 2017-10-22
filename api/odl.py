@@ -339,6 +339,18 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             expires,
         )
 
+    def place_hold(self, patron, pin, licensepool, notification_email_address):
+        """Holds aren't supported yet, so attempting to place one will
+        raise an exception.
+        """
+        raise CannotHold()
+
+    def release_hold(self, patron, pin, licensepool):
+        """Holds aren't supported yet, so attempting to release one will
+        raise an exception.
+        """
+        raise CannotReleaseHold()
+
     def patron_activity(self, patron, pin):
         """Look up non-expired loans for this collection in the database."""
         _db = Session.object_session(patron)

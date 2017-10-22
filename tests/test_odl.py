@@ -322,6 +322,18 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(7, self.pool.licenses_available)
         eq_(0, self._db.query(Loan).count())
 
+    def test_place_hold_raises_exception(self):
+        assert_raises(
+            CannotHold, self.api.place_hold,
+            self.patron, "pin", self.pool, "test@example.com",
+        )
+
+    def test_release_hold_raises_exception(self):
+        assert_raises(
+            CannotReleaseHold, self.api.release_hold,
+            self.patron, "pin", self.pool,
+        )
+
     def test_patron_activity(self):
         # No loans yet.
         eq_([], self.api.patron_activity(self.patron, "pin"))
