@@ -28,7 +28,10 @@ from core.model import (
     Collection,
     Complaint,
     ConfigurationSetting,
+    Contributor,
     CoverageRecord,
+    CustomList,
+    CustomListEntry,
     create,
     DataSource,
     Edition,
@@ -1062,6 +1065,153 @@ class TestFeedController(AdminControllerTest):
                     "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
                 }))        
 
+class TestCustomListsController(AdminControllerTest):
+    def test_custom_lists_get(self):
+        # This list has no associated Library and should not be included.
+        no_library, ignore = create(self._db, CustomList, name=self._str)
+
+        one_entry, ignore = create(self._db, CustomList, name=self._str, library=self._default_library)
+        edition = self._edition()
+        [c1] = edition.author_contributors
+        c1.display_name = self._str
+        c2, ignore = self._contributor()
+        c2.display_name = self._str
+        edition.add_contributor(c2, Contributor.AUTHOR_ROLE)
+        one_entry.add_entry(edition)
+
+        no_entries, ignore = create(self._db, CustomList, name=self._str, library=self._default_library)
+
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(2, len(response.get("custom_lists")))
+            lists = response.get("custom_lists")
+            [l1, l2] = sorted(lists, key=lambda l: l.get("id"))
+
+            eq_(one_entry.id, l1.get("id"))
+            eq_(one_entry.name, l1.get("name"))
+            eq_(1, len(l1.get("entries")))
+            [entry] = l1.get("entries")
+            eq_(edition.permanent_work_id, entry.get("pwid"))
+            eq_(edition.title, entry.get("title"))
+            eq_(2, len(entry.get("authors")))
+            eq_(set([c1.display_name, c2.display_name]),
+                set(entry.get("authors")))
+
+            eq_(no_entries.id, l2.get("id"))
+            eq_(no_entries.name, l2.get("name"))
+            eq_(0, len(l2.get("entries")))
+
+    def test_custom_lists_post_errors(self):
+        with self.request_context_with_library("/", method='POST'):
+            flask.request.form = MultiDict([
+                ("id", "4"),
+                ("name", "name"),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(MISSING_CUSTOM_LIST, response)
+
+        library = self._library()
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list.library = library
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", list.id),
+                ("name", list.name),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST, response)
+
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", list.name),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
+
+        l1, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
+        l2, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", l2.id),
+                ("name", l1.name),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
+
+    def test_custom_lists_create(self):
+        work = self._work(with_open_access_download=True)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("name", "List"),
+                ("entries", json.dumps([dict(pwid=work.presentation_edition.permanent_work_id)])),
+            ])
+
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(201, response.status_code)
+
+            [list] = self._db.query(CustomList).all()
+            eq_(list.id, int(response.response[0]))
+            eq_(self._default_library, list.library)
+            eq_("List", list.name)
+            eq_(1, len(list.entries))
+            eq_(work, list.entries[0].work)
+            eq_(work.presentation_edition, list.entries[0].edition)
+            eq_(True, list.entries[0].featured)
+
+    def test_custom_lists_edit(self):
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list.library = self._default_library
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        w3 = self._work(with_license_pool=True)
+        list.add_entry(w1)
+        list.add_entry(w2)
+
+        new_entries = [dict(pwid=work.presentation_edition.permanent_work_id) for work in [w2, w3]]
+        
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", str(list.id)),
+                ("name", "new name"),
+                ("entries", json.dumps(new_entries)),
+            ])
+
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(200, response.status_code)
+            eq_(list.id, int(response.response[0]))
+
+            eq_("new name", list.name)
+            eq_(set([w2, w3]),
+                set([entry.work for entry in list.entries]))
+
+    def test_custom_list_delete_success(self):
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list.library = self._default_library
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        list.add_entry(w1)
+        list.add_entry(w2)
+
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_custom_lists_controller.custom_list(list.id)
+            eq_(200, response.status_code)
+
+            eq_(0, self._db.query(CustomList).count())
+            eq_(0, self._db.query(CustomListEntry).count())
+
+    def test_custom_list_delete_errors(self):
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_custom_lists_controller.custom_list(123)
+            eq_(MISSING_CUSTOM_LIST, response)
+
 class TestDashboardController(AdminControllerTest):
 
     def test_circulation_events(self):
@@ -1414,6 +1564,7 @@ class TestSettingsController(AdminControllerTest):
 
         library = get_one(self._db, Library, short_name="nypl")
 
+        eq_(library.uuid, response.response[0])
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
         eq_("5", ConfigurationSetting.for_library(Configuration.FEATURED_LANE_SIZE, library).value)
@@ -1468,6 +1619,7 @@ class TestSettingsController(AdminControllerTest):
 
         library = get_one(self._db, Library)
 
+        eq_(library.uuid, response.response[0])
         eq_(library.name, "The New York Public Library")
         eq_(library.short_name, "nypl")
 
@@ -1712,6 +1864,7 @@ class TestSettingsController(AdminControllerTest):
 
         # The collection was created and configured properly.
         collection = get_one(self._db, Collection, name="New Collection")
+        eq_(collection.id, int(response.response[0]))
         eq_("New Collection", collection.name)
         eq_("acctid", collection.external_account_id)
         eq_("username", collection.external_integration.username)
@@ -1749,6 +1902,7 @@ class TestSettingsController(AdminControllerTest):
 
         # The collection was created and configured properly.
         child = get_one(self._db, Collection, name="Child Collection")
+        eq_(child.id, int(response.response[0]))
         eq_("Child Collection", child.name)
         eq_("child-acctid", child.external_account_id)
 
@@ -1789,6 +1943,8 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
 
+        eq_(collection.id, int(response.response[0]))
+
         # The collection has been changed.
         eq_("user2", collection.external_integration.username)
 
@@ -1825,6 +1981,8 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
 
+        eq_(collection.id, int(response.response[0]))
+
         # The collection is the same.
         eq_("user2", collection.external_integration.username)
         eq_(ExternalIntegration.OVERDRIVE, collection.protocol)
@@ -1848,6 +2006,8 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
+
+        eq_(collection.id, int(response.response[0]))
 
         # The collection now has a parent.
         eq_(parent, collection.parent)
@@ -1941,6 +2101,7 @@ class TestSettingsController(AdminControllerTest):
 
         # The auth service was created and configured properly.
         auth_service = ExternalIntegration.admin_authentication(self._db)
+        eq_(auth_service.protocol, response.response[0])
         eq_("oauth", auth_service.name)
         eq_("url", auth_service.url)
         eq_("username", auth_service.username)
@@ -1974,6 +2135,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.status_code, 200)
 
+        eq_(auth_service.protocol, response.response[0])
         eq_("oauth", auth_service.name)
         eq_("url2", auth_service.url)
         eq_("user2", auth_service.username)
@@ -2013,6 +2175,7 @@ class TestSettingsController(AdminControllerTest):
 
         # The admin was created.
         admin_match = Admin.authenticate(self._db, "admin@nypl.org", "pass")
+        eq_(admin_match.email, response.response[0])
         assert admin_match
         assert admin_match.has_password("pass")
 
@@ -2030,6 +2193,8 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.individual_admins()
             eq_(response.status_code, 200)
+
+        eq_(admin.email, response.response[0])
 
         # The password was changed.
         old_password_match = Admin.authenticate(self._db, "admin@nypl.org", "password")
@@ -2355,6 +2520,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 201)
 
         auth_service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.PATRON_AUTH_GOAL)
+        eq_(auth_service.id, int(response.response[0]))
         eq_(SimpleAuthenticationProvider.__module__, auth_service.protocol)
         eq_("user", auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
         eq_("pass", auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
@@ -2377,6 +2543,7 @@ class TestSettingsController(AdminControllerTest):
                                goal=ExternalIntegration.PATRON_AUTH_GOAL,
                                protocol=MilleniumPatronAPI.__module__)
         assert auth_service2 != auth_service
+        eq_(auth_service2.id, int(response.response[0]))
         eq_("url", auth_service2.url)
         eq_("user", auth_service2.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
         eq_("pass", auth_service2.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
@@ -2416,6 +2583,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.status_code, 200)
 
+        eq_(auth_service.id, int(response.response[0]))
         eq_(SimpleAuthenticationProvider.__module__, auth_service.protocol)
         eq_("user", auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value)
         eq_("pass", auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value)
@@ -2478,6 +2646,7 @@ class TestSettingsController(AdminControllerTest):
 
         # The setting was created.
         setting = ConfigurationSetting.sitewide(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY)
+        eq_(setting.key, response.response[0])
         eq_("10", setting.value)
 
     def test_sitewide_settings_post_edit(self):
@@ -2493,6 +2662,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 200)
 
         # The setting was changed.
+        eq_(setting.key, response.response[0])
         eq_("20", setting.value)
 
     def test_metadata_services_get_with_no_services(self):
@@ -2625,6 +2795,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.METADATA_GOAL)
+        eq_(service.id, int(response.response[0]))
         eq_(ExternalIntegration.NOVELIST, service.protocol)
         eq_("user", service.username)
         eq_("pass", service.password)
@@ -2658,6 +2829,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response.status_code, 200)
 
+        eq_(novelist_service.id, int(response.response[0]))
         eq_(ExternalIntegration.NOVELIST, novelist_service.protocol)
         eq_("user", novelist_service.username)
         eq_("pass", novelist_service.password)
@@ -2829,6 +3001,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.ANALYTICS_GOAL)
+        eq_(service.id, int(response.response[0]))
         eq_(GoogleAnalyticsProvider.__module__, service.protocol)
         eq_("url", service.url)
         eq_([library], service.libraries)
@@ -2861,6 +3034,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.analytics_services()
             eq_(response.status_code, 200)
 
+        eq_(ga_service.id, int(response.response[0]))
         eq_(GoogleAnalyticsProvider.__module__, ga_service.protocol)
         eq_("url", ga_service.url)
         eq_([l2], ga_service.libraries)
@@ -2953,6 +3127,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.CDN_GOAL)
+        eq_(service.id, int(response.response[0]))
         eq_(ExternalIntegration.CDN, service.protocol)
         eq_("cdn url", service.url)
         eq_("mirrored domain", service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
@@ -2976,6 +3151,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.cdn_services()
             eq_(response.status_code, 200)
 
+        eq_(cdn_service.id, int(response.response[0]))
         eq_(ExternalIntegration.CDN, cdn_service.protocol)
         eq_("new cdn url", cdn_service.url)
         eq_("new mirrored domain", cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
@@ -3080,6 +3256,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.SEARCH_GOAL)
+        eq_(service.id, int(response.response[0]))
         eq_(ExternalIntegration.ELASTICSEARCH, service.protocol)
         eq_("search url", service.url)
         eq_("works-index", service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
@@ -3103,6 +3280,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.search_services()
             eq_(response.status_code, 200)
 
+        eq_(search_service.id, int(response.response[0]))
         eq_(ExternalIntegration.ELASTICSEARCH, search_service.protocol)
         eq_("new search url", search_service.url)
         eq_("new-works-index", search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
@@ -3192,6 +3370,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.status_code, 201)
 
         service = get_one(self._db, ExternalIntegration, goal=ExternalIntegration.DISCOVERY_GOAL)
+        eq_(service.id, int(response.response[0]))
         eq_(ExternalIntegration.OPDS_REGISTRATION, service.protocol)
         eq_("registry url", service.url)
 
@@ -3212,6 +3391,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.discovery_services()
             eq_(response.status_code, 200)
 
+        eq_(discovery_service.id, int(response.response[0]))
         eq_(ExternalIntegration.OPDS_REGISTRATION, discovery_service.protocol)
         eq_("new registry url", discovery_service.url)
 
