@@ -586,7 +586,7 @@ fiction_genres = [
     ]),
     u"Humorous Fiction",
     u"Literary Fiction",
-    dict(name=u"LGBTQ Fiction", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
+    u"LGBTQ Fiction",
     dict(name=u"Mystery", subgenres=[
         u"Crime & Detective Stories",
         u"Hard-Boiled Mystery",
