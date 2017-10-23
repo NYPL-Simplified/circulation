@@ -64,11 +64,9 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_("http://loan", base_url)
         eq_(self.pool.identifier.identifier, id)
 
-        # The checkout id and patron id are random UUIDs. The patron id is stored in a
-        # credential.
+        # The checkout id and patron id are random UUIDs.
         assert len(checkout_id) > 0
-        credential = get_one(self._db, Credential, credential=patron_id)
-        eq_(self.patron.id, credential.patron_id)
+        assert len(patron_id) > 0
 
         # Loans expire in 21 days by default.
         now = datetime.datetime.utcnow()
@@ -83,29 +81,11 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # With an existing loan.
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = self._str
-        loan.end = datetime.datetime.now() + datetime.timedelta(days=3)
 
         self.api.queue_response(200, content=json.dumps(dict(status="active")))
         doc = self.api.get_license_status_document(self.pool, self.patron, loan)
         requested_url = self.api.requests[1][0]
-
-        expected_url_re = re.compile("(.*)\?id=(.*)&checkout_id=(.*)&patron_id=(.*)&expires=(.*)&notification_url=(.*)")
-        match = expected_url_re.match(requested_url)
-        assert match != None
-        (base_url, id, checkout_id, patron_id, expires, notification_url) = match.groups()
-
-        eq_("http://loan", base_url)
-        eq_(self.pool.identifier.identifier, id)
-
-        eq_(self.patron.id, credential.patron_id)
-
-        # The checkout id and expiration time come from the existing loan.
-        eq_(loan.external_identifier, checkout_id)
-        expires = datetime.datetime.strptime(expires, "%Y-%m-%dT%H:%M:%S.%fZ")
-        eq_(loan.end, expires)
-
-        expected_notification_url = "http://odl_notify?library_short_name=%s&loan_external_identifier=%s" % (self._default_library.short_name, checkout_id)
-        eq_(expected_notification_url, notification_url)
+        eq_(loan.external_identifier, requested_url)
 
     def test_get_license_status_document_errors(self):
         self.api.queue_response(200, content="not json")
@@ -123,11 +103,10 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
     def test_checkin_success(self):
         self.pool.licenses_available = 6
         loan, ignore = self.pool.loan_to(self.patron)
-        loan.external_identifier = self._str
+        loan.external_identifier = "http://loan/" + self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
-            "id": loan.external_identifier,
             "status": "ready",
             "links": {
                 "return": {
@@ -136,7 +115,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             },
         })
         returned_lsd = json.dumps({
-            "id": loan.external_identifier,
             "status": "returned",
         })
 
@@ -208,12 +186,14 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
     def test_checkout_success(self):
         self.pool.licenses_available = 6
-        loan_id = self._str
+        loan_url = self._str
         lsd = json.dumps({
-            "id": loan_id,
             "status": "ready",
             "potential_rights": {
                 "end": "2017-10-21T11:12:13Z"
+            },
+            "links": {
+                "self": { "href": loan_url }
             },
         })
 
@@ -226,7 +206,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         assert loan.start_date > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
         assert loan.start_date < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
         eq_(datetime.datetime(2017, 10, 21, 11, 12, 13), loan.end_date)
-        eq_(loan_id, loan.external_identifier)
+        eq_(loan_url, loan.external_identifier)
 
         # The pool's availability has decreased.
         eq_(5, self.pool.licenses_available)
@@ -258,9 +238,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         )
 
     def test_checkout_cannot_loan(self):
-        loan_id = self._str
         lsd = json.dumps({
-            "id": loan_id,
             "status": "revoked",
         })
 
@@ -276,7 +254,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
-            "id": loan.external_identifier,
             "status": "ready",
             "potential_rights": {
                 "end": "2017-10-21T11:12:13Z"
@@ -306,7 +283,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
-            "id": loan.external_identifier,
             "status": "revoked",
         })
 
@@ -411,7 +387,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = self._str
         status_doc = {
-            "id": loan.external_identifier,
             "status": "active",
         }
 
@@ -425,7 +400,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = self._str
         status_doc = {
-            "id": loan.external_identifier,
             "status": "cancelled",
         }
 

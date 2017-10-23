@@ -195,30 +195,30 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
 
         id = pool.identifier.identifier
         if loan:
-            checkout_id = loan.external_identifier
-            expires = loan.end
+            url = loan.external_identifier
         else:
             checkout_id = str(uuid.uuid1())
             expires = datetime.datetime.utcnow() + datetime.timedelta(days=self.default_loan_period)
-        credential, is_new = Credential.persistent_token_create(
-            _db, pool.data_source, "ODL Patron Identifier", patron)
-        patron_id = credential.credential
-        notification_url = self._url_for(
-            "odl_notify",
-            library_short_name=patron.library.short_name,
-            loan_external_identifier=checkout_id,
-            _external=True,
-        )
+            # The patron UUID is generated randomly on each loan, so the distributor
+            # doesn't know when multiple loans come from the same patron.
+            patron_id = str(uuid.uuid1())
+            notification_url = self._url_for(
+                "odl_notify",
+                library_short_name=patron.library.short_name,
+                loan_external_identifier=checkout_id,
+                _external=True,
+            )
 
-        params = dict(
-            url=self.consolidated_loan_url,
-            id=id,
-            checkout_id=checkout_id,
-            patron_id=patron_id,
-            expires=(expires.isoformat() + 'Z'),
-            notification_url=notification_url,
-        )
-        url = "%(url)s?id=%(id)s&checkout_id=%(checkout_id)s&patron_id=%(patron_id)s&expires=%(expires)s&notification_url=%(notification_url)s" % params
+            params = dict(
+                url=self.consolidated_loan_url,
+                id=id,
+                checkout_id=checkout_id,
+                patron_id=patron_id,
+                expires=(expires.isoformat() + 'Z'),
+                notification_url=notification_url,
+            )
+            url = "%(url)s?id=%(id)s&checkout_id=%(checkout_id)s&patron_id=%(patron_id)s&expires=%(expires)s&notification_url=%(notification_url)s" % params
+
         response = self._get(url)
 
         try:
@@ -290,9 +290,9 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         # We have successfully borrowed this book.
         licensepool.licenses_available -= 1
 
-        loan_id = doc.get("id")
         expires = doc.get("potential_rights", {}).get("end")
         expires = datetime.datetime.strptime(expires, self.TIME_FORMAT)
+        external_identifier = doc.get("links", {}).get("self", {}).get("href")
         return LoanInfo(
             licensepool.collection,
             licensepool.data_source.name,
@@ -300,7 +300,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             licensepool.identifier.identifier,
             datetime.datetime.utcnow(),
             expires,
-            external_identifier=loan_id,
+            external_identifier=external_identifier,
         )
 
     def fulfill(self, patron, pin, licensepool, internal_format):
