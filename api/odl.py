@@ -249,7 +249,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             raise NotCheckedOut()
         elif status == self.ACTIVE_STATUS:
             # This loan has already been fulfilled, so it needs to be returned through the DRM system.
-            raise CannotReturn()
+            # Do nothing.
+            return
 
         return_url = doc.get("links", {}).get("return", {}).get("href")
         if return_url:
@@ -290,9 +291,12 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         # We have successfully borrowed this book.
         licensepool.licenses_available -= 1
 
-        expires = doc.get("potential_rights", {}).get("end")
-        expires = datetime.datetime.strptime(expires, self.TIME_FORMAT)
         external_identifier = doc.get("links", {}).get("self", {}).get("href")
+        if not external_identifier:
+            raise CannotLoan()
+        expires = doc.get("potential_rights", {}).get("end")
+        if expires:
+            expires = datetime.datetime.strptime(expires, self.TIME_FORMAT)
         return LoanInfo(
             licensepool.collection,
             licensepool.data_source.name,

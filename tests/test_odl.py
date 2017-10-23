@@ -132,6 +132,24 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(7, self.pool.licenses_available)
         eq_(0, self._db.query(Loan).count())
 
+    def test_checkin_already_fulfilled(self):
+        # The loan is already fulfilled. Attempting to check in
+        # won't do anything, but won't raise an exception.
+        self.pool.licenses_available = 6
+        loan, ignore = self.pool.loan_to(self.patron)
+        loan.external_identifier = self._str
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
+
+        lsd = json.dumps({
+            "status": "active",
+        })
+
+        self.api.queue_response(200, content=lsd)
+        self.api.checkin(self.patron, "pin", self.pool)
+        eq_(1, len(self.api.requests))
+        eq_(6, self.pool.licenses_available)
+        eq_(1, self._db.query(Loan).count())
+
     def test_checkin_not_checked_out(self):
         # Not checked out locally.
         assert_raises(
@@ -145,7 +163,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
-            "id": loan.external_identifier,
             "status": "revoked",
         })
 
@@ -156,25 +173,12 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         )
 
     def test_checkin_cannot_return(self):
-        # Already fulfilled.
+        # Not fulfilled yet, but no return link from the distributor.
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
         lsd = json.dumps({
-            "id": loan.external_identifier,
-            "status": "active",
-        })
-
-        self.api.queue_response(200, content=lsd)
-        assert_raises(
-            CannotReturn, self.api.checkin,
-            self.patron, "pin", self.pool,
-        )
-
-        # Not fulfilled yet, but no return link from the distributor.
-        lsd = json.dumps({
-            "id": loan.external_identifier,
             "status": "ready",
         })
 
@@ -240,6 +244,20 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
     def test_checkout_cannot_loan(self):
         lsd = json.dumps({
             "status": "revoked",
+        })
+
+        self.api.queue_response(200, content=lsd)
+        assert_raises(
+            CannotLoan, self.api.checkout,
+            self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
+        )
+
+        # No external identifier.
+        lsd = json.dumps({
+            "status": "ready",
+            "potential_rights": {
+                "end": "2017-10-21T11:12:13Z"
+            },
         })
 
         self.api.queue_response(200, content=lsd)
