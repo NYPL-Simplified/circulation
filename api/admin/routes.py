@@ -288,12 +288,36 @@ def libraries():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/library/<library_uuid>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def library(library_uuid):
+    data = app.manager.admin_settings_controller.library(library_uuid)
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route("/admin/collections", methods=['GET', 'POST'])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
 def collections():
     data = app.manager.admin_settings_controller.collections()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/collection/<collection_id>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def collection(collection_id):
+    data = app.manager.admin_settings_controller.collection(collection_id)
     if isinstance(data, ProblemDetail):
         return data
     if isinstance(data, Response):
@@ -313,6 +337,18 @@ def admin_auth_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/admin_auth_service/<protocol>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def admin_auth_service(protocol):
+    data = app.manager.admin_settings_controller.admin_auth_service(protocol)
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route("/admin/individual_admins", methods=['GET', 'POST'])
 @returns_problem_detail
 @allows_admin_auth_setup
@@ -320,6 +356,18 @@ def admin_auth_services():
 @requires_csrf_token
 def individual_admins():
     data = app.manager.admin_settings_controller.individual_admins()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/individual_admin/<email>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def individual_admin(email):
+    data = app.manager.admin_settings_controller.individual_admin(email)
     if isinstance(data, ProblemDetail):
         return data
     if isinstance(data, Response):
@@ -338,12 +386,36 @@ def patron_auth_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/patron_auth_service/<service_id>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def patron_auth_service(service_id):
+    data = app.manager.admin_settings_controller.patron_auth_service(service_id)
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route("/admin/metadata_services", methods=['GET', 'POST'])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
 def metadata_services():
     data = app.manager.admin_settings_controller.metadata_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/metadata_service/<service_id>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def metadata_service(service_id):
+    data = app.manager.admin_settings_controller.metadata_service(service_id)
     if isinstance(data, ProblemDetail):
         return data
     if isinstance(data, Response):
@@ -362,12 +434,36 @@ def analytics_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/analytics_service/<service_id>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def analytics_service(service_id):
+    data = app.manager.admin_settings_controller.analytics_service(service_id)
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route("/admin/cdn_services", methods=["GET", "POST"])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
 def cdn_services():
     data = app.manager.admin_settings_controller.cdn_services()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/cdn_service/<service_id>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def cdn_service(service_id):
+    data = app.manager.admin_settings_controller.cdn_service(service_id)
     if isinstance(data, ProblemDetail):
         return data
     if isinstance(data, Response):
@@ -386,6 +482,18 @@ def search_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/search_service/<service_id>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def search_service(service_id):
+    data = app.manager.admin_settings_controller.search_service(service_id)
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route("/admin/discovery_services", methods=["GET", "POST"])
 @returns_problem_detail
 @requires_admin
@@ -398,12 +506,36 @@ def discovery_services():
         return data
     return flask.jsonify(**data)
 
+@app.route("/admin/discovery_service/<service_id>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def discovery_service(service_id):
+    data = app.manager.admin_settings_controller.discovery_service(service_id)
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
 @app.route("/admin/sitewide_settings", methods=['GET', 'POST'])
 @returns_problem_detail
 @requires_admin
 @requires_csrf_token
 def sitewide_settings():
     data = app.manager.admin_settings_controller.sitewide_settings()
+    if isinstance(data, ProblemDetail):
+        return data
+    if isinstance(data, Response):
+        return data
+    return flask.jsonify(**data)
+
+@app.route("/admin/sitewide_setting/<key>", methods=["DELETE"])
+@returns_problem_detail
+@requires_admin
+@requires_csrf_token
+def sitewide_setting(key):
+    data = app.manager.admin_settings_controller.sitewide_setting(key)
     if isinstance(data, ProblemDetail):
         return data
     if isinstance(data, Response):
