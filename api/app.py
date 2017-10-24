@@ -41,7 +41,7 @@ def initialize_database(autoinitialize=True):
 
     log_level = LogConfiguration.initialize(_db, testing=testing)
     debug = log_level == 'DEBUG'
-    app.config['DEBUG'] = True
+    app.config['DEBUG'] = debug
     app.debug = debug
     _db.commit()
     logging.getLogger().info("Application debug mode==%r" % app.debug)
