@@ -134,9 +134,7 @@ class ControllerTest(VendorIDTest):
     def setup(self, _db=None, set_up_circulation_manager=True):
         super(ControllerTest, self).setup()
         _db = _db or self._db
-        from api.app import app
         self.app = app
-        self.app._db = _db
         
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
