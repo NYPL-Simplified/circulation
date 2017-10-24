@@ -8,7 +8,7 @@ from flask import (
 )
 import os
 
-from api.app import app, _db
+from api.app import app
 from api.config import Configuration
 
 from core.util.problem_detail import ProblemDetail
@@ -32,11 +32,6 @@ from StringIO import StringIO
 import urllib
 from datetime import timedelta
 
-# The secret key is used for signing cookies for admin login
-app.secret_key = ConfigurationSetting.sitewide_secret(
-    _db, Configuration.SECRET_KEY
-)
-
 # An admin's session will expire after this amount of time and
 # the admin will have to log in again.
 app.permanent_session_lifetime = timedelta(hours=9)
@@ -45,6 +40,11 @@ app.permanent_session_lifetime = timedelta(hours=9)
 def setup_admin():
     if getattr(app, 'manager', None) is not None:
         setup_admin_controllers(app.manager)
+    # The secret key is used for signing cookies for admin login
+    app.secret_key = ConfigurationSetting.sitewide_secret(
+        app._db, Configuration.SECRET_KEY
+    )
+
 
 def allows_admin_auth_setup(f):
     @wraps(f)
@@ -489,7 +489,7 @@ def admin_base(**kwargs):
 def admin_js():
     directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
     cache_timeout = ConfigurationSetting.sitewide(
-        _db, Configuration.STATIC_FILE_CACHE_TIME
+        app._db, Configuration.STATIC_FILE_CACHE_TIME
     ).int_value
     return flask.send_from_directory(directory, "circulation-web.js", cache_timeout=cache_timeout)
 
@@ -498,6 +498,6 @@ def admin_js():
 def admin_css():
     directory = os.path.join(os.path.abspath(os.path.dirname(__file__)), "node_modules", "simplified-circulation-web", "dist")
     cache_timeout = ConfigurationSetting.sitewide(
-        _db, Configuration.STATIC_FILE_CACHE_TIME
+        app._db, Configuration.STATIC_FILE_CACHE_TIME
     ).int_value
     return flask.send_from_directory(directory, "circulation-web.css", cache_timeout=cache_timeout)

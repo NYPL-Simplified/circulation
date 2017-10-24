@@ -298,9 +298,7 @@ class LaneSweeperScript(LibraryInputScript):
     def __init__(self, _db=None, testing=False):
         _db = _db or self._db
         super(LaneSweeperScript, self).__init__(_db)
-        os.environ['AUTOINITIALIZE'] = "False"
         from api.app import app
-        del os.environ['AUTOINITIALIZE']
         app.manager = CirculationManager(_db, testing=testing)
         self.app = app
         self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
