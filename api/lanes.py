@@ -14,8 +14,6 @@ from core import classifier
 from core.lane import (
     Facets,
     Lane,
-    LaneList,
-    make_lanes as core_make_lanes,
     QueryGeneratedLane,
 )
 from core.model import (
@@ -30,57 +28,70 @@ from core.model import (
 from core.util import LanguageCodes
 from novelist import NoveListAPI
 
-def make_lanes(_db, library, definitions=None):
 
-    lanes = core_make_lanes(_db, library, definitions)
-    if lanes:
-        return lanes
+def load_lanes(_db, library):
+    """Return a WorkList that reflects the current lane structure of the
+    Library.
 
-    # There was no configuration to create the lanes,
-    # so go with  the default configuration instead.
-    lanes = make_lanes_default(_db, library)
-    return LaneList.from_description(_db, library, None, lanes)
+    If no top-level visible lanes are configured, the WorkList will be
+    configured to show every book in the collection.
 
-def make_lanes_default(_db, library):
-    """Create the default layout of lanes for the server configuration."""
+    If a single top-level Lane is configured, it will returned as the
+    WorkList.
 
-    # The top-level LaneList includes a hidden lane for each
-    # large-collection language with a number of displayed 
-    # sublanes: 'Adult Fiction', 'Adult Nonfiction',
-    # 'Young Adult Fiction', 'Young Adult Nonfiction', and 'Children'
-    # sublanes. These sublanes contain additional sublanes.
-    #
-    # The top-level LaneList also includes a sublane named after each
-    # small-collection language. Each such sublane contains "Adult
-    # Fiction", "Adult Nonfiction", and "Children/YA" sublanes.
-    #
-    # Finally the top-level LaneList includes an "Other Languages" sublane
-    # which covers all other languages. This lane contains sublanes for each
-    # of the tiny-collection languages in the configuration.
+    Otherwise, a WorkList containing the visible top-level lanes is
+    returned.
+    """
+
+    # Load all Lane objects from the database.
+    lanes = _db.query(Lane).filter(Lane.library==library)
+
+    # But only the visible top-level Lanes go into the WorkList.
+    top_level_lanes = [x for x in lanes if not x.parent and x.visible]
+
+    if len(top_level_lanes) == 1:
+        return top_level_lanes[0]
+
+    wl = WorkList()
+    wl.initialize(
+        library, display_name=_("Collection"), children=top_level_lanes
+    )
+    return wl
+
+def create_default_lanes(_db, library):
+    """Reset the lanes for the given library to the default.
+
+    The top-level LaneList includes a hidden lane for each
+    large-collection language with a number of displayed 
+    sublanes: 'Adult Fiction', 'Adult Nonfiction',
+    'Young Adult Fiction', 'Young Adult Nonfiction', and 'Children'
+    sublanes. These sublanes contain additional sublanes.
+
+    The top-level LaneList also includes a sublane named after each
+    small-collection language. Each such sublane contains "Adult
+    Fiction", "Adult Nonfiction", and "Children/YA" sublanes.
+
+    Finally the top-level LaneList includes an "Other Languages" sublane
+    which covers all other languages known to the collection.
+
+    If run on a Library that already has Lane configuration, this can
+    be an extremely destructive method. All new Lanes will be visible
+    and all Lanes based on CustomLists (but not the CustomLists
+    themselves) will be destroyed.
+    """
     seen_languages = set()
 
     top_level_lanes = []
 
-    def language_list(x):
-        if isinstance(x, basestring):
-            return x.split(',')
-        return x
+    for language in Configuration.large_collection_languages(library):
+        create_lanes_for_large_collection(_db, library, language)
 
-    for language_set in Configuration.large_collection_languages(library):
-        languages = language_list(language_set)
-        seen_languages = seen_languages.union(set(languages))
-        top_level_lanes.extend(lanes_for_large_collection(_db, library, language_set))
+    for language in Configuration.small_collection_languages(library):
+        create_lanes_for_small_collection(_db, library, language)
 
-    for language_set in Configuration.small_collection_languages(library):
-        languages = language_list(language_set)
-        seen_languages = seen_languages.union(set(languages))
-        top_level_lanes.append(lane_for_small_collection(_db, library, language_set))
-
-    other_languages_lane = lane_for_other_languages(_db, library, seen_languages)
-    if other_languages_lane:
-        top_level_lanes.append(other_languages_lane)
-
-    return LaneList.from_description(_db, library, None, top_level_lanes)
+    other_languages_lane = create_lane_for_tiny_collections(
+        Configuration.tiny_collection_languages(library)
+    )
 
 def lanes_from_genres(_db, library, genres, **extra_args):
     """Turn genre info into a list of Lane objects."""
@@ -93,6 +104,9 @@ def lanes_from_genres(_db, library, genres, **extra_args):
         "Political Science" : dict(display_name="Politics & Current Events"),
         "Periodicals" : dict(invisible=True)
     }
+
+    # "Life Strategies" is a YA-specific genre that should not be
+    # included in the Adult Nonfiction lane.
 
     lanes = []
     for descriptor in genres:
@@ -115,6 +129,34 @@ def lanes_from_genres(_db, library, genres, **extra_args):
     return lanes
 
 def lanes_for_large_collection(_db, library, languages):
+    """Ensure that the lanes appropriate to a large collection are all
+    present.
+
+    This means:
+
+    * A "%(language)s Adult Fiction" lane containing sublanes for each fiction
+    genre.
+
+    * A "%(language)s Adult Nonfiction" lane containing sublanes for
+    each nonfiction genre.
+
+    * A "%(language)s YA Fiction" lane containing sublanes for the
+      most popular YA fiction genres.
+    
+    * A "%(language)s YA Nonfiction" lane containing sublanes for the
+      most popular YA fiction genres.
+    
+    * A "%(language)s Children and Middle Grade" lane containing
+      sublanes for childrens' books at different age levels.
+
+    :param library: Newly created lanes will be associated with this
+        library.
+    :param languages: Newly created lanes will contain only books
+        in these languages.
+    :return: A list of top-level Lane objects.
+    """
+    if isinstance(languages, basestring):
+        languages = [languages]
 
     YA = Classifier.AUDIENCE_YOUNG_ADULT
     CHILDREN = Classifier.AUDIENCE_CHILDREN
@@ -126,7 +168,7 @@ def lanes_for_large_collection(_db, library, languages):
     )
 
     adult_fiction = Lane(
-        _db, library, full_name="Adult Fiction", display_name="Fiction",
+        _db, library, full_name="%s Adult Fiction", display_name="Fiction",
         genres=None,
         sublanes=lanes_from_genres(
             _db, library, fiction_genres, languages=languages,
