@@ -631,6 +631,23 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             "Loaded module api.lanes but could not find a class called AuthenticationProvider inside.",
             auth.register_provider, integration
         )        
+
+    def test_register_provider_fails_but_does_not_explode_on_remote_integration_error(self):
+        library = self._default_library
+        # We're going to instantiate the SIP2 client but since we're not
+        # specifying a server or a port, it will raise an IOError immediately,
+        # which will become a RemoteIntegrationException, which will become
+        # a CannotLoadConfiguration.
+        integration = self._external_integration(
+            "api.sip", ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        library.integrations.append(integration)
+        auth = LibraryAuthenticator(_db=self._db, library=library)
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Could not instantiate .* authentication provider for library .*, possibly due to a network connection problem.",
+            auth.register_provider, integration
+        )
         
     def test_register_provider_basic_auth(self):
         firstbook = self._external_integration(
