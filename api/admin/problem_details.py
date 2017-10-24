@@ -135,6 +135,13 @@ COLLECTION_NAME_ALREADY_IN_USE = pd(
     detail=_("The collection name must be unique, and there's already a collection with the specified name."),
 )
 
+CANNOT_DELETE_COLLECTION_WITH_CHILDREN = pd(
+    "http://librarysimplified.org/terms/problem/cannot-delete-collection-with-children",
+    status_code=400,
+    title=_("Cannot delete collection with children"),
+    detail=_("The collection is the parent of at least one other collection, so it can't be deleted."),
+)
+
 NO_PROTOCOL_FOR_NEW_SERVICE = pd(
     "http://librarysimplified.org/terms/problem/no-protocol-for-new-service",
     status_code=400,
@@ -205,6 +212,13 @@ SHARED_SECRET_DECRYPTION_ERROR = pd(
     detail=_("Failed to decrypt a shared secret retrieved from another computer.")
 )
 
+MISSING_ADMIN = pd(
+    "http://librarysimplified.org/terms/problem/missing-admin",
+    status_code=404,
+    title=_("Missing admin"),
+    detail=_("The specified admin does not exist."),
+)
+
 MISSING_SERVICE = pd(
     "http://librarysimplified.org/terms/problem/missing-service",
     status_code=404,
@@ -252,4 +266,25 @@ MULTIPLE_SEARCH_SERVICES = pd(
     status_code=400,
     title=_("Multiple search services"),
     detail=_("You tried to create a new search service, but a search service is already configured."),
+)
+
+MISSING_CUSTOM_LIST = pd(
+    "http://librarysimplified.org/terms/problem/missing-custom-list",
+    status_code=404,
+    title=_("Missing custom list"),
+    detail=_("The specified custom list doesn't exist."),
+)
+
+CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST = pd(
+    "http://librarysimplified.org/terms/problem/cannot-change-library-for-custom-list",
+    status_code=400,
+    title=_("Cannot change library for custom list"),
+    detail=_("A custom list's associated library cannot be changed once it is set.."),
+)
+
+CUSTOM_LIST_NAME_ALREADY_IN_USE = pd(
+    "http://librarysimplified.org/terms/problem/custom-list-name-already-in-use",
+    status_code=400,
+    title=_("Custom list name already in use"),
+    detail=_("The library already has a custom list with that name."),
 )
