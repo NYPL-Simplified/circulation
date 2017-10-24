@@ -51,9 +51,10 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.patron = self._patron()
 
     def test_get_license_status_document_success(self):
-        # With no loan.
+        # With a new loan.
+        loan, ignore = self.pool.loan_to(self.patron)
         self.api.queue_response(200, content=json.dumps(dict(status="ready")))
-        response = self.api.get_license_status_document(self.pool, self.patron)
+        response = self.api.get_license_status_document(loan)
         requested_url = self.api.requests[0][0]
 
         expected_url_re = re.compile("(.*)\?id=(.*)&checkout_id=(.*)&patron_id=(.*)&expires=(.*)&notification_url=(.*)")
@@ -75,29 +76,30 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         assert expires > now
         assert expires < after_expiration
 
-        expected_notification_url = "http://odl_notify?library_short_name=%s&loan_external_identifier=%s" % (self._default_library.short_name, checkout_id)
-        eq_(expected_notification_url, notification_url)
+        assert 'http://odl_notify' in notification_url
+        assert 'library_short_name=%s' % self._default_library.short_name in notification_url
+        assert 'loan_id=%s' % loan.id in notification_url
 
         # With an existing loan.
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = self._str
 
         self.api.queue_response(200, content=json.dumps(dict(status="active")))
-        doc = self.api.get_license_status_document(self.pool, self.patron, loan)
+        doc = self.api.get_license_status_document(loan)
         requested_url = self.api.requests[1][0]
         eq_(loan.external_identifier, requested_url)
 
     def test_get_license_status_document_errors(self):
+        loan, ignore = self.pool.loan_to(self.patron)
+
         self.api.queue_response(200, content="not json")
         assert_raises(
-            BadResponseException, self.api.get_license_status_document,
-            self.pool, self.patron,
+            BadResponseException, self.api.get_license_status_document, loan,
         )
 
         self.api.queue_response(200, content=json.dumps(dict(status="unknown")))
         assert_raises(
-            BadResponseException, self.api.get_license_status_document,
-            self.pool, self.patron,
+            BadResponseException, self.api.get_license_status_document, loan,
         )
 
     def test_checkin_success(self):
@@ -211,6 +213,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         assert loan.start_date < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
         eq_(datetime.datetime(2017, 10, 21, 11, 12, 13), loan.end_date)
         eq_(loan_url, loan.external_identifier)
+        eq_(1, self._db.query(Loan).count())
 
         # The pool's availability has decreased.
         eq_(5, self.pool.licenses_available)
@@ -225,6 +228,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
 
+        eq_(1, self._db.query(Loan).count())
+
     def test_checkout_no_available_copies(self):
         self.pool.licenses_available = 0
 
@@ -233,6 +238,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
 
+        eq_(0, self._db.query(Loan).count())
+
     def test_checkout_no_licenses(self):
         self.pool.licenses_owned = 0
 
@@ -240,6 +247,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             NoLicenses, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
+
+        eq_(0, self._db.query(Loan).count())
 
     def test_checkout_cannot_loan(self):
         lsd = json.dumps({
@@ -251,6 +260,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             CannotLoan, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
+
+        eq_(0, self._db.query(Loan).count())
 
         # No external identifier.
         lsd = json.dumps({
@@ -265,6 +276,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             CannotLoan, self.api.checkout,
             self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
         )
+
+        eq_(0, self._db.query(Loan).count())
 
     def test_fulfill_success(self):
         loan, ignore = self.pool.loan_to(self.patron)

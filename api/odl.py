@@ -187,16 +187,22 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         """
         return url_for(*args, **kwargs)
 
-    def get_license_status_document(self, pool, patron, loan=None):
-        """Get the License Status Document for a loan. This will create the 
-        remote loan if one doesn't exist yet.
-        """
-        _db = Session.object_session(pool)
+    def get_license_status_document(self, loan):
+        """Get the License Status Document for a loan.
 
-        id = pool.identifier.identifier
-        if loan:
+        For a new loan, create a local loan with no external identifier and
+        pass it in to this method.
+
+        This will create the remote loan if one doesn't exist yet. The loan's
+        internal database id will be used to receive notifications from the
+        distributor when the loan's status changes.
+        """
+        _db = Session.object_session(loan)
+
+        if loan.external_identifier:
             url = loan.external_identifier
         else:
+            id = loan.license_pool.identifier.identifier
             checkout_id = str(uuid.uuid1())
             expires = datetime.datetime.utcnow() + datetime.timedelta(days=self.default_loan_period)
             # The patron UUID is generated randomly on each loan, so the distributor
@@ -204,8 +210,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             patron_id = str(uuid.uuid1())
             notification_url = self._url_for(
                 "odl_notify",
-                library_short_name=patron.library.short_name,
-                loan_external_identifier=checkout_id,
+                library_short_name=loan.patron.library.short_name,
+                loan_id=loan.id,
                 _external=True,
             )
 
@@ -242,10 +248,11 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             raise NotCheckedOut()
         loan = loan.one()
 
-        doc = self.get_license_status_document(licensepool, patron, loan)
+        doc = self.get_license_status_document(loan)
         status = doc.get("status")
         if status in [self.REVOKED_STATUS, self.RETURNED_STATUS, self.CANCELLED_STATUS, self.EXPIRED_STATUS]:
             # This loan was already returned early or revoked by the distributor, or it expired.
+            self.update_loan(loan, doc)
             raise NotCheckedOut()
         elif status == self.ACTIVE_STATUS:
             # This loan has already been fulfilled, so it needs to be returned through the DRM system.
@@ -280,12 +287,18 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         if loan.count() > 0:
             raise AlreadyCheckedOut()
 
-        doc = self.get_license_status_document(licensepool, patron)
+        # Create a local loan so it's database id can be used to
+        # receive notifications from the distributor.
+        loan, ignore = get_one_or_create(_db, Loan, patron=patron, license_pool_id=licensepool.id)
+
+        doc = self.get_license_status_document(loan)
         status = doc.get("status")
 
         if status not in [self.READY_STATUS, self.ACTIVE_STATUS]:
             # Something went wrong with this loan and we don't actually
             # have the book checked out. This should never happen.
+            # Remove the loan we created.
+            _db.delete(loan)
             raise CannotLoan()
 
         # We have successfully borrowed this book.
@@ -293,6 +306,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
 
         external_identifier = doc.get("links", {}).get("self", {}).get("href")
         if not external_identifier:
+            _db.delete(loan)
             raise CannotLoan()
         expires = doc.get("potential_rights", {}).get("end")
         if expires:
@@ -317,7 +331,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         )
         loan = loan.one()
 
-        doc = self.get_license_status_document(licensepool, patron, loan)
+        doc = self.get_license_status_document(loan)
         status = doc.get("status")
 
         if status not in [self.READY_STATUS, self.ACTIVE_STATUS]:
@@ -403,7 +417,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         _db = Session.object_session(loan)
 
         if not status_doc:
-            status_doc = self.get_license_status_document(loan.license_pool, loan.patron, loan)
+            status_doc = self.get_license_status_document(loan)
 
         status = status_doc.get("status")
         # We already check that the status is valid in get_license_status_document,

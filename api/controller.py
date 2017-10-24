@@ -1409,10 +1409,10 @@ class ODLNotificationController(CirculationManagerController):
     status of a loan changes.
     """
 
-    def notify(self, loan_external_identifier):
+    def notify(self, loan_id):
         library = flask.request.library
         status_doc = flask.request.data
-        loan = get_one(self._db, Loan, external_identifier=loan_external_identifier)
+        loan = get_one(self._db, Loan, id=loan_id)
 
         if not loan:
             return NO_ACTIVE_LOAN.detailed(_("No loan was found for this identifier."))

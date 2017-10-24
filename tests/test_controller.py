@@ -2592,7 +2592,7 @@ class TestODLNotificationController(ControllerTest):
                "status": "revoked",
             })
             response = self.manager.odl_notification_controller.notify(
-                loan.external_identifier)
+                loan.id)
             eq_(200, response.status_code)
 
             # The pool's availability has been updated.
@@ -2612,7 +2612,7 @@ class TestODLNotificationController(ControllerTest):
         loan.external_identifier = self._str
 
         with self.request_context_with_library("/", method="POST"):
-            response = self.manager.odl_notification_controller.notify(loan.external_identifier)
+            response = self.manager.odl_notification_controller.notify(loan.id)
             eq_(INVALID_LOAN_FOR_ODL_NOTIFICATION, response)
 
 class TestProfileController(ControllerTest):
