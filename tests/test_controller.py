@@ -2678,12 +2678,13 @@ class TestScopedSession(ControllerTest):
     """
 
     def setup(self):
-        from api.app import _db
+        from api.app import app, initialize_database
         # We will be calling circulation_manager_setup ourselves,
         # because we want objects like Libraries to be created in the
         # scoped session.
+        initialize_database()
         super(TestScopedSession, self).setup(
-            _db, set_up_circulation_manager=False
+            app._db, set_up_circulation_manager=False
         )
         
     def make_default_libraries(self, _db):

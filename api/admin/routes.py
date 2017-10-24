@@ -37,12 +37,13 @@ from datetime import timedelta
 app.permanent_session_lifetime = timedelta(hours=9)
 
 @app.before_first_request
-def setup_admin():
+def setup_admin(_db=None):
     if getattr(app, 'manager', None) is not None:
         setup_admin_controllers(app.manager)
+    _db = _db or app._db
     # The secret key is used for signing cookies for admin login
     app.secret_key = ConfigurationSetting.sitewide_secret(
-        app._db, Configuration.SECRET_KEY
+        _db, Configuration.SECRET_KEY
     )
 
 
