@@ -249,7 +249,7 @@ class Axis360CirculationMonitor(CollectionMonitor):
     DEFAULT_START_TIME = datetime(1970, 1, 1)
     FIVE_MINUTES = timedelta(minutes=5)
 
-    def __init__(self, _db, collection, api_class=Axis360API, metadata_client=None):
+    def __init__(self, _db, collection, api_class=Axis360API):
         super(Axis360CirculationMonitor, self).__init__(_db, collection)
         if isinstance(api_class, Axis360API):
             # Use a preexisting Axis360API instance rather than
@@ -257,13 +257,8 @@ class Axis360CirculationMonitor(CollectionMonitor):
             self.api = api_class
         else:
             self.api = api_class(_db, collection)
-        if not metadata_client:
-            metadata_client = MetadataWranglerOPDSLookup.from_config(
-                _db, collection=collection
-            )
 
         self.batch_size = self.DEFAULT_BATCH_SIZE
-        self.metadata_client = metadata_client
         self.bibliographic_coverage_provider = (
             Axis360BibliographicCoverageProvider(collection, api_class=self.api)
         )
