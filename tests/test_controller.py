@@ -2686,10 +2686,6 @@ class TestScopedSession(ControllerTest):
         super(TestScopedSession, self).setup(
             app._db, set_up_circulation_manager=False
         )
-
-    @classmethod
-    def teardown_class(cls):
-        app._db = None
         
     def make_default_libraries(self, _db):
         libraries = []
