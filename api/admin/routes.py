@@ -93,6 +93,17 @@ def requires_csrf_token(f):
         return f(*args, **kwargs)
     return decorated
 
+def returns_json_or_response_or_problem_detail(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        v = f(*args, **kwargs)
+        if isinstance(v, ProblemDetail):
+            return v.response
+        if isinstance(v, Response):
+            return v
+        return flask.jsonify(**v)
+    return decorated
+
 @app.route('/admin/GoogleAuth/callback')
 @returns_problem_detail
 def google_auth_callback():
@@ -117,23 +128,17 @@ def work_details(identifier_type, identifier):
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/classifications', methods=['GET'])
 @has_library
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 def work_classifications(identifier_type, identifier):
-    data = app.manager.admin_work_controller.classifications(identifier_type, identifier)
-    if isinstance(data, ProblemDetail):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_work_controller.classifications(identifier_type, identifier)
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/complaints', methods=['GET'])
 @has_library
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 def work_complaints(identifier_type, identifier):
-    data = app.manager.admin_work_controller.complaints(identifier_type, identifier)
-    if isinstance(data, ProblemDetail):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_work_controller.complaints(identifier_type, identifier)
 
 @library_route('/admin/works/<identifier_type>/<path:identifier>/edit', methods=['POST'])
 @has_library
@@ -199,14 +204,11 @@ def suppressed():
     return app.manager.admin_feed_controller.suppressed()
 
 @app.route('/admin/genres')
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 def genres():
     """Returns a JSON representation of complete genre tree."""
-    data = app.manager.admin_feed_controller.genres()
-    if isinstance(data, ProblemDetail):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_feed_controller.genres()
 
 @app.route('/admin/bulk_circulation_events')
 @returns_problem_detail
@@ -258,339 +260,203 @@ def bulk_circulation_events():
 
 @library_route('/admin/circulation_events')
 @has_library
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 def circulation_events():
     """Returns a JSON representation of the most recent circulation events."""
-    data = app.manager.admin_dashboard_controller.circulation_events()
-    if isinstance(data, ProblemDetail):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_dashboard_controller.circulation_events()
 
 @app.route('/admin/stats')
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 def stats():
-    data = app.manager.admin_dashboard_controller.stats()
-    if isinstance(data, ProblemDetail):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_dashboard_controller.stats()
 
 @app.route('/admin/libraries', methods=['GET', 'POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def libraries():
-    data = app.manager.admin_settings_controller.libraries()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.libraries()
 
 @app.route("/admin/library/<library_uuid>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def library(library_uuid):
-    data = app.manager.admin_settings_controller.library(library_uuid)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.library(library_uuid)
 
 @app.route("/admin/collections", methods=['GET', 'POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def collections():
-    data = app.manager.admin_settings_controller.collections()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.collections()
 
 @app.route("/admin/collection/<collection_id>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def collection(collection_id):
-    data = app.manager.admin_settings_controller.collection(collection_id)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.collection(collection_id)
 
 @app.route("/admin/admin_auth_services", methods=['GET', 'POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @allows_admin_auth_setup
 @requires_admin
 @requires_csrf_token
 def admin_auth_services():
-    data = app.manager.admin_settings_controller.admin_auth_services()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.admin_auth_services()
 
 @app.route("/admin/admin_auth_service/<protocol>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def admin_auth_service(protocol):
-    data = app.manager.admin_settings_controller.admin_auth_service(protocol)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.admin_auth_service(protocol)
 
 @app.route("/admin/individual_admins", methods=['GET', 'POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @allows_admin_auth_setup
 @requires_admin
 @requires_csrf_token
 def individual_admins():
-    data = app.manager.admin_settings_controller.individual_admins()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.individual_admins()
 
 @app.route("/admin/individual_admin/<email>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def individual_admin(email):
-    data = app.manager.admin_settings_controller.individual_admin(email)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.individual_admin(email)
 
 @app.route("/admin/patron_auth_services", methods=['GET', 'POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def patron_auth_services():
-    data = app.manager.admin_settings_controller.patron_auth_services()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.patron_auth_services()
 
 @app.route("/admin/patron_auth_service/<service_id>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def patron_auth_service(service_id):
-    data = app.manager.admin_settings_controller.patron_auth_service(service_id)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.patron_auth_service(service_id)
 
 @app.route("/admin/metadata_services", methods=['GET', 'POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def metadata_services():
-    data = app.manager.admin_settings_controller.metadata_services()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.metadata_services()
 
 @app.route("/admin/metadata_service/<service_id>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def metadata_service(service_id):
-    data = app.manager.admin_settings_controller.metadata_service(service_id)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.metadata_service(service_id)
 
 @app.route("/admin/analytics_services", methods=['GET', 'POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def analytics_services():
-    data = app.manager.admin_settings_controller.analytics_services()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.analytics_services()
 
 @app.route("/admin/analytics_service/<service_id>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def analytics_service(service_id):
-    data = app.manager.admin_settings_controller.analytics_service(service_id)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.analytics_service(service_id)
 
 @app.route("/admin/cdn_services", methods=["GET", "POST"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def cdn_services():
-    data = app.manager.admin_settings_controller.cdn_services()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.cdn_services()
 
 @app.route("/admin/cdn_service/<service_id>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def cdn_service(service_id):
-    data = app.manager.admin_settings_controller.cdn_service(service_id)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.cdn_service(service_id)
 
 @app.route("/admin/search_services", methods=["GET", "POST"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def search_services():
-    data = app.manager.admin_settings_controller.search_services()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.search_services()
 
 @app.route("/admin/search_service/<service_id>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def search_service(service_id):
-    data = app.manager.admin_settings_controller.search_service(service_id)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.search_service(service_id)
 
 @app.route("/admin/discovery_services", methods=["GET", "POST"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def discovery_services():
-    data = app.manager.admin_settings_controller.discovery_services()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.discovery_services()
 
 @app.route("/admin/discovery_service/<service_id>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def discovery_service(service_id):
-    data = app.manager.admin_settings_controller.discovery_service(service_id)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.discovery_service(service_id)
 
 @app.route("/admin/sitewide_settings", methods=['GET', 'POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def sitewide_settings():
-    data = app.manager.admin_settings_controller.sitewide_settings()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.sitewide_settings()
 
 @app.route("/admin/sitewide_setting/<key>", methods=["DELETE"])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def sitewide_setting(key):
-    data = app.manager.admin_settings_controller.sitewide_setting(key)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.sitewide_setting(key)
 
 @app.route("/admin/library_registrations", methods=['GET', 'POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def library_registrations():
-    data = app.manager.admin_settings_controller.library_registrations()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.library_registrations()
 
 @library_route("/admin/custom_lists", methods=["GET", "POST"])
 @has_library
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def custom_lists():
-    data = app.manager.admin_custom_lists_controller.custom_lists()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_custom_lists_controller.custom_lists()
 
 @library_route("/admin/custom_list/<list_id>", methods=["DELETE"])
 @has_library
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def custom_list(list_id):
-    data = app.manager.admin_custom_lists_controller.custom_list(list_id)
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_custom_lists_controller.custom_list(list_id)
 
 @app.route('/admin/sitewide_registration', methods=['POST'])
-@returns_problem_detail
+@returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
 def sitewide_registration():
-    data = app.manager.admin_settings_controller.sitewide_registration()
-    if isinstance(data, ProblemDetail):
-        return data
-    if isinstance(data, Response):
-        return data
-    return flask.jsonify(**data)
+    return app.manager.admin_settings_controller.sitewide_registration()
 
 @app.route('/admin/sign_in_again')
 def admin_sign_in_again():
