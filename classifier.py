@@ -557,12 +557,12 @@ class Axis360AudienceClassifier(Classifier):
 
 # This is the large-scale structure of our classification system.
 #
-# If the name of a genre is a 2-tuple, the second item in the tuple is
-# a list of names of subgenres.
+# If the name of a genre is a string, it's the name of the genre
+# and there are no subgenres.
 #
-# If the name of a genre is a 3-tuple, the genre is restricted to a
-# specific audience (e.g. erotica is adults-only), and the third item
-# in the tuple describes that audience.
+# If the name of a genre is a dictionary, the 'name' argument is the
+# name of the genre, and the 'subgenres' argument is the list of the
+# subgenres.
 
 COMICS_AND_GRAPHIC_NOVELS = u"Comics & Graphic Novels"
 
@@ -571,7 +571,7 @@ fiction_genres = [
     u"Classics",
     COMICS_AND_GRAPHIC_NOVELS,
     u"Drama",
-    dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
+    u"Erotica",
     dict(name=u"Fantasy", subgenres=[
         u"Epic Fantasy", 
         u"Historical Fantasy",
@@ -588,7 +588,7 @@ fiction_genres = [
     ]),
     u"Humorous Fiction",
     u"Literary Fiction",
-    dict(name=u"LGBTQ Fiction", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
+    u"LGBTQ Fiction",
     dict(name=u"Mystery", subgenres=[
         u"Crime & Detective Stories",
         u"Hard-Boiled Mystery",
@@ -833,23 +833,6 @@ class GenreData(object):
         for sub in subgenres:
             cls.add_genre(namespace, genres, sub, [], fiction,
                           genre_data, audience_restriction)
-
-    def to_lane(self, _db, library, **args):
-        """Turn this GenreData object into a Lane that matches
-        every book in the genre.
-        """
-        from lane import Lane
-        if self.name and not 'full_name' in args:
-            args['full_name'] = self.name
-        if self.is_fiction:
-            args['fiction'] = self.is_fiction
-        if self.audience_restriction:
-            args['audiences'] = self.audience_restriction
-        if not 'subgenre_behavior' in args:
-            args['subgenre_behavior'] = Lane.IN_SUBLANES
-        args['genres'] = self
-
-        return Lane(_db, library, **args)
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
