@@ -28,21 +28,22 @@ app.config['BABEL_TRANSLATION_DIRECTORIES'] = "../translations"
 babel = Babel(app)
 
 @app.before_first_request
-def initialize_database():
+def initialize_database(autoinitialize=True):
     testing = 'TESTING' in os.environ
     db_url = Configuration.database_url(testing)
-    SessionManager.initialize(db_url)
+    if autoinitialize:
+        SessionManager.initialize(db_url)
     session_factory = SessionManager.sessionmaker(db_url)
     _db = flask_scoped_session(session_factory, app)
     app._db = _db
-    SessionManager.initialize_data(_db)
+    if autoinitialize:
+        SessionManager.initialize_data(_db)
 
     log_level = LogConfiguration.initialize(_db, testing=testing)
     debug = log_level == 'DEBUG'
     app.config['DEBUG'] = True
     app.debug = debug
     _db.commit()
-
     logging.getLogger().info("Application debug mode==%r" % app.debug)
 
 import routes
