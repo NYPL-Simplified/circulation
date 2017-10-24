@@ -61,7 +61,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
     SETTINGS = [
         { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
-        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": BaseOneClickAPI.PRODUCTION_BASE_URL },
     ] + BaseCirculationAPI.SETTINGS
     
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
