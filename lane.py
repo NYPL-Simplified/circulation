@@ -397,7 +397,8 @@ class WorkList(object):
     uses_customlists = False
 
     def initialize(self, library, display_name=None, genres=None, 
-                   audiences=None, languages=None, children=None):
+                   audiences=None, languages=None, children=None,
+                   priority=None):
         """Initialize with basic data.
 
         This is not a constructor, to avoid conflicts with `Lane`, an
@@ -421,6 +422,10 @@ class WorkList(object):
 
         :param children: This WorkList has children, which are also
         WorkLists.
+
+        :param priority: A number indicating where this WorkList should
+        show up in relation to its siblings when it is the child of
+        some other WorkList.
         """
         self.library_id = library.id
         self.collection_ids = [
@@ -434,6 +439,7 @@ class WorkList(object):
         self.audiences = audiences
         self.languages = languages
         self.children = children or []
+        self.priority = priority or 0
 
     def get_library(self, _db):
         """Find the Library object associated with this WorkList."""
@@ -444,7 +450,10 @@ class WorkList(object):
         """A WorkList's children can be used to create a grouped acquisition
         feed for that WorkList.
         """
-        return [x for x in self.children if x.visible]
+        return sorted(
+            [x for x in self.children if x.visible],
+            key = lambda x: (x.priority, x.display_name)
+        )
 
     @property
     def has_visible_children(self):
@@ -834,6 +843,7 @@ class Lane(Base, WorkList):
                         nullable=False)
     parent_id = Column(Integer, ForeignKey('lanes.id'), index=True,
                        nullable=True)
+    priority = Column(Integer, index=True, nullable=False, default=0)
 
     # A lane may have one parent lane and many sublanes.
     sublanes = relationship(
@@ -945,7 +955,7 @@ class Lane(Base, WorkList):
     @property
     def visible_children(self):
         children = [lane for lane in self.sublanes if lane.visible]
-        return sorted(children, key=lambda x: x.display_name)
+        return sorted(children, key=lambda x: (x.priority, x.display_name))
 
     @property
     def parentage(self):
