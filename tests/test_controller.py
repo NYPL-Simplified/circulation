@@ -136,7 +136,6 @@ class ControllerTest(VendorIDTest):
         _db = _db or self._db
         from api.app import app
         self.app = app
-        self.old_app_db = self.app._db
         self.app._db = _db
         
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
@@ -158,11 +157,7 @@ class ControllerTest(VendorIDTest):
         # TestScopedSession to hang.
         if set_up_circulation_manager:
             app.manager = self.circulation_manager_setup(_db)
-            
-    def teardown(self):
-        self.app._db = self.old_app_db
-        super(ControllerTest, self).teardown()
-            
+
     def circulation_manager_setup(self, _db):
         """Set up initial Library arrangements for this test.
         
