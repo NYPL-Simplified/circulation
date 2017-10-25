@@ -35,6 +35,7 @@ from core.metadata_layer import (
 from core.model import (
     CirculationEvent,
     Collection,
+    Credential,
     DataSource,
     DeliveryMechanism,
     Edition,
@@ -65,8 +66,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
     ] + BaseCirculationAPI.SETTINGS
     
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
-
-    REMOTE_PATRON_IDENTIFIER_CREDENTIAL_TYPE = "Remote Patron Identifier"
 
     log = logging.getLogger("OneClick Patron API")
    
@@ -433,9 +432,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         the corresponding Credential.
         """
         def refresher(credential):
-            remote_identifier = self.patron_remote_identifier_lookup(
-                patron_cardno=patron.authorization_identifier
-            )
+            remote_identifier = self.patron_remote_identifier_lookup(patron)
             if not remote_identifier:
                 remote_identifier = self.create_patron(patron)
             credential.credential = remote_identifier
@@ -444,13 +441,11 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         _db = Session.object_session(patron)
         credential = Credential.lookup(
             _db, DataSource.RB_DIGITAL,
-            self.REMOTE_PATRON_IDENTIFIER_CREDENTIAL_TYPE,
-            refresher_method=refresher
+            Credential.REMOTE_PATRON_IDENTIFIER_CREDENTIAL_TYPE,
+            patron, refresher_method=refresher,
+            allow_persistent_token=True
         )
-
-        rbdigital_id = self.get_patron_internal_id(
-            email, authorization_identifier
-        )
+        return credential.credential
 
     def create_patron(self, patron):
         """Ask RBdigital to create a new patron record.
@@ -468,14 +463,14 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         post_args['libraryCardNumber'] = patron.most_stable_unique_identifier
 
         # Generate meaningless values for account fields that are not
-        # relevant to the work.
+        # relevant to our usage of the API.
         patron_uuid = str(uuid.uuid1())
         post_args['userName'] = 'username_' + patron_uuid
         post_args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
         post_args['firstName'] = 'Patron'
         post_args['lastName'] = 'Reader'
 
-        # The patron will not be logging in to their RBdigital account,
+        # The patron will not be logging in to this RBdigital account,
         # so set their password to a secure value and forget it.
         post_args['password'] = os.urandom(8).encode('hex')
 
@@ -522,7 +517,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         message = resp_dict.get('message', None)
         try:
             self.validate_response(response, message, action=action)
-        except PatronNotFoundOnRemote, e:
+        except (PatronNotFoundOnRemote, NotFoundOnRemote), e:
             # That's okay.
             return None
 
