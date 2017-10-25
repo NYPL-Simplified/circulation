@@ -646,6 +646,18 @@ class Patron(Base):
     )
     
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
+
+    @property
+    def best_unique_identifier(self):
+        """Return the best available unique identifier for this Patron.
+
+        'best' is a combination of 'used throughout the library' and
+        'unlikely to change'.
+        """
+        return str(
+            self.external_identifier or self.username
+            or self.authorization_identifier or self.id
+        )
     
     def works_on_loan(self):
         db = Session.object_session(self)

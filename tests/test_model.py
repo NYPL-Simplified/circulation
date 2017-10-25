@@ -5459,7 +5459,34 @@ class TestDRMDeviceIdentifier(DatabaseTest):
         eq_([], self._db.query(DRMDeviceIdentifier).all())
         
 class TestPatron(DatabaseTest):
+
+    def test_best_unique_identifier(self):
+        patron = Patron(library=self._default_library)
+        self._db.add(patron)
+        self._db.commit()
+
+        # The internal database ID of this patron is unlikely to
+        # change, but it's not used elsewhere in the library.
+        # We use it only if nothing else is available.
+        eq_(str(patron.id), patron.best_unique_identifier)
+
+        # The patron's authorization identifier is probably their
+        # library barcode. Barcodes have a tendency to expire after a
+        # few years.
+        patron.authorization_identifier = self._str
+        eq_(patron.authorization_identifier,
+            patron.best_unique_identifier)
         
+        # The patron's username is stable *unless the patron decides
+        # to change it*.
+        patron.username = self._str
+        eq_(patron.username, patron.best_unique_identifier)
+
+        # The patron's external identifier, if available, is the
+        # patron's library-wide unique record ID.
+        patron.external_identifier = self._str
+        eq_(patron.external_identifier, patron.best_unique_identifier)
+
     def test_set_synchronize_annotations(self):
         # Two patrons.
         p1 = self._patron()
