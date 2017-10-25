@@ -23,7 +23,7 @@ from core.analytics import Analytics
 from core.oneclick import (
     OneClickAPI as BaseOneClickAPI,
     MockOneClickAPI as BaseMockOneClickAPI,
-    OneClickBibliographicCoverageProvider
+    OneClickBibliographicCoverageProvider,
 )
 
 from core.metadata_layer import (
@@ -114,7 +114,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
     def checkout(self, patron, pin, licensepool, internal_format):
         """
-        Associate an ebook or audio with a patron.
+        Associate an eBook or eAudio with a patron.
 
         :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's password (not used).
@@ -299,8 +299,19 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         raise CirculationException("Unknown error %s/%s releasing %s.", patron.authorization_identifier, 
             patron_oneclick_id, item_oneclick_id)
 
+    @property
+    def default_circulation_replacement_policy(self):
+        return ReplacementPolicy(
+            identifiers=False,
+            subjects=True,
+            contributions=True,
+            formats=True,
+            analytics=Analytics(self._db),
+        )
 
-    def update_licensepool_for_identifier(self, isbn, availability, medium):
+    def update_licensepool_for_identifier(
+            self, isbn, availability, medium, policy=None
+    ):
         """Update availability information for a single book.
 
         If the book has never been seen before, a new LicensePool
@@ -330,13 +341,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             )
 
         # now tell the licensepool if it's lendable
-        policy = ReplacementPolicy(
-            identifiers=False,
-            subjects=True,
-            contributions=True,
-            formats=True,
-            analytics=Analytics(self._db),
-        )
 
         # We don't know exactly how many licenses are available, but
         # we know that it's either zero (book is not lendable) or greater
@@ -348,6 +352,13 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         # Because the book showed up in availability, we know we own
         # at least one license to it.
         licenses_owned = 1
+
+        if (not is_new_pool and 
+            license_pool.licenses_owned == licenses_owned and 
+            license_pool.licenses_available == licenses_available):
+            # Optimization: Nothing has changed, so don't even bother
+            # calling CirculationData.apply()
+            return license_pool, is_new_pool, False
 
         # If possible, create a FormatData object representing
         # how the book is available.
@@ -381,7 +392,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             licenses_available=licenses_available,
             formats=formats,
         )
-        
+
+        policy = policy or self.default_circulation_replacement_policy        
         license_pool, circulation_changed = circulation_data.apply(
             self._db,
             self.collection,
@@ -862,8 +874,9 @@ class OneClickCirculationMonitor(CollectionMonitor):
         )
         self.analytics = Analytics(self._db)
 
-    def process_availability(self, media_type='ebook'):
+    def process_availability(self, media_type='eBook'):
         # get list of all titles, with availability info
+        policy = self.api.default_circulation_replacement_policy
         availability_list = self.api.get_ebook_availability_info(media_type=media_type)
         item_count = 0
         for availability in availability_list:
@@ -872,7 +885,9 @@ class OneClickCirculationMonitor(CollectionMonitor):
             available = availability['availability']
 
             medium = availability.get('mediaType')
-            license_pool, is_new, is_changed = self.api.update_licensepool_for_identifier(isbn, available, medium)
+            license_pool, is_new, is_changed = self.api.update_licensepool_for_identifier(
+                isbn, available, medium, policy
+            )
             # Log a circulation event for this work.
             if is_new:
                 for library in self.collection.libraries:
@@ -891,8 +906,8 @@ class OneClickCirculationMonitor(CollectionMonitor):
 
 
     def run_once(self, start, cutoff):
-        ebook_count = self.process_availability(media_type='ebook')
-        eaudio_count = self.process_availability(media_type='eaudio')
+        ebook_count = self.process_availability(media_type='eBook')
+        eaudio_count = self.process_availability(media_type='eAudio')
         
         self.log.info("Processed %d ebooks and %d audiobooks.", ebook_count, eaudio_count)
 
