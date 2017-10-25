@@ -646,6 +646,26 @@ class Patron(Base):
     )
     
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
+
+    def identifier_to_remote_service(self, remote_data_source, generator=None):
+        """Find or randomly create an identifier to use when identifying
+        this patron to a remote service.
+
+        :param remote_data_source: A DataSource object (or name of a
+        DataSource) corresponding to the remote service.
+        """
+        _db = Session.object_session(self)
+        def refresh(credential):
+            if generator and callable(generator):
+                identifier = generator()
+            else:
+                identifier = str(uuid.uuid1())
+            credential.credential = identifier
+        credential = Credential.lookup(
+            _db, remote_data_source, Credential.IDENTIFIER_TO_REMOTE_SERVICE,
+            self, refresh, allow_persistent_token=True
+        )
+        return credential.credential
     
     def works_on_loan(self):
         db = Session.object_session(self)
@@ -7503,6 +7523,14 @@ class Credential(Base):
     __table_args__ = (
         UniqueConstraint('data_source_id', 'patron_id', 'type'),
     )
+
+
+    # A meaningless identifier used to identify this patron (and no other)
+    # to a remote service.
+    IDENTIFIER_TO_REMOTE_SERVICE = "Identifier Sent To Remote Service"
+
+    # An identifier used by a remote service to identify this patron.
+    IDENTIFIER_FROM_REMOTE_SERVICE = "Identifier Received From Remote Service"
 
     @classmethod
     def lookup(self, _db, data_source, type, patron, refresher_method,
