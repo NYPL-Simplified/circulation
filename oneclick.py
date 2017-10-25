@@ -165,7 +165,14 @@ class OneClickAPI(object):
             allowed_response_codes=allowed_response_codes, 
             disallowed_response_codes=disallowed_response_codes
         )
-        
+    
+        if 'Invalid Basic Token or permission denied' in response.content:
+            raise BadResponseException(
+                url, "Permission denied. This may be a temporary rate-limiting issue, or the credentials for this collection may be wrong.",
+                debug_message=response.content,
+                status_code=502
+            )
+    
         return response
 
 
@@ -301,7 +308,7 @@ class OneClickAPI(object):
         The response at this endpoint is laconic -- just enough fields per item to 
         identify the item and declare it either available to lend or not.
 
-        :param media_type 'ebook'/'eaudio'
+        :param media_type 'eBook'/'eAudio'
 
         :return A list of dictionary items, each item giving "yes/no" answer on a book's current availability to lend.
         Example of returned item format:
@@ -319,17 +326,13 @@ class OneClickAPI(object):
             resplist = response.json()
         except Exception, e:
             raise BadResponseException(url, "OneClick availability response not parseable.")
-
-        if not resplist:
-            raise IOError("OneClick availability response not parseable - has no resplist.")
-
         return resplist
 
 
     def get_metadata_by_isbn(self, identifier):
         """
         Gets metadata, s.a. publisher, date published, genres, etc for the 
-        ebook or eaudio item passed, using isbn to search on. 
+        eBook or eAudio item passed, using isbn to search on. 
         If isbn is not found, the response we get from OneClick is an error message, 
         and we throw an error.
 
@@ -484,7 +487,7 @@ class OneClickAPI(object):
         """
         Form a rest-ful search query, send to OneClick, and obtain the results.
 
-        :param mediatype Facet to limit results by media type.  Options are: "eaudio", "ebook".
+        :param mediatype Facet to limit results by media type.  Options are: "eAudio", "eBook".
         :param genres The books found lie at intersection of genres passed.
         :audience Facet to limit results by target age group.  Options include (there may be more): "adult", 
             "beginning-reader", "childrens", "young-adult".
@@ -957,7 +960,19 @@ class OneClickImportMonitor(OneClickSyncMonitor):
     SERVICE_NAME = "OneClick Full Import"
     
     def invoke(self):
-        return self.api.populate_all_catalog()
+        timestamp = self.timestamp()
+        set_trace()
+        if timestamp.counter and timestamp.counter > 0:
+            self.log.debug(
+                "Collection %s has already had its initial import; doing nothing.", 
+                self.collection.name or self.collection.id
+            )
+            return 0, 0
+        result = self.api.populate_all_catalog()
+
+        # Don't do this work again.
+        timestamp.counter += 1
+        return result
 
 
 class OneClickDeltaMonitor(OneClickSyncMonitor):

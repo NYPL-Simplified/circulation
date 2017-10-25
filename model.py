@@ -6847,18 +6847,24 @@ class LicensePool(Base):
         logging.info or a similar method
         """
         edition = self.presentation_edition
-        message = 'CHANGED '
+        message = u'CHANGED '
         args = []
+        if self.identifier:
+            identifier_template = '%s/%s'
+            identifier_args = [self.identifier.type, self.identifier.identifier]
+        else:
+            identifier_template = '%s'
+            identifier_args = [self.identifier]
         if edition:
-            message += '%s "%s" %s (%s)'
+            message += u'%s "%s" %s (' + identifier_template + ')'
             args.extend([edition.medium, 
                          edition.title or "[NO TITLE]",
-                         edition.author or "[NO AUTHOR]",
-                         self.identifier]
+                         edition.author or "[NO AUTHOR]"]
                     )
+            args.extend(identifier_args)
         else:
-            message += '%s'
-            args.append(self.identifier)
+            message += identifier_template
+            args.extend(identifier_args)
 
         def _part(message, args, string, old_value, new_value):
             if old_value != new_value:
