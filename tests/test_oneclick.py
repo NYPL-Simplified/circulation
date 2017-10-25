@@ -459,3 +459,7 @@ class TestOneClickSyncMonitor(DatabaseTest):
         # make sure there are still 8 LicensePools
         pools = self._db.query(LicensePool).all()
         eq_(8, len(pools))
+
+        # Running the monitor again does nothing. Since no more responses
+        # are queued, doing any work at this point would crash the test.
+        eq_((0,0), monitor.invoke())

@@ -1935,24 +1935,26 @@ class TestLicensePool(DatabaseTest):
         # Since all four circulation values changed, the message is as
         # long as it could possibly get.
         eq_(
-            'CHANGED %s "%s" %s (%s) %s: %s=>%s %s: %s=>%s %s: %s=>%s %s: %s=>%s',
+            'CHANGED %s "%s" %s (%s/%s) %s: %s=>%s %s: %s=>%s %s: %s=>%s %s: %s=>%s',
             msg
         )
         eq_(
             args,
-            (edition.medium, edition.title, edition.author, pool.identifier,
+            (edition.medium, edition.title, edition.author, 
+             pool.identifier.type, pool.identifier.identifier,
              'OWN', 1, 10, 'AVAIL', 2, 9, 'RSRV', 3, 8, 'HOLD', 4, 7)
         )
 
         # If only one circulation value changes, the message is a lot shorter.
         msg, args = pool.circulation_changelog(10, 9, 8, 15)
         eq_(
-            'CHANGED %s "%s" %s (%s) %s: %s=>%s',
+            'CHANGED %s "%s" %s (%s/%s) %s: %s=>%s',
             msg
         )
         eq_(
             args,
-            (edition.medium, edition.title, edition.author, pool.identifier,
+            (edition.medium, edition.title, edition.author, 
+             pool.identifier.type, pool.identifier.identifier,
              'HOLD', 15, 7)
         )
 
