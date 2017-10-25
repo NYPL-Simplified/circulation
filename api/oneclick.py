@@ -66,6 +66,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
     
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 
+    REMOTE_PATRON_IDENTIFIER_CREDENTIAL_TYPE = "Remote Patron Identifier"
+
     log = logging.getLogger("OneClick Patron API")
    
     def __init__(self, *args, **kwargs):
@@ -97,7 +99,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return True on success, raises circulation exceptions on failure.
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=True)
@@ -124,7 +126,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return LoanInfo on success, None on failure.
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False)
@@ -206,7 +208,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         :return a FulfillmentInfo object.
         """
 
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         # find patron's checkouts
@@ -244,7 +246,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return: A HoldInfo object on success, None on failure
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_obj = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=False)
@@ -285,7 +287,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return True on success, raises circulation exceptions on failure.
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=True)
@@ -419,49 +421,77 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         """
         return delivery_mechanism
     
-    ''' -------------------------- Patron Account Handling -------------------------- '''
-    def create_patron(self, patron):
-        """ Ask OneClick to create a new patron record.
+### Patron account handling
 
-        :param patron: a Patron object which contains the permanent id to give to 
-        OneClick as the patron's library card number.
-        :return OneClick's internal patron id.
+    def patron_remote_identifier(self, patron):
+        """Locate the identifier for the given Patron's account on the
+        RBdigital side, creating a new RBdigital account if necessary.
+
+        The identifier is cached in a persistent Credential object.
+
+        :return: The remote identifier for this patron, taken from
+        the corresponding Credential.
         """
+        def refresher(credential):
+            remote_identifier = self.patron_remote_identifier_lookup(
+                patron_cardno=patron.authorization_identifier
+            )
+            if not remote_identifier:
+                remote_identifier = self.create_patron(patron)
+            credential.credential = remote_identifier
+            credential.expires = None
 
-        # TODO: will not work in all libraries, find a better solution
-        patron_cardno = patron.authorization_identifier
-        if not patron_cardno:
-            raise InvalidInputException("Patron %r has no card number.", patron)
+        _db = Session.object_session(patron)
+        credential = Credential.lookup(
+            _db, DataSource.RB_DIGITAL,
+            self.REMOTE_PATRON_IDENTIFIER_CREDENTIAL_TYPE,
+            refresher_method=refresher
+        )
+
+        rbdigital_id = self.get_patron_internal_id(
+            email, authorization_identifier
+        )
+
+    def create_patron(self, patron):
+        """Ask RBdigital to create a new patron record.
+
+        :param patron: the Patron that needs a new RBdigital account.
+
+        :return The internal RBdigital identifier for this patron.
+        """
 
         url = "%s/libraries/%s/patrons/" % (self.base_url, str(self.library_id))
         action="create_patron"
-        
+
         post_args = dict()
         post_args['libraryId'] = self.library_id
-        post_args['libraryCardNumber'] = str(patron.authorization_identifier)
-        # generate random values for the account fields the patron has not supplied us with
+        post_args['libraryCardNumber'] = patron.most_stable_unique_identifier
+
+        # Generate meaningless values for account fields that are not
+        # relevant to the work.
         patron_uuid = str(uuid.uuid1())
         post_args['userName'] = 'username_' + patron_uuid
         post_args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
         post_args['firstName'] = 'Patron'
         post_args['lastName'] = 'Reader'
-        # will not be used in our system, so just needs to be set to a securely randomized value
-        post_args['password'] = os.urandom(8).encode('hex')
 
+        # The patron will not be logging in to their RBdigital account,
+        # so set their password to a secure value and forget it.
+        post_args['password'] = os.urandom(8).encode('hex')
 
         resp_dict = {}
         message = None
-        try:
-            response = self.request(url=url, data=json.dumps(post_args), method="post")
-            if response.text:
-                resp_dict = response.json()
-                message = resp_dict.get('message', None)
-        except Exception, e:
-            self.log.error("Patron create failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+        response = self.request(
+            url=url, data=json.dumps(post_args), method="post"
+        )
+        if response.text:
+            resp_dict = response.json()
+            message = resp_dict.get('message', None)
 
         # general validation
-        self.validate_response(response=response, message=message, action=action)
+        self.validate_response(
+            response=response, message=message, action=action
+        )
 
         # double-make sure specifically
         if response.status_code != 201 or 'patronId' not in resp_dict:
@@ -472,36 +502,28 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         return patron_oneclick_id
 
+    def patron_remote_identifier_lookup(self, patron):
+        """Look up a patron's RBdigital account based on their most stable
+        unique identifier.
 
-    def get_patron_internal_id(self, patron_email=None, patron_cardno=None):
-        """ Uses either an email address or a library card to identify a patron by.
-        :param patron_email 
-        :param patron_cardno
-        :return OneClick's internal id for the patron
+        :return: The RBdigital patron ID for the patron, or None
+        if the patron currently has no RBdigital account.
         """
-        if patron_cardno: 
-            patron_identifier = patron_cardno
-        elif patron_email:
-            patron_identifier = patron_email
-        else:
-            # consider raising an exception, since we should call methods with nice arguments
-            raise InvalidInputException("Need patron email or card number.")
+        patron_identifier = patron.most_stable_unique_identifier
 
         action="patron_id"
-        url = "%s/rpc/libraries/%s/patrons/%s" % (self.base_url, str(self.library_id), patron_identifier)
+        url = "%s/rpc/libraries/%s/patrons/%s" % (
+            self.base_url, self.library_id, patron_identifier
+        )
 
-        try:
-            response = self.request(url)
-        except Exception, e:
-            self.log.error("Patron id call failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+        response = self.request(url)
 
         resp_dict = response.json()
         message = resp_dict.get('message', None)
         try:
             self.validate_response(response, message, action=action)
         except PatronNotFoundOnRemote, e:
-            # this should not be fatal at this point
+            # That's okay.
             return None
 
         internal_patron_id = resp_dict.get('patronId', None)
@@ -714,7 +736,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         :param patron: a Patron object for the patron who wants to return the book.
         :param pin: The patron's password (not used).
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
 
         patron_checkouts = self.get_patron_checkouts(patron_oneclick_id)
         patron_holds = self.get_patron_holds(patron_oneclick_id)
@@ -739,36 +761,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             media = licensepool.work.presentation_edition.medium
 
         return item_oneclick_id, media
-
-
-    def validate_patron(self, patron, create=True):
-        """ Does the patron have what we need to identify them to OneClick?
-        Does OneClick have this patron's record?
-        Do we need to tell OneClick to create the patron record? 
-
-        :param patron Our db patron-representing object
-        :create if OneClick doesn't know this person, should we create them?
-        :return OneClick's unique patron id for our patron
-        """
-        patron_cardno = patron.authorization_identifier
-        if not patron_cardno:
-            raise InvalidInputException("Patron %r has no card number.", patron)
-
-        try:
-            patron_oneclick_id = self.get_patron_internal_id(patron_cardno=patron_cardno)
-        except NotFoundOnRemote, e:
-            patron_oneclick_id = None
-            
-        if not patron_oneclick_id:
-            if not create:
-                # OneClick doesn't recognize this patron's permanent identifier, and we 
-                # were told not to ask OneClick to create a new record
-                raise PatronAuthorizationFailedException("OneClick doesn't recognize patron card number %s.", patron_cardno)
-
-            patron_oneclick_id = self.create_patron(patron)
-
-        return patron_oneclick_id
-
 
     def validate_response(self, response, message, action=""):
         """ OneClick tries to communicate statuses and errors through http codes.
