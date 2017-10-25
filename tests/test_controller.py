@@ -20,6 +20,7 @@ from flask_sqlalchemy_session import (
 )
 
 from . import DatabaseTest
+from api.app import app, initialize_database
 from api.config import (
     Configuration,
     temp_config,
@@ -133,10 +134,7 @@ class ControllerTest(VendorIDTest):
     def setup(self, _db=None, set_up_circulation_manager=True):
         super(ControllerTest, self).setup()
         _db = _db or self._db
-        os.environ['AUTOINITIALIZE'] = "False"
-        from api.app import app
         self.app = app
-        del os.environ['AUTOINITIALIZE']
         
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
@@ -157,8 +155,7 @@ class ControllerTest(VendorIDTest):
         # TestScopedSession to hang.
         if set_up_circulation_manager:
             app.manager = self.circulation_manager_setup(_db)
-            
-            
+
     def circulation_manager_setup(self, _db):
         """Set up initial Library arrangements for this test.
         
@@ -2677,19 +2674,23 @@ class TestScopedSession(ControllerTest):
     the corresponding behavior in unit tests.
     """
 
+    @classmethod
+    def setup_class(cls):
+        ControllerTest.setup_class()
+        initialize_database(autoinitialize=False)
+
     def setup(self):
-        from api.app import _db
         # We will be calling circulation_manager_setup ourselves,
         # because we want objects like Libraries to be created in the
         # scoped session.
         super(TestScopedSession, self).setup(
-            _db, set_up_circulation_manager=False
+            app._db, set_up_circulation_manager=False
         )
         
     def make_default_libraries(self, _db):
         libraries = []
         for i in range(2):
-            name = self._str + " (for scoped session)"
+            name = self._str + " (library for scoped session)"
             library, ignore = create(_db, Library, short_name=name)
             libraries.append(library)
         return libraries
@@ -2699,7 +2700,7 @@ class TestScopedSession(ControllerTest):
         uses the scoped session.
         """
         collection, ignore = create(
-            _db, Collection, name=self._str + " (for scoped session)",
+            _db, Collection, name=self._str + " (collection for scoped session)",
         )
         collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
         library.collections.append(collection)
