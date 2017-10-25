@@ -961,7 +961,6 @@ class OneClickImportMonitor(OneClickSyncMonitor):
     
     def invoke(self):
         timestamp = self.timestamp()
-        set_trace()
         if timestamp.counter and timestamp.counter > 0:
             self.log.debug(
                 "Collection %s has already had its initial import; doing nothing.", 
@@ -970,8 +969,11 @@ class OneClickImportMonitor(OneClickSyncMonitor):
             return 0, 0
         result = self.api.populate_all_catalog()
 
-        # Don't do this work again.
-        timestamp.counter += 1
+        # Record the work was done so it's not done again.
+        if not timestamp.counter:
+            timestamp.counter = 1
+        else:
+            timestamp.counter += 1
         return result
 
 
