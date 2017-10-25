@@ -225,7 +225,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         if not found_checkout:
             raise NoActiveLoan("Cannot fulfill %s - patron %s/%s has no such checkout.", item_oneclick_id, 
                 patron.authorization_identifier, patron_oneclick_id)
-        
+
         return found_checkout.fulfillment_info
 
 
@@ -380,8 +380,9 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             # Also, their DRM usage may change in the future.
             drm_scheme = DeliveryMechanism.ADOBE_DRM
         elif medium == 'eaudio':
-            # A questionable assumption.
-            delivery_type = Representation.MP3_MEDIA_TYPE
+            # TODO: we can't deliver on this promise yet, but this is
+            # how we will be delivering audiobook manifests.
+            delivery_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
 
         if delivery_type:
             formats.append(FormatData(delivery_type, drm_scheme))
@@ -441,10 +442,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         _db = Session.object_session(patron)
         credential = Credential.lookup(
             _db, DataSource.RB_DIGITAL,
-            Credential.REMOTE_PATRON_IDENTIFIER_CREDENTIAL_TYPE,
+            Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
             patron, refresher_method=refresher,
             allow_persistent_token=True
         )
+        if not credential.credential:
+            refresher(credential)
         return credential.credential
 
     def create_patron(self, patron):
@@ -458,15 +461,18 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         url = "%s/libraries/%s/patrons/" % (self.base_url, str(self.library_id))
         action="create_patron"
 
+        patron_identifier = patron.identifier_to_remote_service(
+            DataSource.RB_DIGITAL
+        )
+
         post_args = dict()
         post_args['libraryId'] = self.library_id
-        post_args['libraryCardNumber'] = patron.most_stable_unique_identifier
+        post_args['libraryCardNumber'] = patron_identifier
 
         # Generate meaningless values for account fields that are not
         # relevant to our usage of the API.
-        patron_uuid = str(uuid.uuid1())
-        post_args['userName'] = 'username_' + patron_uuid
-        post_args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
+        post_args['userName'] = 'username_' + patron_identifier
+        post_args['email'] = 'patron_' + patron_identifier + '@librarysimplified.org'
         post_args['firstName'] = 'Patron'
         post_args['lastName'] = 'Reader'
 
@@ -498,13 +504,15 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         return patron_oneclick_id
 
     def patron_remote_identifier_lookup(self, patron):
-        """Look up a patron's RBdigital account based on their most stable
-        unique identifier.
+        """Look up a patron's RBdigital account based on a unique ID
+        assigned to them for this purpose.
 
         :return: The RBdigital patron ID for the patron, or None
         if the patron currently has no RBdigital account.
         """
-        patron_identifier = patron.most_stable_unique_identifier
+        patron_identifier = patron.identifier_to_remote_service(
+            DataSource.RB_DIGITAL
+        )
 
         action="patron_id"
         url = "%s/rpc/libraries/%s/patrons/%s" % (
@@ -578,7 +586,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             if not identifier:
                 continue
 
-            files = item.get('files', None)
+            # Get a list of files associated with this loan.
+            files = item.get('files', [])
+
+            # TODO: This only works for ebooks, where there is a single file
+            # in the manifest. For audiobooks, we need to convert the entire
+            # manifest to an application/audiobook+json file.
             for file in files:
                 filename = file.get('filename', None)
                 # assume fileFormat is same for all files associated with this checkout
@@ -588,8 +601,9 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 if file_format == 'EPUB':
                     file_format = Representation.EPUB_MEDIA_TYPE
                 else:
-                    # slightly risky assumption here
-                    file_format = Representation.MP3_MEDIA_TYPE
+                    # TODO: RBdigital audiobook manifests will be
+                    # converted to this standard manifest format.
+                    file_format = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
 
                 # Note: download urls expire 15 minutes after being handed out
                 # in the checkouts call
