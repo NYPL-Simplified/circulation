@@ -5460,32 +5460,49 @@ class TestDRMDeviceIdentifier(DatabaseTest):
         
 class TestPatron(DatabaseTest):
 
-    def test_best_unique_identifier(self):
-        patron = Patron(library=self._default_library)
-        self._db.add(patron)
-        self._db.commit()
+    def test_identifier_to_remote_service(self):
 
-        # The internal database ID of this patron is unlikely to
-        # change, but it's not used elsewhere in the library.
-        # We use it only if nothing else is available.
-        eq_(str(patron.id), patron.best_unique_identifier)
+        # Here's a patron.
+        patron = self._patron()
 
-        # The patron's authorization identifier is probably their
-        # library barcode. Barcodes have a tendency to expire after a
-        # few years.
-        patron.authorization_identifier = self._str
-        eq_(patron.authorization_identifier,
-            patron.best_unique_identifier)
-        
-        # The patron's username is stable *unless the patron decides
-        # to change it*.
-        patron.username = self._str
-        eq_(patron.username, patron.best_unique_identifier)
+        # Get identifiers to use when identifying that patron on two
+        # different remote services.
+        axis = DataSource.AXIS_360
+        axis_identifier = patron.identifier_to_remote_service(axis)
 
-        # The patron's external identifier, if available, is the
-        # patron's library-wide unique record ID.
-        patron.external_identifier = self._str
-        eq_(patron.external_identifier, patron.best_unique_identifier)
+        rb_digital = DataSource.lookup(self._db, DataSource.RB_DIGITAL)
+        rb_identifier = patron.identifier_to_remote_service(rb_digital)
+
+        # The identifiers are different.
+        assert axis_identifier != rb_identifier
+
+        # But they're both 36-character UUIDs.
+        eq_(36, len(axis_identifier))
+        eq_(36, len(rb_identifier))
+
+        # They're persistent.
+        eq_(rb_identifier, patron.identifier_to_remote_service(rb_digital))
+        eq_(axis_identifier, patron.identifier_to_remote_service(axis))
+
+        # You can customize the function used to generate the
+        # identifier, in case the data source won't accept a UUID as a
+        # patron identifier.
+        def fake_generator():
+            return "fake string"
+        bib = DataSource.BIBLIOTHECA
+        eq_("fake string", 
+            patron.identifier_to_remote_service(bib, fake_generator)
+        )
+
+        # Once the identifier is created, specifying a different generator
+        # does nothing.
+        eq_("fake string", 
+            patron.identifier_to_remote_service(bib)
+        )
+        eq_(
+            axis_identifier, 
+            patron.identifier_to_remote_service(axis, fake_generator)
+        )
 
     def test_set_synchronize_annotations(self):
         # Two patrons.
