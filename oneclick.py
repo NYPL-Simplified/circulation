@@ -603,6 +603,10 @@ class OneClickRepresentationExtractor(object):
     DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ" #ex: 2013-12-27T00:00:00Z
     DATE_FORMAT = "%Y-%m-%d" #ex: 2013-12-27
 
+    # We have not yet seen any titles obfuscated with RBdigital DRM and
+    # have no idea what the DRM document would look like.
+    OBFUSCATED_AUDIO_MEDIA_TYPE = "vnd.librarysimplified/rbdigital.obfuscated"
+
     log = logging.getLogger("OneClick representation extractor")
 
     oneclick_formats = {
@@ -610,10 +614,11 @@ class OneClickRepresentationExtractor(object):
             Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
         ),
         "audiobook-mp3-oneclick" : (
-            "vnd.librarysimplified/obfuscated-one-click", DeliveryMechanism.ONECLICK_DRM
+            OBFUSCATED_AUDIO_MEDIA_TYPE, DeliveryMechanism.ONECLICK_DRM
         ),
         "audiobook-mp3-open" : (
-            "audio/mpeg3", DeliveryMechanism.NO_DRM
+            Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, 
+            DeliveryMechanism.NO_DRM
         ),
     }
 
