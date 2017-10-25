@@ -46,8 +46,9 @@ HOME=/var/www/circulation
 
 # RBdigital
 #
-0 */1 * * * root core/bin/run oneclick_library_delta >> /var/log/cron.log 2>&1
-0 */1 * * * root core/bin/run oneclick_monitor_availability >> /var/log/cron.log 2>&1
+0 */4 * * root core/bin/run rbdigital_availability_monitor >> /var/log/cron.log 2>&1
+0 23 * * * root core/bin/run rbdigital_collection_delta >> /var/log/cron.log 2>&1
+0 23 * * root core/bin/run rbdigital_initial_import >> /var/log/cron.log 2>&1
 
 # Enki
 #
