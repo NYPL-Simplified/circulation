@@ -6224,7 +6224,7 @@ class CachedFeed(Base):
         else:
             length = "No content"
         return "<CachedFeed #%s %s %s %s %s %s %s >" % (
-            self.id, self.lane_identifier, self.type, 
+            self.id, self.lane_id, self.type, 
             self.facets, self.pagination,
             self.timestamp, length
         )
