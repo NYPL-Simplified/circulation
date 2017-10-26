@@ -235,7 +235,6 @@ class TestOneClickAPI(OneClickAPITest):
         # boolean success flag.
 
         patron = self.default_patron
-        patron.oneclick_id = 939981
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
@@ -486,7 +485,6 @@ class TestOneClickAPI(OneClickAPITest):
         # Test reserving a book.
 
         patron = self.default_patron
-        patron.oneclick_id = 939981
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
