@@ -6193,9 +6193,14 @@ class CachedFeed(Base):
                 # Rather than generate an error (which will provide a
                 # terrible user experience), fall back to generating a
                 # default page-type feed, which should be cheap to fetch.
+                identifier = None
+                if isinstance(lane, Lane):
+                    identifier = lane.identifier
+                elif isinstance(lane, WorkList):
+                    identifier = lane.display_name
                 cls.log.warn(
                     "Could not generate a groups feed for %s, falling back to a page feed.",
-                    lane.display_name
+                    identifier
                 )
                 return cls.fetch(
                     _db, lane, CachedFeed.PAGE_TYPE, facets, pagination, 
