@@ -869,6 +869,69 @@ class TestOPDS(DatabaseTest):
         # they were cached before.
         eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_page).entries))
 
+    def test_page_feed_for_worklist(self):
+        """Test the ability to create a paginated feed of works for a
+        WorkList instead of a Lane.
+        """
+        lane = self.conf
+        work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
+        work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
+
+        self.add_to_materialized_view([work1, work2], True)
+        facets = Facets.default(self._default_library)
+        pagination = Pagination(size=1)
+
+        def make_page(pagination):
+            return AcquisitionFeed.page(
+                self._db, "test", self._url, lane, TestAnnotator, 
+                pagination=pagination
+            )
+        cached_works = make_page(pagination)
+        parsed = feedparser.parse(unicode(cached_works.content))
+        eq_(work1.title, parsed['entries'][0]['title'])
+
+        # Make sure the links are in place.
+        # This is the top-level, so no up link.
+        eq_([], self.links(parsed, 'up'))
+
+        [start] = self.links(parsed, 'start')
+        eq_(TestAnnotator.groups_url(None), start['href'])
+        eq_(TestAnnotator.top_level_title(), start['title'])
+
+        [next_link] = self.links(parsed, 'next')
+        eq_(TestAnnotator.feed_url(lane, facets, pagination.next_page), next_link['href'])
+
+        # This was the first page, so no previous link.
+        eq_([], self.links(parsed, 'previous'))
+
+        # Now get the second page and make sure it has a 'previous' link.
+        cached_works = make_page(pagination.next_page)
+        parsed = feedparser.parse(cached_works.content)
+        [previous] = self.links(parsed, 'previous')
+        eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
+        eq_(work2.title, parsed['entries'][0]['title'])
+
+        # The feed has no parents, so no breadcrumbs.
+        root = ET.fromstring(cached_works.content)
+        breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
+        eq_(None, breadcrumbs)
+
+        # When a feed is created without a cache_type of NO_CACHE,
+        # CachedFeeds aren't used.
+        old_cache_count = self._db.query(CachedFeed).count()
+        raw_page = AcquisitionFeed.page(
+            self._db, "test", self._url, lane, TestAnnotator,
+            pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE
+        )
+
+        # Unicode is returned instead of a CachedFeed object.
+        eq_(True, isinstance(raw_page, unicode))
+        # No new CachedFeeds have been created.
+        eq_(old_cache_count, self._db.query(CachedFeed).count())
+        # The entries in the feed are the same as they were when
+        # they were cached before.
+        eq_(sorted(parsed.entries), sorted(feedparser.parse(raw_page).entries))
+
     def test_groups_feed(self):
         """Test the ability to create a grouped feed of recommended works for
         a given lane.
