@@ -6083,11 +6083,11 @@ class CachedFeed(Base):
     id = Column(Integer, primary_key=True)
 
     # Every feed is associated with a lane. If null, this is a feed
-    # for the top level.
-    lane_name = Column(Unicode, nullable=True)
-
-    # Every feed includes book from a subset of available languages
-    languages = Column(Unicode)
+    # for a WorkList. If work_id is also null, it's a feed for the
+    # top-level.
+    lane_id = Column(
+        Integer, ForeignKey('lanes.id'),
+        nullable=True, index=True)
 
     # Every feed has a timestamp reflecting when it was created.
     timestamp = Column(DateTime, nullable=True)
@@ -6126,6 +6126,7 @@ class CachedFeed(Base):
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
         from opds import AcquisitionFeed
+        from lane import Lane, WorkList
         if max_age is None:
             if type == cls.GROUPS_TYPE:
                 max_age = AcquisitionFeed.grouped_max_age(_db)
@@ -6137,17 +6138,18 @@ class CachedFeed(Base):
                 max_age = 0
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
+        if lane and isinstance(lane, Lane):
+            lane_id = lane.id
+        else:
+            lane_id = None
         work = None
         if lane:
-            lane_name = unicode(lane.identifier)
             work = getattr(lane, 'work', None)
-        else:
-            lane_name = None
-
-        if not lane.languages:
-            languages_key = None
-        else:
-            languages_key = unicode(",".join(lane.languages))
+        library = None
+        if lane and isinstance(lane, Lane):
+            library = lane.library
+        elif lane and isinstance(lane, WorkList):
+            library = lane.get_library(_db)
 
         if facets:
             facets_key = unicode(facets.query_string)
@@ -6166,11 +6168,10 @@ class CachedFeed(Base):
             _db, cls,
             on_multiple='interchangeable',
             constraint=constraint_clause,
-            lane_name=lane_name,
-            library=lane.library,
+            lane_id=lane_id,
+            library=library,
             work=work,
             type=type,
-            languages=languages_key,
             facets=facets_key,
             pagination=pagination_key)
 
@@ -6194,7 +6195,7 @@ class CachedFeed(Base):
                 # default page-type feed, which should be cheap to fetch.
                 cls.log.warn(
                     "Could not generate a groups feed for %s, falling back to a page feed.",
-                    lane.identifier
+                    lane.display_name
                 )
                 return cls.fetch(
                     _db, lane, CachedFeed.PAGE_TYPE, facets, pagination, 
@@ -6222,16 +6223,16 @@ class CachedFeed(Base):
             length = len(self.content)
         else:
             length = "No content"
-        return "<CachedFeed #%s %s %s %s %s %s %s %s >" % (
-            self.id, self.languages, self.lane_name, self.type, 
+        return "<CachedFeed #%s %s %s %s %s %s %s >" % (
+            self.id, self.lane_identifier, self.type, 
             self.facets, self.pagination,
             self.timestamp, length
         )
 
 
 Index(
-    "ix_cachedfeeds_library_id_lane_name_type_facets_pagination",
-    CachedFeed.library_id, CachedFeed.lane_name, CachedFeed.type,
+    "ix_cachedfeeds_library_id_lane_id_type_facets_pagination",
+    CachedFeed.library_id, CachedFeed.lane_id, CachedFeed.type,
     CachedFeed.facets, CachedFeed.pagination
 )
 

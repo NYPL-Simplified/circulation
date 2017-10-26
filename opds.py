@@ -49,6 +49,7 @@ from lane import (
     Facets,
     Lane,
     Pagination,
+    WorkList,
 )
 from util.opds_writer import (
     AtomFeed,
@@ -518,7 +519,13 @@ class AcquisitionFeed(OPDSFeed):
 
         :return: CachedFeed (if use_cache is True) or unicode
         """
-        facets = facets or Facets.default(lane.library)
+        if isinstance(lane, Lane):
+            library = lane.library
+        elif isinstance(lane, WorkList):
+            library = lane.get_library(_db)
+        else:
+            library = None
+        facets = facets or Facets.default(library)
         pagination = pagination or Pagination.default()
 
         cached = None
@@ -574,7 +581,9 @@ class AcquisitionFeed(OPDSFeed):
     def add_breadcrumb_links(self, feed, lane, annotator):
         # Add "up" link and breadcrumbs
         top_level_title = annotator.top_level_title() or "Collection Home"
-        parent = lane.parent
+        parent = None
+        if isinstance(lane, Lane):
+            parent = lane.parent
         if parent and parent.display_name:
             parent_title = parent.display_name
         else:
@@ -1249,7 +1258,10 @@ class TestAnnotator(Annotator):
 
     @classmethod
     def feed_url(cls, lane, facets=None, pagination=None):
-        base = "http://%s/" % lane.url_name
+        if isinstance(lane, Lane):
+            base = "http://%s/" % lane.url_name
+        else:
+            base = "http://%s/" % lane.display_name
         sep = '?'
         if facets:
             base += sep + facets.query_string
@@ -1260,7 +1272,10 @@ class TestAnnotator(Annotator):
 
     @classmethod
     def search_url(cls, lane, query, pagination):
-        base = "http://search/%s/" % lane.url_name
+        if isinstance(lane, Lane):
+            base = "http://%s/" % lane.url_name
+        else:
+            base = "http://%s/" % lane.display_name
         sep = '?'
         if pagination:
             base += sep + pagination.query_string
@@ -1268,7 +1283,7 @@ class TestAnnotator(Annotator):
 
     @classmethod
     def groups_url(cls, lane):
-        if lane:
+        if lane and isinstance(lane, Lane):
             identifier = lane.identifier
         else:
             identifier = ""

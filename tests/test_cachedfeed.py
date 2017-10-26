@@ -20,6 +20,7 @@ from lane import (
     Lane,
     Pagination,
     Facets,
+    WorkList,
 )
 
 from opds import AcquisitionFeed
@@ -44,8 +45,40 @@ class TestCachedFeed(DatabaseTest):
 
         eq_(pagination.query_string, feed.pagination)
         eq_(facets.query_string, feed.facets)
-        eq_(lane.identifier, feed.lane_name)
-        eq_('eng,chi', feed.languages)
+        eq_(lane.id, feed.lane_id)
+
+        # Update the content
+        feed.update(self._db, u"The content")
+        self._db.commit()
+
+        # Fetch it again.
+        feed, fresh = CachedFeed.fetch(*args, max_age=0)
+
+        # Now it's cached! But not fresh, because max_age is zero
+        eq_("The content", feed.content)
+        eq_(False, fresh)
+
+        # Lower our standards, and it's fresh!
+        feed, fresh = CachedFeed.fetch(*args, max_age=1000)
+        eq_("The content", feed.content)
+        eq_(True, fresh)
+
+    def test_lifecycle_with_worklist(self):
+        facets = Facets.default(self._default_library)
+        pagination = Pagination.default()
+        lane = WorkList()
+        lane.initialize(self._default_library)
+
+        # Fetch a cached feed from the database--it's empty.
+        args = (self._db, lane, CachedFeed.PAGE_TYPE, facets, pagination, None)
+        feed, fresh = CachedFeed.fetch(*args, max_age=0)
+            
+        eq_(False, fresh)
+        eq_(None, feed.content)
+
+        eq_(pagination.query_string, feed.pagination)
+        eq_(facets.query_string, feed.facets)
+        eq_(None, feed.lane_id)
 
         # Update the content
         feed.update(self._db, u"The content")
@@ -71,9 +104,8 @@ class TestCachedFeed(DatabaseTest):
         # Create a feed without content (i.e. don't update it)
         contentless_feed = get_one_or_create(
             self._db, CachedFeed,
-            lane_name=lane.identifier,
+            lane_id=lane.id,
             type=CachedFeed.PAGE_TYPE,
-            languages=u"eng,chi",
             facets=unicode(facets.query_string),
             pagination=unicode(pagination.query_string))[0]
 

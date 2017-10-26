@@ -44,6 +44,7 @@ from model import (
     site_configuration_has_changed,
     tuple_to_numericrange,
     Base,
+    CachedFeed,
     CustomList,
     CustomListEntry,
     DataSource,
@@ -938,6 +939,13 @@ class Lane(Base, WorkList):
     # Only a visible lane will show up in the user interface.  The
     # admin interface can see all the lanes, visible or not.
     _visible = Column(Boolean, default=True, nullable=False, name="visible")
+
+    # A Lane may have many CachedFeeds.
+    cachedfeeds = relationship(
+        "CachedFeed", backref="lane",
+        cascade="all, delete-orphan",
+    )
+
 
     __table_args__ = (
         UniqueConstraint('library_id', 'identifier'),
