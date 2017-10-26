@@ -73,6 +73,31 @@ class OneClickAPITest(DatabaseTest):
 
 class TestOneClickAPI(OneClickAPITest):
 
+    
+    def queue_initial_patron_id_lookup(self):
+        """All the OneClickAPI methods that take a Patron object call
+        self.patron_remote_identifier() immediately, to find the
+        patron's RBdigital ID.
+        
+        Since the default_patron starts out without a Credential
+        containing that ID, this means making a request to the
+        RBdigital API to look up an existing ID. If that lookup fails,
+        it means a call to create_patron() and another API call.
+
+        It's important to test that all these methods call
+        patron_remote_identifier(), so this helper method queues up a
+        response to the "lookup" request that makes it look like the
+        Patron has an RBdigital ID but for whatever reason they are
+        missing their Credential.
+        """
+        patron_datastr, datadict = self.api.get_data(
+            "response_patron_internal_id_found.json"
+        )
+        self.api.queue_response(status_code=200, content=patron_datastr)
+
+    def test_patron_remote_identifier(self):
+        pass
+
     def test_patron_remote_identifier_lookup(self):
 
         patron = self.default_patron
@@ -110,14 +135,11 @@ class TestOneClickAPI(OneClickAPITest):
             self.api.patron_remote_identifier_lookup, patron
         )
 
-        # When the patron's identifier is registered with RBdigital
-        # (due to an earlier create_patron() call),
+        # When the patron's identifier is already registered with
+        # RBdigital (due to an earlier create_patron() call),
         # patron_remote_identifier_lookup returns the patron's
         # RBdigital ID.
-        datastr, datadict = self.api.get_data(
-            "response_patron_internal_id_found.json"
-        )
-        self.api.queue_response(status_code=200, content=datastr)
+        self.queue_initial_patron_id_lookup()
         oneclick_patron_id = self.api.patron_remote_identifier_lookup(patron)
         eq_(939981, oneclick_patron_id)
 
@@ -235,6 +257,7 @@ class TestOneClickAPI(OneClickAPITest):
         # boolean success flag.
 
         patron = self.default_patron
+        self.queue_initial_patron_id_lookup()
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
@@ -244,26 +267,21 @@ class TestOneClickAPI(OneClickAPITest):
         )
         work = self._work(presentation_edition=edition)
 
-        # queue patron id 
-        datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
-        self.api.queue_response(status_code=200, content=datastr)
         # queue checkin success
         self.api.queue_response(status_code=200, content='{"message": "success"}')
 
         success = self.api.checkin(patron, None, pool)
         eq_(True, success)
 
-        # queue patron id
-        self.api.queue_response(status_code=200, content=datastr)
         # queue unexpected non-empty response from the server
         self.api.queue_response(status_code=200, content=json.dumps({"error_code": "error"}))
 
         assert_raises(CirculationException, self.api.checkin,
                       patron, None, pool)
 
-
     def test_checkout(self):
         patron = self.default_patron
+        self.queue_initial_patron_id_lookup()
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
@@ -272,14 +290,6 @@ class TestOneClickAPI(OneClickAPITest):
             identifier_id = '9781441260468'
         )
         work = self._work(presentation_edition=edition)
-
-        # Since the Patron currently has no Credential containing
-        # their RBdigital ID, the first request will try to look that
-        # up. Normally this lookup would fail, and create_patron()
-        # would be called to register them, but let's make it succeed
-        # so we don't also have to test create_patron() here.
-        datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
-        self.api.queue_response(status_code=200, content=datastr)
 
         # The second request will actually check out the book.
         datastr, datadict = self.api.get_data("response_checkout_success.json")
@@ -343,6 +353,7 @@ class TestOneClickAPI(OneClickAPITest):
 
     def test_fulfill(self):
         patron = self.default_patron
+        self.queue_initial_patron_id_lookup()
 
         identifier = self._identifier(
             identifier_type=Identifier.RB_DIGITAL_ID, 
@@ -354,16 +365,6 @@ class TestOneClickAPI(OneClickAPITest):
             with_license_pool=True, 
             identifier_id = '9781426893483'
         )
-
-        # Since the Patron currently has no Credential containing
-        # their RBdigital ID, the first request will try to look that
-        # up. Normally this lookup would fail, and create_patron()
-        # would be called to register them, but let's make it succeed
-        # so we don't also have to test create_patron() here.
-        datastr, datadict = self.api.get_data(
-            "response_patron_internal_id_found.json"
-        )
-        self.api.queue_response(status_code=200, content=datastr)
 
         # The second request will look up the patron's current loans.
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
@@ -428,6 +429,7 @@ class TestOneClickAPI(OneClickAPITest):
         # were created.
 
         patron = self.default_patron
+        self.queue_initial_patron_id_lookup()
 
         identifier = self._identifier(
             identifier_type=Identifier.RB_DIGITAL_ID, 
@@ -436,10 +438,6 @@ class TestOneClickAPI(OneClickAPITest):
         identifier = self._identifier(
             identifier_type=Identifier.RB_DIGITAL_ID, 
             foreign_id='9781426893483')
-
-        # queue patron id 
-        patron_datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
-        self.api.queue_response(status_code=200, content=patron_datastr)
 
         # queue checkouts list
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
@@ -482,9 +480,10 @@ class TestOneClickAPI(OneClickAPITest):
 
 
     def test_place_hold(self):
-        # Test reserving a book.
+        "Test reserving a book."
 
         patron = self.default_patron
+        self.queue_initial_patron_id_lookup()
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
@@ -492,14 +491,6 @@ class TestOneClickAPI(OneClickAPITest):
             with_license_pool=True, 
             identifier_id = '9781441260468'
         )
-
-        # Since the Patron currently has no Credential containing
-        # their RBdigital ID, the first request will try to look that
-        # up. Normally this lookup would fail, and create_patron()
-        # would be called to register them, but let's make it succeed
-        # so we don't also have to test create_patron() here.
-        patron_datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
-        self.api.queue_response(status_code=200, content=patron_datastr)
 
         # If the book is already on hold or already checked out,
         # CannotHold is raised. (It's not AlreadyOnHold/AlreadyCheckedOut
@@ -533,9 +524,10 @@ class TestOneClickAPI(OneClickAPITest):
 
 
     def test_release_hold(self):
-        # Test releasing a book resevation early.
+        "Test releasing a book resevation early."
 
         patron = self.default_patron
+        self.queue_initial_patron_id_lookup()
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
@@ -544,17 +536,12 @@ class TestOneClickAPI(OneClickAPITest):
             identifier_id = '9781441260468'
         )
 
-        # queue patron id 
-        datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
-        self.api.queue_response(status_code=200, content=datastr)
         # queue release success
         self.api.queue_response(status_code=200, content='{"message": "success"}')
 
         success = self.api.release_hold(patron, None, pool)
         eq_(True, success)
 
-        # queue patron id
-        self.api.queue_response(status_code=200, content=datastr)
         # queue unexpected non-empty response from the server
         self.api.queue_response(status_code=200, content=json.dumps({"error_code": "error"}))
 
