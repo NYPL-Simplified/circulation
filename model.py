@@ -8693,7 +8693,6 @@ class DeliveryMechanism(Base, HasFullTableCache):
     KINDLE_DRM = u"Kindle DRM"
     NOOK_DRM = u"Nook DRM"
     STREAMING_DRM = u"Streaming"
-    ONECLICK_DRM = u"OneClick DRM"
     OVERDRIVE_DRM = u"Overdrive DRM"
 
     STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"
