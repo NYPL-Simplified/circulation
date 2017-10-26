@@ -19,6 +19,7 @@ from core.config import (
 from core.model import (
     get_one_or_create,
     Contributor,
+    Credential,
     DataSource,
     DeliveryMechanism,
     Edition,
@@ -95,8 +96,71 @@ class TestOneClickAPI(OneClickAPITest):
         )
         self.api.queue_response(status_code=200, content=patron_datastr)
 
-    def test_patron_remote_identifier(self):
-        pass
+    def _assert_patron_has_remote_identifier_credential(
+            self, patron, external_id
+    ):
+        """Assert that the given Patron has a permanent Credential
+        storing their RBdigital ID.
+        """
+        [credential] = patron.credentials
+        eq_(DataSource.RB_DIGITAL, credential.data_source.name)
+        eq_(Credential.IDENTIFIER_FROM_REMOTE_SERVICE, credential.type)
+        eq_(external_id, credential.credential)
+        eq_(None, credential.expires)
+
+    def test_patron_remote_identifier_new_patron(self):
+
+        class NeverHeardOfYouAPI(OneClickAPI):
+            """A mock OneClickAPI that has never heard of any patron
+            and returns a known ID as a way of registering them.
+            """
+            def patron_remote_identifier_lookup(self, patron):
+                """This API has never heard of any patron."""
+                return None
+
+            def create_patron(self, patron):
+                return "generic id"
+
+        api = NeverHeardOfYouAPI(self._db, self.collection)
+
+        patron = self.default_patron
+
+        # If it turns out the API has never heard of a given patron, a
+        # second call is made to create_patron().
+        eq_("generic id", api.patron_remote_identifier(patron))
+
+        # A permanent Credential has been created for the remote
+        # identifier.
+        self._assert_patron_has_remote_identifier_credential(
+            patron, "generic id"
+        )
+
+    def test_patron_remote_identifier_existing_patron(self):
+
+        class IKnowYouAPI(OneClickAPI):
+            """A mock OneClickAPI that has heard of any given
+            patron but will refuse to register a new patron.
+            """
+            def patron_remote_identifier_lookup(self, patron):
+                return "i know you"
+
+            def create_patron(self, patron):
+                raise Exception("No new patrons!")
+
+        api = IKnowYouAPI(self._db, self.collection)
+
+        patron = self.default_patron
+
+        # If it turns out the API has heard of a given patron, no call
+        # is made to create_patron() -- if it happened here the test
+        # would explode.
+        eq_("i know you", api.patron_remote_identifier(patron))
+
+        # A permanent Credential has been created for the remote
+        # identifier.
+        self._assert_patron_has_remote_identifier_credential(
+            patron, "i know you"
+        )
 
     def test_patron_remote_identifier_lookup(self):
 
