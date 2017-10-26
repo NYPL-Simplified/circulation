@@ -431,7 +431,7 @@ class TestOneClickAPI(OneClickAPITest):
             identifier_id = '9781426893483'
         )
 
-        # The second request will look up the patron's current loans.
+        # The first request will look up the patron's current loans.
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
@@ -439,9 +439,9 @@ class TestOneClickAPI(OneClickAPITest):
         assert isinstance(found_fulfillment, RBFulfillmentInfo)
 
         # We have a FulfillmentInfo-like object, but it hasn't yet
-        # made the request that will give us the actual URL to
-        # download. (We know this, because the response to that request
-        # has not been queued yet.)
+        # made the second request that will give us the actual URL to
+        # download. (We know this, because the response to that
+        # request has not been queued yet.)
 
         # Let's queue it up now.
         download_url  = u"http://download_url/"
@@ -486,6 +486,45 @@ class TestOneClickAPI(OneClickAPITest):
 
         assert_raises(NoActiveLoan, self.api.fulfill,
                       patron, None, pool, None)
+
+
+    def test_fulfill_audiobook(self):
+        """Verify that fulfilling an audiobook results in a manifest
+        document.
+
+        The manifest document is not currently in a standard
+        form, but we'll add that later.
+        """
+        patron = self.default_patron
+        self.queue_initial_patron_id_lookup()
+
+        audiobook_id = '9781449871789'
+        identifier = self._identifier(
+            identifier_type=Identifier.RB_DIGITAL_ID, 
+            foreign_id=audiobook_id)
+
+        edition, pool = self._edition(
+            identifier_type=Identifier.RB_DIGITAL_ID,
+            data_source_name=DataSource.RB_DIGITAL,
+            with_license_pool=True, 
+            identifier_id = audiobook_id
+        )
+
+        # The only request we will make will be to look up the
+        # patron's current loans.
+        datastr, datadict = self.api.get_data(
+            "response_patron_checkouts_with_audiobook.json"
+        )
+        self.api.queue_response(status_code=200, content=datastr)
+
+        found_fulfillment = self.api.fulfill(patron, None, pool, None)
+        assert isinstance(found_fulfillment, RBFulfillmentInfo)
+
+        # Without making any further HTTP requests, we were able to get
+        # a (improperly formatted) audiobook manifest for the loan.
+        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, 
+            found_fulfillment.content_type)
+        eq_(assert "downloadUrl" in found_fulfillment.content)
 
 
     def test_patron_activity(self):
