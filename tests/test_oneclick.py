@@ -157,11 +157,13 @@ class TestOneClickAPI(OneClickAPITest):
         self.api.queue_response(status_code=200, content=datastr)
 
         patron = self.default_patron
-        # TODO: decide if want to add oneclick_id as Credential to PatronData db object
-        patron.oneclick_id = 939981
+
+        # We don't need to go through the process of establishing this
+        # patron's RBdigital ID -- just make one up.
+        oneclick_id = self._str
 
         # borrow functionality checks
-        response_dictionary = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier)
+        response_dictionary = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier)
         assert('error_code' not in response_dictionary)
         eq_("9781441260468", response_dictionary['isbn'])
         eq_("SUCCESS", response_dictionary['output'])
@@ -177,7 +179,7 @@ class TestOneClickAPI(OneClickAPITest):
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
             NoAvailableCopies, "Title is not available for checkout", 
-            self.api.circulate_item, patron.oneclick_id, edition.primary_identifier.identifier
+            self.api.circulate_item, oneclick_id, edition.primary_identifier.identifier
         )
         request_url, request_args, request_kwargs = self.api.requests[-1]
         assert "checkouts" in request_url
@@ -186,7 +188,7 @@ class TestOneClickAPI(OneClickAPITest):
         # book return functionality checks
         self.api.queue_response(status_code=200, content="")
 
-        response_dictionary = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier, 
+        response_dictionary = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier, 
             return_item=True)
         eq_({}, response_dictionary)
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -197,7 +199,7 @@ class TestOneClickAPI(OneClickAPITest):
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
             NotCheckedOut, "checkin:", 
-            self.api.circulate_item, patron.oneclick_id, edition.primary_identifier.identifier, 
+            self.api.circulate_item, oneclick_id, edition.primary_identifier.identifier, 
             return_item=True
         )
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -208,7 +210,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_hold_success.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        response = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier,
+        response = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier,
                                            hold=True)
         eq_(9828560, response)
         request_url, request_args, request_kwargs = self.api.requests[-1]
@@ -218,7 +220,7 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_reached_limit.json")
         self.api.queue_response(status_code=409, content=datastr)
 
-        response = self.api.circulate_item(patron.oneclick_id, edition.primary_identifier.identifier,
+        response = self.api.circulate_item(oneclick_id, edition.primary_identifier.identifier,
                                            hold=True)
         eq_("You have reached your checkout limit and therefore are unable to place additional holds.",
             response)
@@ -536,7 +538,6 @@ class TestOneClickAPI(OneClickAPITest):
         # Test releasing a book resevation early.
 
         patron = self.default_patron
-        patron.oneclick_id = 939981
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
