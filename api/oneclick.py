@@ -561,96 +561,52 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         # by now we can assume response is either empty or a list
         for item in resp_obj:
-            # go through patron's checkouts and generate LoanInfo objects, 
-            # with FulfillmentInfo objects included
-            media_type = item.get('mediaType', 'eBook')
-            isbn = item.get('isbn', None)
-            can_renew = item.get('canRenew', None)
-            title = item.get('title', None)
-            authors = item.get('authors', None)
-            # refers to checkout expiration date, not the downloadUrl's
-            expires = item.get('expiration', None)
-            if expires:
-                expires = datetime.datetime.strptime(expires, self.EXPIRATION_DATE_FORMAT).date()
-
-            identifier, made_new = Identifier.for_foreign_id(self._db, 
-                    foreign_identifier_type=Identifier.RB_DIGITAL_ID, 
-                    foreign_id=isbn, autocreate=False)
-
-            # Note: if OneClick knows about a patron's checked-out item that wasn't
-            # checked out through us, we ignore it
-            if not identifier:
-                continue
-
-            # Get a list of files associated with this loan.
-            files = item.get('files', [])
-
-            # TODO: This only works for ebooks, where there is a single file
-            # in the manifest. For audiobooks, we need to convert the entire
-            # manifest to an application/audiobook+json file.
-            for file in files:
-                filename = file.get('filename', None)
-                # assume fileFormat is same for all files associated with this checkout
-                # and use the last one mentioned.  Ex: "fileFormat": "EPUB".
-                # note: audio books don't list fileFormat field, just the filename, and the mediaType.
-                file_format = file.get('fileFormat', None)
-                if file_format == 'EPUB':
-                    file_format = Representation.EPUB_MEDIA_TYPE
-                else:
-                    # TODO: RBdigital audiobook manifests will be
-                    # converted to this standard manifest format.
-                    file_format = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
-
-                # Note: download urls expire 15 minutes after being handed out
-                # in the checkouts call
-                download_url = file.get('downloadUrl', None)
-                # is included in the downloadUrl, actually
-                acs_resource_id = file.get('acsResourceId', None)
-
-            # The document at the other end of download_url is a manifest.
-            # For audio books, the manifest includes a list of parts.
-            # For ebooks, the manifest includes a single link to an ACSM
-            # file.
-            #
-            # We can't do anything about audiobook manifests right
-            # now, but we can turn an ebook manifest into a
-            # FulfillmentInfo.
-
-            # We need to use self._make_request instead of self.request
-            # because it's a different server that will reject the credentials
-            # we use for the API.
-            access_document = self._make_request(download_url, 'GET', {})
-            data = json.loads(access_document.content)
-            content_link = data['url']
-            content_type = data['type']
-            if content_type == 'application/vnd.adobe':
-                # The manifest spells the media type wrong. Fix it.
-                content_type = DeliveryMechanism.ADOBE_DRM
-            fulfillment_info = FulfillmentInfo(
-                self.collection,
-                DataSource.RB_DIGITAL,
-                Identifier.RB_DIGITAL_ID, 
-                identifier, 
-                content_link = content_link, 
-                content_type = content_type, 
-                content = None, 
-                content_expires = None
-            )
-
-            loan = LoanInfo(
-                self.collection,
-                DataSource.RB_DIGITAL,
-                Identifier.RB_DIGITAL_ID,
-                isbn,
-                start_date=None,
-                end_date=expires,
-                fulfillment_info=fulfillment_info,
-            )
-
-            loans.append(loan)
-
+            loan_info = self._make_loan_info(item)
+            if loan_info:
+                loans.append(loan_info)
         return loans
 
+    def _make_loan_info(self, item, fulfill=False):
+        """Convert one of the items returned by a request to /checkouts into a
+        LoanInfo with an RBFulfillmentInfo.
+        """
+
+        media_type = item.get('mediaType', 'eBook')
+        isbn = item.get('isbn', None)
+
+        # 'expiration' here refers to the expiration date of the loan, not
+        # of the fulfillment URL.
+        expires = item.get('expiration', None)
+        if expires:
+            expires = datetime.datetime.strptime(
+                expires, self.EXPIRATION_DATE_FORMAT
+            ).date()
+
+        identifier, made_new = Identifier.for_foreign_id(
+            self._db, foreign_identifier_type=Identifier.RB_DIGITAL_ID, 
+            foreign_id=isbn, autocreate=False
+        )
+        if not identifier:
+            # We have never heard of this book, which means the patron
+            # didn't borrow it through us.
+            return None
+
+        fulfillment_info = RBFulfillmentInfo(
+            self,
+            DataSource.RB_DIGITAL,
+            identifier, 
+            item,
+        )
+
+        return LoanInfo(
+            self.collection,
+            DataSource.RB_DIGITAL,
+            Identifier.RB_DIGITAL_ID,
+            isbn,
+            start_date=None,
+            end_date=expires,
+            fulfillment_info=fulfillment_info,
+        )
 
     def get_patron_holds(self, patron_id):
         """
@@ -839,10 +795,125 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         pass
 
 
+class RBFulfillmentInfo(object):
+    """An RBdigital-specific FulfillmentInfo implementation.
+
+    We use these instead of real FulfillmentInfo objects because
+    generating a FulfillmentInfo object may require an extra HTTP request,
+    and there's often no need to make that request.
+    """
+
+    def __init__(self, api, data_source_name, identifier,
+                 raw_data):
+        self.api = api
+        self.collection = api.collection
+        self.data_source_name = data_source_name
+        self._identifier = identifier
+        self.identifier_type = identifier.type
+        self.identifier = identifier.identifier
+        self.raw_data = raw_data
+
+        self._fetched = False
+        self._content_link = None
+        self._content_type = None
+        self._content = None
+        self._content_expires = None
+        
+    @property
+    def content_link(self):
+        self.fetch()
+        return self._content_link
+
+    @property
+    def content_type(self):
+        self.fetch()
+        return self._content_type
+
+    @property
+    def content(self):
+        self.fetch()
+        return self._content
+
+    @property
+    def content_expires(self):
+        self.fetch()
+        return self._content_expires
+
+    def fetch(self):
+        if self._fetched:
+            return
+
+        # Get a list of files associated with this loan.
+        files = self.raw_data.get('files', [])
+
+        # Determine if we're fulfilling an audiobook (which means sending a
+        # manifest) or an ebook (which means sending a download link).
+        individual_download_url = None
+        representation_format = None
+        if files:
+            # If we have an ebook, there should only be one file in
+            # the list. If we have an audiobook, the first file should
+            # be representative of the whole.
+            file = files[0]
+            file_format = file.get('fileFormat', None)
+            if file_format == 'EPUB':
+                file_format = Representation.EPUB_MEDIA_TYPE
+            else:
+                # Audio books don't list a fileFormat at all. TODO:
+                # they do list a mediaType, which could be useful.
+                file_format = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
+            self._content_type = file_format
+            individual_download_url = file.get('downloadUrl', None)
+            
+        if self._content_type == Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
+            # We have an audiobook.
+            self._content = self.process_audiobook_manifest(self.raw_data)
+        else:
+            # We have some other kind of file. Follow the download
+            # link, which will return a JSON-based access document
+            # pointing to the 'real' download link.
+            #
+            # We don't send our normal RBdigital credentials with this
+            # request because it's going to a different, publicly
+            # accessible server.
+            access_document = self.api._make_request(
+                individual_download_url, 'GET', {}
+            )
+            self._content_type, self._content_link, self._content_expires = self.process_access_document(
+                access_document
+            )
+        self._fetched = True
+
+    @classmethod
+    def process_audiobook_manifest(self, rb_data):
+        """Convert RBdigital's proprietary manifest format
+        into a standard Audiobook Manifest document.
+       
+        TODO: This currently just returns the original manifest.
+        """
+        return json.dumps(rb_data)
+
+    @classmethod
+    def process_access_document(self, access_document):
+        """Process the intermediary document served by RBdigital to tell
+        you how to actually download a file.
+        """
+        data = json.loads(access_document.content)
+        content_link = data.get('url')
+        content_type = data.get('type')
+        if content_type == 'application/vnd.adobe':
+            # The manifest spells the media type wrong. Fix it.
+            content_type = DeliveryMechanism.ADOBE_DRM
+
+        # Now that we've found the download URL, the client has 15
+        # minutes to use it. Set it to expire in 14 minutes to be
+        # conservative.
+        expires = datetime.datetime.utcnow() + datetime.timedelta(minutes=14)
+        return content_type, content_link, expires
+
 
 class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):
     pass
-
 
 
 class OneClickCirculationMonitor(CollectionMonitor):
