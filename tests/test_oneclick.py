@@ -524,7 +524,7 @@ class TestOneClickAPI(OneClickAPITest):
         # a (improperly formatted) audiobook manifest for the loan.
         eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, 
             found_fulfillment.content_type)
-        eq_(assert "downloadUrl" in found_fulfillment.content)
+        assert "downloadUrl" in found_fulfillment.content
 
 
     def test_patron_activity(self):
