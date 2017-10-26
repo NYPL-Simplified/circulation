@@ -29,6 +29,7 @@ from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
+from api.lanes import create_default_lanes
 from api.authenticator import (
     BasicAuthenticationProvider,
     OAuthController,
@@ -93,7 +94,6 @@ from api.adobe_vendor_id import (
     AuthdataUtility,
     DeviceManagementProtocolController,
 )
-from api.lanes import make_lanes_default
 import base64
 import feedparser
 from core.opds import (
@@ -204,7 +204,7 @@ class ControllerTest(VendorIDTest):
         self.authdata = AuthdataUtility.from_config(self.library)
 
         self.manager = CirculationManager(
-            _db, lanes=None, testing=True
+            _db, testing=True
         )
 
         # Set CirculationAPI and top-level lane for the default
@@ -253,7 +253,7 @@ class ControllerTest(VendorIDTest):
                 (Configuration.TINY_COLLECTION_LANGUAGES, ['spa','chi'])
         ]:
             ConfigurationSetting.for_library(k, library).value = json.dumps(v)
-
+        create_default_lanes(_db, library)
             
     def make_default_libraries(self, _db):
         return [self._default_library]
@@ -362,7 +362,7 @@ class TestCirculationManager(CirculationControllerTest):
             def setup_search(self):
                 raise CannotLoadConfiguration("doomed!")
 
-        circulation = BadSearch(self._db, lanes=None, testing=True)
+        circulation = BadSearch(self._db, testing=True)
 
         # We didn't get a search object.
         eq_(None, circulation.external_search)
@@ -708,6 +708,7 @@ class FullLaneSetupTest(CirculationControllerTest):
                 (Configuration.TINY_COLLECTION_LANGUAGES, [])
         ]:
             ConfigurationSetting.for_library(k, library).value = json.dumps(v)
+        create_default_lanes(self._db, library)
     
     def test_load_lane(self):
         with self.request_context_with_library("/"):
@@ -2284,7 +2285,7 @@ class TestFeedController(CirculationControllerTest):
 
     def test_bad_order_gives_problem_detail(self):
         with self.request_context_with_library("/?order=nosuchorder"):
-            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+            response = self.manager.opds_feeds.feed('English Adult Fiction')
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input", 
@@ -2293,7 +2294,7 @@ class TestFeedController(CirculationControllerTest):
 
     def test_bad_pagination_gives_problem_detail(self):
         with self.request_context_with_library("/?size=abc"):
-            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+            response = self.manager.opds_feeds.feed('English Adult Fiction')
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input", 

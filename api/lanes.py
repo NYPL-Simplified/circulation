@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
+from flask.ext.babel import lazy_gettext as _
 
 import core.classifier as genres
 from config import Configuration
@@ -8,16 +9,18 @@ from core.classifier import (
     Classifier,
     fiction_genres,
     nonfiction_genres,
+    GenreData,
 )
 from core import classifier
 
 from core.lane import (
     Facets,
     Lane,
-    QueryGeneratedLane,
+    WorkList,
 )
 from core.model import (
     get_one,
+    create,
     Contribution,
     Contributor,
     Edition,
@@ -79,6 +82,11 @@ def create_default_lanes(_db, library):
     and all Lanes based on CustomLists (but not the CustomLists
     themselves) will be destroyed.
     """
+    # Delete existing lanes.
+    for lane in _db.query(Lane).filter(Lane.library_id==library.id):
+        _db.delete(lane)
+
+
     seen_languages = set()
 
     top_level_lanes = []
@@ -87,16 +95,17 @@ def create_default_lanes(_db, library):
         create_lanes_for_large_collection(_db, library, language)
 
     for language in Configuration.small_collection_languages(library):
-        create_lanes_for_small_collection(_db, library, language)
+        create_lane_for_small_collection(_db, library, language)
 
     other_languages_lane = create_lane_for_tiny_collections(
-        Configuration.tiny_collection_languages(library)
+        _db, library, Configuration.tiny_collection_languages(library)
     )
 
-def lanes_from_genres(_db, library, genres, **extra_args):
-    """Turn genre info into a list of Lane objects."""
+def lane_from_genres(_db, library, genres, identifier=None, display_name=None, exclude_genres=None, **extra_args):
+    """Turn genre info into a Lane object."""
 
     genre_lane_instructions = {
+        "Dystopian SF": dict(display_name="Dystopian"),
         "Humorous Fiction" : dict(display_name="Humor"),
         "Media Tie-in SF" : dict(display_name="Movie and TV Novelizations"),
         "Suspense/Thriller" : dict(display_name="Thriller"),
@@ -105,30 +114,49 @@ def lanes_from_genres(_db, library, genres, **extra_args):
         "Periodicals" : dict(invisible=True)
     }
 
-    # "Life Strategies" is a YA-specific genre that should not be
-    # included in the Adult Nonfiction lane.
+    # We don't care about subgenres here.
+    genres = [genre.get("name") if isinstance(genre, dict)
+              else genre.name if isinstance(genre, GenreData)
+              else genre
+              for genre in genres]
 
-    lanes = []
-    for descriptor in genres:
-        if isinstance(descriptor, dict):
-            name = descriptor['name']
-        else:
-            name = descriptor
-        if classifier.genres.get(name):
-            genredata = classifier.genres[name]
-        else:
-            genredata = GenreData(name, False)
-        lane_args = dict(extra_args)
-        if name in genre_lane_instructions.keys():
-            instructions = genre_lane_instructions[name]
-            if "display_name" in instructions:
-                lane_args['display_name']=instructions.get('display_name')
-            if "invisible" in instructions:
-                lane_args['invisible']=instructions.get("invisible")
-        lanes.append(genredata.to_lane(_db, library, **lane_args))
-    return lanes
+    exclude_genres = [genre.get("name") if isinstance(genre, dict)
+                      else genre.name if isinstance(genre, GenreData)
+                      else genre
+                      for genre in exclude_genres or []]
 
-def lanes_for_large_collection(_db, library, languages):
+    sublanes = []
+    if not identifier and len(genres) == 1:
+        identifier = genres[0]
+    fiction = None
+    if len(genres) == 1:
+        if classifier.genres.get(genres[0]):
+            genredata = classifier.genres[genres[0]]
+        else:
+            genredata = GenreData(genres[0], False)
+        fiction = genredata.is_fiction
+
+        if genres[0] in genre_lane_instructions.keys():
+            instructions = genre_lane_instructions[genres[0]]
+            if not display_name and "display_name" in instructions:
+                display_name = instructions.get('display_name')
+
+    if not display_name:
+        if len(genres) == 1:
+            display_name = genres[0]
+        else:
+            display_name = identifier
+
+    lane, ignore = create(_db, Lane, library_id=library.id,
+                          identifier=identifier, display_name=display_name,
+                          fiction=fiction, **extra_args)
+    for genre in genres:
+        lane.add_genre(genre)
+    for genre in exclude_genres:
+        lane.add_genre(genre, inclusive=False)
+    return lane
+
+def create_lanes_for_large_collection(_db, library, languages):
     """Ensure that the lanes appropriate to a large collection are all
     present.
 
@@ -158,36 +186,45 @@ def lanes_for_large_collection(_db, library, languages):
     if isinstance(languages, basestring):
         languages = [languages]
 
+    ADULT = Classifier.AUDIENCES_ADULT
     YA = Classifier.AUDIENCE_YOUNG_ADULT
     CHILDREN = Classifier.AUDIENCE_CHILDREN
 
-    common_args = dict(
+    language_identifier = LanguageCodes.name_for_languageset(languages)
+
+    adult_common_args = dict(
         languages=languages,
-        include_best_sellers=True,
-        include_staff_picks=True,
+        audiences=ADULT,
     )
 
-    adult_fiction = Lane(
-        _db, library, full_name="%s Adult Fiction", display_name="Fiction",
-        genres=None,
-        sublanes=lanes_from_genres(
-            _db, library, fiction_genres, languages=languages,
-            audiences=Classifier.AUDIENCES_ADULT,
-        ),
+    adult_fiction, ignore = create(
+        _db, Lane, library=library,
+        identifier="%s Adult Fiction" % language_identifier,
+        display_name="Fiction",
+        genres=[],
+        sublanes=[lane_from_genres(
+            _db, library, [genre],
+            identifier="%s Adult Fiction %s" % (language_identifier, genre),
+            **adult_common_args
+        ) for genre in fiction_genres],
         fiction=True, 
-        audiences=Classifier.AUDIENCES_ADULT,
-        **common_args
+        **adult_common_args
     )
-    adult_nonfiction = Lane(
-        _db, library, full_name="Adult Nonfiction", display_name="Nonfiction",
-        genres=None,
-        sublanes=lanes_from_genres(
-            _db, library, nonfiction_genres, languages=languages,
-            audiences=Classifier.AUDIENCES_ADULT,
-        ),
+
+    # "Life Strategies" is a YA-specific genre that should not be
+    # included in the Adult Nonfiction lane.
+    adult_nonfiction, ignore = create(
+        _db, Lane, library=library,
+        identifier="%s Adult Nonfiction" % language_identifier,
+        display_name="Nonfiction",
+        genres=[],
+        sublanes=[lane_from_genres(
+            _db, library, [genre],
+            identifier="%s Adult Nonfiction %s" % (language_identifier, genre),
+            **adult_common_args
+        ) for genre in nonfiction_genres if genre != genres.Life_Strategies],
         fiction=False, 
-        audiences=Classifier.AUDIENCES_ADULT,
-        **common_args
+        **adult_common_args
     )
 
     ya_common_args = dict(
@@ -195,242 +232,289 @@ def lanes_for_large_collection(_db, library, languages):
         languages=languages,
     )
 
-    ya_fiction = Lane(
-        _db, library, full_name="Young Adult Fiction", genres=None, fiction=True,
-        include_best_sellers=True,
-        include_staff_picks=True,        
+    ya_fiction_identifier = "%s Young Adult Fiction" % language_identifier
+    ya_fiction, ignore = create(
+        _db, Lane, library=library,
+        identifier=ya_fiction_identifier,
+        display_name="Young Adult Fiction",
+        genres=[], fiction=True,
         sublanes=[
-            Lane(_db, library, full_name="YA Dystopian",
-                 display_name="Dystopian", genres=[genres.Dystopian_SF],
-                 **ya_common_args),
-            Lane(_db, library, full_name="YA Fantasy", display_name="Fantasy",
-                 genres=[genres.Fantasy], 
-                 subgenre_behavior=Lane.IN_SAME_LANE, **ya_common_args),
-            Lane(_db, library, full_name="YA Graphic Novels",
-                 display_name="Comics & Graphic Novels",
-                 genres=[genres.Comics_Graphic_Novels], **ya_common_args),
-            Lane(_db, library, full_name="YA Literary Fiction",
-                 display_name="Contemporary Fiction",
-                 genres=[genres.Literary_Fiction], **ya_common_args),
-            Lane(_db, library, full_name="YA LGBTQ Fiction", 
-                 display_name="LGBTQ Fiction",
-                 genres=[genres.LGBTQ_Fiction],
-                 **ya_common_args),
-            Lane(_db, library, full_name="Mystery & Thriller",
-                 genres=[genres.Suspense_Thriller, genres.Mystery],
-                 subgenre_behavior=Lane.IN_SAME_LANE, **ya_common_args),
-            Lane(_db, library, full_name="YA Romance", display_name="Romance",
-                 genres=[genres.Romance],
-                 subgenre_behavior=Lane.IN_SAME_LANE, **ya_common_args),
-            Lane(_db, library, full_name="YA Science Fiction",
-                 display_name="Science Fiction",
-                 genres=[genres.Science_Fiction],
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 exclude_genres=[genres.Dystopian_SF, genres.Steampunk],
-                 **ya_common_args),
-            Lane(_db, library, full_name="YA Steampunk", genres=[genres.Steampunk],
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 display_name="Steampunk", **ya_common_args),
+            lane_from_genres(_db, library, [genres.Dystopian_SF],
+                             identifier=ya_fiction_identifier + " " + genres.Dystopian_SF.name,
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.Fantasy],
+                             identifier=ya_fiction_identifier + " " + genres.Fantasy.name,
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.Comics_Graphic_Novels],
+                             identifier=ya_fiction_identifier + " " + genres.Comics_Graphic_Novels.name,
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.Literary_Fiction],
+                             identifier=ya_fiction_identifier + " " + genres.Literary_Fiction.name,
+                             display_name="Contemporary Fiction",
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.LGBTQ_Fiction],
+                             identifier=ya_fiction_identifier + " " + genres.LGBTQ_Fiction.name,
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.Suspense_Thriller, genres.Mystery],
+                             identifier=ya_fiction_identifier + " Mystery & Thriller",
+                             display_name="Mystery & Thriller",
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.Romance],
+                             identifier=ya_fiction_identifier + " " + genres.Romance.name,
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.Science_Fiction],
+                             exclude_genres=[genres.Dystopian_SF, genres.Steampunk],
+                             identifier=ya_fiction_identifier + " " + genres.Science_Fiction.name,
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.Steampunk],
+                             identifier=ya_fiction_identifier + " " + genres.Steampunk.name,
+                             **ya_common_args),
             # TODO:
             # Paranormal -- what is it exactly?
         ],
         **ya_common_args
     )
 
-    ya_nonfiction = Lane(
-        _db, library, full_name="Young Adult Nonfiction", genres=None, fiction=False,
-        include_best_sellers=True,
-        include_staff_picks=True,
+    ya_nonfiction_identifier = "%s Young Adult Nonfiction" % language_identifier
+    ya_nonfiction, ignore = create(
+        _db, Lane, library=library,
+        identifier=ya_nonfiction_identifier,
+        display_name="Young Adult Nonfiction",
+        genres=[], fiction=False,
         sublanes=[
-            Lane(_db, library, full_name="YA Biography", 
-                 genres=genres.Biography_Memoir,
-                 display_name="Biography",
-                 **ya_common_args
-                 ),
-            Lane(_db, library, full_name="YA History",
-                 genres=[genres.History, genres.Social_Sciences],
-                 display_name="History & Sociology", 
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 **ya_common_args
-             ),
-            Lane(_db, library, full_name="YA Life Strategies",
-                 display_name="Life Strategies",
-                 genres=[genres.Life_Strategies], 
-                 **ya_common_args
-                 ),
-            Lane(_db, library, full_name="YA Religion & Spirituality", 
-                 display_name="Religion & Spirituality",
-                 genres=genres.Religion_Spirituality,
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 **ya_common_args
-                 )
+            lane_from_genres(_db, library, [genres.Biography_Memoir],
+                             identifier=ya_nonfiction_identifier + " " + genres.Biography_Memoir.name,
+                             display_name="Biography",
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.History, genres.Social_Sciences],
+                             identifier=ya_nonfiction_identifier + " History & Sociology",
+                             display_name="History & Sociology",
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.Life_Strategies],
+                             identifier=ya_nonfiction_identifier + " " + genres.Life_Strategies.name,
+                             **ya_common_args),
+            lane_from_genres(_db, library, [genres.Religion_Spirituality],
+                             identifier=ya_nonfiction_identifier + " " + genres.Religion_Spirituality.name,
+                             **ya_common_args),
         ],
         **ya_common_args
     )
 
     children_common_args = dict(
-        audiences=genres.Classifier.AUDIENCE_CHILDREN,
+        audiences=CHILDREN,
         languages=languages,
     )
 
-    children = Lane(
-        _db, library, full_name="Children and Middle Grade", genres=None,
-        fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-        include_best_sellers=True,
-        include_staff_picks=True,
-        searchable=True,
-        sublanes=[
-            Lane(_db, library, full_name="Picture Books", age_range=[0,1,2,3,4],
-                 genres=None, fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Easy readers", age_range=[5,6,7,8],
-                 genres=None, fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Chapter books", age_range=[9,10,11,12],
-                 genres=None, fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Children's Poetry", 
-                 display_name="Poetry books", genres=[genres.Poetry],
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Children's Folklore", display_name="Folklore",
-                 genres=[genres.Folklore],
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Children's Fantasy", display_name="Fantasy",
-                 fiction=True,
-                 genres=[genres.Fantasy], 
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Children's SF", display_name="Science Fiction",
-                 fiction=True, genres=[genres.Science_Fiction],
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Realistic fiction", 
-                 fiction=True, genres=[genres.Literary_Fiction],
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Children's Graphic Novels",
-                 display_name="Comics & Graphic Novels",
-                 genres=[genres.Comics_Graphic_Novels],
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Biography", 
-                 genres=[genres.Biography_Memoir],
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Historical fiction", 
-                 genres=[genres.Historical_Fiction],
-                 subgenre_behavior=Lane.IN_SAME_LANE, 
-                 **children_common_args
-             ),
-            Lane(_db, library, full_name="Informational books", genres=None,
-                 fiction=False, exclude_genres=[genres.Biography_Memoir],
-                 subgenre_behavior=Lane.IN_SAME_LANE,
-                 **children_common_args
-             )
-        ],
+    children_identifier = "%s Children and Middle Grade" % language_identifier
+    children, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier,
+        display_name="Children and Middle Grade",
+        genres=[], fiction=None,
+        sublanes=[],
         **children_common_args
     )
 
-    name = LanguageCodes.name_for_languageset(languages)
-    lane = Lane(
-        _db, library, full_name=name,
-        genres=None,
+    picture_books, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Picture Books",
+        display_name="Picture Books",
+        target_age=(0,4), genres=[], fiction=None,
+        languages=languages,
+    )
+    children.sublanes.append(picture_books)
+
+    easy_readers, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Easy Readers",
+        display_name="Easy Readers",
+        target_age=(5,8), genres=[], fiction=None,
+        languages=languages,
+    )
+    children.sublanes.append(easy_readers)
+
+    chapter_books, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Chapter Books",
+        display_name="Chapter Books",
+        target_age=(9,12), genres=[], fiction=None,
+        languages=languages,
+    )
+    children.sublanes.append(chapter_books)
+
+    children_poetry, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Poetry",
+        display_name="Poetry Books",
+        **children_common_args
+    )
+    children_poetry.add_genre(genres.Poetry.name)
+    children.sublanes.append(children_poetry)
+
+    children_folklore, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Folklore",
+        display_name="Folklore",
+        **children_common_args
+    )
+    children_folklore.add_genre(genres.Folklore.name)
+    children.sublanes.append(children_folklore)
+
+    children_fantasy, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Fantasy",
+        display_name="Fantasy",
+        fiction=True,
+        **children_common_args
+    )
+    children_fantasy.add_genre(genres.Fantasy.name)
+    children.sublanes.append(children_fantasy)
+
+    children_sf, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " SF",
+        display_name="Science Fiction",
+        fiction=True,
+        **children_common_args
+    )
+    children_sf.add_genre(genres.Science_Fiction.name)
+    children.sublanes.append(children_sf)
+
+    realistic_fiction, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Realistic Fiction",
+        display_name="Realistic Fiction",
+        fiction=True,
+        **children_common_args
+    )
+    realistic_fiction.add_genre(genres.Literary_Fiction.name)
+    children.sublanes.append(realistic_fiction)
+
+    children_graphic_novels, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Graphic Novels",
+        display_name="Comics & Graphic Novels",
+        **children_common_args
+    )
+    children_graphic_novels.add_genre(genres.Comics_Graphic_Novels.name)
+    children.sublanes.append(children_graphic_novels)
+
+    children_biography, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Biography",
+        display_name="Biography",
+        **children_common_args
+    )
+    children_biography.add_genre(genres.Biography_Memoir.name)
+    children.sublanes.append(children_biography)
+
+    children_historical_fiction, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Historical Fiction",
+        display_name="Historical Fiction",
+        **children_common_args
+    )
+    children_historical_fiction.add_genre(genres.Historical_Fiction.name)
+    children.sublanes.append(children_historical_fiction)
+
+    informational, ignore = create(
+        _db, Lane, library=library,
+        identifier=children_identifier + " Informational Books",
+        display_name="Informational Books",
+        fiction=False, genres=[],
+        **children_common_args
+    )
+    informational.add_genre(genres.Biography_Memoir.name, inclusive=False)
+    children.sublanes.append(informational)
+
+    lane = create(
+        _db, Lane, library=library,
+        identifier=language_identifier,
+        display_name=language_identifier,
+        genres=[], 
         sublanes=[adult_fiction, adult_nonfiction, ya_fiction, ya_nonfiction, children],
-        fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-        searchable=True,
-        invisible=True,
-        **common_args
+        fiction=None,
+        languages=languages,
     )
 
     return [lane]
 
-def lane_for_small_collection(_db, library, languages):
+def create_lane_for_small_collection(_db, library, languages):
 
+    ADULT = Classifier.AUDIENCE_ADULT
     YA = Classifier.AUDIENCE_YOUNG_ADULT
     CHILDREN = Classifier.AUDIENCE_CHILDREN
 
     common_args = dict(
-        include_best_sellers=False,
-        include_staff_picks=False,
         languages=languages,
-        genres=None,
+        genres=[],
     )
+    language_identifier = LanguageCodes.name_for_languageset(languages)
 
-    adult_fiction = Lane(
-        _db, library, full_name="Adult Fiction",
+    adult_fiction, ignore = create(
+        _db, Lane, library=library,
+        identifier=language_identifier + " Adult Fiction",
         display_name="Fiction",
-        fiction=True, 
-        audiences=Classifier.AUDIENCES_ADULT,
-        **common_args
-    )
-    adult_nonfiction = Lane(
-        _db, library, full_name="Adult Nonfiction", 
-        display_name="Nonfiction",
-        fiction=False, 
-        audiences=Classifier.AUDIENCES_ADULT,
+        fiction=True,
+        audiences=ADULT,
         **common_args
     )
 
-    ya_children = Lane(
-        _db, library, 
-        full_name="Children & Young Adult", 
-        fiction=Lane.BOTH_FICTION_AND_NONFICTION,
+    adult_nonfiction, ignore = create(
+        _db, Lane, library=library,
+        identifier=language_identifier + " Adult Nonfiction",
+        display_name="Nonfiction",
+        fiction=False,
+        audiences=ADULT,
+        **common_args
+    )
+
+    ya_children, ignore = create(
+        _db, Lane, library=library,
+        identifier=language_identifier + " Children & Young Adult",
+        display_name="Children & Young Adult",
+        fiction=None,
         audiences=[YA, CHILDREN],
         **common_args
     )
 
-    name = LanguageCodes.name_for_languageset(languages)
-    lane = Lane(
-        _db, library, full_name=name, languages=languages, 
+    lane, ignore = create(
+        _db, Lane, library=library,
+        identifier=language_identifier,
+        display_name=language_identifier,
         sublanes=[adult_fiction, adult_nonfiction, ya_children],
-        searchable=True
     )
-    lane.default_for_language = True
     return lane
 
-def lane_for_other_languages(_db, library, exclude_languages):
-    """Make a lane for all books not in one of the given languages."""
-
+def create_lane_for_tiny_collections(_db, library, languages):
     language_lanes = []
-    other_languages = Configuration.tiny_collection_languages(library)
 
-    if not other_languages:
+    if not languages:
         return None
 
-    for language_set in other_languages:
+    for language_set in languages:
         name = LanguageCodes.name_for_languageset(language_set)
-        language_lane = Lane(
-            _db, library, full_name=name,
-            genres=None,
-            fiction=Lane.BOTH_FICTION_AND_NONFICTION,
-            searchable=True,
+        language_lane, ignore = create(
+            _db, Lane, library=library,
+            identifier=name,
+            display_name=name,
+            genres=[],
+            fiction=None,
             languages=language_set,
         )
         language_lanes.append(language_lane)
 
-    lane = Lane(
-        _db, library, 
-        full_name="Other Languages", 
+    lane, ignore = create(
+        _db, Lane, library=library, 
+        identifier="Other Languages",
+        display_name="Other Languages", 
         sublanes=language_lanes,
-        exclude_languages=exclude_languages,
-        searchable=True,
-        genres=None,
+        genres=[],
     )
-    lane.default_for_language = True
     return lane
 
 
-class WorkBasedLane(QueryGeneratedLane):
+class WorkBasedLane(WorkList):
     """A query-based lane connected on a particular Work"""
 
     DISPLAY_NAME = None
@@ -597,7 +681,7 @@ class RecommendationLane(WorkBasedLane):
         return qu
 
 
-class SeriesLane(QueryGeneratedLane):
+class SeriesLane(WorkList):
     """A lane of Works in a particular series"""
 
     ROUTE = 'series'
@@ -654,7 +738,7 @@ class SeriesLane(QueryGeneratedLane):
         return qu
 
 
-class ContributorLane(QueryGeneratedLane):
+class ContributorLane(WorkList):
     """A lane of Works written by a particular contributor"""
 
     ROUTE = 'contributor'

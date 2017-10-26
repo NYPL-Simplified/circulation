@@ -35,7 +35,7 @@ from core.model import (
 )
 from core.lane import (
     Lane,
-    QueryGeneratedLane,
+    WorkList,
 )
 from core.app_server import cdn_url_for
 
@@ -76,7 +76,7 @@ class CirculationManagerAnnotator(Annotator):
                  top_level_title="All Books"
     ):
         if lane:
-            logger_name = "Circulation Manager Annotator for %s" % lane.name
+            logger_name = "Circulation Manager Annotator for %s" % lane.display_name
         else:
             logger_name = "Circulation Manager Annotator"
         self.log = logging.getLogger(logger_name)
@@ -164,7 +164,7 @@ class CirculationManagerAnnotator(Annotator):
         return self.groups_url(None)
 
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
-        if (isinstance(lane, QueryGeneratedLane) and
+        if (isinstance(lane, WorkList) and
             hasattr(lane, 'url_arguments')):
             route, kwargs = lane.url_arguments
         else:

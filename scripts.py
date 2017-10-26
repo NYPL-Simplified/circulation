@@ -86,7 +86,7 @@ from api.adobe_vendor_id import (
     AdobeVendorIDModel,
     AuthdataUtility,
 )
-from api.lanes import make_lanes
+from api.lanes import create_default_lanes
 from api.controller import CirculationManager
 from api.overdrive import OverdriveAPI
 from api.circulation import CirculationAPI
@@ -1018,3 +1018,11 @@ class OPDSForDistributorsReaperScript(OPDSImportScript):
     IMPORTER_CLASS = OPDSForDistributorsImporter
     MONITOR_CLASS = OPDSForDistributorsReaperMonitor
     PROTOCOL = OPDSForDistributorsImporter.NAME
+
+class LaneResetScript(LibraryInputScript):
+    """Reset a library's lanes based on language configuration or estimates
+    of the library's current collection."""
+
+    def process_library(self, library):
+        create_default_lanes(self._db, library)
+        self._db.commit()

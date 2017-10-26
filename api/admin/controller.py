@@ -1452,6 +1452,7 @@ class SettingsController(CirculationManagerController):
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
+        collection.name = name
         [protocol] = [p for p in protocols if p.get("name") == protocol]
 
         parent_id = flask.request.form.get("parent_id")
