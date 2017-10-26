@@ -210,11 +210,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
-        # find patron's checkouts
         checkouts_list = self.get_patron_checkouts(patron_id=patron_oneclick_id)
-        if not checkouts_list:
-            raise NoActiveLoan("Cannot fulfill %s - patron %s/%s has no checkouts.", item_oneclick_id, 
-                patron.authorization_identifier, patron_oneclick_id)
 
         # find this licensepool in patron's checkouts
         found_checkout = None

@@ -349,20 +349,29 @@ class TestOneClickAPI(OneClickAPITest):
             identifier_id = '9781426893483'
         )
 
-        # queue patron id 
-        datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
+        # Since the Patron currently has no Credential containing
+        # their RBdigital ID, the first request will try to look that
+        # up. Normally this lookup would fail, and create_patron()
+        # would be called to register them, but let's make it succeed
+        # so we don't also have to test create_patron() here.
+        datastr, datadict = self.api.get_data(
+            "response_patron_internal_id_found.json"
+        )
         self.api.queue_response(status_code=200, content=datastr)
 
-        # queue checkouts list
+        # The second request will look up the patron's current loans.
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
+        # The third request will retrieve the manifest for a specific loan.
         epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
                                      "type": Representation.EPUB_MEDIA_TYPE })
         self.api.queue_response(status_code=200, content=epub_manifest)
 
         found_fulfillment = self.api.fulfill(patron, None, pool, None)
 
+        # Since the book being fulfilled is an EPUB, the
+        # FulfillmentInfo returned contains a direct link to the EPUB.
         eq_(Identifier.RB_DIGITAL_ID, found_fulfillment.identifier_type)
         eq_(u'9781426893483', found_fulfillment.identifier.identifier)
         eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', found_fulfillment.content_link)
@@ -377,14 +386,18 @@ class TestOneClickAPI(OneClickAPITest):
             identifier_id = '123456789'
         )
 
-        # queue patron id 
-        datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
-        self.api.queue_response(status_code=200, content=datastr)
+        # Since the Patron now has a Credential containing their
+        # RBdigital ID, there will be no initial request looking up their
+        # RBdigital ID.
 
-        # queue checkouts list
+        # Instead we'll go right to the list of active loans, where we'll 
+        # find out that the patron does not have an active loan for the 
+        # requested book.
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
+        # TODO: We are making a request to get an acquisition URL for
+        # every active loan, even though we will use at most one.
         epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
                                      "type": Representation.EPUB_MEDIA_TYPE })
         self.api.queue_response(status_code=200, content=epub_manifest)
@@ -393,15 +406,11 @@ class TestOneClickAPI(OneClickAPITest):
         assert_raises(NoActiveLoan, self.api.fulfill,
                       patron, None, pool2, None)
 
-        # queue patron id 
-        datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
-        self.api.queue_response(status_code=200, content=datastr)
-
-        # queue checkouts list
+        # Try again with a scenario where the patron has no active
+        # loans at all.
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_emptylist.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        # The patron also can't fulfill the book if they have no checkouts.
         assert_raises(NoActiveLoan, self.api.fulfill,
                       patron, None, pool, None)
 
