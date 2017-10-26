@@ -456,6 +456,15 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(download_url, found_fulfillment.content_link)
         eq_(u'application/epub+zip', found_fulfillment.content_type)
         eq_(None, found_fulfillment.content)
+        
+        # The fulfillment link expires in about 14 minutes -- rather
+        # than testing this exactly we estimate it.
+        expires = found_fulfillment.content_expires
+        now = datetime.datetime.utcnow()
+        thirteen_minutes = now + datetime.timedelta(minutes=13)
+        fifteen_minutes = now + datetime.timedelta(minutes=15)
+        assert expires > thirteen_minutes
+        assert expires < fifteen_minutes
 
         # Here's another pool that the patron doesn't have checked out.
         edition2, pool2  = self._edition(
