@@ -17,6 +17,7 @@ from Crypto.Cipher import PKCS1_OAEP
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
 from api.admin.problem_details import *
+from api.admin.routes import setup_admin
 from api.config import (
     Configuration,
     temp_config,
@@ -81,6 +82,7 @@ class AdminControllerTest(CirculationControllerTest):
     def setup(self):
         super(AdminControllerTest, self).setup()
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "a secret"
+        setup_admin(self._db)
         setup_admin_controllers(self.manager)
 
 class TestViewController(AdminControllerTest):
