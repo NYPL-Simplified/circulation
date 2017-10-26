@@ -68,16 +68,14 @@ class OneClickAPITest(DatabaseTest):
         self.api = MockOneClickAPI(
             self._db, self.collection, base_path=self.base_path
         )
-
         self.default_patron = self._patron(external_identifier="oneclick_testuser")
         self.default_patron.authorization_identifier="13057226"
-
 
 class TestOneClickAPI(OneClickAPITest):
 
     def test_patron_remote_identifier_lookup(self):
 
-        patron = self._default_patron
+        patron = self.default_patron
 
         # Get the identifier we use when announcing this patron to 
         # the remote service.
@@ -495,10 +493,17 @@ class TestOneClickAPI(OneClickAPITest):
             identifier_id = '9781441260468'
         )
 
-        # queue patron id 
+        # Since the Patron currently has no Credential containing
+        # their RBdigital ID, the first request will try to look that
+        # up. Normally this lookup would fail, and create_patron()
+        # would be called to register them, but let's make it succeed
+        # so we don't also have to test create_patron() here.
         patron_datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
-
         self.api.queue_response(status_code=200, content=patron_datastr)
+
+        # If the book is already on hold or already checked out,
+        # CannotHold is raised. (It's not AlreadyOnHold/AlreadyCheckedOut
+        # because we can't distinguish between the two cases.)
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_already_exists.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
@@ -506,7 +511,8 @@ class TestOneClickAPI(OneClickAPITest):
             self.api.place_hold, patron, None, pool, None
         )
 
-        self.api.queue_response(status_code=200, content=patron_datastr)
+        # If the patron has reached a limit and cannot place any more holds,
+        # CannotHold is raised.
         datastr, datadict = self.api.get_data("response_patron_hold_fail_409_reached_limit.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
@@ -514,7 +520,7 @@ class TestOneClickAPI(OneClickAPITest):
             self.api.place_hold, patron, None, pool, None
         )
 
-        self.api.queue_response(status_code=200, content=patron_datastr)
+        # Finally let's test a successful hold.
         datastr, datadict = self.api.get_data("response_patron_hold_success.json")
         self.api.queue_response(status_code=200, content=datastr)
 
