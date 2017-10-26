@@ -1,5 +1,6 @@
 import datetime
 import json
+import uuid
 from lxml import etree
 from nose.tools import (
     eq_, 
@@ -72,27 +73,55 @@ class OneClickAPITest(DatabaseTest):
         self.default_patron.authorization_identifier="13057226"
 
 
-
 class TestOneClickAPI(OneClickAPITest):
 
-    def test_get_patron_internal_id(self):
-        datastr, datadict = self.api.get_data("response_patron_internal_id_not_found.json")
+    def test_patron_remote_identifier_lookup(self):
+
+        patron = self._default_patron
+
+        # Get the identifier we use when announcing this patron to 
+        # the remote service.
+        patron_identifier = patron.identifier_to_remote_service(
+            DataSource.RB_DIGITAL
+        )
+
+        # If that identifier is not already registered with the remote
+        # service, patron_remote_identifier_lookup returns None.
+        datastr, datadict = self.api.get_data(
+            "response_patron_internal_id_not_found.json"
+        )
         self.api.queue_response(status_code=200, content=datastr)
-        oneclick_patron_id = self.api.get_patron_internal_id(patron_cardno='9305722621')
+        oneclick_patron_id = self.api.patron_remote_identifier_lookup(patron)
         eq_(None, oneclick_patron_id)
 
-        datastr, datadict = self.api.get_data("response_patron_internal_id_error.json")
+        # The patron's otherwise meaningless
+        # identifier-to-remote-service was used to identify the patron
+        # to RBdigital, as opposed to any library-specific identifier.
+        [request] = self.api.requests
+        url = request[0]
+        assert patron_identifier in url
+
+        # If no identifier is provided, the server sends an exception
+        # which is converted to an InvalidInputException.
+        datastr, datadict = self.api.get_data(
+            "response_patron_internal_id_error.json"
+        )
         self.api.queue_response(status_code=500, content=datastr)
         assert_raises_regexp(
             InvalidInputException, "patron_id:", 
-            self.api.get_patron_internal_id, patron_cardno='130572262x'
+            self.api.patron_remote_identifier_lookup, patron
         )
 
-        datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
+        # When the patron's identifier is registered with RBdigital
+        # (due to an earlier create_patron() call),
+        # patron_remote_identifier_lookup returns the patron's
+        # RBdigital ID.
+        datastr, datadict = self.api.get_data(
+            "response_patron_internal_id_found.json"
+        )
         self.api.queue_response(status_code=200, content=datastr)
-        oneclick_patron_id = self.api.get_patron_internal_id(patron_cardno='1305722621')
+        oneclick_patron_id = self.api.patron_remote_identifier_lookup(patron)
         eq_(939981, oneclick_patron_id)
-
 
     def test_get_patron_information(self):
         datastr, datadict = self.api.get_data("response_patron_info_not_found.json")
@@ -263,9 +292,13 @@ class TestOneClickAPI(OneClickAPITest):
 
 
     def test_create_patron(self):
+        """Test the method that creates an account for a library patron
+        on the RBdigital side.
+        """
         patron = self.default_patron
 
-        # queue patron id 
+        # If the patron already has an account, a
+        # RemotePatronCreationFailedException is raised.
         datastr, datadict = self.api.get_data("response_patron_create_fail_already_exists.json")
         self.api.queue_response(status_code=409, content=datastr)
         assert_raises_regexp(
@@ -273,11 +306,32 @@ class TestOneClickAPI(OneClickAPITest):
             self.api.create_patron, patron
         )
 
-        datastr, datadict = self.api.get_data("response_patron_create_success.json")
+        # Otherwise, the account is created.
+        datastr, datadict = self.api.get_data(
+            "response_patron_create_success.json"
+        )
         self.api.queue_response(status_code=201, content=datastr)
         patron_oneclick_id = self.api.create_patron(patron)
 
+        # The patron's remote account ID is returned.
         eq_(940000, patron_oneclick_id)
+
+        # The data sent to RBdigital is based on the patron's
+        # identifier-to-remote-service.
+        remote = patron.identifier_to_remote_service(
+            DataSource.RB_DIGITAL
+        )
+
+        form_data = json.loads(self.api.requests[-1][-1]['data'])
+
+        # No identifying information was sent to RBdigital, only information
+        # based on the RBdigital-specific identifier.
+        eq_(self.api.library_id, form_data['libraryId'])
+        eq_(remote, form_data['libraryCardNumber'])
+        eq_("username_" + remote, form_data['userName'])
+        eq_("patron_%s@librarysimplified.org" % remote, form_data['email'])
+        eq_("Patron", form_data['firstName'])
+        eq_("Reader", form_data['lastName'])
 
 
     def test_fulfill(self):
@@ -546,7 +600,8 @@ class TestOneClickAPI(OneClickAPITest):
 
         # A delivery mechanism was also added to the pool.
         [lpdm] = pool.delivery_mechanisms
-        eq_(Representation.MP3_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
+        eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE,
+            lpdm.delivery_mechanism.content_type)
         eq_(None, lpdm.delivery_mechanism.drm_scheme)
 
         self.api.update_licensepool_for_identifier(isbn, True, 'ebook')
