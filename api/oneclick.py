@@ -573,9 +573,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         media_type = item.get('mediaType', 'eBook')
         isbn = item.get('isbn', None)
-        can_renew = item.get('canRenew', None)
-        title = item.get('title', None)
-        authors = item.get('authors', None)
 
         # 'expiration' here refers to the expiration date of the loan, not
         # of the fulfillment URL.
@@ -595,9 +592,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             return None
 
         fulfillment_info = RBFulfillmentInfo(
-            self.collection,
+            self,
             DataSource.RB_DIGITAL,
-            Identifier.RB_DIGITAL_ID, 
             identifier, 
             item,
         )
@@ -807,10 +803,11 @@ class RBFulfillmentInfo(object):
     and there's often no need to make that request.
     """
 
-    def __init__(self, collection, data_source, identifier,
+    def __init__(self, api, data_source_name, identifier,
                  raw_data):
-        self.collection = collection
-        self.data_source = data_source
+        self.api = api
+        self.collection = api.collection
+        self.data_source_name = data_source_name
         self._identifier = identifier
         self.identifier_type = identifier.type
         self.identifier = identifier.identifier
@@ -849,8 +846,9 @@ class RBFulfillmentInfo(object):
         # Get a list of files associated with this loan.
         files = self.raw_data.get('files', [])
 
-        # Determine if we're fulfilling an ebook or an audiobook.
-        ebook_download_url = None
+        # Determine if we're fulfilling an audiobook (which means sending a
+        # manifest) or an ebook (which means sending a download link).
+        individual_download_url = None
         representation_format = None
         if files:
             # If we have an ebook, there should only be one file in
@@ -865,7 +863,7 @@ class RBFulfillmentInfo(object):
                 # they do list a mediaType, which could be useful.
                 file_format = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
             self._content_type = file_format
-            ebook_download_url = file.get('downloadUrl', None)
+            individual_download_url = file.get('downloadUrl', None)
             
         if self._content_type == Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
             # We have an audiobook.
@@ -878,7 +876,9 @@ class RBFulfillmentInfo(object):
             # We don't send our normal RBdigital credentials with this
             # request because it's going to a different, publicly
             # accessible server.
-            access_document = cls._make_request(download_url, 'GET', {})
+            access_document = self.api._make_request(
+                individual_download_url, 'GET', {}
+            )
             self._content_type, self._content_link, self._content_expires = self.process_access_document(
                 access_document
             )
@@ -894,8 +894,8 @@ class RBFulfillmentInfo(object):
         return json.dumps(rb_data)
 
     @classmethod
-    def process_access_document(self, document):
-        """Process the intermediary document RBdigital serves that tells
+    def process_access_document(self, access_document):
+        """Process the intermediary document served by RBdigital to tell
         you how to actually download a file.
         """
         data = json.loads(access_document.content)
@@ -909,15 +909,7 @@ class RBFulfillmentInfo(object):
         # minutes to use it. Set it to expire in 14 minutes to be
         # conservative.
         expires = datetime.datetime.utcnow() + datetime.timedelta(minutes=14)
-        return content_link, content_type, expires
-
-    @classmethod
-    def _make_request(self, url, method, headers, data=None, params=None, **kwargs):
-        """Actually make an HTTP request."""
-        return HTTP.request_with_timeout(
-            method, url, headers=headers, data=data,
-            params=params, **kwargs
-        )
+        return content_type, content_link, expires
 
 
 class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):

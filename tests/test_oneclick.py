@@ -43,6 +43,7 @@ from api.oneclick import (
     OneClickAPI,
     OneClickCirculationMonitor, 
     MockOneClickAPI,
+    RBFulfillmentInfo,
 )
 
 from api.circulation import (
@@ -434,18 +435,25 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        # The third request will retrieve the manifest for a specific loan.
-        epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
+        found_fulfillment = self.api.fulfill(patron, None, pool, None)
+        assert isinstance(found_fulfillment, RBFulfillmentInfo)
+
+        # We have a FulfillmentInfo-like object, but it hasn't yet
+        # made the request that will give us the actual URL to
+        # download. (We know this, because the response to that request
+        # has not been queued yet.)
+
+        # Let's queue it up now.
+        download_url  = u"http://download_url/"
+        epub_manifest = json.dumps({ "url": download_url,
                                      "type": Representation.EPUB_MEDIA_TYPE })
         self.api.queue_response(status_code=200, content=epub_manifest)
-
-        found_fulfillment = self.api.fulfill(patron, None, pool, None)
 
         # Since the book being fulfilled is an EPUB, the
         # FulfillmentInfo returned contains a direct link to the EPUB.
         eq_(Identifier.RB_DIGITAL_ID, found_fulfillment.identifier_type)
-        eq_(u'9781426893483', found_fulfillment.identifier.identifier)
-        eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', found_fulfillment.content_link)
+        eq_(u'9781426893483', found_fulfillment.identifier)
+        eq_(download_url, found_fulfillment.content_link)
         eq_(u'application/epub+zip', found_fulfillment.content_type)
         eq_(None, found_fulfillment.content)
 
@@ -466,12 +474,6 @@ class TestOneClickAPI(OneClickAPITest):
         # requested book.
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
-
-        # TODO: We are making a request to get an acquisition URL for
-        # every active loan, even though we will use at most one.
-        epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
-                                     "type": Representation.EPUB_MEDIA_TYPE })
-        self.api.queue_response(status_code=200, content=epub_manifest)
 
         # The patron can't fulfill the book if it's not one of their checkouts.
         assert_raises(NoActiveLoan, self.api.fulfill,
@@ -507,14 +509,6 @@ class TestOneClickAPI(OneClickAPITest):
         datastr, datadict = self.api.get_data("response_patron_checkouts_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
 
-        # queue a manifest for each checkout
-        audio_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/9781456103859/parts/1646772/download-url?s3=78226&f=78226_007_P004',
-                                      "type": Representation.MP3_MEDIA_TYPE })
-        epub_manifest = json.dumps({ "url": 'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600',
-                                     "type": Representation.EPUB_MEDIA_TYPE })
-        self.api.queue_response(status_code=200, content=audio_manifest)
-        self.api.queue_response(status_code=200, content=epub_manifest)
-
         # queue holds list
         datastr, datadict = self.api.get_data("response_patron_holds_200_list.json")
         self.api.queue_response(status_code=200, content=datastr)
@@ -525,23 +519,17 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(u'9781456103859', patron_activity[0].identifier)
         eq_(None, patron_activity[0].start_date)
         eq_(datetime.date(2016, 11, 19), patron_activity[0].end_date)
-        eq_(u'http://api.oneclickdigital.us/v1/media/9781456103859/parts/1646772/download-url?s3=78226&f=78226_007_P004', patron_activity[0].fulfillment_info.content_link)
-        eq_(u'audio/mpeg', patron_activity[0].fulfillment_info.content_type)
                  
         eq_(Identifier.RB_DIGITAL_ID, patron_activity[1].identifier_type)
         eq_(u'9781426893483', patron_activity[1].identifier)
         eq_(None, patron_activity[1].start_date)
         eq_(datetime.date(2016, 11, 19), patron_activity[1].end_date)
-        eq_(u'http://api.oneclickdigital.us/v1/media/133504/parts/133504/download-url?f=EB00014158.epub&ff=EPUB&acsRId=urn%3Auuid%3A76fca044-0b31-47f7-8ac5-ee0befbda698&tId=9828560&expDt=1479531600', patron_activity[1].fulfillment_info.content_link)
-        eq_(u'application/epub+zip', patron_activity[1].fulfillment_info.content_type)
                  
         eq_(Identifier.RB_DIGITAL_ID, patron_activity[2].identifier_type)
         eq_('9781426893483', patron_activity[2].identifier)
         eq_(None, patron_activity[2].start_date)
         eq_(datetime.date(2050, 12, 31), patron_activity[2].end_date)
         eq_(None, patron_activity[2].hold_position)
-
-
 
     def test_place_hold(self):
         "Test reserving a book."
