@@ -265,7 +265,6 @@ class TestOneClickAPI(OneClickAPITest):
 
     def test_checkout(self):
         patron = self.default_patron
-        patron.oneclick_id = 939981
 
         edition, pool = self._edition(
             identifier_type=Identifier.RB_DIGITAL_ID,
@@ -275,21 +274,30 @@ class TestOneClickAPI(OneClickAPITest):
         )
         work = self._work(presentation_edition=edition)
 
-        # queue patron id 
+        # Since the Patron currently has no Credential containing
+        # their RBdigital ID, the first request will try to look that
+        # up. Normally this lookup would fail, and create_patron()
+        # would be called to register them, but let's make it succeed
+        # so we don't also have to test create_patron() here.
         datastr, datadict = self.api.get_data("response_patron_internal_id_found.json")
         self.api.queue_response(status_code=200, content=datastr)
-        # queue checkout success
+
+        # The second request will actually check out the book.
         datastr, datadict = self.api.get_data("response_checkout_success.json")
         self.api.queue_response(status_code=200, content=datastr)
 
         loan_info = self.api.checkout(patron, None, pool, None)
+
+        # Now we have a LoanInfo that describes the remote loan.
         eq_(Identifier.RB_DIGITAL_ID, loan_info.identifier_type)
         eq_(pool.identifier.identifier, loan_info.identifier)
         today = datetime.datetime.now()
         assert (loan_info.start_date - today).total_seconds() < 20
         assert (loan_info.end_date - today).days < 60
-        eq_(None, loan_info.fulfillment_info)
 
+        # But we can only get a FulfillmentInfo by calling
+        # get_patron_checkouts().
+        eq_(None, loan_info.fulfillment_info)
 
     def test_create_patron(self):
         """Test the method that creates an account for a library patron
@@ -336,7 +344,6 @@ class TestOneClickAPI(OneClickAPITest):
 
     def test_fulfill(self):
         patron = self.default_patron
-        patron.oneclick_id = 939981
 
         identifier = self._identifier(
             identifier_type=Identifier.RB_DIGITAL_ID, 
@@ -422,7 +429,6 @@ class TestOneClickAPI(OneClickAPITest):
         # were created.
 
         patron = self.default_patron
-        patron.oneclick_id = 939981
 
         identifier = self._identifier(
             identifier_type=Identifier.RB_DIGITAL_ID, 
