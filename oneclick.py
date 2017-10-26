@@ -603,10 +603,6 @@ class OneClickRepresentationExtractor(object):
     DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ" #ex: 2013-12-27T00:00:00Z
     DATE_FORMAT = "%Y-%m-%d" #ex: 2013-12-27
 
-    # We have not yet seen any titles obfuscated with RBdigital DRM and
-    # have no idea what the DRM document would look like.
-    OBFUSCATED_AUDIO_MEDIA_TYPE = "vnd.librarysimplified/rbdigital.obfuscated"
-
     log = logging.getLogger("OneClick representation extractor")
 
     oneclick_medium_to_simplified_medium = {
