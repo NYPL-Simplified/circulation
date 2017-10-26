@@ -7795,6 +7795,7 @@ class Representation(Base):
     MP3_MEDIA_TYPE = u"audio/mpeg"
     OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
+    AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
 
     BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE,
@@ -7836,6 +7837,7 @@ class Representation(Base):
         TEXT_PLAIN: "txt",
         TEXT_HTML_MEDIA_TYPE: "html",
         APPLICATION_XML_MEDIA_TYPE: "xml",
+        AUDIOBOOK_MANIFEST_MEDIA_TYPE: "audiobook-manifest"
     }
 
     # Invert FILE_EXTENSIONS and add some extra guesses.
@@ -8691,7 +8693,6 @@ class DeliveryMechanism(Base, HasFullTableCache):
     KINDLE_DRM = u"Kindle DRM"
     NOOK_DRM = u"Nook DRM"
     STREAMING_DRM = u"Streaming"
-    ONECLICK_DRM = u"OneClick DRM"
     OVERDRIVE_DRM = u"Overdrive DRM"
 
     STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"

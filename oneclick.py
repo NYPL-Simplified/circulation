@@ -605,23 +605,10 @@ class OneClickRepresentationExtractor(object):
 
     log = logging.getLogger("OneClick representation extractor")
 
-    oneclick_formats = {
-        "ebook-epub-oneclick" : (
-            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
-        ),
-        "audiobook-mp3-oneclick" : (
-            "vnd.librarysimplified/obfuscated-one-click", DeliveryMechanism.ONECLICK_DRM
-        ),
-        "audiobook-mp3-open" : (
-            "audio/mpeg3", DeliveryMechanism.NO_DRM
-        ),
-    }
-
     oneclick_medium_to_simplified_medium = {
         "eBook" : Edition.BOOK_MEDIUM,
         "eAudio" : Edition.AUDIO_MEDIUM,
     }
-
 
     @classmethod
     def image_link_to_linkdata(cls, link_url, rel):
@@ -816,10 +803,12 @@ class OneClickRepresentationExtractor(object):
         if include_formats:
             formats = []
             if metadata.medium == Edition.BOOK_MEDIUM:
-                content_type, drm_scheme = cls.oneclick_formats.get("ebook-epub-oneclick")
+                content_type = Representation.EPUB_MEDIA_TYPE
+                drm_scheme = DeliveryMechanism.ADOBE_DRM
                 formats.append(FormatData(content_type, drm_scheme))
             elif metadata.medium == Edition.AUDIO_MEDIUM:
-                content_type, drm_scheme = cls.oneclick_formats.get("audiobook-mp3-oneclick")
+                content_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, 
+                drm_scheme = DeliveryMechanism.NO_DRM
                 formats.append(FormatData(content_type, drm_scheme))
             else:
                 cls.log.warn("Unfamiliar format: %s", format_id)
