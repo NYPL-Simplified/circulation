@@ -56,7 +56,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
     SUPPORTED_MEDIA_TYPES = [Representation.EPUB_MEDIA_TYPE]
 
     delivery_mechanism_to_internal_format = {
-        (type, DeliveryMechanism.NO_DRM): type for type in SUPPORTED_MEDIA_TYPES
+        (type, DeliveryMechanism.BEARER_TOKEN): type for type in SUPPORTED_MEDIA_TYPES
     }
 
     def __init__(self, _db, collection):
@@ -119,12 +119,14 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
                 raise LibraryAuthorizationFailedException()
             credential.credential = access_token
             expires_in = expires_in
-            credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
+            # We'll avoid edge cases by assuming the token expires 75%
+            # into its useful lifetime.
+            credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in*0.75)
         return Credential.lookup(_db, self.data_source_name,
                                  "OPDS For Distributors Bearer Token",
                                  patron=None,
                                  refresher_method=refresh,
-                                 ).credential
+                                 )
 
     def checkin(self, patron, pin, licensepool):
         # Delete the patron's loan for this licensepool.
@@ -162,14 +164,21 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
             if link.rel == Hyperlink.GENERIC_OPDS_ACQUISITION and media_type == internal_format:
                 url = link.resource.representation.url
 
-                # Obtain a bearer token.
+                # Obtain a Credential with the information from our
+                # bearer token.
                 _db = Session.object_session(patron)
-                token = self._get_token(_db)
+                credential = self._get_token(_db)
 
-                headers = dict()
-                auth_header = "Bearer %s" % token
-                headers['Authorization'] = auth_header
-                response = self._request_with_timeout('GET', url, headers=headers)
+                # Build a application/vnd.librarysimplified.bearer-token
+                # document using information from the credential.
+                now = datetime.datetime.utcnow()
+                expiration = int((credential.expires - now).total_seconds())
+                token_document = dict(
+                    token_type="Bearer",
+                    access_token=credential.credential,
+                    expires_in=expiration,
+                    location=url,
+                )
 
                 return FulfillmentInfo(
                     licensepool.collection,
@@ -177,9 +186,9 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
                     licensepool.identifier.type,
                     licensepool.identifier.identifier,
                     content_link=None,
-                    content_type=internal_format,
-                    content=response.content,
-                    content_expires=None,
+                    content_type=DeliveryMechanism.BEARER_TOKEN,
+                    content=json.dumps(token_document),
+                    content_expires=credential.expires,
                 )
 
         # We couldn't find an acquisition link for this book.
@@ -224,7 +233,7 @@ class OPDSForDistributorsImporter(OPDSImporter):
                 circulation.formats.append(
                     FormatData(
                         content_type=link.media_type,
-                        drm_scheme=DeliveryMechanism.NO_DRM,
+                        drm_scheme=DeliveryMechanism.BEARER_TOKEN,
                         link=link,
                         rights_uri=RightsStatus.IN_COPYRIGHT,
                     )
@@ -247,7 +256,7 @@ class OPDSForDistributorsImportMonitor(OPDSImportMonitor):
         auth header with the credentials for the collection.
         """
 
-        token = self.api._get_token(self._db)
+        token = self.api._get_token(self._db).credential
         headers = dict(headers or {})
         auth_header = "Bearer %s" % token
         headers['Authorization'] = auth_header
