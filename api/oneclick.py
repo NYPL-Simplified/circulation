@@ -86,6 +86,19 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         )
         self.eaudio_expiration_default = self.ebook_expiration_default
 
+    def remote_email_address(self, patron):
+        """The fake email address to send to RBdigital when
+        signing up this patron.
+        """
+        default = self.default_notification_email_address(patron, None)
+        if not default:
+            raise RemotePatronCreationFailedException(
+                _("Cannot create remote account for patron because library's default notification address is not set.")
+            )
+        patron_identifier = patron.identifier_to_remote_service(
+            DataSource.RB_DIGITAL
+        )
+        return default.replace('@', '+rbdigital-%s@' % patron_identifier, 1)
 
     def checkin(self, patron, pin, licensepool):
         """
@@ -468,7 +481,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         # Generate meaningless values for account fields that are not
         # relevant to our usage of the API.
         post_args['userName'] = 'username_' + patron_identifier
-        post_args['email'] = 'patron_' + patron_identifier + '@librarysimplified.org'
+        post_args['email'] = self.remote_email_address(patron)
         post_args['firstName'] = 'Patron'
         post_args['lastName'] = 'Reader'
 
