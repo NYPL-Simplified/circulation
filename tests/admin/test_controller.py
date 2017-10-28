@@ -17,6 +17,7 @@ from Crypto.Cipher import PKCS1_OAEP
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
 from api.admin.problem_details import *
+from api.admin.routes import setup_admin
 from api.config import (
     Configuration,
     temp_config,
@@ -81,6 +82,7 @@ class AdminControllerTest(CirculationControllerTest):
     def setup(self):
         super(AdminControllerTest, self).setup()
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "a secret"
+        setup_admin(self._db)
         setup_admin_controllers(self.manager)
 
 class TestViewController(AdminControllerTest):
@@ -1642,6 +1644,16 @@ class TestSettingsController(AdminControllerTest):
             ConfigurationSetting.for_library(Configuration.LOGO, library).value
         )
         
+    def test_library_delete(self):
+        library, ignore = get_one_or_create(self._db, Library)
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.library(library.uuid)
+            eq_(response.status_code, 200)
+
+        library = get_one(self._db, Library, uuid=library.uuid)
+        eq_(None, library)
+
     def test_collections_get_with_no_collections(self):
         # Delete any existing collections created by the test setup.
         for collection in self._db.query(Collection):
@@ -2012,6 +2024,25 @@ class TestSettingsController(AdminControllerTest):
         # The collection now has a parent.
         eq_(parent, collection.parent)
 
+    def test_collection_delete(self):
+        collection = self._collection()
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.collection(collection.id)
+            eq_(response.status_code, 200)
+
+        collection = get_one(self._db, Collection, id=collection.id)
+        eq_(None, collection)
+
+    def test_collection_delete_cant_delete_parent(self):
+        parent = self._collection(protocol=ExternalIntegration.OVERDRIVE)
+        child = self._collection(protocol=ExternalIntegration.OVERDRIVE)
+        child.parent = parent
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.collection(parent.id)
+            eq_(CANNOT_DELETE_COLLECTION_WITH_CHILDREN, response)
+
     def test_admin_auth_services_get_with_no_services(self):
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.admin_auth_services()
@@ -2143,6 +2174,24 @@ class TestSettingsController(AdminControllerTest):
         eq_("domains", setting.key)
         eq_(["library2.org"], json.loads(setting.value))
 
+    def test_admin_auth_service_delete(self):
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.GOOGLE_OAUTH,
+            goal=ExternalIntegration.ADMIN_AUTH_GOAL
+        )
+        auth_service.url = "url"
+        auth_service.username = "user"
+        auth_service.password = "pass"
+        auth_service.set_setting("domains", json.dumps(["library1.org"]))
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.admin_auth_service(auth_service.protocol)
+            eq_(response.status_code, 200)
+
+        service = get_one(self._db, ExternalIntegration, id=auth_service.id)
+        eq_(None, service)
+
     def test_individual_admins_get(self):
         # There are two admins that can sign in with passwords.
         admin1, ignore = create(self._db, Admin, email="admin1@nypl.org")
@@ -2202,6 +2251,19 @@ class TestSettingsController(AdminControllerTest):
 
         new_password_match = Admin.authenticate(self._db, "admin@nypl.org", "new password")
         eq_(admin, new_password_match)
+
+    def test_individual_admin_delete(self):
+        admin, ignore = create(
+            self._db, Admin, email="admin@nypl.org",
+        )
+        admin.password = "password"
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.individual_admin(admin.email)
+            eq_(response.status_code, 200)
+
+        admin = get_one(self._db, Admin, id=admin.id)
+        eq_(None, admin)
 
     def test_patron_auth_services_get_with_no_services(self):
         with self.app.test_request_context("/"):
@@ -2592,6 +2654,26 @@ class TestSettingsController(AdminControllerTest):
                 self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
                 l2, auth_service).value)
 
+    def test_patron_auth_service_delete(self):
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        auth_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=SimpleAuthenticationProvider.__module__,
+            goal=ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value = "old_user"
+        auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value = "old_password"
+        auth_service.libraries = [l1]
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.patron_auth_service(auth_service.id)
+            eq_(response.status_code, 200)
+
+        service = get_one(self._db, ExternalIntegration, id=auth_service.id)
+        eq_(None, service)
+
     def test_sitewide_settings_get(self):
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.sitewide_settings()
@@ -2664,6 +2746,16 @@ class TestSettingsController(AdminControllerTest):
         # The setting was changed.
         eq_(setting.key, response.response[0])
         eq_("20", setting.value)
+
+    def test_sitewide_setting_delete(self):
+        setting = ConfigurationSetting.sitewide(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY)
+        setting.value = "10"
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.sitewide_setting(setting.key)
+            eq_(response.status_code, 200)
+
+        eq_(None, setting.value)
 
     def test_metadata_services_get_with_no_services(self):
         with self.app.test_request_context("/"):
@@ -2834,6 +2926,26 @@ class TestSettingsController(AdminControllerTest):
         eq_("user", novelist_service.username)
         eq_("pass", novelist_service.password)
         eq_([l2], novelist_service.libraries)
+
+    def test_metadata_service_delete(self):
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        novelist_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.NOVELIST,
+            goal=ExternalIntegration.METADATA_GOAL,
+        )
+        novelist_service.username = "olduser"
+        novelist_service.password = "oldpass"
+        novelist_service.libraries = [l1]
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.metadata_service(novelist_service.id)
+            eq_(response.status_code, 200)
+
+        service = get_one(self._db, ExternalIntegration, id=novelist_service.id)
+        eq_(None, service)
 
     def test_analytics_services_get_with_no_services(self):
         with self.app.test_request_context("/"):
@@ -3041,6 +3153,25 @@ class TestSettingsController(AdminControllerTest):
         eq_("l2id", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, GoogleAnalyticsProvider.TRACKING_ID, l2, ga_service).value)
 
+    def test_analytics_service_delete(self):
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        ga_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=GoogleAnalyticsProvider.__module__,
+            goal=ExternalIntegration.ANALYTICS_GOAL,
+        )
+        ga_service.url = "oldurl"
+        ga_service.libraries = [l1]
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.analytics_service(ga_service.id)
+            eq_(response.status_code, 200)
+
+        service = get_one(self._db, ExternalIntegration, id=ga_service.id)
+        eq_(None, service)
+
     def test_cdn_services_get_with_no_services(self):
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.cdn_services()
@@ -3156,6 +3287,21 @@ class TestSettingsController(AdminControllerTest):
         eq_("new cdn url", cdn_service.url)
         eq_("new mirrored domain", cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value)
 
+    def test_cdn_service_delete(self):
+        cdn_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.CDN,
+            goal=ExternalIntegration.CDN_GOAL,
+        )
+        cdn_service.url = "cdn url"
+        cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value = "mirrored domain"
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.cdn_service(cdn_service.id)
+            eq_(response.status_code, 200)
+
+        service = get_one(self._db, ExternalIntegration, id=cdn_service.id)
+        eq_(None, service)
 
     def test_search_services_get_with_no_services(self):
         with self.app.test_request_context("/"):
@@ -3285,6 +3431,22 @@ class TestSettingsController(AdminControllerTest):
         eq_("new search url", search_service.url)
         eq_("new-works-index", search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
 
+    def test_search_service_delete(self):
+        search_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.ELASTICSEARCH,
+            goal=ExternalIntegration.SEARCH_GOAL,
+        )
+        search_service.url = "search url"
+        search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value = "works-index"
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.search_service(search_service.id)
+            eq_(response.status_code, 200)
+
+        service = get_one(self._db, ExternalIntegration, id=search_service.id)
+        eq_(None, service)
+
     def test_discovery_services_get_with_no_services_creates_default(self):
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.discovery_services()
@@ -3394,6 +3556,21 @@ class TestSettingsController(AdminControllerTest):
         eq_(discovery_service.id, int(response.response[0]))
         eq_(ExternalIntegration.OPDS_REGISTRATION, discovery_service.protocol)
         eq_("new registry url", discovery_service.url)
+
+    def test_discovery_service_delete(self):
+        discovery_service, ignore = create(
+            self._db, ExternalIntegration,
+            protocol=ExternalIntegration.OPDS_REGISTRATION,
+            goal=ExternalIntegration.DISCOVERY_GOAL,
+        )
+        discovery_service.url = "registry url"
+
+        with self.app.test_request_context("/", method="DELETE"):
+            response = self.manager.admin_settings_controller.discovery_service(discovery_service.id)
+            eq_(response.status_code, 200)
+
+        service = get_one(self._db, ExternalIntegration, id=discovery_service.id)
+        eq_(None, service)
 
     def test_library_registrations_get(self):
         discovery_service, ignore = create(

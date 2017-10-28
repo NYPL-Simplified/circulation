@@ -83,13 +83,14 @@ from core.testing import DatabaseTest
 
 class EnkiAPI(BaseCirculationAPI):
 
+    PRODUCTION_BASE_URL = "https://enkilibrary.org/API/"
+
     DESCRIPTION = _("Integrate an Enki collection.")
     SETTINGS = [
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
-        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL },
     ] + BaseCirculationAPI.SETTINGS
 
-    PRODUCTION_BASE_URL = "http://enkilibrary.org/API/"
     availability_endpoint = "ListAPI"
     item_endpoint = "ItemAPI"
     user_endpoint = "UserAPI"

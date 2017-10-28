@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-"""Update a OneClick collection with new books from the
-OneClick content server.
+"""Perform the initial population of an RBdigital collection with
+works from the RBdigital content server.
 """
 import os
 import sys

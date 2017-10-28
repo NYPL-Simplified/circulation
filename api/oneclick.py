@@ -23,7 +23,7 @@ from core.analytics import Analytics
 from core.oneclick import (
     OneClickAPI as BaseOneClickAPI,
     MockOneClickAPI as BaseMockOneClickAPI,
-    OneClickBibliographicCoverageProvider
+    OneClickBibliographicCoverageProvider,
 )
 
 from core.metadata_layer import (
@@ -35,6 +35,7 @@ from core.metadata_layer import (
 from core.model import (
     CirculationEvent,
     Collection,
+    Credential,
     DataSource,
     DeliveryMechanism,
     Edition,
@@ -61,7 +62,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
     SETTINGS = [
         { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
-        { "key": ExternalIntegration.URL, "label": _("URL") },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": BaseOneClickAPI.PRODUCTION_BASE_URL },
     ] + BaseCirculationAPI.SETTINGS
     
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
@@ -97,7 +98,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return True on success, raises circulation exceptions on failure.
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=True)
@@ -114,7 +115,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
     def checkout(self, patron, pin, licensepool, internal_format):
         """
-        Associate an ebook or audio with a patron.
+        Associate an eBook or eAudio with a patron.
 
         :param patron: a Patron object for the patron who wants to check out the book.
         :param pin: The patron's password (not used).
@@ -124,7 +125,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return LoanInfo on success, None on failure.
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False)
@@ -206,14 +207,10 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         :return a FulfillmentInfo object.
         """
 
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
-        # find patron's checkouts
         checkouts_list = self.get_patron_checkouts(patron_id=patron_oneclick_id)
-        if not checkouts_list:
-            raise NoActiveLoan("Cannot fulfill %s - patron %s/%s has no checkouts.", item_oneclick_id, 
-                patron.authorization_identifier, patron_oneclick_id)
 
         # find this licensepool in patron's checkouts
         found_checkout = None
@@ -224,7 +221,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         if not found_checkout:
             raise NoActiveLoan("Cannot fulfill %s - patron %s/%s has no such checkout.", item_oneclick_id, 
                 patron.authorization_identifier, patron_oneclick_id)
-        
+
         return found_checkout.fulfillment_info
 
 
@@ -244,7 +241,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return: A HoldInfo object on success, None on failure
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_obj = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=False)
@@ -285,7 +282,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         :return True on success, raises circulation exceptions on failure.
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, hold=True, return_item=True)
@@ -299,8 +296,19 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         raise CirculationException("Unknown error %s/%s releasing %s.", patron.authorization_identifier, 
             patron_oneclick_id, item_oneclick_id)
 
+    @property
+    def default_circulation_replacement_policy(self):
+        return ReplacementPolicy(
+            identifiers=False,
+            subjects=True,
+            contributions=True,
+            formats=True,
+            analytics=Analytics(self._db),
+        )
 
-    def update_licensepool_for_identifier(self, isbn, availability, medium):
+    def update_licensepool_for_identifier(
+            self, isbn, availability, medium, policy=None
+    ):
         """Update availability information for a single book.
 
         If the book has never been seen before, a new LicensePool
@@ -330,13 +338,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             )
 
         # now tell the licensepool if it's lendable
-        policy = ReplacementPolicy(
-            identifiers=False,
-            subjects=True,
-            contributions=True,
-            formats=True,
-            analytics=Analytics(self._db),
-        )
 
         # We don't know exactly how many licenses are available, but
         # we know that it's either zero (book is not lendable) or greater
@@ -348,6 +349,13 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         # Because the book showed up in availability, we know we own
         # at least one license to it.
         licenses_owned = 1
+
+        if (not is_new_pool and 
+            license_pool.licenses_owned == licenses_owned and 
+            license_pool.licenses_available == licenses_available):
+            # Optimization: Nothing has changed, so don't even bother
+            # calling CirculationData.apply()
+            return license_pool, is_new_pool, False
 
         # If possible, create a FormatData object representing
         # how the book is available.
@@ -368,8 +376,9 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             # Also, their DRM usage may change in the future.
             drm_scheme = DeliveryMechanism.ADOBE_DRM
         elif medium == 'eaudio':
-            # A questionable assumption.
-            delivery_type = Representation.MP3_MEDIA_TYPE
+            # TODO: we can't deliver on this promise yet, but this is
+            # how we will be delivering audiobook manifests.
+            delivery_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
 
         if delivery_type:
             formats.append(FormatData(delivery_type, drm_scheme))
@@ -381,7 +390,8 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             licenses_available=licenses_available,
             formats=formats,
         )
-        
+
+        policy = policy or self.default_circulation_replacement_policy        
         license_pool, circulation_changed = circulation_data.apply(
             self._db,
             self.collection,
@@ -407,49 +417,78 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         """
         return delivery_mechanism
     
-    ''' -------------------------- Patron Account Handling -------------------------- '''
-    def create_patron(self, patron):
-        """ Ask OneClick to create a new patron record.
+### Patron account handling
 
-        :param patron: a Patron object which contains the permanent id to give to 
-        OneClick as the patron's library card number.
-        :return OneClick's internal patron id.
+    def patron_remote_identifier(self, patron):
+        """Locate the identifier for the given Patron's account on the
+        RBdigital side, creating a new RBdigital account if necessary.
+
+        The identifier is cached in a persistent Credential object.
+
+        :return: The remote identifier for this patron, taken from
+        the corresponding Credential.
         """
+        def refresher(credential):
+            remote_identifier = self.patron_remote_identifier_lookup(patron)
+            if not remote_identifier:
+                remote_identifier = self.create_patron(patron)
+            credential.credential = remote_identifier
+            credential.expires = None
 
-        # TODO: will not work in all libraries, find a better solution
-        patron_cardno = patron.authorization_identifier
-        if not patron_cardno:
-            raise InvalidInputException("Patron %r has no card number.", patron)
+        _db = Session.object_session(patron)
+        credential = Credential.lookup(
+            _db, DataSource.RB_DIGITAL,
+            Credential.IDENTIFIER_FROM_REMOTE_SERVICE,
+            patron, refresher_method=refresher,
+            allow_persistent_token=True
+        )
+        if not credential.credential:
+            refresher(credential)
+        return credential.credential
+
+    def create_patron(self, patron):
+        """Ask RBdigital to create a new patron record.
+
+        :param patron: the Patron that needs a new RBdigital account.
+
+        :return The internal RBdigital identifier for this patron.
+        """
 
         url = "%s/libraries/%s/patrons/" % (self.base_url, str(self.library_id))
         action="create_patron"
-        
+
+        patron_identifier = patron.identifier_to_remote_service(
+            DataSource.RB_DIGITAL
+        )
+
         post_args = dict()
         post_args['libraryId'] = self.library_id
-        post_args['libraryCardNumber'] = str(patron.authorization_identifier)
-        # generate random values for the account fields the patron has not supplied us with
-        patron_uuid = str(uuid.uuid1())
-        post_args['userName'] = 'username_' + patron_uuid
-        post_args['email'] = 'patron_' + patron_uuid + '@librarysimplified.org'
+        post_args['libraryCardNumber'] = patron_identifier
+
+        # Generate meaningless values for account fields that are not
+        # relevant to our usage of the API.
+        post_args['userName'] = 'username_' + patron_identifier
+        post_args['email'] = 'patron_' + patron_identifier + '@librarysimplified.org'
         post_args['firstName'] = 'Patron'
         post_args['lastName'] = 'Reader'
-        # will not be used in our system, so just needs to be set to a securely randomized value
-        post_args['password'] = os.urandom(8).encode('hex')
 
+        # The patron will not be logging in to this RBdigital account,
+        # so set their password to a secure value and forget it.
+        post_args['password'] = os.urandom(8).encode('hex')
 
         resp_dict = {}
         message = None
-        try:
-            response = self.request(url=url, data=json.dumps(post_args), method="post")
-            if response.text:
-                resp_dict = response.json()
-                message = resp_dict.get('message', None)
-        except Exception, e:
-            self.log.error("Patron create failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+        response = self.request(
+            url=url, data=json.dumps(post_args), method="post"
+        )
+        if response.text:
+            resp_dict = response.json()
+            message = resp_dict.get('message', None)
 
         # general validation
-        self.validate_response(response=response, message=message, action=action)
+        self.validate_response(
+            response=response, message=message, action=action
+        )
 
         # double-make sure specifically
         if response.status_code != 201 or 'patronId' not in resp_dict:
@@ -460,36 +499,30 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         return patron_oneclick_id
 
+    def patron_remote_identifier_lookup(self, patron):
+        """Look up a patron's RBdigital account based on a unique ID
+        assigned to them for this purpose.
 
-    def get_patron_internal_id(self, patron_email=None, patron_cardno=None):
-        """ Uses either an email address or a library card to identify a patron by.
-        :param patron_email 
-        :param patron_cardno
-        :return OneClick's internal id for the patron
+        :return: The RBdigital patron ID for the patron, or None
+        if the patron currently has no RBdigital account.
         """
-        if patron_cardno: 
-            patron_identifier = patron_cardno
-        elif patron_email:
-            patron_identifier = patron_email
-        else:
-            # consider raising an exception, since we should call methods with nice arguments
-            raise InvalidInputException("Need patron email or card number.")
+        patron_identifier = patron.identifier_to_remote_service(
+            DataSource.RB_DIGITAL
+        )
 
         action="patron_id"
-        url = "%s/rpc/libraries/%s/patrons/%s" % (self.base_url, str(self.library_id), patron_identifier)
+        url = "%s/rpc/libraries/%s/patrons/%s" % (
+            self.base_url, self.library_id, patron_identifier
+        )
 
-        try:
-            response = self.request(url)
-        except Exception, e:
-            self.log.error("Patron id call failed: %r", e, exc_info=e)
-            raise RemoteInitiatedServerError(e.message, action)
+        response = self.request(url)
 
         resp_dict = response.json()
         message = resp_dict.get('message', None)
         try:
             self.validate_response(response, message, action=action)
-        except PatronNotFoundOnRemote, e:
-            # this should not be fatal at this point
+        except (PatronNotFoundOnRemote, NotFoundOnRemote), e:
+            # That's okay.
             return None
 
         internal_patron_id = resp_dict.get('patronId', None)
@@ -528,90 +561,52 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         # by now we can assume response is either empty or a list
         for item in resp_obj:
-            # go through patron's checkouts and generate LoanInfo objects, 
-            # with FulfillmentInfo objects included
-            media_type = item.get('mediaType', 'eBook')
-            isbn = item.get('isbn', None)
-            can_renew = item.get('canRenew', None)
-            title = item.get('title', None)
-            authors = item.get('authors', None)
-            # refers to checkout expiration date, not the downloadUrl's
-            expires = item.get('expiration', None)
-            if expires:
-                expires = datetime.datetime.strptime(expires, self.EXPIRATION_DATE_FORMAT).date()
-
-            identifier, made_new = Identifier.for_foreign_id(self._db, 
-                    foreign_identifier_type=Identifier.RB_DIGITAL_ID, 
-                    foreign_id=isbn, autocreate=False)
-
-            # Note: if OneClick knows about a patron's checked-out item that wasn't
-            # checked out through us, we ignore it
-            if not identifier:
-                continue
-
-            files = item.get('files', None)
-            for file in files:
-                filename = file.get('filename', None)
-                # assume fileFormat is same for all files associated with this checkout
-                # and use the last one mentioned.  Ex: "fileFormat": "EPUB".
-                # note: audio books don't list fileFormat field, just the filename, and the mediaType.
-                file_format = file.get('fileFormat', None)
-                if file_format == 'EPUB':
-                    file_format = Representation.EPUB_MEDIA_TYPE
-                else:
-                    # slightly risky assumption here
-                    file_format = Representation.MP3_MEDIA_TYPE
-
-                # Note: download urls expire 15 minutes after being handed out
-                # in the checkouts call
-                download_url = file.get('downloadUrl', None)
-                # is included in the downloadUrl, actually
-                acs_resource_id = file.get('acsResourceId', None)
-
-            # The document at the other end of download_url is a manifest.
-            # For audio books, the manifest includes a list of parts.
-            # For ebooks, the manifest includes a single link to an ACSM
-            # file.
-            #
-            # We can't do anything about audiobook manifests right
-            # now, but we can turn an ebook manifest into a
-            # FulfillmentInfo.
-
-            # We need to use self._make_request instead of self.request
-            # because it's a different server that will reject the credentials
-            # we use for the API.
-            access_document = self._make_request(download_url, 'GET', {})
-            data = json.loads(access_document.content)
-            content_link = data['url']
-            content_type = data['type']
-            if content_type == 'application/vnd.adobe':
-                # The manifest spells the media type wrong. Fix it.
-                content_type = DeliveryMechanism.ADOBE_DRM
-            fulfillment_info = FulfillmentInfo(
-                self.collection,
-                DataSource.RB_DIGITAL,
-                Identifier.RB_DIGITAL_ID, 
-                identifier, 
-                content_link = content_link, 
-                content_type = content_type, 
-                content = None, 
-                content_expires = None
-            )
-
-            loan = LoanInfo(
-                self.collection,
-                DataSource.RB_DIGITAL,
-                Identifier.RB_DIGITAL_ID,
-                isbn,
-                start_date=None,
-                end_date=expires,
-                fulfillment_info=fulfillment_info,
-            )
-
-            loans.append(loan)
-
+            loan_info = self._make_loan_info(item)
+            if loan_info:
+                loans.append(loan_info)
         return loans
 
+    def _make_loan_info(self, item, fulfill=False):
+        """Convert one of the items returned by a request to /checkouts into a
+        LoanInfo with an RBFulfillmentInfo.
+        """
+
+        media_type = item.get('mediaType', 'eBook')
+        isbn = item.get('isbn', None)
+
+        # 'expiration' here refers to the expiration date of the loan, not
+        # of the fulfillment URL.
+        expires = item.get('expiration', None)
+        if expires:
+            expires = datetime.datetime.strptime(
+                expires, self.EXPIRATION_DATE_FORMAT
+            ).date()
+
+        identifier, made_new = Identifier.for_foreign_id(
+            self._db, foreign_identifier_type=Identifier.RB_DIGITAL_ID, 
+            foreign_id=isbn, autocreate=False
+        )
+        if not identifier:
+            # We have never heard of this book, which means the patron
+            # didn't borrow it through us.
+            return None
+
+        fulfillment_info = RBFulfillmentInfo(
+            self,
+            DataSource.RB_DIGITAL,
+            identifier, 
+            item,
+        )
+
+        return LoanInfo(
+            self.collection,
+            DataSource.RB_DIGITAL,
+            Identifier.RB_DIGITAL_ID,
+            isbn,
+            start_date=None,
+            end_date=expires,
+            fulfillment_info=fulfillment_info,
+        )
 
     def get_patron_holds(self, patron_id):
         """
@@ -702,7 +697,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         :param patron: a Patron object for the patron who wants to return the book.
         :param pin: The patron's password (not used).
         """
-        patron_oneclick_id = self.validate_patron(patron)
+        patron_oneclick_id = self.patron_remote_identifier(patron)
 
         patron_checkouts = self.get_patron_checkouts(patron_oneclick_id)
         patron_holds = self.get_patron_holds(patron_oneclick_id)
@@ -727,36 +722,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             media = licensepool.work.presentation_edition.medium
 
         return item_oneclick_id, media
-
-
-    def validate_patron(self, patron, create=True):
-        """ Does the patron have what we need to identify them to OneClick?
-        Does OneClick have this patron's record?
-        Do we need to tell OneClick to create the patron record? 
-
-        :param patron Our db patron-representing object
-        :create if OneClick doesn't know this person, should we create them?
-        :return OneClick's unique patron id for our patron
-        """
-        patron_cardno = patron.authorization_identifier
-        if not patron_cardno:
-            raise InvalidInputException("Patron %r has no card number.", patron)
-
-        try:
-            patron_oneclick_id = self.get_patron_internal_id(patron_cardno=patron_cardno)
-        except NotFoundOnRemote, e:
-            patron_oneclick_id = None
-            
-        if not patron_oneclick_id:
-            if not create:
-                # OneClick doesn't recognize this patron's permanent identifier, and we 
-                # were told not to ask OneClick to create a new record
-                raise PatronAuthorizationFailedException("OneClick doesn't recognize patron card number %s.", patron_cardno)
-
-            patron_oneclick_id = self.create_patron(patron)
-
-        return patron_oneclick_id
-
 
     def validate_response(self, response, message, action=""):
         """ OneClick tries to communicate statuses and errors through http codes.
@@ -830,10 +795,125 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         pass
 
 
+class RBFulfillmentInfo(object):
+    """An RBdigital-specific FulfillmentInfo implementation.
+
+    We use these instead of real FulfillmentInfo objects because
+    generating a FulfillmentInfo object may require an extra HTTP request,
+    and there's often no need to make that request.
+    """
+
+    def __init__(self, api, data_source_name, identifier,
+                 raw_data):
+        self.api = api
+        self.collection = api.collection
+        self.data_source_name = data_source_name
+        self._identifier = identifier
+        self.identifier_type = identifier.type
+        self.identifier = identifier.identifier
+        self.raw_data = raw_data
+
+        self._fetched = False
+        self._content_link = None
+        self._content_type = None
+        self._content = None
+        self._content_expires = None
+        
+    @property
+    def content_link(self):
+        self.fetch()
+        return self._content_link
+
+    @property
+    def content_type(self):
+        self.fetch()
+        return self._content_type
+
+    @property
+    def content(self):
+        self.fetch()
+        return self._content
+
+    @property
+    def content_expires(self):
+        self.fetch()
+        return self._content_expires
+
+    def fetch(self):
+        if self._fetched:
+            return
+
+        # Get a list of files associated with this loan.
+        files = self.raw_data.get('files', [])
+
+        # Determine if we're fulfilling an audiobook (which means sending a
+        # manifest) or an ebook (which means sending a download link).
+        individual_download_url = None
+        representation_format = None
+        if files:
+            # If we have an ebook, there should only be one file in
+            # the list. If we have an audiobook, the first file should
+            # be representative of the whole.
+            file = files[0]
+            file_format = file.get('fileFormat', None)
+            if file_format == 'EPUB':
+                file_format = Representation.EPUB_MEDIA_TYPE
+            else:
+                # Audio books don't list a fileFormat at all. TODO:
+                # they do list a mediaType, which could be useful.
+                file_format = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE
+            self._content_type = file_format
+            individual_download_url = file.get('downloadUrl', None)
+            
+        if self._content_type == Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE:
+            # We have an audiobook.
+            self._content = self.process_audiobook_manifest(self.raw_data)
+        else:
+            # We have some other kind of file. Follow the download
+            # link, which will return a JSON-based access document
+            # pointing to the 'real' download link.
+            #
+            # We don't send our normal RBdigital credentials with this
+            # request because it's going to a different, publicly
+            # accessible server.
+            access_document = self.api._make_request(
+                individual_download_url, 'GET', {}
+            )
+            self._content_type, self._content_link, self._content_expires = self.process_access_document(
+                access_document
+            )
+        self._fetched = True
+
+    @classmethod
+    def process_audiobook_manifest(self, rb_data):
+        """Convert RBdigital's proprietary manifest format
+        into a standard Audiobook Manifest document.
+       
+        TODO: This currently just returns the original manifest.
+        """
+        return json.dumps(rb_data)
+
+    @classmethod
+    def process_access_document(self, access_document):
+        """Process the intermediary document served by RBdigital to tell
+        you how to actually download a file.
+        """
+        data = json.loads(access_document.content)
+        content_link = data.get('url')
+        content_type = data.get('type')
+        if content_type == 'application/vnd.adobe':
+            # The manifest spells the media type wrong. Fix it.
+            content_type = DeliveryMechanism.ADOBE_DRM
+
+        # Now that we've found the download URL, the client has 15
+        # minutes to use it. Set it to expire in 14 minutes to be
+        # conservative.
+        expires = datetime.datetime.utcnow() + datetime.timedelta(minutes=14)
+        return content_type, content_link, expires
+
 
 class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):
     pass
-
 
 
 class OneClickCirculationMonitor(CollectionMonitor):
@@ -862,8 +942,9 @@ class OneClickCirculationMonitor(CollectionMonitor):
         )
         self.analytics = Analytics(self._db)
 
-    def process_availability(self, media_type='ebook'):
+    def process_availability(self, media_type='eBook'):
         # get list of all titles, with availability info
+        policy = self.api.default_circulation_replacement_policy
         availability_list = self.api.get_ebook_availability_info(media_type=media_type)
         item_count = 0
         for availability in availability_list:
@@ -872,7 +953,9 @@ class OneClickCirculationMonitor(CollectionMonitor):
             available = availability['availability']
 
             medium = availability.get('mediaType')
-            license_pool, is_new, is_changed = self.api.update_licensepool_for_identifier(isbn, available, medium)
+            license_pool, is_new, is_changed = self.api.update_licensepool_for_identifier(
+                isbn, available, medium, policy
+            )
             # Log a circulation event for this work.
             if is_new:
                 for library in self.collection.libraries:
@@ -891,8 +974,8 @@ class OneClickCirculationMonitor(CollectionMonitor):
 
 
     def run_once(self, start, cutoff):
-        ebook_count = self.process_availability(media_type='ebook')
-        eaudio_count = self.process_availability(media_type='eaudio')
+        ebook_count = self.process_availability(media_type='eBook')
+        eaudio_count = self.process_availability(media_type='eAudio')
         
         self.log.info("Processed %d ebooks and %d audiobooks.", ebook_count, eaudio_count)
 

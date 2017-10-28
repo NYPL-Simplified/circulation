@@ -1220,6 +1220,14 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(library.uuid), 200)
 
+    def library(self, library_uuid):
+        if flask.request.method == "DELETE":
+            library = get_one(self._db, Library, uuid=library_uuid)
+            if not library:
+                return LIBRARY_NOT_FOUND.detailed(_("The specified library uuid does not exist."))
+            self._db.delete(library)
+            return Response(unicode(_("Deleted")), 200)
+
     def _get_integration_protocols(self, provider_apis, protocol_name_attr="__module__"):
         protocols = []
         for api in provider_apis:
@@ -1361,6 +1369,13 @@ class SettingsController(CirculationManagerController):
 
         return True
 
+    def _delete_integration(self, integration_id, goal):
+        integration = get_one(self._db, ExternalIntegration,
+                              id=integration_id, goal=goal)
+        if not integration:
+            return MISSING_SERVICE
+        self._db.delete(integration)
+        return Response(unicode(_("Deleted")), 200)
 
     def collections(self):
         provider_apis = [OPDSImporter,
@@ -1493,6 +1508,16 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(collection.id), 200)
 
+    def collection(self, collection_id):
+        if flask.request.method == "DELETE":
+            collection = get_one(self._db, Collection, id=collection_id)
+            if not collection:
+                return MISSING_COLLECTION
+            if len(collection.children) > 0:
+                return CANNOT_DELETE_COLLECTION_WITH_CHILDREN
+            self._db.delete(collection)
+            return Response(unicode(_("Deleted")), 200)
+
     def admin_auth_services(self):
         provider_apis = [GoogleOAuthAdminAuthenticationProvider]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
@@ -1542,6 +1567,14 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(auth_service.protocol), 200)
 
+    def admin_auth_service(self, protocol):
+        if flask.request.method == "DELETE":
+            service = get_one(self._db, ExternalIntegration, protocol=protocol, goal=ExternalIntegration.ADMIN_AUTH_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            self._db.delete(service)
+            return Response(unicode(_("Deleted")), 200)
+
     def individual_admins(self):
         if flask.request.method == 'GET':
             admins = []
@@ -1571,6 +1604,14 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(admin.email), 201)
         else:
             return Response(unicode(admin.email), 200)
+
+    def individual_admin(self, email):
+        if flask.request.method == "DELETE":
+            admin = get_one(self._db, Admin, email=email)
+            if not admin:
+                return MISSING_ADMIN
+            self._db.delete(admin)
+            return Response(unicode(_("Deleted")), 200)
 
     def patron_auth_services(self):
         provider_apis = [SimpleAuthenticationProvider,
@@ -1659,6 +1700,10 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(auth_service.id), 200)
 
+    def patron_auth_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.PATRON_AUTH_GOAL)
+
     def sitewide_settings(self):
         if flask.request.method == 'GET':
             settings = []
@@ -1683,6 +1728,12 @@ class SettingsController(CirculationManagerController):
         setting = ConfigurationSetting.sitewide(self._db, key)
         setting.value = value
         return Response(unicode(setting.key), 200)
+
+    def sitewide_setting(self, key):
+        if flask.request.method == "DELETE":
+            setting = ConfigurationSetting.sitewide(self._db, key)
+            setting.value = None
+            return Response(unicode(_("Deleted")), 200)
 
     def metadata_services(
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, 
@@ -1752,6 +1803,10 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 201)
         else:
             return Response(unicode(service.id), 200)
+
+    def metadata_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.METADATA_GOAL)
 
     def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
                               do_post=HTTP.debuggable_post, key=None
@@ -1896,6 +1951,10 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(service.id), 200)
 
+    def analytics_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.ANALYTICS_GOAL)
+
     def cdn_services(self):
         protocols = [
             {
@@ -1956,6 +2015,9 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(service.id), 200)
 
+    def cdn_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.CDN_GOAL)
 
     def search_services(self):
         provider_apis = [ExternalSearchIndex,
@@ -2012,6 +2074,10 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 201)
         else:
             return Response(unicode(service.id), 200)
+
+    def search_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.SEARCH_GOAL)
 
     def discovery_services(self):
         protocols = [
@@ -2081,6 +2147,10 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 201)
         else:
             return Response(unicode(service.id), 200)
+
+    def discovery_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.DISCOVERY_GOAL)
 
     def library_registrations(self, do_get=HTTP.debuggable_get, 
                               do_post=HTTP.debuggable_post, key=None):

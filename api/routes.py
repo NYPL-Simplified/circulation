@@ -11,7 +11,7 @@ from flask import (
 )
 from flask_cors.core import get_cors_options, set_cors_headers
 
-from app import app, _db, babel
+from app import app, babel
 
 from config import Configuration
 from core.app_server import (
@@ -42,7 +42,7 @@ def initialize_circulation_manager():
         pass
     else:
         if getattr(app, 'manager', None) is None:
-            app.manager = CirculationManager(_db)
+            app.manager = CirculationManager(app._db)
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()

@@ -135,6 +135,13 @@ COLLECTION_NAME_ALREADY_IN_USE = pd(
     detail=_("The collection name must be unique, and there's already a collection with the specified name."),
 )
 
+CANNOT_DELETE_COLLECTION_WITH_CHILDREN = pd(
+    "http://librarysimplified.org/terms/problem/cannot-delete-collection-with-children",
+    status_code=400,
+    title=_("Cannot delete collection with children"),
+    detail=_("The collection is the parent of at least one other collection, so it can't be deleted."),
+)
+
 NO_PROTOCOL_FOR_NEW_SERVICE = pd(
     "http://librarysimplified.org/terms/problem/no-protocol-for-new-service",
     status_code=400,
@@ -203,6 +210,13 @@ SHARED_SECRET_DECRYPTION_ERROR = pd(
     status_code=502,
     title=_("Decryption error"),
     detail=_("Failed to decrypt a shared secret retrieved from another computer.")
+)
+
+MISSING_ADMIN = pd(
+    "http://librarysimplified.org/terms/problem/missing-admin",
+    status_code=404,
+    title=_("Missing admin"),
+    detail=_("The specified admin does not exist."),
 )
 
 MISSING_SERVICE = pd(
