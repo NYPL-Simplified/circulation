@@ -165,7 +165,15 @@ class OneClickAPI(object):
             allowed_response_codes=allowed_response_codes, 
             disallowed_response_codes=disallowed_response_codes
         )
-        
+    
+        if (response.content
+            and 'Invalid Basic Token or permission denied' in response.content):
+            raise BadResponseException(
+                url, "Permission denied. This may be a temporary rate-limiting issue, or the credentials for this collection may be wrong.",
+                debug_message=response.content,
+                status_code=502
+            )
+    
         return response
 
 
@@ -301,7 +309,7 @@ class OneClickAPI(object):
         The response at this endpoint is laconic -- just enough fields per item to 
         identify the item and declare it either available to lend or not.
 
-        :param media_type 'ebook'/'eaudio'
+        :param media_type 'eBook'/'eAudio'
 
         :return A list of dictionary items, each item giving "yes/no" answer on a book's current availability to lend.
         Example of returned item format:
@@ -319,17 +327,13 @@ class OneClickAPI(object):
             resplist = response.json()
         except Exception, e:
             raise BadResponseException(url, "OneClick availability response not parseable.")
-
-        if not resplist:
-            raise IOError("OneClick availability response not parseable - has no resplist.")
-
         return resplist
 
 
     def get_metadata_by_isbn(self, identifier):
         """
         Gets metadata, s.a. publisher, date published, genres, etc for the 
-        ebook or eaudio item passed, using isbn to search on. 
+        eBook or eAudio item passed, using isbn to search on. 
         If isbn is not found, the response we get from OneClick is an error message, 
         and we throw an error.
 
@@ -484,7 +488,7 @@ class OneClickAPI(object):
         """
         Form a rest-ful search query, send to OneClick, and obtain the results.
 
-        :param mediatype Facet to limit results by media type.  Options are: "eaudio", "ebook".
+        :param mediatype Facet to limit results by media type.  Options are: "eAudio", "eBook".
         :param genres The books found lie at intersection of genres passed.
         :audience Facet to limit results by target age group.  Options include (there may be more): "adult", 
             "beginning-reader", "childrens", "young-adult".
@@ -601,23 +605,10 @@ class OneClickRepresentationExtractor(object):
 
     log = logging.getLogger("OneClick representation extractor")
 
-    oneclick_formats = {
-        "ebook-epub-oneclick" : (
-            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
-        ),
-        "audiobook-mp3-oneclick" : (
-            "vnd.librarysimplified/obfuscated-one-click", DeliveryMechanism.ONECLICK_DRM
-        ),
-        "audiobook-mp3-open" : (
-            "audio/mpeg3", DeliveryMechanism.NO_DRM
-        ),
-    }
-
     oneclick_medium_to_simplified_medium = {
         "eBook" : Edition.BOOK_MEDIUM,
         "eAudio" : Edition.AUDIO_MEDIUM,
     }
-
 
     @classmethod
     def image_link_to_linkdata(cls, link_url, rel):
@@ -812,10 +803,12 @@ class OneClickRepresentationExtractor(object):
         if include_formats:
             formats = []
             if metadata.medium == Edition.BOOK_MEDIUM:
-                content_type, drm_scheme = cls.oneclick_formats.get("ebook-epub-oneclick")
+                content_type = Representation.EPUB_MEDIA_TYPE
+                drm_scheme = DeliveryMechanism.ADOBE_DRM
                 formats.append(FormatData(content_type, drm_scheme))
             elif metadata.medium == Edition.AUDIO_MEDIUM:
-                content_type, drm_scheme = cls.oneclick_formats.get("audiobook-mp3-oneclick")
+                content_type = Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, 
+                drm_scheme = DeliveryMechanism.NO_DRM
                 formats.append(FormatData(content_type, drm_scheme))
             else:
                 cls.log.warn("Unfamiliar format: %s", format_id)
@@ -957,7 +950,21 @@ class OneClickImportMonitor(OneClickSyncMonitor):
     SERVICE_NAME = "OneClick Full Import"
     
     def invoke(self):
-        return self.api.populate_all_catalog()
+        timestamp = self.timestamp()
+        if timestamp.counter and timestamp.counter > 0:
+            self.log.debug(
+                "Collection %s has already had its initial import; doing nothing.", 
+                self.collection.name or self.collection.id
+            )
+            return 0, 0
+        result = self.api.populate_all_catalog()
+
+        # Record the work was done so it's not done again.
+        if not timestamp.counter:
+            timestamp.counter = 1
+        else:
+            timestamp.counter += 1
+        return result
 
 
 class OneClickDeltaMonitor(OneClickSyncMonitor):

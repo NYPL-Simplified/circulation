@@ -646,6 +646,26 @@ class Patron(Base):
     )
     
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
+
+    def identifier_to_remote_service(self, remote_data_source, generator=None):
+        """Find or randomly create an identifier to use when identifying
+        this patron to a remote service.
+
+        :param remote_data_source: A DataSource object (or name of a
+        DataSource) corresponding to the remote service.
+        """
+        _db = Session.object_session(self)
+        def refresh(credential):
+            if generator and callable(generator):
+                identifier = generator()
+            else:
+                identifier = str(uuid.uuid1())
+            credential.credential = identifier
+        credential = Credential.lookup(
+            _db, remote_data_source, Credential.IDENTIFIER_TO_REMOTE_SERVICE,
+            self, refresh, allow_persistent_token=True
+        )
+        return credential.credential
     
     def works_on_loan(self):
         db = Session.object_session(self)
@@ -6850,18 +6870,24 @@ class LicensePool(Base):
         logging.info or a similar method
         """
         edition = self.presentation_edition
-        message = 'CHANGED '
+        message = u'CHANGED '
         args = []
+        if self.identifier:
+            identifier_template = '%s/%s'
+            identifier_args = [self.identifier.type, self.identifier.identifier]
+        else:
+            identifier_template = '%s'
+            identifier_args = [self.identifier]
         if edition:
-            message += '%s "%s" %s (%s)'
+            message += u'%s "%s" %s (' + identifier_template + ')'
             args.extend([edition.medium, 
                          edition.title or "[NO TITLE]",
-                         edition.author or "[NO AUTHOR]",
-                         self.identifier]
+                         edition.author or "[NO AUTHOR]"]
                     )
+            args.extend(identifier_args)
         else:
-            message += '%s'
-            args.append(self.identifier)
+            message += identifier_template
+            args.extend(identifier_args)
 
         def _part(message, args, string, old_value, new_value):
             if old_value != new_value:
@@ -7503,6 +7529,14 @@ class Credential(Base):
         UniqueConstraint('data_source_id', 'patron_id', 'type'),
     )
 
+
+    # A meaningless identifier used to identify this patron (and no other)
+    # to a remote service.
+    IDENTIFIER_TO_REMOTE_SERVICE = "Identifier Sent To Remote Service"
+
+    # An identifier used by a remote service to identify this patron.
+    IDENTIFIER_FROM_REMOTE_SERVICE = "Identifier Received From Remote Service"
+
     @classmethod
     def lookup(self, _db, data_source, type, patron, refresher_method,
                allow_persistent_token=False):
@@ -7766,6 +7800,7 @@ class Representation(Base):
     MP3_MEDIA_TYPE = u"audio/mpeg"
     OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
+    AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
 
     BOOK_MEDIA_TYPES = [
         EPUB_MEDIA_TYPE,
@@ -7807,6 +7842,7 @@ class Representation(Base):
         TEXT_PLAIN: "txt",
         TEXT_HTML_MEDIA_TYPE: "html",
         APPLICATION_XML_MEDIA_TYPE: "xml",
+        AUDIOBOOK_MANIFEST_MEDIA_TYPE: "audiobook-manifest"
     }
 
     # Invert FILE_EXTENSIONS and add some extra guesses.
@@ -8662,7 +8698,6 @@ class DeliveryMechanism(Base, HasFullTableCache):
     KINDLE_DRM = u"Kindle DRM"
     NOOK_DRM = u"Nook DRM"
     STREAMING_DRM = u"Streaming"
-    ONECLICK_DRM = u"OneClick DRM"
     OVERDRIVE_DRM = u"Overdrive DRM"
 
     STREAMING_PROFILE = ";profile=http://librarysimplified.org/terms/profiles/streaming-media"

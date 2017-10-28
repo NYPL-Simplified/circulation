@@ -1935,24 +1935,26 @@ class TestLicensePool(DatabaseTest):
         # Since all four circulation values changed, the message is as
         # long as it could possibly get.
         eq_(
-            'CHANGED %s "%s" %s (%s) %s: %s=>%s %s: %s=>%s %s: %s=>%s %s: %s=>%s',
+            'CHANGED %s "%s" %s (%s/%s) %s: %s=>%s %s: %s=>%s %s: %s=>%s %s: %s=>%s',
             msg
         )
         eq_(
             args,
-            (edition.medium, edition.title, edition.author, pool.identifier,
+            (edition.medium, edition.title, edition.author, 
+             pool.identifier.type, pool.identifier.identifier,
              'OWN', 1, 10, 'AVAIL', 2, 9, 'RSRV', 3, 8, 'HOLD', 4, 7)
         )
 
         # If only one circulation value changes, the message is a lot shorter.
         msg, args = pool.circulation_changelog(10, 9, 8, 15)
         eq_(
-            'CHANGED %s "%s" %s (%s) %s: %s=>%s',
+            'CHANGED %s "%s" %s (%s/%s) %s: %s=>%s',
             msg
         )
         eq_(
             args,
-            (edition.medium, edition.title, edition.author, pool.identifier,
+            (edition.medium, edition.title, edition.author, 
+             pool.identifier.type, pool.identifier.identifier,
              'HOLD', 15, 7)
         )
 
@@ -5457,7 +5459,51 @@ class TestDRMDeviceIdentifier(DatabaseTest):
         eq_([], self._db.query(DRMDeviceIdentifier).all())
         
 class TestPatron(DatabaseTest):
-        
+
+    def test_identifier_to_remote_service(self):
+
+        # Here's a patron.
+        patron = self._patron()
+
+        # Get identifiers to use when identifying that patron on two
+        # different remote services.
+        axis = DataSource.AXIS_360
+        axis_identifier = patron.identifier_to_remote_service(axis)
+
+        rb_digital = DataSource.lookup(self._db, DataSource.RB_DIGITAL)
+        rb_identifier = patron.identifier_to_remote_service(rb_digital)
+
+        # The identifiers are different.
+        assert axis_identifier != rb_identifier
+
+        # But they're both 36-character UUIDs.
+        eq_(36, len(axis_identifier))
+        eq_(36, len(rb_identifier))
+
+        # They're persistent.
+        eq_(rb_identifier, patron.identifier_to_remote_service(rb_digital))
+        eq_(axis_identifier, patron.identifier_to_remote_service(axis))
+
+        # You can customize the function used to generate the
+        # identifier, in case the data source won't accept a UUID as a
+        # patron identifier.
+        def fake_generator():
+            return "fake string"
+        bib = DataSource.BIBLIOTHECA
+        eq_("fake string", 
+            patron.identifier_to_remote_service(bib, fake_generator)
+        )
+
+        # Once the identifier is created, specifying a different generator
+        # does nothing.
+        eq_("fake string", 
+            patron.identifier_to_remote_service(bib)
+        )
+        eq_(
+            axis_identifier, 
+            patron.identifier_to_remote_service(axis, fake_generator)
+        )
+
     def test_set_synchronize_annotations(self):
         # Two patrons.
         p1 = self._patron()
