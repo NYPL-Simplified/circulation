@@ -428,7 +428,7 @@ def oauth_callback():
     return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
 
 # Loan notifications for ODL distributors, eg. Feedbooks
-@library_route('/odl_notify/<loan_id>')
+@library_route('/odl_notify/<loan_id>', methods=['GET', 'POST'])
 @has_library
 @returns_problem_detail
 def odl_notify(loan_id):
