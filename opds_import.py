@@ -125,7 +125,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
     NAME = _("Library Simplified Metadata Wrangler")
 
     SETTINGS = [
-        { "key": ExternalIntegration.URL, "label": _("URL"), "default": "https://metadata.librarysimplified.org/" },
+        { "key": ExternalIntegration.URL, "label": _("URL"), "default": "http://metadata.librarysimplified.org/" },
     ]
 
     SITEWIDE = True
