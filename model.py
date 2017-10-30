@@ -1432,8 +1432,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     UPDATE_SEARCH_INDEX_OPERATION = u'update-search-index'
 
     id = Column(Integer, primary_key=True)
-    work_id = Column(
-        Integer, ForeignKey('works.id'), index=True)
+    work_id = Column(Integer, ForeignKey('works.id'), index=True)
     operation = Column(String(255), index=True, default=None)
         
     timestamp = Column(DateTime, index=True)
@@ -1519,9 +1518,8 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         # The SELECT part of the INSERT...SELECT query.
         new_records = _db.query(
             Work.id.label('work_id'), 
-            literal(operation, type_=BaseCoverageRecord.status_enum).label('operation'),
+            literal(operation, type_=String(255)).label('operation'),
             literal(timestamp, type_=DateTime).label('timestamp'), 
-
             literal(status, type_=BaseCoverageRecord.status_enum).label('status')
         ).select_from(
             Work
