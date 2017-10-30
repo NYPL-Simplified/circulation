@@ -104,6 +104,7 @@ from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
 from api.oneclick import OneClickAPI
 from api.enki import EnkiAPI
+from api.odl import ODLWithConsolidatedCopiesAPI
 
 from api.nyt import NYTBestSellerAPI
 from api.novelist import NoveListAPI
@@ -1384,6 +1385,7 @@ class SettingsController(CirculationManagerController):
                          Axis360API,
                          OneClickAPI,
                          EnkiAPI,
+                         ODLWithConsolidatedCopiesAPI,
                         ]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
