@@ -1859,6 +1859,45 @@ class Identifier(Base):
         return (type, identifier_string)
 
     @classmethod
+    def parse_urns(cls, _db, identifier_strings):
+        """Batch processes URNs"""
+        failures = list()
+        identifier_details = dict()
+        for urn in identifier_strings:
+            try:
+                identifier_details[urn] = cls.type_and_identifier_for_urn(urn)
+            except ValueError as e:
+                failures.append(urn)
+
+        # Find all of the identifiers that already exist.
+        and_clauses = list()
+        for type, identifier in identifier_details.values():
+            and_clauses.append(and_(cls.type==type, cls.identifier==identifier))
+        identifiers = _db.query(cls).filter(or_(*and_clauses)).all()
+
+        identifiers_by_urn = dict()
+        for identifier in identifiers:
+            identifiers_by_urn[identifier.urn] = identifier
+
+        # Find any identifier details that don't correspond to an existing
+        # identifier. Try to create them.
+        remainders = dict()
+        for urn, details in identifier_details.items():
+            if urn not in identifiers_by_urn:
+                remainders[urn] = details
+
+        for urn, (type, identifier) in remainders.items():
+            try:
+                identifier, ignore = Identifier.for_foreign_id(
+                    _db, type, identifier
+                )
+                identifiers_by_urn[urn] = identifier
+            except ValueError as e:
+                failures.append(urn)
+
+        return identifiers_by_urn, failures
+
+    @classmethod
     def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
         type, identifier_string = cls.type_and_identifier_for_urn(identifier_string)
         if must_support_license_pools:
