@@ -7219,10 +7219,22 @@ class TestCollection(DatabaseTest):
     def test_catalog_identifier(self):
         """#catalog_identifier associates an identifier with the catalog"""
         identifier = self._identifier()
-        self.collection.catalog_identifier(self._db, identifier)
+        self.collection.catalog_identifier(identifier)
 
         eq_(1, len(self.collection.catalog))
         eq_(identifier, self.collection.catalog[0])
+
+    def test_catalog_identifiers(self):
+        """#catalog_identifier associates multiple identifiers with a catalog"""
+        i1 = self._identifier()
+        i2 = self._identifier()
+        i3 = self._identifier()
+
+        # One of the identifiers is already in the catalog.
+        self.collection.catalog_identifier(i3)
+
+        self.collection.catalog_identifiers([i1, i2, i3])
+        assert sorted([i1, i2, i3]) == sorted(self.collection.catalog)
 
     def test_works_updated_since(self):
         w1 = self._work(with_license_pool=True)
@@ -7233,8 +7245,8 @@ class TestCollection(DatabaseTest):
         eq_([], self.collection.works_updated_since(self._db, timestamp).all())
 
         # When no timestamp is passed, all works in the catalog are returned.
-        self.collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
-        self.collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        self.collection.catalog_identifier(w1.license_pools[0].identifier)
+        self.collection.catalog_identifier(w2.license_pools[0].identifier)
         updated_works = self.collection.works_updated_since(self._db, None).all()
 
         eq_(2, len(updated_works))

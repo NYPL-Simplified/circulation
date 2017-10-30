@@ -10648,11 +10648,20 @@ class Collection(Base, HasFullTableCache):
                 lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
-    def catalog_identifier(self, _db, identifier):
+    def catalog_identifier(self, identifier):
         """Inserts an identifier into a catalog"""
-        if identifier not in self.catalog:
-            self.catalog.append(identifier)
-            flush(_db)
+        self.catalog_identifiers([identifier])
+
+    def catalog_identifiers(self, identifiers):
+        """Inserts identifiers into the catalog"""
+        if not identifiers:
+            # Nothing to do.
+            return
+
+        _db = Session.object_session(identifiers[0])
+        uncatalogued = filter(lambda i: i not in self.catalog, identifiers)
+        self.catalog.extend(uncatalogued)
+        flush(_db)
 
     def works_updated_since(self, _db, timestamp):
         """Returns all works in a collection's catalog that have been updated
