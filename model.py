@@ -794,6 +794,9 @@ class Loan(Base, LoanAndHoldMixin):
     fulfillment_id = Column(Integer, ForeignKey('licensepooldeliveries.id'))
     start = Column(DateTime)
     end = Column(DateTime)
+    # Some distributors (e.g. Feedbooks) may have an identifier that can
+    # be used to check the status of a specific Loan.
+    external_identifier = Column(Unicode, unique=True, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('patron_id', 'license_pool_id'),
@@ -6912,7 +6915,7 @@ class LicensePool(Base):
         )
         return message, tuple(args)
 
-    def loan_to(self, patron, start=None, end=None, fulfillment=None):
+    def loan_to(self, patron, start=None, end=None, fulfillment=None, external_identifier=None):
         _db = Session.object_session(patron)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
                       end=end)
@@ -6921,6 +6924,8 @@ class LicensePool(Base):
             create_method_kwargs=kwargs)
         if fulfillment:
             loan.fulfillment = fulfillment
+        if external_identifier:
+            loan.external_identifier = external_identifier
         return loan, is_new
 
     def on_hold_to(self, patron, start=None, end=None, position=None):
