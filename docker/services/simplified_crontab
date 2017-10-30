@@ -63,3 +63,8 @@ HOME=/var/www/circulation
 # Vanilla OPDS
 #
 0 5 * * * root core/bin/run opds_import_monitor >> /var/log/cron.log 2>&1
+
+# ODL With Consolidated Copies
+#
+0 6 * * * root core/bin/run odl_bibliographic_import_monitor >> /var/log/cron.log 2>&1
+0 6 * * * root core/bin/run odl_consolidated_copies_monitor >> /var/log/cron.log 2>&1
