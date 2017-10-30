@@ -237,6 +237,7 @@ class CirculationAPI(object):
         API class Y to handle that collection.
         """
         from overdrive import OverdriveAPI
+        from odilo import OdiloAPI
         from bibliotheca import BibliothecaAPI
         from axis import Axis360API
         from oneclick import OneClickAPI
@@ -244,6 +245,7 @@ class CirculationAPI(object):
         from opds_for_distributors import OPDSForDistributorsAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
+            ExternalIntegration.ODILO : OdiloAPI,
             ExternalIntegration.BIBLIOTHECA : BibliothecaAPI,
             ExternalIntegration.AXIS_360 : Axis360API,
             ExternalIntegration.ONE_CLICK : OneClickAPI,
