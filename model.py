@@ -967,6 +967,7 @@ class DataSource(Base, HasFullTableCache):
 
     GUTENBERG = u"Gutenberg"
     OVERDRIVE = u"Overdrive"
+    ODILO = u"Odilo"
     PROJECT_GITENBERG = u"Project GITenberg"
     STANDARD_EBOOKS = u"Standard Ebooks"
     UNGLUE_IT = u"unglue.it"
@@ -1197,6 +1198,7 @@ class DataSource(Base, HasFullTableCache):
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
                 (cls.RB_DIGITAL, True, True, Identifier.RB_DIGITAL_ID, None),
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
+                (cls.ODILO, True, False, Identifier.ODILO_ID, 0),
                 (cls.THREEM, True, False, Identifier.BIBLIOTHECA_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
                 (cls.OCLC, False, False, None, None),
@@ -1601,6 +1603,7 @@ class Identifier(Base):
     
     # Common types of identifiers.
     OVERDRIVE_ID = u"Overdrive ID"
+    ODILO_ID = u"Odilo ID"
     BIBLIOTHECA_ID = u"Bibliotheca ID"
     GUTENBERG_ID = u"Gutenberg ID"
     AXIS_360_ID = u"Axis 360 ID"
@@ -1628,7 +1631,7 @@ class Identifier(Base):
     ONECLICK_ID = RB_DIGITAL_ID
 
     LICENSE_PROVIDING_IDENTIFIER_TYPES = [
-        BIBLIOTHECA_ID, OVERDRIVE_ID, AXIS_360_ID,
+        BIBLIOTHECA_ID, OVERDRIVE_ID, ODILO_ID, AXIS_360_ID,
         GUTENBERG_ID, ELIB_ID
     ]
 
@@ -2728,6 +2731,7 @@ class Edition(Base):
     AUDIO_MEDIUM = u"Audio"
     MUSIC_MEDIUM = u"Music"
     VIDEO_MEDIUM = u"Video"
+    IMAGE_MEDIUM = u"Image"
 
     ELECTRONIC_FORMAT = u"Electronic"
     CODEX_FORMAT = u"Codex"
@@ -5708,6 +5712,7 @@ class Subject(Base):
 
     GUTENBERG_BOOKSHELF = Classifier.GUTENBERG_BOOKSHELF
     TOPIC = Classifier.TOPIC
+    TOPIC_TERM = Classifier.TOPIC_TERM
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
@@ -7793,6 +7798,9 @@ class Representation(Base):
     GIF_MEDIA_TYPE = u"image/gif"
     SVG_MEDIA_TYPE = u"image/svg+xml"
     MP3_MEDIA_TYPE = u"audio/mpeg"
+    MP4_MEDIA_TYPE = u"video/mp4"
+    WMV_MEDIA_TYPE = u"video/x-ms-wmv"
+    ZIP_MEDIA_TYPE = u"application/zip"
     OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
     AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
@@ -7830,6 +7838,8 @@ class Representation(Base):
         MOBI_MEDIA_TYPE: "mobi",
         PDF_MEDIA_TYPE: "pdf",
         MP3_MEDIA_TYPE: "mp3",
+        MP4_MEDIA_TYPE: "mp4",
+        WMV_MEDIA_TYPE: "wmv",
         JPEG_MEDIA_TYPE: "jpg",
         PNG_MEDIA_TYPE: "png",
         SVG_MEDIA_TYPE: "svg",
@@ -7837,7 +7847,8 @@ class Representation(Base):
         TEXT_PLAIN: "txt",
         TEXT_HTML_MEDIA_TYPE: "html",
         APPLICATION_XML_MEDIA_TYPE: "xml",
-        AUDIOBOOK_MANIFEST_MEDIA_TYPE: "audiobook-manifest"
+        AUDIOBOOK_MANIFEST_MEDIA_TYPE: "audiobook-manifest",
+        ZIP_MEDIA_TYPE: "zip"
     }
 
     # Invert FILE_EXTENSIONS and add some extra guesses.
@@ -8687,6 +8698,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     STREAMING_TEXT_CONTENT_TYPE = u"Streaming Text"
     STREAMING_AUDIO_CONTENT_TYPE = u"Streaming Audio"
     STREAMING_VIDEO_CONTENT_TYPE = u"Streaming Video"
+    PERIODICAL_STREAMING_TEXT_CONTENT_TYPE = u"Periodical Streaming Text"
 
     NO_DRM = None
     ADOBE_DRM = u"application/vnd.adobe.adept+xml"
@@ -9710,6 +9722,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     # Supported protocols for ExternalIntegrations with LICENSE_GOAL.
     OPDS_IMPORT = u'OPDS Import'
     OVERDRIVE = DataSource.OVERDRIVE
+    ODILO = DataSource.ODILO
     BIBLIOTHECA = DataSource.BIBLIOTHECA
     AXIS_360 = DataSource.AXIS_360
     RB_DIGITAL = DataSource.RB_DIGITAL
@@ -9725,7 +9738,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     GUTENBERG = DataSource.GUTENBERG
 
     LICENSE_PROTOCOLS = [
-        OPDS_IMPORT, OVERDRIVE, BIBLIOTHECA, AXIS_360, RB_DIGITAL,
+        OPDS_IMPORT, OVERDRIVE, ODILO, BIBLIOTHECA, AXIS_360, RB_DIGITAL,
         DIRECTORY_IMPORT, GUTENBERG, ENKI,
     ]
 
@@ -9733,6 +9746,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     # licenses come from a specific data source.
     DATA_SOURCE_FOR_LICENSE_PROTOCOL = {
         OVERDRIVE : DataSource.OVERDRIVE,
+        ODILO : DataSource.ODILO,
         BIBLIOTHECA : DataSource.BIBLIOTHECA,
         AXIS_360 : DataSource.AXIS_360,
         RB_DIGITAL : DataSource.RB_DIGITAL,
