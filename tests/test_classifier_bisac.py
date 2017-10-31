@@ -11,8 +11,8 @@ from classifier.bisac import (
     anything,
     MatchingRule,
     BISACClassifier,
+    m,    
 )
-
 
 class TestMatchingRule(object):
 
@@ -93,3 +93,31 @@ class TestMatchingRule(object):
         eq_(True, rule.match("fiction", "penguins", "more penguins"))
         eq_(True, rule.match("penguins"))
         eq_(None, rule.match("geese"))
+
+
+    def test_tough_case(self):
+        rule = MatchingRule(True, nonfiction, "History", "Modern", re.compile('^1[678]th Century'))
+        eq_(True, rule.match("history", "modern", "17th century"))
+
+class MockSubject(object):
+    def __init__(self, identifier, name):
+        self.identifier = identifier
+        self.name = name
+
+class TestBISACClassifier(object):        
+
+    def test_every_rule_fires(self):
+        """There's no point in having a rule that doesn't catch any real BISAC
+        subjects. The presence of such a rule generally indicates a
+        bug -- usually a typo, or a rule is completely 'shadowed' by another
+        rule above it.
+        """
+        for identifier, name in sorted(BISACClassifier.NAMES.items()):
+            subject = MockSubject(identifier, name)
+            BISACClassifier.classify(subject)
+    
+        for i in BISACClassifier.GENRE:
+            if i.caught == []:
+                raise Exception(
+                    "Rule %s didn't catch anything!" % i.ruleset
+                )

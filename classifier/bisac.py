@@ -2,6 +2,7 @@
 import csv
 import os
 import re
+import string
 from . import *
 
 # Special tokens used in matching rules.
@@ -63,7 +64,7 @@ class MatchingRule(object):
         remaining_subject = list(subject)
 
         # Consume tokens from both lists until we've confirmed no
-        # match or there is nothing else to match.
+        # match or there is nothing left to match.
         match_so_far = True
         while match_so_far and must_match:
             match_so_far, must_match, remaining_subject = self._consume(
@@ -86,8 +87,8 @@ class MatchingRule(object):
         :return: A 3-tuple (could_match, new_rules, new_subject)
 
         could_match is a boolean that is False if we now know that the
-        subject does not match the rule, and True if we don't know
-        that yet.
+        subject does not match the rule, and True if it might still
+        match the rule.
 
         new_rules contains the tokens in the ruleset that have yet to
         be activated.
@@ -149,7 +150,7 @@ class MatchingRule(object):
             match = subject_token in ('juvenile fiction', 'juvenile nonfiction')
         elif rule_token == nonfiction:
             match = subject_token not in ('juvenile fiction', 'fiction')
-            if match and subject_token not in 'juvenile nonfiction':
+            if match and subject_token != 'juvenile nonfiction':
                 # The implicit top-level lane is 'nonfiction', 
                 # which means we popped a token like 'History' that
                 # needs to go back on the stack.
@@ -162,8 +163,6 @@ class MatchingRule(object):
         else:
             # The regular expression must match the subject.
             match = rule_token.search(subject_token)
-        if not match:
-            print "%s does not match %s" % (rule_token, subject_token)
         return match, rules, subject
 
 
@@ -191,7 +190,8 @@ class BISACClassifier(Classifier):
 
     # Map identifiers to human-readable names.
     NAMES = dict(
-        x for x in csv.reader(open(os.path.join(resource_dir, "bisac.csv")))
+        map(string.strip, x)
+        for x in csv.reader(open(os.path.join(resource_dir, "bisac.csv")))
     )
 
     # If none of these rules match, a lane's fiction status depends on the
@@ -248,10 +248,10 @@ class BISACClassifier(Classifier):
         # separately under that genre. This could definitely be
         # improved but would require a Subject to map to multiple
         # Genres.
-        m(Short_Stories, fiction, re.compile('^Anthologies')),
-        m(Short_Stories, fiction, re.compile('^Short Stories')),
-        m(Short_Stories, fiction, 'Literary Collections'),
-        m(Short_Stories, fiction, 'Collections & Anthologies'),
+        m(Short_Stories, fiction, anything, re.compile('^Anthologies')),
+        m(Short_Stories, fiction, anything, re.compile('^Short Stories')),
+        m(Short_Stories, 'Literary Collections'),
+        m(Short_Stories, fiction, anything, 'Collections & Anthologies'),
         
         # Classify top-level fiction categories into fiction genres.
         #
@@ -273,7 +273,7 @@ class BISACClassifier(Classifier):
         m(Crime_Detective_Stories, fiction, 'Crime'),
         m(Crime_Detective_Stories, fiction, 'Thrillers', 'Crime'),
         m(Hard_Boiled_Mystery, fiction, 'Mystery & Detective', 'Hard-Boiled'),
-        m(Police_Procedural, fiction, 'Police Procedural'),
+        m(Police_Procedural, fiction, 'Mystery & Detective', 'Police Procedural'),
         m(Cozy_Mystery, fiction, 'Mystery & Detective', 'Cozy'),
         m(Historical_Mystery, fiction, 'Mystery & Detective', 'Historical'),
         m(Women_Detectives, fiction, 'Mystery & Detective', 'Women Sleuths'),
@@ -307,13 +307,13 @@ class BISACClassifier(Classifier):
 
         # Thrillers
         # n.b. no BISAC for Supernatural_Thriller
-        m(Historical_Thriller, 'Thrillers', 'Historical'),
-        m(Espionage, 'Thrillers', 'Espionage'),
-        m(Medical_Thriller, 'Thrillers', 'Medical'),
-        m(Political_Thriller, 'Thrillers', 'Political'),
-        m(Legal_Thriller, 'Thrillers', 'Legal'),
-        m(Technothriller, 'Thrillers', 'Technological'),
-        m(Military_Thriller, 'Thrillers', 'Military'),
+        m(Historical_Thriller, fiction, 'Thrillers', 'Historical'),
+        m(Espionage, fiction, 'Thrillers', 'Espionage'),
+        m(Medical_Thriller, fiction, 'Thrillers', 'Medical'),
+        m(Political_Thriller, fiction, 'Thrillers', 'Political'),
+        m(Legal_Thriller, fiction, 'Thrillers', 'Legal'),
+        m(Technothriller, fiction, 'Thrillers', 'Technological'),
+        m(Military_Thriller, fiction, 'Thrillers', 'Military'),
         m(Suspense_Thriller, fiction, 'Thrillers'),
 
         # Then handle the less complicated genres of fiction.
@@ -331,7 +331,7 @@ class BISACClassifier(Classifier):
         m(Religious_Fiction, fiction, 'Jewish'),
         m(Religious_Fiction, fiction, 'Visionary & Metaphysical'),
         m(Womens_Fiction, fiction, anything, 'Contemporary Women'),
-        m(Westerns, fiction, 'Western'),
+        m(Westerns, fiction, 'Westerns'),
 
         # n.b. BISAC "Fiction / Urban" is distinct from "Fiction /
         # African-American / Urban", and does not map to any of our
@@ -394,9 +394,9 @@ class BISACClassifier(Classifier):
         m(Latin_American_History, nonfiction, 'History', 'Latin America'),
         m(Medieval_History, nonfiction, 'History', 'Medieval'),
         m(Military_History, nonfiction, 'History', 'Military'),
-        m(Modern_History, nonfiction, 'History', 'Modern'),
         m(Renaissance_Early_Modern_History, nonfiction, 'History', 'Renaissance'),
         m(Renaissance_Early_Modern_History, nonfiction, 'History', 'Modern', re.compile('^1[678]th Century')),
+        m(Modern_History, nonfiction, 'History', 'Modern'),
         m(United_States_History, nonfiction, 'History', 'United States'),
         m(World_History, nonfiction, 'History', 'World'),
         m(World_History, nonfiction, 'History', 'Civilization'),
@@ -438,7 +438,8 @@ class BISACClassifier(Classifier):
         m(Mathematics, nonfiction, 'Mathematics'),
         m(Nature, nonfiction, 'Nature'),
         m(Psychology, nonfiction, 'Psychology'),
-        m(Social_Sciences, nonfiction, 'Social_Sciences'),
+	m(Political_Science, nonfiction, 'Social Science', 'Politics & Government'),
+        m(Social_Sciences, nonfiction, 'Social Science'),
         m(Technology, nonfiction, 'Technology'),
         m(Science, nonfiction, 'Science'),
 
@@ -468,7 +469,7 @@ class BISACClassifier(Classifier):
     @classmethod
     def genre(cls, identifier, name, fiction, audience):
         for ruleset in cls.GENRE:
-            genre = ruleset.match(name)
+            genre = ruleset.match(*name)
             if genre:
                 return genre
 
@@ -480,15 +481,3 @@ class BISACClassifier(Classifier):
             parts = parts[:-1]
         return parts
 
-# class MockSubject(object):
-#     def __init__(self, identifier, name):
-#         self.identifier = identifier
-#         self.name = name
-    
-# for identifier, name in sorted(BISACClassifier.NAMES.items()):
-#     subject = MockSubject(identifier, name)
-#     BISACClassifier.classify(subject)
-    
-# for i in BISACClassifier.GENRE:
-#     if not i.caught:
-#         print "%s didn't catch anything." % i.ruleset
