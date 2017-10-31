@@ -278,18 +278,18 @@ class DatabaseTest(object):
     def _work(self, title=None, authors=None, genre=None, language=None,
               audience=None, fiction=True, with_license_pool=False, 
               with_open_access_download=False, quality=0.5, series=None,
-              presentation_edition=None, collection=None):
+              presentation_edition=None, collection=None, data_source_name=None):
         pools = []
         if with_open_access_download:
             with_license_pool = True
         language = language or "eng"
         title = unicode(title or self._str)
         audience = audience or Classifier.AUDIENCE_ADULT
-        if audience == Classifier.AUDIENCE_CHILDREN:
+        if audience == Classifier.AUDIENCE_CHILDREN and not data_source_name:
             # TODO: This is necessary because Gutenberg's childrens books
             # get filtered out at the moment.
             data_source_name = DataSource.OVERDRIVE
-        else:
+        elif not data_source_name:
             data_source_name = DataSource.GUTENBERG
         if fiction is None:
             fiction = True
