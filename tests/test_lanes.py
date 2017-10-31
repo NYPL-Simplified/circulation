@@ -9,15 +9,17 @@ from . import (
 from core.classifier import Classifier
 from core.lane import (
     Lane,
-    LaneList,
+    WorkList,
 )
 from core.metadata_layer import Metadata
 from core.model import (
+    create,
     Contribution,
     Contributor,
     SessionManager,
     DataSource,
     ExternalIntegration,
+    Library,
 )
 
 from api.config import (
@@ -25,11 +27,11 @@ from api.config import (
     temp_config,
 )
 from api.lanes import (
-    make_lanes,
-    make_lanes_default,
-    lanes_for_large_collection,
-    lane_for_small_collection,
-    lane_for_other_languages,
+    create_default_lanes,
+    create_lanes_for_large_collection,
+    create_lane_for_small_collection,
+    create_lane_for_tiny_collections,
+    load_lanes,
     ContributorLane,
     RecommendationLane,
     RelatedBooksLane,
@@ -41,20 +43,26 @@ from api.novelist import MockNoveListAPI
 
 class TestLaneCreation(DatabaseTest):
 
-    def test_lanes_for_large_collection(self):
+    def test_create_lanes_for_large_collection(self):
         languages = ['eng', 'spa']
-        lanes = lanes_for_large_collection(self._db, self._default_library, languages)
-        [lane] = lanes
+        create_lanes_for_large_collection(self._db, self._default_library, languages)
+        [lane] = self._db.query(Lane).filter(Lane.parent_id==None).all()
 
         # We have one top-level lane for English & Spanish
-        eq_(u'English/español', lane.name)
-        assert lane.invisible
+        eq_(self._default_library, lane.library)
+        eq_(u'English/español', lane.identifier)
+        eq_(u'English/español', lane.display_name)
 
         # The top-level lane has five sublanes.
         eq_(
-            [u'English/español - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 
+            [u'English/español %s' % s for s in ['Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 
+             'Young Adult Nonfiction', 'Children and Middle Grade']],
+            [x.identifier for x in lane.visible_children]
+        )
+        eq_(
+            ['Fiction', 'Nonfiction', 'Young Adult Fiction',
              'Young Adult Nonfiction', 'Children and Middle Grade'],
-            [x.name for x in lane.sublanes]
+            [x.display_name for x in lane.sublanes]
         )
 
         # They all are restricted to English and Spanish.
@@ -62,92 +70,98 @@ class TestLaneCreation(DatabaseTest):
 
         # The Adult Fiction and Adult Nonfiction lanes reproduce the
         # genre structure found in the genre definitions.
-        fiction, nonfiction = lane.sublanes.lanes[1:3]
-        [sf] = [x for x in fiction.sublanes.lanes if x.name=='Science Fiction']
-        [periodicals] = [x for x in nonfiction.sublanes.lanes if x.name=='Periodicals']
-        [humor] = [x for x in nonfiction.sublanes.lanes if x.name=='Humorous Nonfiction']
+        fiction, nonfiction = lane.visible_children[0:2]
+        [sf] = [x for x in fiction.sublanes if 'Science Fiction' in x.identifier]
+        [periodicals] = [x for x in nonfiction.sublanes if 'Periodicals' in x.identifier]
+        [humor] = [x for x in nonfiction.sublanes if 'Humorous Nonfiction' in x.identifier]
         eq_(True, sf.fiction)
-        eq_("Science Fiction", sf.name)
+        eq_("Science Fiction", sf.display_name)
         eq_("Humor", humor.display_name)
-        assert 'Science Fiction' in sf.genre_names
-        assert 'Cyberpunk' in sf.genre_names
-        assert periodicals.invisible
+        assert 'Science Fiction' in [genre.name for genre in sf.genres]
 
-        [space_opera] = [x for x in sf.sublanes.lanes if x.name=='Space Opera']
+        [space_opera] = [x for x in sf.sublanes if 'Space Opera' in x.identifier]
         eq_(True, sf.fiction)
-        eq_("Space Opera", space_opera.name)
-        eq_(["Space Opera"], space_opera.genre_names)
+        eq_("Space Opera", space_opera.display_name)
+        eq_(["Space Opera"], [genre.name for genre in space_opera.genres])
 
-        [history] = [x for x in nonfiction.sublanes.lanes if x.name=='History']
+        [history] = [x for x in nonfiction.sublanes if 'History' in x.identifier]
         eq_(False, history.fiction)
-        eq_("History", history.name)
-        assert 'History' in history.genre_names
-        assert 'European History' in history.genre_names
+        eq_("History", history.display_name)
+        assert 'History' in [genre.name for genre in history.genres]
+        [european_history] = [x for x in history.sublanes if 'European History' in x.identifier]
+        assert 'European History' in [genre.name for genre in european_history.genres]
 
-        # The Children lane is searchable; the others are not.
-        ya_fiction, ya_nonfiction, children = lane.sublanes.lanes[3:6]
-        eq_(False, nonfiction.searchable)
-        eq_(False, ya_fiction.searchable)
+        # Delete existing lanes.
+        for lane in self._db.query(Lane).filter(Lane.library_id==self._default_library.id):
+            self._db.delete(lane)
 
-        eq_("Children and Middle Grade", children.name)
-        eq_(True, children.searchable)
+        # If there's an NYT Best Sellers integration and we create the lanes again...
+        integration, ignore = create(
+            self._db, ExternalIntegration, goal=ExternalIntegration.METADATA_GOAL,
+            protocol=ExternalIntegration.NYT)
 
-    def test_lane_for_small_collection(self):
-        lane = lane_for_small_collection(self._db, self._default_library, ['eng', 'spa', 'chi'])
-        eq_(u"English/español/Chinese", lane.display_name)
-        sublanes = lane.sublanes.lanes
+        create_lanes_for_large_collection(self._db, self._default_library, languages)
+        [lane] = self._db.query(Lane).filter(Lane.parent_id==None).all()
+
+        # The top-level lane has six sublanes, with best sellers at the beginning.
         eq_(
-            ['Adult Fiction', 'Adult Nonfiction', 'Children & Young Adult'],
-            [x.name for x in sublanes]
+            [u'English/español %s' % s for s in ['Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 
+             'Young Adult Nonfiction', 'Children and Middle Grade']],
+            [x.identifier for x in lane.visible_children]
+        )
+
+        # Each sublane other than best sellers also contains a best sellers lane.
+        for sublane in lane.visible_children[1:]:
+            best_sellers = sublane.visible_children[0]
+            assert "Best Sellers" in best_sellers.identifier
+            eq_("Best Sellers", best_sellers.display_name)
+
+
+    def test_create_lane_for_small_collection(self):
+        create_lane_for_small_collection(self._db, self._default_library, ['eng', 'spa', 'chi'])
+        [lane] = self._db.query(Lane).filter(Lane.parent_id==None).all()
+        eq_(u"English/español/Chinese", lane.display_name)
+        sublanes = lane.visible_children
+        eq_(
+            [u"English/español/Chinese %s" % s for s in['Adult Fiction', 'Adult Nonfiction', 'Children & Young Adult']],
+            [x.identifier for x in sublanes]
+        )
+        eq_(
+            ['Fiction', 'Nonfiction', 'Children & Young Adult'],
+            [x.display_name for x in sublanes]
         )
         eq_(
             [set(['Adults Only', 'Adult']), 
              set(['Adults Only', 'Adult']), 
              set(['Young Adult', 'Children'])],
-            [x.audiences for x in sublanes]
+            [set(x.audiences) for x in sublanes]
         )
-        eq_([True, False, Lane.BOTH_FICTION_AND_NONFICTION],
+        eq_([True, False, None],
             [x.fiction for x in sublanes]
         )
 
     def test_lane_for_other_languages(self):
-
-        library = self._default_library
-        library.setting(
-            Configuration.TINY_COLLECTION_LANGUAGES
-        ).value = json.dumps(
-            ['ger','fre','ita']
-        )
-
-        exclude = ['eng', 'spa']
-        lane = lane_for_other_languages(self._db, self._default_library, exclude)
-        eq_(None, lane.languages)
-        eq_(exclude, lane.exclude_languages)
-        eq_("Other Languages", lane.name)
-        eq_(
-            ['Deutsch', u'français', 'Italiano'],
-            [x.name for x in lane.sublanes.lanes]
-        )
-        eq_([['ger'], ['fre'], ['ita']],
-            [x.languages for x in lane.sublanes.lanes]
-        )
-
         # If no tiny languages are configured, the other languages lane
         # doesn't show up.
-        library.setting(Configuration.TINY_COLLECTION_LANGUAGES).value = '[]'
-        library.setting(
-            Configuration.LARGE_COLLECTION_LANGUAGES
-        ).value = json.dumps(
-            ['eng']
+        create_lane_for_tiny_collections(self._db, self._default_library, [])
+        eq_(0, self._db.query(Lane).filter(Lane.parent_id==None).count())
+
+
+        create_lane_for_tiny_collections(self._db, self._default_library, ['ger', 'fre', 'ita'])
+        [lane] = self._db.query(Lane).filter(Lane.parent_id==None).all()
+        eq_(['ger', 'fre', 'ita'], lane.languages)
+        eq_("Other Languages", lane.identifier)
+        eq_("Other Languages", lane.display_name)
+        eq_(
+            ['Deutsch', u'français', 'Italiano'],
+            [x.display_name for x in lane.visible_children]
+        )
+        eq_([['ger'], ['fre'], ['ita']],
+            [x.languages for x in lane.visible_children]
         )
 
-        exclude = ['eng', 'spa']
-        lane = lane_for_other_languages(
-            self._db, self._default_library, exclude
-        )
-        eq_(None, lane)
 
-    def test_make_lanes_default(self):
+    def test_create_default_lanes(self):
         library = self._default_library
         library.setting(
             Configuration.LARGE_COLLECTION_LANGUAGES
@@ -167,26 +181,48 @@ class TestLaneCreation(DatabaseTest):
             ['ger','fre','ita']
         )
 
-        lane_list = make_lanes_default(self._db, self._default_library)
-
-        assert isinstance(lane_list, LaneList)
-        lanes = lane_list.lanes
+        create_default_lanes(self._db, self._default_library)
+        lanes = self._db.query(Lane).filter(Lane.library==library).filter(Lane.parent_id==None).all()
 
         # We have a top-level lane for the large collections,
         # a top-level lane for each small collection, and a lane
         # for everything left over.
-        eq_(['English', u'español', 'Chinese', 'Other Languages'],
-            [x.name for x in lane_list.lanes]
+        eq_(set(['English', u'español', 'Chinese', 'Other Languages']),
+            set([x.display_name for x in lanes])
         )
 
-        english_lane = lanes[0]
-        eq_(['English - Best Sellers', 'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
-            [x.name for x in english_lane.sublanes.lanes]
+        [english_lane] = [x for x in lanes if x.display_name == 'English']
+        eq_(['English Adult Fiction', 'English Adult Nonfiction', 'English Young Adult Fiction', 'English Young Adult Nonfiction', 'English Children and Middle Grade'],
+            [x.identifier for x in english_lane.visible_children]
         )
-        eq_(['Best Sellers', 'Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
-            [x.display_name for x in english_lane.sublanes.lanes]
+        eq_(['Fiction', 'Nonfiction', 'Young Adult Fiction', 'Young Adult Nonfiction', 'Children and Middle Grade'],
+            [x.display_name for x in english_lane.visible_children]
         )
 
+    def test_load_lanes(self):
+        # These two top-level lanes should be children of the WorkList.
+        lane1, ignore = create(self._db, Lane, identifier="Top-level Lane 1", library=self._default_library, priority=0)
+        lane2, ignore = create(self._db, Lane, identifier="Top-level Lane 2", library=self._default_library, priority=1)
+
+        # This lane is invisible and will be filtered out.
+        invisible_lane, ignore = create(self._db, Lane, identifier="Invisible Lane", library=self._default_library)
+        invisible_lane.visible = False
+
+        # This lane has a parent and will be filtered out.
+        sublane, ignore = create(self._db, Lane, identifier="Sublane", library=self._default_library)
+        lane1.sublanes.append(sublane)
+
+        # This lane belongs to a different library.
+        other_library, ignore = create(self._db, Library, name="Other Library", short_name="Other")
+        other_library_lane, ignore = create(self._db, Lane, identifier="Other Library Lane", library=other_library)
+
+        # The default library gets a WorkList with the two top-level lanes as children.
+        wl = load_lanes(self._db, self._default_library)
+        eq_([lane1, lane2], wl.children)
+
+        # The other library only has one top-level lane, so we use that lane.
+        l = load_lanes(self._db, other_library)
+        eq_(other_library_lane, l)
 
 class TestWorkBasedLane(DatabaseTest):
 

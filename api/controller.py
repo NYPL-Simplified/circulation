@@ -520,12 +520,11 @@ class IndexController(CirculationManagerController):
             return patron
 
         policy = Configuration.root_lane_policy()
-        lane_info = policy.get(patron.external_type)
-        if lane_info is None:
+        lane_identifier = policy.get(patron.external_type)
+        if lane_identifier is None:
             return None
         else:
-            lang_key, name = lane_info
-            return self.load_lane(lang_key, name)
+            return self.load_lane(lane_identifier)
 
     def appropriate_index_for_patron_type(self):
         library_short_name = flask.request.library.short_name
@@ -546,8 +545,7 @@ class IndexController(CirculationManagerController):
             self.cdn_url_for(
                 'acquisition_groups', 
                 library_short_name=library_short_name,
-                languages=root_lane.language_key,
-                lane_name=root_lane.url_name
+                lane_identifier=root_lane.identifier,
             )
         )
 
@@ -606,15 +604,15 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(feed.content)
 
-    def search(self, languages, lane_name):
+    def search(self, lane_name):
 
-        lane = self.load_lane(languages, lane_name)
+        lane = self.load_lane(lane_name)
         if isinstance(lane, ProblemDetail):
             return lane
         query = flask.request.args.get('q')
         library_short_name = flask.request.library.short_name
         this_url = self.url_for(
-            'lane_search', languages=languages, lane_name=lane_name,
+            'lane_search', lane_name=lane_name,
             library_short_name=library_short_name,
         )
         if not query:

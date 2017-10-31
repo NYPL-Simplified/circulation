@@ -250,7 +250,7 @@ class ControllerTest(VendorIDTest):
         for k, v in [
                 (Configuration.LARGE_COLLECTION_LANGUAGES, []),
                 (Configuration.SMALL_COLLECTION_LANGUAGES, ['eng']),
-                (Configuration.TINY_COLLECTION_LANGUAGES, ['spa','chi'])
+                (Configuration.TINY_COLLECTION_LANGUAGES, ['spa','chi','fre'])
         ]:
             ConfigurationSetting.for_library(k, library).value = json.dumps(v)
         create_default_lanes(_db, library)
@@ -759,7 +759,7 @@ class TestIndexController(CirculationControllerTest):
             # Patrons of external type '1' get sent to the Adult
             # Fiction lane.
             config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY : { "1": ["eng", "Adult Fiction"]},
+                Configuration.ROOT_LANE_POLICY : { "1": "English Adult Fiction"},
             }
             with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
@@ -770,7 +770,7 @@ class TestIndexController(CirculationControllerTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
-                eq_("http://cdn/default/groups/eng/Adult%20Fiction", response.headers['location'])
+                eq_("http://cdn/default/groups/English%20Adult%20Fiction", response.headers['location'])
 
             # Now those patrons get sent to the top-level lane.
             config['policies'][Configuration.ROOT_LANE_POLICY] = { "1": None }
@@ -2239,7 +2239,7 @@ class TestFeedController(CirculationControllerTest):
 
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.feed(
-                'eng', 'Adult Fiction'
+                'English Adult Fiction'
             )
 
             assert self.english_1.title in response.data
@@ -2261,7 +2261,7 @@ class TestFeedController(CirculationControllerTest):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+            response = self.manager.opds_feeds.feed('English Adult Fiction')
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2278,7 +2278,7 @@ class TestFeedController(CirculationControllerTest):
             assert any('order=author' in x['href'] for x in facet_links)
 
             search_link = [x for x in links if x['rel'] == 'search'][0]['href']
-            assert search_link.endswith('/search/eng/Adult%20Fiction')
+            assert search_link.endswith('/search/English%20Adult%20Fiction')
 
             shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
             assert shelf_link.endswith('/loans/')
@@ -2317,7 +2317,7 @@ class TestFeedController(CirculationControllerTest):
             self._work("english work %i" % i, language="eng", fiction=True, with_open_access_download=True)
         
         with self.request_context_with_library("/"):
-            response = self.manager.opds_feeds.groups(None, None)
+            response = self.manager.opds_feeds.groups(None)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2352,7 +2352,7 @@ class TestFeedController(CirculationControllerTest):
 
         # Execute a search query designed to find the second one.
         with self.request_context_with_library("/?q=t&size=1&after=1"):
-            response = self.manager.opds_feeds.search(None, None)
+            response = self.manager.opds_feeds.search(None)
             feed = feedparser.parse(response.data)
             entries = feed['entries']
             eq_(1, len(entries))
