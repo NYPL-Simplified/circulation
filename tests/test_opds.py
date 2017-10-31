@@ -312,8 +312,8 @@ class TestOPDS(VendorIDTest):
         self._default_library.library_registry_short_name = "FAKE"
         self._default_library.library_registry_shared_secret = "s3cr3t5"
 
-        # A QueryGeneratedLane to test code that handles it differently.
-        #self.contributor_lane = ContributorLane(self._db, self._default_library, "Someone", languages=["eng"], audiences=None)
+        # A ContributorLane to test code that handles it differently.
+        self.contributor_lane = ContributorLane(self._default_library, "Someone", languages=["eng"], audiences=None)
 
     def test_default_lane_url(self):
         default_lane_url = self.annotator.default_lane_url()
