@@ -37,6 +37,11 @@ from core.lane import (
     Lane,
     WorkList,
 )
+from api.lanes import (
+    WorkBasedLane,
+    ContributorLane,
+    SeriesLane,
+)
 from core.app_server import cdn_url_for
 
 from adobe_vendor_id import AuthdataUtility
@@ -236,15 +241,20 @@ class CirculationManagerAnnotator(Annotator):
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
 
-        if not lane or not isinstance(lane, Lane):
+        if lane and isinstance(lane, Lane) and lane.sublanes:
+            url = self.groups_url(lane)
+        elif lane and (
+            isinstance(lane, Lane)
+            or isinstance(lane, WorkBasedLane)
+            or isinstance(lane, ContributorLane)
+            or isinstance(lane, SeriesLane)
+            ):
+            url = self.feed_url(lane)
+        else:
             # This lane isn't part of our lane hierarchy. It's probably
             # a WorkList created to represent the top-level. Use the top-level
             # url for it.
             url = self.default_lane_url()
-        elif lane.sublanes:
-            url = self.groups_url(lane)
-        else:
-            url = self.feed_url(lane)
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):

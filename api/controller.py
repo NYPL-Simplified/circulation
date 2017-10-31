@@ -1119,7 +1119,7 @@ class WorkController(CirculationManagerController):
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
-            self._db, library, contributor_name, languages=languages, audiences=audiences
+            library, contributor_name, languages=languages, audiences=audiences
         )
 
         annotator = self.manager.annotator(lane)
@@ -1176,7 +1176,7 @@ class WorkController(CirculationManagerController):
                 work.title, work.author
             )
             lane = RelatedBooksLane(
-                self._db, library, work, lane_name, novelist_api=novelist_api
+                library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # No related books were found.
@@ -1211,7 +1211,7 @@ class WorkController(CirculationManagerController):
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                self._db, library, work, lane_name, novelist_api=novelist_api
+                library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # NoveList isn't configured.
@@ -1268,7 +1268,7 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
         languages, audiences = self._lane_details(languages, audiences)
-        lane = SeriesLane(self._db, library, series_name=series_name,
+        lane = SeriesLane(library, series_name=series_name,
                           languages=languages, audiences=audiences
         )
         annotator = self.manager.annotator(lane)

@@ -1814,6 +1814,16 @@ class TestWorkController(CirculationControllerTest):
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_recommendations(self):
+        # TODO: This test creates its own work to avoid
+        # Gutenberg books getting filtered out, since
+        # the recommendation lanes have all audiences,
+        # including children and ya.
+        self.work = self._work("Quite British", "John Bull", with_license_pool=True, language="eng", data_source_name=DataSource.OVERDRIVE)
+        [self.lp] = self.work.license_pools
+        self.edition = self.lp.presentation_edition
+        self.datasource = self.lp.data_source.name
+        self.identifier = self.lp.identifier
+
         # Prep an empty recommendation.
         source = DataSource.lookup(self._db, self.datasource)
         metadata = Metadata(source)
@@ -1855,7 +1865,7 @@ class TestWorkController(CirculationControllerTest):
         # Delete the cache and prep a recommendation result.
         [cached_empty_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_empty_feed)
-        metadata.recommendations = [self.english_1.license_pools[0].identifier]
+        metadata.recommendations = [self.work.license_pools[0].identifier]
         mock_api.setup(metadata)
 
         SessionManager.refresh_materialized_views(self._db)
@@ -1870,8 +1880,8 @@ class TestWorkController(CirculationControllerTest):
 
         eq_('Recommended Books', feed.feed.title)
         [entry] = feed.entries
-        eq_(self.english_1.title, entry['title'])
-        author = self.english_1.presentation_edition.author_contributors[0]
+        eq_(self.work.title, entry['title'])
+        author = self.work.presentation_edition.author_contributors[0]
         expected_author_name = author.display_name or author.sort_name
         eq_(expected_author_name, entry.author)
 
@@ -1888,14 +1898,14 @@ class TestWorkController(CirculationControllerTest):
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
-        another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
+        another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True, data_source_name=DataSource.OVERDRIVE)
 
         # Delete the cache again and prep a recommendation result.
         [cached_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_feed)
 
         metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
+            self.work.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -1913,10 +1923,10 @@ class TestWorkController(CirculationControllerTest):
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
         eq_(another_work.title, entry1['title'])
-        eq_(self.english_1.title, entry2['title'])
+        eq_(self.work.title, entry2['title'])
 
         metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
+            self.work.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -1931,11 +1941,11 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
-        eq_(self.english_1.title, entry1['title'])
+        eq_(self.work.title, entry1['title'])
         eq_(another_work.title, entry2['title'])
 
         metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
+            self.work.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -1954,7 +1964,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(another_work.title, entry['title'])
 
         metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
+            self.work.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -1969,10 +1979,20 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(1, len(feed['entries']))
         [entry] = feed['entries']
-        eq_(self.english_1.title, entry['title'])
+        eq_(self.work.title, entry['title'])
 
     def test_related_books(self):
         # A book with no related books returns a ProblemDetail.
+
+        # TODO: This test creates its own work to avoid
+        # Gutenberg books getting filtered out, since
+        # the recommendation lanes have all audiences,
+        # including children and ya.
+        self.work = self._work("Quite British", "John Bull", with_license_pool=True, language="eng", data_source_name=DataSource.OVERDRIVE)
+        [self.lp] = self.work.license_pools
+        self.edition = self.lp.presentation_edition
+        self.datasource = self.lp.data_source.name
+        self.identifier = self.lp.identifier
 
         # Remove contribution.
         [contribution] = self.edition.contributions
@@ -1992,7 +2012,8 @@ class TestWorkController(CirculationControllerTest):
         self.lp.presentation_edition.add_contributor(original, role)
         same_author = self._work(
             "What is Sunday?", original.display_name,
-            language="eng", fiction=True, with_open_access_download=True
+            language="eng", fiction=True, with_open_access_download=True,
+            data_source_name=DataSource.OVERDRIVE
         )
         duplicate = same_author.presentation_edition.contributions[0].contributor
         original.display_name = duplicate.display_name = u"John Bull"
@@ -2002,9 +2023,9 @@ class TestWorkController(CirculationControllerTest):
 
         same_series_work = self._work(
             title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True,
-            series="Around the World")
+            series="Around the World", data_source_name=DataSource.OVERDRIVE)
         same_series_work.presentation_edition.series_position = 0
-        self.english_1.calculate_presentation(
+        self.work.calculate_presentation(
             PresentationCalculationPolicy(regenerate_opds_entries=True),
             DummyExternalSearchIndex()
         )
@@ -2040,13 +2061,13 @@ class TestWorkController(CirculationControllerTest):
             for link in e['links']:
                 if link['rel'] != 'collection':
                     continue
-                if link['title'] == 'Recommended Books':
+                if link['title'] == 'Recommendations for Quite British by John Bull':
                     recommendations.append(e)
                 elif link['title'] == 'Around the World':
                     same_series.append(e)
                 elif link['title'] == 'John Bull':
                     same_contributor.append(e)
-                if e['title'] == self.english_1.title:
+                if e['title'] == self.work.title:
                     feeds_with_original_book.append(link['title'])
 
         [recommendation] = recommendations
@@ -2075,7 +2096,7 @@ class TestWorkController(CirculationControllerTest):
         # The series feed is sorted by series position.
         [series_e1, series_e2] = same_series
         eq_(same_series_work.title, series_e1['title'])
-        eq_(self.english_1.title, series_e2['title'])
+        eq_(self.work.title, series_e2['title'])
 
     def test_report_problem_get(self):
         with self.request_context_with_library("/"):

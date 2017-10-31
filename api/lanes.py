@@ -27,6 +27,7 @@ from core.model import (
     Edition,
     ExternalIntegration,
     LicensePool,
+    Session,
     Work,
 )
 
@@ -752,8 +753,8 @@ class WorkBasedLane(WorkList):
     DISPLAY_NAME = None
     ROUTE = None
 
-    def __init__(self, _db, library, work, full_name, display_name=None,
-                 sublanes=[], invisible=False, **kwargs):
+    def __init__(self, library, work, display_name=None,
+                 children=[], **kwargs):
         self.work = work
         self.edition = work.presentation_edition
 
@@ -764,8 +765,8 @@ class WorkBasedLane(WorkList):
 
         display_name = display_name or self.DISPLAY_NAME
 
-        super(WorkBasedLane, self).__init__(
-            _db, library, full_name, display_name=display_name, sublanes=sublanes,
+        super(WorkBasedLane, self).initialize(
+            library, display_name=display_name, children=children,
             languages=languages, audiences=audiences, **kwargs
         )
 
@@ -787,7 +788,7 @@ class WorkBasedLane(WorkList):
         if self.source_audience == Classifier.AUDIENCE_YOUNG_ADULT:
             return Classifier.AUDIENCES_JUVENILE
         else:
-            return Classifier.AUDIENCE_CHILDREN
+            return [Classifier.AUDIENCE_CHILDREN]
 
 
 class RelatedBooksLane(WorkBasedLane):
@@ -800,18 +801,18 @@ class RelatedBooksLane(WorkBasedLane):
     DISPLAY_NAME = "Related Books"
     ROUTE = 'related_books'
 
-    def __init__(self, _db, library, work, full_name, display_name=None,
+    def __init__(self, library, work, display_name=None,
                  novelist_api=None):
         super(RelatedBooksLane, self).__init__(
-            _db, library, work, full_name, display_name=display_name,
-            invisible=True, searchable=False,
+            library, work, display_name=display_name,
         )
+        _db = Session.object_session(library)
         sublanes = self._get_sublanes(_db, novelist_api)
         if not sublanes:
             raise ValueError(
                 "No related books for %s by %s" % (self.work.title, self.work.author)
             )
-        self.set_sublanes(self.library, sublanes, [])
+        self.children = sublanes
 
     def _get_sublanes(self, _db, novelist_api):
         sublanes = list()
@@ -825,7 +826,7 @@ class RelatedBooksLane(WorkBasedLane):
         # Create a series sublane.
         series_name = self.edition.series
         if series_name:
-            sublanes.append(SeriesLane(_db, self.library, series_name, parent=self))
+            sublanes.append(SeriesLane(self.get_library(_db), series_name, parent=self, languages=self.languages))
 
         return sublanes
 
@@ -850,7 +851,8 @@ class RelatedBooksLane(WorkBasedLane):
                 contributor_name = contributor.sort_name
 
             contributor_lane = ContributorLane(
-                _db, self.library, contributor_name, parent=self
+                self.get_library(_db), contributor_name, parent=self,
+                languages=self.languages, audiences=self.audiences,
             )
             yield contributor_lane
 
@@ -861,19 +863,14 @@ class RelatedBooksLane(WorkBasedLane):
                 self.work.title, self.work.author
             )
             recommendation_lane = RecommendationLane(
-                _db, self.library, self.work, lane_name, novelist_api=novelist_api,
-                parent=self
+                self.get_library(_db), self.work, lane_name, novelist_api=novelist_api,
+                parent=self,
             )
             if recommendation_lane.recommendations:
                 yield recommendation_lane
         except ValueError, e:
             # NoveList isn't configured.
             pass
-
-    def lane_query_hook(self, qu, **kwargs):
-        # This lane is composed entirely of sublanes and
-        # should only be used to create groups feeds.
-        return None
 
 
 class RecommendationLane(WorkBasedLane):
@@ -883,35 +880,37 @@ class RecommendationLane(WorkBasedLane):
     ROUTE = "recommendations"
     MAX_CACHE_AGE = 7*24*60*60      # one week
 
-    def __init__(self, _db, library, work, full_name, display_name=None,
+    def __init__(self, library, work, display_name=None,
                  novelist_api=None, parent=None):
         super(RecommendationLane, self).__init__(
-            _db, library, work, full_name, display_name=display_name,
-            parent=parent, searchable=False,
+            library, work, display_name=display_name,
         )
+        _db = Session.object_session(library)
         self.api = novelist_api or NoveListAPI.from_config(library)
-        self.recommendations = self.fetch_recommendations()
+        self.recommendations = self.fetch_recommendations(_db)
+        if parent:
+            parent.children.append(self)
 
-    def fetch_recommendations(self):
+    def fetch_recommendations(self, _db):
         """Get identifiers of recommendations for this LicensePool"""
 
         metadata = self.api.lookup(self.edition.primary_identifier)
         if metadata:
-            metadata.filter_recommendations(self._db)
+            metadata.filter_recommendations(_db)
             return metadata.recommendations
         return []
 
-    def lane_query_hook(self, qu, work_model=Work):
+    def apply_filters(self, _db, qu, work_model, facets, pagination, featured=False):
         if not self.recommendations:
             return None
 
         if work_model != Work:
             qu = qu.join(LicensePool.identifier)
         qu = Work.from_identifiers(
-            self._db, self.recommendations, base_query=qu
+            _db, self.recommendations, base_query=qu
         )
-        return qu
-
+        return super(RecommendationLane, self).apply_filters(
+            _db, qu, work_model, facets, pagination, featured=featured)
 
 class SeriesLane(WorkList):
     """A lane of Works in a particular series"""
@@ -919,22 +918,24 @@ class SeriesLane(WorkList):
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, _db, library, series_name, parent=None, languages=None,
+    def __init__(self, library, series_name, parent=None, languages=None,
                  audiences=None):
         if not series_name:
             raise ValueError("SeriesLane can't be created without series")
         self.series = series_name
-        full_name = display_name = self.series
+        display_name = self.series
 
-        if parent:
+        if parent and isinstance(parent, WorkBasedLane):
             # In an attempt to secure the accurate series, limit the
             # listing to the source's audience sourced from parent data.
             audiences = [parent.source_audience]
 
-        super(SeriesLane, self).__init__(
-            _db, library, full_name, parent=parent, display_name=display_name,
-            audiences=audiences, languages=languages, searchable=False,
+        super(SeriesLane, self).initialize(
+            library, display_name=display_name,
+            audiences=audiences, languages=languages,
         )
+        if parent:
+            parent.children.append(self)
 
     @property
     def url_arguments(self):
@@ -945,21 +946,18 @@ class SeriesLane(WorkList):
         )
         return self.ROUTE, kwargs
 
-    def featured_works(self, use_materialized_works=True):
-        if not use_materialized_works:
-            qu = self.works()
-        else:
-            qu = self.materialized_works()
+    def featured_works(self, _db):
+        qu = self.works(_db)
 
         # Aliasing Edition here allows this query to function
         # regardless of work_model and existing joins.
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).order_by(work_edition.series_position, work_edition.title)
-        target_size = self.library.featured_lane_size
+        target_size = self.get_library(_db).featured_lane_size
         qu = qu.limit(target_size)
         return qu.all()
 
-    def lane_query_hook(self, qu, **kwargs):
+    def apply_filters(self, _db, qu, work_model, facets, pagination, featured=False):
         if not self.series:
             return None
 
@@ -967,7 +965,8 @@ class SeriesLane(WorkList):
         # regardless of work_model and existing joins.
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).filter(work_edition.series==self.series)
-        return qu
+        return super(SeriesLane, self).apply_filters(
+            _db, qu, work_model, facets, pagination, featured)
 
 
 class ContributorLane(WorkList):
@@ -976,18 +975,21 @@ class ContributorLane(WorkList):
     ROUTE = 'contributor'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
 
-    def __init__(self, _db, library, contributor_name,
+    def __init__(self, library, contributor_name,
                  parent=None, languages=None, audiences=None):
         if not contributor_name:
             raise ValueError("ContributorLane can't be created without contributor")
 
         self.contributor_name = contributor_name
-        full_name = display_name = contributor_name
-        super(ContributorLane, self).__init__(
-            _db, library, full_name, display_name=display_name, parent=parent,
-            audiences=audiences, languages=languages, searchable=False,
+        display_name = contributor_name
+        super(ContributorLane, self).initialize(
+            library, display_name=display_name,
+            audiences=audiences, languages=languages,
         )
-        self.contributors = self._db.query(Contributor)\
+        if parent:
+            parent.children.append(self)
+        _db = Session.object_session(library)
+        self.contributors = _db.query(Contributor)\
                 .filter(or_(*self.contributor_name_clauses)).all()
 
     @property
@@ -1006,7 +1008,7 @@ class ContributorLane(WorkList):
             Contributor.sort_name==self.contributor_name
         ]
 
-    def lane_query_hook(self, qu, **kwargs):
+    def apply_filters(self, _db, qu, work_model, facets, pagination, featured=False):
         if not self.contributor_name:
             return None
 
@@ -1028,4 +1030,5 @@ class ContributorLane(WorkList):
         or_clause = or_(*clauses)
         qu = qu.filter(or_clause)
 
-        return qu
+        return super(ContributorLane, self).apply_filters(
+            _db, qu, work_model, facets, pagination, featured=featured)
