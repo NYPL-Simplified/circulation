@@ -489,7 +489,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         license_pool = get_one(self._db, LicensePool, id=license_pool_id)
         if not license_pool:
             return INVALID_INPUT.detailed(
-                _("License Pool #%d does not exist.") % license_pool_id
+                _("License Pool #%s does not exist.") % license_pool_id
             )
         return license_pool
 
