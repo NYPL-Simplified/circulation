@@ -21,7 +21,6 @@ class MatchingRule(object):
     """
 
     def __init__(self, result, *ruleset):
-
         if result is None:
             raise ValueError(
                 "MatchingRule returns None on a non-match, it can't also return None on a match."
@@ -194,13 +193,19 @@ class BISACClassifier(Classifier):
         for x in csv.reader(open(os.path.join(resource_dir, "bisac.csv")))
     )
 
+    # Indicates that even though this rule doesn't match a subject, no
+    # further rules in the same category should be run on it, because they
+    # will lead to inaccurate information.
+    stop = object()
+
     # If none of these rules match, a lane's fiction status depends on the
     # genre assigned to it.
     FICTION = [
         m(True, "Fiction"),
         m(True, "Juvenile Fiction"),
         m(False, "Juvenile Nonfiction"),
-        m(False, "Nonfiction"),
+        m(stop, "Humor"),
+        m(False, anything),
     ]
 
     # In BISAC, juvenile fiction is kept in a separate space. Nearly
@@ -515,6 +520,8 @@ class BISACClassifier(Classifier):
     def is_fiction(cls, identifier, name):
         for ruleset in cls.FICTION:
             fiction = ruleset.match(*name)
+            if fiction is cls.stop:
+                return None
             if fiction is not None:
                 return fiction
 
@@ -522,21 +529,28 @@ class BISACClassifier(Classifier):
     def audience(cls, identifier, name):
         for ruleset in cls.AUDIENCE:
             audience = ruleset.match(*name)
+            if audience is cls.stop:
+                return None
             if audience is not None:
                 return audience
+
 
     @classmethod
     def target_age(cls, identifier, name):
         for ruleset in cls.TARGET_AGE:
-            audience = ruleset.match(*name)
-            if audience is not None:
-                return audience
+            target_age = ruleset.match(*name)
+            if target_age is cls.stop:
+                return None
+            if target_age is not None:
+                return target_age
 
     @classmethod
     def genre(cls, identifier, name, fiction, audience):
         for ruleset in cls.GENRE:
             genre = ruleset.match(*name)
-            if genre:
+            if genre is cls.stop:
+                return None
+            if genre is not None:
                 return genre
 
     @classmethod

@@ -85,6 +85,7 @@ class ExternalSearchIndex(object):
             raise CannotLoadConfiguration(
                 "Cannot load Elasticsearch configuration without a database.",
             )
+        set_trace()
         if not url or not works_index:
             integration = self.search_integration(_db)
             if not integration:

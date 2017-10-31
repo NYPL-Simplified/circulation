@@ -13,6 +13,7 @@ from classifier.bisac import (
     BISACClassifier,
     m,    
 )
+from classifier import Classifier
 
 class TestMatchingRule(object):
 
@@ -106,6 +107,11 @@ class MockSubject(object):
 
 class TestBISACClassifier(object):        
 
+    def _subject(self, identifier, name):
+        subject = MockSubject(identifier, name)
+        subject.genre, subject.audience, subject.target_age, subject.fiction = BISACClassifier.classify(subject)
+        return subject
+
     def test_every_rule_fires(self):
         """There's no point in having a rule that doesn't catch any real BISAC
         subjects. The presence of such a rule generally indicates a
@@ -114,10 +120,7 @@ class TestBISACClassifier(object):
         """
         subjects = []
         for identifier, name in sorted(BISACClassifier.NAMES.items()):
-            subject = MockSubject(identifier, name)
-            subjects.append(subject)
-            subject.genre, subject.audience, subject.target_age, subject.fiction = BISACClassifier.classify(subject)
-
+            subjects.append(self._subject(identifier, name))
         for i in BISACClassifier.FICTION:
             if i.caught == []:
                 raise Exception(
@@ -130,6 +133,22 @@ class TestBISACClassifier(object):
                     "Genre rule %s didn't catch anything!" % i.ruleset
                 )
 
+        need_fiction = []
+        need_audience = []
+        for subject in subjects:
+            if subject.fiction is None:
+                need_fiction.append(subject)
+            if subject.audience is None:
+                need_audience.append(subject)
+
+        # We determined fiction/nonfiction status for every BISAC
+        # subject except the ones that start with 'humor'.
+        for subject in need_fiction:
+            assert subject.name.lower().startswith('humor')
+
+        # We determined the target audience for every BISAC subject.
+        eq_([], need_audience)
+
         # At this point, you can also create a list of subjects
         # that were not classified in some way. There are currently
         # about 240 such subjects, most of them under "Juvenile Fiction"
@@ -138,20 +157,27 @@ class TestBISACClassifier(object):
         # Not every subject has to be classified under a genre, but
         # if it's possible for one to be, it should be.
         #
-        # need_genre = sorted(x.name for x in subjects if not x.genre)
-        need_fiction = sorted(x.name for x in subjects if not x.fiction)
-        need_audience = sorted(x.name for x in subjects if not x.audience)
-        need_target_age = sorted(x.name for x in subjects if not x.target_age)
+        # need_genre = sorted(x.name for x in subjects if x.genre is None)
 
-    def test_every_fiction_rule_fires(self):
-        subjects = []
-        for identifier, name in sorted(BISACClassifier.NAMES.items()):
-            subject = MockSubject(identifier, name)
-            subjects.append(subject)
-            subject.genre, i1, i2, i3 = BISACClassifier.classify(subject)
-    
-        for i in BISACClassifier.GENRE:
-            if i.caught == []:
-                raise Exception(
-                    "Rule %s didn't catch anything!" % i.ruleset
-                )
+    def test_genre_spot_checks(self):
+        """Test some unusual cases with respect to how BISAC
+        classifications are turned into genres.
+        """
+        def genre_is(name, genre):
+            subject = self._subject("", name)
+            if genre and subject.genre:
+                eq_(genre, subject.genre.name)
+            else:
+                eq_(genre, subject.genre)
+
+        genre_is("Fiction / Science Fiction / Erotica", "Erotica")
+        genre_is("Literary Criticism / Science Fiction", "Literary Criticism")
+        genre_is("Fiction / Christian / Science Fiction", "Religious Fiction")
+        genre_is("Fiction / Science Fiction / Short Stories", "Short Stories")
+        genre_is("Fiction / Steampunk", "Steampunk")
+        genre_is("Fiction / Science Fiction / Steampunk", "Steampunk")
+
+        genre_is("Fiction / African-American / Urban", "Urban Fiction")
+        genre_is("Fiction / Urban", None)
+        genre_is("Juvenile Nonfiction / Science and Nature / Fossils", "Nature")
+        genre_is("Juvenile Nonfiction / Science and Nature / Phsycis", "Science")
