@@ -234,13 +234,15 @@ class BISACClassifier(Classifier):
         # Put all non-erotica comics into the same bucket, regardless
         # of their content.
         m(Comics_Graphic_Novels, 'Comics & Graphic Novels'),
+        m(Comics_Graphic_Novels, nonfiction, 'Comics & Graphic Novels'),
+        m(Comics_Graphic_Novels, fiction, 'Comics & Graphic Novels'),
 
         # "Literary Criticism / Foo" implies Literary Criticism, not Foo.
 	m(Literary_Criticism, anything, 'Literary Criticism'),
 
         # "Fiction / Christian / Foo" implies Religious Fiction
         # more strongly than it implies Foo.
-        m(Religious_Fiction, fiction, 'Christian'),
+        m(Religious_Fiction, fiction, anything, 'Christian'),
 
         # "Fiction / Foo / Short Stories" implies Short Stories more
         # strongly than it implies Foo. This assumes that a short
@@ -302,7 +304,8 @@ class BISACClassifier(Classifier):
         m(Space_Opera, fiction, 'Science Fiction', 'Space Opera'),
         m(Military_SF, fiction, 'Science Fiction', 'Military'),
         m(Alternative_History, fiction, 'Alternative History'),
-        m(Steampunk, fiction, 'Science Fiction', 'Steampunk'),
+        # Juvenile steampunk is classified directly beneath 'fiction'.
+        m(Steampunk, fiction, anything, 'Steampunk'),
         m(Science_Fiction, fiction, 'Science Fiction'),
 
         # Thrillers
@@ -327,6 +330,7 @@ class BISACClassifier(Classifier):
         m(Literary_Fiction, fiction, 'Literary'),
         m(LGBTQ_Fiction, fiction, 'Gay'),
         m(LGBTQ_Fiction, fiction, 'Lesbian'),
+        m(LGBTQ_Fiction, fiction, 'Gay & Lesbian'),
         m(Religious_Fiction, fiction, 'Religious'),
         m(Religious_Fiction, fiction, 'Jewish'),
         m(Religious_Fiction, fiction, 'Visionary & Metaphysical'),
@@ -353,11 +357,13 @@ class BISACClassifier(Classifier):
         #
 
         # Art & Design
+        m(Architecture, nonfiction, 'Architecture'),
         m(Art_Criticism_Theory, nonfiction, 'Art', 'Criticism & Theory'),
         m(Art_History, nonfiction, 'Art', 'History'),
         m(Fashion, nonfiction, 'Design', 'Fashion'),
         m(Design, nonfiction, 'Design'),
         m(Art_Design, nonfiction, 'Art'),
+        m(Photography, nonfiction, 'Photography'),
 
         # Personal Finance & Business
         m(Business, nonfiction, 'Business & Economics', re.compile('^Business.*')),
@@ -422,12 +428,15 @@ class BISACClassifier(Classifier):
         m(Law, nonfiction, 'Law'),
         m(Study_Aids, nonfiction, 'Study Aids'),
         m(Reference_Study_Aids, nonfiction, 'Reference'),
+        # m(Reference_Study_Aids, nonfiction, 'Linguistics'),
+        m(Reference_Study_Aids, nonfiction, 'Language Arts & Disciplines'),
 
         # Religion & Spirituality
         m(Body_Mind_Spirit, nonfiction, 'Body, Mind & Spirit'),
         m(Buddhism, nonfiction, 'Religion', 'Buddhism'),
         m(Christianity, nonfiction, 'Religion', re.compile('^Biblical')),
         m(Christianity, nonfiction, 'Religion', re.compile('^Christian')),
+        m(Christianity, nonfiction, 'Bibles'),
         m(Hinduism, nonfiction, 'Religion', 'Hinduism'),
         m(Islam, nonfiction, 'Religion', 'Islam'),
         m(Judaism, nonfiction, 'Religion', 'Judaism'),
@@ -436,35 +445,92 @@ class BISACClassifier(Classifier):
         # Science & Technology
         m(Computers, nonfiction, 'Computers'),
         m(Mathematics, nonfiction, 'Mathematics'),
+        m(Medical, nonfiction, 'Medical'),
         m(Nature, nonfiction, 'Nature'),
         m(Psychology, nonfiction, 'Psychology'),
 	m(Political_Science, nonfiction, 'Social Science', 'Politics & Government'),
         m(Social_Sciences, nonfiction, 'Social Science'),
         m(Technology, nonfiction, 'Technology'),
+        m(Technology, nonfiction, 'Technology & Engineering'),
+        m(Technology, nonfiction, 'Transportation'),
         m(Science, nonfiction, 'Science'),
 
         # Then handle the less complicated genres of nonfiction.
         # n.b. no BISAC for Periodicals.
         # n.b. no BISAC for Humorous Nonfiction per se.
+	m(Biography_Memoir, nonfiction, 'Biography & Autobiography'),
+        m(Education, nonfiction, "Education"),
 	m(Philosophy, nonfiction, 'Philosophy'),
 	m(Political_Science, nonfiction, 'Political Science'),
 	m(Self_Help, nonfiction, 'Self-Help'),
 	m(Sports, nonfiction, 'Sports & Recreation'),
 	m(Travel, nonfiction, 'Travel'),
 	m(True_Crime, nonfiction, 'True Crime'),
+
+        # Finally, handle cases where Juvenile Fiction/Nonfiction uses
+        # different terms than would be used for the same books for
+        # adults.
+        m(Christianity, nonfiction, "Religious", "Christian"),
+        m(Cooking, nonfiction, "Cooking & Food"),
+        m(Education, nonfiction, "School & Education"),
+        m(Family_Relationships, nonfiction, "Family"),
+        m(Fantasy, fiction, "Fantasy & Magic"),
+        m(Folklore, fiction, "Fairy Tales & Folklore"),
+        m(Folklore, fiction, "Legends, Myths, Fables"),
+        m(Games, nonfiction, "Games & Activities"),
+        m(Health_Diet, nonfiction, "Health & Daily Living"),
+        m(Horror, fiction, "Horror & Ghost Stories"),
+        m(Horror, fiction, "Monsters"),
+        m(Horror, fiction, "Paranormal"),
+        m(Humorous_Fiction, fiction, "Humorous Stories"),
+        m(Humorous_Nonfiction, nonfiction, "Humor"),
+        m(Law, nonfiction, "Law & Crime"),
+        m(Literary_Criticism, nonfiction, "Literary Criticism & Collections"),
+        m(Mystery, fiction, "Mysteries & Detective Stories"),
+        m(Nature, nonfiction, "Animals"),
+        m(Poetry, fiction, "Nursery Rhymes"),
+        m(Poetry, fiction, "Stories in Verse"),
+        m(Reference_Study_Aids, nonfiction, "Language Arts"),
+        m(Romance, fiction, "Love & Romance"),
+        m(Science_Fiction, fiction, "Robots"),
+        m(Social_Sciences, nonfiction, "Media Studies"),
+
+        # Most of the subcategories of 'Science & Nature' go into Nature,
+        # but these go into Science.
+        m(Science, nonfiction, 'Science & Nature', 'Discoveries'),
+        m(Science, nonfiction, 'Science & Nature', 'Experiments & Projects'),
+        m(Science, nonfiction, 'Science & Nature', 'History of Science'),
+        m(Science, nonfiction, 'Science & Nature', 'Physics'),
+        m(Science, nonfiction, 'Science & Nature', 'Weights & Measures'),
+        m(Science, nonfiction, 'Science & Nature', 'General'),
+        m(Nature, nonfiction, 'Science & Nature'),
+
+        # Life Strategies is juvenile-specific, and contains both fiction
+        # and nonfiction.
+        m(Life_Strategies, fiction, "social issues"),
+        m(Life_Strategies, nonfiction, "social issues"),
     ]
 
     @classmethod
     def is_fiction(cls, identifier, name):
-        pass
+        for ruleset in cls.FICTION:
+            fiction = ruleset.match(*name)
+            if fiction is not None:
+                return fiction
 
     @classmethod
     def audience(cls, identifier, name):
-        pass
+        for ruleset in cls.AUDIENCE:
+            audience = ruleset.match(*name)
+            if audience is not None:
+                return audience
 
     @classmethod
     def target_age(cls, identifier, name):
-        pass
+        for ruleset in cls.TARGET_AGE:
+            audience = ruleset.match(*name)
+            if audience is not None:
+                return audience
 
     @classmethod
     def genre(cls, identifier, name, fiction, audience):
@@ -476,8 +542,6 @@ class BISACClassifier(Classifier):
     @classmethod
     def scrub_name(cls, name):
         """Split the name into a list of lowercase keywords."""
-        parts = [x.strip().lower() for x in name.split('/')]
-        if parts[-1] == 'General': # "General" is never useful.
-            parts = parts[:-1]
-        return parts
+        return [x.strip().lower() for x in name.split('/')]
+
 

@@ -112,9 +112,43 @@ class TestBISACClassifier(object):
         bug -- usually a typo, or a rule is completely 'shadowed' by another
         rule above it.
         """
+        subjects = []
         for identifier, name in sorted(BISACClassifier.NAMES.items()):
             subject = MockSubject(identifier, name)
-            BISACClassifier.classify(subject)
+            subjects.append(subject)
+            subject.genre, subject.audience, subject.target_age, subject.fiction = BISACClassifier.classify(subject)
+
+        for i in BISACClassifier.FICTION:
+            if i.caught == []:
+                raise Exception(
+                    "Fiction rule %s didn't catch anything!" % i.ruleset
+                )
+    
+        for i in BISACClassifier.GENRE:
+            if i.caught == []:
+                raise Exception(
+                    "Genre rule %s didn't catch anything!" % i.ruleset
+                )
+
+        # At this point, you can also create a list of subjects
+        # that were not classified in some way. There are currently
+        # about 240 such subjects, most of them under "Juvenile Fiction"
+        # and "Juvenile Nonfiction".
+        #
+        # Not every subject has to be classified under a genre, but
+        # if it's possible for one to be, it should be.
+        #
+        # need_genre = sorted(x.name for x in subjects if not x.genre)
+        need_fiction = sorted(x.name for x in subjects if not x.fiction)
+        need_audience = sorted(x.name for x in subjects if not x.audience)
+        need_target_age = sorted(x.name for x in subjects if not x.target_age)
+
+    def test_every_fiction_rule_fires(self):
+        subjects = []
+        for identifier, name in sorted(BISACClassifier.NAMES.items()):
+            subject = MockSubject(identifier, name)
+            subjects.append(subject)
+            subject.genre, i1, i2, i3 = BISACClassifier.classify(subject)
     
         for i in BISACClassifier.GENRE:
             if i.caught == []:
