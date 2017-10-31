@@ -471,6 +471,16 @@ class WorkList(object):
         return []
 
     @property
+    def language_key(self):
+        """Return a string identifying the languages used in this WorkList.
+        This will usually be in the form of 'eng,spa' (English and Spanish).
+        """
+        key = ""
+        if self.languages:
+            key += ",".join(self.languages)
+        return key
+
+    @property
     def audience_key(self):
         """Translates audiences list into url-safe string"""
         key = u''
@@ -493,6 +503,8 @@ class WorkList(object):
         # preserve the ordering of the children.
         works_and_worklists = []
         for child in self.visible_children:
+            if isinstance(child, Lane):
+                child = _db.merge(child)
             works = child.featured_works(_db)
             for work in works:
                 works_and_worklists.append((work, child))
@@ -1341,7 +1353,7 @@ class Lane(Base, WorkList):
         # DISTINCT to True on the query.
         return qu, True
 
-Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id)
+Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id, cascade='all, delete-orphan')
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
 DataSource.license_lanes = relationship("Lane", backref="license_datasource", foreign_keys=Lane.license_datasource_id)
 
