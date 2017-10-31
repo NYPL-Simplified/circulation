@@ -993,7 +993,19 @@ class Lane(Base, WorkList):
                 raise ValueError("Lane parentage loop detected")
             seen.add(parent)
             yield parent
-    
+
+    @property
+    def depth(self):
+        """How deep is this lane in this site's hierarchy?
+        i.e. how many times do we have to follow .parent before we get None?
+        """
+        depth = 0
+        tmp = self
+        while tmp.parent:
+            depth += 1
+            tmp = tmp.parent
+        return depth    
+
     @hybrid_property
     def visible(self):
         return self._visible and (not self.parent or self.parent.visible)

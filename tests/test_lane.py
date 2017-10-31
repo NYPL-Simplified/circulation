@@ -955,6 +955,13 @@ class TestLane(DatabaseTest):
             ValueError, "Lane parentage loop detected", list, lane.parentage
         )
 
+    def test_depth(self):
+        child = self._lane("sublane")
+        parent = self._lane("parent")
+        parent.sublanes.append(child)
+        eq_(0, parent.depth)
+        eq_(1, child.depth)
+
     def test_url_name(self):
         lane = self._lane("Fantasy / Science Fiction")
         eq_("Fantasy __ Science Fiction", lane.url_name)
