@@ -6095,6 +6095,10 @@ class CachedFeed(Base):
     # A feed is of a certain type--currently either 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
 
+    # A feed associated with a WorkList can have a unique key.
+    # This should be null if the feed is associated with a Lane.
+    unique_key = Column(Unicode, nullable=True)
+
     # A 'page' feed is associated with a set of values for the facet
     # groups.
     facets = Column(Unicode, nullable=True)
@@ -6140,8 +6144,10 @@ class CachedFeed(Base):
             max_age = datetime.timedelta(seconds=max_age)
         if lane and isinstance(lane, Lane):
             lane_id = lane.id
+            unique_key = None
         else:
             lane_id = None
+            unique_key = "%s-%s-%s" % (lane.display_name, lane.language_key, lane.audience_key)
         work = None
         if lane:
             work = getattr(lane, 'work', None)
@@ -6169,6 +6175,7 @@ class CachedFeed(Base):
             on_multiple='interchangeable',
             constraint=constraint_clause,
             lane_id=lane_id,
+            unique_key=unique_key,
             library=library,
             work=work,
             type=type,
