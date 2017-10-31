@@ -1,9 +1,176 @@
 # encoding: utf-8
 import csv
-from . import (
-    resource_dir,
-    Classifier,
-)
+import os
+import re
+from . import *
+
+# Special tokens used in matching rules.
+nonfiction = object()
+fiction = object()
+juvenile = object()
+anything = object()
+
+special_variables = { nonfiction : "nonfiction",
+                      fiction : "fiction",
+                      juvenile : "juvenile"}
+
+class MatchingRule(object):
+    """A rule that takes a list of subject parts and returns
+    an appropriate classification.
+    """
+
+    def __init__(self, result, *ruleset):
+
+        if result is None:
+            raise ValueError(
+                "MatchingRule returns None on a non-match, it can't also return None on a match."
+            )
+
+        self.result = result
+        self.ruleset = []
+
+        # Track the subjects that were 'caught' by this rule,
+        # for debugging purposes.
+        self.caught = []
+
+        
+        for i, rule in enumerate(ruleset):
+            if i > 0 and rule in special_variables:
+                raise ValueError(
+                    "Special token '%s' must be the first in a ruleset."
+                    % special_variables[rule]
+                )
+
+            if isinstance(rule, basestring):
+                # It's a string. We do case-insensitive comparisons,
+                # so lowercase it.
+                self.ruleset.append(rule.lower())
+            elif hasattr(rule, 'pattern'):
+                # It's a regular expression. Recompile it to be
+                # case-insensitive.
+                self.ruleset.append(re.compile(rule.pattern, re.I))
+            else:
+                # It's a special object. Add it to the ruleset as-is.
+                self.ruleset.append(rule)
+
+    def match(self, *subject):
+        """If `subject` matches this ruleset, return the appropriate
+        result. Otherwise, return None.
+        """
+        # Create parallel lists of the subject and the things it has to
+        # match.
+        must_match = list(self.ruleset)
+        remaining_subject = list(subject)
+
+        # Consume tokens from both lists until we've confirmed no
+        # match or there is nothing else to match.
+        match_so_far = True
+        while match_so_far and must_match:
+            match_so_far, must_match, remaining_subject = self._consume(
+                must_match, remaining_subject
+            )
+        if match_so_far:
+            # Everything that had to match, did.
+            self.caught.append(subject)
+            return self.result
+
+        # Something that had to match, didn't.
+        return None
+
+    def _consume(self, rules, subject):
+        """The first token (and possibly more) of the rules must match the
+        first token (and possibly more) of the subject.
+
+        All matched rule and subject tokens are consumed.
+
+        :return: A 3-tuple (could_match, new_rules, new_subject)
+
+        could_match is a boolean that is False if we now know that the
+        subject does not match the rule, and True if we don't know
+        that yet.
+
+        new_rules contains the tokens in the ruleset that have yet to
+        be activated.
+        
+        new_subject contains the tokens in the subject that have yet
+        to be checked.
+        """
+        if not rules:
+            # An empty ruleset matches everything.
+            return True, rules, subject
+
+        if not subject and rules != [anything]:
+            # Apart from [anything], no non-empty ruleset matches an
+            # empty subject.
+            return False, rules, subject
+
+        # Figure out which rule we'll be applying. We won't need it
+        # again, so we can remove it from the ruleset.
+        rule_token = rules.pop(0)
+        if rule_token == anything:
+            # This is the complicated one.
+
+            if not rules:
+                # If the final rule is 'anything', then that's redundant,
+                # but we can declare success and stop.
+                return True, rules, subject
+
+            # At this point we know that 'anything' is followed by some
+            # other rule token.
+            next_rule = rules.pop(0)
+
+            # We can consume as many subject tokens as necessary, but
+            # eventually a subject token must match this subsequent
+            # rule token.
+            while subject:
+                subject_token = subject.pop(0)
+                submatch, ignore1, ignore2 = self._consume(
+                    [next_rule], [subject_token]
+                )
+                if submatch:
+                    # We had to remove some number of subject tokens,
+                    # but we found one that matches the next rule.
+                    return True, rules, subject
+                elif not subject:
+                    # We are out of subject tokens, and we never found a
+                    # candidate for the next rule token.
+                    return False, rules, subject
+                else:
+                    # That token didn't match, but maybe the next one will.
+                    pass
+
+            # We went through the entire remaining subject and didn't
+            # find a match for the rule token that follows 'anything'.
+            return False, must_match, subject
+
+        # We're comparing two individual tokens.
+        subject_token = subject.pop(0)
+        if rule_token == juvenile:
+            match = subject_token in ('juvenile fiction', 'juvenile nonfiction')
+        elif rule_token == nonfiction:
+            match = subject_token not in ('juvenile fiction', 'fiction')
+            if match and subject_token not in 'juvenile nonfiction':
+                # The implicit top-level lane is 'nonfiction', 
+                # which means we popped a token like 'History' that
+                # needs to go back on the stack.
+                subject.insert(0, subject_token)
+        elif rule_token == fiction:
+            match = subject_token in ('juvenile fiction', 'fiction')
+        elif isinstance(rule_token, basestring):
+            # The strings must match exactly.
+            match = rule_token == subject_token
+        else:
+            # The regular expression must match the subject.
+            match = rule_token.search(subject_token)
+        if not match:
+            print "%s does not match %s" % (rule_token, subject_token)
+        return match, rules, subject
+
+
+def m(result, *ruleset):
+    """Alias for the MatchingRule constructor with a short name."""
+    return MatchingRule(result, *ruleset)
+
 
 class BISACClassifier(Classifier):
     """Handle real, genuine, according-to-Hoyle BISAC classifications.
@@ -17,134 +184,311 @@ class BISACClassifier(Classifier):
     Second, the name is split into parts (e.g. ["Fiction", "War &
     Military"]).
 
-    To determine fiction status, audience, target age, and genre, the
-    list of name parts is compared against lists of targets.
+    To determine fiction status, audience, target age, or genre, the
+    list of name parts is compared against each of a list of matching
+    rules.
     """
 
     # Map identifiers to human-readable names.
     NAMES = dict(
         x for x in csv.reader(open(os.path.join(resource_dir, "bisac.csv")))
     )
-    
-    FICTION = [
-        (True, "Fiction"),
-        (True, "Juvenile Fiction"),
-        (False, "Juvenile Nonfiction"),
-        (False) # Default
-    ])
 
+    # If none of these rules match, a lane's fiction status depends on the
+    # genre assigned to it.
+    FICTION = [
+        m(True, "Fiction"),
+        m(True, "Juvenile Fiction"),
+        m(False, "Juvenile Nonfiction"),
+        m(False, "Nonfiction"),
+    ]
+
+    # In BISAC, juvenile fiction is kept in a separate space. Nearly
+    # everything outside that space can be presumed to have
+    # AUDIENCE_ADULT.
     AUDIENCE = [
-        (AUDIENCE_CHILDREN, juvenile, then, "Readers"),
-        (AUDIENCE_CHILDREN, juvenile, then, "Early Readers"),
-        (AUDIENCE_CHILDREN, "Bibles", then, "Children"),
-        (AUDIENCE_YA, juvenile),
-        (AUDIENCE_YA, "Bibles", then, "Youth & Teen"),
-        (AUDIENCE_ADULTS_ONLY, any_kind_of, "Erotica")
-        (AUDIENCE_ADULTS_ONLY, "Humor", "Topic", "Adult")
-        (AUDIENCE_ADULT) # Default
+        m(Classifier.AUDIENCE_CHILDREN, juvenile, anything, "Readers"),
+        m(Classifier.AUDIENCE_CHILDREN, juvenile, anything, "Early Readers"),
+        m(Classifier.AUDIENCE_CHILDREN, "Bibles", anything, "Children"),
+        m(Classifier.AUDIENCE_YOUNG_ADULT, juvenile),
+        m(Classifier.AUDIENCE_YOUNG_ADULT, "Bibles", anything, "Youth & Teen"),
+        m(Classifier.AUDIENCE_ADULTS_ONLY, anything, "Erotica"),
+        m(Classifier.AUDIENCE_ADULTS_ONLY, "Humor", "Topic", "Adult"),
+        m(Classifier.AUDIENCE_ADULT, re.compile(".*")),
     ]
 
     TARGET_AGE = [
-        # Need to verify the first two.
-        ((0,4), juvenile, then, "Readers", "Beginner") ,
-        ((5,7), juvenile, then, "Readers", "Intermediate"),
-        ((5,7), (juvenile, then, "Early Readers")),
-        ((8,13), (juvenile, then, "Chapter Books"))
+        # TODO: need to verify the first two age ranges.
+        m((0,4), juvenile, anything, "Readers", "Beginner") ,
+        m((5,7), juvenile, anything, "Readers", "Intermediate"),
+        m((5,7), juvenile, anything, "Early Readers"),
+        m((8,13), juvenile, anything, "Chapter Books")
     ]
 
     GENRE = [
-        # Literary Criticism goes here no matter what's being critiqued.
-	(Literary_Criticism, nonfiction, 'Literary Criticism'),
 
-        (Comics, 'Comics & Graphic Novels'), # Needs work
+        # Put all erotica in Erotica, to keep the other lanes at
+        # "Adult" level or lower.
+        m(Erotica, anything, 'Erotica'),
 
-        (Classics, fiction, 'Classics'),
-        (Erotica, fiction, 'Erotica'),
-        (LGBT_Fiction, fiction, then, "Gay")
-        (LGBT_Fiction, fiction, then, "Lesbian")
+        # Put all non-erotica comics into the same bucket, regardless
+        # of their content.
+        m(Comics_Graphic_Novels, 'Comics & Graphic Novels'),
 
-        # Beyond this point, we are classifying everything underneath
-        # top-level nonfiction categories into those categories.
+        # "Literary Criticism / Foo" implies Literary Criticism, not Foo.
+	m(Literary_Criticism, anything, 'Literary Criticism'),
 
-        (Antiques_Collectibles, nonfiction, 'Antiques & Collectibles'),
-        (Art_Design, nonfiction, 'Architecture'),
-        (Art_Design, nonfiction, 'Art'),
-        (Christianity, nonfiction, 'Bibles'),
-        (Biography, nonfiction, 'Biography & Autobiography'),
-        (Business, nonfiction, 'Business & Economics'),
+        # "Fiction / Christian / Foo" implies Religious Fiction
+        # more strongly than it implies Foo.
+        m(Religious_Fiction, fiction, 'Christian'),
 
-        (Cooking, nonfiction, 'Cooking'),
-	(Computers, nonfiction, 'Computers'),
-	(Crafts_Hobbies, nonfiction, 'Crafts & Hobbies'),
-	(Art_Design, nonfiction, 'Design'),
-	(Drama, nonfiction, 'Drama'),
-	(Education, nonfiction, 'Education'),
-	(Parenting_Family, nonfiction, 'Family & Relationships'),
-	(Foreign_Language_Study, nonfiction, 'Foreign Language Study'),
-	(Games, nonfiction, 'Games'),
-	(Gardening, nonfiction, 'Gardening'),
-	(Health_Diet, nonfiction, 'Health & Fitness'),
-	(History, nonfiction, 'History'),
-	(House_Home, nonfiction, 'House & Home'),
-	(Humor, 'Humor'),
-	(Law, nonfiction, 'Law'),
-	(Literary_Criticism, nonfiction, 'Language Arts & Disciplines'),
-	(???, 'Literary Collections'),
-	(Mathematics, nonfiction, 'Mathematics'),
-	(Medical, nonfiction, 'Medical'),
-	(Music, nonfiction, 'Music'),
-	(Nature, nonfiction, 'Nature'),
-	(Body_Mind_Spirit, nonfiction, 'Body, Mind & Spirit'),
-	(Performing_Arts, nonfiction, 'Performing Arts'),
-	(Pets, nonfiction, 'Pets'),
-	(Philosophy, nonfiction, 'Philosophy'),
-	(Photography, nonfiction, 'Photography'),
-	(Poetry, nonfiction, 'Poetry'),
-	(Political_Science, nonfiction, 'Political Science'),
-	(Psychology, nonfiction, 'Psychology'),
-	(Reference, nonfiction, 'Reference'),
-	(Religion, nonfiction, 'Religion'),
-	(Science, nonfiction, 'Science'),
-	(Self_Help, nonfiction, 'Self-Help'),
-	(Social_Sciences, nonfiction, 'Social Science'),
-	(Sports, nonfiction, 'Sports & Recreation'),
-	(Study_Aids, nonfiction, 'Study Aids'),
-	(Technology, nonfiction, 'Technology & Engineering'),
-	(Technology, nonfiction, 'Transportation'),
-	(True_Crime, nonfiction, 'True Crime'),
-	(Travel, nonfiction, 'Travel')
+        # "Fiction / Foo / Short Stories" implies Short Stories more
+        # strongly than it implies Foo. This assumes that a short
+        # story collection within a genre will also be classified
+        # separately under that genre. This could definitely be
+        # improved but would require a Subject to map to multiple
+        # Genres.
+        m(Short_Stories, fiction, re.compile('^Anthologies')),
+        m(Short_Stories, fiction, re.compile('^Short Stories')),
+        m(Short_Stories, fiction, 'Literary Collections'),
+        m(Short_Stories, fiction, 'Collections & Anthologies'),
+        
+        # Classify top-level fiction categories into fiction genres.
+        #
+        # First, handle large overarching genres that have subgenres
+        # and adjacent genres.
+        #
+
+        # Fantasy
+        m(Epic_Fantasy, fiction, 'Fantasy', 'Epic'),
+        m(Historical_Fantasy, fiction, 'Fantasy', 'Historical'),
+        m(Urban_Fantasy, fiction, 'Fantasy', 'Urban'),
+        m(Fantasy, fiction, 'Fantasy'),
+        m(Fantasy, fiction, 'Romance', 'Fantasy'),
+        m(Fantasy, fiction, 'Sagas'),
+
+        # Mystery
+        # n.b. no BISAC for Paranormal_Mystery
+        m(Crime_Detective_Stories, fiction, 'Mystery & Detective', 'Private Investigators'),
+        m(Crime_Detective_Stories, fiction, 'Crime'),
+        m(Crime_Detective_Stories, fiction, 'Thrillers', 'Crime'),
+        m(Hard_Boiled_Mystery, fiction, 'Mystery & Detective', 'Hard-Boiled'),
+        m(Police_Procedural, fiction, 'Police Procedural'),
+        m(Cozy_Mystery, fiction, 'Mystery & Detective', 'Cozy'),
+        m(Historical_Mystery, fiction, 'Mystery & Detective', 'Historical'),
+        m(Women_Detectives, fiction, 'Mystery & Detective', 'Women Sleuths'),
+        m(Mystery, fiction, anything, 'Mystery & Detective'),
+
+        # Horror
+        m(Ghost_Stories, fiction, 'Ghost'),
+        m(Occult_Horror, fiction, 'Occult & Supernatural'),
+        m(Gothic_Horror, fiction, 'Gothic'),
+        m(Horror, fiction, 'Horror'),
+
+        # Romance
+        # n.b. no BISAC for Gothic Romance
+        m(Contemporary_Romance, fiction, 'Romance', 'Contemporary'),
+        m(Historical_Romance, fiction, 'Romance', 'Historical'),
+        m(Paranormal_Romance, fiction, 'Romance', 'Paranormal'),
+        m(Western_Romance, fiction, 'Romance', 'Western'),
+        m(Romantic_Suspense, fiction, 'Romance', 'Suspense'),
+        m(Romantic_SF, fiction, 'Romance', 'Time Travel'),
+        m(Romantic_SF, fiction, 'Romance', 'Science Fiction'),
+        m(Romance, fiction, 'Romance'),
+
+        # Science fiction
+        # n.b. no BISAC for Cyberpunk
+        m(Dystopian_SF, fiction, 'Dystopian'),
+        m(Space_Opera, fiction, 'Science Fiction', 'Space Opera'),
+        m(Military_SF, fiction, 'Science Fiction', 'Military'),
+        m(Alternative_History, fiction, 'Alternative History'),
+        m(Steampunk, fiction, 'Science Fiction', 'Steampunk'),
+        m(Science_Fiction, fiction, 'Science Fiction'),
+
+        # Thrillers
+        # n.b. no BISAC for Supernatural_Thriller
+        m(Historical_Thriller, 'Thrillers', 'Historical'),
+        m(Espionage, 'Thrillers', 'Espionage'),
+        m(Medical_Thriller, 'Thrillers', 'Medical'),
+        m(Political_Thriller, 'Thrillers', 'Political'),
+        m(Legal_Thriller, 'Thrillers', 'Legal'),
+        m(Technothriller, 'Thrillers', 'Technological'),
+        m(Military_Thriller, 'Thrillers', 'Military'),
+        m(Suspense_Thriller, fiction, 'Thrillers'),
+
+        # Then handle the less complicated genres of fiction.
+        m(Adventure, fiction, 'Action & Adventure'),
+        m(Adventure, fiction, 'Sea Stories'),
+        m(Classics, fiction, 'Classics'),
+        m(Folklore, fiction, 'Fairy Tales, Folk Tales, Legends & Mythology'),
+        m(Historical_Fiction, anything, 'Historical'),
+        m(Humorous_Fiction, fiction, 'Humorous'),
+        m(Humorous_Fiction, fiction, 'Satire'),
+        m(Literary_Fiction, fiction, 'Literary'),
+        m(LGBTQ_Fiction, fiction, 'Gay'),
+        m(LGBTQ_Fiction, fiction, 'Lesbian'),
+        m(Religious_Fiction, fiction, 'Religious'),
+        m(Religious_Fiction, fiction, 'Jewish'),
+        m(Religious_Fiction, fiction, 'Visionary & Metaphysical'),
+        m(Womens_Fiction, fiction, anything, 'Contemporary Women'),
+        m(Westerns, fiction, 'Western'),
+
+        # n.b. BISAC "Fiction / Urban" is distinct from "Fiction /
+        # African-American / Urban", and does not map to any of our
+        # genres.
+        m(Urban_Fiction, fiction, 'African American', 'Urban'),
+
+        # BISAC classifies these genres as nonfiction but we classify
+        # them as fiction. It doesn't matter because they're neither,
+        # really.
+        m(Drama, nonfiction, 'Drama'),
+	m(Poetry, nonfiction, 'Poetry'),
+
+        # Now on to nonfiction.
+
+        # Classify top-level fiction categories into fiction genres.
+        #
+        # First, handle large overarching genres that have subgenres
+        # and adjacent genres.
+        #
+
+        # Art & Design
+        m(Art_Criticism_Theory, nonfiction, 'Art', 'Criticism & Theory'),
+        m(Art_History, nonfiction, 'Art', 'History'),
+        m(Fashion, nonfiction, 'Design', 'Fashion'),
+        m(Design, nonfiction, 'Design'),
+        m(Art_Design, nonfiction, 'Art'),
+
+        # Personal Finance & Business
+        m(Business, nonfiction, 'Business & Economics', re.compile('^Business.*')),
+        m(Business, nonfiction, 'Business & Economics', 'Accounting'),
+        m(Economics, nonfiction, 'Business & Economics', 'Economics'),
+
+        m(Economics, nonfiction, 'Business & Economics', 'Environmental Economics'),
+        m(Economics, nonfiction, 'Business & Economics', re.compile('^Econo.*')),
+        m(Management_Leadership, nonfiction, 'Business & Economics', 'Management'),
+        m(Management_Leadership, nonfiction, 'Business & Economics', 'Management Science'),
+        m(Management_Leadership, nonfiction, 'Business & Economics', 'Leadership'),
+        m(Personal_Finance_Investing, nonfiction, 'Business & Economics', 'Personal Finance'),
+        m(Personal_Finance_Investing, nonfiction, 'Business & Economics', 'Investments & Securities'),
+        m(Real_Estate, nonfiction, 'Business & Economics', 'Real Estate'),
+        m(Personal_Finance_Business, nonfiction, 'Business & Economics'),
+
+        # Parenting & Family
+        m(Parenting, nonfiction, 'Family & Relationships', 'Parenting'),
+        m(Family_Relationships, nonfiction, 'Family & Relationships'),
+
+        # Food & Health
+        m(Bartending_Cocktails, nonfiction, 'Cooking', 'Beverages'),
+        m(Health_Diet, nonfiction, 'Cooking', 'Health & Healing'),
+        m(Health_Diet, nonfiction, 'Health & Fitness'),
+        m(Vegetarian_Vegan, nonfiction, 'Cooking', 'Vegetarian & Vegan'),
+        m(Cooking, nonfiction, 'Cooking'),
+
+        # History
+        m(African_History, nonfiction, 'History', 'Africa'),
+        m(Ancient_History, nonfiction, 'History', 'Ancient'),
+        m(Asian_History, nonfiction, 'History', 'Asia'),
+        m(Civil_War_History, nonfiction, 'History', 'United States', re.compile('^Civil War')),
+        m(European_History, nonfiction, 'History', 'Europe'),
+        m(Latin_American_History, nonfiction, 'History', 'Latin America'),
+        m(Medieval_History, nonfiction, 'History', 'Medieval'),
+        m(Military_History, nonfiction, 'History', 'Military'),
+        m(Modern_History, nonfiction, 'History', 'Modern'),
+        m(Renaissance_Early_Modern_History, nonfiction, 'History', 'Renaissance'),
+        m(Renaissance_Early_Modern_History, nonfiction, 'History', 'Modern', re.compile('^1[678]th Century')),
+        m(United_States_History, nonfiction, 'History', 'United States'),
+        m(World_History, nonfiction, 'History', 'World'),
+        m(World_History, nonfiction, 'History', 'Civilization'),
+        m(History, nonfiction, 'History'),
+
+        # Hobbies & Home
+        m(Antiques_Collectibles, nonfiction, 'Antiques & Collectibles'),
+        m(Crafts_Hobbies, nonfiction, 'Crafts & Hobbies'),
+        m(Gardening, nonfiction, 'Gardening'),
+        m(Games, nonfiction, 'Games'),
+        m(House_Home, nonfiction, 'House & Home'),
+        m(Pets, nonfiction, 'Pets'),
+
+        # Entertainment
+        m(Film_TV, nonfiction, 'Performing Arts', 'Film & Video'),
+        m(Film_TV, nonfiction, 'Performing Arts', 'Television'),
+        m(Music, nonfiction, 'Music'),
+        m(Performing_Arts, nonfiction, 'Performing Arts'),
+
+        # Reference & Study Aids
+        m(Dictionaries, nonfiction, 'Reference', 'Dictionaries'),
+        m(Foreign_Language_Study, nonfiction, 'Foreign Language Study'),
+        m(Law, nonfiction, 'Law'),
+        m(Study_Aids, nonfiction, 'Study Aids'),
+        m(Reference_Study_Aids, nonfiction, 'Reference'),
+
+        # Religion & Spirituality
+        m(Body_Mind_Spirit, nonfiction, 'Body, Mind & Spirit'),
+        m(Buddhism, nonfiction, 'Religion', 'Buddhism'),
+        m(Christianity, nonfiction, 'Religion', re.compile('^Biblical')),
+        m(Christianity, nonfiction, 'Religion', re.compile('^Christian')),
+        m(Hinduism, nonfiction, 'Religion', 'Hinduism'),
+        m(Islam, nonfiction, 'Religion', 'Islam'),
+        m(Judaism, nonfiction, 'Religion', 'Judaism'),
+        m(Religion_Spirituality, nonfiction, 'Religion'),
+
+        # Science & Technology
+        m(Computers, nonfiction, 'Computers'),
+        m(Mathematics, nonfiction, 'Mathematics'),
+        m(Nature, nonfiction, 'Nature'),
+        m(Psychology, nonfiction, 'Psychology'),
+        m(Social_Sciences, nonfiction, 'Social_Sciences'),
+        m(Technology, nonfiction, 'Technology'),
+        m(Science, nonfiction, 'Science'),
+
+        # Then handle the less complicated genres of nonfiction.
+        # n.b. no BISAC for Periodicals.
+        # n.b. no BISAC for Humorous Nonfiction per se.
+	m(Philosophy, nonfiction, 'Philosophy'),
+	m(Political_Science, nonfiction, 'Political Science'),
+	m(Self_Help, nonfiction, 'Self-Help'),
+	m(Sports, nonfiction, 'Sports & Recreation'),
+	m(Travel, nonfiction, 'Travel'),
+	m(True_Crime, nonfiction, 'True Crime'),
     ]
 
-    # "Comics & Graphic Novels / Manga / Science Fiction"
-    # -> Graphic_Novels
-    GENRES = {
-        Graphic_Novels : ["Comics & Graphic Novels"],
-        Romance: [fiction, "Romance"]
-        Science_Fiction: [fiction, "Science Fiction"],
-        
-    }
+    @classmethod
+    def is_fiction(cls, identifier, name):
+        pass
 
-    NONFICTION = set(
-        [
-        "JNF",            
+    @classmethod
+    def audience(cls, identifier, name):
+        pass
 
-        # Nonfiction comics are nonfiction even though comics in general are
-        # fiction.
-        "CGN004170", # "Comics & Graphic Novels / Manga / NonFiction"
-        "CGN007000", # "Comics & Graphic Novels / NonFiction",
-        "LIT", # Literary criticism is always nonfiction even if it's _about_ fiction.
-        ]
-        )
+    @classmethod
+    def target_age(cls, identifier, name):
+        pass
 
-    # 'Humor' and 'Literary Collections' might be either fiction or
-    # nonfiction.
-    NEITHER = set(["HUM", "LCO"])
+    @classmethod
+    def genre(cls, identifier, name, fiction, audience):
+        for ruleset in cls.GENRE:
+            genre = ruleset.match(name)
+            if genre:
+                return genre
 
     @classmethod
     def scrub_name(cls, name):
-        """Split the name into a list of keywords."""
-        parts = [x.strip() for x in name.split('/')]
-        if parts[-1] == 'General':
+        """Split the name into a list of lowercase keywords."""
+        parts = [x.strip().lower() for x in name.split('/')]
+        if parts[-1] == 'General': # "General" is never useful.
             parts = parts[:-1]
+        return parts
 
+# class MockSubject(object):
+#     def __init__(self, identifier, name):
+#         self.identifier = identifier
+#         self.name = name
     
+# for identifier, name in sorted(BISACClassifier.NAMES.items()):
+#     subject = MockSubject(identifier, name)
+#     BISACClassifier.classify(subject)
+    
+# for i in BISACClassifier.GENRE:
+#     if not i.caught:
+#         print "%s didn't catch anything." % i.ruleset
