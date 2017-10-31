@@ -381,10 +381,10 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         return parsed
     
     def should_process_lane(self, lane):
-        if lane.name is None:
+        if lane.identifier is None:
             return False
             
-        if lane.parent is None and not isinstance(lane, Lane):
+        if not isinstance(lane, Lane):
             return False
 
         language_ok = False
@@ -392,12 +392,12 @@ class CacheRepresentationPerLane(LaneSweeperScript):
             # We are considering lanes for every single language.
             language_ok = True
         
-        if not lane.languages and not lane.exclude_languages:
+        if not lane.languages:
             # The lane has no language restrictions.
             language_ok = True
         
         for language in self.languages:
-            if lane.includes_language(language):
+            if language in lane.languages:
                 language_ok = True
                 break
         if not language_ok:
@@ -425,16 +425,15 @@ class CacheRepresentationPerLane(LaneSweeperScript):
     def process_lane(self, lane):
         annotator = self.app.manager.annotator(lane)
         a = time.time()
-        lane_key = "%s/%s" % (lane.language_key, lane.name)
         self.log.info(
-            "Generating feed(s) for %s", lane_key
+            "Generating feed(s) for %s", lane.identifier
         )
         cached_feeds = list(self.do_generate(lane))
         b = time.time()
         total_size = sum(len(x.content) for x in cached_feeds if x)
         self.log.info(
             "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
-            len(cached_feeds), lane_key, (b-a), total_size
+            len(cached_feeds), lane.identifier, (b-a), total_size
         )
         return cached_feeds
         

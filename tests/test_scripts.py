@@ -25,6 +25,7 @@ from core.lane import (
 
 from core.model import (
     ConfigurationSetting,
+    create,
     Credential,
     DataSource,
     get_one,
@@ -117,14 +118,17 @@ class TestRepresentationPerLane(TestLaneScript):
         )
         eq_(['fre', 'eng'], script.languages)
 
-        english_lane = Lane(self._db, self._default_library, self._str, languages=['eng'])
+        english_lane, ignore = create(self._db, Lane, library=self._default_library,
+                                      identifier=self._str, languages=['eng'])
         eq_(True, script.should_process_lane(english_lane))
 
-        no_english_lane = Lane(self._db, self._default_library, self._str, exclude_languages=['eng'])
+        no_english_lane, ignore = create(self._db, Lane, library=self._default_library,
+                                         identifier=self._str, languages=['spa','fre'])
         eq_(True, script.should_process_lane(no_english_lane))
 
-        no_english_or_french_lane = Lane(
-            self._db, self._default_library, self._str, exclude_languages=['eng', 'fre']
+        no_english_or_french_lane, ignore = create(
+            self._db, Lane, library=self._default_library,
+            identifier=self._str, languages=['spa']
         )
         eq_(False, script.should_process_lane(no_english_or_french_lane))
             
@@ -135,8 +139,8 @@ class TestRepresentationPerLane(TestLaneScript):
         )
         eq_(0, script.max_depth)
 
-        child = Lane(self._db, self._default_library, "sublane")
-        parent = Lane(self._db, self._default_library, "parent", sublanes=[child])
+        child, ignore = create(self._db, Lane, library=self._default_library, identifier="sublane")
+        parent, ignore = create(self._db, Lane, library=self._default_library, identifier="parent", sublanes=[child])
         eq_(True, script.should_process_lane(parent))
         eq_(False, script.should_process_lane(child))
 
@@ -174,8 +178,6 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         eq_(1, script.pages)
 
     def test_process_lane(self):
-        lane = Lane(self._db, self._default_library, self._str)
-
         script = CacheFacetListsPerLane(
             self._db, ["--availability=all", "--availability=always",
                        "--collection=main", "--collection=full",
@@ -184,6 +186,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         )
         with script.app.test_request_context("/"):
             flask.request.library = self._default_library
+            lane, ignore = create(self._db, Lane, library=self._default_library, identifier=self._str)
             cached_feeds = script.process_lane(lane)
             # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
             eq_(4, len(cached_feeds))
