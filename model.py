@@ -1380,6 +1380,10 @@ class CoverageRecord(Base, BaseCoverageRecord):
         else:
             raise ValueError(
                 "Cannot look up a coverage record for %r." % edition) 
+
+        if isinstance(data_source, basestring):
+            data_source = DataSource.lookup(_db, data_source)
+
         return get_one(
             _db, CoverageRecord,
             identifier=identifier,
