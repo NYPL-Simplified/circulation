@@ -165,16 +165,16 @@ class TestBISACClassifier(object):
         # We determined the target audience for every BISAC subject.
         eq_([], need_audience)
 
-        # At this point, you can also create a list of subjects
-        # that were not classified in some way. There are currently
-        # about 240 such subjects, most of them under "Juvenile Fiction"
-        # and "Juvenile Nonfiction".
+        # At this point, you can also create a list of subjects that
+        # were not classified in some way. There are currently about
+        # 400 such subjects, most of them under Juvenile and Young
+        # Adult.
         #
         # Not every subject has to be classified under a genre, but
         # if it's possible for one to be, it should be. This is the place
         # to check how well the current rules are operating.
         #
-        #need_genre = sorted(x.name for x in subjects if x.genre is None)
+        # need_genre = sorted(x.name for x in subjects if x.genre is None)
 
     def test_genre_spot_checks(self):
         """Test some unusual cases with respect to how BISAC
