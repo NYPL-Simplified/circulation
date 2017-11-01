@@ -374,7 +374,7 @@ class BISACClassifier(Classifier):
 
         # Now on to nonfiction.
 
-        # Classify top-level fiction categories into fiction genres.
+        # Classify top-level nonfiction categories into fiction genres.
         #
         # First, handle large overarching genres that have subgenres
         # and adjacent genres.
@@ -452,7 +452,6 @@ class BISACClassifier(Classifier):
         m(Law, nonfiction, 'Law'),
         m(Study_Aids, nonfiction, 'Study Aids'),
         m(Reference_Study_Aids, nonfiction, 'Reference'),
-        # m(Reference_Study_Aids, nonfiction, 'Linguistics'),
         m(Reference_Study_Aids, nonfiction, 'Language Arts & Disciplines'),
 
         # Religion & Spirituality
@@ -499,7 +498,7 @@ class BISACClassifier(Classifier):
         m(Education, nonfiction, "School & Education"),
         m(Family_Relationships, nonfiction, "Family"),
         m(Fantasy, fiction, "Fantasy & Magic"),
-        m(Fantasy, fiction, 'Ghost Stories'),
+        m(Ghost_Stories, fiction, 'Ghost Stories'),
         m(Fantasy, fiction, 'Magical Realism'),
         m(Fantasy, fiction, 'Mermaids'),
         m(Fashion, nonfiction, 'Fashion'),

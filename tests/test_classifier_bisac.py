@@ -205,7 +205,6 @@ class TestBISACClassifier(object):
         genre_is("Juvenile Nonfiction / Science & Nature / General", "Science")
         genre_is("Juvenile Fiction / Social Issues / General", "Life Strategies")
         genre_is("Juvenile Nonfiction / Social Issues / Pregnancy", "Life Strategies")
-        genre_is("Juvenile Nonfiction / Social Issues / Pregnancy", "Life Strategies")
         genre_is("Juvenile Nonfiction / Religious / Christian / Social Issues", "Christianity")
 
         genre_is("Young Adult Fiction / Zombies", "Horror")
