@@ -1149,6 +1149,11 @@ class Lane(Base, WorkList):
             if lanegenre.recursive:
                 for subgenre in genre.subgenres:
                     bucket.add(subgenre.id)
+        if not included_ids:
+            # No genres have been explicitly included, so this lane
+            # includes all genres that aren't excluded.
+            _db = Session.object_session(self)
+            included_ids = set([genre.id for genre in _db.query(Genre)])
         genre_ids = included_ids - excluded_ids
         if not genre_ids:
             # This can happen if you create a lane where 'Epic

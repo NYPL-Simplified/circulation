@@ -1072,6 +1072,13 @@ class TestLane(DatabaseTest):
         # of its subgenres is exclused recursively (in which case the
         # sub-subgenre would be excluded), but it should work.
 
+        # We can exclude a genre even when no genres are explicitly included.
+        # The lane will include all genres that aren't excluded.
+        no_inclusive_genres = self._lane()
+        no_inclusive_genres.add_genre("Science Fiction", inclusive=False)
+        assert len(no_inclusive_genres.genre_ids) > 10
+        assert science_fiction.id not in no_inclusive_genres.genre_ids
+
     def test_search_target(self):
 
         # A top-level lane can be searched.
