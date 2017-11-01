@@ -243,7 +243,6 @@ class BISACClassifier(Classifier):
     ]
 
     TARGET_AGE = [
-        # TODO: need to verify the first two age ranges.
         m((0,4), juvenile, anything, "Readers", "Beginner") ,
         m((5,7), juvenile, anything, "Readers", "Intermediate"),
         m((5,7), juvenile, anything, "Early Readers"),
