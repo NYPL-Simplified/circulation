@@ -5,13 +5,15 @@ from nose.tools import (
     set_trace
 )
 from classifier.bisac import (
-    nonfiction,
+    BISACClassifier,
+    MatchingRule,
+    anything,
     fiction,
     juvenile,
-    anything,
-    MatchingRule,
-    BISACClassifier,
     m,    
+    nonfiction,
+    something,
+    ya,
 )
 from classifier import Classifier
 
@@ -62,7 +64,8 @@ class TestMatchingRule(object):
     def test_ya_match(self):
         rule = MatchingRule(True, ya, "western")
         eq_(True, rule.match("young adult fiction", "western"))
-        eq_(True, rule.match("juvenile fiction", "western"))
+        eq_(True, rule.match("young adult nonfiction", "western"))
+        eq_(None, rule.match("juvenile fiction", "western"))
         eq_(None, rule.match("fiction", "western"))
 
     def test_nonfiction_match(self):
