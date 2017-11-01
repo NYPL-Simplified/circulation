@@ -184,12 +184,12 @@ class TestBISACClassifier(object):
         """Test some unusual cases with respect to how BISAC
         classifications are turned into genres.
         """
-        def genre_is(name, genre):
+        def genre_is(name, expect):
             subject = self._subject("", name)
-            if genre and subject.genre:
-                eq_(genre, subject.genre.name)
+            if expect and subject.genre:
+                eq_(expect, subject.genre.name)
             else:
-                eq_(genre, subject.genre)
+                eq_(expect, subject.genre)
 
         genre_is("Fiction / Science Fiction / Erotica", "Erotica")
         genre_is("Literary Criticism / Science Fiction", "Literary Criticism")
@@ -217,9 +217,9 @@ class TestBISACClassifier(object):
         genre_is("Poetry", "Poetry")
 
     def test_fiction_spot_checks(self):
-        def fiction_is(name, fiction):
+        def fiction_is(name, expect):
             subject = self._subject("", name)
-            eq_(fiction, subject.fiction)
+            eq_(expect, subject.fiction)
 
         fiction_is("Fiction / Science Fiction", True)
         fiction_is("Antiques & Collectibles / Kitchenware", False)
@@ -234,3 +234,46 @@ class TestBISACClassifier(object):
         fiction_is("Humor", None)
         fiction_is("Young Adult Nonfiction / Humor", False)
         fiction_is("Juvenile Fiction / Humorous Stories", True)
+
+    def test_audience_spot_checks(self):
+
+        def audience_is(name, expect):
+            subject = self._subject("", name)
+            eq_(expect, subject.audience)
+
+        adult = Classifier.AUDIENCE_ADULT
+        adults_only = Classifier.AUDIENCE_ADULTS_ONLY
+        ya = Classifier.AUDIENCE_YOUNG_ADULT
+        children = Classifier.AUDIENCE_CHILDREN
+
+        audience_is("Fiction / Science Fiction", adult)
+        audience_is("Fiction / Science Fiction / Erotica", adults_only)
+        audience_is("Juvenile Fiction / Science Fiction", children)
+        audience_is("Young Adult Fiction / Science Fiction / General", ya)
+
+    def test_target_age_spot_checks(self):
+
+        def target_age_is(name, expect):
+            subject = self._subject("", name)
+            eq_(expect, subject.target_age)
+
+        # These are the only BISAC classifications with implied target
+        # ages.
+        for check in ('Fiction', 'Nonfiction'):
+            target_age_is("Juvenile %s / Readers / Beginner" % check, 
+                          (0,4))
+            target_age_is("Juvenile %s / Readers / Intermediate" % check, 
+                          (5,7))
+            target_age_is("Juvenile %s / Readers / Chapter Books" % check, 
+                          (8,13))
+            target_age_is(
+                "Juvenile %s / Religious / Christian / Early Readers" % check,
+                (5,7)
+            )
+
+        # In all other cases, the default target age for the audience will
+        # be used.
+        target_age_is("Fiction / Science Fiction / Erotica", None)
+        target_age_is("Fiction / Science Fiction", None)
+        target_age_is("Juvenile Fiction / Science Fiction", None)
+        target_age_is("Young Adult Fiction / Science Fiction / General", None)

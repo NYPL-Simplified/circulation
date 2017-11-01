@@ -137,17 +137,13 @@ class MatchingRule(object):
                     # We had to remove some number of subject tokens,
                     # but we found one that matches the next rule.
                     return True, rules, subject
-                elif not subject:
-                    # We are out of subject tokens, and we never found a
-                    # candidate for the next rule token.
-                    return False, rules, subject
                 else:
                     # That token didn't match, but maybe the next one will.
                     pass
 
             # We went through the entire remaining subject and didn't
             # find a match for the rule token that follows 'anything'.
-            return False, must_match, subject
+            return False, rules, subject
 
         # We're comparing two individual tokens.
         subject_token = subject.pop(0)
