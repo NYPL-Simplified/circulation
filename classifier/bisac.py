@@ -9,11 +9,16 @@ from . import *
 nonfiction = object()
 fiction = object()
 juvenile = object()
+ya = object()
+something = object()
 anything = object()
 
+# If these variables are used in a rule, they must be the first token in
+# that rule.
 special_variables = { nonfiction : "nonfiction",
                       fiction : "fiction",
-                      juvenile : "juvenile"}
+                      juvenile : "juvenile",
+                      ya : "ya",}
 
 class MatchingRule(object):
     """A rule that takes a list of subject parts and returns
@@ -69,6 +74,7 @@ class MatchingRule(object):
             match_so_far, must_match, remaining_subject = self._consume(
                 must_match, remaining_subject
             )
+
         if match_so_far:
             # Everything that had to match, did.
             self.caught.append(subject)
@@ -146,16 +152,31 @@ class MatchingRule(object):
         # We're comparing two individual tokens.
         subject_token = subject.pop(0)
         if rule_token == juvenile:
-            match = subject_token in ('juvenile fiction', 'juvenile nonfiction')
+            match = subject_token in (
+                'juvenile fiction', 'juvenile nonfiction',
+            )
+        elif rule_token == ya:
+            match = subject_token in (
+                'young adult fiction', 'young adult nonfiction',
+            )
         elif rule_token == nonfiction:
-            match = subject_token not in ('juvenile fiction', 'fiction')
-            if match and subject_token != 'juvenile nonfiction':
+            match = subject_token not in (
+                'juvenile fiction', 'young adult fiction', 'fiction'
+            )
+            if match and subject_token not in (
+                    'juvenile nonfiction', 'young adult nonfiction'
+            ):
                 # The implicit top-level lane is 'nonfiction', 
                 # which means we popped a token like 'History' that
                 # needs to go back on the stack.
                 subject.insert(0, subject_token)
         elif rule_token == fiction:
-            match = subject_token in ('juvenile fiction', 'fiction')
+            match = subject_token in (
+                'juvenile fiction', 'young adult fiction', 'fiction'
+            )
+        elif rule_token == something:
+            # 'something' matches any single token.
+            match = True
         elif isinstance(rule_token, basestring):
             # The strings must match exactly.
             match = rule_token == subject_token
@@ -208,14 +229,13 @@ class BISACClassifier(Classifier):
         m(False, anything),
     ]
 
-    # In BISAC, juvenile fiction is kept in a separate space. Nearly
-    # everything outside that space can be presumed to have
-    # AUDIENCE_ADULT.
+    # In BISAC, juvenile fiction and YA fiction are kept in separate
+    # spaces. Nearly everything outside that space can be presumed to
+    # have AUDIENCE_ADULT.
     AUDIENCE = [
-        m(Classifier.AUDIENCE_CHILDREN, juvenile, anything, "Readers"),
-        m(Classifier.AUDIENCE_CHILDREN, juvenile, anything, "Early Readers"),
         m(Classifier.AUDIENCE_CHILDREN, "Bibles", anything, "Children"),
-        m(Classifier.AUDIENCE_YOUNG_ADULT, juvenile),
+        m(Classifier.AUDIENCE_CHILDREN, juvenile, anything),
+        m(Classifier.AUDIENCE_YOUNG_ADULT, ya, anything),
         m(Classifier.AUDIENCE_YOUNG_ADULT, "Bibles", anything, "Youth & Teen"),
         m(Classifier.AUDIENCE_ADULTS_ONLY, anything, "Erotica"),
         m(Classifier.AUDIENCE_ADULTS_ONLY, "Humor", "Topic", "Adult"),
@@ -472,14 +492,18 @@ class BISACClassifier(Classifier):
 	m(Travel, nonfiction, 'Travel'),
 	m(True_Crime, nonfiction, 'True Crime'),
 
-        # Finally, handle cases where Juvenile Fiction/Nonfiction uses
-        # different terms than would be used for the same books for
-        # adults.
+        # Handle cases where Juvenile/YA uses different terms than
+        # would be used for the same books for adults.
+        m(Business, nonfiction, 'Careers'),
         m(Christianity, nonfiction, "Religious", "Christian"),
         m(Cooking, nonfiction, "Cooking & Food"),
         m(Education, nonfiction, "School & Education"),
         m(Family_Relationships, nonfiction, "Family"),
         m(Fantasy, fiction, "Fantasy & Magic"),
+        m(Fantasy, fiction, 'Ghost Stories'),
+        m(Fantasy, fiction, 'Magical Realism'),
+        m(Fantasy, fiction, 'Mermaids'),
+        m(Fashion, nonfiction, 'Fashion'),
         m(Folklore, fiction, "Fairy Tales & Folklore"),
         m(Folklore, fiction, "Legends, Myths, Fables"),
         m(Games, nonfiction, "Games & Activities"),
@@ -487,18 +511,29 @@ class BISACClassifier(Classifier):
         m(Horror, fiction, "Horror & Ghost Stories"),
         m(Horror, fiction, "Monsters"),
         m(Horror, fiction, "Paranormal"),
+        m(Horror, fiction, 'Paranormal, Occult & Supernatural'),
+        m(Horror, fiction, 'Vampires'),
+        m(Horror, fiction, 'Werewolves & Shifters'),
+        m(Horror, fiction, 'Zombies'),
         m(Humorous_Fiction, fiction, "Humorous Stories"),
         m(Humorous_Nonfiction, nonfiction, "Humor"),
+        m(LGBTQ_Fiction, fiction, 'LGBT'),
         m(Law, nonfiction, "Law & Crime"),
         m(Literary_Criticism, nonfiction, "Literary Criticism & Collections"),
         m(Mystery, fiction, "Mysteries & Detective Stories"),
         m(Nature, nonfiction, "Animals"),
+        m(Personal_Finance_Investing, nonfiction, 'Personal Finance'),
         m(Poetry, fiction, "Nursery Rhymes"),
         m(Poetry, fiction, "Stories in Verse"),
+        m(Poetry, fiction, 'Novels in Verse'),
+        m(Poetry, fiction, 'Poetry'),
         m(Reference_Study_Aids, nonfiction, "Language Arts"),
         m(Romance, fiction, "Love & Romance"),
         m(Science_Fiction, fiction, "Robots"),
+        m(Science_Fiction, fiction, "Time Travel"),
         m(Social_Sciences, nonfiction, "Media Studies"),
+        m(Suspense_Thriller, fiction, 'Superheroes'),
+        m(Suspense_Thriller, fiction, 'Thrillers & Suspense'),
 
         # Most of the subcategories of 'Science & Nature' go into Nature,
         # but these go into Science.
@@ -508,12 +543,18 @@ class BISACClassifier(Classifier):
         m(Science, nonfiction, 'Science & Nature', 'Physics'),
         m(Science, nonfiction, 'Science & Nature', 'Weights & Measures'),
         m(Science, nonfiction, 'Science & Nature', 'General'),
-        m(Nature, nonfiction, 'Science & Nature'),
 
-        # Life Strategies is juvenile-specific, and contains both fiction
-        # and nonfiction.
+        # Any other subcategory of 'Science & Nature' goes under Nature
+        m(Nature, nonfiction, 'Science & Nature', something),
+
+        # Life Strategies is juvenile/YA-specific, and contains both
+        # fiction and nonfiction. It's called "Social Issues" for
+        # juvenile fiction/nonfiction, and "Social Topics" for YA
+        # nonfiction. "Social Themes" in YA fiction is _not_
+        # classified as Life Strategies.
         m(Life_Strategies, fiction, "social issues"),
         m(Life_Strategies, nonfiction, "social issues"),
+        m(Life_Strategies, nonfiction, "social topics"),
     ]
 
     @classmethod

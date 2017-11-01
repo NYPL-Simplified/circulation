@@ -56,6 +56,13 @@ class TestMatchingRule(object):
         eq_(True, rule.match("juvenile fiction", "western"))
         eq_(None, rule.match("juvenile nonfiction", "western civilization"))
         eq_(None, rule.match("juvenile nonfiction", "penguins"))
+        eq_(None, rule.match("young adult nonfiction", "western"))
+        eq_(None, rule.match("fiction", "western"))
+
+    def test_ya_match(self):
+        rule = MatchingRule(True, ya, "western")
+        eq_(True, rule.match("young adult fiction", "western"))
+        eq_(True, rule.match("juvenile fiction", "western"))
         eq_(None, rule.match("fiction", "western"))
 
     def test_nonfiction_match(self):
@@ -95,15 +102,24 @@ class TestMatchingRule(object):
         eq_(True, rule.match("penguins"))
         eq_(None, rule.match("geese"))
 
+    def test_something_match(self):
+        # 'something' can go anywhere.
+        rule = MatchingRule(True, something, 'Penguins', something, something)
 
-    def test_tough_case(self):
-        rule = MatchingRule(True, nonfiction, "History", "Modern", re.compile('^1[678]th Century'))
-        eq_(True, rule.match("history", "modern", "17th century"))
+        eq_(True, rule.match("juvenile fiction", "penguins", "are", "great"))
+        eq_(True, rule.match("penguins", "penguins", "i said", "penguins"))
+        eq_(None, rule.match("penguins", "what?", "i said", "penguins"))
+
+        # unlike 'anything', 'something' must match a specific token.
+        eq_(None, rule.match("penguins"))
+        eq_(None, rule.match("juvenile fiction", "penguins", "and seals"))
+
 
 class MockSubject(object):
     def __init__(self, identifier, name):
         self.identifier = identifier
         self.name = name
+
 
 class TestBISACClassifier(object):        
 
@@ -155,9 +171,10 @@ class TestBISACClassifier(object):
         # and "Juvenile Nonfiction".
         #
         # Not every subject has to be classified under a genre, but
-        # if it's possible for one to be, it should be.
+        # if it's possible for one to be, it should be. This is the place
+        # to check how well the current rules are operating.
         #
-        # need_genre = sorted(x.name for x in subjects if x.genre is None)
+        #need_genre = sorted(x.name for x in subjects if x.genre is None)
 
     def test_genre_spot_checks(self):
         """Test some unusual cases with respect to how BISAC
@@ -176,8 +193,19 @@ class TestBISACClassifier(object):
         genre_is("Fiction / Science Fiction / Short Stories", "Short Stories")
         genre_is("Fiction / Steampunk", "Steampunk")
         genre_is("Fiction / Science Fiction / Steampunk", "Steampunk")
-
-        genre_is("Fiction / African-American / Urban", "Urban Fiction")
+        genre_is("Fiction / African American / Urban", "Urban Fiction")
         genre_is("Fiction / Urban", None)
-        genre_is("Juvenile Nonfiction / Science and Nature / Fossils", "Nature")
-        genre_is("Juvenile Nonfiction / Science and Nature / Phsycis", "Science")
+        genre_is("History / Modern / 17th Century", "Renaissance & Early Modern History")
+        genre_is("Juvenile Nonfiction / Science & Nature / Fossils", "Nature")
+        genre_is("Juvenile Nonfiction / Science & Nature / Physics", "Science")
+        genre_is("Juvenile Nonfiction / Science & Nature / General", "Science")
+        genre_is("Juvenile Nonfiction / Science & Nature", "Science")
+        genre_is("Juvenile Fiction / Social Issues / General", "Life Strategies")
+        genre_is("Juvenile Nonfiction / Social Issues / Pregnancy", "Life Strategies")
+        genre_is("Juvenile Nonfiction / Social Issues / Pregnancy", "Life Strategies")
+        genre_is("Juvenile Nonfiction / Religious / Christian / Social Issues", "Christianity")
+
+        genre_is("Young Adult Fiction / Zombies", "Horror")
+        genre_is("Young Adult Fiction / Superheroes", "Suspense & Thriller")
+        genre_is("Young Adult Nonfiction / Social Topics", "Life Strategies")
+        genre_is("Young Adult Fiction / Social Themes", None)
