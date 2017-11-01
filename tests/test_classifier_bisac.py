@@ -161,9 +161,10 @@ class TestBISACClassifier(object):
                 need_audience.append(subject)
 
         # We determined fiction/nonfiction status for every BISAC
-        # subject except the ones that start with 'humor'.
+        # subject except for humor, drama, and poetry.
         for subject in need_fiction:
-            assert subject.name.lower().startswith('humor')
+            assert any(subject.name.lower().startswith(x)
+                       for x in ['humor', 'drama', 'poetry'])
 
         # We determined the target audience for every BISAC subject.
         eq_([], need_audience)

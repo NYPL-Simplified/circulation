@@ -226,6 +226,8 @@ class BISACClassifier(Classifier):
         m(True, "Juvenile Fiction"),
         m(False, "Juvenile Nonfiction"),
         m(stop, "Humor"),
+        m(stop, "Drama"),
+        m(stop, "Poetry"),
         m(False, anything),
     ]
 
@@ -366,9 +368,9 @@ class BISACClassifier(Classifier):
         # genres.
         m(Urban_Fiction, fiction, 'African American', 'Urban'),
 
-        # BISAC classifies these genres as nonfiction but we classify
-        # them as fiction. It doesn't matter because they're neither,
-        # really.
+        # BISAC classifies these genres at the top level, which we
+        # treat as 'nonfiction', but we classify them as fiction. It
+        # doesn't matter because they're neither, really.
         m(Drama, nonfiction, 'Drama'),
 	m(Poetry, nonfiction, 'Poetry'),
 
