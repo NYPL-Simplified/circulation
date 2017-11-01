@@ -311,7 +311,6 @@ class URNLookupController(object):
     def process_identifier(self, identifier, urn, **kwargs):
         """Turn a URN into a Work suitable for use in an OPDS feed.
         """
-        urn = urn or identifier.urn
         if not identifier.licensed_through:
             # The default URNLookupController cannot look up an
             # Identifier that has no associated LicensePool.
