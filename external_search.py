@@ -289,8 +289,8 @@ class ExternalSearchIndex(object):
 
         return base_works_index
 
-    def query_works(self, library, query_string, media, languages, fiction, audience,
-                    age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
+    def query_works(self, library, query_string, media, languages, fiction, audiences,
+                    target_age, in_any_of_these_genres=[], fields=None, size=30, offset=0):
         if not self.works_alias:
             return []
 
@@ -307,7 +307,7 @@ class ExternalSearchIndex(object):
 
         filter = self.make_filter(
             collection_ids, media, languages, fiction, 
-            audience, age_range, in_any_of_these_genres
+            audiences, target_age, in_any_of_these_genres
         )
         q = dict(
             filtered=dict(
@@ -551,7 +551,7 @@ class ExternalSearchIndex(object):
             }
         }
         
-    def make_filter(self, collection_ids, media, languages, fiction, audience, age_range, genres):
+    def make_filter(self, collection_ids, media, languages, fiction, audiences, target_age, genres):
         def _f(s):
             if not s:
                 return s
@@ -588,16 +588,16 @@ class ExternalSearchIndex(object):
             clauses.append(dict(term=dict(fiction="fiction")))
         elif fiction == False:
             clauses.append(dict(term=dict(fiction="nonfiction")))
-        if audience:
-            if isinstance(audience, list) or isinstance(audience, set):
-                audience = [_f(aud) for aud in audience]
-                clauses.append(dict(terms=dict(audience=audience)))
-        if age_range:
-            if isinstance(age_range, tuple) and len(age_range) == 2:
-                lower, upper = age_range
+        if audiences:
+            if isinstance(audiences, list) or isinstance(audiences, set):
+                audiences = [_f(aud) for aud in audiences]
+                clauses.append(dict(terms=dict(audience=audiences)))
+        if target_age:
+            if isinstance(target_age, tuple) and len(target_age) == 2:
+                lower, upper = target_age
             else:
-                lower = age_range.lower
-                upper = age_range.upper
+                lower = target_age.lower
+                upper = target_age.upper
 
             age_clause = {
                 "and": [

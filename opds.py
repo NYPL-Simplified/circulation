@@ -600,13 +600,7 @@ class AcquisitionFeed(OPDSFeed):
     def search(cls, _db, title, url, lane, search_engine, query, pagination=None,
                annotator=None
     ):
-        if not isinstance(lane, Lane):
-            search_lane = Lane(
-                _db, "Everything", searchable=True, fiction=Lane.BOTH_FICTION_AND_NONFICTION)
-        else:
-            search_lane = lane
-
-        results = search_lane.search(
+        results = lane.search(
             _db, query, search_engine, pagination=pagination
         )
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
@@ -624,8 +618,8 @@ class AcquisitionFeed(OPDSFeed):
             AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="previous", href=annotator.search_url(lane, query, previous_page))
 
         # Add "up" link and breadcrumbs
-        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(search_lane), title=lane.display_name)
-        opds_feed.add_breadcrumbs(search_lane, annotator, include_lane=True)
+        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=str(lane.display_name))
+        opds_feed.add_breadcrumbs(lane, annotator, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)

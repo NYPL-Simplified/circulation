@@ -800,6 +800,15 @@ class WorkList(object):
         else:
             return query.options(defer(work_model.simple_opds_entry))
 
+    @property
+    def search_target(self):
+        """By default, work lists are not searchable."""
+        return None
+
+    def search(self, _db, query, search_client, pagination=None):
+        """By default, work lists are not searchable."""
+        return None
+
 
 class LaneGenre(Base):
     """Relationship object between Lane and Genre."""
