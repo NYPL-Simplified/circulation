@@ -215,3 +215,22 @@ class TestBISACClassifier(object):
 
         genre_is("Young Adult Fiction / Poetry", "Poetry")
         genre_is("Poetry", "Poetry")
+
+    def test_fiction_spot_checks(self):
+        def fiction_is(name, fiction):
+            subject = self._subject("", name)
+            eq_(fiction, subject.fiction)
+
+        fiction_is("Fiction / Science Fiction", True)
+        fiction_is("Antiques & Collectibles / Kitchenware", False)
+
+        # Humor, drama, and poetry do not have fiction classifications
+        # unless the fiction classification comes from elsewhere in the
+        # subject.
+        fiction_is("Drama", None)
+        fiction_is("Poetry", None)
+        fiction_is("Young Adult Fiction / Poetry", True)
+
+        fiction_is("Humor", None)
+        fiction_is("Young Adult Nonfiction / Humor", False)
+        fiction_is("Juvenile Fiction / Humorous Stories", True)
