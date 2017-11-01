@@ -11,6 +11,7 @@ from model import (
     Classification,
 )
 import classifier
+from classifier.bisac import *
 from classifier import (
     Classifier,
     DeweyDecimalClassifier as DDC,

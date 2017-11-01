@@ -27,7 +27,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
 
 base_dir = os.path.split(__file__)[0]
-resource_dir = os.path.join(base_dir, "resources")
+resource_dir = os.path.join(base_dir, "..", "resources")
 
 NO_VALUE = "NONE"
 NO_NUMBER = -1
