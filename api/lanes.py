@@ -125,11 +125,13 @@ def create_default_lanes(_db, library):
         _db, library, tiny
     )
 
-def lane_from_genres(_db, library, genres, identifier=None, display_name=None, exclude_genres=None, priority=0, **extra_args):
+def lane_from_genres(_db, library, genres, identifier=None, display_name=None,
+                     exclude_genres=None, priority=0, audiences=None, **extra_args):
     """Turn genre info into a Lane object."""
 
     genre_lane_instructions = {
         "Dystopian SF": dict(display_name="Dystopian"),
+        "Erotica": dict(audiences=[Classifier.AUDIENCE_ADULTS_ONLY]),
         "Humorous Fiction" : dict(display_name="Humor"),
         "Media Tie-in SF" : dict(display_name="Movie and TV Novelizations"),
         "Suspense/Thriller" : dict(display_name="Thriller"),
@@ -174,6 +176,8 @@ def lane_from_genres(_db, library, genres, identifier=None, display_name=None, e
             instructions = genre_lane_instructions[genres[0]]
             if not display_name and "display_name" in instructions:
                 display_name = instructions.get('display_name')
+            if "audiences" in instructions:
+                audiences = instructions.get("audiences")
 
     if not display_name:
         if len(genres) == 1:
@@ -183,7 +187,8 @@ def lane_from_genres(_db, library, genres, identifier=None, display_name=None, e
 
     lane, ignore = create(_db, Lane, library_id=library.id,
                           identifier=identifier, display_name=display_name,
-                          fiction=fiction,  sublanes=sublanes, priority=priority,
+                          fiction=fiction, audiences=audiences,
+                          sublanes=sublanes, priority=priority,
                           **extra_args)
     for genre in genres:
         lane.add_genre(genre)
