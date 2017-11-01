@@ -199,13 +199,15 @@ class TestBISACClassifier(object):
         genre_is("Juvenile Nonfiction / Science & Nature / Fossils", "Nature")
         genre_is("Juvenile Nonfiction / Science & Nature / Physics", "Science")
         genre_is("Juvenile Nonfiction / Science & Nature / General", "Science")
-        genre_is("Juvenile Nonfiction / Science & Nature", "Science")
         genre_is("Juvenile Fiction / Social Issues / General", "Life Strategies")
         genre_is("Juvenile Nonfiction / Social Issues / Pregnancy", "Life Strategies")
         genre_is("Juvenile Nonfiction / Social Issues / Pregnancy", "Life Strategies")
         genre_is("Juvenile Nonfiction / Religious / Christian / Social Issues", "Christianity")
 
         genre_is("Young Adult Fiction / Zombies", "Horror")
-        genre_is("Young Adult Fiction / Superheroes", "Suspense & Thriller")
+        genre_is("Young Adult Fiction / Superheroes", "Suspense/Thriller")
         genre_is("Young Adult Nonfiction / Social Topics", "Life Strategies")
         genre_is("Young Adult Fiction / Social Themes", None)
+
+        genre_is("Young Adult Fiction / Poetry", "Poetry")
+        genre_is("Poetry", "Poetry")
