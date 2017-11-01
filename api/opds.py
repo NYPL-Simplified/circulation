@@ -456,19 +456,20 @@ class CirculationManagerAnnotator(Annotator):
             # authenticate.
             self.add_authentication_document_link(feed)
         
-        # Add a 'search' link.
-        lane_identifier = self._lane_identifier(lane)
-        search_url = self.url_for(
-            'lane_search', lane_identifier=lane_identifier,
-            library_short_name=self.library.short_name,
-            _external=True
-        )
-        search_link = dict(
-            rel="search",
-            type="application/opensearchdescription+xml",
-            href=search_url
-        )
-        feed.add_link_to_feed(feed.feed, **search_link)
+        # Add a 'search' link if the lane is searchable.
+        if lane and lane.search_target:
+            lane_identifier = self._lane_identifier(lane)
+            search_url = self.url_for(
+                'lane_search', lane_identifier=lane_identifier,
+                library_short_name=self.library.short_name,
+                _external=True
+            )
+            search_link = dict(
+                rel="search",
+                type="application/opensearchdescription+xml",
+                href=search_url
+            )
+            feed.add_link_to_feed(feed.feed, **search_link)
 
         shelf_link = dict(
             rel="http://opds-spec.org/shelf",

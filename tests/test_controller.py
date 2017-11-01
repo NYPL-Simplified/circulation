@@ -2373,6 +2373,7 @@ class TestFeedController(CirculationControllerTest):
 
         # Execute a search query designed to find the second one.
         with self.request_context_with_library("/?q=t&size=1&after=1"):
+            # First, try the top-level lane.
             response = self.manager.opds_feeds.search(None)
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2393,6 +2394,13 @@ class TestFeedController(CirculationControllerTest):
 
             previous_links = [link for link in feed['feed']['links'] if link.rel == 'previous']
             eq_(1, len(previous_links))
+
+            # The query also works in a different searchable lane.
+            english = self._lane("English", languages=["eng"])
+            response = self.manager.opds_feeds.search(english.identifier)
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+            eq_(1, len(entries))
 
 
 class TestAnalyticsController(CirculationControllerTest):
