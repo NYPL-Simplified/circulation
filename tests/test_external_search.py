@@ -711,6 +711,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         biography_lane = self._lane("Biography", genres=["Biography & Memoir"])
         fantasy_lane = self._lane("Fantasy", genres=["Fantasy"])
         both_lane = self._lane("Both", genres=["Biography & Memoir", "Fantasy"])
+        self._db.flush()
 
         results = query("lincoln", None, None, None, None, None, biography_lane.genre_ids)
         hits = results["hits"]["hits"]
