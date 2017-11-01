@@ -517,7 +517,7 @@ class BISACClassifier(Classifier):
         m(Horror, fiction, 'Werewolves & Shifters'),
         m(Horror, fiction, 'Zombies'),
         m(Humorous_Fiction, fiction, "Humorous Stories"),
-        m(Humorous_Nonfiction, nonfiction, "Humor"),
+        m(Humorous_Nonfiction, "Young Adult Nonfiction", "Humor"),
         m(LGBTQ_Fiction, fiction, 'LGBT'),
         m(Law, nonfiction, "Law & Crime"),
         m(Literary_Criticism, nonfiction, "Literary Criticism & Collections"),
