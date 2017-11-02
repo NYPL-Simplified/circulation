@@ -604,15 +604,15 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(feed.content)
 
-    def search(self, lane_name):
+    def search(self, lane_identifier):
 
-        lane = self.load_lane(lane_name)
+        lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
         query = flask.request.args.get('q')
         library_short_name = flask.request.library.short_name
         this_url = self.url_for(
-            'lane_search', lane_name=lane_name,
+            'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,
         )
         if not query:

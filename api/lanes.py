@@ -65,7 +65,7 @@ def load_lanes(_db, library):
     if len(top_level_lanes) == 1:
         return top_level_lanes[0]
 
-    wl = TopLevelWorkList()
+    wl = WorkList()
     wl.initialize(
         library, display_name=_("Collection"), children=top_level_lanes
     )
@@ -754,63 +754,6 @@ def create_lane_for_tiny_collections(_db, library, languages):
         priority=2,
     )
     return lane
-
-class TopLevelWorkList(WorkList):
-    """A WorkList that represents a Library's entire collection, and
-    supports search."""
-
-    @property
-    def search_target(self):
-        return self
-
-    def search(self, _db, query, search_client, pagination=None):
-        """Find works in this WorkList's library that also match a search query.
-        """
-        if not pagination:
-            pagination = Pagination(
-                offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
-            )
-
-        search_lane = self.search_target
-        if not search_lane:
-            # This lane is not searchable, and neither are any of its
-            # parents. There are no search results. This should not
-            # happen because a top-level lane is always searchable.
-            return []
-
-        # Get the search results from Elasticsearch.
-        results = None
-        if search_client:
-            docs = None
-            a = time.time()
-            try:
-                docs = search_client.query_works(
-                    library=self.get_library(_db),
-                    query_string=query, 
-                    media=None,
-                    languages=None,
-                    fiction=None, 
-                    audiences=None, 
-                    target_age=None,
-                    fields=["_id", "title", "author", "license_pool_id"],
-                    size=pagination.size,
-                    offset=pagination.offset,
-                )
-            except elasticsearch.exceptions.ConnectionError, e:
-                logging.error(
-                    "Could not connect to ElasticSearch. Returning empty list of search results."
-                )
-            b = time.time()
-            logging.debug("Elasticsearch query completed in %.2fsec", b-a)
-            results = []
-            if docs:
-                doc_ids = [
-                    int(x['_id']) for x in docs['hits']['hits']
-                ]
-                if doc_ids:
-                    results = self.works_for_specific_ids(_db, doc_ids)
-
-        return results
 
 
 class WorkBasedLane(WorkList):
