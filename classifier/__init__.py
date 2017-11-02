@@ -850,7 +850,10 @@ class GenreData(object):
         """Turn this GenreData object into a Lane that matches
         every book in the genre.
         """
-        from lane import Lane
+        try:
+            from ..lane import Lane
+        except ImportError, e:
+            from lane import Lane
         if self.name and not 'full_name' in args:
             args['full_name'] = self.name
         if self.is_fiction:
@@ -3473,7 +3476,10 @@ class WorkClassifier(object):
 
     def add(self, classification):
         """Prepare a single Classification for consideration."""
-        from ..model import DataSource, Subject
+        try:
+            from ..model import DataSource, Subject
+        except ImportError:
+            from model import DataSource, Subject
 
         # We only consider a given classification once from a given
         # data source.
@@ -3866,7 +3872,10 @@ class WorkClassifier(object):
         """A helper method that ensure we always use database Genre
         objects, not GenreData objects, when weighting genres.
         """
-        from ..model import Genre
+        try:
+            from ..model import Genre
+        except ImportError:
+            from model import Genre
         genre, ignore = Genre.lookup(self._db, genre_data.name)
         self.genre_weights[genre] += weight
 
