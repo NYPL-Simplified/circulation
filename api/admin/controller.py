@@ -33,6 +33,7 @@ from core.model import (
     Collection,
     Complaint,
     ConfigurationSetting,
+    CustomList,
     DataSource,
     Edition,
     ExternalIntegration,
@@ -103,6 +104,7 @@ from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
 from api.oneclick import OneClickAPI
 from api.enki import EnkiAPI
+from api.odl import ODLWithConsolidatedCopiesAPI
 
 from api.nyt import NYTBestSellerAPI
 from api.novelist import NoveListAPI
@@ -128,6 +130,7 @@ def setup_admin_controllers(manager):
     manager.admin_sign_in_controller = SignInController(manager)
     manager.admin_work_controller = WorkController(manager)
     manager.admin_feed_controller = FeedController(manager)
+    manager.admin_custom_lists_controller = CustomListsController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
 
@@ -199,11 +202,14 @@ class AdminController(object):
         return admin
 
     def check_csrf_token(self):
-        """Verifies that the CSRF token in the form data matches the one in the session."""
-        token = self.get_csrf_token()
-        if not token or token != flask.request.form.get("csrf_token"):
+        """Verifies that the CSRF token in the form data or X-CSRF-Token header
+        matches the one in the session cookie.
+        """
+        cookie_token = self.get_csrf_token()
+        header_token = flask.request.headers.get("X-CSRF-Token")
+        if not cookie_token or cookie_token != header_token:
             return INVALID_CSRF_TOKEN
-        return token
+        return cookie_token
 
     def get_csrf_token(self):
         """Returns the CSRF token for the current session."""
@@ -375,8 +381,10 @@ class WorkController(CirculationManagerController):
             return work
 
         annotator = AdminAnnotator(self.circulation, flask.request.library)
+        # Don't cache these OPDS entries - they should update immediately
+        # in the admin interface when an admin makes a change.
         return entry_response(
-            AcquisitionFeed.single_entry(self._db, work, annotator)
+            AcquisitionFeed.single_entry(self._db, work, annotator), cache_for=0,
         )
         
     def complaints(self, identifier_type, identifier):
@@ -516,12 +524,15 @@ class WorkController(CirculationManagerController):
 
     def refresh_metadata(self, identifier_type, identifier, provider=None):
         """Refresh the metadata for a book from the content server"""
-        if not provider:
-            provider = MetadataWranglerCoverageProvider(self._db)
-
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
+
+        if not provider and work.license_pools:
+            provider = MetadataWranglerCoverageProvider(work.license_pools[0].collection)
+
+        if not provider:
+            return METADATA_REFRESH_FAILURE
 
         identifier = work.presentation_edition.primary_identifier
         try:
@@ -532,8 +543,8 @@ class WorkController(CirculationManagerController):
 
         if record.exception:
             # There was a coverage failure.
-            if (isinstance(record.exception, int)
-                and record.exception in [201, 202]):
+            if (str(record.exception).startswith("201") or
+                str(record.exception).startswith("202")):
                 # A 201/202 error means it's never looked up this work before
                 # so it's started the resolution process or looking for sources.
                 return METADATA_REFRESH_PENDING
@@ -759,7 +770,7 @@ class WorkController(CirculationManagerController):
         return Response("", 200)
 
     def _count_complaints_for_work(self, work):
-        complaint_types = [complaint.type for complaint in work.complaints]
+        complaint_types = [complaint.type for complaint in work.complaints if not complaint.resolved]
         return Counter(complaint_types)
 
     
@@ -776,7 +787,7 @@ class FeedController(CirculationManagerController):
             url=this_url, annotator=annotator,
             pagination=pagination
         )
-        return feed_response(opds_feed)    
+        return feed_response(opds_feed, cache_for=0)
 
     def suppressed(self):
         this_url = self.url_for('suppressed')
@@ -789,7 +800,7 @@ class FeedController(CirculationManagerController):
             url=this_url, annotator=annotator,
             pagination=pagination
         )
-        return feed_response(opds_feed)
+        return feed_response(opds_feed, cache_for=0)
 
     def genres(self):
         data = dict({
@@ -804,6 +815,92 @@ class FeedController(CirculationManagerController):
                 "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
             })
         return data
+
+class CustomListsController(CirculationManagerController):
+    def custom_lists(self):
+        library = flask.request.library
+
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        if flask.request.method == "GET":
+            custom_lists = []
+            for list in library.custom_lists:
+                entries = []
+                for entry in list.entries:
+                    entries.append(dict(pwid=entry.edition.permanent_work_id,
+                                        title=entry.edition.title,
+                                        authors=[author.display_name for author in entry.edition.author_contributors],
+                                        ))
+                custom_lists.append(dict(id=list.id, name=list.name, entries=entries))
+            return dict(custom_lists=custom_lists)
+
+        if flask.request.method == "POST":
+            id = flask.request.form.get("id")
+            name = flask.request.form.get("name")
+            entries = flask.request.form.get("entries")
+
+            old_list_with_name = CustomList.find(self._db, data_source, name, library)
+
+            if id:
+                is_new = False
+                list = get_one(self._db, CustomList, id=int(id), data_source=data_source)
+                if not list:
+                    return MISSING_CUSTOM_LIST
+                if list.library != library:
+                    return CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST
+                if old_list_with_name and old_list_with_name != list:
+                    return CUSTOM_LIST_NAME_ALREADY_IN_USE
+            elif old_list_with_name:
+                return CUSTOM_LIST_NAME_ALREADY_IN_USE
+            else:
+                list, is_new = create(self._db, CustomList, name=name, data_source=data_source)
+                list.created = datetime.now()
+                list.library = library
+
+            list.updated = datetime.now()
+            list.name = name
+
+            if entries:
+                entries = json.loads(entries)
+            else:
+                entries = []
+
+            old_entries = list.entries
+            for entry in entries:
+                pwid = entry.get("pwid")
+                work = self._db.query(
+                    Work
+                ).join(
+                    Edition, Edition.id==Work.presentation_edition_id
+                ).filter(
+                    Edition.permanent_work_id==pwid
+                ).one()
+
+                if work:
+                    list.add_entry(work, featured=True)
+
+            new_pwids = [entry.get("pwid") for entry in entries]
+            for entry in old_entries:
+                if entry.edition.permanent_work_id not in new_pwids:
+                    list.remove_entry(entry.edition)
+
+            if is_new:
+                return Response(unicode(list.id), 201)
+            else:
+                return Response(unicode(list.id), 200)
+
+    def custom_list(self, list_id):
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        if flask.request.method == "DELETE":
+            list = get_one(self._db, CustomList, id=list_id, data_source=data_source)
+            if not list:
+                return MISSING_CUSTOM_LIST
+            for entry in list.entries:
+                self._db.delete(entry)
+            self._db.delete(list)
+            return Response(unicode(_("Deleted")), 200)
+
 
 class DashboardController(CirculationManagerController):
 
@@ -1119,9 +1216,17 @@ class SettingsController(CirculationManagerController):
                     ))
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(library.uuid), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(library.uuid), 200)
+
+    def library(self, library_uuid):
+        if flask.request.method == "DELETE":
+            library = get_one(self._db, Library, uuid=library_uuid)
+            if not library:
+                return LIBRARY_NOT_FOUND.detailed(_("The specified library uuid does not exist."))
+            self._db.delete(library)
+            return Response(unicode(_("Deleted")), 200)
 
     def _get_integration_protocols(self, provider_apis, protocol_name_attr="__module__"):
         protocols = []
@@ -1264,6 +1369,13 @@ class SettingsController(CirculationManagerController):
 
         return True
 
+    def _delete_integration(self, integration_id, goal):
+        integration = get_one(self._db, ExternalIntegration,
+                              id=integration_id, goal=goal)
+        if not integration:
+            return MISSING_SERVICE
+        self._db.delete(integration)
+        return Response(unicode(_("Deleted")), 200)
 
     def collections(self):
         provider_apis = [OPDSImporter,
@@ -1273,6 +1385,7 @@ class SettingsController(CirculationManagerController):
                          Axis360API,
                          OneClickAPI,
                          EnkiAPI,
+                         ODLWithConsolidatedCopiesAPI,
                         ]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
@@ -1391,9 +1504,19 @@ class SettingsController(CirculationManagerController):
                 library.collections.remove(collection)
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(collection.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(collection.id), 200)
+
+    def collection(self, collection_id):
+        if flask.request.method == "DELETE":
+            collection = get_one(self._db, Collection, id=collection_id)
+            if not collection:
+                return MISSING_COLLECTION
+            if len(collection.children) > 0:
+                return CANNOT_DELETE_COLLECTION_WITH_CHILDREN
+            self._db.delete(collection)
+            return Response(unicode(_("Deleted")), 200)
 
     def admin_auth_services(self):
         provider_apis = [GoogleOAuthAdminAuthenticationProvider]
@@ -1440,9 +1563,17 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(auth_service.protocol), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(auth_service.protocol), 200)
+
+    def admin_auth_service(self, protocol):
+        if flask.request.method == "DELETE":
+            service = get_one(self._db, ExternalIntegration, protocol=protocol, goal=ExternalIntegration.ADMIN_AUTH_GOAL)
+            if not service:
+                return MISSING_SERVICE
+            self._db.delete(service)
+            return Response(unicode(_("Deleted")), 200)
 
     def individual_admins(self):
         if flask.request.method == 'GET':
@@ -1470,9 +1601,17 @@ class SettingsController(CirculationManagerController):
             return MISSING_PGCRYPTO_EXTENSION
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(admin.email), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(admin.email), 200)
+
+    def individual_admin(self, email):
+        if flask.request.method == "DELETE":
+            admin = get_one(self._db, Admin, email=email)
+            if not admin:
+                return MISSING_ADMIN
+            self._db.delete(admin)
+            return Response(unicode(_("Deleted")), 200)
 
     def patron_auth_services(self):
         provider_apis = [SimpleAuthenticationProvider,
@@ -1557,9 +1696,13 @@ class SettingsController(CirculationManagerController):
                     return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(auth_service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(auth_service.id), 200)
+
+    def patron_auth_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.PATRON_AUTH_GOAL)
 
     def sitewide_settings(self):
         if flask.request.method == 'GET':
@@ -1584,7 +1727,13 @@ class SettingsController(CirculationManagerController):
 
         setting = ConfigurationSetting.sitewide(self._db, key)
         setting.value = value
-        return Response(unicode(_("Success")), 200)
+        return Response(unicode(setting.key), 200)
+
+    def sitewide_setting(self, key):
+        if flask.request.method == "DELETE":
+            setting = ConfigurationSetting.sitewide(self._db, key)
+            setting.value = None
+            return Response(unicode(_("Deleted")), 200)
 
     def metadata_services(
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, 
@@ -1651,9 +1800,13 @@ class SettingsController(CirculationManagerController):
                 return problem_detail
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
+
+    def metadata_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.METADATA_GOAL)
 
     def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
                               do_post=HTTP.debuggable_post, key=None
@@ -1794,9 +1947,13 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
+
+    def analytics_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.ANALYTICS_GOAL)
 
     def cdn_services(self):
         protocols = [
@@ -1854,10 +2011,13 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
 
+    def cdn_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.CDN_GOAL)
 
     def search_services(self):
         provider_apis = [ExternalSearchIndex,
@@ -1911,9 +2071,13 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
+
+    def search_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.SEARCH_GOAL)
 
     def discovery_services(self):
         protocols = [
@@ -1980,9 +2144,13 @@ class SettingsController(CirculationManagerController):
             return result
 
         if is_new:
-            return Response(unicode(_("Success")), 201)
+            return Response(unicode(service.id), 201)
         else:
-            return Response(unicode(_("Success")), 200)
+            return Response(unicode(service.id), 200)
+
+    def discovery_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.DISCOVERY_GOAL)
 
     def library_registrations(self, do_get=HTTP.debuggable_get, 
                               do_post=HTTP.debuggable_post, key=None):

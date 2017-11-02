@@ -44,6 +44,10 @@ class BaseCirculationManagerController(object):
             return REMOTE_INTEGRATION_FAILED.detailed(
                 _("Error in authentication service")
             )
+        if patron is None:
+            # Credentials were provided but they turned out not
+            # to identify anyone in particular.
+            return self.authenticate()
         if isinstance(patron, ProblemDetail):
             flask.request.patron = None
             return patron

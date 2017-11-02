@@ -11,7 +11,7 @@ from flask import (
 )
 from flask_cors.core import get_cors_options, set_cors_headers
 
-from app import app, _db, babel
+from app import app, babel
 
 from config import Configuration
 from core.app_server import (
@@ -42,7 +42,7 @@ def initialize_circulation_manager():
         pass
     else:
         if getattr(app, 'manager', None) is None:
-            app.manager = CirculationManager(_db)
+            app.manager = CirculationManager(app._db)
             # Make sure that any changes to the database (as might happen
             # on initial setup) are committed before continuing.
             app.manager._db.commit()
@@ -426,6 +426,13 @@ def oauth_authenticate():
 @returns_problem_detail
 def oauth_callback():
     return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
+
+# Loan notifications for ODL distributors, eg. Feedbooks
+@library_route('/odl_notify/<loan_id>', methods=['GET', 'POST'])
+@has_library
+@returns_problem_detail
+def odl_notify(loan_id):
+    return app.manager.odl_notification_controller.notify(loan_id)
 
 # Controllers used for operations purposes
 @app.route('/heartbeat')

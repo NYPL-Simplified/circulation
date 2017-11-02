@@ -24,6 +24,7 @@ from core.util.authentication_for_opds import (
     AuthenticationForOPDSDocument,
     OPDSAuthenticationFlow,
 )
+from core.util.http import RemoteIntegrationException
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
@@ -443,6 +444,11 @@ class LibraryAuthenticator(object):
             except (ImportError, CannotLoadConfiguration), e:
                 # These are the two types of error that might be caused
                 # by misconfiguration, as opposed to bad code.
+                logging.error(
+                    "Error registering authentication provider %r (%s)",
+                    integration.name, integration.protocol,
+                    exc_info=e
+                )
                 authenticator.initialization_exceptions[integration.id] = e
                 
         if authenticator.oauth_providers_by_name:
@@ -535,7 +541,15 @@ class LibraryAuthenticator(object):
             raise CannotLoadConfiguration(
                 "Loaded module %s but could not find a class called AuthenticationProvider inside." % module_name
             )
-        provider = provider_class(self.library, integration, analytics)
+        try:
+            provider = provider_class(self.library, integration, analytics)
+        except RemoteIntegrationException, e:
+            raise CannotLoadConfiguration(
+                "Could not instantiate %s authentication provider for library %s, possibly due to a network connection problem." % (
+                    provider_class, self.library.short_name
+                )
+            )
+            return
         if issubclass(provider_class, BasicAuthenticationProvider):
             self.register_basic_auth_provider(provider)
             # TODO: Run a self-test, or at least check that we have
@@ -598,9 +612,12 @@ class LibraryAuthenticator(object):
 
             # The patron wants to use an
             # OAuthAuthenticationProvider. Figure out which one.
-            provider_name, provider_token = self.decode_bearer_token_from_header(
-                header
-            )
+            try:
+                provider_name, provider_token = self.decode_bearer_token_from_header(
+                    header
+                )
+            except jwt.exceptions.InvalidTokenError, e:
+                return INVALID_OAUTH_BEARER_TOKEN
             provider = self.oauth_provider_lookup(provider_name)
             if isinstance(provider, ProblemDetail):
                 # There was a problem turning the provider name into

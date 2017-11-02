@@ -112,7 +112,7 @@ class LoanInfo(CirculationInfo):
 
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier, start_date, end_date,
-                 fulfillment_info=None):
+                 fulfillment_info=None, external_identifier=None):
         """Constructor.
 
         :param start_date: A datetime reflecting when the patron borrowed the book.
@@ -125,6 +125,7 @@ class LoanInfo(CirculationInfo):
         self.start_date = start_date
         self.end_date = end_date
         self.fulfillment_info = fulfillment_info
+        self.external_identifier = external_identifier
 
     def __repr__(self):
         if self.fulfillment_info:
@@ -242,6 +243,7 @@ class CirculationAPI(object):
         from oneclick import OneClickAPI
         from enki import EnkiAPI
         from opds_for_distributors import OPDSForDistributorsAPI
+        from odl import ODLWithConsolidatedCopiesAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.BIBLIOTHECA : BibliothecaAPI,
@@ -249,6 +251,7 @@ class CirculationAPI(object):
             ExternalIntegration.ONE_CLICK : OneClickAPI,
             EnkiAPI.ENKI_EXTERNAL : EnkiAPI,
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
+            ODLWithConsolidatedCopiesAPI.NAME: ODLWithConsolidatedCopiesAPI,
         }
 
     def api_for_license_pool(self, licensepool):
@@ -363,6 +366,8 @@ class CirculationAPI(object):
                 start_date=None,
                 end_date=now + datetime.timedelta(hours=1)
             )
+            if existing_loan:
+                loan_info.external_identifier=existing_loan.external_identifier
         except AlreadyOnHold:
             # We're trying to check out a book that we already have on hold.
             hold_info = HoldInfo(
@@ -398,7 +403,8 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             loan, new_loan_record = licensepool.loan_to(
                 patron, start=loan_info.start_date or now,
-                end=loan_info.end_date)
+                end=loan_info.end_date,
+                external_identifier=loan_info.external_identifier)
 
             if must_set_delivery_mechanism:
                 loan.fulfillment = delivery_mechanism
@@ -585,6 +591,15 @@ class CirculationAPI(object):
             on_multiple='interchangeable'
         )
         if loan:
+            if not licensepool.open_access:
+                api = self.api_for_license_pool(licensepool)
+                try:
+                    api.checkin(patron, pin, licensepool)
+                except NotCheckedOut, e:
+                    # The book wasn't checked out in the first
+                    # place. Everything's fine.
+                    pass
+
             __transaction = self._db.begin_nested()
             logging.info("In revoke_loan(), deleting loan #%d" % loan.id)
             self._db.delete(loan)
@@ -599,14 +614,6 @@ class CirculationAPI(object):
                     CirculationEvent.CM_CHECKIN,
                 )
 
-        if not licensepool.open_access:
-            api = self.api_for_license_pool(licensepool)
-            try:
-                api.checkin(patron, pin, licensepool)
-            except NotCheckedOut, e:
-                # The book wasn't checked out in the first
-                # place. Everything's fine.
-                pass
         # Any other CannotReturn exception will be propagated upwards
         # at this point.
         return True
@@ -967,4 +974,7 @@ class BaseCirculationAPI(object):
         """
         raise NotImplementedError()
 
-
+    def update_availability(self, licensepool):
+        """Update availability information for a book.
+        """
+        pass

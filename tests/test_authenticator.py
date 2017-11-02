@@ -631,6 +631,23 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             "Loaded module api.lanes but could not find a class called AuthenticationProvider inside.",
             auth.register_provider, integration
         )        
+
+    def test_register_provider_fails_but_does_not_explode_on_remote_integration_error(self):
+        library = self._default_library
+        # We're going to instantiate the SIP2 client but since we're not
+        # specifying a server or a port, it will raise an IOError immediately,
+        # which will become a RemoteIntegrationException, which will become
+        # a CannotLoadConfiguration.
+        integration = self._external_integration(
+            "api.sip", ExternalIntegration.PATRON_AUTH_GOAL
+        )
+        library.integrations.append(integration)
+        auth = LibraryAuthenticator(_db=self._db, library=library)
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Could not instantiate .* authentication provider for library .*, possibly due to a network connection problem.",
+            auth.register_provider, integration
+        )
         
     def test_register_provider_basic_auth(self):
         firstbook = self._external_integration(
@@ -1837,7 +1854,7 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         data_source = provider.token_data_source(self._db)
 
         # Until we call create_token, this won't work.
-        eq_(None, provider.authenticated_patron(self._db, "some other token"))
+        eq_(None, provider.authenticated_patron(self._db, "some token"))
 
         token, is_new = provider.create_token(self._db, patron, "some token")
         eq_(True, is_new)
@@ -2075,3 +2092,12 @@ class TestOAuthController(AuthenticatorTest):
         eq_(None, fragments.get('access_token'))
         error = json.loads(fragments.get('error')[0])
         eq_(UNKNOWN_OAUTH_PROVIDER.uri, error.get('type'))
+
+    def test_oauth_authentication_invalid_token(self):
+        """If an invalid bearer token is provided, an appropriate problem
+        detail is returned.
+        """
+        problem = self.library_auth.authenticated_patron(
+            self._db, "Bearer - this is a bad token"
+        )
+        eq_(INVALID_OAUTH_BEARER_TOKEN, problem)

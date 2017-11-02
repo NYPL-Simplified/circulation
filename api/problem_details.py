@@ -205,6 +205,13 @@ UNKNOWN_OAUTH_PROVIDER = pd(
     detail=_("The specified OAuth provider name isn't one of the known providers."),
 )
 
+INVALID_OAUTH_BEARER_TOKEN = pd(
+    "http://librarysimplified.org/terms/problem/credentials-invalid",
+    status_code=400,
+    title=_("Invalid OAuth bearer token."),
+    detail=_("The provided OAuth bearer token couldn't be verified."),
+)
+
 UNSUPPORTED_AUTHENTICATION_MECHANISM = pd(
     "http://librarysimplified.org/terms/problem/unsupported-authentication-mechanism",
     status_code=400,
@@ -266,4 +273,11 @@ PATRON_OF_ANOTHER_LIBRARY = pd(
     status_code=404,
     title=_("Wrong library"),
     detail=_("You are not a patron of the selected library."),
+)
+
+INVALID_LOAN_FOR_ODL_NOTIFICATION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-loan-for-odl-notification",
+    status_code=400,
+    title=_("Invalid loan for ODL notification"),
+    detail=_("The ODL notification is for a loan that's not from an ODL collection."),
 )

@@ -34,7 +34,7 @@ textblob
 oauth2client
 pyjwt==1.4.2
 flask-cors
-PyLD
+PyLD==0.7.3
 pycryptodome
 
 # A NYPL-specific requirement
