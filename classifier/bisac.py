@@ -28,10 +28,10 @@ class Interchangeable(CustomMatchToken):
     """A token that matches a list of strings."""
     def __init__(self, *choices):
         """All of these strings are interchangeable for matching purposes."""
-        self.choices = set(map(string.lower, choices))
+        self.choices = set([Lowercased(x) for x in choices])
 
     def matches(self,subject_token):
-        return subject_token in self.choices
+        return Lowercased(subject_token) in self.choices
 
 # Special tokens for use in matching rules.
 something = Something()
@@ -92,7 +92,7 @@ class MatchingRule(object):
             if isinstance(rule, basestring):
                 # It's a string. We do case-insensitive comparisons,
                 # so lowercase it.
-                self.ruleset.append(rule.lower())
+                self.ruleset.append(Lowercased(rule))
             else:
                 # It's a special object. Add it to the ruleset as-is.
                 self.ruleset.append(rule)
@@ -650,7 +650,7 @@ class BISACClassifier(Classifier):
         """Split the name into a list of lowercase keywords."""
 
         # All of our comparisons are case-insensitive.
-        name = name.lower()
+        name = Lowercased(name)
         
         # Take corrective action to finame a number of common problems
         # seen in the wild.

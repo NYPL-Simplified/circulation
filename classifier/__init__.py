@@ -867,6 +867,9 @@ GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
 class Lowercased(unicode):
     """A lowercased string that remembers its original value."""
     def __new__(cls, value):
+        if isinstance(value, Lowercased):
+            # Nothing to do.
+            return value
         new_value = value.lower()
         if new_value.endswith('.'):
             new_value = new_value[:-1]
