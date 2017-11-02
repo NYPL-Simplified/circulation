@@ -492,7 +492,7 @@ class WorkList(object):
         """
         key = ""
         if self.languages:
-            key += ",".join(self.languages)
+            key += ",".join(sorted(self.languages))
         return key
 
     @property
@@ -1069,12 +1069,7 @@ class Lane(Base, WorkList):
         """How deep is this lane in this site's hierarchy?
         i.e. how many times do we have to follow .parent before we get None?
         """
-        depth = 0
-        tmp = self
-        while tmp.parent:
-            depth += 1
-            tmp = tmp.parent
-        return depth    
+        return len(list(self.parentage))
 
     @hybrid_property
     def visible(self):
