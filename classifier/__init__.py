@@ -3473,7 +3473,7 @@ class WorkClassifier(object):
 
     def add(self, classification):
         """Prepare a single Classification for consideration."""
-        from model import DataSource, Subject
+        from ..model import DataSource, Subject
 
         # We only consider a given classification once from a given
         # data source.
@@ -3866,7 +3866,7 @@ class WorkClassifier(object):
         """A helper method that ensure we always use database Genre
         objects, not GenreData objects, when weighting genres.
         """
-        from model import Genre
+        from ..model import Genre
         genre, ignore = Genre.lookup(self._db, genre_data.name)
         self.genre_weights[genre] += weight
 
