@@ -580,7 +580,7 @@ fiction_genres = [
     u"Adventure",
     u"Classics",
     COMICS_AND_GRAPHIC_NOVELS,
-    dict(name=u"Drama", fiction=None),
+    u"Drama",
     dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
     dict(name=u"Fantasy", subgenres=[
         u"Epic Fantasy", 
@@ -608,7 +608,7 @@ fiction_genres = [
         u"Paranormal Mystery",
         u"Women Detectives",
     ]),
-    dict(name=u"Poetry", fiction=None),
+    u"Poetry",
     u"Religious Fiction",
     dict(name=u"Romance", subgenres=[
         u"Contemporary Romance",
