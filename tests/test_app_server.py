@@ -70,7 +70,7 @@ class TestURNLookupController(DatabaseTest):
     def test_process_urns_unrecognized_identifier(self):
         # Give the controller a URN that, although valid, doesn't
         # correspond to any Identifier in the database.
-        urn = Identifier.URN_SCHEME_PREFIX + 'Gutenberg%20ID/30000000'
+        urn = Identifier.GUTENBERG_URN_SCHEME_PREFIX + 'Gutenberg%20ID/000'
         self.controller.process_urns([urn])
 
         # The result is a 404 message.
