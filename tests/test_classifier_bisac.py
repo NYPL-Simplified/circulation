@@ -245,17 +245,14 @@ class TestBISACClassifier(object):
         fiction_is("Fiction / Science Fiction", True)
         fiction_is("Antiques & Collectibles / Kitchenware", False)
 
-        # drama and poetry do not have fiction classifications
+        # Humor, drama and poetry do not have fiction classifications
         # unless the fiction classification comes from elsewhere in the
         # subject.
+        fiction_is("Humor", None)
         fiction_is("Drama", None)
         fiction_is("Poetry", None)
         fiction_is("Young Adult Fiction / Poetry", True)
 
-        # Humor probably shouldn't have a fiction classification, but
-        # the standard we've set elsewhere is that "Humor" by itself
-        # is nonfiction.
-        fiction_is("Humor", False)
         fiction_is("Young Adult Nonfiction / Humor", False)
         fiction_is("Juvenile Fiction / Humorous Stories", True)
 
