@@ -761,9 +761,10 @@ class TestWorkList(DatabaseTest):
             calls various hook methods.
             """
 
-            def __init__(self, languages=None, genre_ids=None):
+            def __init__(self, languages=None, genre_ids=None, media=None):
                 self.languages = languages
                 self.genre_ids = genre_ids
+                self.media = media
 
             def apply_audience_filter(self, _db, qu, work_model):
                 called['apply_audience_filter'] = True
@@ -790,16 +791,17 @@ class TestWorkList(DatabaseTest):
         # But the hook methods were called with the correct arguments.
         eq_(True, called['apply_audience_filter'])
 
-        # If languages and genre IDs are specified, then they are
+        # If languages, media, and genre IDs are specified, then they are
         # incorporated into the query.
         english_sf = self._work(language="eng", with_license_pool=True)
+        english_sf.presentation_edition.medium = Edition.BOOK_MEDIUM
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         english_sf.genres.append(sf)
         self.add_to_materialized_view(english_sf)
 
         # Create a WorkList that will find the MaterializedWorkWithGenre
         # for the English SF book.
-        english_sf_list = MockWorkList(languages=["eng"], genre_ids=[sf.id])
+        english_sf_list = MockWorkList(languages=["eng"], genre_ids=[sf.id], media=[Edition.BOOK_MEDIUM])
         english_sf_qu, distinct = english_sf_list.apply_bibliographic_filters(
             self._db, original_qu, wg, False
         )
@@ -807,7 +809,7 @@ class TestWorkList(DatabaseTest):
         # Here it is!
         eq_([english_sf.sort_title], [x.sort_title for x in english_sf_qu])
 
-        # WorkLists that do not match by language or genre will not
+        # WorkLists that do not match by language, medium, or genre will not
         # find the English SF book.
         spanish_sf_list = MockWorkList(languages=["spa"], genre_ids=[sf.id])
         spanish_sf_qu, distinct = spanish_sf_list.apply_bibliographic_filters(
@@ -823,6 +825,13 @@ class TestWorkList(DatabaseTest):
             self._db, original_qu, wg, False
         )
         eq_(0, english_romance_qu.count())
+
+        audio_list = MockWorkList(
+            languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM])
+        audio_qu, distinct = audio_list.apply_bibliographic_filters(
+            self._db, original_qu, wg, False
+        )
+        eq_(0, audio_qu.count())
 
     def test_apply_audience_filter(self):
 
@@ -908,6 +917,54 @@ class TestWorkList(DatabaseTest):
         # the population is shuffled.
         sample = WorkList.random_sample(qu, 6)
         eq_([i1, i2, i3, i4, i5], sorted(sample, key=lambda x: x.id))
+
+    def test_search_target(self):
+        # A WorkList can be searched - it is its own search target.
+        wl = WorkList()
+        eq_(wl, wl.search_target)
+
+    def test_search(self):
+        work = self._work(with_license_pool=True)
+        self.add_to_materialized_view(work)
+
+        # Create a WorkList that has very specific requirements.
+        wl = WorkList()
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        wl.initialize(
+            self._default_library, "Work List",
+            genres=[sf], audiences=[Classifier.AUDIENCE_CHILDREN],
+            languages=["eng", "spa"], media=[Edition.BOOK_MEDIUM],
+        )
+        wl.fiction = True
+        wl.target_age = tuple_to_numericrange((2,2))
+        search_client = DummyExternalSearchIndex()
+        search_client.bulk_update([work])
+
+        # Do a search within the list.
+        pagination = Pagination(offset=0, size=1)
+        results = wl.search(
+            self._db, work.title, search_client, pagination
+        )
+
+        # The List configuration was passed on to the search client
+        # as parameters to use when creating the search query.
+        [query] = search_client.queries
+        [fixed, kw] = query
+        eq_((), fixed)
+        eq_(wl.fiction, kw['fiction'])
+        eq_((2,2), kw['target_age'])
+        eq_(wl.languages, kw['languages'])
+        eq_(wl.media, kw['media'])
+        eq_(wl.audiences, kw['audiences'])
+        eq_(wl.genre_ids, kw['in_any_of_these_genres'])
+        eq_(1, kw['size'])
+        eq_(0, kw['offset'])
+        
+        # The single search result was converted to a MaterializedWork.
+        [result] = results
+        from model import MaterializedWork
+        assert isinstance(result, MaterializedWork)
+        eq_(work.id, result.works_id)
 
 
 class TestLane(DatabaseTest):
@@ -1081,68 +1138,123 @@ class TestLane(DatabaseTest):
 
     def test_search_target(self):
 
-        # A top-level lane can be searched.
-        top_level = self._lane()
-        eq_(top_level, top_level.search_target)
+        # A Lane that is the root for a patron type can be
+        # searched.
+        root_lane = self._lane()
+        root_lane.root_for_patron_type = ["A"]
+        eq_(root_lane, root_lane.search_target)
 
-        # A lane with a parent can be searched, unless it is
-        # associated with particular genres or lists -- then its
-        # parent is searched instead.
-        genre = self._lane(parent=top_level)
-        eq_(genre, genre.search_target)
-        
-        genre.add_genre("Science Fiction")
-        eq_(top_level, genre.search_target)
+        # A Lane that's the descendant of a root Lane for a
+        # patron type will search that root Lane.
+        child = self._lane(parent=root_lane)
+        eq_(root_lane, child.search_target)
 
-        customlist, ignore = self._customlist(num_entries=0)
-        list_lane = self._lane(parent=top_level)
-        list_lane.customlists.append(customlist)
-        eq_(top_level, list_lane.search_target)
-        
-        # An otherwise unsearchable lane can be searched if 
-        # it is the root lane for a certain patron type.
-        genre.root_for_patron_type = ['12']
-        eq_(genre, genre.search_target)
+        grandchild = self._lane(parent=child)
+        eq_(root_lane, grandchild.search_target)
+
+        # Any Lane that does not descend from a root Lane will
+        # get a WorkList as its search target, with some
+        # restrictions from the Lane.
+        lane = self._lane()
+
+        lane.languages = ["eng", "ger"]
+        target = lane.search_target
+        eq_("English/Deutsch", target.display_name)
+        eq_(["eng", "ger"], target.languages)
+        eq_(None, target.audiences)
+        eq_(None, target.media)
+
+        # If there are too many languages, they're left out of the
+        # display name (so the search description will be "Search").
+        lane.languages = ["eng", "ger", "spa", "fre"]
+        target = lane.search_target
+        eq_("", target.display_name)
+        eq_(["eng", "ger", "spa", "fre"], target.languages)
+        eq_(None, target.audiences)
+        eq_(None, target.media)
+
+        lane.languages = ["eng"]
+        target = lane.search_target
+        eq_("English", target.display_name)
+        eq_(["eng"], target.languages)
+        eq_(None, target.audiences)
+        eq_(None, target.media)
+
+        target = lane.search_target
+        eq_("English", target.display_name)
+        eq_(["eng"], target.languages)
+        eq_(None, target.audiences)
+        eq_(None, target.media)
+
+        # Media aren't included in the description, but they
+        # are used in search.
+        lane.media = [Edition.BOOK_MEDIUM]
+        target = lane.search_target
+        eq_("English", target.display_name)
+        eq_(["eng"], target.languages)
+        eq_(None, target.audiences)
+        eq_([Edition.BOOK_MEDIUM], target.media)
+
+        # Audiences are only used in search if one of the
+        # audiences is young adult or children.
+        lane.audiences = [Classifier.AUDIENCE_ADULTS_ONLY]
+        target = lane.search_target
+        eq_("English", target.display_name)
+        eq_(["eng"], target.languages)
+        eq_(None, target.audiences)
+        eq_([Edition.BOOK_MEDIUM], target.media)
+
+        lane.audiences = [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_YOUNG_ADULT]
+        target = lane.search_target
+        eq_("English Adult and Young Adult", target.display_name)
+        eq_(["eng"], target.languages)
+        eq_([Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_YOUNG_ADULT], target.audiences)
+        eq_([Edition.BOOK_MEDIUM], target.media)
+
+        # If there are too many audiences, they're left
+        # out of the display name.
+        lane.audiences = [Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_CHILDREN]
+        target = lane.search_target
+        eq_("English", target.display_name)
+        eq_(["eng"], target.languages)
+        eq_([Classifier.AUDIENCE_ADULT, Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_CHILDREN], target.audiences)
+        eq_([Edition.BOOK_MEDIUM], target.media)
 
     def test_search(self):
+        # Searching a Lane searches its search_target.
+
         work = self._work(with_license_pool=True)
         self.add_to_materialized_view(work)
 
-        # Create a lane that has very specific requirements.
         lane = self._lane()
-        lane.media = Edition.BOOK_MEDIUM
-        lane.languages = ['eng', 'spa']
-        lane.fiction = True
-        lane.target_age = 2
-        lane.add_genre("Science Fiction")
         search_client = DummyExternalSearchIndex()
         search_client.bulk_update([work])
 
-        # Do a search within that lane.
         pagination = Pagination(offset=0, size=1)
+
         results = lane.search(
             self._db, work.title, search_client, pagination
         )
+        target_results = lane.search_target.search(
+            self._db, work.title, search_client, pagination
+        )
+        eq_(results, target_results)
 
-        # The Lane configuration was passed on to the search client
-        # as parameters to use when creating the search query.
-        [query] = search_client.queries
-        [fixed, kw] = query
-        eq_((), fixed)
-        eq_(lane.fiction, kw['fiction'])
-        eq_((2,2), kw['target_age'])
-        eq_(lane.languages, kw['languages'])
-        eq_(lane.media, kw['media'])
-        eq_(lane.audiences, kw['audiences'])
-        eq_(lane._genre_ids, kw['in_any_of_these_genres'])
-        eq_(1, kw['size'])
-        eq_(0, kw['offset'])
-        
         # The single search result was converted to a MaterializedWork.
         [result] = results
         from model import MaterializedWork
         assert isinstance(result, MaterializedWork)
         eq_(work.id, result.works_id)
+
+        # This still works if the lane is its own search_target.
+        lane.root_for_patron_type = ["A"]
+        results = lane.search(
+            self._db, work.title, search_client, pagination
+        )
+        target_results = lane.search_target.search(
+            self._db, work.title, search_client, pagination
+        )
+        eq_(results, target_results)
 
     def test_featured_collection_facets(self):
         default_facets = list(WorkList().featured_collection_facets())
