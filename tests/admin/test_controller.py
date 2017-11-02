@@ -442,6 +442,7 @@ class TestWorkController(AdminControllerTest):
             eq_(response.status_code, 200)
             
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
+
         eq_(sorted(new_genre_names), sorted(requested_genres))
         eq_("Adult", work.audience)
         eq_(18, work.target_age.lower)

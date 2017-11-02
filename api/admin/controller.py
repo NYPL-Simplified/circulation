@@ -717,7 +717,7 @@ class WorkController(CirculationManagerController):
             genre, is_new = Genre.lookup(self._db, name)
             if not isinstance(genre, Genre):
                 return GENRE_NOT_FOUND
-            if genres[name].is_fiction != new_fiction:
+            if genres[name].is_fiction is not None and genres[name].is_fiction != new_fiction:
                 return INCOMPATIBLE_GENRE
             if name == "Erotica" and new_audience != "Adults Only":
                 return EROTICA_FOR_ADULTS_ONLY
