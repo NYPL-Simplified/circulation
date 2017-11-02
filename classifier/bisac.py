@@ -659,14 +659,14 @@ class BISACClassifier(Classifier):
         # A comma may have been replaced with a space.
         name = name.replace("  ", ", ")
 
-        # The name may be enclosed in an enametra set of quotes.
+        # The name may be enclosed in an extra set of quotes.
         for quote in ("'\""):
             if name.startswith(quote):
                 name = name[1:]
             if name.endswith(quote):
                 name = name[:-1]
             
-        # The name may end with an enametraneous marker character or 
+        # The name may end with an extraneous marker character or 
         # (if it was copied from the BISAC website) an asterisk.
         for separator in '|/*':
             if name.endswith(separator):
