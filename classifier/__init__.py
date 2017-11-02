@@ -27,7 +27,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.expression import and_
 
 base_dir = os.path.split(__file__)[0]
-resource_dir = os.path.join(base_dir, "resources")
+resource_dir = os.path.join(base_dir, "..", "resources")
 
 NO_VALUE = "NONE"
 NO_NUMBER = -1
@@ -119,11 +119,9 @@ class Classifier(object):
         """Try to determine genre, audience, target age, and fiction status
         for the given Subject.
         """
-        identifier = cls.scrub_identifier(subject.identifier)
-        if subject.name:
-            name = cls.scrub_name(subject.name)
-        else:
-            name = identifier
+        identifier, name = cls.scrub_identifier_and_name(
+            subject.identifier, subject.name
+        )
         fiction = cls.is_fiction(identifier, name)
         audience = cls.audience(identifier, name)
 
@@ -136,6 +134,20 @@ class Classifier(object):
                 target_age,
                 fiction,
                 )
+
+    @classmethod
+    def scrub_identifier_and_name(cls, identifier, name):
+        """Prepare identifier and name from within a call to classify()."""
+        identifier = cls.scrub_identifier(identifier)
+        if isinstance(identifier, tuple):
+            # scrub_identifier returned a canonical value for name as 
+            # well. Use it in preference to any name associated with
+            # the subject.
+            identifier, name = identifier
+        elif not name:
+            name = identifier
+        name = cls.scrub_name(name)
+        return identifier, name
 
     @classmethod
     def scrub_identifier(cls, identifier):
@@ -570,8 +582,8 @@ fiction_genres = [
     u"Adventure",
     u"Classics",
     COMICS_AND_GRAPHIC_NOVELS,
-    u"Drama",
-    u"Erotica",
+    dict(name=u"Drama", fiction=None),
+    dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
     dict(name=u"Fantasy", subgenres=[
         u"Epic Fantasy", 
         u"Historical Fantasy",
@@ -598,7 +610,7 @@ fiction_genres = [
         u"Paranormal Mystery",
         u"Women Detectives",
     ]),
-    u"Poetry",
+    dict(name=u"Poetry", fiction=None),
     u"Religious Fiction",
     dict(name=u"Romance", subgenres=[
         u"Contemporary Romance",
@@ -780,17 +792,19 @@ class GenreData(object):
         """Create a GenreData object for every genre and subgenre in the given
         list of fiction and nonfiction genres.
         """
-        for source, fiction in (
+        for source, default_fiction in (
                 (fiction_source, True),
                 (nonfiction_source, False)):
             for item in source:
                 subgenres = []
                 audience_restriction = None
                 name = item
+                fiction = default_fiction
                 if isinstance(item, dict):
                     name = item['name']
                     subgenres = item.get('subgenres', [])
                     audience_restriction = item.get('audience_restriction')
+                    fiction = item.get('fiction', default_fiction)
 
                 cls.add_genre(
                     namespace, genres, name, subgenres, fiction,
@@ -840,6 +854,9 @@ GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
 class Lowercased(unicode):
     """A lowercased string that remembers its original value."""
     def __new__(cls, value):
+        if isinstance(value, Lowercased):
+            # Nothing to do.
+            return value
         new_value = value.lower()
         if new_value.endswith('.'):
             new_value = new_value[:-1]
@@ -2111,6 +2128,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("sorcery"),
                    Eg("witchcraft"),
                    Eg("wizardry"),
+                   Eg("unicorns"),
                ),
                
                Fashion: match_kw(
@@ -2681,6 +2699,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "self-improvement",
                ),
                Folklore : match_kw(
+                   "fables",
                    "folklore",
                    "folktales",
                    "folk tales",
@@ -2818,8 +2837,6 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                Urban_Fiction: match_kw(
                    "urban fiction",
                    Eg("fiction.*african american.*urban"),
-                   "fiction / urban",
-                   "fiction/urban",
                ),
                
                Vegetarian_Vegan: match_kw(
@@ -3441,7 +3458,10 @@ class WorkClassifier(object):
 
     def add(self, classification):
         """Prepare a single Classification for consideration."""
-        from model import DataSource, Subject
+        try:
+            from ..model import DataSource, Subject
+        except ValueError:
+            from model import DataSource, Subject
 
         # We only consider a given classification once from a given
         # data source.
@@ -3834,7 +3854,10 @@ class WorkClassifier(object):
         """A helper method that ensure we always use database Genre
         objects, not GenreData objects, when weighting genres.
         """
-        from model import Genre
+        try:
+            from ..model import Genre
+        except ValueError:
+            from model import Genre
         genre, ignore = Genre.lookup(self._db, genre_data.name)
         self.genre_weights[genre] += weight
 

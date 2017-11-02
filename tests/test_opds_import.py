@@ -432,6 +432,9 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(0.25, r3.value)
         eq_(1, r3.weight)
 
+        eq_('Animal Colors', periodical['series'])
+        eq_('1', periodical['series_position'])
+
     def test_extract_metadata_from_elementtree_treats_message_as_failure(self):
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 

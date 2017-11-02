@@ -12,6 +12,7 @@
       <simplified:sort_name>Chambers, Robert W. (Robert William)</simplified:sort_name>
     </author>
     <summary></summary>
+    <schema:Series schema:name="Animal Colors" schema:position="1"/>
     <updated>2015-01-02T16:56:40Z</updated>
     <simplified:pwid>6db4cf90-0129-0eaf-410a-502b20a45e67</simplified:pwid>
     <schema:Rating schema:ratingValue="0.3333" schema:additionalType="http://librarysimplified.org/terms/rel/quality"/>

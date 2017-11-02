@@ -11,6 +11,7 @@ from model import (
     Classification,
 )
 import classifier
+from classifier.bisac import *
 from classifier import (
     Classifier,
     DeweyDecimalClassifier as DDC,
@@ -35,6 +36,18 @@ from classifier import (
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
+
+class TestGenreData(object):
+
+    def test_fiction_default(self):
+        # Most genres contain either fiction or nonfiction.
+        eq_(True, Science_Fiction.is_fiction)
+        eq_(False, Science.is_fiction)
+
+        # But not Poetry and Drama, which transcend this distinction.
+        eq_(None, Poetry.is_fiction)
+        eq_(None, Drama.is_fiction)
+
 
 class TestClassifier(object):
 
@@ -94,6 +107,35 @@ class TestClassifier(object):
         eq_(17, u(12, "12 and up"))
         eq_(17, u(14, "14+."))
         eq_(18, u(18, "18+"))
+
+
+    def test_scrub_identifier_can_override_name(self):
+        """Test the ability of scrub_identifier to override the name
+        of the subject for classification purposes.
+
+        This is used e.g. in the BISACClassifier to ensure that a known BISAC
+        code is always mapped to its canonical name.
+        """
+        class SetsNameForOneIdentifier(Classifier):
+            "A Classifier that insists on a certain name for one specific identifier"
+            @classmethod
+            def scrub_identifier(self, identifier):
+                if identifier == 'A':
+                    return ('A', 'Use this name!')
+                else:
+                    return identifier
+
+            @classmethod
+            def scrub_name(self, name):
+                """This verifies that the override name still gets passed
+                into scrub_name.
+                """
+                return name.upper()
+
+        m = SetsNameForOneIdentifier.scrub_identifier_and_name
+        eq_(("A", "USE THIS NAME!"), m("A", "name a"))
+        eq_(("B", "NAME B"), m("B", "name b"))
+
 
 class TestClassifierLookup(object):
 
@@ -532,6 +574,12 @@ class TestKeyword(object):
         # particular.
         eq_(classifier.Historical_Fiction, Keyword.genre(None, "Historical"))
         eq_(None, Keyword.genre(None, "Historicals"))
+
+        # The Fiction/Urban classification is different from the
+        # African-American-focused "Urban Fiction" classification.
+        eq_(None, Keyword.genre(None, "Fiction/Urban"))
+
+        eq_(classifier.Folklore, Keyword.genre(None, "fables"))
         
 class TestBISAC(object):
 

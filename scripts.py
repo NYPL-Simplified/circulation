@@ -1889,6 +1889,7 @@ class DatabaseMigrationScript(Script):
             self.run_migrations(
                 new_migrations, migrations_by_dir, timestamp
             )
+            self._db.commit()
         else:
             print "No new migrations found. Your database is up-to-date."
 
@@ -2161,6 +2162,7 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 
         self.update_timestamps(most_recent_migration)
         self.update_timestamps(most_recent_python_migration)
+        self._db.commit()
 
 
 class CheckContributorNamesInDB(IdentifierInputScript):
