@@ -37,6 +37,18 @@ from classifier import (
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
 
+class TestGenreData(object):
+
+    def test_fiction_default(self):
+        # Most genres contain either fiction or nonfiction.
+        eq_(True, Science_Fiction.is_fiction)
+        eq_(False, Science.is_fiction)
+
+        # But not Poetry and Drama, which transcend this distinction.
+        eq_(None, Poetry.is_fiction)
+        eq_(None, Drama.is_fiction)
+
+
 class TestClassifier(object):
 
     def test_default_target_age_for_audience(self):

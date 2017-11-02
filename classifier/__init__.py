@@ -580,7 +580,7 @@ fiction_genres = [
     u"Adventure",
     u"Classics",
     COMICS_AND_GRAPHIC_NOVELS,
-    u"Drama",
+    dict(name=u"Drama", fiction=None),
     dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
     dict(name=u"Fantasy", subgenres=[
         u"Epic Fantasy", 
@@ -608,7 +608,7 @@ fiction_genres = [
         u"Paranormal Mystery",
         u"Women Detectives",
     ]),
-    u"Poetry",
+    dict(name=u"Poetry", fiction=None),
     u"Religious Fiction",
     dict(name=u"Romance", subgenres=[
         u"Contemporary Romance",
@@ -790,17 +790,19 @@ class GenreData(object):
         """Create a GenreData object for every genre and subgenre in the given
         list of fiction and nonfiction genres.
         """
-        for source, fiction in (
+        for source, default_fiction in (
                 (fiction_source, True),
                 (nonfiction_source, False)):
             for item in source:
                 subgenres = []
                 audience_restriction = None
                 name = item
+                fiction = default_fiction
                 if isinstance(item, dict):
                     name = item['name']
                     subgenres = item.get('subgenres', [])
                     audience_restriction = item.get('audience_restriction')
+                    fiction = item.get('fiction', default_fiction)
 
                 cls.add_genre(
                     namespace, genres, name, subgenres, fiction,

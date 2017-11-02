@@ -248,7 +248,6 @@ class BISACClassifier(Classifier):
         m(False, "Juvenile Nonfiction"),
         m(True, "Young Adult Fiction"),
         m(False, "Young Adult Nonfiction"),
-        m(stop, "Humor"),
         m(stop, "Drama"),
         m(stop, "Poetry"),
         m(False, anything),
