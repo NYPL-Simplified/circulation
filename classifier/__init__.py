@@ -852,7 +852,7 @@ class GenreData(object):
         """
         try:
             from ..lane import Lane
-        except ImportError, e:
+        except ValueError, e:
             from lane import Lane
         if self.name and not 'full_name' in args:
             args['full_name'] = self.name
@@ -3478,7 +3478,7 @@ class WorkClassifier(object):
         """Prepare a single Classification for consideration."""
         try:
             from ..model import DataSource, Subject
-        except ImportError:
+        except ValueError:
             from model import DataSource, Subject
 
         # We only consider a given classification once from a given
@@ -3874,7 +3874,7 @@ class WorkClassifier(object):
         """
         try:
             from ..model import Genre
-        except ImportError:
+        except ValueError:
             from model import Genre
         genre, ignore = Genre.lookup(self._db, genre_data.name)
         self.genre_weights[genre] += weight
