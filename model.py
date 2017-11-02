@@ -1739,25 +1739,12 @@ class Identifier(Base):
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
+        foreign_identifier_type, foreign_id = cls.prepare_foreign_type_and_identifier(
+            foreign_identifier_type, foreign_id
+        )
         if not foreign_identifier_type or not foreign_id:
             return None
 
-        # Turn a deprecated identifier type (e.g. "3M ID" into the
-        # current type (e.g. "Bibliotheca ID").
-        foreign_identifier_type = cls.DEPRECATED_NAMES.get(
-            foreign_identifier_type, foreign_identifier_type
-        )
-        
-        if foreign_identifier_type in (
-                Identifier.OVERDRIVE_ID, Identifier.BIBLIOTHECA_ID):
-            foreign_id = foreign_id.lower()
-        if not cls.valid_as_foreign_identifier(
-                foreign_identifier_type, foreign_id):
-            raise ValueError(
-                '"%s" is not a valid %s.' % (
-                    foreign_id, foreign_identifier_type
-                )
-            )
         if autocreate:
             m = get_one_or_create
         else:
@@ -1770,6 +1757,25 @@ class Identifier(Base):
             return result
         else:
             return result, False
+
+    @classmethod
+    def prepare_foreign_type_and_identifier(cls, foreign_type, foreign_identifier):
+        if not foreign_type or not foreign_identifier:
+            return (None, None)
+
+        # Turn a deprecated identifier type (e.g. "3M ID" into the
+        # current type (e.g. "Bibliotheca ID").
+        foreign_type = cls.DEPRECATED_NAMES.get(foreign_type, foreign_type)
+
+        if foreign_type in (Identifier.OVERDRIVE_ID, Identifier.BIBLIOTHECA_ID):
+            foreign_identifier = foreign_identifier.lower()
+
+        if not cls.valid_as_foreign_identifier(foreign_type, foreign_identifier):
+            raise ValueError('"%s" is not a valid %s.' % (
+                foreign_identifier, foreign_type
+            ))
+
+        return (foreign_type, foreign_identifier)
 
     @classmethod
     def valid_as_foreign_identifier(cls, type, id):
@@ -1866,36 +1872,49 @@ class Identifier(Base):
         failures = list()
         identifier_details = dict()
         for urn in identifier_strings:
+            type = identifier = None
             try:
-                identifier_details[urn] = cls.type_and_identifier_for_urn(urn)
+                (type, identifier) = cls.prepare_foreign_type_and_identifier(
+                    *cls.type_and_identifier_for_urn(urn)
+                )
+                if type and identifier:
+                    identifier_details[urn] = (type, identifier)
+                else:
+                    failures.append(urn)
             except ValueError as e:
                 failures.append(urn)
 
-        # Find all of the identifiers that already exist.
-        and_clauses = list()
-        for type, identifier in identifier_details.values():
-            and_clauses.append(and_(cls.type==type, cls.identifier==identifier))
-        identifiers = _db.query(cls).filter(or_(*and_clauses)).all()
-
         identifiers_by_urn = dict()
-        for identifier in identifiers:
-            identifiers_by_urn[identifier.urn] = identifier
+        def find_existing_identifiers(identifier_details):
+            and_clauses = list()
+            for type, identifier in identifier_details:
+                and_clauses.append(
+                    and_(cls.type==type, cls.identifier==identifier)
+                )
+
+            identifiers = _db.query(cls).filter(or_(*and_clauses)).all()
+            for identifier in identifiers:
+                identifiers_by_urn[identifier.urn] = identifier
+
+        # Find identifiers that are already in the database.
+        find_existing_identifiers(identifier_details.values())
 
         # Find any identifier details that don't correspond to an existing
         # identifier. Try to create them.
-        remainders = dict()
+        new_identifiers = list()
         for urn, details in identifier_details.items():
             if urn not in identifiers_by_urn:
-                remainders[urn] = details
-
-        for urn, (type, identifier) in remainders.items():
-            try:
-                identifier, ignore = Identifier.for_foreign_id(
-                    _db, type, identifier
+                new_identifiers.append(
+                    dict(type=details[0], identifier=details[1])
                 )
-                identifiers_by_urn[urn] = identifier
-            except ValueError as e:
-                failures.append(urn)
+            else:
+                del identifier_details[urn]
+
+        # Insert new identifiers into the database, then add them to the
+        # results.
+        _db.bulk_insert_mappings(cls, new_identifiers)
+        _db.commit()
+        find_existing_identifiers(identifier_details.values())
 
         return identifiers_by_urn, failures
 

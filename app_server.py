@@ -265,8 +265,7 @@ class URNLookupController(object):
         self.precomposed_entries = []
         self.unresolved_identifiers = []
 
-    def work_lookup(self, annotator, route_name='lookup',
-                    urns=[], **process_urn_kwargs):
+    def work_lookup(self, annotator, route_name='lookup', **process_urn_kwargs):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 

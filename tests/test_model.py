@@ -337,6 +337,28 @@ class TestIdentifier(DatabaseTest):
         identifier = self._identifier(Identifier.OVERDRIVE_ID)
         assert identifier.urn.startswith(Identifier.URN_SCHEME_PREFIX)
 
+    def test_parse_urns(self):
+        identifier = self._identifier()
+        new_urn = Identifier.URN_SCHEME_PREFIX + "Overdrive%20ID/nosuchidentifier"
+        fake_urn = "what_even_is_this"
+        urns = [identifier.urn, fake_urn, new_urn]
+
+        results = Identifier.parse_urns(self._db, urns)
+        identifiers_by_urn, failures = results
+
+        # The fake URN is returned in the list of failures.
+        eq_(failures, [fake_urn])
+
+        eq_(2, len(identifiers_by_urn))
+        # The existing identifier is returned from its URN.
+        eq_(identifier, identifiers_by_urn[identifier.urn])
+
+        new_identifier = identifiers_by_urn[new_urn]
+        assert isinstance(new_identifier, Identifier)
+        assert new_identifier in self._db
+        eq_(Identifier.OVERDRIVE_ID, new_identifier.type)
+        eq_("nosuchidentifier", new_identifier.identifier)
+
     def test_parse_urn(self):
 
         # We can parse our custom URNs back into identifiers.
