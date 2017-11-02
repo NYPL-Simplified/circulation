@@ -1206,6 +1206,8 @@ class Lane(Base, WorkList):
                 bucket = included_ids
             else:
                 bucket = excluded_ids
+            if self.fiction != None and genre.default_fiction != None and self.fiction != genre.default_fiction:
+                logging.error("Lane %s has a genre %s that does not match its fiction restriction.", (self.identifier, genre.name))
             bucket.add(genre.id)
             if lanegenre.recursive:
                 for subgenre in genre.subgenres:
