@@ -74,11 +74,13 @@ def load_lanes(_db, library):
 def create_default_lanes(_db, library):
     """Reset the lanes for the given library to the default.
 
-    The database will have a hidden top-level lane for each large-collection
-    language with a number of displayed sublanes: 
+    The database will have the following top-level lanes for
+    each large-collection:
     'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction',
-    'Young Adult Nonfiction', and 'Children'
-    sublanes. These sublanes contain additional sublanes.
+    'Young Adult Nonfiction', and 'Children'.
+    Each lane contains additional sublanes.
+    If an NYT integration is configured, there will also be a
+    'Best Sellers' top-level lane.
 
     The database will also have a top-level lane named after each
     small-collection language. Each such sublane contains "Adult
