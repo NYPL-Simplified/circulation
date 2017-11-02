@@ -4,6 +4,7 @@ from nose.tools import (
 )
 
 from model import Genre
+from classifier import Classifier
 from opensearch import OpenSearchDocument
 from lane import Lane
 from . import DatabaseTest
@@ -11,43 +12,31 @@ from . import DatabaseTest
 class TestOpenSearchDocument(DatabaseTest):
 
     def test_search_info(self):
-        # Create one lane inside another.
+        # Searching this lane will use the language
+        # and audience restrictions from the lane.
         lane = self._lane()
-        lane.display_name = "This & That"
-
-        sublane = self._lane(parent=lane)
-        sublane.display_name = "Science Fiction"
-
-        # Both lanes are searchable.
+        lane.display_name = "Fiction"
+        lane.languages = ["eng", "ger"]
+        lane.audiences = [Classifier.AUDIENCE_YOUNG_ADULT]
+        lane.fiction = True
 
         info = OpenSearchDocument.search_info(lane)
         eq_("Search", info['name'])
-        eq_("Search This &amp; That", info['description'])
-        eq_("this-&amp;-that", info['tags'])
+        eq_("Search English/Deutsch Young Adult", info['description'])
+        eq_("english/deutsch-young-adult", info['tags'])
 
-        info = OpenSearchDocument.search_info(sublane)
-        eq_("Search", info['name'])
-        eq_("Search Science Fiction", info['description'])
-        eq_("science-fiction", info['tags'])
-
-        # Make the sublane unsearchable by restricting it to a 
-        # specific genre.
+        # This lane is the root for a patron type, so searching
+        # it will use all the lane's restrictions.
+        root_lane = self._lane()
+        root_lane.root_for_patron_type = ['A']
+        root_lane.display_name = "Science Fiction & Fantasy"
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
-        sublane.genres.append(sf)
+        fantasy, ignore = Genre.lookup(self._db, "Fantasy")
+        root_lane.add_genre(sf)
+        root_lane.add_genre(fantasy)
 
-        info = OpenSearchDocument.search_info(sublane)
+        info = OpenSearchDocument.search_info(root_lane)
         eq_("Search", info['name'])
-        eq_("Search This &amp; That", info['description'])
-        eq_("this-&amp;-that", info['tags'])
-
-        # Return the sublane to searchability by setting it as the
-        # root lane for a certain patron type.
-        sublane.root_for_patron_type = ['A']
-
-        info = OpenSearchDocument.search_info(sublane)
-        eq_("Search", info['name'])
-        eq_("Search Science Fiction", info['description'])
-        eq_("science-fiction", info['tags'])
-
-
+        eq_("Search Science Fiction &amp; Fantasy", info['description'])
+        eq_("science-fiction-&amp;-fantasy", info['tags'])
     

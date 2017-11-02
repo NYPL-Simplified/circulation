@@ -60,7 +60,11 @@ from model import (
     WorkGenre,
 )
 from facets import FacetConstants
-from util import fast_query_count
+from util import (
+    fast_query_count,
+    LanguageCodes,
+)
+
 import elasticsearch
 
 from sqlalchemy import (
@@ -398,8 +402,8 @@ class WorkList(object):
     uses_customlists = False
 
     def initialize(self, library, display_name=None, genres=None, 
-                   audiences=None, languages=None, children=None,
-                   priority=None):
+                   audiences=None, languages=None, media=None,
+                   children=None, priority=None):
         """Initialize with basic data.
 
         This is not a constructor, to avoid conflicts with `Lane`, an
@@ -421,6 +425,9 @@ class WorkList(object):
         :param languages: Only Works in one of these languages will be
         included in lists.
 
+        :param media: Only Works in one of these media will be included
+        in lists.
+
         :param children: This WorkList has children, which are also
         WorkLists.
 
@@ -439,6 +446,14 @@ class WorkList(object):
             self.genre_ids = None
         self.audiences = audiences
         self.languages = languages
+        self.media = media
+
+        # By default, a WorkList doesn't have a fiction status or target age.
+        # Set them to None so they can be ignored in search on a WorkList, but
+        # used when calling search on a Lane.
+        self.fiction = None
+        self.target_age = None
+
         self.children = children or []
         self.priority = priority or 0
 
@@ -471,6 +486,16 @@ class WorkList(object):
         return []
 
     @property
+    def language_key(self):
+        """Return a string identifying the languages used in this WorkList.
+        This will usually be in the form of 'eng,spa' (English and Spanish).
+        """
+        key = ""
+        if self.languages:
+            key += ",".join(sorted(self.languages))
+        return key
+
+    @property
     def audience_key(self):
         """Translates audiences list into url-safe string"""
         key = u''
@@ -493,6 +518,8 @@ class WorkList(object):
         # preserve the ordering of the children.
         works_and_worklists = []
         for child in self.visible_children:
+            if isinstance(child, Lane):
+                child = _db.merge(child)
             works = child.featured_works(_db)
             for work in works:
                 works_and_worklists.append((work, child))
@@ -711,6 +738,8 @@ class WorkList(object):
         qu = self.apply_audience_filter(_db, qu, work_model)
         if self.languages:
             qu = qu.filter(work_model.language.in_(self.languages))
+        if self.media:
+            qu = qu.filter(work_model.medium.in_(self.media))
         if self.genre_ids:
             qu = qu.filter(work_model.genre_id.in_(self.genre_ids))
         return qu, False
@@ -787,6 +816,59 @@ class WorkList(object):
             return query.options(defer(work_model.verbose_opds_entry))
         else:
             return query.options(defer(work_model.simple_opds_entry))
+
+    @property
+    def search_target(self):
+        """By default, a WorkList is searchable."""
+        return self
+
+    def search(self, _db, query, search_client, pagination=None):
+        """Find works in this WorkList that match a search query."""
+        if not pagination:
+            pagination = Pagination(
+                offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
+            )
+
+        # Get the search results from Elasticsearch.
+        results = None
+
+        if self.target_age:
+            target_age = numericrange_to_tuple(self.target_age)
+        else:
+            target_age = None
+
+        if search_client:
+            docs = None
+            a = time.time()
+            try:
+                docs = search_client.query_works(
+                    library=self.get_library(_db),
+                    query_string=query,
+                    media=self.media,
+                    languages=self.languages,
+                    fiction=self.fiction,
+                    audiences=self.audiences,
+                    target_age=target_age,
+                    in_any_of_these_genres=self.genre_ids,
+                    fields=["_id", "title", "author", "license_pool_id"],
+                    size=pagination.size,
+                    offset=pagination.offset,
+                )
+            except elasticsearch.exceptions.ConnectionError, e:
+                logging.error(
+                    "Could not connect to ElasticSearch. Returning empty list of search results."
+                )
+            b = time.time()
+            logging.debug("Elasticsearch query completed in %.2fsec", b-a)
+            results = []
+            if docs:
+                doc_ids = [
+                    int(x['_id']) for x in docs['hits']['hits']
+                ]
+                if doc_ids:
+                    results = self.works_for_specific_ids(_db, doc_ids)
+
+        return results
 
 
 class LaneGenre(Base):
@@ -981,7 +1063,14 @@ class Lane(Base, WorkList):
                 raise ValueError("Lane parentage loop detected")
             seen.add(parent)
             yield parent
-    
+
+    @property
+    def depth(self):
+        """How deep is this lane in this site's hierarchy?
+        i.e. how many times do we have to follow .parent before we get None?
+        """
+        return len(list(self.parentage))
+
     @hybrid_property
     def visible(self):
         return self._visible and (not self.parent or self.parent.visible)
@@ -1112,10 +1201,17 @@ class Lane(Base, WorkList):
                 bucket = included_ids
             else:
                 bucket = excluded_ids
+            if self.fiction != None and genre.default_fiction != None and self.fiction != genre.default_fiction:
+                logging.error("Lane %s has a genre %s that does not match its fiction restriction.", (self.identifier, genre.name))
             bucket.add(genre.id)
             if lanegenre.recursive:
                 for subgenre in genre.subgenres:
                     bucket.add(subgenre.id)
+        if not included_ids:
+            # No genres have been explicitly included, so this lane
+            # includes all genres that aren't excluded.
+            _db = Session.object_session(self)
+            included_ids = set([genre.id for genre in _db.query(Genre)])
         genre_ids = included_ids - excluded_ids
         if not genre_ids:
             # This can happen if you create a lane where 'Epic
@@ -1145,94 +1241,56 @@ class Lane(Base, WorkList):
 
     @property
     def search_target(self):
-        """When someone in this lane wants to do a search, determine which
-        Lane should actually be searched.
-        """
-        if self.parent is None:
-            # We are at the top level. Search everything.
-            return self
+        """Obtain the WorkList that should be searched when someone
+        initiates a search from this Lane."""
 
+        # See if this Lane is the root lane for a patron type, or has an
+        # ancestor that's the root lane for a patron type. If so, search
+        # that Lane.
         if self.root_for_patron_type:
-            # This lane acts as the "top level" for one or more patron
-            # types.  Search it, even if the active patron is not of
-            # that type. (This avoids panic reactions when an admin
-            # searches the 'Early Grades' lane and finds books from
-            # other lanes.)
             return self
 
-        if not self.genres and not self.customlists:
-            # This lane is not restricted to any particular genres or
-            # lists. It can be searched and any lane below it should
-            # search this one.
-            return self
+        for parent in self.parentage:
+            if parent.root_for_patron_type:
+                return parent
 
-        # Any other lane cannot be searched directly, but maybe its
-        # parent can be searched.
-        logging.debug(
-            "Lane %s is not searchable; using parent %s" % (
-                self.identifier, self.parent.identifier)
-        )
-        return self.parent.search_target
+        # Otherwise, we want to use the lane's languages, media, and
+        # juvenile audiences in search.
+        languages = self.languages
+        media = self.media
+        audiences = None
+        if Classifier.AUDIENCE_YOUNG_ADULT in self.audiences or Classifier.AUDIENCE_CHILDREN in self.audiences:
+            audiences = self.audiences
 
+        # If there are too many languages or audiences, the description
+        # could get too long to be useful, so we'll leave them out.
+        # Media isn't part of the description yet.
+
+        display_name_parts = []
+        if languages and len(languages) <= 2:
+            display_name_parts.append(LanguageCodes.name_for_languageset(languages))
+
+        if audiences:
+            if len(audiences) <= 2:
+                display_name_parts.append(" and ".join(audiences))
+
+        display_name = " ".join(display_name_parts)
+
+        wl = WorkList()
+        wl.initialize(self.library, display_name=display_name,
+                      languages=languages, media=media, audiences=audiences)
+        return wl
+
+           
     def search(self, _db, query, search_client, pagination=None):
         """Find works in this lane that also match a search query.
-        """        
-           
-        if not pagination:
-            pagination = Pagination(
-                offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
-            )
+        """
+        target = self.search_target
 
-        search_lane = self.search_target
-        if not search_lane:
-            # This lane is not searchable, and neither are any of its
-            # parents. There are no search results. This should not
-            # happen because a top-level lane is always searchable.
-            return []
-
-        if search_lane.fiction in (True, False):
-            fiction = search_lane.fiction
+        if target == self:
+            return super(Lane, self).search(_db, query, search_client, pagination)
         else:
-            fiction = None
-
-        # Get the search results from Elasticsearch.
-        results = None
-        if search_client:
-            docs = None
-            a = time.time()
-            try:
-                if search_lane.audiences:
-                    audiences = list(search_lane.audiences)
-                else:
-                    audiences = []
-                docs = search_client.query_works(
-                    library=self.library, 
-                    query_string=query, 
-                    media=search_lane.media,
-                    languages=search_lane.languages,
-                    fiction=fiction, 
-                    audiences=audiences, 
-                    target_age=numericrange_to_tuple(search_lane.target_age),
-                    in_any_of_these_genres=search_lane.genre_ids,
-                    fields=["_id", "title", "author", "license_pool_id"],
-                    size=pagination.size,
-                    offset=pagination.offset,
-                )
-            except elasticsearch.exceptions.ConnectionError, e:
-                logging.error(
-                    "Could not connect to ElasticSearch. Returning empty list of search results."
-                )
-            b = time.time()
-            logging.debug("Elasticsearch query completed in %.2fsec", b-a)
-            results = []
-            if docs:
-                doc_ids = [
-                    int(x['_id']) for x in docs['hits']['hits']
-                ]
-                if doc_ids:
-                    results = self.works_for_specific_ids(_db, doc_ids)
-
-        return results
+            return target.search(_db, query, search_client, pagination)
 
     def apply_bibliographic_filters(self, _db, qu, work_model, featured=False):
         """Apply filters to a base query against a materialized view,
@@ -1341,7 +1399,7 @@ class Lane(Base, WorkList):
         # DISTINCT to True on the query.
         return qu, True
 
-Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id)
+Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id, cascade='all, delete-orphan')
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
 DataSource.license_lanes = relationship("Lane", backref="license_datasource", foreign_keys=Lane.license_datasource_id)
 
