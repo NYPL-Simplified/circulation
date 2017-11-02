@@ -115,14 +115,15 @@ def create_default_lanes(_db, library):
             else:
                 tiny.append(language)
 
+    priority = 0
     for language in large:
-        create_lanes_for_large_collection(_db, library, language)
+        priority = create_lanes_for_large_collection(_db, library, language, priority=priority)
 
     for language in small:
-        create_lane_for_small_collection(_db, library, language)
+        priority = create_lane_for_small_collection(_db, library, language, priority=priority)
 
     other_languages_lane = create_lane_for_tiny_collections(
-        _db, library, tiny
+        _db, library, tiny, priority=priority
     )
 
 def lane_from_genres(_db, library, genres, identifier=None, display_name=None,
@@ -196,7 +197,7 @@ def lane_from_genres(_db, library, genres, identifier=None, display_name=None,
         lane.add_genre(genre, inclusive=False)
     return lane
 
-def create_lanes_for_large_collection(_db, library, languages):
+def create_lanes_for_large_collection(_db, library, languages, priority=0):
     """Ensure that the lanes appropriate to a large collection are all
     present.
 
@@ -222,6 +223,9 @@ def create_lanes_for_large_collection(_db, library, languages):
     :param languages: Newly created lanes will contain only books
         in these languages.
     :return: A list of top-level Lane objects.
+
+    TODO: If there are multiple large collections, their top-level lanes do
+    not have distinct display names.
     """
     if isinstance(languages, basestring):
         languages = [languages]
@@ -243,7 +247,6 @@ def create_lanes_for_large_collection(_db, library, languages):
     language_identifier = LanguageCodes.name_for_languageset(languages)
 
     sublanes = []
-    priority = 0
     if include_best_sellers:
         best_sellers, ignore = create(
             _db, Lane, library=library,
@@ -649,19 +652,9 @@ def create_lanes_for_large_collection(_db, library, languages):
     informational.add_genre(genres.Biography_Memoir.name, inclusive=False)
     children.sublanes.append(informational)
 
-    lane, ignore = create(
-        _db, Lane, library=library,
-        identifier=language_identifier,
-        display_name=language_identifier,
-        genres=[], 
-        sublanes=sublanes,
-        fiction=None,
-        languages=languages,
-        priority=0,
-    )
-    return [lane]
+    return priority
 
-def create_lane_for_small_collection(_db, library, languages):
+def create_lane_for_small_collection(_db, library, languages, priority=0):
     if isinstance(languages, basestring):
         languages = [languages]
 
@@ -673,7 +666,7 @@ def create_lane_for_small_collection(_db, library, languages):
         genres=[],
     )
     language_identifier = LanguageCodes.name_for_languageset(languages)
-    priority = 0
+    sublane_priority = 0
 
     adult_fiction, ignore = create(
         _db, Lane, library=library,
@@ -681,10 +674,10 @@ def create_lane_for_small_collection(_db, library, languages):
         display_name="Fiction",
         fiction=True,
         audiences=ADULT,
-        priority=priority,
+        priority=sublane_priority,
         **common_args
     )
-    priority += 1
+    sublane_priority += 1
 
     adult_nonfiction, ignore = create(
         _db, Lane, library=library,
@@ -692,10 +685,10 @@ def create_lane_for_small_collection(_db, library, languages):
         display_name="Nonfiction",
         fiction=False,
         audiences=ADULT,
-        priority=priority,
+        priority=sublane_priority,
         **common_args
     )
-    priority += 1
+    sublane_priority += 1
 
     ya_children, ignore = create(
         _db, Lane, library=library,
@@ -703,22 +696,23 @@ def create_lane_for_small_collection(_db, library, languages):
         display_name="Children & Young Adult",
         fiction=None,
         audiences=YA_CHILDREN,
-        priority=priority,
+        priority=sublane_priority,
         **common_args
     )
-    priority += 1
+    sublane_priority += 1
 
     lane, ignore = create(
         _db, Lane, library=library,
         identifier=language_identifier,
         display_name=language_identifier,
         sublanes=[adult_fiction, adult_nonfiction, ya_children],
-        priority=1,
+        priority=priority,
         **common_args
     )
-    return lane
+    priority += 1
+    return priority
 
-def create_lane_for_tiny_collections(_db, library, languages):
+def create_lane_for_tiny_collections(_db, library, languages, priority=0):
     language_lanes = []
 
     if not languages:
@@ -727,8 +721,7 @@ def create_lane_for_tiny_collections(_db, library, languages):
     if isinstance(languages, basestring):
         languages = [languages]
 
-    priority = 0
-
+    sublane_priority = 0
     for language_set in languages:
         name = LanguageCodes.name_for_languageset(language_set)
         language_lane, ignore = create(
@@ -737,10 +730,10 @@ def create_lane_for_tiny_collections(_db, library, languages):
             display_name=name,
             genres=[],
             fiction=None,
-            priority=priority,
+            priority=sublane_priority,
             languages=[language_set],
         )
-        priority += 1
+        sublane_priority += 1
         language_lanes.append(language_lane)
 
     lane, ignore = create(
@@ -751,9 +744,10 @@ def create_lane_for_tiny_collections(_db, library, languages):
         genres=[],
         fiction=None,
         languages=languages,
-        priority=2,
+        priority=priority,
     )
-    return lane
+    priority += 1
+    return priority
 
 
 class WorkBasedLane(WorkList):
