@@ -1,0 +1,55 @@
+#!/usr/bin/env python
+
+from nose.tools import set_trace
+import json
+import os
+import sys
+
+bin_dir = os.path.split(__file__)[0]
+package_dir = os.path.join(bin_dir, "..", "..")
+sys.path.append(os.path.abspath(package_dir))
+
+from core.model import (
+    Library,
+    Collection,
+    Identifier,
+    LicensePool,
+    Patron,
+    production_session
+)
+from api.bibliotheca import BibliothecaAPI
+
+_db = production_session()
+identifier, is_new = Identifier.for_foreign_id(_db, Identifier.BIBLIOTHECA_ID,
+                                               "hxaee89")
+library = Library.default(_db)
+patron = Patron()
+patron.library = library
+patron.authorization_identifier = "darya5"
+
+[bibliotheca] = [x for x in library.collections if x.protocol=='Bibliotheca']
+pool = LicensePool()
+pool.identifier = identifier
+pool.collection = bibliotheca
+
+api = BibliothecaAPI(bibliotheca)
+bib_info = api.bibliographic_lookup_request(identifier)
+loan = api.checkout(patron, "1234", pool, None)
+
+
+response = api.get_audio_fulfillment_file(
+    patron_id=patron.authorization_identifier,
+    bibliotheca_id=identifier.identifier
+)
+
+print response
+
+
+
+
+
+
+
+
+
+

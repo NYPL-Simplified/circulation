@@ -77,6 +77,13 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         (Representation.MP3_MEDIA_TYPE, adobe_drm) : 'MP3'
     }
 
+
+    def get_audio_fulfillment_file(self, patron_id, bibliotheca_id):
+        args = dict(request_type='GetItemAudioFulfillment', item_id=bibliotheca_id, patron_id=patron_id)
+        body = self.TEMPLATE % args 
+        return self.request('GetItemAudioFulfillment', body, method="POST")
+
+
     def get_events_between(self, start, end, cache_result=False):
         """Return event objects for events between the given times."""
         start = start.strftime(self.ARGUMENT_TIME_FORMAT)
