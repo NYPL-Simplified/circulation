@@ -580,7 +580,7 @@ fiction_genres = [
     u"Adventure",
     u"Classics",
     COMICS_AND_GRAPHIC_NOVELS,
-    u"Drama",
+    dict(name=u"Drama", fiction=None),
     dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
     dict(name=u"Fantasy", subgenres=[
         u"Epic Fantasy", 
@@ -608,7 +608,7 @@ fiction_genres = [
         u"Paranormal Mystery",
         u"Women Detectives",
     ]),
-    u"Poetry",
+    dict(name=u"Poetry", fiction=None),
     u"Religious Fiction",
     dict(name=u"Romance", subgenres=[
         u"Contemporary Romance",
@@ -790,17 +790,19 @@ class GenreData(object):
         """Create a GenreData object for every genre and subgenre in the given
         list of fiction and nonfiction genres.
         """
-        for source, fiction in (
+        for source, default_fiction in (
                 (fiction_source, True),
                 (nonfiction_source, False)):
             for item in source:
                 subgenres = []
                 audience_restriction = None
                 name = item
+                fiction = default_fiction
                 if isinstance(item, dict):
                     name = item['name']
                     subgenres = item.get('subgenres', [])
                     audience_restriction = item.get('audience_restriction')
+                    fiction = item.get('fiction', default_fiction)
 
                 cls.add_genre(
                     namespace, genres, name, subgenres, fiction,
@@ -848,7 +850,10 @@ class GenreData(object):
         """Turn this GenreData object into a Lane that matches
         every book in the genre.
         """
-        from lane import Lane
+        try:
+            from ..lane import Lane
+        except ValueError, e:
+            from lane import Lane
         if self.name and not 'full_name' in args:
             args['full_name'] = self.name
         if self.is_fiction:
@@ -3471,7 +3476,10 @@ class WorkClassifier(object):
 
     def add(self, classification):
         """Prepare a single Classification for consideration."""
-        from model import DataSource, Subject
+        try:
+            from ..model import DataSource, Subject
+        except ValueError:
+            from model import DataSource, Subject
 
         # We only consider a given classification once from a given
         # data source.
@@ -3864,7 +3872,10 @@ class WorkClassifier(object):
         """A helper method that ensure we always use database Genre
         objects, not GenreData objects, when weighting genres.
         """
-        from model import Genre
+        try:
+            from ..model import Genre
+        except ValueError:
+            from model import Genre
         genre, ignore = Genre.lookup(self._db, genre_data.name)
         self.genre_weights[genre] += weight
 
