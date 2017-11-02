@@ -1884,6 +1884,8 @@ class SettingsController(CirculationManagerController):
             public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
+        if isinstance(response, ProblemDetail):
+            return response
         registration_info = response.json()
         shared_secret = registration_info.get('metadata', {}).get('shared_secret')
 

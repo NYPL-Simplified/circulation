@@ -39,6 +39,8 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
 
     polaris_no_such_patron = "64YYYY          00120161121    143126000000000000000000000000AO3|AA1112|AE, |BZ0000|CA0000|CB0000|BLN|CQN|BHUSD|BV0.00|CC0.00|BD|BE|BF|BC|PA0|PE|PS|U1|U2|U3|U4|U5|PZ|PX|PYN|FA0.00|AFPatron does not exist.|AGPatron does not exist.|AY2AZBCF2"
 
+    tlc_no_such_patron = "64YYYY          00020171031    092000000000000000000000000000AOhq|AA2642|AE|BLN|AF#Unknown borrower barcode - please refer to the circulation desk.|AY1AZD46E"
+
     def test_initialize_from_integration(self):
         p = SIP2AuthenticationProvider
         integration = self._external_integration(self._str)
@@ -158,10 +160,6 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         client.queue_response(self.polaris_wrong_pin)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(None, patrondata)
-
-        client.queue_response(self.polaris_no_such_patron)
-        patrondata = auth.remote_authenticate("user", "pass")
-        eq_(None, patrondata)
         
         client.queue_response(self.polaris_expired_card)
         patrondata = auth.remote_authenticate("user", "pass")
@@ -171,6 +169,20 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         client.queue_response(self.polaris_excess_fines)
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(11.50, patrondata.fines)
+
+        # Two cases where the patron's authorization identifier was
+        # just not recognized. One on an ILS that sets
+        # valid_patron_password='N' when that happens.
+        client.queue_response(self.polaris_no_such_patron)
+        patrondata = auth.remote_authenticate("user", "pass")
+        eq_(None, patrondata)
+
+        # And once on an ILS that leaves valid_patron_password blank
+        # when that happens.
+        client.queue_response(self.tlc_no_such_patron)
+        patrondata = auth.remote_authenticate("user", "pass")
+        eq_(None, patrondata)
+
 
     def test_ioerror_during_connect_becomes_remoteintegrationexception(self):
         """If the IP of the circulation manager has not been whitelisted,

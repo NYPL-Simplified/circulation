@@ -3824,6 +3824,26 @@ class TestSettingsController(AdminControllerTest):
             response, 'The service did not provide registration information.'
         )
 
+        # If we get all the way to the registration POST, but that
+        # request results in a ProblemDetail, that ProblemDetail is
+        # passed along.
+        self.responses.extend([
+            MockRequestsResponse(200, content=json.dumps(registration), headers=headers),
+            MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
+        ])
+
+        def bad_do_post(self, *args, **kwargs):
+            return MULTIPLE_BASIC_AUTH_SERVICES
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict([
+                ('integration_id', metadata_wrangler_service.id),
+            ])
+            response = self.manager.admin_settings_controller.sitewide_registration(
+                metadata_wrangler_service, do_get=self.do_request, do_post=bad_do_post
+            )
+        eq_(MULTIPLE_BASIC_AUTH_SERVICES, response)
+
+
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
         encryptor = PKCS1_OAEP.new(key)
