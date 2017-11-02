@@ -121,7 +121,7 @@ class TestClassifier(object):
                 return name.upper()
 
         m = SetsNameForOneIdentifier.scrub_identifier_and_name
-        eq_(("A", "USE THIS NAME"), m("A", "name a"))
+        eq_(("A", "USE THIS NAME!"), m("A", "name a"))
         eq_(("B", "NAME B"), m("B", "name b"))
 
 
@@ -567,7 +567,7 @@ class TestKeyword(object):
         # African-American-focused "Urban Fiction" classification.
         eq_(None, Keyword.genre(None, "Fiction/Urban"))
 
-        eq_(Folklore, Keyword.genre(None, "fables"))
+        eq_(classifier.Folklore, Keyword.genre(None, "fables"))
         
 class TestBISAC(object):
 
