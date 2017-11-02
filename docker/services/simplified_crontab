@@ -27,7 +27,7 @@ HOME=/var/www/circulation
 */10 * * * * root core/bin/run metadata_wrangler_collection_sync >> /var/log/cron.log 2>&1
 
 # Remove newly removed identifiers from our Metadata Wrangler collection
-* */22 * * * root core/bin/run metadata_wrangler_collection_reaper >> /var/log/cron.log 2>&1
+0 */22 * * * root core/bin/run metadata_wrangler_collection_reaper >> /var/log/cron.log 2>&1
 
 # Check whether the Metadata Wrangler has ascertained any new
 # information about books in our collection.
