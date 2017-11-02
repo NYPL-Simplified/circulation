@@ -5,13 +5,57 @@ import re
 import string
 from . import *
 
-# Special tokens used in matching rules.
-nonfiction = object()
-fiction = object()
-juvenile = object()
-ya = object()
-something = object()
+class CustomMatchToken(object):
+    """A custom token used in matching rules."""
+    def matches(self, subject_token):
+        """Does the given token match this one?"""
+        raise NotImplementedError()
+
+class Something(CustomMatchToken):
+    """A CustomMatchToken that will match any single token."""
+    def matches(self, subject_token):
+        return True
+
+class RE(CustomMatchToken):
+    """A CustomMatchToken that performs a regular expression search."""
+    def __init__(self, pattern):
+        self.re = re.compile(pattern, re.I)
+    
+    def matches(self, subject_token):
+        return self.re.search(subject_token)
+
+class Interchangeable(CustomMatchToken):
+    """A token that matches a list of strings."""
+    def __init__(self, *choices):
+        """All of these strings are interchangeable for matching purposes."""
+        self.choices = set([Lowercased(x) for x in choices])
+
+    def matches(self,subject_token):
+        return Lowercased(subject_token) in self.choices
+
+# Special tokens for use in matching rules.
+something = Something()
+fiction = Interchangeable("Juvenile Fiction", "Young Adult Fiction", "Fiction")
+juvenile = Interchangeable("Juvenile Fiction", "Juvenile Nonfiction")
+ya = Interchangeable("Young Adult Fiction", "Young Adult Nonfiction")
+
+# These need special code because they can modify the token stack.
 anything = object()
+nonfiction = object()
+
+# These are BISAC categories that changed their names. We want to treat both
+# names as equivalent. In most cases, the name change is cosmetic.
+body_mind_spirit = Interchangeable("Body, Mind & Spirit", "Mind & Spirit")
+psychology = Interchangeable("Psychology", "Psychology & Psychiatry")
+technology = Interchangeable("Technology & Engineering", "Technology")
+social_topics = Interchangeable("Social Situations", "Social Topics")
+
+# This name change is _not_ cosmetic. The category was split into 
+# two, and we're putting everything that was in the old category into
+# one of the two.
+literary_criticism = Interchangeable(
+    "Literary Criticism", "Literary Criticism & Collections"
+)
 
 # If these variables are used in a rule, they must be the first token in
 # that rule.
@@ -37,7 +81,6 @@ class MatchingRule(object):
         # Track the subjects that were 'caught' by this rule,
         # for debugging purposes.
         self.caught = []
-
         
         for i, rule in enumerate(ruleset):
             if i > 0 and rule in special_variables:
@@ -49,11 +92,7 @@ class MatchingRule(object):
             if isinstance(rule, basestring):
                 # It's a string. We do case-insensitive comparisons,
                 # so lowercase it.
-                self.ruleset.append(rule.lower())
-            elif hasattr(rule, 'pattern'):
-                # It's a regular expression. Recompile it to be
-                # case-insensitive.
-                self.ruleset.append(re.compile(rule.pattern, re.I))
+                self.ruleset.append(Lowercased(rule))
             else:
                 # It's a special object. Add it to the ruleset as-is.
                 self.ruleset.append(rule)
@@ -147,15 +186,11 @@ class MatchingRule(object):
 
         # We're comparing two individual tokens.
         subject_token = subject.pop(0)
-        if rule_token == juvenile:
-            match = subject_token in (
-                'juvenile fiction', 'juvenile nonfiction',
-            )
-        elif rule_token == ya:
-            match = subject_token in (
-                'young adult fiction', 'young adult nonfiction',
-            )
+        if isinstance(rule_token, CustomMatchToken):
+            match = rule_token.matches(subject_token)
         elif rule_token == nonfiction:
+            # This is too complex to be a CustomMatchToken because
+            # we may be modifying the subject token list.
             match = subject_token not in (
                 'juvenile fiction', 'young adult fiction', 'fiction'
             )
@@ -166,19 +201,9 @@ class MatchingRule(object):
                 # which means we popped a token like 'History' that
                 # needs to go back on the stack.
                 subject.insert(0, subject_token)
-        elif rule_token == fiction:
-            match = subject_token in (
-                'juvenile fiction', 'young adult fiction', 'fiction'
-            )
-        elif rule_token == something:
-            # 'something' matches any single token.
-            match = True
-        elif isinstance(rule_token, basestring):
+        else:
             # The strings must match exactly.
             match = rule_token == subject_token
-        else:
-            # The regular expression must match the subject.
-            match = rule_token.search(subject_token)
         return match, rules, subject
 
 
@@ -239,7 +264,7 @@ class BISACClassifier(Classifier):
         m(Classifier.AUDIENCE_YOUNG_ADULT, "Bibles", anything, "Youth & Teen"),
         m(Classifier.AUDIENCE_ADULTS_ONLY, anything, "Erotica"),
         m(Classifier.AUDIENCE_ADULTS_ONLY, "Humor", "Topic", "Adult"),
-        m(Classifier.AUDIENCE_ADULT, re.compile(".*")),
+        m(Classifier.AUDIENCE_ADULT, anything),
     ]
 
     TARGET_AGE = [
@@ -262,7 +287,7 @@ class BISACClassifier(Classifier):
         m(Comics_Graphic_Novels, fiction, 'Comics & Graphic Novels'),
 
         # "Literary Criticism / Foo" implies Literary Criticism, not Foo.
-	m(Literary_Criticism, anything, 'Literary Criticism'),
+	m(Literary_Criticism, anything, literary_criticism),
 
         # "Fiction / Christian / Foo" implies Religious Fiction
         # more strongly than it implies Foo.
@@ -274,8 +299,8 @@ class BISACClassifier(Classifier):
         # separately under that genre. This could definitely be
         # improved but would require a Subject to map to multiple
         # Genres.
-        m(Short_Stories, fiction, anything, re.compile('^Anthologies')),
-        m(Short_Stories, fiction, anything, re.compile('^Short Stories')),
+        m(Short_Stories, fiction, anything, RE('^Anthologies')),
+        m(Short_Stories, fiction, anything, RE('^Short Stories')),
         m(Short_Stories, 'Literary Collections'),
         m(Short_Stories, fiction, anything, 'Collections & Anthologies'),
         
@@ -346,6 +371,7 @@ class BISACClassifier(Classifier):
         # Then handle the less complicated genres of fiction.
         m(Adventure, fiction, 'Action & Adventure'),
         m(Adventure, fiction, 'Sea Stories'),
+        m(Adventure, fiction, 'War & Military'),
         m(Classics, fiction, 'Classics'),
         m(Folklore, fiction, 'Fairy Tales, Folk Tales, Legends & Mythology'),
         m(Historical_Fiction, anything, 'Historical'),
@@ -390,12 +416,12 @@ class BISACClassifier(Classifier):
         m(Photography, nonfiction, 'Photography'),
 
         # Personal Finance & Business
-        m(Business, nonfiction, 'Business & Economics', re.compile('^Business.*')),
+        m(Business, nonfiction, 'Business & Economics', RE('^Business.*')),
         m(Business, nonfiction, 'Business & Economics', 'Accounting'),
         m(Economics, nonfiction, 'Business & Economics', 'Economics'),
 
         m(Economics, nonfiction, 'Business & Economics', 'Environmental Economics'),
-        m(Economics, nonfiction, 'Business & Economics', re.compile('^Econo.*')),
+        m(Economics, nonfiction, 'Business & Economics', RE('^Econo.*')),
         m(Management_Leadership, nonfiction, 'Business & Economics', 'Management'),
         m(Management_Leadership, nonfiction, 'Business & Economics', 'Management Science'),
         m(Management_Leadership, nonfiction, 'Business & Economics', 'Leadership'),
@@ -419,13 +445,13 @@ class BISACClassifier(Classifier):
         m(African_History, nonfiction, 'History', 'Africa'),
         m(Ancient_History, nonfiction, 'History', 'Ancient'),
         m(Asian_History, nonfiction, 'History', 'Asia'),
-        m(Civil_War_History, nonfiction, 'History', 'United States', re.compile('^Civil War')),
+        m(Civil_War_History, nonfiction, 'History', 'United States', RE('^Civil War')),
         m(European_History, nonfiction, 'History', 'Europe'),
         m(Latin_American_History, nonfiction, 'History', 'Latin America'),
         m(Medieval_History, nonfiction, 'History', 'Medieval'),
         m(Military_History, nonfiction, 'History', 'Military'),
         m(Renaissance_Early_Modern_History, nonfiction, 'History', 'Renaissance'),
-        m(Renaissance_Early_Modern_History, nonfiction, 'History', 'Modern', re.compile('^1[678]th Century')),
+        m(Renaissance_Early_Modern_History, nonfiction, 'History', 'Modern', RE('^1[678]th Century')),
         m(Modern_History, nonfiction, 'History', 'Modern'),
         m(United_States_History, nonfiction, 'History', 'United States'),
         m(World_History, nonfiction, 'History', 'World'),
@@ -455,10 +481,10 @@ class BISACClassifier(Classifier):
         m(Reference_Study_Aids, nonfiction, 'Language Arts & Disciplines'),
 
         # Religion & Spirituality
-        m(Body_Mind_Spirit, nonfiction, 'Body, Mind & Spirit'),
+        m(Body_Mind_Spirit, nonfiction, body_mind_spirit),
         m(Buddhism, nonfiction, 'Religion', 'Buddhism'),
-        m(Christianity, nonfiction, 'Religion', re.compile('^Biblical')),
-        m(Christianity, nonfiction, 'Religion', re.compile('^Christian')),
+        m(Christianity, nonfiction, 'Religion', RE('^Biblical')),
+        m(Christianity, nonfiction, 'Religion', RE('^Christian')),
         m(Christianity, nonfiction, 'Bibles'),
         m(Hinduism, nonfiction, 'Religion', 'Hinduism'),
         m(Islam, nonfiction, 'Religion', 'Islam'),
@@ -470,11 +496,10 @@ class BISACClassifier(Classifier):
         m(Mathematics, nonfiction, 'Mathematics'),
         m(Medical, nonfiction, 'Medical'),
         m(Nature, nonfiction, 'Nature'),
-        m(Psychology, nonfiction, 'Psychology'),
+        m(Psychology, nonfiction, psychology),
 	m(Political_Science, nonfiction, 'Social Science', 'Politics & Government'),
         m(Social_Sciences, nonfiction, 'Social Science'),
-        m(Technology, nonfiction, 'Technology'),
-        m(Technology, nonfiction, 'Technology & Engineering'),
+        m(Technology, nonfiction, technology),
         m(Technology, nonfiction, 'Transportation'),
         m(Science, nonfiction, 'Science'),
 
@@ -517,7 +542,6 @@ class BISACClassifier(Classifier):
         m(Humorous_Nonfiction, "Young Adult Nonfiction", "Humor"),
         m(LGBTQ_Fiction, fiction, 'LGBT'),
         m(Law, nonfiction, "Law & Crime"),
-        m(Literary_Criticism, nonfiction, "Literary Criticism & Collections"),
         m(Mystery, fiction, "Mysteries & Detective Stories"),
         m(Nature, nonfiction, "Animals"),
         m(Personal_Finance_Investing, nonfiction, 'Personal Finance'),
@@ -552,7 +576,7 @@ class BISACClassifier(Classifier):
         # classified as Life Strategies.
         m(Life_Strategies, fiction, "social issues"),
         m(Life_Strategies, nonfiction, "social issues"),
-        m(Life_Strategies, nonfiction, "social topics"),
+        m(Life_Strategies, nonfiction, social_topics),
     ]
 
     @classmethod
@@ -563,6 +587,8 @@ class BISACClassifier(Classifier):
                 return None
             if fiction is not None:
                 return fiction
+        keyword = "/".join(name)
+        return KeywordBasedClassifier.is_fiction(identifier, keyword)
 
     @classmethod
     def audience(cls, identifier, name):
@@ -572,7 +598,8 @@ class BISACClassifier(Classifier):
                 return None
             if audience is not None:
                 return audience
-
+        keyword = "/".join(name)
+        return KeywordBasedClassifier.audience(identifier, keyword)
 
     @classmethod
     def target_age(cls, identifier, name):
@@ -583,6 +610,10 @@ class BISACClassifier(Classifier):
             if target_age is not None:
                 return target_age
 
+        # If all else fails, try the keyword-based classifier.
+        keyword = "/".join(name)
+        return KeywordBasedClassifier.target_age(identifier, keyword)
+
     @classmethod
     def genre(cls, identifier, name, fiction, audience):
         for ruleset in cls.GENRE:
@@ -592,9 +623,67 @@ class BISACClassifier(Classifier):
             if genre is not None:
                 return genre
 
+        # If all else fails, try a keyword-based classifier.
+        keyword = "/".join(name)
+        return KeywordBasedClassifier.genre(
+            identifier, keyword, fiction, audience
+        )
+
+    # A BISAC name copied from the BISAC website may end with this
+    # human-readable note, which is not part of the official name.
+    see_also = re.compile('\(see also .*')
+
+    @classmethod
+    def scrub_identifier(cls, identifier):
+        if identifier.startswith('FB'):
+            identifier = identifier[2:]
+        if identifier in cls.NAMES:
+            # We know the canonical name for this BISAC identifier,
+            # and we are better equipped to classify the canonical
+            # names, so use the canonical name in preference to
+            # whatever name the distributor provided.
+            return (identifier, cls.NAMES[identifier])
+        return identifier
+
     @classmethod
     def scrub_name(cls, name):
         """Split the name into a list of lowercase keywords."""
-        return [x.strip().lower() for x in name.split('/')]
 
+        # All of our comparisons are case-insensitive.
+        name = Lowercased(name)
+        
+        # Take corrective action to finame a number of common problems
+        # seen in the wild.
+        #
+
+        # A comma may have been replaced with a space.
+        name = name.replace("  ", ", ")
+
+        # The name may be enclosed in an extra set of quotes.
+        for quote in ("'\""):
+            if name.startswith(quote):
+                name = name[1:]
+            if name.endswith(quote):
+                name = name[:-1]
+            
+        # The name may end with an extraneous marker character or 
+        # (if it was copied from the BISAC website) an asterisk.
+        for separator in '|/*':
+            if name.endswith(separator):
+                name = name[:-1]
+
+        # A name copied from the BISAC website may end with a
+        # human-readable cross-reference.
+        name = cls.see_also.sub('', name)
+
+        # The canonical separator character is a slash, but a pipe
+        # has also been used.
+        for separator in '|/':
+            if separator in name:
+                parts = [name.strip() for name in name.split(separator) 
+                         if name.strip()]
+                break
+        else:
+            parts = [name]
+        return parts
 
