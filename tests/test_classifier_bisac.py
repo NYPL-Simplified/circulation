@@ -227,7 +227,7 @@ class TestBISACClassifier(object):
         # Categories that are not official BISAC categories (and any
         # official BISAC categories we didn't catch) are classified
         # as though they were free-text keywords.
-        genre_is(Fantasy, fiction, "unicorns")
+        genre_is("Fiction / Unicorns", "Fantasy")
 
     def test_fiction_spot_checks(self):
         def fiction_is(name, expect):

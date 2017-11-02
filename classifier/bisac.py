@@ -5,15 +5,14 @@ import re
 import string
 from . import *
 
-# Special tokens used in matching rules.
 class CustomMatchToken(object):
     """A custom token used in matching rules."""
     def matches(self, subject_token):
         """Does the given token match this one?"""
-        raise NotImplementedError
+        raise NotImplementedError()
 
 class Something(CustomMatchToken):
-    """A CustomMatchToken that will match any token."""
+    """A CustomMatchToken that will match any single token."""
     def matches(self, subject_token):
         return True
 
@@ -32,10 +31,6 @@ class Interchangeable(CustomMatchToken):
         self.choices = set(map(string.lower, choices))
 
     def matches(self,subject_token):
-        if subject_token in self.choices:
-            print "Found %s in %s" % (subject_token, self.choices)
-        else:
-            print "Didn't find %s in %s" % (subject_token, self.choices)
         return subject_token in self.choices
 
 # Special tokens for use in matching rules.
@@ -86,7 +81,6 @@ class MatchingRule(object):
         # Track the subjects that were 'caught' by this rule,
         # for debugging purposes.
         self.caught = []
-
         
         for i, rule in enumerate(ruleset):
             if i > 0 and rule in special_variables:
@@ -196,7 +190,7 @@ class MatchingRule(object):
             match = rule_token.matches(subject_token)
         elif rule_token == nonfiction:
             # This is too complex to be a CustomMatchToken because
-            # we may be modifying the token list.
+            # we may be modifying the subject token list.
             match = subject_token not in (
                 'juvenile fiction', 'young adult fiction', 'fiction'
             )
@@ -270,7 +264,7 @@ class BISACClassifier(Classifier):
         m(Classifier.AUDIENCE_YOUNG_ADULT, "Bibles", anything, "Youth & Teen"),
         m(Classifier.AUDIENCE_ADULTS_ONLY, anything, "Erotica"),
         m(Classifier.AUDIENCE_ADULTS_ONLY, "Humor", "Topic", "Adult"),
-        m(Classifier.AUDIENCE_ADULT, RE(".*")),
+        m(Classifier.AUDIENCE_ADULT, anything),
     ]
 
     TARGET_AGE = [

@@ -538,7 +538,7 @@ class TestKeyword(object):
         # African-American-focused "Urban Fiction" classification.
         eq_(None, Keyword.genre(None, "Fiction/Urban"))
 
-        eq_(Folklore, Keyword.genre("fables"))
+        eq_(Folklore, Keyword.genre(None, "fables"))
         
 class TestBISAC(object):
 
