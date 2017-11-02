@@ -115,6 +115,10 @@ class TestLaneCreation(DatabaseTest):
             assert "Best Sellers" in best_sellers.identifier
             eq_("Best Sellers", best_sellers.display_name)
 
+        # The best sellers lane has a data source.
+        nyt_data_source = DataSource.lookup(self._db, DataSource.NYT)
+        eq_(nyt_data_source, lanes[0].list_datasource)
+
 
     def test_create_lane_for_small_collection(self):
         create_lane_for_small_collection(self._db, self._default_library, ['eng', 'spa', 'chi'])

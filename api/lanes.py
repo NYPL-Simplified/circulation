@@ -256,7 +256,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
             languages=languages
         )
         priority += 1
-        best_sellers.list_data_source = nyt_data_source
+        best_sellers.list_datasource = nyt_data_source
         sublanes.append(best_sellers)
 
     adult_common_args = dict(
@@ -276,7 +276,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
             **adult_common_args
         )
         adult_fiction_priority += 1
-        adult_fiction_best_sellers.list_data_source = nyt_data_source
+        adult_fiction_best_sellers.list_datasource = nyt_data_source
         adult_fiction_sublanes.append(adult_fiction_best_sellers)
 
     for genre in fiction_genres:
@@ -317,7 +317,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
             **adult_common_args
         )
         adult_nonfiction_priority += 1
-        adult_nonfiction_best_sellers.list_data_source = nyt_data_source
+        adult_nonfiction_best_sellers.list_datasource = nyt_data_source
         adult_nonfiction_sublanes.append(adult_nonfiction_best_sellers)
 
     for genre in nonfiction_genres:
@@ -378,7 +378,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
             **ya_common_args
         )
         ya_fiction_priority += 1
-        ya_fiction_best_sellers.list_data_source = nyt_data_source
+        ya_fiction_best_sellers.list_datasource = nyt_data_source
         ya_fiction.sublanes.append(ya_fiction_best_sellers)
 
     ya_fiction.sublanes.append(
@@ -457,7 +457,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
             **ya_common_args
         )
         ya_nonfiction_priority += 1
-        ya_nonfiction_best_sellers.list_data_source = nyt_data_source
+        ya_nonfiction_best_sellers.list_datasource = nyt_data_source
         ya_nonfiction.sublanes.append(ya_nonfiction_best_sellers)
 
     ya_nonfiction.sublanes.append(
@@ -513,7 +513,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
             **children_common_args
         )
         children_priority += 1
-        children_best_sellers.list_data_source = nyt_data_source
+        children_best_sellers.list_datasource = nyt_data_source
         children.sublanes.append(children_best_sellers)
 
     picture_books, ignore = create(
