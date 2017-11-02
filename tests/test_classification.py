@@ -124,6 +124,7 @@ class TestClassifier(object):
         eq_(("A", "USE THIS NAME"), m("A", "name a"))
         eq_(("B", "NAME B"), m("B", "name b"))
 
+
 class TestClassifierLookup(object):
 
     def test_lookup(self):

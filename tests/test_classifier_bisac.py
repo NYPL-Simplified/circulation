@@ -302,7 +302,7 @@ class TestBISACClassifier(object):
 
     def test_feedbooks_bisac(self):
         """Feedbooks uses a system based on BISAC but with different
-        identifiers, different names, and some additions. These are
+        identifiers, different names, and some additions. This is all
         handled transparently by the default BISAC classifier.
         """
         subject = self._subject("FBFIC022000", "Mystery & Detective")
