@@ -140,7 +140,7 @@ def lane_from_genres(_db, library, genres, identifier=None, display_name=None,
         "Suspense/Thriller" : dict(display_name="Thriller"),
         "Humorous Nonfiction" : dict(display_name="Humor"),
         "Political Science" : dict(display_name="Politics & Current Events"),
-        "Periodicals" : dict(invisible=True)
+        "Periodicals" : dict(visible=False)
     }
 
     # Create sublanes first.
@@ -168,6 +168,7 @@ def lane_from_genres(_db, library, genres, identifier=None, display_name=None,
     if not identifier and len(genres) == 1:
         identifier = genres[0]
     fiction = None
+    visible = True
     if len(genres) == 1:
         if classifier.genres.get(genres[0]):
             genredata = classifier.genres[genres[0]]
@@ -181,6 +182,8 @@ def lane_from_genres(_db, library, genres, identifier=None, display_name=None,
                 display_name = instructions.get('display_name')
             if "audiences" in instructions:
                 audiences = instructions.get("audiences")
+            if "visible" in instructions:
+                visible = instructions.get("visible")
 
     if not display_name:
         if len(genres) == 1:
@@ -193,6 +196,7 @@ def lane_from_genres(_db, library, genres, identifier=None, display_name=None,
                           fiction=fiction, audiences=audiences,
                           sublanes=sublanes, priority=priority,
                           **extra_args)
+    lane.visible = visible
     for genre in genres:
         lane.add_genre(genre)
     for genre in exclude_genres:
