@@ -148,7 +148,7 @@ def lane_from_genres(_db, library, genres, identifier=None, display_name=None,
     for genre in genres:
         if isinstance(genre, dict):
             sublane_priority = 0
-            for subgenre in genre.get("subgenres"):
+            for subgenre in genre.get("subgenres", []):
                 sublanes.append(lane_from_genres(
                         _db, library, [subgenre], identifier=identifier + " " + subgenre,
                         priority=sublane_priority, **extra_args))
