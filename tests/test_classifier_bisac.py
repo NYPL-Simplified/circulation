@@ -132,6 +132,13 @@ class TestBISACClassifier(object):
         subject.genre, subject.audience, subject.target_age, subject.fiction = BISACClassifier.classify(subject)
         return subject
 
+    def genre_is(self, name, expect):
+        subject = self._subject("", name)
+        if expect and subject.genre:
+            eq_(expect, subject.genre.name)
+        else:
+            eq_(expect, subject.genre)
+
     def test_every_rule_fires(self):
         """There's no point in having a rule that doesn't catch any real BISAC
         subjects. The presence of such a rule generally indicates a
@@ -185,12 +192,7 @@ class TestBISACClassifier(object):
         """Test some unusual cases with respect to how BISAC
         classifications are turned into genres.
         """
-        def genre_is(name, expect):
-            subject = self._subject("", name)
-            if expect and subject.genre:
-                eq_(expect, subject.genre.name)
-            else:
-                eq_(expect, subject.genre)
+        genre_is = self.genre_is
 
         genre_is("Fiction / Science Fiction / Erotica", "Erotica")
         genre_is("Literary Criticism / Science Fiction", "Literary Criticism")
@@ -216,18 +218,24 @@ class TestBISACClassifier(object):
         genre_is("Young Adult Fiction / Poetry", "Poetry")
         genre_is("Poetry", "Poetry")
 
-        # These BISAC terms have been deprecated. We classify them
-        # the same as the new terms.
-        genre_is("Psychology & Psychiatry / Jungian", "Psychology")
-        genre_is("Mind & Spirit / Crystals, Man", "Body, Mind & Spirit")
-        genre_is("Technology / Fire", "Technology")
-        genre_is("Young Adult Nonfiction / Social Situations / Junior Prom", 
-                 "Life Strategies")
+    def test_deprecated_bisac_terms(self):
+        """These BISAC terms have been deprecated. We classify them
+        the same as the new terms.
+        """
+        self.genre_is("Psychology & Psychiatry / Jungian", "Psychology")
+        self.genre_is("Mind & Spirit / Crystals, Man", "Body, Mind & Spirit")
+        self.genre_is("Technology / Fire", "Technology")
+        self.genre_is(
+            "Young Adult Nonfiction / Social Situations / Junior Prom", 
+            "Life Strategies"
+        )
 
-        # Categories that are not official BISAC categories (and any
-        # official BISAC categories we didn't catch) are classified
-        # as though they were free-text keywords.
-        genre_is("Fiction / Unicorns", "Fantasy")
+    def test_non_bisac_classified_as_keywords(self):
+        """Categories that are not official BISAC categories (and any official
+        BISAC categories our rules didn't catch) are classified as
+        though they were free-text keywords.
+        """
+        self.genre_is("Fiction / Unicorns", "Fantasy")
 
     def test_fiction_spot_checks(self):
         def fiction_is(name, expect):
@@ -291,3 +299,50 @@ class TestBISACClassifier(object):
         target_age_is("Juvenile Fiction / Science Fiction", (None, None))
         target_age_is("Young Adult Fiction / Science Fiction / General", 
                       (14, 17))
+
+    def test_feedbooks_bisac(self):
+        """Feedbooks uses a system based on BISAC but with different
+        identifiers, different names, and some additions. These are
+        handled transparently by the default BISAC classifier.
+        """
+        subject = self._subject("FBFIC022000", "Mystery & Detective")
+        eq_("Mystery", subject.genre.name)
+
+        # This is not an official BISAC classification, so we'll
+        # end up running it through the keyword classifier.
+        subject = self._subject("FSHUM000000N", "Human Science")
+        eq_("Social Sciences", subject.genre.name)
+
+    def test_scrub_identifier(self):
+        # FeedBooks prefixes are removed.
+        eq_("abc", BISACClassifier.scrub_identifier("FBabc"))
+
+        # Otherwise, the identifier is left alone.
+        eq_("abc", BISACClassifier.scrub_identifier("abc"))
+
+        # If the identifier is recognized as an official BISAC identifier,
+        # the canonical name is also returned. This will override
+        # any other name associated with the subject for classification
+        # purposes.
+        eq_(("FIC015000", "Fiction / Horror"), 
+            BISACClassifier.scrub_identifier("FBFIC015000"))
+
+    def test_scrub_name(self):
+        """Sometimes a data provider sends BISAC names that contain extra or
+        nonstandard characters. We store the data as it was provided to us,
+        but when it's time to classify things, we normalize it.
+        """
+        def scrubbed(before, after):
+            eq_(after, BISACClassifier.scrub_name(before))
+
+        scrubbed("ART/Collections  Catalogs  Exhibitions/", 
+                 ["art", "collections, catalogs, exhibitions"])
+        scrubbed("ARCHITECTURE|History|Contemporary|", 
+                 ["architecture", "history", "contemporary"])
+        scrubbed("BIOGRAPHY & AUTOBIOGRAPHY / Editors, Journalists, Publishers",
+                 ["biography & autobiography", "editors, journalists, publishers"])
+        scrubbed("EDUCATION/Teaching Methods & Materials/Arts & Humanities */",
+                 ["education", "teaching methods & materials",
+                  "arts & humanities"])
+        scrubbed("JUVENILE FICTION / Family / General (see also headings under Social Issues)",
+                 ["juvenile fiction", "family", "general"])

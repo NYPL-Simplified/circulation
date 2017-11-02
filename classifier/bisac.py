@@ -629,15 +629,61 @@ class BISACClassifier(Classifier):
             identifier, keyword, fiction, audience
         )
 
+    # A BISAC name copied from the BISAC website may end with this
+    # human-readable note, which is not part of the official name.
+    see_also = re.compile('\(see also .*')
+
     @classmethod
     def scrub_identifier(cls, identifier):
         if identifier.startswith('FB'):
-            return identifier[2:]
+            identifier = identifier[2:]
+        if identifier in cls.NAMES:
+            # We know the canonical name for this BISAC identifier,
+            # and we are better equipped to classify the canonical
+            # names, so use the canonical name in preference to
+            # whatever name the distributor provided.
+            return (identifier, cls.NAMES[identifier])
         return identifier
 
     @classmethod
     def scrub_name(cls, name):
         """Split the name into a list of lowercase keywords."""
-        return [x.strip().lower() for x in name.split('/')]
 
+        # All of our comparisons are case-insensitive.
+        name = name.lower()
+        
+        # Take corrective action to finame a number of common problems
+        # seen in the wild.
+        #
+
+        # A comma may have been replaced with a space.
+        name = name.replace("  ", ", ")
+
+        # The name may be enclosed in an enametra set of quotes.
+        for quote in ("'\""):
+            if name.startswith(quote):
+                name = name[1:]
+            if name.endswith(quote):
+                name = name[:-1]
+            
+        # The name may end with an enametraneous marker character or 
+        # (if it was copied from the BISAC website) an asterisk.
+        for separator in '|/*':
+            if name.endswith(separator):
+                name = name[:-1]
+
+        # A name copied from the BISAC website may end with a
+        # human-readable cross-reference.
+        name = cls.see_also.sub('', name)
+
+        # The canonical separator character is a slash, but a pipe
+        # has also been used.
+        for separator in '|/':
+            if separator in name:
+                parts = [name.strip() for name in name.split(separator) 
+                         if name.strip()]
+                break
+        else:
+            parts = [name]
+        return parts
 

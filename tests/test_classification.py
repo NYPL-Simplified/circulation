@@ -96,6 +96,34 @@ class TestClassifier(object):
         eq_(17, u(14, "14+."))
         eq_(18, u(18, "18+"))
 
+
+    def test_scrub_identifier_can_override_name(self):
+        """Test the ability of scrub_identifier to override the name
+        of the subject for classification purposes.
+
+        This is used e.g. in the BISACClassifier to ensure that a known BISAC
+        code is always mapped to its canonical name.
+        """
+        class SetsNameForOneIdentifier(Classifier):
+            "A Classifier that insists on a certain name for one specific identifier"
+            @classmethod
+            def scrub_identifier(self, identifier):
+                if identifier == 'A':
+                    return ('A', 'Use this name!')
+                else:
+                    return identifier
+
+            @classmethod
+            def scrub_name(self, name):
+                """This verifies that the override name still gets passed
+                into scrub_name.
+                """
+                return name.upper()
+
+        m = SetsNameForOneIdentifier.scrub_identifier_and_name
+        eq_(("A", "USE THIS NAME"), m("A", "name a"))
+        eq_(("B", "NAME B"), m("B", "name b"))
+
 class TestClassifierLookup(object):
 
     def test_lookup(self):

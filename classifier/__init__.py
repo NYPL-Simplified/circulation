@@ -117,11 +117,9 @@ class Classifier(object):
         """Try to determine genre, audience, target age, and fiction status
         for the given Subject.
         """
-        identifier = cls.scrub_identifier(subject.identifier)
-        if subject.name:
-            name = cls.scrub_name(subject.name)
-        else:
-            name = identifier
+        identifier, name = cls.scrub_identifier_and_name(
+            subject.identifier, subject.name
+        )
         fiction = cls.is_fiction(identifier, name)
         audience = cls.audience(identifier, name)
 
@@ -134,6 +132,20 @@ class Classifier(object):
                 target_age,
                 fiction,
                 )
+
+    @classmethod
+    def scrub_identifier_and_name(cls, identifier, name):
+        """Prepare identifier and name from within a call to classify()."""
+        identifier = cls.scrub_identifier(identifier)
+        if isinstance(identifier, tuple):
+            # scrub_identifier returned a canonical value for name as 
+            # well. Use it in preference to any name associated with
+            # the subject.
+            identifier, name = identifier
+        elif not name:
+            name = identifier
+        name = cls.scrub_name(name)
+        return identifier, name
 
     @classmethod
     def scrub_identifier(cls, identifier):
