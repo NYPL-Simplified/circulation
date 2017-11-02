@@ -2126,6 +2126,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("sorcery"),
                    Eg("witchcraft"),
                    Eg("wizardry"),
+                   Eg("unicorns"),
                ),
                
                Fashion: match_kw(
@@ -2696,6 +2697,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "self-improvement",
                ),
                Folklore : match_kw(
+                   "fables",
                    "folklore",
                    "folktales",
                    "folk tales",
@@ -2833,8 +2835,6 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                Urban_Fiction: match_kw(
                    "urban fiction",
                    Eg("fiction.*african american.*urban"),
-                   "fiction / urban",
-                   "fiction/urban",
                ),
                
                Vegetarian_Vegan: match_kw(

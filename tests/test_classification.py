@@ -533,6 +533,12 @@ class TestKeyword(object):
         # particular.
         eq_(classifier.Historical_Fiction, Keyword.genre(None, "Historical"))
         eq_(None, Keyword.genre(None, "Historicals"))
+
+        # The Fiction/Urban classification is different from the
+        # African-American-focused "Urban Fiction" classification.
+        eq_(None, Keyword.genre(None, "Fiction/Urban"))
+
+        eq_(Folklore, Keyword.genre("fables"))
         
 class TestBISAC(object):
 

@@ -7,6 +7,7 @@ from nose.tools import (
 from classifier.bisac import (
     BISACClassifier,
     MatchingRule,
+    RE,
     anything,
     fiction,
     juvenile,
@@ -38,7 +39,7 @@ class TestMatchingRule(object):
         eq_(None, rule.match("all books", "fiction"))
 
     def test_regular_expression_match(self):
-        rule = MatchingRule(True, re.compile('F.*O'))
+        rule = MatchingRule(True, RE('F.*O'))
         eq_(True, rule.match("food"))
         eq_(True, rule.match("flapjacks and oatmeal"))
         eq_(None, rule.match("good", "food"))
@@ -215,6 +216,19 @@ class TestBISACClassifier(object):
         genre_is("Young Adult Fiction / Poetry", "Poetry")
         genre_is("Poetry", "Poetry")
 
+        # These BISAC terms have been deprecated. We classify them
+        # the same as the new terms.
+        genre_is("Psychology & Psychiatry / Jungian", "Psychology")
+        genre_is("Mind & Spirit / Crystals, Man", "Body, Mind & Spirit")
+        genre_is("Technology / Fire", "Technology")
+        genre_is("Young Adult Nonfiction / Social Situations / Junior Prom", 
+                 "Life Strategies")
+
+        # Categories that are not official BISAC categories (and any
+        # official BISAC categories we didn't catch) are classified
+        # as though they were free-text keywords.
+        genre_is(Fantasy, fiction, "unicorns")
+
     def test_fiction_spot_checks(self):
         def fiction_is(name, expect):
             subject = self._subject("", name)
@@ -270,9 +284,10 @@ class TestBISACClassifier(object):
                 (5,7)
             )
 
-        # In all other cases, the default target age for the audience will
-        # be used.
-        target_age_is("Fiction / Science Fiction / Erotica", None)
-        target_age_is("Fiction / Science Fiction", None)
-        target_age_is("Juvenile Fiction / Science Fiction", None)
-        target_age_is("Young Adult Fiction / Science Fiction / General", None)
+        # In all other cases, the classifier will fall back to the
+        # default for the target audience.
+        target_age_is("Fiction / Science Fiction / Erotica", (18, None))
+        target_age_is("Fiction / Science Fiction", (18, None))
+        target_age_is("Juvenile Fiction / Science Fiction", (None, None))
+        target_age_is("Young Adult Fiction / Science Fiction / General", 
+                      (14, 17))
