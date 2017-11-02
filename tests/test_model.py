@@ -337,6 +337,28 @@ class TestIdentifier(DatabaseTest):
         identifier = self._identifier(Identifier.OVERDRIVE_ID)
         assert identifier.urn.startswith(Identifier.URN_SCHEME_PREFIX)
 
+    def test_parse_urns(self):
+        identifier = self._identifier()
+        new_urn = Identifier.URN_SCHEME_PREFIX + "Overdrive%20ID/nosuchidentifier"
+        fake_urn = "what_even_is_this"
+        urns = [identifier.urn, fake_urn, new_urn]
+
+        results = Identifier.parse_urns(self._db, urns)
+        identifiers_by_urn, failures = results
+
+        # The fake URN is returned in the list of failures.
+        eq_(failures, [fake_urn])
+
+        eq_(2, len(identifiers_by_urn))
+        # The existing identifier is returned from its URN.
+        eq_(identifier, identifiers_by_urn[identifier.urn])
+
+        new_identifier = identifiers_by_urn[new_urn]
+        assert isinstance(new_identifier, Identifier)
+        assert new_identifier in self._db
+        eq_(Identifier.OVERDRIVE_ID, new_identifier.type)
+        eq_("nosuchidentifier", new_identifier.identifier)
+
     def test_parse_urn(self):
 
         # We can parse our custom URNs back into identifiers.
@@ -7219,10 +7241,22 @@ class TestCollection(DatabaseTest):
     def test_catalog_identifier(self):
         """#catalog_identifier associates an identifier with the catalog"""
         identifier = self._identifier()
-        self.collection.catalog_identifier(self._db, identifier)
+        self.collection.catalog_identifier(identifier)
 
         eq_(1, len(self.collection.catalog))
         eq_(identifier, self.collection.catalog[0])
+
+    def test_catalog_identifiers(self):
+        """#catalog_identifier associates multiple identifiers with a catalog"""
+        i1 = self._identifier()
+        i2 = self._identifier()
+        i3 = self._identifier()
+
+        # One of the identifiers is already in the catalog.
+        self.collection.catalog_identifier(i3)
+
+        self.collection.catalog_identifiers([i1, i2, i3])
+        assert sorted([i1, i2, i3]) == sorted(self.collection.catalog)
 
     def test_works_updated_since(self):
         w1 = self._work(with_license_pool=True)
@@ -7233,8 +7267,8 @@ class TestCollection(DatabaseTest):
         eq_([], self.collection.works_updated_since(self._db, timestamp).all())
 
         # When no timestamp is passed, all works in the catalog are returned.
-        self.collection.catalog_identifier(self._db, w1.license_pools[0].identifier)
-        self.collection.catalog_identifier(self._db, w2.license_pools[0].identifier)
+        self.collection.catalog_identifier(w1.license_pools[0].identifier)
+        self.collection.catalog_identifier(w2.license_pools[0].identifier)
         updated_works = self.collection.works_updated_since(self._db, None).all()
 
         eq_(2, len(updated_works))

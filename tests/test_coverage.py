@@ -1295,10 +1295,10 @@ class TestCatalogCoverageProvider(CoverageProviderTest):
         c2 = self._collection()
 
         i1 = self._identifier()
-        c1.catalog_identifier(self._db, i1)
+        c1.catalog_identifier(i1)
 
         i2 = self._identifier()
-        c2.catalog_identifier(self._db, i2)
+        c2.catalog_identifier(i2)
 
         i3 = self._identifier()
 
