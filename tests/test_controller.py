@@ -96,7 +96,6 @@ from api.adobe_vendor_id import (
     DeviceManagementProtocolController,
 )
 from api.odl import MockODLWithConsolidatedCopiesAPI
-from api.lanes import make_lanes_default
 import base64
 import feedparser
 from core.opds import (
