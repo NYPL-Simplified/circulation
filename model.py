@@ -3799,6 +3799,20 @@ class Work(Base):
         return q2
 
     @classmethod
+    def for_unchecked_subjects(cls, _db):
+        """Find all Works whose LicensePools have an Identifier that
+        is classified under an unchecked Subject.
+
+        This is a good indicator that the Work needs to be
+        reclassified.
+        """
+        qu = _db.query(Work).join(Work.license_pools).join(
+            LicensePool.identifier).join(
+                Identifier.classifications).join(
+                    Classification.subject)
+        return qu.filter(Subject.checked==False).distinct()
+
+    @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid, medium):
         """Find or create the Work encompassing all open-access LicensePools
         whose presentation Editions have the given permanent work ID and

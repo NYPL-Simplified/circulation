@@ -3219,7 +3219,30 @@ class TestWork(DatabaseTest):
         # The work was not added to the search index -- that happens
         # later, when the WorkCoverageRecord is processed.
         eq_([], index.docs.values())
-        
+      
+
+    def test_for_unchecked_subjects(self):
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work()
+        identifier = w1.license_pools[0].identifier
+
+        # Neither of these works is associated with any subjects, so
+        # they're not associated with any unchecked subjects.
+        qu = Work.for_unchecked_subjects(self._db)
+        eq_([], qu.all())
+
+        # This Subject hasn't been checked, so the Work associated with
+        # it shows up.
+        ds = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        classification = identifier.classify(ds, Subject.TAG, "some tag")
+        classification2 = identifier.classify(ds, Subject.TAG, "another tag")
+        eq_([w1], qu.all())
+
+        # Mark it as checked, and the Work stops showing up.
+        classification.subject.checked = True
+        eq_([], qu.all())
+
 
 class TestCirculationEvent(DatabaseTest):
 

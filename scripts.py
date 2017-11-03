@@ -1473,6 +1473,24 @@ class WorkClassificationScript(WorkPresentationScript):
     )
 
 
+class ReclassifyWorksForUncheckedSubjectsScript(WorkClassificationScript):
+    """Reclassify all Works whose current classifications appear to 
+    depend on Subjects in the 'unchecked' state.
+
+    This generally means that some migration script reset those
+    Subjects because the rules for processing them changed.
+    """
+
+    policy = WorkClassificationScript.policy
+
+    batch_size = 100
+
+    def __init__(self, _db=None):
+        if _db:
+            self._session = _db
+        self.query = Work.for_unchecked_subjects(self._db)
+
+
 class WorkOPDSScript(WorkPresentationScript):
     """Recalculate the OPDS entries and search index entries for Work objects.
 

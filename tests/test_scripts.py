@@ -2070,6 +2070,18 @@ class TestExplain(DatabaseTest):
         assert "Fulfillable" in output
         assert "ACTIVE" in output
 
+class TestReclassifyWorksForUncheckedSubjectsScript(object):
+
+    def test_constructor(self):
+        """Make sure that we're only going to classify works
+        with unchecked subjects.
+        """
+        script = ReclassifyWorksForUncheckedSubjectsScript(self._db)
+        eq_(WorkClassificationScript.policy,
+        eq_(100, script.batch_size)
+        eq_(Work.for_unchecked_subjects(self._db), script.query)
+
+
 class TestWorkConsolidationScript(object):
     """TODO"""
     pass
