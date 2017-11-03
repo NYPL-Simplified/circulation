@@ -61,57 +61,56 @@ class TestURNLookupController(DatabaseTest):
         eq_(code, obj.status_code)
         eq_(message, obj.message)
         eq_([], self.controller.works)
-        
-    def test_process_urn_invalid_urn(self):
+
+    def test_process_urns_invalid_urn(self):
         urn = "not even a URN"
-        self.controller.process_urn(urn)
+        self.controller.process_urns([urn])
         self.assert_one_message(urn, 400, INVALID_URN.detail)
 
-    def test_process_urn_unrecognized_identifier(self):
+    def test_process_urns_unrecognized_identifier(self):
         # Give the controller a URN that, although valid, doesn't
         # correspond to any Identifier in the database.
-        urn = Identifier.URN_SCHEME_PREFIX + 'Gutenberg%20ID/30000000'
-        self.controller.process_urn(urn)
+        urn = Identifier.GUTENBERG_URN_SCHEME_PREFIX + 'Gutenberg%20ID/000'
+        self.controller.process_urns([urn])
 
         # The result is a 404 message.
         self.assert_one_message(
             urn, 404, self.controller.UNRECOGNIZED_IDENTIFIER
         )
 
-    def test_process_urn_no_license_pool(self):
+    def test_process_identifier_no_license_pool(self):
         # Give the controller a URN that corresponds to an Identifier
         # which has no LicensePool.
         identifier = self._identifier()
-        urn = identifier.urn
-        self.controller.process_urn(urn)
+        self.controller.process_identifier(identifier, identifier.urn)
 
         # The result is a 404 message.
         self.assert_one_message(
-            urn, 404, self.controller.UNRECOGNIZED_IDENTIFIER
+            identifier.urn, 404, self.controller.UNRECOGNIZED_IDENTIFIER
         )
 
-    def test_process_urn_license_pool_but_no_work(self):
+    def test_process_identifier_license_pool_but_no_work(self):
         edition, pool = self._edition(with_license_pool=True)
         identifier = edition.primary_identifier
-        self.controller.process_urn(identifier.urn)
+        self.controller.process_identifier(identifier, identifier.urn)
         self.assert_one_message(
             identifier.urn, 202, self.controller.WORK_NOT_CREATED
         )
 
-    def test_process_urn_work_not_presentation_ready(self):
+    def test_process_identifier_work_not_presentation_ready(self):
         work = self._work(with_license_pool=True)
         work.presentation_ready = False
         identifier = work.license_pools[0].identifier
-        self.controller.process_urn(identifier.urn)
+        self.controller.process_identifier(identifier, identifier.urn)
 
         self.assert_one_message(
             identifier.urn, 202, self.controller.WORK_NOT_PRESENTATION_READY
         )
         
-    def test_process_urn_work_is_presentation_ready(self):
+    def test_process_identifier_work_is_presentation_ready(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
-        self.controller.process_urn(identifier.urn)
+        self.controller.process_identifier(identifier, identifier.urn)
         eq_([], self.controller.precomposed_entries)
         eq_([(work.presentation_edition.primary_identifier, work)],
             self.controller.works

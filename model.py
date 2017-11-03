@@ -1380,6 +1380,10 @@ class CoverageRecord(Base, BaseCoverageRecord):
         else:
             raise ValueError(
                 "Cannot look up a coverage record for %r." % edition) 
+
+        if isinstance(data_source, basestring):
+            data_source = DataSource.lookup(_db, data_source)
+
         return get_one(
             _db, CoverageRecord,
             identifier=identifier,
@@ -1432,8 +1436,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     UPDATE_SEARCH_INDEX_OPERATION = u'update-search-index'
 
     id = Column(Integer, primary_key=True)
-    work_id = Column(
-        Integer, ForeignKey('works.id'), index=True)
+    work_id = Column(Integer, ForeignKey('works.id'), index=True)
     operation = Column(String(255), index=True, default=None)
         
     timestamp = Column(DateTime, index=True)
@@ -1519,9 +1522,8 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         # The SELECT part of the INSERT...SELECT query.
         new_records = _db.query(
             Work.id.label('work_id'), 
-            literal(operation, type_=BaseCoverageRecord.status_enum).label('operation'),
+            literal(operation, type_=String(255)).label('operation'),
             literal(timestamp, type_=DateTime).label('timestamp'), 
-
             literal(status, type_=BaseCoverageRecord.status_enum).label('status')
         ).select_from(
             Work
@@ -1737,25 +1739,12 @@ class Identifier(Base):
     def for_foreign_id(cls, _db, foreign_identifier_type, foreign_id,
                        autocreate=True):
         """Turn a foreign ID into an Identifier."""
+        foreign_identifier_type, foreign_id = cls.prepare_foreign_type_and_identifier(
+            foreign_identifier_type, foreign_id
+        )
         if not foreign_identifier_type or not foreign_id:
             return None
 
-        # Turn a deprecated identifier type (e.g. "3M ID" into the
-        # current type (e.g. "Bibliotheca ID").
-        foreign_identifier_type = cls.DEPRECATED_NAMES.get(
-            foreign_identifier_type, foreign_identifier_type
-        )
-        
-        if foreign_identifier_type in (
-                Identifier.OVERDRIVE_ID, Identifier.BIBLIOTHECA_ID):
-            foreign_id = foreign_id.lower()
-        if not cls.valid_as_foreign_identifier(
-                foreign_identifier_type, foreign_id):
-            raise ValueError(
-                '"%s" is not a valid %s.' % (
-                    foreign_id, foreign_identifier_type
-                )
-            )
         if autocreate:
             m = get_one_or_create
         else:
@@ -1768,6 +1757,25 @@ class Identifier(Base):
             return result
         else:
             return result, False
+
+    @classmethod
+    def prepare_foreign_type_and_identifier(cls, foreign_type, foreign_identifier):
+        if not foreign_type or not foreign_identifier:
+            return (None, None)
+
+        # Turn a deprecated identifier type (e.g. "3M ID" into the
+        # current type (e.g. "Bibliotheca ID").
+        foreign_type = cls.DEPRECATED_NAMES.get(foreign_type, foreign_type)
+
+        if foreign_type in (Identifier.OVERDRIVE_ID, Identifier.BIBLIOTHECA_ID):
+            foreign_identifier = foreign_identifier.lower()
+
+        if not cls.valid_as_foreign_identifier(foreign_type, foreign_identifier):
+            raise ValueError('"%s" is not a valid %s.' % (
+                foreign_identifier, foreign_type
+            ))
+
+        return (foreign_type, foreign_identifier)
 
     @classmethod
     def valid_as_foreign_identifier(cls, type, id):
@@ -1857,6 +1865,58 @@ class Identifier(Base):
                 "Could not turn %s into a recognized identifier." %
                 identifier_string)
         return (type, identifier_string)
+
+    @classmethod
+    def parse_urns(cls, _db, identifier_strings):
+        """Batch processes URNs"""
+        failures = list()
+        identifier_details = dict()
+        for urn in identifier_strings:
+            type = identifier = None
+            try:
+                (type, identifier) = cls.prepare_foreign_type_and_identifier(
+                    *cls.type_and_identifier_for_urn(urn)
+                )
+                if type and identifier:
+                    identifier_details[urn] = (type, identifier)
+                else:
+                    failures.append(urn)
+            except ValueError as e:
+                failures.append(urn)
+
+        identifiers_by_urn = dict()
+        def find_existing_identifiers(identifier_details):
+            and_clauses = list()
+            for type, identifier in identifier_details:
+                and_clauses.append(
+                    and_(cls.type==type, cls.identifier==identifier)
+                )
+
+            identifiers = _db.query(cls).filter(or_(*and_clauses)).all()
+            for identifier in identifiers:
+                identifiers_by_urn[identifier.urn] = identifier
+
+        # Find identifiers that are already in the database.
+        find_existing_identifiers(identifier_details.values())
+
+        # Find any identifier details that don't correspond to an existing
+        # identifier. Try to create them.
+        new_identifiers = list()
+        for urn, details in identifier_details.items():
+            if urn not in identifiers_by_urn:
+                new_identifiers.append(
+                    dict(type=details[0], identifier=details[1])
+                )
+            else:
+                del identifier_details[urn]
+
+        # Insert new identifiers into the database, then add them to the
+        # results.
+        _db.bulk_insert_mappings(cls, new_identifiers)
+        _db.commit()
+        find_existing_identifiers(identifier_details.values())
+
+        return identifiers_by_urn, failures
 
     @classmethod
     def parse_urn(cls, _db, identifier_string, must_support_license_pools=False):
@@ -10624,11 +10684,20 @@ class Collection(Base, HasFullTableCache):
                 lines.append('Setting "%s": "%s"' % (setting.key, setting.value))
         return lines
 
-    def catalog_identifier(self, _db, identifier):
+    def catalog_identifier(self, identifier):
         """Inserts an identifier into a catalog"""
-        if identifier not in self.catalog:
-            self.catalog.append(identifier)
-            flush(_db)
+        self.catalog_identifiers([identifier])
+
+    def catalog_identifiers(self, identifiers):
+        """Inserts identifiers into the catalog"""
+        if not identifiers:
+            # Nothing to do.
+            return
+
+        _db = Session.object_session(identifiers[0])
+        uncatalogued = filter(lambda i: i not in self.catalog, identifiers)
+        self.catalog.extend(uncatalogued)
+        flush(_db)
 
     def works_updated_since(self, _db, timestamp):
         """Returns all works in a collection's catalog that have been updated

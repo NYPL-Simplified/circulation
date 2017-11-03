@@ -396,7 +396,6 @@ class DatabaseTest(object):
             RightsStatus.IN_COPYRIGHT
         )
 
-        
     def _coverage_record(self, edition, coverage_source, operation=None,
                          status=CoverageRecord.SUCCESS, collection=None):
         if isinstance(edition, Identifier):
@@ -873,10 +872,12 @@ class DatabaseTest(object):
     def _catalog(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
         
-    def _integration_client(self, url=None):
+    def _integration_client(self, url=None, shared_secret=None):
         url = url or self._url
+        secret = shared_secret or u"secret"
         return get_one_or_create(
-            self._db, IntegrationClient, url=url, shared_secret=u"secret"
+            self._db, IntegrationClient, shared_secret=secret,
+            create_method_kwargs=dict(url=url)
         )[0]
 
     def _subject(self, type, identifier):

@@ -265,14 +265,12 @@ class URNLookupController(object):
         self.precomposed_entries = []
         self.unresolved_identifiers = []
 
-    def work_lookup(self, annotator, route_name='lookup',
-                    urns=[], **process_urn_kwargs):
+    def work_lookup(self, annotator, route_name='lookup', **process_urn_kwargs):
         """Generate an OPDS feed describing works identified by identifier."""
         urns = flask.request.args.getlist('urn')
 
         this_url = cdn_url_for(route_name, _external=True, urn=urns)
-        for urn in urns:
-            self.process_urn(urn, **process_urn_kwargs)
+        self.process_urns(urns)
         self.post_lookup_hook()
 
         opds_feed = LookupAcquisitionFeed(
@@ -284,7 +282,7 @@ class URNLookupController(object):
     def permalink(self, urn, annotator, route_name='work'):
         """Look up a single identifier and generate an OPDS feed."""
         this_url = cdn_url_for(route_name, _external=True, urn=urn)
-        self.process_urn(urn)
+        self.process_urns([urn])
         self.post_lookup_hook()
 
         # A LookupAcquisitionFeed's .works is a list of (identifier,
@@ -297,19 +295,21 @@ class URNLookupController(object):
         )
 
         return feed_response(opds_feed)
-    
-    def process_urn(self, urn, **kwargs):
+
+    def process_urns(self, urns, **process_urn_kwargs):
+        identifiers_by_urn, failures = Identifier.parse_urns(self._db, urns)
+        self.add_urn_failure_messages(failures)
+
+        for urn, identifier in identifiers_by_urn.items():
+            self.process_identifier(identifier, urn, **process_urn_kwargs)
+
+    def add_urn_failure_messages(self, failures):
+        for urn in failures:
+            self.add_message(urn, 400, INVALID_URN.detail)
+
+    def process_identifier(self, identifier, urn, **kwargs):
         """Turn a URN into a Work suitable for use in an OPDS feed.
         """
-        try:
-            identifier, is_new = Identifier.parse_urn(self._db, urn)
-        except ValueError, e:
-            identifier = None
-
-        if not identifier:
-            # Not a well-formed URN.
-            return self.add_message(urn, 400, INVALID_URN.detail)
-
         if not identifier.licensed_through:
             # The default URNLookupController cannot look up an
             # Identifier that has no associated LicensePool.
