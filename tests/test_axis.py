@@ -165,11 +165,12 @@ class TestParsers(AxisTest):
              Subject.AXIS_360_AUDIENCE], [x.type for x in subjects])
         general_fiction, women_sleuths, romantic_suspense = sorted([
             x.name for x in subjects if x.type==Subject.BISAC])
-        [adult] = [x.identifier for x in subjects 
-                   if x.type==Subject.AXIS_360_AUDIENCE]
         eq_(u'FICTION / General', general_fiction)
         eq_(u'FICTION / Mystery & Detective / Women Sleuths', women_sleuths)
         eq_(u'FICTION / Romance / Suspense', romantic_suspense)
+
+        [adult] = [x.identifier for x in subjects
+                   if x.type==Subject.AXIS_360_AUDIENCE]
         eq_(u'General Adult', adult)
 
         '''
