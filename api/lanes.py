@@ -435,9 +435,6 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
                          identifier=ya_fiction_identifier + " " + genres.Steampunk.name,
                          priority=ya_fiction_priority, **ya_common_args))
     ya_fiction_priority += 1
-    # TODO:
-    # Paranormal -- what is it exactly?
-
 
     ya_nonfiction_identifier = "%s Young Adult Nonfiction" % language_identifier
     ya_nonfiction, ignore = create(
