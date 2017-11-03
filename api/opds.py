@@ -37,11 +37,7 @@ from core.lane import (
     Lane,
     WorkList,
 )
-from api.lanes import (
-    WorkBasedLane,
-    ContributorLane,
-    SeriesLane,
-)
+from api.lanes import DynamicLane
 from core.app_server import cdn_url_for
 
 from adobe_vendor_id import AuthdataUtility
@@ -245,9 +241,7 @@ class CirculationManagerAnnotator(Annotator):
             url = self.groups_url(lane)
         elif lane and (
             isinstance(lane, Lane)
-            or isinstance(lane, WorkBasedLane)
-            or isinstance(lane, ContributorLane)
-            or isinstance(lane, SeriesLane)
+            or isinstance(lane, DynamicLane)
             ):
             url = self.feed_url(lane)
         else:
