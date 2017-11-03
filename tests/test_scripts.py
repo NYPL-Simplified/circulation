@@ -26,6 +26,7 @@ from external_search import DummyExternalSearchIndex
 
 from model import (
     create,
+    dump_query,
     get_one,
     CachedFeed,
     Collection,
@@ -63,6 +64,7 @@ from scripts import (
     MockStdin,
     OPDSImportScript,
     PatronInputScript,
+    ReclassifyWorksForUncheckedSubjectsScript,
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
     RunMonitorScript,
@@ -71,6 +73,7 @@ from scripts import (
     ShowCollectionsScript,
     ShowIntegrationsScript,
     ShowLibrariesScript,
+    WorkClassificationScript,
     WorkProcessingScript,
 )
 from testing import(
@@ -2070,16 +2073,18 @@ class TestExplain(DatabaseTest):
         assert "Fulfillable" in output
         assert "ACTIVE" in output
 
-class TestReclassifyWorksForUncheckedSubjectsScript(object):
+class TestReclassifyWorksForUncheckedSubjectsScript(DatabaseTest):
 
     def test_constructor(self):
         """Make sure that we're only going to classify works
         with unchecked subjects.
         """
         script = ReclassifyWorksForUncheckedSubjectsScript(self._db)
-        eq_(WorkClassificationScript.policy,
+        eq_(WorkClassificationScript.policy, 
+            ReclassifyWorksForUncheckedSubjectsScript.policy)
         eq_(100, script.batch_size)
-        eq_(Work.for_unchecked_subjects(self._db), script.query)
+        eq_(dump_query(Work.for_unchecked_subjects(self._db)), 
+            dump_query(script.query))
 
 
 class TestWorkConsolidationScript(object):

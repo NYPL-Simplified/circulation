@@ -3232,15 +3232,16 @@ class TestWork(DatabaseTest):
         qu = Work.for_unchecked_subjects(self._db)
         eq_([], qu.all())
 
-        # This Subject hasn't been checked, so the Work associated with
-        # it shows up.
+        # These Subjects haven't been checked, so the Work associated with
+        # them shows up.
         ds = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         classification = identifier.classify(ds, Subject.TAG, "some tag")
         classification2 = identifier.classify(ds, Subject.TAG, "another tag")
         eq_([w1], qu.all())
 
-        # Mark it as checked, and the Work stops showing up.
+        # Mark them as checked, and the Work stops showing up.
         classification.subject.checked = True
+        classification2.subject.checked = True
         eq_([], qu.all())
 
 
