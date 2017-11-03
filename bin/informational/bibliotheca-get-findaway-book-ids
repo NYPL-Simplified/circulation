@@ -21,11 +21,11 @@ from api.bibliotheca import BibliothecaAPI
 
 _db = production_session()
 identifier, is_new = Identifier.for_foreign_id(_db, Identifier.BIBLIOTHECA_ID,
-                                               "hxaee89")
+                                               "book_id_here")
 library = Library.default(_db)
 patron = Patron()
 patron.library = library
-patron.authorization_identifier = "darya5"
+patron.authorization_identifier = "patron_username_here"
 
 [bibliotheca] = [x for x in library.collections if x.protocol=='Bibliotheca']
 pool = LicensePool()
@@ -34,7 +34,7 @@ pool.collection = bibliotheca
 
 api = BibliothecaAPI(bibliotheca)
 bib_info = api.bibliographic_lookup_request(identifier)
-loan = api.checkout(patron, "1234", pool, None)
+loan = api.checkout(patron, "patron_password_here", pool, None)
 
 
 response = api.get_audio_fulfillment_file(
