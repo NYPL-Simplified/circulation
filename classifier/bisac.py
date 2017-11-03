@@ -642,6 +642,8 @@ class BISACClassifier(Classifier):
 
     @classmethod
     def scrub_identifier(cls, identifier):
+        if not identifier:
+            return identifier
         if identifier.startswith('FB'):
             identifier = identifier[2:]
         if identifier in cls.NAMES:

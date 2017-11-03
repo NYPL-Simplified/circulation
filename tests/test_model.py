@@ -2984,10 +2984,10 @@ class TestWork(DatabaseTest):
         # Add some classifications.
 
         # This classification has no subject name, so the search document will use the subject identifier.
-        edition.primary_identifier.classify(data_source, Subject.THREEM, "FICTION/Science Fiction/Time Travel", None, 6)
+        edition.primary_identifier.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 6)
 
         # This one has the same subject type and identifier, so their weights will be combined.
-        identifier.classify(data_source, Subject.THREEM, "FICTION/Science Fiction/Time Travel", None, 1)
+        identifier.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 1)
 
         # Here's another classification with a different subject type.
         edition.primary_identifier.classify(data_source, Subject.OVERDRIVE, "Romance", None, 2)
@@ -3061,7 +3061,7 @@ class TestWork(DatabaseTest):
 
         classifications = search_doc['classifications']
         eq_(3, len(classifications))
-        [classification1_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.THREEM]]
+        [classification1_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.BISAC]]
         [classification2_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.OVERDRIVE]]
         [classification3_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.FAST]]
         eq_("FICTION Science Fiction Time Travel", classification1_doc['term'])
