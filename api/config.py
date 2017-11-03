@@ -125,7 +125,7 @@ class Configuration(CoreConfiguration):
         {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
             "label": _("Default email address to use when notifying patrons of changes."),
-            "description": _("This should be an address that the library controls, but it is currently not used for anything. Holds cannot be placed on Overdrive, Bibliotheca, or Axis 360 books unless this address is specified.")
+            "description": _("This should be an address that the library controls, but no emails will (currently) be sent to this address. If this address is not specified, no holds can be placed on Overdrive, Bibliotheca, or Axis 360 titles, and no RBdigital titles can be put on loan.")
         },
         {
             "key": COLOR_SCHEME,
