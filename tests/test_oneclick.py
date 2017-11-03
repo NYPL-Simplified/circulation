@@ -11,13 +11,14 @@ from nose.tools import (
 import os
 from StringIO import StringIO
 
-from core.config import (
+from api.config import (
     Configuration, 
     temp_config,
 )
 
 from core.model import (
     get_one_or_create,
+    ConfigurationSetting,
     Contributor,
     Credential,
     DataSource,
@@ -73,6 +74,7 @@ class OneClickAPITest(DatabaseTest):
         self.default_patron = self._patron(external_identifier="oneclick_testuser")
         self.default_patron.authorization_identifier="13057226"
 
+
 class TestOneClickAPI(OneClickAPITest):
 
     
@@ -108,6 +110,16 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(Credential.IDENTIFIER_FROM_REMOTE_SERVICE, credential.type)
         eq_(external_id, credential.credential)
         eq_(None, credential.expires)
+
+    def _set_notification_address(self, library):
+        """Set the default notification address for the given library.
+
+        This is necessary to create RBdigital user accounts for its
+        patrons.
+        """
+        ConfigurationSetting.for_library(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, library
+        ).value = 'genericemail@library.org'
 
     def test_patron_remote_identifier_new_patron(self):
 
@@ -162,6 +174,31 @@ class TestOneClickAPI(OneClickAPITest):
         self._assert_patron_has_remote_identifier_credential(
             patron, "i know you"
         )
+
+    def test_patron_remote_email_address(self):
+
+        patron = self.default_patron
+
+        # Without a setting for DEFAULT_NOTIFICATION_EMAIL_ADDRESS, we
+        # can't calculate the email address to send RBdigital for a
+        # patron.
+        assert_raises_regexp(
+            RemotePatronCreationFailedException,
+            "Cannot create remote account for patron because library's default notification address is not set.",
+            self.api.remote_email_address, patron
+        )
+
+        self._set_notification_address(patron.library)
+        address = self.api.remote_email_address(patron)
+
+        # A credential was created to use when talking to RBdigital
+        # about this patron.
+        [credential] = patron.credentials
+
+        # The credential and default notification email address were
+        # used to construct the patron's
+        eq_("genericemail+rbdigital-%s@library.org" % credential.credential,
+            address)
 
     def test_patron_remote_identifier_lookup(self):
 
@@ -378,6 +415,7 @@ class TestOneClickAPI(OneClickAPITest):
         on the RBdigital side.
         """
         patron = self.default_patron
+        self._set_notification_address(patron.library)
 
         # If the patron already has an account, a
         # RemotePatronCreationFailedException is raised.
@@ -411,7 +449,7 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(self.api.library_id, form_data['libraryId'])
         eq_(remote, form_data['libraryCardNumber'])
         eq_("username_" + remote, form_data['userName'])
-        eq_("patron_%s@librarysimplified.org" % remote, form_data['email'])
+        eq_("genericemail+rbdigital-%s@library.org" % remote, form_data['email'])
         eq_("Patron", form_data['firstName'])
         eq_("Reader", form_data['lastName'])
 
