@@ -496,8 +496,7 @@ class IndexController(CirculationManagerController):
     def __call__(self):
         # The simple case: the app is equally open to all clients.
         library_short_name = flask.request.library.short_name
-        policy = Configuration.root_lane_policy()
-        if not policy:
+        if not self.has_root_lanes():
             return redirect(self.cdn_url_for('acquisition_groups', library_short_name=library_short_name))
 
         # The more complex case. We must authorize the patron, check
@@ -514,6 +513,14 @@ class IndexController(CirculationManagerController):
             }
         )
 
+    def has_root_lanes(self):
+        root_lanes = self._db.query(Lane).filter(
+            Lane.library==flask.request.library
+        ).filter(
+            Lane.root_for_patron_type!=None
+        )
+        return root_lanes.count() > 0
+
     def authenticated_patron_root_lane(self):
         patron = self.authenticated_patron_from_request()
         if isinstance(patron, ProblemDetail):
@@ -521,12 +528,15 @@ class IndexController(CirculationManagerController):
         if isinstance(patron, Response):
             return patron
 
-        policy = Configuration.root_lane_policy()
-        lane_identifier = policy.get(patron.external_type)
-        if lane_identifier is None:
+        lanes = self._db.query(Lane).filter(
+            Lane.library==flask.request.library
+        ).filter(
+            Lane.root_for_patron_type.any(patron.external_type)
+        )
+        if lanes.count() < 1:
             return None
         else:
-            return self.load_lane(lane_identifier)
+            return lanes.one()
 
     def appropriate_index_for_patron_type(self):
         library_short_name = flask.request.library.short_name
