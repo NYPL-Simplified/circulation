@@ -3239,8 +3239,11 @@ class TestWork(DatabaseTest):
         classification2 = identifier.classify(ds, Subject.TAG, "another tag")
         eq_([w1], qu.all())
 
-        # Mark them as checked, and the Work stops showing up.
+        # If one of them is checked, the Work still shows up.
         classification.subject.checked = True
+        eq_([w1], qu.all())
+
+        # Only when all Subjects are checked does the work stop showing up.
         classification2.subject.checked = True
         eq_([], qu.all())
 
