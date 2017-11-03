@@ -274,3 +274,10 @@ PATRON_OF_ANOTHER_LIBRARY = pd(
     title=_("Wrong library"),
     detail=_("You are not a patron of the selected library."),
 )
+
+INVALID_LOAN_FOR_ODL_NOTIFICATION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-loan-for-odl-notification",
+    status_code=400,
+    title=_("Invalid loan for ODL notification"),
+    detail=_("The ODL notification is for a loan that's not from an ODL collection."),
+)

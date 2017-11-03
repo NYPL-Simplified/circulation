@@ -123,6 +123,7 @@ from axis import Axis360API
 from overdrive import OverdriveAPI
 from bibliotheca import BibliothecaAPI
 from circulation import CirculationAPI
+from odl import ODLWithConsolidatedCopiesAPI
 from novelist import (
     NoveListAPI,
     MockNoveListAPI,
@@ -183,7 +184,7 @@ class CirculationManager(object):
         new_top_level_lanes = {}
         # Create a CirculationAPI for each library.
         new_circulation_apis = {}
-        
+
         new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = make_lanes(self._db, library, self.lane_descriptions)
@@ -303,6 +304,7 @@ class CirculationManager(object):
         self.profiles = ProfileController(self)
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
+        self.odl_notification_controller = ODLNotificationController(self)
 
     def setup_configuration_dependent_controllers(self):
         """Set up all the controllers that depend on the 
@@ -487,7 +489,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         license_pool = get_one(self._db, LicensePool, id=license_pool_id)
         if not license_pool:
             return INVALID_INPUT.detailed(
-                _("License Pool #%d does not exist.") % license_pool_id
+                _("License Pool #%s does not exist.") % license_pool_id
             )
         return license_pool
 
@@ -1401,3 +1403,24 @@ class ServiceStatusController(CirculationManagerController):
 
         doc = self.template % dict(statuses="\n".join(statuses))
         return Response(doc, 200, {"Content-Type": "text/html"})
+
+class ODLNotificationController(CirculationManagerController):
+    """Receive notifications from an ODL distributor when the
+    status of a loan changes.
+    """
+
+    def notify(self, loan_id):
+        library = flask.request.library
+        status_doc = flask.request.data
+        loan = get_one(self._db, Loan, id=loan_id)
+
+        if not loan:
+            return NO_ACTIVE_LOAN.detailed(_("No loan was found for this identifier."))
+
+        collection = loan.license_pool.collection
+        if collection.protocol != ODLWithConsolidatedCopiesAPI.NAME:
+            return INVALID_LOAN_FOR_ODL_NOTIFICATION
+
+        api = self.manager.circulation_apis[library.id].api_for_license_pool(loan.license_pool)
+        api.update_loan(loan, json.loads(status_doc))
+        return Response(_('Success'), 200)

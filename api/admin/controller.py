@@ -104,6 +104,7 @@ from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
 from api.oneclick import OneClickAPI
 from api.enki import EnkiAPI
+from api.odl import ODLWithConsolidatedCopiesAPI
 
 from api.nyt import NYTBestSellerAPI
 from api.novelist import NoveListAPI
@@ -716,7 +717,7 @@ class WorkController(CirculationManagerController):
             genre, is_new = Genre.lookup(self._db, name)
             if not isinstance(genre, Genre):
                 return GENRE_NOT_FOUND
-            if genres[name].is_fiction != new_fiction:
+            if genres[name].is_fiction is not None and genres[name].is_fiction != new_fiction:
                 return INCOMPATIBLE_GENRE
             if name == "Erotica" and new_audience != "Adults Only":
                 return EROTICA_FOR_ADULTS_ONLY
@@ -1384,6 +1385,7 @@ class SettingsController(CirculationManagerController):
                          Axis360API,
                          OneClickAPI,
                          EnkiAPI,
+                         ODLWithConsolidatedCopiesAPI,
                         ]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
@@ -1882,6 +1884,8 @@ class SettingsController(CirculationManagerController):
             public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
+        if isinstance(response, ProblemDetail):
+            return response
         registration_info = response.json()
         shared_secret = registration_info.get('metadata', {}).get('shared_secret')
 
