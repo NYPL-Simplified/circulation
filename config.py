@@ -327,7 +327,8 @@ class Configuration(object):
             cdn_integration[cdn.setting(cls.CDN_MIRRORED_DOMAIN_KEY).value] = cdn.url
 
         config_instance = config_instance or cls.instance
-        config_instance[EI.CDN] = cdn_integration
+        integrations = config_instance.setdefault(cls.INTEGRATIONS, {})
+        integrations[EI.CDN] = cdn_integration
 
     @classmethod
     def localization_languages(cls):
