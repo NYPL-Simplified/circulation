@@ -222,6 +222,13 @@ class TestBISACClassifier(object):
         genre_is("Young Adult Fiction / Poetry", "Poetry")
         genre_is("Poetry", "Poetry")
 
+        # Grandfathered in from an older test to validate that the new
+        # BISAC algorithm gives the same results as the old one.
+        genre_is("JUVENILE FICTION / Dystopian", "Dystopian SF")
+        genre_is("JUVENILE FICTION / Stories in Verse (see also Poetry)",
+                 "Poetry")
+
+
     def test_deprecated_bisac_terms(self):
         """These BISAC terms have been deprecated. We classify them
         the same as the new terms.
@@ -268,6 +275,14 @@ class TestBISACClassifier(object):
         fiction_is("Literary Collections / Letters", False)
         fiction_is("Literary Collections / Essays", False)
 
+        # Grandfathered in from an older test to validate that the new
+        # BISAC algorithm gives the same results as the old one.
+        fiction_is("FICTION / Classics", True)
+        fiction_is("JUVENILE FICTION / Concepts / Date & Time", True)
+        fiction_is("YOUNG ADULT FICTION / Lifestyles / Country Life", True)
+        fiction_is("HISTORY / General", False)
+
+
     def test_audience_spot_checks(self):
 
         def audience_is(name, expect):
@@ -283,6 +298,12 @@ class TestBISACClassifier(object):
         audience_is("Fiction / Science Fiction / Erotica", adults_only)
         audience_is("Juvenile Fiction / Science Fiction", children)
         audience_is("Young Adult Fiction / Science Fiction / General", ya)
+
+        # Grandfathered in from an older test to validate that the new
+        # BISAC algorithm gives the same results as the old one.
+        audience_is("FAMILY & RELATIONSHIPS / Love & Romance", adult)
+        audience_is("JUVENILE FICTION / Action & Adventure / General", children)
+        audience_is("YOUNG ADULT FICTION / Action & Adventure / General", ya)
 
     def test_target_age_spot_checks(self):
 
