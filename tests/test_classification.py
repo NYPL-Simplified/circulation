@@ -938,15 +938,12 @@ class TestWorkClassifier(DatabaseTest):
 
     def test_juvenile_classification_is_split_between_children_and_ya(self):
 
-        # 3M files both children's and YA works under 'JUVENILE FICTION'.
+        # LCC files both children's and YA works under 'PZ'.
         # Here's how we deal with that.
         #
         i = self.identifier
-        source = DataSource.lookup(self._db, DataSource.THREEM)
-        c = i.classify(
-            source, Subject.THREEM, "JUVENILE FICTION/Historical/Africa/", 
-            weight=100
-        )
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+        c = i.classify(source, Subject.LCC, "PZ", weight=100)
         self.classifier.add(c)
 
         # (This classification has no bearing on audience and its
