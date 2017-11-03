@@ -990,6 +990,8 @@ class OverdriveClassifier(Classifier):
 
     @classmethod
     def scrub_identifier(cls, identifier):
+        if not identifier:
+            return identifier
         if identifier.startswith('Foreign Language Study'):
             return 'Foreign Language Study'
         return identifier
@@ -1124,6 +1126,8 @@ class DeweyDecimalClassifier(Classifier):
 
     @classmethod
     def scrub_identifier(cls, identifier):
+        if not identifier:
+            return identifier
         if isinstance(identifier, int):
             identifier = str(identifier).zfill(3)
 
@@ -1282,6 +1286,8 @@ class LCCClassifier(Classifier):
 
     @classmethod
     def scrub_identifier(cls, identifier):
+        if not identifier:
+            return identifier
         return identifier.upper()
 
     @classmethod
