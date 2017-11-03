@@ -199,15 +199,15 @@ class TestOneClickRepresentationExtractor(OneClickTest):
 
         subjects = sorted(metadata.subjects, key=lambda x: x.identifier)
 
-        eq_([(u"FICTION / Humorous / General", Subject.BISAC, 100),
+        eq_([(None, u"FICTION / Humorous / General", Subject.BISAC, 100),
 
-            (u'adult', Classifier.ONECLICK_AUDIENCE, 10), 
+            (u'adult', None, Classifier.ONECLICK_AUDIENCE, 10), 
 
-            (u'humorous-fiction', Subject.ONECLICK, 100), 
-            (u'mystery', Subject.ONECLICK, 100), 
-            (u'womens-fiction', Subject.ONECLICK, 100)
+            (u'humorous-fiction', None, Subject.ONECLICK, 100), 
+            (u'mystery', None, Subject.ONECLICK, 100), 
+            (u'womens-fiction', None, Subject.ONECLICK, 100)
          ],
-            [(x.identifier, x.type, x.weight) for x in subjects]
+            [(x.identifier, x.name, x.type, x.weight) for x in subjects]
         )
 
         # Related IDs.

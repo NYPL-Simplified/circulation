@@ -710,7 +710,7 @@ class OneClickRepresentationExtractor(object):
                 # example: "FICTION / Humorous / General"
                 genres = book['genres']
                 subject = SubjectData(
-                    type=Subject.BISAC, identifier=genres,
+                    type=Subject.BISAC, identifier=None, name=genres,
                     weight=100
                 )
                 subjects.append(subject)
