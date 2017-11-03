@@ -195,7 +195,6 @@ class TestBISACClassifier(object):
         genre_is = self.genre_is
 
         genre_is("Fiction / Science Fiction / Erotica", "Erotica")
-        genre_is("Fiction / Romance / Adult", "Erotica")
         genre_is("Literary Criticism / Science Fiction", "Literary Criticism")
         genre_is("Fiction / Christian / Science Fiction", "Religious Fiction")
         genre_is("Fiction / Science Fiction / Short Stories", "Short Stories")
@@ -203,7 +202,11 @@ class TestBISACClassifier(object):
         genre_is("Fiction / Science Fiction / Steampunk", "Steampunk")
         genre_is("Fiction / African American / Urban", "Urban Fiction")
         genre_is("Fiction / Urban", None)
+        genre_is("History / Native American", "United States History")
         genre_is("History / Modern / 17th Century", "Renaissance & Early Modern History")
+        genre_is("Biography & Autobiography / Composers & Musicians", "Music"),
+        genre_is("Biography & Autobiography / Entertainment & Performing Arts", "Entertainment"),
+        genre_is("Fiction / Christian", "Religious Fiction"),
         genre_is("Juvenile Nonfiction / Science & Nature / Fossils", "Nature")
         genre_is("Juvenile Nonfiction / Science & Nature / Physics", "Science")
         genre_is("Juvenile Nonfiction / Science & Nature / General", "Science")
@@ -243,6 +246,7 @@ class TestBISACClassifier(object):
             subject = self._subject("", name)
             eq_(expect, subject.fiction)
 
+        # Some easy tests.
         fiction_is("Fiction / Science Fiction", True)
         fiction_is("Antiques & Collectibles / Kitchenware", False)
 
@@ -256,6 +260,13 @@ class TestBISACClassifier(object):
 
         fiction_is("Young Adult Nonfiction / Humor", False)
         fiction_is("Juvenile Fiction / Humorous Stories", True)
+
+        # Literary collections in general are presumed to be
+        # collections of short fiction, but letters and essays are
+        # definitely nonfiction.
+        fiction_is("Literary Collections / General", True)
+        fiction_is("Literary Collections / Letters", False)
+        fiction_is("Literary Collections / Essays", False)
 
     def test_audience_spot_checks(self):
 

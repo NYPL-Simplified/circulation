@@ -248,6 +248,9 @@ class BISACClassifier(Classifier):
         m(False, "Juvenile Nonfiction"),
         m(True, "Young Adult Fiction"),
         m(False, "Young Adult Nonfiction"),
+        m(False, anything, "Essays"),
+        m(False, anything, "Letters"),
+        m(True, "Literary Collections"),
         m(stop, "Humor"),
         m(stop, "Drama"),
         m(stop, "Poetry"),
@@ -279,7 +282,6 @@ class BISACClassifier(Classifier):
         # Put all erotica in Erotica, to keep the other lanes at
         # "Adult" level or lower.
         m(Erotica, anything, 'Erotica'),
-        m(Erotica, fiction, 'Romance', 'Adult'),
 
         # Put all non-erotica comics into the same bucket, regardless
         # of their content.
@@ -427,6 +429,7 @@ class BISACClassifier(Classifier):
         m(Management_Leadership, nonfiction, 'Business & Economics', 'Management Science'),
         m(Management_Leadership, nonfiction, 'Business & Economics', 'Leadership'),
         m(Personal_Finance_Investing, nonfiction, 'Business & Economics', 'Personal Finance'),
+        m(Personal_Finance_Investing, nonfiction, 'Business & Economics', 'Personal Success'),
         m(Personal_Finance_Investing, nonfiction, 'Business & Economics', 'Investments & Securities'),
         m(Real_Estate, nonfiction, 'Business & Economics', 'Real Estate'),
         m(Personal_Finance_Business, nonfiction, 'Business & Economics'),
@@ -454,6 +457,7 @@ class BISACClassifier(Classifier):
         m(Renaissance_Early_Modern_History, nonfiction, 'History', 'Renaissance'),
         m(Renaissance_Early_Modern_History, nonfiction, 'History', 'Modern', RE('^1[678]th Century')),
         m(Modern_History, nonfiction, 'History', 'Modern'),
+        m(United_States_History, nonfiction, 'History', 'Native American'),
         m(United_States_History, nonfiction, 'History', 'United States'),
         m(World_History, nonfiction, 'History', 'World'),
         m(World_History, nonfiction, 'History', 'Civilization'),
@@ -507,6 +511,8 @@ class BISACClassifier(Classifier):
         # Then handle the less complicated genres of nonfiction.
         # n.b. no BISAC for Periodicals.
         # n.b. no BISAC for Humorous Nonfiction per se.
+        m(Music, nonfiction, 'Biography & Autobiography', 'Composers & Musicians'),
+        m(Entertainment, nonfiction, 'Biography & Autobiography', 'Entertainment & Performing Arts'),
 	m(Biography_Memoir, nonfiction, 'Biography & Autobiography'),
         m(Education, nonfiction, "Education"),
 	m(Philosophy, nonfiction, 'Philosophy'),
@@ -688,3 +694,4 @@ class BISACClassifier(Classifier):
             parts = [name]
         return parts
 
+Classifier.classifiers[Classifier.BISAC] = BISACClassifier
