@@ -88,6 +88,7 @@ class TestCirculationAPI(DatabaseTest):
             self.pool.identifier.type,
             self.pool.identifier.identifier,
             now, now + timedelta(seconds=3600),
+            external_identifier=self._str,
         )
         self.remote.queue_checkout(loaninfo)
         now = datetime.utcnow()
@@ -99,6 +100,7 @@ class TestCirculationAPI(DatabaseTest):
         eq_(self.patron, loan.patron)
         eq_(None, hold)
         eq_(True, is_new)
+        eq_(loaninfo.external_identifier, loan.external_identifier)
 
         # An analytics event was created.
         eq_(1, self.analytics.count)
@@ -109,6 +111,7 @@ class TestCirculationAPI(DatabaseTest):
         self.remote.queue_checkout(AlreadyCheckedOut())
         loan, hold, is_new = self.borrow()
         eq_(False, is_new)
+        eq_(loaninfo.external_identifier, loan.external_identifier)
 
         # Since the loan already existed, no new analytics event was
         # sent.

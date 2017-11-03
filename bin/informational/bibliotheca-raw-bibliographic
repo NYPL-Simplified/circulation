@@ -13,19 +13,19 @@ from core.model import (
     ExternalIntegration,
 )
 from core.scripts import IdentifierInputScript
-from api.axis import Axis360API
+from api.bibliotheca import BibliothecaAPI
 
-class Axis360RawBibliographicScript(IdentifierInputScript):
+class BibliothecaRawBibliographicScript(IdentifierInputScript):
     def run(self):
+        args = self.parse_command_line(self._db)
         for collection in Collection.by_protocol(
-                self._db, ExternalIntegration.AXIS_360
+            self._db, ExternalIntegration.BIBLIOTHECA
         ):
-            api = Axis360API(self._db, collection)
-            args = self.parse_command_line(self._db)
+            api = BibliothecaAPI(self._db, collection)
             for identifier in args.identifiers:
-                response = api.availability(title_ids=[identifier.identifier])
-                xml = minidom.parseString(response.content)
+                data = api.bibliographic_lookup_request(identifier)
+                xml = minidom.parseString(data)
                 print xml.toprettyxml()
                 print
 
-Axis360RawBibliographicScript().run()
+BibliothecaRawBibliographicScript().run()

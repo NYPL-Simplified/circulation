@@ -142,6 +142,9 @@ class MockRemoteAPI(BaseCirculationAPI):
     def internal_format(self, delivery_mechanism):
         return delivery_mechanism
 
+    def update_loan(self, loan, status_doc):
+        self.availability_updated_for.append(loan.license_pool)
+
     def queue_checkout(self, response):
         self._queue('checkout', response)
 

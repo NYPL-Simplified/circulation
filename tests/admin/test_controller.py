@@ -17,6 +17,7 @@ from Crypto.Cipher import PKCS1_OAEP
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import setup_admin_controllers, AdminAnnotator
 from api.admin.problem_details import *
+from api.admin.routes import setup_admin
 from api.config import (
     Configuration,
     temp_config,
@@ -81,6 +82,7 @@ class AdminControllerTest(CirculationControllerTest):
     def setup(self):
         super(AdminControllerTest, self).setup()
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "a secret"
+        setup_admin(self._db)
         setup_admin_controllers(self.manager)
 
 class TestViewController(AdminControllerTest):
@@ -440,6 +442,7 @@ class TestWorkController(AdminControllerTest):
             eq_(response.status_code, 200)
             
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
+
         eq_(sorted(new_genre_names), sorted(requested_genres))
         eq_("Adult", work.audience)
         eq_(18, work.target_age.lower)
@@ -3821,6 +3824,26 @@ class TestSettingsController(AdminControllerTest):
         assert_remote_integration_error(
             response, 'The service did not provide registration information.'
         )
+
+        # If we get all the way to the registration POST, but that
+        # request results in a ProblemDetail, that ProblemDetail is
+        # passed along.
+        self.responses.extend([
+            MockRequestsResponse(200, content=json.dumps(registration), headers=headers),
+            MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
+        ])
+
+        def bad_do_post(self, *args, **kwargs):
+            return MULTIPLE_BASIC_AUTH_SERVICES
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict([
+                ('integration_id', metadata_wrangler_service.id),
+            ])
+            response = self.manager.admin_settings_controller.sitewide_registration(
+                metadata_wrangler_service, do_get=self.do_request, do_post=bad_do_post
+            )
+        eq_(MULTIPLE_BASIC_AUTH_SERVICES, response)
+
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
