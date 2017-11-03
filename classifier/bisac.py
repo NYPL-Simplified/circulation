@@ -279,6 +279,7 @@ class BISACClassifier(Classifier):
         # Put all erotica in Erotica, to keep the other lanes at
         # "Adult" level or lower.
         m(Erotica, anything, 'Erotica'),
+        m(Erotica, fiction, 'Romance', 'Adult'),
 
         # Put all non-erotica comics into the same bucket, regardless
         # of their content.

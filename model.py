@@ -5788,6 +5788,9 @@ class Subject(Base):
         "http://purl.org/dc/terms/DDC" : DDC,
         "http://schema.org/typicalAgeRange" : AGE_RANGE,
         "http://schema.org/audience" : FREEFORM_AUDIENCE,
+        "http://www.bisg.org/standards/bisac_subject/" : BISAC,
+        # Feedbooks uses a modified BISAC which we know how to handle.
+        "http://www.feedbooks.com/categories" : BISAC,
     }
 
     uri_lookup = dict()
@@ -6047,12 +6050,7 @@ class Classification(Base):
     # This goes into Classification rather than Subject because it's
     # possible that one particular data source could use a certain
     # subject type in an unreliable way.
-    #
-    # In fact, the 3M classifications are basically BISAC
-    # classifications used in an unreliable way, so we could merge
-    # them in the future.
     _juvenile_subject_types = set([
-        Subject.THREEM,
         Subject.LCC
     ])
 

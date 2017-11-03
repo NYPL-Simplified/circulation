@@ -195,6 +195,7 @@ class TestBISACClassifier(object):
         genre_is = self.genre_is
 
         genre_is("Fiction / Science Fiction / Erotica", "Erotica")
+        genre_is("Fiction / Romance / Adult", "Erotica")
         genre_is("Literary Criticism / Science Fiction", "Literary Criticism")
         genre_is("Fiction / Christian / Science Fiction", "Religious Fiction")
         genre_is("Fiction / Science Fiction / Short Stories", "Short Stories")

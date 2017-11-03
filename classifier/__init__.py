@@ -44,7 +44,6 @@ class Classifier(object):
     FAST = "FAST"
     OVERDRIVE = "Overdrive"
     ONECLICK = "OneClick"
-    THREEM = "3M"
     BISAC = "BISAC"
     BIC = "BIC"
     TAG = "tag"   # Folksonomic tags.
@@ -4140,7 +4139,6 @@ Classifier.classifiers[Classifier.FAST] = FASTClassifier
 Classifier.classifiers[Classifier.LCSH] = LCSHClassifier
 Classifier.classifiers[Classifier.TAG] = TAGClassifier
 Classifier.classifiers[Classifier.OVERDRIVE] = OverdriveClassifier
-Classifier.classifiers[Classifier.THREEM] = ThreeMClassifier
 Classifier.classifiers[Classifier.BISAC] = BISACClassifier
 Classifier.classifiers[Classifier.BIC] = BICClassifier
 Classifier.classifiers[Classifier.AGE_RANGE] = AgeClassifier
