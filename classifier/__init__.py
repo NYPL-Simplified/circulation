@@ -3759,3 +3759,6 @@ Classifier.classifiers[Classifier.INTEREST_LEVEL] = InterestLevelClassifier
 Classifier.classifiers[Classifier.AXIS_360_AUDIENCE] = AgeOrGradeClassifier
 Classifier.classifiers[Classifier.SIMPLIFIED_GENRE] = SimplifiedGenreClassifier
 Classifier.classifiers[Classifier.SIMPLIFIED_FICTION_STATUS] = SimplifiedFictionClassifier
+
+# Finally, import classifiers described in submodules.
+from bisac import BISACClassifier
