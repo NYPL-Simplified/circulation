@@ -10462,20 +10462,25 @@ class Collection(Base, HasFullTableCache):
 
     DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
     STANDARD_DEFAULT_RESERVATION_PERIOD = 3
-            
-    def default_reservation_period(self, library):
+
+    @hybrid_property
+    def default_reservation_period(self):
         """Until we hear otherwise from the license provider, we assume
         that someone who puts an item on hold has this many days to
         check it out before it goes to the next person in line.
         """
-        _db = Session.object_session(library)
         return (
-            ConfigurationSetting.for_library_and_externalintegration(
+            self.external_integration.setting(
                 _db, self.DEFAULT_RESERVATION_PERIOD_KEY,
-                library, self.external_integration
             ).int_value or self.STANDARD_DEFAULT_RESERVATION_PERIOD
         )
-            
+
+    @default_reservation_period.setter
+    def set_default_reservation_period(self, new_value):
+        new_value = int(new_value)
+        self.external_integration.setting(
+            self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
+    
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
 
