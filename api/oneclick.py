@@ -59,12 +59,36 @@ from core.util.http import (
 class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
     NAME = ExternalIntegration.RB_DIGITAL
+
+    # With this API we don't need to guess the default loan period -- we
+    # know which loan period we will ask for in which situations.
+    BASE_SETTINGS = [x for x in BaseCirculationAPI.SETTINGS
+                     if x['key'] != BaseCirculationAPI.DEFAULT_LOAN_PERIOD]
+
     SETTINGS = [
         { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": BaseOneClickAPI.PRODUCTION_BASE_URL },
-    ] + BaseCirculationAPI.SETTINGS
+    ] + BASE_SETTINGS
     
+    AUDIOBOOK_LOAN_DURATION = 'audio_loan_duration'
+    EBOOK_LOAN_DURATION = 'ebook_loan_duration'
+
+    LIBRARY_SETTINGS = [
+        { "key" : AUDIOBOOK_LOAN_DURATION, 
+          "label": _("Audiobook Loan Duration (in Days)"),
+        "description": _("When a patron uses SimplyE to borrow an RBdigital audio book, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital.")
+        },
+        { "key" : EBOOK_LOAN_DURATION, 
+          "label": _("Ebook Loan Duration (in Days)"),
+        "description": _("When a patron uses SimplyE to borrow an RBdigital ebook, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital.")
+        },
+    ]
+
+    # The loan duration must be specified when connecting a library to an
+    # RBdigital account, but if it's not specified, try one week.
+    DEFAULT_LOAN_DURATION = 7
+
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 
     log = logging.getLogger("OneClick Patron API")
@@ -77,14 +101,19 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             )
         )
 
-        # TODO: We need a general system for tracking default loan
-        # durations for different media types. However it doesn't
-        # matter much because the license sources generally tell us
-        # when specific loans expire.
-        self.ebook_expiration_default = datetime.timedelta(
-            self.collection.default_reservation_period
+        integration = self.collection.external_integration
+        self.audiobook_duration_days = (
+            integration.setting(self.AUDIOBOOK_LOAN_DURATION).int_value 
+            or self.DEFAULT_LOAN_DURATION
         )
-        self.eaudio_expiration_default = self.ebook_expiration_default
+        self.ebook_duration_days = (
+            integration.setting(self.EBOOK_LOAN_DURATION).int_value 
+            or self.DEFAULT_LOAN_DURATION
+        )
+        
+        # Set default_loan_period to the ebook value just in case something
+        # needs it.
+        self.default_loan_period = self.ebook_duration_days
 
     def remote_email_address(self, patron):
         """The fake email address to send to RBdigital when
@@ -141,7 +170,13 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
-        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False)
+        today = datetime.datetime.utcnow()
+        if item_media == Edition.AUDIO_MEDIUM:
+            days = self.audiobook_duration_days
+        else:
+            days = self.ebook_duration_days
+
+        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False, days=days)
 
         if not resp_dict or ('error_code' in resp_dict):
             return None
@@ -149,16 +184,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         self.log.debug("Patron %s/%s checked out item %s with transaction id %s.", patron.authorization_identifier, 
             patron_oneclick_id, item_oneclick_id, resp_dict['transactionId'])
 
-        today = datetime.datetime.now()
-        if item_media == Edition.AUDIO_MEDIUM:
-            expires = today + self.eaudio_expiration_default
-        else:
-            expires = today + self.ebook_expiration_default
-
-        # Create the loan info. We don't know the expiration for sure, 
-        # but we know the library default.  We do have the option of 
-        # getting expiration by checking patron's activity, but that 
-        # would mean another http call and is not currently merited.
+        expires = today + datetime.timedelta(days=days)
         loan = LoanInfo(
             self.collection,
             DataSource.RB_DIGITAL,
@@ -171,7 +197,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         return loan
 
 
-    def circulate_item(self, patron_id, item_id, hold=False, return_item=False):
+    def circulate_item(self, patron_id, item_id, hold=False, return_item=False, days=None):
         """
         Borrow or return a catalog item.
         :param patron_id OneClick internal id
@@ -186,6 +212,10 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         method = "post"
         action = "checkout"
+
+        if not hold and not return_item and days:
+            url += "?days=%s" % days
+
         if not hold and return_item:
             method = "delete"
             action = "checkin"
@@ -926,7 +956,17 @@ class RBFulfillmentInfo(object):
 
 
 class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):
-    pass
+
+    @classmethod
+    def mock_collection(cls, _db):
+        collection = BaseMockOneClickAPI.mock_collection(_db)
+        collection.external_integration.set_setting(
+            cls.AUDIOBOOK_LOAN_DURATION, 1
+        )
+        collection.external_integration.set_setting(
+            cls.EBOOK_LOAN_DURATION, 2
+        )
+        return collection
 
 
 class OneClickCirculationMonitor(CollectionMonitor):

@@ -77,6 +77,12 @@ class OneClickAPITest(DatabaseTest):
 
 class TestOneClickAPI(OneClickAPITest):
 
+    def test_loan_duration(self):
+
+        # The *_duration_days values come from the ConfigurationSettings
+        # defined in MockOneClickAPI.mock_collection
+        eq_(self.api.audiobook_duration_days, 1)
+        eq_(self.api.ebook_duration_days, 2)
     
     def queue_initial_patron_id_lookup(self):
         """All the OneClickAPI methods that take a Patron object call
@@ -399,16 +405,32 @@ class TestOneClickAPI(OneClickAPITest):
 
         loan_info = self.api.checkout(patron, None, pool, None)
 
+        checkout_url = self.api.requests[-1][0]
+        assert "days=%s" % self.api.ebook_duration_days in checkout_url
+
         # Now we have a LoanInfo that describes the remote loan.
         eq_(Identifier.RB_DIGITAL_ID, loan_info.identifier_type)
         eq_(pool.identifier.identifier, loan_info.identifier)
-        today = datetime.datetime.now()
+        today = datetime.datetime.utcnow()
         assert (loan_info.start_date - today).total_seconds() < 20
-        assert (loan_info.end_date - today).days < 60
+        assert (loan_info.end_date - today).days <= self.api.ebook_duration_days
 
         # But we can only get a FulfillmentInfo by calling
         # get_patron_checkouts().
         eq_(None, loan_info.fulfillment_info)
+
+        # Try the checkout again but pretend that we're checking out
+        # an audiobook.
+        #
+        edition.medium = Edition.AUDIO_MEDIUM
+        self.api.queue_response(status_code=200, content=datastr)
+        loan_info = self.api.checkout(patron, None, pool, None)
+
+        # We requested a different loan duration.
+        assert self.api.audiobook_duration_days != self.api.ebook_duration_days
+        checkout_url = self.api.requests[-1][0]
+        assert "days=%s" % self.api.audiobook_duration_days in checkout_url
+        assert (loan_info.end_date - today).days <= self.api.audiobook_duration_days
 
     def test_create_patron(self):
         """Test the method that creates an account for a library patron
