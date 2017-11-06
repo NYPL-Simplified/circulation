@@ -10471,7 +10471,7 @@ class Collection(Base, HasFullTableCache):
         """
         return (
             self.external_integration.setting(
-                _db, self.DEFAULT_RESERVATION_PERIOD_KEY,
+                self.DEFAULT_RESERVATION_PERIOD_KEY,
             ).int_value or self.STANDARD_DEFAULT_RESERVATION_PERIOD
         )
 
@@ -10479,8 +10479,8 @@ class Collection(Base, HasFullTableCache):
     def set_default_reservation_period(self, new_value):
         new_value = int(new_value)
         self.external_integration.setting(
-            self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
-    
+            self.DEFAULT_RESERVATION_PERIOD_KEY).value = str(new_value)
+
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
 
