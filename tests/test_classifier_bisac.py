@@ -4,8 +4,11 @@ from nose.tools import (
     eq_,
     set_trace
 )
-from classifier.bisac import (
+from classifier import (
     BISACClassifier,
+    Classifier,
+)
+from classifier.bisac import (
     MatchingRule,
     RE,
     anything,
@@ -16,7 +19,6 @@ from classifier.bisac import (
     something,
     ya,
 )
-from classifier import Classifier
 
 class TestMatchingRule(object):
 
