@@ -80,17 +80,11 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
     my_audiobook_setting = dict(
         BaseCirculationAPI.AUDIOBOOK_LOAN_DURATION_SETTING
     )
-    my_audiobook_setting.update(
-        description = _("When a patron uses SimplyE to borrow an RBdigital audio book, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital."),
-        default=DEFAULT_LOAN_DURATION,
-    )
+    my_audiobook_setting.update(default=DEFAULT_LOAN_DURATION)
     my_ebook_setting = dict(
         BaseCirculationAPI.EBOOK_LOAN_DURATION_SETTING
     )
-    my_ebook_setting.update(
-        description = _("When a patron uses SimplyE to borrow an RBdigital ebook, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital."),
-        default=DEFAULT_LOAN_DURATION,
-    )
+    my_ebook_setting.update(default=DEFAULT_LOAN_DURATION)
     LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
         my_audiobook_setting, 
         my_ebook_setting
