@@ -105,15 +105,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         }
     ]
 
-    my_ebook_loan_duration_setting = dict(
-        BaseCirculationAPI.EBOOK_LOAN_DURATION_SETTING
-    )
-    my_ebook_loan_duration_setting.update(
-        description = _("When a patron uses SimplyE to borrow an ebook from this ODL server, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
-    )
-
     LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
-        my_ebook_loan_duration_setting
+        BaseCirculationAPI.EBOOK_LOAN_DURATION_SETTING
     ]
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP

@@ -872,7 +872,7 @@ class BaseCirculationAPI(object):
         "key" : Collection.EBOOK_LOAN_DURATION_KEY, 
         "label": _("Ebook Loan Duration (in Days)"),
         "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
-        "description": _("When a patron uses SimplyE to borrow an audio book from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
+        "description": _("When a patron uses SimplyE to borrow an ebook from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
     }
 
     # Add to LIBRARY_SETTINGS if your circulation API is for a
@@ -882,7 +882,7 @@ class BaseCirculationAPI(object):
         "key" : Collection.AUDIOBOOK_LOAN_DURATION_KEY,
         "label": _("Audiobook Loan Duration (in Days)"),
         "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
-        "description": _("When a patron uses SimplyE to borrow an audio book from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
+        "description": _("When a patron uses SimplyE to borrow an audiobook from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
     }
 
     # Add to LIBRARY_SETTINGS if your circulation API is for a
