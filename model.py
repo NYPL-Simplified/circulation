@@ -10446,35 +10446,44 @@ class Collection(Base, HasFullTableCache):
         for child in self.children:
             child.protocol = new_protocol
 
-    # TODO: The default loan period needs to be expanded to handle
-    # different defaults for different media types (e.g. on Overdrive
-    # the default loan period for audiobooks is 14 days, and for video
-    # it's 5 days). This isn't a high priority because the license
-    # source generally tells us when each loan will end.
-    DEFAULT_LOAN_PERIOD_KEY = 'default_loan_period'
+    # For collections that can control the duration of the loans they
+    # create, the durations are stored in these settings and new loans are
+    # expected to be created using these settings. For collections
+    # where loan duration is negotiated out-of-bounds, all loans are
+    # _assumed_ to have these durations unless we hear otherwise from
+    # the server.
+    AUDIOBOOK_LOAN_DURATION_KEY = 'audio_loan_duration'
+    EBOOK_LOAN_DURATION_KEY = 'ebook_loan_duration'
     STANDARD_DEFAULT_LOAN_PERIOD = 21
         
-    @hybrid_property
-    def default_loan_period(self):
+    def default_loan_period(self, library, medium=Edition.BOOK_MEDIUM):
         """Until we hear otherwise from the license provider, we assume
         that someone who borrows a non-open-access item from this
         collection has it for this number of days.
         """
+        return self.default_loan_period_setting(
+            library, medium).int_value or self.STANDARD_DEFAULT_LOAN_PERIOD
+
+    def default_loan_period_setting(self, library, medium=Edition.BOOK_MEDIUM):
+        """Until we hear otherwise from the license provider, we assume
+        that someone who borrows a non-open-access item from this
+        collection has it for this number of days.
+        """
+        _db = Session.object_session(library)
+        if medium == Edition.AUDIO_MEDIUM:
+            key = self.AUDIOBOOK_LOAN_DURATION_KEY
+        else:
+            key = self.EBOOK_LOAN_DURATION_KEY
         return (
-            self.external_integration.setting(
-                self.DEFAULT_LOAN_PERIOD_KEY).int_value
-            or self.STANDARD_DEFAULT_LOAN_PERIOD
+            ConfigurationSetting.for_library_and_externalintegration(
+                _db, key, library, self.external_integration
+            )
         )
 
-    @default_loan_period.setter
-    def set_default_loan_period(self, new_value):
-        new_value = int(new_value)
-        self.external_integration.setting(
-            self.DEFAULT_LOAN_PERIOD_KEY).value = str(new_value)
 
     DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
     STANDARD_DEFAULT_RESERVATION_PERIOD = 3
-            
+
     @hybrid_property
     def default_reservation_period(self):
         """Until we hear otherwise from the license provider, we assume
@@ -10483,16 +10492,16 @@ class Collection(Base, HasFullTableCache):
         """
         return (
             self.external_integration.setting(
-                self.DEFAULT_RESERVATION_PERIOD_KEY).int_value
-            or self.STANDARD_DEFAULT_RESERVATION_PERIOD
+                self.DEFAULT_RESERVATION_PERIOD_KEY,
+            ).int_value or self.STANDARD_DEFAULT_RESERVATION_PERIOD
         )
 
     @default_reservation_period.setter
     def set_default_reservation_period(self, new_value):
         new_value = int(new_value)
         self.external_integration.setting(
-            self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
-            
+            self.DEFAULT_RESERVATION_PERIOD_KEY).value = str(new_value)
+
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
 

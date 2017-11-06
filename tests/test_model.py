@@ -7155,6 +7155,53 @@ class TestCollection(DatabaseTest):
         opds.data_source = None
         eq_(None, opds.data_source)
 
+    def test_default_loan_period(self):
+        library = self._default_library
+        library.collections.append(self.collection)
+
+        ebook = Edition.BOOK_MEDIUM
+        audio = Edition.AUDIO_MEDIUM
+
+        # The default when no value is set.
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(library, ebook)
+        )
+
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(library, audio)
+        )
+
+        # Set a value, and it's used.
+        self.collection.default_loan_period_setting(library, ebook).value = 604
+        eq_(604, self.collection.default_loan_period(library))
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(library, audio)
+        )
+
+        self.collection.default_loan_period_setting(library, audio).value = 606
+        eq_(606, self.collection.default_loan_period(library, audio))
+
+    def test_default_reservation_period(self):
+        library = self._default_library
+        # The default when no value is set.
+        eq_(
+            Collection.STANDARD_DEFAULT_RESERVATION_PERIOD, 
+            self.collection.default_reservation_period
+        )
+
+        # Set a value, and it's used.
+        self.collection.default_reservation_period = 601
+        eq_(601, self.collection.default_reservation_period)
+
+        # The underlying value is controlled by a ConfigurationSetting.
+        self.collection.external_integration.setting(
+            Collection.DEFAULT_RESERVATION_PERIOD_KEY
+        ).value = 954
+        eq_(954, self.collection.default_reservation_period)
+
     def test_explain(self):
         """Test that Collection.explain gives all relevant information
         about a Collection.
