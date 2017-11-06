@@ -11,12 +11,10 @@ from model import (
     Classification,
 )
 import classifier
-from classifier.bisac import *
 from classifier import (
     Classifier,
     DeweyDecimalClassifier as DDC,
     LCCClassifier as LCC,
-    BISACClassifier as BISAC,
     BICClassifier as BIC,
     LCSHClassifier as LCSH,
     OverdriveClassifier as Overdrive,
@@ -578,83 +576,6 @@ class TestKeyword(object):
 
         eq_(classifier.Folklore, Keyword.genre(None, "fables"))
         
-class TestBISAC(object):
-
-    def test_is_fiction(self):
-        def fic(bisac):
-            return BISAC.is_fiction(BISAC.scrub_identifier(bisac), None)
-
-        eq_(True, fic("FICTION / Classics"))
-        eq_(True, fic("JUVENILE FICTION / Concepts / Date & Time"))
-        eq_(True, fic("YOUNG ADULT FICTION / Lifestyles / Country Life"))
-        eq_(False, fic("HISTORY / General"))
-
-
-    def test_audience(self):
-
-        young_adult = Classifier.AUDIENCE_YOUNG_ADULT
-        adult = Classifier.AUDIENCE_ADULT
-        children = Classifier.AUDIENCE_CHILDREN
-        def aud(bisac):
-            return BISAC.audience(BISAC.scrub_identifier(bisac), None)
-            
-        eq_(adult, aud("FAMILY & RELATIONSHIPS / Love & Romance"))
-        eq_(children, aud("JUVENILE FICTION / Action & Adventure / General"))
-        eq_(young_adult, aud("YOUNG ADULT FICTION / Action & Adventure / General"))
-
-    def test_default_age_range_for_audience(self):
-        class DummySubject(object):
-            def __init__(self, x):
-                self.identifier = x
-                self.name = None
-
-        def target(bisac):
-            dummy = DummySubject(bisac)
-            return BISAC.classify(dummy)[2]
-        
-        eq_((None, None), target("JUVENILE FICTION / Action & Adventure / General"))
-        eq_((14,17), target("YOUNG ADULT FICTION / Action & Adventure / General"))
-        eq_((18, None), target("Erotica / General"))
-
-    def test_genre(self):
-        def gen(bisac):
-            return BISAC.genre(BISAC.scrub_identifier(bisac), None)
-        eq_(classifier.Adventure, 
-            gen("JUVENILE FICTION / Action & Adventure / General"))
-        eq_(classifier.Erotica, gen("FICTION / Erotica"))
-        eq_(classifier.Religion_Spirituality, 
-            gen("RELIGION / Biblical Studies / Prophecy"))
-
-        eq_(classifier.Dystopian_SF,
-            gen("JUVENILE FICTION / Dystopian")
-        )
-
-        eq_(classifier.Folklore,
-            gen("JUVENILE FICTION / Fairy Tales & Folklore / General")
-        )
-
-        eq_(classifier.Folklore,
-            gen("JUVENILE FICTION / Legends, Myths, Fables / General")
-        )
-
-        eq_(classifier.Life_Strategies, 
-            gen("JUVENILE NONFICTION / Social Issues / Friendship")
-        )
-
-        eq_(classifier.Poetry, 
-            gen("JUVENILE FICTION / Stories in Verse (see also Poetry)")
-        )
-
-        eq_(classifier.Poetry, 
-            gen("JUVENILE NONFICTION / Poetry / Humorous")
-        )
-
-        eq_(classifier.Poetry, 
-            gen("YOUNG ADULT NONFICTION / Poetry")
-        )
-
-        eq_(classifier.Folklore, 
-            gen("Fables/Arthurian/"))
 
 class TestBIC(object):
 
@@ -1017,15 +938,12 @@ class TestWorkClassifier(DatabaseTest):
 
     def test_juvenile_classification_is_split_between_children_and_ya(self):
 
-        # 3M files both children's and YA works under 'JUVENILE FICTION'.
+        # LCC files both children's and YA works under 'PZ'.
         # Here's how we deal with that.
         #
         i = self.identifier
-        source = DataSource.lookup(self._db, DataSource.THREEM)
-        c = i.classify(
-            source, Subject.THREEM, "JUVENILE FICTION/Historical/Africa/", 
-            weight=100
-        )
+        source = DataSource.lookup(self._db, DataSource.OCLC)
+        c = i.classify(source, Subject.LCC, "PZ", weight=100)
         self.classifier.add(c)
 
         # (This classification has no bearing on audience and its

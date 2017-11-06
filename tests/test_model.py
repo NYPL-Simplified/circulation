@@ -2984,10 +2984,10 @@ class TestWork(DatabaseTest):
         # Add some classifications.
 
         # This classification has no subject name, so the search document will use the subject identifier.
-        edition.primary_identifier.classify(data_source, Subject.THREEM, "FICTION/Science Fiction/Time Travel", None, 6)
+        edition.primary_identifier.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 6)
 
         # This one has the same subject type and identifier, so their weights will be combined.
-        identifier.classify(data_source, Subject.THREEM, "FICTION/Science Fiction/Time Travel", None, 1)
+        identifier.classify(data_source, Subject.BISAC, "FICTION/Science Fiction/Time Travel", None, 1)
 
         # Here's another classification with a different subject type.
         edition.primary_identifier.classify(data_source, Subject.OVERDRIVE, "Romance", None, 2)
@@ -3061,7 +3061,7 @@ class TestWork(DatabaseTest):
 
         classifications = search_doc['classifications']
         eq_(3, len(classifications))
-        [classification1_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.THREEM]]
+        [classification1_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.BISAC]]
         [classification2_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.OVERDRIVE]]
         [classification3_doc] = [c for c in classifications if c['scheme'] == Subject.uri_lookup[Subject.FAST]]
         eq_("FICTION Science Fiction Time Travel", classification1_doc['term'])
@@ -3219,7 +3219,34 @@ class TestWork(DatabaseTest):
         # The work was not added to the search index -- that happens
         # later, when the WorkCoverageRecord is processed.
         eq_([], index.docs.values())
-        
+      
+
+    def test_for_unchecked_subjects(self):
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work()
+        identifier = w1.license_pools[0].identifier
+
+        # Neither of these works is associated with any subjects, so
+        # they're not associated with any unchecked subjects.
+        qu = Work.for_unchecked_subjects(self._db)
+        eq_([], qu.all())
+
+        # These Subjects haven't been checked, so the Work associated with
+        # them shows up.
+        ds = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        classification = identifier.classify(ds, Subject.TAG, "some tag")
+        classification2 = identifier.classify(ds, Subject.TAG, "another tag")
+        eq_([w1], qu.all())
+
+        # If one of them is checked, the Work still shows up.
+        classification.subject.checked = True
+        eq_([w1], qu.all())
+
+        # Only when all Subjects are checked does the work stop showing up.
+        classification2.subject.checked = True
+        eq_([], qu.all())
+
 
 class TestCirculationEvent(DatabaseTest):
 

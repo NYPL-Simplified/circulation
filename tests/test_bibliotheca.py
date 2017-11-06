@@ -138,8 +138,8 @@ class TestItemListParser(BaseBibliothecaTest):
     def test_parse_genre_string(self):
         def f(genre_string):
             genres = ItemListParser.parse_genre_string(genre_string)
-            assert all([x.type == Subject.THREEM for x in genres])
-            return [x.identifier for x in genres]
+            assert all([x.type == Subject.BISAC for x in genres])
+            return [x.name for x in genres]
 
         eq_(["Children's Health", "Health"], 
             f("Children&amp;#39;s Health,Health,"))
@@ -180,7 +180,7 @@ class TestItemListParser(BaseBibliothecaTest):
         eq_("Rowland, Laura Joh", author.sort_name)
         eq_([Contributor.AUTHOR_ROLE], author.roles)
 
-        subjects = [x.identifier for x in cooked.subjects]
+        subjects = [x.name for x in cooked.subjects]
         eq_(["Children's Health", "Mystery & Detective"], sorted(subjects))
 
         [pages] = cooked.measurements

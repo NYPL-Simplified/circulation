@@ -1200,7 +1200,7 @@ class DataSource(Base, HasFullTableCache):
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
                 (cls.RB_DIGITAL, True, True, Identifier.RB_DIGITAL_ID, None),
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
-                (cls.THREEM, True, False, Identifier.BIBLIOTHECA_ID, 60*60*6),
+                (cls.BIBLIOTHECA, True, False, Identifier.BIBLIOTHECA_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
                 (cls.OCLC, False, False, None, None),
                 (cls.OCLC_LINKED_DATA, False, False, None, None),
@@ -3578,7 +3578,7 @@ class Work(Base):
         DataSource.GUTENBERG: 0,
         DataSource.RB_DIGITAL: 0.4,
         DataSource.OVERDRIVE: 0.4,
-        DataSource.THREEM : 0.65,
+        DataSource.BIBLIOTHECA : 0.65,
         DataSource.AXIS_360: 0.65,
         DataSource.STANDARD_EBOOKS: 0.8,
         DataSource.UNGLUE_IT: 0.4,
@@ -3797,6 +3797,20 @@ class Work(Base):
         )
         q2 = q.filter(missing)
         return q2
+
+    @classmethod
+    def for_unchecked_subjects(cls, _db):
+        """Find all Works whose LicensePools have an Identifier that
+        is classified under an unchecked Subject.
+
+        This is a good indicator that the Work needs to be
+        reclassified.
+        """
+        qu = _db.query(Work).join(Work.license_pools).join(
+            LicensePool.identifier).join(
+                Identifier.classifications).join(
+                    Classification.subject)
+        return qu.filter(Subject.checked==False).distinct()
 
     @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid, medium):
@@ -5749,7 +5763,6 @@ class Subject(Base):
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
     ONECLICK = Classifier.ONECLICK    # OneClick's genre system
-    THREEM = Classifier.THREEM        # 3M's classification system
     BISAC = Classifier.BISAC
     BIC = Classifier.BIC              # BIC Subject Categories
     TAG = Classifier.TAG              # Folksonomic tags.
@@ -5758,7 +5771,7 @@ class Subject(Base):
 
     # Types with terms that are suitable for search.
     TYPES_FOR_SEARCH = [
-        FAST, OVERDRIVE, THREEM, BISAC, TAG
+        FAST, OVERDRIVE, BISAC, TAG
     ]
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
@@ -5781,13 +5794,16 @@ class Subject(Base):
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
         SIMPLIFIED_FICTION_STATUS : SIMPLIFIED_FICTION_STATUS,
         "http://librarysimplified.org/terms/genres/Overdrive/" : OVERDRIVE,
-        "http://librarysimplified.org/terms/genres/3M/" : THREEM,
+        "http://librarysimplified.org/terms/genres/3M/" : BISAC,
         "http://id.worldcat.org/fast/" : FAST, # I don't think this is official.
         "http://purl.org/dc/terms/LCC" : LCC,
         "http://purl.org/dc/terms/LCSH" : LCSH,
         "http://purl.org/dc/terms/DDC" : DDC,
         "http://schema.org/typicalAgeRange" : AGE_RANGE,
         "http://schema.org/audience" : FREEFORM_AUDIENCE,
+        "http://www.bisg.org/standards/bisac_subject/" : BISAC,
+        # Feedbooks uses a modified BISAC which we know how to handle.
+        "http://www.feedbooks.com/categories" : BISAC,
     }
 
     uri_lookup = dict()
@@ -6047,12 +6063,7 @@ class Classification(Base):
     # This goes into Classification rather than Subject because it's
     # possible that one particular data source could use a certain
     # subject type in an unreliable way.
-    #
-    # In fact, the 3M classifications are basically BISAC
-    # classifications used in an unreliable way, so we could merge
-    # them in the future.
     _juvenile_subject_types = set([
-        Subject.THREEM,
         Subject.LCC
     ])
 
@@ -7411,7 +7422,7 @@ class RightsStatus(Base):
         DataSource.OA_CONTENT_SERVER : GENERIC_OPEN_ACCESS,
 
         DataSource.OVERDRIVE: IN_COPYRIGHT,
-        DataSource.THREEM: IN_COPYRIGHT,
+        DataSource.BIBLIOTHECA: IN_COPYRIGHT,
         DataSource.AXIS_360: IN_COPYRIGHT,
     }
     

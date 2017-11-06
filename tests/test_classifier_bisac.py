@@ -202,7 +202,11 @@ class TestBISACClassifier(object):
         genre_is("Fiction / Science Fiction / Steampunk", "Steampunk")
         genre_is("Fiction / African American / Urban", "Urban Fiction")
         genre_is("Fiction / Urban", None)
+        genre_is("History / Native American", "United States History")
         genre_is("History / Modern / 17th Century", "Renaissance & Early Modern History")
+        genre_is("Biography & Autobiography / Composers & Musicians", "Music"),
+        genre_is("Biography & Autobiography / Entertainment & Performing Arts", "Entertainment"),
+        genre_is("Fiction / Christian", "Religious Fiction"),
         genre_is("Juvenile Nonfiction / Science & Nature / Fossils", "Nature")
         genre_is("Juvenile Nonfiction / Science & Nature / Physics", "Science")
         genre_is("Juvenile Nonfiction / Science & Nature / General", "Science")
@@ -217,6 +221,13 @@ class TestBISACClassifier(object):
 
         genre_is("Young Adult Fiction / Poetry", "Poetry")
         genre_is("Poetry", "Poetry")
+
+        # Grandfathered in from an older test to validate that the new
+        # BISAC algorithm gives the same results as the old one.
+        genre_is("JUVENILE FICTION / Dystopian", "Dystopian SF")
+        genre_is("JUVENILE FICTION / Stories in Verse (see also Poetry)",
+                 "Poetry")
+
 
     def test_deprecated_bisac_terms(self):
         """These BISAC terms have been deprecated. We classify them
@@ -242,6 +253,7 @@ class TestBISACClassifier(object):
             subject = self._subject("", name)
             eq_(expect, subject.fiction)
 
+        # Some easy tests.
         fiction_is("Fiction / Science Fiction", True)
         fiction_is("Antiques & Collectibles / Kitchenware", False)
 
@@ -255,6 +267,21 @@ class TestBISACClassifier(object):
 
         fiction_is("Young Adult Nonfiction / Humor", False)
         fiction_is("Juvenile Fiction / Humorous Stories", True)
+
+        # Literary collections in general are presumed to be
+        # collections of short fiction, but letters and essays are
+        # definitely nonfiction.
+        fiction_is("Literary Collections / General", True)
+        fiction_is("Literary Collections / Letters", False)
+        fiction_is("Literary Collections / Essays", False)
+
+        # Grandfathered in from an older test to validate that the new
+        # BISAC algorithm gives the same results as the old one.
+        fiction_is("FICTION / Classics", True)
+        fiction_is("JUVENILE FICTION / Concepts / Date & Time", True)
+        fiction_is("YOUNG ADULT FICTION / Lifestyles / Country Life", True)
+        fiction_is("HISTORY / General", False)
+
 
     def test_audience_spot_checks(self):
 
@@ -271,6 +298,12 @@ class TestBISACClassifier(object):
         audience_is("Fiction / Science Fiction / Erotica", adults_only)
         audience_is("Juvenile Fiction / Science Fiction", children)
         audience_is("Young Adult Fiction / Science Fiction / General", ya)
+
+        # Grandfathered in from an older test to validate that the new
+        # BISAC algorithm gives the same results as the old one.
+        audience_is("FAMILY & RELATIONSHIPS / Love & Romance", adult)
+        audience_is("JUVENILE FICTION / Action & Adventure / General", children)
+        audience_is("YOUNG ADULT FICTION / Action & Adventure / General", ya)
 
     def test_target_age_spot_checks(self):
 
