@@ -10447,18 +10447,30 @@ class Collection(Base, HasFullTableCache):
     EBOOK_LOAN_DURATION_KEY = 'ebook_loan_duration'
     STANDARD_DEFAULT_LOAN_PERIOD = 21
         
-    def default_loan_period(self, library):
+    def default_loan_period(self, library, medium=Edition.BOOK_MEDIUM):
+        """Until we hear otherwise from the license provider, we assume
+        that someone who borrows a non-open-access item from this
+        collection has it for this number of days.
+        """
+        return self.default_loan_period_setting(
+            library, medium).int_value or self.STANDARD_DEFAULT_LOAN_PERIOD
+
+    def default_loan_period_setting(self, library, medium=Edition.BOOK_MEDIUM):
         """Until we hear otherwise from the license provider, we assume
         that someone who borrows a non-open-access item from this
         collection has it for this number of days.
         """
         _db = Session.object_session(library)
+        if medium == Edition.AUDIO_MEDIUM:
+            key = self.AUDIOBOOK_LOAN_DURATION_KEY
+        else:
+            key = self.EBOOK_LOAN_DURATION_KEY
         return (
             ConfigurationSetting.for_library_and_externalintegration(
-                _db, self.EBOOK_LOAN_DURATION_KEY, library,
-                self.external_integration
-            ).int_value or self.STANDARD_DEFAULT_LOAN_PERIOD
+                _db, key, library, self.external_integration
+            )
         )
+
 
     DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
     STANDARD_DEFAULT_RESERVATION_PERIOD = 3
