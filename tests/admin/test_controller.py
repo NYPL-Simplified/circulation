@@ -1869,7 +1869,6 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
                 ("website_id", "1234"),
                 ("ils_name", "the_ils"),
-                ("ebook_loan_duration", "14"),
                 ("default_reservation_period", "3"),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -1892,10 +1891,6 @@ class TestSettingsController(AdminControllerTest):
         setting = collection.external_integration.setting("website_id")
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
-
-        setting = collection.external_integration.setting("ebook_loan_duration")
-        eq_("ebook_loan_duration", setting.key)
-        eq_("14", setting.value)
 
         setting = collection.external_integration.setting("default_reservation_period")
         eq_("default_reservation_period", setting.key)
@@ -1949,9 +1944,7 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
                 ("website_id", "1234"),
                 ("ils_name", "the_ils"),
-                ("libraries", json.dumps([{"short_name": "L1"}])),
-                ("ebook_loan_duration", "14"),
-                ("default_reservation_period", "3"),
+                ("libraries", json.dumps([{"short_name": "L1", "ebook_loan_duration": "14"}])),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
@@ -1969,14 +1962,6 @@ class TestSettingsController(AdminControllerTest):
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
-        setting = collection.external_integration.setting("ebook_loan_duration")
-        eq_("ebook_loan_duration", setting.key)
-        eq_("14", setting.value)
-
-        setting = collection.external_integration.setting("default_reservation_period")
-        eq_("default_reservation_period", setting.key)
-        eq_("3", setting.value)
-
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
@@ -1987,7 +1972,6 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
                 ("website_id", "1234"),
                 ("ils_name", "the_ils"),
-                ("ebook_loan_duration", "14"),
                 ("default_reservation_period", "3"),
                 ("libraries", json.dumps([])),
             ])
