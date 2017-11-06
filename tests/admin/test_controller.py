@@ -1950,7 +1950,7 @@ class TestSettingsController(AdminControllerTest):
                 ("website_id", "1234"),
                 ("ils_name", "the_ils"),
                 ("libraries", json.dumps([{"short_name": "L1"}])),
-                ("default_loan_period", "14"),
+                ("ebook_loan_duration", "14"),
                 ("default_reservation_period", "3"),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -1969,8 +1969,8 @@ class TestSettingsController(AdminControllerTest):
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
-        setting = collection.external_integration.setting("default_loan_period")
-        eq_("default_loan_period", setting.key)
+        setting = collection.external_integration.setting("ebook_loan_duration")
+        eq_("ebook_loan_duration", setting.key)
         eq_("14", setting.value)
 
         setting = collection.external_integration.setting("default_reservation_period")
@@ -1987,7 +1987,7 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
                 ("website_id", "1234"),
                 ("ils_name", "the_ils"),
-                ("default_loan_period", "14"),
+                ("ebook_loan_duration", "14"),
                 ("default_reservation_period", "3"),
                 ("libraries", json.dumps([])),
             ])

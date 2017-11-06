@@ -156,7 +156,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.consolidated_loan_url = collection.external_integration.setting(self.CONSOLIDATED_LOAN_URL_KEY).value
-        self.default_loan_period = collection.external_integration.setting(BaseCirculationAPI.EBOOK_LOAN_DURATION).int_value or Collection.STANDARD_DEFAULT_LOAN_PERIOD
+        self.default_loan_period = collection.external_integration.setting(Collection.EBOOK_LOAN_DURATION_KEY).int_value or Collection.STANDARD_DEFAULT_LOAN_PERIOD
 
     def internal_format(self, delivery_mechanism):
         """Each consolidated copy is only available in one format, so we don't need
