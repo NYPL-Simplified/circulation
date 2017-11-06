@@ -10452,11 +10452,12 @@ class Collection(Base, HasFullTableCache):
         that someone who borrows a non-open-access item from this
         collection has it for this number of days.
         """
+        _db = Session.object_session(library)
         return (
             ConfigurationSetting.for_library_and_externalintegration(
-                None, library, self.EBOOK_LOAN_DURATION_KEY,
+                _db, self.EBOOK_LOAN_DURATION_KEY, library,
                 self.external_integration
-            ).intvalue or self.STANDARD_DEFAULT_LOAN_PERIOD
+            ).int_value or self.STANDARD_DEFAULT_LOAN_PERIOD
         )
 
     DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
@@ -10467,12 +10468,12 @@ class Collection(Base, HasFullTableCache):
         that someone who puts an item on hold has this many days to
         check it out before it goes to the next person in line.
         """
-        _db = Session.object_session(self)
+        _db = Session.object_session(library)
         return (
             ConfigurationSetting.for_library_and_externalintegration(
-                None, library, self.DEFAULT_RESERVATION_PERIOD_KEY,
-                self.external_integration
-            ).intvalue or self.STANDARD_DEFAULT_RESERVATION_PERIOD
+                _db, self.DEFAULT_RESERVATION_PERIOD_KEY,
+                library, self.external_integration
+            ).int_value or self.STANDARD_DEFAULT_RESERVATION_PERIOD
         )
             
     def create_external_integration(self, protocol):
