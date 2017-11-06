@@ -966,10 +966,10 @@ class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):
     def mock_collection(cls, _db):
         collection = BaseMockOneClickAPI.mock_collection(_db)
         collection.external_integration.set_setting(
-            cls.AUDIOBOOK_LOAN_DURATION, 1
+            Collection.AUDIOBOOK_LOAN_DURATION_KEY, 1
         )
         collection.external_integration.set_setting(
-            cls.EBOOK_LOAN_DURATION, 2
+            Collection.EBOOK_LOAN_DURATION_KEY, 2
         )
         return collection
 
