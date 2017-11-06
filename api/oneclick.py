@@ -35,12 +35,14 @@ from core.metadata_layer import (
 from core.model import (
     CirculationEvent,
     Collection,
+    ConfigurationSetting,
     Credential,
     DataSource,
     DeliveryMechanism,
     Edition,
     ExternalIntegration,
     Identifier, 
+    Library,
     LicensePool,
     Patron,
     Representation,
@@ -106,20 +108,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             )
         )
 
-        integration = self.collection.external_integration
-        self.audiobook_duration_days = (
-            integration.setting(Collection.AUDIOBOOK_LOAN_DURATION_KEY).int_value 
-            or self.DEFAULT_LOAN_DURATION
-        )
-        self.ebook_duration_days = (
-            integration.setting(Collection.EBOOK_LOAN_DURATION_KEY).int_value 
-            or self.DEFAULT_LOAN_DURATION
-        )
-        
-        # Set default_loan_period to the ebook value just in case something
-        # needs it.
-        self.default_loan_period = self.ebook_duration_days
-
     def remote_email_address(self, patron):
         """The fake email address to send to RBdigital when
         signing up this patron.
@@ -176,10 +164,19 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         today = datetime.datetime.utcnow()
+
+        library = patron.library
+
         if item_media == Edition.AUDIO_MEDIUM:
-            days = self.audiobook_duration_days
+            key = Collection.AUDIOBOOK_LOAN_DURATION_KEY
+            _db = Session.object_session(patron)
+            days = (
+                ConfigurationSetting.for_library_and_externalintegration(
+                    _db, key, library, self.collection.external_integration
+                ).int_value or Collection.STANDARD_DEFAULT_LOAN_PERIOD
+            )
         else:
-            days = self.ebook_duration_days
+            days = self.collection.default_loan_period(library)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False, days=days)
 
@@ -965,12 +962,15 @@ class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):
     @classmethod
     def mock_collection(cls, _db):
         collection = BaseMockOneClickAPI.mock_collection(_db)
-        collection.external_integration.set_setting(
-            Collection.AUDIOBOOK_LOAN_DURATION_KEY, 1
-        )
-        collection.external_integration.set_setting(
-            Collection.EBOOK_LOAN_DURATION_KEY, 2
-        )
+        for library in _db.query(Library):
+            for key, value in (
+                    (Collection.AUDIOBOOK_LOAN_DURATION_KEY, 1),
+                    (Collection.EBOOK_LOAN_DURATION_KEY, 2)
+            ):
+                ConfigurationSetting.for_library_and_externalintegration(
+                    _db, key, library, 
+                    collection.external_integration
+                ).value = value
         return collection
 
 

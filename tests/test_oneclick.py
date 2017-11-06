@@ -67,6 +67,9 @@ class OneClickAPITest(DatabaseTest):
         super(OneClickAPITest, self).setup()
 
         self.base_path = os.path.split(__file__)[0]
+        # Make sure the default library is created so that it will
+        # be configured properly with the mock collection.
+        self._default_library
         self.collection = MockOneClickAPI.mock_collection(self._db)
         self.api = MockOneClickAPI(
             self._db, self.collection, base_path=self.base_path
@@ -76,13 +79,6 @@ class OneClickAPITest(DatabaseTest):
 
 
 class TestOneClickAPI(OneClickAPITest):
-
-    def test_loan_duration(self):
-
-        # The *_duration_days values come from the ConfigurationSettings
-        # defined in MockOneClickAPI.mock_collection
-        eq_(self.api.audiobook_duration_days, 1)
-        eq_(self.api.ebook_duration_days, 2)
     
     def queue_initial_patron_id_lookup(self):
         """All the OneClickAPI methods that take a Patron object call
@@ -388,6 +384,16 @@ class TestOneClickAPI(OneClickAPITest):
                       patron, None, pool)
 
     def test_checkout(self):
+
+        # Ebooks and audiobooks have different loan durations.
+        ebook_period = self.api.collection.default_loan_period(
+            self._default_library, Edition.BOOK_MEDIUM
+        )
+        audio_period = self.api.collection.default_loan_period(
+            self._default_library, Edition.AUDIO_MEDIUM
+        )
+        assert ebook_period != audio_period
+
         patron = self.default_patron
         self.queue_initial_patron_id_lookup()
 
@@ -406,14 +412,14 @@ class TestOneClickAPI(OneClickAPITest):
         loan_info = self.api.checkout(patron, None, pool, None)
 
         checkout_url = self.api.requests[-1][0]
-        assert "days=%s" % self.api.ebook_duration_days in checkout_url
+        assert "days=%s" % ebook_period in checkout_url
 
         # Now we have a LoanInfo that describes the remote loan.
         eq_(Identifier.RB_DIGITAL_ID, loan_info.identifier_type)
         eq_(pool.identifier.identifier, loan_info.identifier)
         today = datetime.datetime.utcnow()
         assert (loan_info.start_date - today).total_seconds() < 20
-        assert (loan_info.end_date - today).days <= self.api.ebook_duration_days
+        assert (loan_info.end_date - today).days <= ebook_period
 
         # But we can only get a FulfillmentInfo by calling
         # get_patron_checkouts().
@@ -427,10 +433,9 @@ class TestOneClickAPI(OneClickAPITest):
         loan_info = self.api.checkout(patron, None, pool, None)
 
         # We requested a different loan duration.
-        assert self.api.audiobook_duration_days != self.api.ebook_duration_days
         checkout_url = self.api.requests[-1][0]
-        assert "days=%s" % self.api.audiobook_duration_days in checkout_url
-        assert (loan_info.end_date - today).days <= self.api.audiobook_duration_days
+        assert "days=%s" % audio_period in checkout_url
+        assert (loan_info.end_date - today).days <= audio_period
 
     def test_create_patron(self):
         """Test the method that creates an account for a library patron
