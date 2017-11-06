@@ -10788,7 +10788,7 @@ class IntegrationClient(Base):
 
         generate_secret = (client.shared_secret is None) or submitted_secret
         if generate_secret:
-            client.shared_secret = os.urandom(24).encode('hex')
+            client.shared_secret = unicode(os.urandom(24).encode('hex'))
 
         return client, is_new
 
