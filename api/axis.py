@@ -69,6 +69,10 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         { "key": ExternalIntegration.URL, "label": _("Server"), "default": BaseAxis360API.PRODUCTION_BASE_URL },
     ] + BaseCirculationAPI.SETTINGS
 
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
+    ]
+
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
     SERVICE_NAME = "Axis 360"

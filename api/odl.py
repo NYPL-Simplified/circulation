@@ -100,15 +100,20 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             "label": _("Library's API password"),
         },
         {
-            "key": BaseCirculationAPI.DEFAULT_LOAN_PERIOD,
-            "label": _("Default Loan Period (in Days, Maximum 59)"),
-            "default": 21,
-            "type": "number",
-        },
-        {
             "key": Collection.DATA_SOURCE_NAME_SETTING,
             "label": _("Data source name"),
         }
+    ]
+
+    my_ebook_loan_duration_setting = dict(
+        BaseCirculationAPI.EBOOK_LOAN_DURATION_SETTING
+    )
+    my_ebook_loan_duration_setting.update(
+        description = _("When a patron uses SimplyE to borrow an ebook from this ODL server, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
+    )
+
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        my_ebook_loan_duration_setting
     ]
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
@@ -158,7 +163,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.consolidated_loan_url = collection.external_integration.setting(self.CONSOLIDATED_LOAN_URL_KEY).value
-        self.default_loan_period = collection.external_integration.setting(BaseCirculationAPI.DEFAULT_LOAN_PERIOD).int_value or 21
+        self.default_loan_period = collection.external_integration.setting(BaseCirculationAPI.EBOOK_LOAN_DURATION).int_value or Collection.STANDARD_DEFAULT_LOAN_PERIOD
 
     def internal_format(self, delivery_mechanism):
         """Each consolidated copy is only available in one format, so we don't need

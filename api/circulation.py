@@ -865,13 +865,46 @@ class CirculationAPI(object):
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
 
-    DEFAULT_LOAN_PERIOD = "default_loan_period"
-    DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
+    # Add to LIBRARY_SETTINGS if your circulation API is for a
+    # distributor which includes ebooks and allows clients to specify
+    # their own loan lengths.
+    EBOOK_LOAN_DURATION_SETTING = {
+        "key" : Collection.EBOOK_LOAN_DURATION_KEY, 
+        "label": _("Ebook Loan Duration (in Days)"),
+        "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
+        "description": _("When a patron uses SimplyE to borrow an audio book from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
+    }
 
-    SETTINGS = [
-        { "key": DEFAULT_LOAN_PERIOD, "label": _("Default Loan Period (in Days)"), "optional": True, "type": "number" },
-        { "key": DEFAULT_RESERVATION_PERIOD, "label": _("Default Reservation Period (in Days)"), "optional": True, "type": "number" },
-    ]
+    # Add to LIBRARY_SETTINGS if your circulation API is for a
+    # distributor which includes audiobooks and allows clients to
+    # specify their own loan lengths.
+    AUDIOBOOK_LOAN_DURATION_SETTING = { 
+        "key" : Collection.AUDIOBOOK_LOAN_DURATION_KEY,
+        "label": _("Audiobook Loan Duration (in Days)"),
+        "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
+        "description": _("When a patron uses SimplyE to borrow an audio book from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
+    }
+
+    # Add to LIBRARY_SETTINGS if your circulation API is for a
+    # distributor with a default loan period negotiated out-of-band,
+    # such that the circulation manager cannot _specify_ the length of
+    # a loan.
+    DEFAULT_LOAN_DURATION_SETTING = { 
+        "key": Collection.EBOOK_LOAN_DURATION_KEY, 
+        "label": _("Default Loan Period (in Days)"),
+        "optional": True, 
+        "type": "number",
+        "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
+        "description": _("Until it hears otherwise from the distributor, this server will assume that any given loan for this library from this collection will last this number of days. This number is usually a negotiated value between the library and the distributor. This only affects estimates&mdash;it cannot affect the actual length of loans.")
+    }
+
+    # These collection-specific settings should be inherited by all
+    # distributors.
+    SETTINGS = []
+
+    # These library- and collection-specific settings should be
+    # inherited by all distributors.
+    LIBRARY_SETTINGS = []
 
     BORROW_STEP = 'borrow'
     FULFILL_STEP = 'fulfill'

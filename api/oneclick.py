@@ -71,23 +71,28 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": BaseOneClickAPI.PRODUCTION_BASE_URL },
     ] + BASE_SETTINGS
     
-    AUDIOBOOK_LOAN_DURATION = 'audio_loan_duration'
-    EBOOK_LOAN_DURATION = 'ebook_loan_duration'
-
-    LIBRARY_SETTINGS = [
-        { "key" : AUDIOBOOK_LOAN_DURATION, 
-          "label": _("Audiobook Loan Duration (in Days)"),
-        "description": _("When a patron uses SimplyE to borrow an RBdigital audio book, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital.")
-        },
-        { "key" : EBOOK_LOAN_DURATION, 
-          "label": _("Ebook Loan Duration (in Days)"),
-        "description": _("When a patron uses SimplyE to borrow an RBdigital ebook, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital.")
-        },
-    ]
-
     # The loan duration must be specified when connecting a library to an
     # RBdigital account, but if it's not specified, try one week.
     DEFAULT_LOAN_DURATION = 7
+
+    my_audiobook_setting = dict(
+        BaseCirculationAPI.AUDIOBOOK_LOAN_DURATION_SETTING
+    )
+    my_audiobook_setting.update(
+        description = _("When a patron uses SimplyE to borrow an RBdigital audio book, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital."),
+        default=DEFAULT_LOAN_DURATION,
+    )
+    my_ebook_setting = dict(
+        BaseCirculationAPI.EBOOK_LOAN_DURATION_SETTING
+    )
+    my_ebook_setting.update(
+        description = _("When a patron uses SimplyE to borrow an RBdigital ebook, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital."),
+        default=DEFAULT_LOAN_DURATION,
+    )
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        my_audiobook_setting, 
+        my_ebook_setting
+    ]
 
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 
@@ -103,11 +108,11 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         integration = self.collection.external_integration
         self.audiobook_duration_days = (
-            integration.setting(self.AUDIOBOOK_LOAN_DURATION).int_value 
+            integration.setting(Collection.AUDIOBOOK_LOAN_DURATION_KEY).int_value 
             or self.DEFAULT_LOAN_DURATION
         )
         self.ebook_duration_days = (
-            integration.setting(self.EBOOK_LOAN_DURATION).int_value 
+            integration.setting(Collection.EBOOK_LOAN_DURATION_KEY).int_value 
             or self.DEFAULT_LOAN_DURATION
         )
         
