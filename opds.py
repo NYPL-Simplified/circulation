@@ -1115,8 +1115,13 @@ class AcquisitionFeed(OPDSFeed):
         default_loan_period = default_reservation_period = None
         collection = license_pool.collection
         if (loan or hold) and not license_pool.open_access:
+            if loan:
+                obj = loan
+            elif hold:
+                obj = hold
+            library = obj.patron.library
             default_loan_period = datetime.timedelta(
-                collection.default_loan_period
+                collection.default_loan_period(library)
             )
         if loan:
             status = 'available'

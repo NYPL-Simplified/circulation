@@ -10447,44 +10447,33 @@ class Collection(Base, HasFullTableCache):
     EBOOK_LOAN_DURATION_KEY = 'ebook_loan_duration'
     STANDARD_DEFAULT_LOAN_PERIOD = 21
         
-    @hybrid_property
-    def default_loan_period(self):
+    def default_loan_period(self, library):
         """Until we hear otherwise from the license provider, we assume
         that someone who borrows a non-open-access item from this
         collection has it for this number of days.
         """
         return (
-            self.external_integration.setting(
-                self.EBOOK_LOAN_DURATION_KEY).int_value
-            or self.STANDARD_DEFAULT_LOAN_PERIOD
+            ConfigurationSetting.for_library_and_externalintegration(
+                None, library, self.EBOOK_LOAN_DURATION_KEY,
+                self.external_integration
+            ).intvalue or self.STANDARD_DEFAULT_LOAN_PERIOD
         )
-
-    @default_loan_period.setter
-    def set_default_loan_period(self, new_value):
-        new_value = int(new_value)
-        self.external_integration.setting(
-            self.EBOOK_LOAN_DURATION_KEY).value = str(new_value)
 
     DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
     STANDARD_DEFAULT_RESERVATION_PERIOD = 3
             
-    @hybrid_property
-    def default_reservation_period(self):
+    def default_reservation_period(self, library):
         """Until we hear otherwise from the license provider, we assume
         that someone who puts an item on hold has this many days to
         check it out before it goes to the next person in line.
         """
+        _db = Session.object_session(self)
         return (
-            self.external_integration.setting(
-                self.DEFAULT_RESERVATION_PERIOD_KEY).int_value
-            or self.STANDARD_DEFAULT_RESERVATION_PERIOD
+            ConfigurationSetting.for_library_and_externalintegration(
+                None, library, self.DEFAULT_RESERVATION_PERIOD_KEY,
+                self.external_integration
+            ).intvalue or self.STANDARD_DEFAULT_RESERVATION_PERIOD
         )
-
-    @default_reservation_period.setter
-    def set_default_reservation_period(self, new_value):
-        new_value = int(new_value)
-        self.external_integration.setting(
-            self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
             
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
