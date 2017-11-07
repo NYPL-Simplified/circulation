@@ -6025,7 +6025,8 @@ class Subject(Base):
                 )
         self.fiction = fiction
 
-        if numericrange_to_tuple(self.target_age) != target_age:
+        if (numericrange_to_tuple(self.target_age) != target_age and 
+            not (not self.target_age and not target_age)):
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
                 self.target_age, tuple_to_numericrange(target_age)
