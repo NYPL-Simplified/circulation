@@ -62,6 +62,10 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
     ] + BaseCirculationAPI.SETTINGS
 
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
+    ]
+
     MAX_AGE = datetime.timedelta(days=730).seconds
     CAN_REVOKE_HOLD_WHEN_RESERVED = False
     SET_DELIVERY_MECHANISM_AT = None

@@ -1685,6 +1685,12 @@ class TestSettingsController(AdminControllerTest):
         c3.external_account_id = "5678"
         c3.parent = c2
 
+        l1 = self._library(short_name="L1")
+        c3.libraries += [l1]
+        c3.external_integration.libraries += [l1]
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "ebook_loan_duration", l1, c3.external_integration).value = "14"
+
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
             coll2, coll3, coll1 = sorted(
@@ -1710,6 +1716,11 @@ class TestSettingsController(AdminControllerTest):
             eq_(c2.external_integration.password, coll2.get("settings").get("password"))
 
             eq_(c2.id, coll3.get("parent_id"))
+
+            coll3_libraries = coll3.get("libraries")
+            eq_(1, len(coll3_libraries))
+            eq_("L1", coll3_libraries[0].get("short_name"))
+            eq_("14", coll3_libraries[0].get("ebook_loan_duration"))
 
     def test_collections_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1863,14 +1874,14 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("name", "New Collection"),
                 ("protocol", "Overdrive"),
-                ("libraries", json.dumps([{"short_name": "L1"}, {"short_name":"L2"}])),
+                ("libraries", json.dumps([
+                    {"short_name": "L1", "ils_name": "l1_ils"},
+                    {"short_name":"L2", "ils_name": "l2_ils"}
+                ])),
                 ("external_account_id", "acctid"),
                 ("username", "username"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("ils_name", "the_ils"),
-                ("default_loan_period", "14"),
-                ("default_reservation_period", "3"),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 201)
@@ -1893,13 +1904,10 @@ class TestSettingsController(AdminControllerTest):
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
-        setting = collection.external_integration.setting("default_loan_period")
-        eq_("default_loan_period", setting.key)
-        eq_("14", setting.value)
-
-        setting = collection.external_integration.setting("default_reservation_period")
-        eq_("default_reservation_period", setting.key)
-        eq_("3", setting.value)
+        eq_("l1_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value)
+        eq_("l2_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l2, collection.external_integration).value)
 
         # This collection will be a child of the first collection.
         with self.app.test_request_context("/", method="POST"):
@@ -1907,7 +1915,7 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "Child Collection"),
                 ("protocol", "Overdrive"),
                 ("parent_id", collection.id),
-                ("libraries", json.dumps([{"short_name": "L3"}])),
+                ("libraries", json.dumps([{"short_name": "L3", "ils_name": "l3_ils"}])),
                 ("external_account_id", "child-acctid"),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -1927,6 +1935,9 @@ class TestSettingsController(AdminControllerTest):
 
         # One library has access to the collection.
         eq_([child], l3.collections)
+
+        eq_("l3_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l3, child.external_integration).value)
 
     def test_collections_post_edit(self):
         # The collection exists.
@@ -1948,10 +1959,7 @@ class TestSettingsController(AdminControllerTest):
                 ("username", "user2"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("ils_name", "the_ils"),
-                ("libraries", json.dumps([{"short_name": "L1"}])),
-                ("default_loan_period", "14"),
-                ("default_reservation_period", "3"),
+                ("libraries", json.dumps([{"short_name": "L1", "ils_name": "the_ils"}])),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
@@ -1969,13 +1977,8 @@ class TestSettingsController(AdminControllerTest):
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
-        setting = collection.external_integration.setting("default_loan_period")
-        eq_("default_loan_period", setting.key)
-        eq_("14", setting.value)
-
-        setting = collection.external_integration.setting("default_reservation_period")
-        eq_("default_reservation_period", setting.key)
-        eq_("3", setting.value)
+        eq_("the_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1986,9 +1989,6 @@ class TestSettingsController(AdminControllerTest):
                 ("username", "user2"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("ils_name", "the_ils"),
-                ("default_loan_period", "14"),
-                ("default_reservation_period", "3"),
                 ("libraries", json.dumps([])),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -2002,6 +2002,9 @@ class TestSettingsController(AdminControllerTest):
 
         # But the library has been removed.
         eq_([], l1.collections)
+
+        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value)
 
         parent = self._collection(
             name="Parent",
@@ -2024,6 +2027,69 @@ class TestSettingsController(AdminControllerTest):
 
         # The collection now has a parent.
         eq_(parent, collection.parent)
+
+    def test_collections_post_edit_library_specific_configuration(self):
+        # The collection exists.
+        collection = self._collection(
+            name="Collection 1",
+            protocol=ExternalIntegration.RB_DIGITAL
+        )
+
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", collection.id),
+                ("name", "Collection 1"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
+                ("external_account_id", "1234"),
+                ("username", "user2"),
+                ("password", "password"),
+                ("url", "http://rb/"),
+                ("libraries", json.dumps([
+                    {
+                        "short_name": "L1", 
+                        "ebook_loan_duration": "14",
+                        "audio_loan_duration": "12"
+                    }
+                ])
+                ),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+
+        # Additional settings were set on the collection+library.
+        eq_("14", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ebook_loan_duration", l1, collection.external_integration).value)
+        eq_("12", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "audio_loan_duration", l1, collection.external_integration).value)
+
+        # Remove the connection between collection and library.
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", collection.id),
+                ("name", "Collection 1"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
+                ("external_account_id", "1234"),
+                ("username", "user2"),
+                ("password", "password"),
+                ("url", "http://rb/"),
+                ("libraries", json.dumps([])),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+
+        eq_(collection.id, int(response.response[0]))
+
+        # The settings associated with the collection+library were removed
+        # when the connection between collection and library was deleted.
+        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ebook_loan_duration", l1, collection.external_integration).value)
+        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "audio_loan_duration", l1, collection.external_integration).value)
+        eq_([], collection.libraries)
 
     def test_collection_delete(self):
         collection = self._collection()
