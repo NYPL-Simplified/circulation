@@ -183,7 +183,6 @@ class LogConfiguration(object):
 
             if loggly:
                 handlers.append(cls.loggly_handler(loggly))
-                app_name = loggly.setting(cls.LOG_APP_NAME).value or app_name
 
         # handlers is either empty or it contains a loggly handler.
         # Let's also add a handler that logs to standard error.
