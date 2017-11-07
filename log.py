@@ -19,7 +19,7 @@ class JSONFormatter(logging.Formatter):
 
     def __init__(self, app_name):
         super(JSONFormatter, self).__init__()
-        self.app_name = app_name
+        self.app_name = app_name or LogConfiguration.DEFAULT_APP_NAME
 
     def format(self, record):
         message = record.msg
@@ -153,6 +153,7 @@ class LogConfiguration(object):
 
         handlers = []
         from model import ExternalIntegration
+        app_name = cls.DEFAULT_APP_NAME
         if _db and not testing:
             goal = ExternalIntegration.LOGGING_GOAL
             internal = ExternalIntegration.lookup(
@@ -161,7 +162,6 @@ class LogConfiguration(object):
             loggly = ExternalIntegration.lookup(
                 _db, ExternalIntegration.LOGGLY, goal
             )
-            app_name = cls.DEFAULT_APP_NAME
             if internal:
                 internal_log_level = (
                     internal.setting(cls.LOG_LEVEL).value 
