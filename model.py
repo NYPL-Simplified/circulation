@@ -5762,7 +5762,7 @@ class Subject(Base):
     FAST = Classifier.FAST
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
-    ONECLICK = Classifier.ONECLICK    # OneClick's genre system
+    RBDIGITAL = Classifier.RBDIGITAL  # RBdigital's genre system
     BISAC = Classifier.BISAC
     BIC = Classifier.BIC              # BIC Subject Categories
     TAG = Classifier.TAG              # Folksonomic tags.
@@ -5775,7 +5775,7 @@ class Subject(Base):
     ]
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
-    ONECLICK_AUDIENCE = Classifier.ONECLICK_AUDIENCE
+    RBDIGITAL_AUDIENCE = Classifier.RBDIGITAL_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
     LEXILE_SCORE = Classifier.LEXILE_SCORE

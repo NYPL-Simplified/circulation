@@ -43,7 +43,7 @@ class Classifier(object):
     LCSH = "LCSH"
     FAST = "FAST"
     OVERDRIVE = "Overdrive"
-    ONECLICK = "OneClick"
+    RBDIGITAL = "RBdigital"
     BISAC = "BISAC"
     BIC = "BIC"
     TAG = "tag"   # Folksonomic tags.
@@ -54,7 +54,7 @@ class Classifier(object):
     GRADE_LEVEL = "Grade level" # "1-2", "Grade 4", "Kindergarten", etc.
     AGE_RANGE = "schema:typicalAgeRange" # "0-2", etc.
     AXIS_360_AUDIENCE = "Axis 360 Audience"
-    ONECLICK_AUDIENCE = "OneClick Audience"
+    RBDIGITAL_AUDIENCE = "RBdigital Audience"
 
     # We know this says something about the audience but we're not sure what.
     # Could be any of the values from GRADE_LEVEL or AGE_RANGE, plus
@@ -2235,9 +2235,6 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("handwriting"),
                    Eg("information sciences"),
                    Eg("journalism"),
-                   Eg("language arts & disciplines"),
-                   Eg("language arts and disciplines"),
-                   Eg("language arts"),
                    Eg("library & information sciences"),
                    Eg("linguistics"),
                    Eg("literacy"),
@@ -2258,6 +2255,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("taoism"),
                    Eg("taoist"),
                    Eg("confucianism"),
+                   Eg("inspirational nonfiction"),
                ),
                
                Renaissance_Early_Modern_History: match_kw(
@@ -2312,6 +2310,8 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                
                Science_Fiction : match_kw(
                    "speculative fiction",
+                   "sci-fi",
+                   "sci fi",
                    Eg("time travel"),
                ),
                
@@ -2444,11 +2444,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "travelers",
                    "description.*travel",
                ),
-               
-               True_Crime: match_kw(
-                   "true crime",
-               ),
-               
+                              
                United_States_History: match_kw(
                    "united states history",
                    "u.s. history",
@@ -2491,6 +2487,8 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                Womens_Fiction : match_kw(
                    "contemporary women",
                    "chick lit",
+                   "womens fiction",
+                   "women's fiction",
                ),
                
                World_History: match_kw(
@@ -2500,6 +2498,12 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
     }
 
     LEVEL_2_KEYWORDS = {
+        Reference_Study_Aids : match_kw(
+            # Formerly in 'Language Arts & Disciplines'
+            Eg("language arts & disciplines"),
+            Eg("language arts and disciplines"),
+            Eg("language arts"),
+        ),
         Design : match_kw(
             "arts and crafts movement",
         ),
@@ -2554,6 +2558,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         # Stop the 'religious' from matching Religion/Spirituality.
         Religious_Fiction: match_kw(
             Eg("christian fiction"),
+            Eg("inspirational fiction"),
             Eg("fiction.*christian"),
             "religious fiction",
             "fiction.*religious",
@@ -2584,6 +2589,11 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         Supernatural_Thriller: match_kw(
             "thriller.*supernatural",
             "supernatural.*thriller",
+        ),
+
+        # Stop from going into Mystery due to 'crime' 
+        True_Crime: match_kw(
+            "true crime",
         ),
 
         # Otherwise fiction.*urban turns Urban Fantasy into Urban Fiction
@@ -2969,7 +2979,7 @@ class GutenbergBookshelfClassifier(Classifier):
 class FreeformAudienceClassifier(AgeOrGradeClassifier):
     @classmethod
     def audience(cls, identifier, name):
-        if identifier in ('children', 'pre-adolescent'):
+        if identifier in ('children', 'pre-adolescent', 'beginning reader'):
             return cls.AUDIENCE_CHILDREN
         elif identifier in ('young adult', 'ya', 'teenagers', 'adolescent',
                             'early adolescents'):
@@ -2982,6 +2992,8 @@ class FreeformAudienceClassifier(AgeOrGradeClassifier):
 
     @classmethod
     def target_age(cls, identifier, name):
+        if identifier == 'beginning reader':
+            return cls.range_tuple(5,8)
         if identifier == 'pre-adolescent':
             return cls.range_tuple(9, 12)
         if identifier == 'early adolescents':
@@ -3762,3 +3774,7 @@ Classifier.classifiers[Classifier.SIMPLIFIED_FICTION_STATUS] = SimplifiedFiction
 
 # Finally, import classifiers described in submodules.
 from bisac import BISACClassifier
+from rbdigital import (
+    RBDigitalAudienceClassifier,
+    RBDigitalSubjectClassifier,
+)
