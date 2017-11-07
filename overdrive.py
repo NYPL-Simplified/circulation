@@ -140,10 +140,6 @@ class OverdriveAPI(object):
         self.client_key = collection.external_integration.username
         self.client_secret = collection.external_integration.password
         self.website_id = collection.external_integration.setting(self.WEBSITE_ID).value
-        self.ils_name = collection.external_integration.setting(self.ILS_NAME).value
-        if not self.ils_name:
-            self.ils_name = "default"
-
         if (not self.client_key or not self.client_secret or not self.website_id
             or not self.library_id):
             raise CannotLoadConfiguration(
