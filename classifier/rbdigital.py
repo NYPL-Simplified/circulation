@@ -10,7 +10,7 @@ class RBDigitalAudienceClassifier(FreeformAudienceClassifier):
         #
         # Rather than covering the entire early lifespan of a child,
         # the normally vague 'childrens' is used here to cover the
-        # time in between 'beginnign reader' and 'young adult'
+        # time in between 'beginning reader' and 'young adult'
         if identifier == 'beginning reader':
             return cls.range_tuple(0,8)
         elif identifier == 'childrens':
@@ -25,25 +25,6 @@ class RBDigitalSubjectClassifier(KeywordBasedClassifier):
     fiction_genres = {
         'lgbt interest' : LGBTQ_Fiction,
     }
-
-    # These subjects do not end with '-fiction' but reliabily indicate
-    # fiction.
-    known_fiction = set([
-        'short-stories',
-        'classics',
-        'comics-graphic-novels',
-        'drama',
-        'poetry',
-        'sci-fi',
-        'fantasy',
-    ])
-
-    # These subjects contain both fiction and nonfiction, or
-    # otherwise have no fiction status.
-    no_fiction_status = set([
-        'african-american-interest',
-        'lgbt-interest',
-    ])
 
     genres = {
         # This isn't true in general but because RBdigital is heavy on
