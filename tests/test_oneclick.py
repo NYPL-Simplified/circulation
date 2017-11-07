@@ -201,11 +201,11 @@ class TestOneClickRepresentationExtractor(OneClickTest):
 
         eq_([(None, u"FICTION / Humorous / General", Subject.BISAC, 100),
 
-            (u'adult', None, Classifier.ONECLICK_AUDIENCE, 10), 
+            (u'adult', None, Classifier.RBDIGITAL_AUDIENCE, 500), 
 
-            (u'humorous-fiction', None, Subject.ONECLICK, 100), 
-            (u'mystery', None, Subject.ONECLICK, 100), 
-            (u'womens-fiction', None, Subject.ONECLICK, 100)
+            (u'humorous-fiction', None, Subject.RBDIGITAL, 200), 
+            (u'mystery', None, Subject.RBDIGITAL, 200), 
+            (u'womens-fiction', None, Subject.RBDIGITAL, 200)
          ],
             [(x.identifier, x.name, x.type, x.weight) for x in subjects]
         )
