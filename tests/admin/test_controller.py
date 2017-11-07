@@ -1685,6 +1685,12 @@ class TestSettingsController(AdminControllerTest):
         c3.external_account_id = "5678"
         c3.parent = c2
 
+        l1 = self._library(short_name="L1")
+        c3.libraries += [l1]
+        c3.external_integration.libraries += [l1]
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "ebook_loan_duration", l1, c3.external_integration).value = "14"
+
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
             coll2, coll3, coll1 = sorted(
@@ -1710,6 +1716,11 @@ class TestSettingsController(AdminControllerTest):
             eq_(c2.external_integration.password, coll2.get("settings").get("password"))
 
             eq_(c2.id, coll3.get("parent_id"))
+
+            coll3_libraries = coll3.get("libraries")
+            eq_(1, len(coll3_libraries))
+            eq_("L1", coll3_libraries[0].get("short_name"))
+            eq_("14", coll3_libraries[0].get("ebook_loan_duration"))
 
     def test_collections_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1939,7 +1950,7 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
                 ("website_id", "1234"),
                 ("ils_name", "the_ils"),
-                ("libraries", json.dumps([{"short_name": "L1", "ebook_loan_duration": "14"}])),
+                ("libraries", json.dumps([{"short_name": "L1"}])),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
@@ -2002,6 +2013,69 @@ class TestSettingsController(AdminControllerTest):
 
         # The collection now has a parent.
         eq_(parent, collection.parent)
+
+    def test_collections_post_edit_library_specific_configuration(self):
+        # The collection exists.
+        collection = self._collection(
+            name="Collection 1",
+            protocol=ExternalIntegration.RB_DIGITAL
+        )
+
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", collection.id),
+                ("name", "Collection 1"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
+                ("external_account_id", "1234"),
+                ("username", "user2"),
+                ("password", "password"),
+                ("url", "http://rb/"),
+                ("libraries", json.dumps([
+                    {
+                        "short_name": "L1", 
+                        "ebook_loan_duration": "14",
+                        "audio_loan_duration": "12"
+                    }
+                ])
+                ),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+
+        # Additional settings were set on the collection+library.
+        eq_("14", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ebook_loan_duration", l1, collection.external_integration).value)
+        eq_("12", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "audio_loan_duration", l1, collection.external_integration).value)
+
+        # Remove the connection between collection and library.
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", collection.id),
+                ("name", "Collection 1"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
+                ("external_account_id", "1234"),
+                ("username", "user2"),
+                ("password", "password"),
+                ("url", "http://rb/"),
+                ("libraries", json.dumps([])),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+
+        eq_(collection.id, int(response.response[0]))
+
+        # The settings associated with the collection+library were removed
+        # when the connection between collection and library was deleted.
+        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ebook_loan_duration", l1, collection.external_integration).value)
+        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "audio_loan_duration", l1, collection.external_integration).value)
+        eq_([], collection.libraries)
 
     def test_collection_delete(self):
         collection = self._collection()

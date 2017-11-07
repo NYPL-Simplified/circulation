@@ -1260,6 +1260,22 @@ class SettingsController(CirculationManagerController):
             protocols.append(protocol)
         return protocols
 
+    def _get_integration_library_info(self, integration, library, protocol):
+        library_info = dict(short_name=library.short_name)
+        for setting in protocol.get("library_settings", []):
+            key = setting.get("key")
+            if setting.get("type") == "list":
+                value = ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, key, library, integration
+                ).json_value
+            else:
+                value = ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, key, library, integration
+                ).value
+            if value:
+                library_info[key] = value
+        return library_info
+
     def _get_integration_info(self, goal, protocols):
         services = []
         for service in self._db.query(ExternalIntegration).filter(
@@ -1269,20 +1285,8 @@ class SettingsController(CirculationManagerController):
             libraries = []
             if not protocol.get("sitewide"):
                 for library in service.libraries:
-                    library_info = dict(short_name=library.short_name)
-                    for setting in protocol.get("library_settings", []):
-                        key = setting.get("key")
-                        if setting.get("type") == "list":
-                            value = ConfigurationSetting.for_library_and_externalintegration(
-                                self._db, key, library, service
-                            ).json_value
-                        else:
-                            value = ConfigurationSetting.for_library_and_externalintegration(
-                                self._db, key, library, service
-                            ).value
-                        if value:
-                            library_info[key] = value
-                    libraries.append(library_info)
+                    libraries.append(self._get_integration_library_info(
+                            service, library, protocol))
 
             settings = dict()
             for setting in protocol.get("settings", []):
@@ -1307,33 +1311,63 @@ class SettingsController(CirculationManagerController):
 
         return services
 
+    def _set_integration_setting(self, integration, setting):
+        key = setting.get("key")
+        if setting.get("type") == "list" and not setting.get("options"):
+            value = [item for item in flask.request.form.getlist(key) if item]
+            if value:
+                value = json.dumps(value)
+        else:
+            value = flask.request.form.get(key)
+        if value and setting.get("options"):
+            # This setting can only take on values that are in its
+            # list of options.
+            allowed = [option.get("key") for option in setting.get("options")]
+            if value not in allowed:
+                self._db.rollback()
+                return INVALID_CONFIGURATION_OPTION.detailed(_(
+                    "The configuration value for %(setting)s is invalid.",
+                    setting=setting.get("label"),
+                ))
+        if not value and not setting.get("optional"):
+            # Roll back any changes to the integration that have already been made.
+            self._db.rollback()
+            return INCOMPLETE_CONFIGURATION.detailed(
+                _("The configuration is missing a required setting: %(setting)s",
+                  setting=setting.get("label")))
+        integration.setting(key).value = value
+
+    def _set_integration_library(self, integration, library_info, protocol):
+        library = get_one(self._db, Library, short_name=library_info.get("short_name"))
+        if not library:
+            self._db.rollback()
+            return NO_SUCH_LIBRARY.detailed(_("You attempted to add the integration to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
+
+        integration.libraries += [library]
+        for setting in protocol.get("library_settings", []):
+            key = setting.get("key")
+            value = library_info.get(key)
+            if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
+                self._db.rollback()
+                return INVALID_CONFIGURATION_OPTION.detailed(_(
+                    "The configuration value for %(setting)s is invalid.",
+                    setting=setting.get("label"),
+                ))
+            if not value and not setting.get("optional"):
+                self._db.rollback()
+                return INCOMPLETE_CONFIGURATION.detailed(
+                    _("The configuration is missing a required setting: %(setting)s for library %(library)s",
+                      setting=setting.get("label"),
+                      library=library.short_name,
+                      ))
+            ConfigurationSetting.for_library_and_externalintegration(self._db, key, library, integration).value = value
+
     def _set_integration_settings_and_libraries(self, integration, protocol):
         settings = protocol.get("settings")
         for setting in settings:
-            key = setting.get("key")
-            if setting.get("type") == "list" and not setting.get("options"):
-                value = [item for item in flask.request.form.getlist(key) if item]
-                if value:
-                    value = json.dumps(value)
-            else:
-                value = flask.request.form.get(key)
-            if value and setting.get("options"):
-                # This setting can only take on values that are in its
-                # list of options.
-                allowed = [option.get("key") for option in setting.get("options")]
-                if value not in allowed:
-                    self._db.rollback()
-                    return INVALID_CONFIGURATION_OPTION.detailed(_(
-                        "The configuration value for %(setting)s is invalid.",
-                        setting=setting.get("label"),
-                    ))
-            if not value and not setting.get("optional"):
-                # Roll back any changes to the integration that have already been made.
-                self._db.rollback()
-                return INCOMPLETE_CONFIGURATION.detailed(
-                    _("The configuration is missing a required setting: %(setting)s",
-                      setting=setting.get("label")))
-            integration.setting(key).value = value
+            result = self._set_integration_setting(integration, setting)
+            if isinstance(result, ProblemDetail):
+                return result
                 
         if not protocol.get("sitewide"):
             integration.libraries = []
@@ -1343,30 +1377,9 @@ class SettingsController(CirculationManagerController):
                 libraries = json.loads(flask.request.form.get("libraries"))
 
             for library_info in libraries:
-                library = get_one(self._db, Library, short_name=library_info.get("short_name"))
-                if not library:
-                    self._db.rollback()
-                    return NO_SUCH_LIBRARY.detailed(_("You attempted to add the integration to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
-
-                integration.libraries += [library]
-                for setting in protocol.get("library_settings", []):
-                    key = setting.get("key")
-                    value = library_info.get(key)
-                    if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
-                        self._db.rollback()
-                        return INVALID_CONFIGURATION_OPTION.detailed(_(
-                            "The configuration value for %(setting)s is invalid.",
-                            setting=setting.get("label"),
-                        ))
-                    if not value and not setting.get("optional"):
-                        self._db.rollback()
-                        return INCOMPLETE_CONFIGURATION.detailed(
-                            _("The configuration is missing a required setting: %(setting)s for library %(library)s",
-                              setting=setting.get("label"),
-                              library=library.short_name,
-                              ))
-                    ConfigurationSetting.for_library_and_externalintegration(self._db, key, library, integration).value = value
-
+                result = self._set_integration_library(integration, library_info, protocol)
+                if isinstance(result, ProblemDetail):
+                    return result
         return True
 
     def _delete_integration(self, integration_id, goal):
@@ -1397,11 +1410,15 @@ class SettingsController(CirculationManagerController):
                     name=c.name,
                     protocol=c.protocol,
                     parent_id=c.parent_id,
-                    libraries=[{ "short_name": library.short_name } for library in c.libraries],
                     settings=dict(external_account_id=c.external_account_id),
                 )
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
+                    libraries = [
+                            self._get_integration_library_info(
+                                c.external_integration, library, protocol)
+                            for library in c.libraries]
+                    collection['libraries'] = libraries
                     for setting in protocol.get("settings"):
                         key = setting.get("key")
                         if key not in collection["settings"]:
@@ -1473,21 +1490,21 @@ class SettingsController(CirculationManagerController):
             collection.parent = None
             settings = protocol.get("settings")
         
-
         for setting in settings:
             key = setting.get("key")
-            value = flask.request.form.get(key)
-            if not value and not setting.get("optional"):
-                # Roll back any changes to the collection that have already been made.
-                self._db.rollback()
-                return INCOMPLETE_CONFIGURATION.detailed(
-                    _("The collection configuration is missing a required setting: %(setting)s",
-                      setting=setting.get("label")))
-
             if key == "external_account_id":
+                value = flask.request.form.get(key)
+                if not value and not setting.get("optional"):
+                    # Roll back any changes to the collection that have already been made.
+                    self._db.rollback()
+                    return INCOMPLETE_CONFIGURATION.detailed(
+                        _("The collection configuration is missing a required setting: %(setting)s",
+                          setting=setting.get("label")))
                 collection.external_account_id = value
             else:
-                collection.external_integration.setting(key).value = value
+                result = self._set_integration_setting(collection.external_integration, setting)
+                if isinstance(result, ProblemDetail):
+                    return result
 
         libraries = []
         if flask.request.form.get("libraries"):
@@ -1499,9 +1516,15 @@ class SettingsController(CirculationManagerController):
                 return NO_SUCH_LIBRARY.detailed(_("You attempted to add the collection to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
             if collection not in library.collections:
                 library.collections.append(collection)
+            self._set_integration_library(collection.external_integration, library_info, protocol)
         for library in collection.libraries:
             if library.short_name not in [l.get("short_name") for l in libraries]:
                 library.collections.remove(collection)
+                for setting in protocol.get("library_settings", []):
+                    ConfigurationSetting.for_library_and_externalintegration(
+                        self._db, setting.get("key"), library, collection.external_integration,
+                    ).value = None
+
 
         if is_new:
             return Response(unicode(collection.id), 201)
