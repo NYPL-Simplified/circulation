@@ -75,7 +75,7 @@ class OverdriveTestWithAPI(OverdriveTest):
 
 class TestOverdriveAPI(OverdriveTestWithAPI):
 
-    def test_default_ils_name(self):
+    def test_ils_name(self):
         """The 'ils_name' setting (defined in
         MockOverdriveAPI.mock_collection) is available through
         OverdriveAPI.ils_name().
