@@ -22,6 +22,7 @@ from model import (
     get_one,
     get_one_or_create,
     Collection,
+    ConfigurationSetting,
     Contributor,
     Credential,
     DataSource,
@@ -111,11 +112,12 @@ class OverdriveAPI(object):
 
     WEBSITE_ID = u"website_id"
 
-    # When setting up Patron authentication for an Overdrive account,
-    # it's necessary to specify an "ILS name" obtained from
+    # When associating an Overdrive account with a library, it's
+    # necessary to also specify an "ILS name" obtained from
     # Overdrive. Components that don't authenticate patrons (such as
     # the metadata wrangler) don't need to set this value.
-    ILS_NAME = u"ils_name"
+    ILS_NAME_KEY = u"ils_name"
+    ILS_NAME_DEFAULT = u"default"
     
     def __init__(self, _db, collection):
         if collection.protocol != ExternalIntegration.OVERDRIVE:
@@ -147,8 +149,8 @@ class OverdriveAPI(object):
             )
 
         # Use utf8 instead of unicode encoding
-        settings = [self.client_key, self.client_secret, self.website_id, self.ils_name]
-        self.client_key, self.client_secret, self.website_id, self.ils_name = (
+        settings = [self.client_key, self.client_secret, self.website_id]
+        self.client_key, self.client_secret, self.website_id = (
             setting.encode('utf8') for setting in settings
         )
 
@@ -171,6 +173,22 @@ class OverdriveAPI(object):
     @property
     def source(self):
         return DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+    def ils_name(self, library):
+        """Determine the ILS name to use for the given Library.
+        """
+        return self.ils_name_setting(
+            self._db, self.collection, library
+        ).value_or_default(self.ILS_NAME_DEFAULT)
+
+    @classmethod
+    def ils_name_setting(cls, _db, collection, library):
+        """Find the ConfigurationSetting controlling the ILS name
+        for the given collection and library.
+        """
+        return ConfigurationSetting.for_library_and_externalintegration(
+            _db, cls.ILS_NAME_KEY, library, collection.external_integration
+        )
 
     def check_creds(self, force_refresh=False):
         """If the Bearer Token has expired, update it."""
@@ -429,8 +447,8 @@ class MockOverdriveAPI(OverdriveAPI):
         integration.username = u'a'
         integration.password = u'b'
         integration.set_setting('website_id', 'd')
-        integration.set_setting(OverdriveAPI.ILS_NAME, 'e')
         library.collections.append(collection)
+        OverdriveAPI.ils_name_setting(_db, collection, library).value = 'e'
         return collection
     
     def __init__(self, _db, collection, *args, **kwargs):
