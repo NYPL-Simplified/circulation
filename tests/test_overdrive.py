@@ -492,7 +492,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         eq_("https://oauth-patron.overdrive.com/patrontoken", url)
         eq_("barcode", payload['username'])
         expect_scope = "websiteid:%s authorizationname:%s" % (
-            self.api.website_id, self.api.ils_name
+            self.api.website_id, self.api.ils_name(patron.library)
         )
         eq_(expect_scope, payload['scope'])
         eq_("a pin", payload['password'])
