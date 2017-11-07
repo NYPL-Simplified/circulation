@@ -60,6 +60,10 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
           "default": "default" },
     ] + BaseCirculationAPI.SETTINGS
 
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
+    ]
+
     # An Overdrive Advantage collection inherits everything except the library id
     # from its parent.
     CHILD_SETTINGS = [

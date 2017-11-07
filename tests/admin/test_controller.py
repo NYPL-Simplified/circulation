@@ -1869,8 +1869,6 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
                 ("website_id", "1234"),
                 ("ils_name", "the_ils"),
-                ("default_loan_period", "14"),
-                ("default_reservation_period", "3"),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 201)
@@ -1892,14 +1890,6 @@ class TestSettingsController(AdminControllerTest):
         setting = collection.external_integration.setting("website_id")
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
-
-        setting = collection.external_integration.setting("default_loan_period")
-        eq_("default_loan_period", setting.key)
-        eq_("14", setting.value)
-
-        setting = collection.external_integration.setting("default_reservation_period")
-        eq_("default_reservation_period", setting.key)
-        eq_("3", setting.value)
 
         # This collection will be a child of the first collection.
         with self.app.test_request_context("/", method="POST"):
@@ -1949,9 +1939,7 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
                 ("website_id", "1234"),
                 ("ils_name", "the_ils"),
-                ("libraries", json.dumps([{"short_name": "L1"}])),
-                ("default_loan_period", "14"),
-                ("default_reservation_period", "3"),
+                ("libraries", json.dumps([{"short_name": "L1", "ebook_loan_duration": "14"}])),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
@@ -1969,14 +1957,6 @@ class TestSettingsController(AdminControllerTest):
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
-        setting = collection.external_integration.setting("default_loan_period")
-        eq_("default_loan_period", setting.key)
-        eq_("14", setting.value)
-
-        setting = collection.external_integration.setting("default_reservation_period")
-        eq_("default_reservation_period", setting.key)
-        eq_("3", setting.value)
-
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
@@ -1987,8 +1967,6 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
                 ("website_id", "1234"),
                 ("ils_name", "the_ils"),
-                ("default_loan_period", "14"),
-                ("default_reservation_period", "3"),
                 ("libraries", json.dumps([])),
             ])
             response = self.manager.admin_settings_controller.collections()

@@ -35,12 +35,14 @@ from core.metadata_layer import (
 from core.model import (
     CirculationEvent,
     Collection,
+    ConfigurationSetting,
     Credential,
     DataSource,
     DeliveryMechanism,
     Edition,
     ExternalIntegration,
     Identifier, 
+    Library,
     LicensePool,
     Patron,
     Representation,
@@ -71,23 +73,22 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": BaseOneClickAPI.PRODUCTION_BASE_URL },
     ] + BASE_SETTINGS
     
-    AUDIOBOOK_LOAN_DURATION = 'audio_loan_duration'
-    EBOOK_LOAN_DURATION = 'ebook_loan_duration'
-
-    LIBRARY_SETTINGS = [
-        { "key" : AUDIOBOOK_LOAN_DURATION, 
-          "label": _("Audiobook Loan Duration (in Days)"),
-        "description": _("When a patron uses SimplyE to borrow an RBdigital audio book, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital.")
-        },
-        { "key" : EBOOK_LOAN_DURATION, 
-          "label": _("Ebook Loan Duration (in Days)"),
-        "description": _("When a patron uses SimplyE to borrow an RBdigital ebook, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with RBdigital.")
-        },
-    ]
-
     # The loan duration must be specified when connecting a library to an
     # RBdigital account, but if it's not specified, try one week.
     DEFAULT_LOAN_DURATION = 7
+
+    my_audiobook_setting = dict(
+        BaseCirculationAPI.AUDIOBOOK_LOAN_DURATION_SETTING
+    )
+    my_audiobook_setting.update(default=DEFAULT_LOAN_DURATION)
+    my_ebook_setting = dict(
+        BaseCirculationAPI.EBOOK_LOAN_DURATION_SETTING
+    )
+    my_ebook_setting.update(default=DEFAULT_LOAN_DURATION)
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        my_audiobook_setting, 
+        my_ebook_setting
+    ]
 
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 
@@ -100,20 +101,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 self.collection, api_class=self
             )
         )
-
-        integration = self.collection.external_integration
-        self.audiobook_duration_days = (
-            integration.setting(self.AUDIOBOOK_LOAN_DURATION).int_value 
-            or self.DEFAULT_LOAN_DURATION
-        )
-        self.ebook_duration_days = (
-            integration.setting(self.EBOOK_LOAN_DURATION).int_value 
-            or self.DEFAULT_LOAN_DURATION
-        )
-        
-        # Set default_loan_period to the ebook value just in case something
-        # needs it.
-        self.default_loan_period = self.ebook_duration_days
 
     def remote_email_address(self, patron):
         """The fake email address to send to RBdigital when
@@ -171,10 +158,19 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
         today = datetime.datetime.utcnow()
+
+        library = patron.library
+
         if item_media == Edition.AUDIO_MEDIUM:
-            days = self.audiobook_duration_days
+            key = Collection.AUDIOBOOK_LOAN_DURATION_KEY
+            _db = Session.object_session(patron)
+            days = (
+                ConfigurationSetting.for_library_and_externalintegration(
+                    _db, key, library, self.collection.external_integration
+                ).int_value or Collection.STANDARD_DEFAULT_LOAN_PERIOD
+            )
         else:
-            days = self.ebook_duration_days
+            days = self.collection.default_loan_period(library)
 
         resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False, days=days)
 
@@ -960,12 +956,15 @@ class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):
     @classmethod
     def mock_collection(cls, _db):
         collection = BaseMockOneClickAPI.mock_collection(_db)
-        collection.external_integration.set_setting(
-            cls.AUDIOBOOK_LOAN_DURATION, 1
-        )
-        collection.external_integration.set_setting(
-            cls.EBOOK_LOAN_DURATION, 2
-        )
+        for library in _db.query(Library):
+            for key, value in (
+                    (Collection.AUDIOBOOK_LOAN_DURATION_KEY, 1),
+                    (Collection.EBOOK_LOAN_DURATION_KEY, 2)
+            ):
+                ConfigurationSetting.for_library_and_externalintegration(
+                    _db, key, library, 
+                    collection.external_integration
+                ).value = value
         return collection
 
 
