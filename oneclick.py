@@ -720,8 +720,8 @@ class OneClickRepresentationExtractor(object):
                 genres = book['primaryGenre']
                 for genre in genres.split(","):
                     subject = SubjectData(
-                        type=Subject.ONECLICK, identifier=genre.strip(),
-                        weight=100
+                        type=Subject.RBDIGITAL, identifier=genre.strip(),
+                        weight=200
                     )
                     subjects.append(subject)
 
@@ -730,9 +730,9 @@ class OneClickRepresentationExtractor(object):
             audience = book.get('audience', None)
             if audience:
                 subject = SubjectData(
-                    type=Subject.ONECLICK_AUDIENCE,
+                    type=Subject.RBDIGITAL_AUDIENCE,
                     identifier=audience.strip().lower(),
-                    weight=10
+                    weight=500
                 )
                 subjects.append(subject)
 

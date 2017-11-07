@@ -5771,7 +5771,7 @@ class Subject(Base):
     FAST = Classifier.FAST
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
-    ONECLICK = Classifier.ONECLICK    # OneClick's genre system
+    RBDIGITAL = Classifier.RBDIGITAL  # RBdigital's genre system
     BISAC = Classifier.BISAC
     BIC = Classifier.BIC              # BIC Subject Categories
     TAG = Classifier.TAG              # Folksonomic tags.
@@ -5784,7 +5784,7 @@ class Subject(Base):
     ]
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
-    ONECLICK_AUDIENCE = Classifier.ONECLICK_AUDIENCE
+    RBDIGITAL_AUDIENCE = Classifier.RBDIGITAL_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
     LEXILE_SCORE = Classifier.LEXILE_SCORE
@@ -6034,7 +6034,8 @@ class Subject(Base):
                 )
         self.fiction = fiction
 
-        if numericrange_to_tuple(self.target_age) != target_age:
+        if (numericrange_to_tuple(self.target_age) != target_age and 
+            not (not self.target_age and not target_age)):
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
                 self.target_age, tuple_to_numericrange(target_age)
@@ -10860,6 +10861,8 @@ def numericrange_to_tuple(r):
 
 def tuple_to_numericrange(t):
     """Helper method to convert a tuple to an inclusive NumericRange."""
+    if not t:
+        return None
     return NumericRange(t[0], t[1], '[]')
 
 def site_configuration_has_changed(_db, timeout=1):

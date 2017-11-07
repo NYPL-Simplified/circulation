@@ -84,6 +84,7 @@ from model import (
     get_one,
     get_one_or_create,
     site_configuration_has_changed,
+    tuple_to_numericrange,
 )
 from external_search import (
     DummyExternalSearchIndex,
@@ -7570,6 +7571,33 @@ class TestAdmin(DatabaseTest):
         eq_(self.admin, Admin.authenticate(self._db, "admin@nypl.org", "password"))
         eq_(None, Admin.authenticate(self._db, "other@nypl.org", "password"))
         eq_(None, Admin.authenticate(self._db, "example@nypl.org", "password"))
+
+
+class TestTupleToNumericrange(object):
+    """Test the tuple_to_numericrange helper function."""
+
+    def test_tuple_to_numericrange(self):
+        f = tuple_to_numericrange
+        eq_(None, f(None))
+
+        one_to_ten = f((1,10))
+        assert isinstance(one_to_ten, NumericRange)
+        eq_(1, one_to_ten.lower)
+        eq_(10, one_to_ten.upper)
+        eq_(True, one_to_ten.upper_inc)
+
+        up_to_ten = f((None, 10))
+        assert isinstance(up_to_ten, NumericRange)
+        eq_(None, up_to_ten.lower)
+        eq_(10, up_to_ten.upper)
+        eq_(True, up_to_ten.upper_inc)
+
+        ten_and_up = f((10,None))
+        assert isinstance(ten_and_up, NumericRange)
+        eq_(10, ten_and_up.lower)
+        eq_(None, ten_and_up.upper)
+        eq_(False, ten_and_up.upper_inc)
+
 
 
 class MockHasTableCache(HasFullTableCache):
