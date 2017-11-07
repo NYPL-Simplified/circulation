@@ -16,6 +16,11 @@ class JSONFormatter(logging.Formatter):
     fqdn = socket.getfqdn()
     if len(fqdn) > len(hostname):
         hostname = fqdn
+
+    def __init__(self, app_name):
+        super(JSONFormatter, self).__init__()
+        self.app_name = app_name
+
     def format(self, record):
         message = record.msg
         if record.args:
@@ -25,7 +30,7 @@ class JSONFormatter(logging.Formatter):
                 raise e
         data = dict(
             host=self.hostname,
-            app="simplified",
+            app=self.app_name,
             name=record.name,
             level=record.levelname,
             filename=record.filename,
@@ -64,9 +69,14 @@ class LogConfiguration(object):
     JSON_LOG_FORMAT = 'json'
     TEXT_LOG_FORMAT = 'text'
 
+    # The default value to put into the 'app' field of JSON-format logs,
+    # unless LOG_APP_NAME overrides it.
+    DEFAULT_APP_NAME = 'simplified'
+
     # Settings for the integration with protocol=INTERNAL_LOGGING
     LOG_LEVEL = 'log_level'
     LOG_FORMAT = 'log_format'
+    LOG_APP_NAME = 'log_app'
     DATABASE_LOG_LEVEL = 'database_log_level'
     LOG_MESSAGE_TEMPLATE = 'message_template'
 
@@ -151,6 +161,7 @@ class LogConfiguration(object):
             loggly = ExternalIntegration.lookup(
                 _db, ExternalIntegration.LOGGLY, goal
             )
+            app_name = cls.DEFAULT_APP_NAME
             if internal:
                 internal_log_level = (
                     internal.setting(cls.LOG_LEVEL).value 
@@ -168,9 +179,11 @@ class LogConfiguration(object):
                     internal.setting(cls.LOG_MESSAGE_TEMPLATE).value
                     or message_template
                 )
+                app_name = internal.setting(cls.LOG_APP_NAME).value or app_name
 
             if loggly:
                 handlers.append(cls.loggly_handler(loggly))
+                app_name = loggly.setting(cls.LOG_APP_NAME).value or app_name
 
         # handlers is either empty or it contains a loggly handler.
         # Let's also add a handler that logs to standard error.
@@ -178,7 +191,7 @@ class LogConfiguration(object):
 
         for handler in handlers:
             cls.set_formatter(
-                handler, internal_log_format, message_template
+                handler, internal_log_format, message_template, app_name
             )
 
         return internal_log_level, database_log_level, handlers
@@ -198,13 +211,14 @@ class LogConfiguration(object):
                 message_template)
 
     @classmethod
-    def set_formatter(cls, handler, log_format, message_template):
+    def set_formatter(cls, handler, log_format, message_template,
+                      app_name):
         """Tell the given `handler` to format its log messages in a
         certain way.
         """
         if (log_format==cls.JSON_LOG_FORMAT
             or isinstance(handler, LogglyHandler)):
-            formatter = JSONFormatter()
+            formatter = JSONFormatter(app_name)
         else:
             formatter = UTF8Formatter(message_template)
         handler.setFormatter(formatter)
