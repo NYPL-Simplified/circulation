@@ -1516,7 +1516,9 @@ class SettingsController(CirculationManagerController):
                 return NO_SUCH_LIBRARY.detailed(_("You attempted to add the collection to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
             if collection not in library.collections:
                 library.collections.append(collection)
-            self._set_integration_library(collection.external_integration, library_info, protocol)
+            result = self._set_integration_library(collection.external_integration, library_info, protocol)
+            if isinstance(result, ProblemDetail):
+                return result
         for library in collection.libraries:
             if library.short_name not in [l.get("short_name") for l in libraries]:
                 library.collections.remove(collection)

@@ -1874,12 +1874,14 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("name", "New Collection"),
                 ("protocol", "Overdrive"),
-                ("libraries", json.dumps([{"short_name": "L1"}, {"short_name":"L2"}])),
+                ("libraries", json.dumps([
+                    {"short_name": "L1", "ils_name": "l1_ils"},
+                    {"short_name":"L2", "ils_name": "l2_ils"}
+                ])),
                 ("external_account_id", "acctid"),
                 ("username", "username"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("ils_name", "the_ils"),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 201)
@@ -1902,13 +1904,18 @@ class TestSettingsController(AdminControllerTest):
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
+        eq_("l1_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value)
+        eq_("l2_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l2, collection.external_integration).value)
+
         # This collection will be a child of the first collection.
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Child Collection"),
                 ("protocol", "Overdrive"),
                 ("parent_id", collection.id),
-                ("libraries", json.dumps([{"short_name": "L3"}])),
+                ("libraries", json.dumps([{"short_name": "L3", "ils_name": "l3_ils"}])),
                 ("external_account_id", "child-acctid"),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -1928,6 +1935,9 @@ class TestSettingsController(AdminControllerTest):
 
         # One library has access to the collection.
         eq_([child], l3.collections)
+
+        eq_("l3_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l3, child.external_integration).value)
 
     def test_collections_post_edit(self):
         # The collection exists.
@@ -1949,8 +1959,7 @@ class TestSettingsController(AdminControllerTest):
                 ("username", "user2"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("ils_name", "the_ils"),
-                ("libraries", json.dumps([{"short_name": "L1"}])),
+                ("libraries", json.dumps([{"short_name": "L1", "ils_name": "the_ils"}])),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
@@ -1968,6 +1977,9 @@ class TestSettingsController(AdminControllerTest):
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
+        eq_("the_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value)
+
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
@@ -1977,7 +1989,6 @@ class TestSettingsController(AdminControllerTest):
                 ("username", "user2"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("ils_name", "the_ils"),
                 ("libraries", json.dumps([])),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -1991,6 +2002,9 @@ class TestSettingsController(AdminControllerTest):
 
         # But the library has been removed.
         eq_([], l1.collections)
+
+        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value)
 
         parent = self._collection(
             name="Parent",
