@@ -340,9 +340,11 @@ class TestIdentifier(DatabaseTest):
 
     def test_parse_urns(self):
         identifier = self._identifier()
-        new_urn = Identifier.URN_SCHEME_PREFIX + "Overdrive%20ID/nosuchidentifier"
         fake_urn = "what_even_is_this"
-        urns = [identifier.urn, fake_urn, new_urn]
+        new_urn = Identifier.URN_SCHEME_PREFIX + "Overdrive%20ID/nosuchidentifier"
+        # Also create a different URN that would result in the same identifier.
+        same_new_urn = Identifier.URN_SCHEME_PREFIX + "Overdrive%20ID/NOSUCHidentifier"
+        urns = [identifier.urn, fake_urn, new_urn, same_new_urn]
 
         results = Identifier.parse_urns(self._db, urns)
         identifiers_by_urn, failures = results

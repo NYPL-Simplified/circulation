@@ -1899,16 +1899,25 @@ class Identifier(Base):
         # Find identifiers that are already in the database.
         find_existing_identifiers(identifier_details.values())
 
+        # Remove the existing identifiers from the identifier_details list,
+        # regardless of whether the provided URN was accurate.
+        existing_details = [(i.type, i.identifier) for i in identifiers_by_urn.values()]
+        identifier_details = {
+            k: v for k, v in identifier_details.items()
+            if v not in existing_details and k not in identifiers_by_urn.keys()
+        }
+
         # Find any identifier details that don't correspond to an existing
         # identifier. Try to create them.
         new_identifiers = list()
+        new_identifiers_details = set([])
         for urn, details in identifier_details.items():
-            if urn not in identifiers_by_urn:
-                new_identifiers.append(
-                    dict(type=details[0], identifier=details[1])
-                )
-            else:
-                del identifier_details[urn]
+            if details in new_identifiers_details:
+                # For some reason, this identifier is here twice.
+                # Don't try to insert it twice.
+                continue
+            new_identifiers.append(dict(type=details[0], identifier=details[1]))
+            new_identifiers_details.add(details)
 
         # Insert new identifiers into the database, then add them to the
         # results.
@@ -10800,7 +10809,7 @@ class IntegrationClient(Base):
 
         generate_secret = (client.shared_secret is None) or submitted_secret
         if generate_secret:
-            client.shared_secret = os.urandom(24).encode('hex')
+            client.shared_secret = unicode(os.urandom(24).encode('hex'))
 
         return client, is_new
 
