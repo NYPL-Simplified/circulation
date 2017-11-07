@@ -1,4 +1,6 @@
+import json
 import logging
+import sys
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -16,6 +18,32 @@ from log import (
 from model import (
     ExternalIntegration,
 )
+
+class TestJSONFormatter(object):
+
+    def test_format(self):
+        formatter = JSONFormatter("some app")
+        eq_("some app", formatter.app_name)
+
+        # Cause an exception so we can capture its exc_info()
+        try:
+            raise ValueError("fake exception")
+        except ValueError, e:
+            pass
+        exception = sys.exc_info()
+            
+        record = logging.LogRecord(
+            "some logger", logging.DEBUG, "pathname",
+            104, "A message", {}, exception, None
+        )
+        data = json.loads(formatter.format(record))
+        eq_("some logger", data['name'])
+        eq_("some app", data['app'])
+        eq_("DEBUG", data['level'])
+        eq_("A message", data['message'])
+        eq_("pathname", data['filename'])
+        assert 'ValueError: fake exception' in data['traceback']
+
 
 class TestLogConfiguration(DatabaseTest):
 
@@ -60,6 +88,7 @@ class TestLogConfiguration(DatabaseTest):
         internal.setting(cls.LOG_LEVEL).value = cls.ERROR
         internal.setting(cls.LOG_FORMAT).value = cls.TEXT_LOG_FORMAT
         internal.setting(cls.DATABASE_LOG_LEVEL).value = cls.DEBUG
+        internal.setting(cls.LOG_APP_NAME).value = "test app"
         template = "%(filename)s:%(message)s"
         internal.setting(cls.LOG_MESSAGE_TEMPLATE).value = template
         internal_log_level, database_log_level, handlers = m(
@@ -69,6 +98,7 @@ class TestLogConfiguration(DatabaseTest):
         eq_(cls.DEBUG, database_log_level)
         [loggly_handler] = [x for x in handlers if isinstance(x, LogglyHandler)]
         eq_("http://example.com/a_token/", loggly_handler.url)
+        eq_("test app", loggly_handler.formatter.app_name)
 
         [stream_handler] = [x for x in handlers 
                             if isinstance(x, logging.StreamHandler)]
@@ -112,7 +142,8 @@ class TestLogConfiguration(DatabaseTest):
         # Configure it for text output.
         template = '%(filename)s:%(message)s'
         LogConfiguration.set_formatter(
-            handler, LogConfiguration.TEXT_LOG_FORMAT, template
+            handler, LogConfiguration.TEXT_LOG_FORMAT, template,
+            "some app"
         )
         formatter = handler.formatter
         assert isinstance(formatter, UTF8Formatter)
@@ -121,10 +152,11 @@ class TestLogConfiguration(DatabaseTest):
         # Configure a similar handler for JSON output.
         handler = logging.StreamHandler()
         LogConfiguration.set_formatter(
-            handler, LogConfiguration.JSON_LOG_FORMAT, template
+            handler, LogConfiguration.JSON_LOG_FORMAT, template, None
         )
         formatter = handler.formatter
         assert isinstance(formatter, JSONFormatter)
+        eq_(LogConfiguration.DEFAULT_APP_NAME, formatter.app_name)
 
         # In this case the template is irrelevant. The JSONFormatter
         # uses the default format template, but it doesn't matter,
@@ -134,8 +166,10 @@ class TestLogConfiguration(DatabaseTest):
         # Configure a handler for output to Loggly. In this case
         # the format and template are irrelevant.
         handler = LogglyHandler("no-such-url")
-        LogConfiguration.set_formatter(handler, None, None)
+        LogConfiguration.set_formatter(handler, None, None, "some app")
+        formatter = handler.formatter
         assert isinstance(formatter, JSONFormatter)
+        eq_("some app", formatter.app_name)
 
     def test_loggly_handler(self):
         """Turn an appropriate ExternalIntegration into a LogglyHandler."""
