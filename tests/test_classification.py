@@ -29,11 +29,12 @@ from classifier import (
     WorkClassifier,
     fiction_genres,
     nonfiction_genres,
-    GenreData
+    GenreData,
     )
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
+
 
 class TestGenreData(object):
 

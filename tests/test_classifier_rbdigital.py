@@ -71,9 +71,15 @@ class TestRBDigitalSubjectClassifier(ClassifierTest):
 
         # Most subjects will inherit fiction status from the genre
         # default.
-	self.fiction_is("cooking", None)
-	self.fiction_is("true-crime", None)
-	self.fiction_is("romance", None)
+	self.fiction_is("cooking", False)
+	self.fiction_is("true-crime", False)
+	self.fiction_is("romance", True)
+	self.fiction_is("drama", True)
+
+        # Some subjects have no fiction status because they
+        # contain both fiction and nonfiction.
+	self.fiction_is("african-american-interest", None)
+	self.fiction_is("lgbt-interest", None)
 
     def test_audience(self):
         # We generally don't try to derive audience information from

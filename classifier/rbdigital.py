@@ -26,6 +26,25 @@ class RBDigitalSubjectClassifier(KeywordBasedClassifier):
         'lgbt interest' : LGBTQ_Fiction,
     }
 
+    # These subjects do not end with '-fiction' but reliabily indicate
+    # fiction.
+    known_fiction = set([
+        'short-stories',
+        'classics',
+        'comics-graphic-novels',
+        'drama',
+        'poetry',
+        'sci-fi',
+        'fantasy',
+    ])
+
+    # These subjects contain both fiction and nonfiction, or
+    # otherwise have no fiction status.
+    no_fiction_status = set([
+        'african-american-interest',
+        'lgbt-interest',
+    ])
+
     genres = {
         # This isn't true in general but because RBdigital is heavy on
         # audio content, 'arts and entertainment' is more likely to be
@@ -61,7 +80,7 @@ class RBDigitalSubjectClassifier(KeywordBasedClassifier):
         )
 
     @classmethod
-    def audience(self, identifier, name):
+    def audience(cls, identifier, name):
         """The two subjects here that imply an audience, juvenile-fiction and
         juvenile-nonfiction, could be either Childrens or YA, and
         RBdigital always provides a more specific audience
@@ -73,7 +92,7 @@ class RBDigitalSubjectClassifier(KeywordBasedClassifier):
         return None
 
     @classmethod
-    def target_age(self, identifier, name):
+    def target_age(cls, identifier, name):
         """RBdigital's audience classification is much more useful for this
         purpose, so we don't try to derive target age from an RBDigital
         Subject.
@@ -81,12 +100,17 @@ class RBDigitalSubjectClassifier(KeywordBasedClassifier):
         return None
 
     @classmethod
-    def is_fiction(self, identifier, name):
-        # RBdigital files nonfiction under 'humor' and fiction under
-        # 'humorous fiction'
-        if identifier == 'humor':
+    def is_fiction(cls, identifier, name):
+        # In general, the fiction status of a RBdigital subject
+        # is the default fiction status of its genre.
+        genre = cls.genre(identifier, name)
+        if genre and genre.is_fiction is not None:
+            return genre.is_fiction
+        if identifier.endswith(' fiction'):
+            return True
+        if identifier.endswith(' nonfiction'):
             return False
-        return KeywordBasedClassifier.is_fiction(identifier, name)
+        return None
 
 Classifier.classifiers[Classifier.RBDIGITAL_AUDIENCE] = RBDigitalAudienceClassifier
 Classifier.classifiers[Classifier.RBDIGITAL] = RBDigitalSubjectClassifier

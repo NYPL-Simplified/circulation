@@ -10851,6 +10851,8 @@ def numericrange_to_tuple(r):
 
 def tuple_to_numericrange(t):
     """Helper method to convert a tuple to an inclusive NumericRange."""
+    if not t:
+        return None
     return NumericRange(t[0], t[1], '[]')
 
 def site_configuration_has_changed(_db, timeout=1):
