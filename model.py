@@ -6285,7 +6285,7 @@ class CachedFeed(Base):
                 # default page-type feed, which should be cheap to fetch.
                 identifier = None
                 if isinstance(lane, Lane):
-                    identifier = lane.identifier
+                    identifier = lane.id
                 elif isinstance(lane, WorkList):
                     identifier = lane.display_name
                 cls.log.warn(

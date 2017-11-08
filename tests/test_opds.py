@@ -978,7 +978,7 @@ class TestOPDS(DatabaseTest):
         # groups for Fiction, and a 'start' link which points to
         # the top-level groups feed.
         [up_link] = self.links(parsed['feed'], 'up')
-        eq_("http://groups/Fiction", up_link['href'])
+        eq_("http://groups/%s" % self.fiction.id, up_link['href'])
         eq_("Fiction", up_link['title'])
 
         [start_link] = self.links(parsed['feed'], 'start')
