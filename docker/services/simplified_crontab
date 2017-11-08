@@ -43,7 +43,7 @@ HOME=/var/www/circulation
 
 # If any works are classified under unprocessed subjects, reclassify
 # those works.
-30 22 * * * root core/bin/run work_classify_unchecked_subjects
+30 22 * * * root core/bin/run work_classify_unchecked_subjects >> /var/log/cron.log 2>&1
 
 # The remaining scripts keep the circulation manager in sync with
 # specific types of collections.
