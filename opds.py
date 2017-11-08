@@ -1278,7 +1278,7 @@ class TestAnnotator(Annotator):
     @classmethod
     def groups_url(cls, lane):
         if lane and isinstance(lane, Lane):
-            identifier = lane.identifier
+            identifier = lane.id
         else:
             identifier = ""
         return "http://groups/%s" % identifier
