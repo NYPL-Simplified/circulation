@@ -943,14 +943,8 @@ class Lane(Base, WorkList):
         cascade='all, delete-orphan'
     )
 
-    # identifier is a name for this lane that is unique across the
-    # library.  "Adult Fiction" is a good example. We can't have an
-    # adult fiction lane called "Fiction" and a YA fiction lane called
-    # "Fiction".
-    identifier = Column(Unicode)
-
     # display_name is the name of the lane as shown to patrons.  It's
-    # okay for this to be duplicated across the library, but it's not
+    # okay for this to be duplicated within a library, but it's not
     # okay to have two lanes with the same parent and the same display
     # name -- that would be confusing.
     display_name = Column(Unicode)
@@ -1030,7 +1024,6 @@ class Lane(Base, WorkList):
 
 
     __table_args__ = (
-        UniqueConstraint('library_id', 'identifier'),
         UniqueConstraint('parent_id', 'display_name'),
     )
 
@@ -1083,11 +1076,10 @@ class Lane(Base, WorkList):
     def url_name(self):
         """Return the name of this lane to be used in URLs.
 
-        Basically, forward slash is changed to "__". This is necessary
-        because Flask tries to route "feed/Suspense%2FThriller" to
-        feed/Suspense/Thriller.
+        Since most aspects of the lane can change through administrative
+        action, we use the internal database ID of the lane in URLs.
         """
-        return self.identifier.replace("/", "__")
+        return self.id
 
     @hybrid_property
     def audiences(self):
@@ -1202,7 +1194,7 @@ class Lane(Base, WorkList):
             else:
                 bucket = excluded_ids
             if self.fiction != None and genre.default_fiction != None and self.fiction != genre.default_fiction:
-                logging.error("Lane %s has a genre %s that does not match its fiction restriction.", (self.identifier, genre.name))
+                logging.error("Lane %s (%s) has a genre %s that does not match its fiction restriction.", (self.id, self.display_name, genre.name))
             bucket.add(genre.id)
             if lanegenre.recursive:
                 for subgenre in genre.subgenres:
@@ -1218,7 +1210,8 @@ class Lane(Base, WorkList):
             # Fantasy' is included but 'Fantasy' and its subgenres are
             # excluded.
             logging.error(
-                "Lane %s has a self-negating set of genre IDs.", self.identifier
+                "Lane %s (%s) has a self-negating set of genre IDs.", 
+                self.id, self.display_name
             )
         return genre_ids
 

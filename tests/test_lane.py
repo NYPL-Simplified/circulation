@@ -1021,9 +1021,7 @@ class TestLane(DatabaseTest):
 
     def test_url_name(self):
         lane = self._lane("Fantasy / Science Fiction")
-        eq_("Fantasy __ Science Fiction", lane.url_name)
-        lane.identifier = "Fantasy"
-        eq_("Fantasy", lane.url_name)
+        eq_(lane.id, lane.url_name)
 
     def test_setting_target_age_locks_audiences(self):
         lane = self._lane()
