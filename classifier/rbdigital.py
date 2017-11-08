@@ -34,6 +34,7 @@ class RBDigitalSubjectClassifier(KeywordBasedClassifier):
         'business economics' : Business,
         'comics graphic novels' : Comics_Graphic_Novels,
         'home garden' : Hobbies_Home,
+        'humorous fiction' : Humorous_Fiction,
         # Determined by looking at a sample collection.
         'humor' : Humorous_Nonfiction,
 
