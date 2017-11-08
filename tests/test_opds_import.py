@@ -50,6 +50,7 @@ from model import (
     Representation,
     RightsStatus,
     Subject,
+    Work,
 )
 from coverage import CoverageFailure
 
@@ -1045,6 +1046,26 @@ class TestOPDSImporter(OPDSImporterTest):
         importer = OPDSImporter(self._db, None)
         importer.build_identifier_mapping([isbn1])
         eq_(None, importer.identifier_mapping)
+
+    def test_update_work_for_edition_having_multiple_license_pools(self):
+        # There are two collections with a LicensePool associated with
+        # this Edition.
+        edition, lp = self._edition(with_license_pool=True)
+        collection2 = self._collection()
+        lp2 = self._licensepool(edition=edition, collection=collection2)
+        importer = OPDSImporter(self._db, None)
+
+        # Calling update_work_for_edition creates a Work and associates
+        # it with the edition.
+        eq_(None, edition.work)
+        importer.update_work_for_edition(edition)
+        work = edition.work
+        assert isinstance(work, Work)
+
+        # Both LicensePools are associated with that work.
+        eq_(lp.work, work)
+        eq_(lp2.work, work)
+        
 
 class TestCombine(object):
     """Test that OPDSImporter.combine combines dictionaries in sensible

@@ -362,6 +362,15 @@ class TestIdentifier(DatabaseTest):
         eq_(Identifier.OVERDRIVE_ID, new_identifier.type)
         eq_("nosuchidentifier", new_identifier.identifier)
 
+        # It also works if we ask only for identifiers that already exist.
+        urns = [identifier.urn]
+        [results, errors] = Identifier.parse_urns(self._db, urns)
+
+        # We got no errors and one successful lookup.
+        eq_([], errors)
+        eq_(1, len(results))
+        eq_(identifier, results[identifier.urn])
+
     def test_parse_urn(self):
 
         # We can parse our custom URNs back into identifiers.

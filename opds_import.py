@@ -517,7 +517,8 @@ class OPDSImporter(object):
         # different data source or a different collection, that's fine
         # too.
         pool = get_one(
-            self._db, LicensePool, identifier=edition.primary_identifier
+            self._db, LicensePool, identifier=edition.primary_identifier,
+            on_multiple='interchangeable'
         )
 
         if pool:
