@@ -137,7 +137,7 @@ class CirculationManagerAnnotator(Annotator):
 
     def _lane_identifier(self, lane):
         if isinstance(lane, Lane):
-            return lane.identifier
+            return lane.id
         return None
 
     def facet_url(self, facets):
