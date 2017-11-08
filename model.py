@@ -10718,21 +10718,60 @@ class Collection(Base, HasFullTableCache):
         flush(_db)
 
     def works_updated_since(self, _db, timestamp):
-        """Returns all works in a collection's catalog that have been updated
-        since the last time the catalog was checked.
+        """Finds all works in a collection's catalog that have been updated
+           since the timestamp. Used in the metadata wrangler.
+
+           :return: a Query
         """
-        query = _db.query(Work).join(Work.coverage_records)\
+        opds_operation = WorkCoverageRecord.GENERATE_OPDS_OPERATION
+        qu = _db.query(Work).join(Work.coverage_records)\
             .join(Work.license_pools).join(Identifier)\
-            .join(Identifier.collections)\
-            .filter(Collection.id==self.id)\
-            .options(joinedload(Work.license_pools, LicensePool.identifier))
+            .join(Identifier.collections).filter(
+                Collection.id==self.id,
+                WorkCoverageRecord.operation==opds_operation,
+            ).options(joinedload(Work.license_pools, LicensePool.identifier))
 
         if timestamp:
-            query = query.filter(
+            qu = qu.filter(
                 WorkCoverageRecord.timestamp > timestamp
             )
 
-        return query.distinct()
+        qu = qu.order_by(WorkCoverageRecord.timestamp)
+        return qu
+
+    def isbns_updated_since(self, _db, timestamp):
+        """Finds all ISBNs in a collection's catalog that have been updated
+           since the timestamp but don't have a Work to show for it. Used in
+           the metadata wrangler.
+
+           :return: None or a Query
+        """
+        isbn_ids = [i.id for i in self.catalog if i.type==Identifier.ISBN]
+        if not isbn_ids:
+            # There are no ISBNs in this catalog.
+            return None
+
+        updated_isbn_ids = _db.query(Identifier.id)\
+            .join(Identifier.coverage_records)\
+            .outerjoin(Identifier.licensed_through)\
+            .outerjoin(LicensePool.work)\
+            .filter(
+                Work.id==None, Identifier.id.in_(isbn_ids),
+                CoverageRecord.status==CoverageRecord.SUCCESS,
+            )
+
+        updated_isbn_ids = updated_isbn_ids.subquery()
+        isbns = _db.query(Identifier).join(Identifier.coverage_records)\
+            .filter(Identifier.id.in_(updated_isbn_ids))\
+            .order_by(CoverageRecord.timestamp)\
+            .options(joinedload(Identifier.coverage_records))
+
+        if timestamp:
+            isbns = isbns.filter(
+                CoverageRecord.timestamp > timestamp
+            )
+
+        return isbns
 
 
 collections_libraries = Table(

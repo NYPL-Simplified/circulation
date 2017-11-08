@@ -7348,23 +7348,64 @@ class TestCollection(DatabaseTest):
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
-        timestamp = datetime.datetime.utcnow()
         # An empty catalog returns nothing.
         eq_([], self.collection.works_updated_since(self._db, timestamp).all())
 
-        # When no timestamp is passed, all works in the catalog are returned.
         self.collection.catalog_identifier(w1.license_pools[0].identifier)
         self.collection.catalog_identifier(w2.license_pools[0].identifier)
-        updated_works = self.collection.works_updated_since(self._db, None).all()
 
-        eq_(2, len(updated_works))
-        assert w1 in updated_works and w2 in updated_works
-        assert w3 not in updated_works
+        # When no timestamp is passed, all works in the catalog are returned.
+        # in order of their WorkCoverageRecord timestamp.
+        updated_works = self.collection.works_updated_since(self._db, None).all()
+        eq_([w1, w2], updated_works)
 
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
+        timestamp = datetime.datetime.utcnow()
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
         eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+
+    def test_isbns_updated_since(self):
+        i1 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
+        i2 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
+        i3 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
+        i4 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
+
+        timestamp = datetime.datetime.utcnow()
+
+        # An empty catalog returns nothing.
+        eq_(None, self.collection.isbns_updated_since(self._db, None))
+
+        # Give the ISBNs some coverage.
+        content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
+        for isbn in [i2, i3, i1]:
+            self._coverage_record(isbn, content_cafe)
+
+        # Give one ISBN more than one coverage record.
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        self._coverage_record(i1, oclc)
+
+        # When no timestamp is given, all ISBNs in the catalog are returned,
+        # in order of their CoverageRecord timestamp.
+        self.collection.catalog_identifiers([i1, i2])
+        updated_isbns = self.collection.isbns_updated_since(self._db, None).all()
+        eq_([i2, i1], updated_isbns)
+
+        # When a timestamp is passed, only works that have been updated since
+        # then will be returned.
+        timestamp = datetime.datetime.utcnow()
+        i1.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)
+        eq_([i1], updated_isbns.all())
+
+        # Prepare an ISBN associated with a Work.
+        work = self._work(with_license_pool=True)
+        work.license_pools[0].identifier = i2
+        i2.coverage_records[0].timestamp = datetime.datetime.utcnow()
+
+        # ISBNs that have a Work will be ignored.
+        updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)
+        eq_([i1], updated_isbns.all())
 
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
