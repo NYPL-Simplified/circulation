@@ -10865,7 +10865,7 @@ class IntegrationClient(Base):
 
     @classmethod
     def authenticate(cls, _db, shared_secret):
-        client = get_one(_db, cls, shared_secret=shared_secret)
+        client = get_one(_db, cls, shared_secret=unicode(shared_secret))
         if client:
             client.last_accessed = datetime.datetime.utcnow()
             return client
