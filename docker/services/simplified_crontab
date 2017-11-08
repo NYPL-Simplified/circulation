@@ -41,6 +41,10 @@ HOME=/var/www/circulation
 # identifiers, 25 at a time.
 # */10 * * * * root core/bin/run metadata_wrangler_coverage >> /var/log/cron.log 2>&1
 
+# If any works are classified under unprocessed subjects, reclassify
+# those works.
+30 22 * * * root core/bin/run work_classify_unchecked_subjects >> /var/log/cron.log 2>&1
+
 # The remaining scripts keep the circulation manager in sync with
 # specific types of collections.
 
