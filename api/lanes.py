@@ -676,7 +676,6 @@ def create_lane_for_small_collection(_db, library, languages, priority=0):
 
     adult_fiction, ignore = create(
         _db, Lane, library=library,
-        identifier=language_identifier + " Adult Fiction",
         display_name="Fiction",
         fiction=True,
         audiences=ADULT,
@@ -687,7 +686,6 @@ def create_lane_for_small_collection(_db, library, languages, priority=0):
 
     adult_nonfiction, ignore = create(
         _db, Lane, library=library,
-        identifier=language_identifier + " Adult Nonfiction",
         display_name="Nonfiction",
         fiction=False,
         audiences=ADULT,
@@ -698,7 +696,6 @@ def create_lane_for_small_collection(_db, library, languages, priority=0):
 
     ya_children, ignore = create(
         _db, Lane, library=library,
-        identifier=language_identifier + " Children & Young Adult",
         display_name="Children & Young Adult",
         fiction=None,
         audiences=YA_CHILDREN,
@@ -709,7 +706,6 @@ def create_lane_for_small_collection(_db, library, languages, priority=0):
 
     lane, ignore = create(
         _db, Lane, library=library,
-        identifier=language_identifier,
         display_name=language_identifier,
         sublanes=[adult_fiction, adult_nonfiction, ya_children],
         priority=priority,
@@ -732,7 +728,6 @@ def create_lane_for_tiny_collections(_db, library, languages, priority=0):
         name = LanguageCodes.name_for_languageset(language_set)
         language_lane, ignore = create(
             _db, Lane, library=library,
-            identifier=name,
             display_name=name,
             genres=[],
             fiction=None,
@@ -744,7 +739,6 @@ def create_lane_for_tiny_collections(_db, library, languages, priority=0):
 
     lane, ignore = create(
         _db, Lane, library=library, 
-        identifier="Other Languages",
         display_name="Other Languages", 
         sublanes=language_lanes,
         genres=[],

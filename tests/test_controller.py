@@ -756,8 +756,9 @@ class TestIndexController(CirculationControllerTest):
         with temp_config() as config:
             # Patrons of external type '1' get sent to the Adult
             # Fiction lane.
+            root_lane = self.library.lanes[0]
             config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY : { "1": "English Adult Fiction"},
+                Configuration.ROOT_LANE_POLICY : { "1": root_lane.id},
             }
             with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.invalid_auth)):
@@ -768,7 +769,7 @@ class TestIndexController(CirculationControllerTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
                 response = self.manager.index_controller()
                 eq_(302, response.status_code)
-                eq_("http://cdn/default/groups/English%20Adult%20Fiction", response.headers['location'])
+                eq_("http://cdn/default/groups/%s" % root_lane.id, response.headers['location'])
 
             # Now those patrons get sent to the top-level lane.
             config['policies'][Configuration.ROOT_LANE_POLICY] = { "1": None }
@@ -2395,7 +2396,7 @@ class TestFeedController(CirculationControllerTest):
 
             # The query also works in a different searchable lane.
             english = self._lane("English", languages=["eng"])
-            response = self.manager.opds_feeds.search(english.identifier)
+            response = self.manager.opds_feeds.search(english.id)
             feed = feedparser.parse(response.data)
             entries = feed['entries']
             eq_(1, len(entries))
