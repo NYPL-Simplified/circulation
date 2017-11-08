@@ -1886,6 +1886,8 @@ class Identifier(Base):
 
         identifiers_by_urn = dict()
         def find_existing_identifiers(identifier_details):
+            if not identifier_details:
+                return
             and_clauses = list()
             for type, identifier in identifier_details:
                 and_clauses.append(
@@ -1921,8 +1923,9 @@ class Identifier(Base):
 
         # Insert new identifiers into the database, then add them to the
         # results.
-        _db.bulk_insert_mappings(cls, new_identifiers)
-        _db.commit()
+        if new_identifiers:
+            _db.bulk_insert_mappings(cls, new_identifiers)
+            _db.commit()
         find_existing_identifiers(identifier_details.values())
 
         return identifiers_by_urn, failures
