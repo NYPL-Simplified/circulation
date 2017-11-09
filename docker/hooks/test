@@ -25,27 +25,55 @@ docker run -d -p 80:80 \
   -e SIMPLIFIED_DB_TASK="init" \
   -e SIMPLIFIED_TEST_DATABASE="postgres://simplified:test@${pghost}:5432/docker_test" \
   -e SIMPLIFIED_PRODUCTION_DATABASE="postgres://simplified:test@${pghost}:5432/docker_prod" \
-  --name circ --rm "$IMAGE_NAME" 
+  --name circ --rm "$IMAGE_NAME"
 
-# Run the tests in the container.
-docker exec -u simplified circ /bin/bash \
-  -c "cd ~/circulation && source env/bin/activate && ./test && cd core && ./test";
+# A method to check that runit services are running inside the container
+function check_service_status()
+{
+  # The location of the runit service should be passed.
+  service="$1"
 
-# If this is a scripts container, there's nothing more to be done. 
-if [[ ${IMAGE_NAME} == *"scripts"* ]]; then exit 0; fi
+  # Check the status of the service.
+  service_status=`docker exec circ /bin/bash -c "sv status $service"`
 
-# If this is a webapp container, create a library so the app will start.
+  # Get the exit code for the sv call.
+  sv_status=$?
+
+  if [[ "$sv_status" != 0 || "$service_status" =~ down ]]; then
+    echo "  FAIL: $service is not running"
+    exit 1
+  else
+    echo "  OK"
+  fi
+}
+
+# Wait for the container to start services before running tests
+sleep 20;
+
+# If this is a scripts container, check that cron is running.
+if [[ ${IMAGE_NAME} == *"scripts"* ]]; then
+  check_service_status /etc/service/cron
+  exit 0
+fi
+
+# In a webapp container, check that nginx and uwsgi are running.
+check_service_status /etc/service/nginx
+check_service_status /home/simplified/service/uwsgi
+
+# Then create a library so the app will start.
 docker exec -u postgres pg psql -U simplified -d docker_prod \
   -c "insert into libraries(name, short_name, uuid, is_default) values ('default', 'default', '1234', 't');";
 
 # Check to make sure the deployed app is running.
 healthcheck=$(docker exec circ /bin/bash -c "curl --write-out \"%{http_code}\" --silent --output /dev/null http://localhost/healthcheck.html")
-if ! [[ ${healthcheck} == '200' ]]; then exit 1; fi
+if ! [[ ${healthcheck} == '200' ]]; then exit 1; else echo "  OK"; fi
 
 # And it's showing an OPDS feed.
 feed_type=$(docker exec circ /bin/bash -c "curl --write-out \"%{content_type}\" --silent --output /dev/null http://localhost/groups")
 if ! [[ ${feed_type} == 'application/atom+xml;profile=opds-catalog;kind=acquisition' ]]; then
-  exit 1;
+  exit 1
+else
+  echo "  OK"
 fi
 
 exit 0;
