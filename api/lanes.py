@@ -435,9 +435,6 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
                          identifier=ya_fiction_identifier + " " + genres.Steampunk.name,
                          priority=ya_fiction_priority, **ya_common_args))
     ya_fiction_priority += 1
-    # TODO:
-    # Paranormal -- what is it exactly?
-
 
     ya_nonfiction_identifier = "%s Young Adult Nonfiction" % language_identifier
     ya_nonfiction, ignore = create(
@@ -750,7 +747,11 @@ def create_lane_for_tiny_collections(_db, library, languages, priority=0):
     return priority
 
 
-class WorkBasedLane(WorkList):
+class DynamicLane(WorkList):
+    """A WorkList that's used to from an OPDS lane, but isn't a Lane
+    in the database."""
+
+class WorkBasedLane(DynamicLane):
     """A query-based lane connected on a particular Work"""
 
     DISPLAY_NAME = None
@@ -915,7 +916,7 @@ class RecommendationLane(WorkBasedLane):
         return super(RecommendationLane, self).apply_filters(
             _db, qu, work_model, facets, pagination, featured=featured)
 
-class SeriesLane(WorkList):
+class SeriesLane(DynamicLane):
     """A lane of Works in a particular series"""
 
     ROUTE = 'series'
@@ -972,7 +973,7 @@ class SeriesLane(WorkList):
             _db, qu, work_model, facets, pagination, featured)
 
 
-class ContributorLane(WorkList):
+class ContributorLane(DynamicLane):
     """A lane of Works written by a particular contributor"""
 
     ROUTE = 'contributor'

@@ -1021,9 +1021,63 @@ class LaneResetScript(LibraryInputScript):
     """Reset a library's lanes based on language configuration or estimates
     of the library's current collection."""
 
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = LibraryInputScript.arg_parser(_db)
+        parser.add_argument(
+            '--reset',
+            help="Actually reset the lanes as opposed to showing what would happen.",
+            action='store_true'
+        )
+        return parser
+
+    def do_run(self, output=sys.stdout, **kwargs):
+        parsed = self.parse_command_line(self._db, **kwargs)
+        libraries = parsed.libraries
+        self.reset = parsed.reset
+        if not self.reset:
+            self.log.info(
+                "This is a dry run. Nothing will actually change in the database."
+            )
+            self.log.info(
+                "Run with --reset to change the database."
+            )
+
+        if libraries and self.reset:
+            self.log.warn(
+                """This is not a drill.
+Running this script will permanently reset the lanes for %d libraries. Any lanes created from
+custom lists will be deleted (though the lists themselves will be preserved).
+Sleeping for five seconds to give you a chance to back out.
+You'll get another chance to back out before the database session is committed.""",
+                len(libraries)
+            )
+            time.sleep(5)
+        self.process_libraries(libraries)
+
+        new_lane_output = "New Lane Configuration:"
+        for library in libraries:
+            new_lane_output += "\n\nLibrary '%s':\n" % library.name
+
+            def print_lanes_for_parent(parent):
+                lanes = self._db.query(Lane).filter(Lane.library==library).filter(Lane.parent==parent).order_by(Lane.priority)
+                lane_output = ""
+                for lane in lanes:
+                    lane_output += "  " + ("  " * len(list(lane.parentage)))  + lane.display_name + "\n"
+                    lane_output += print_lanes_for_parent(lane)
+                return lane_output
+
+            new_lane_output += print_lanes_for_parent(None)
+
+        output.write(new_lane_output)
+
+        if self.reset:
+            self.log.warn("All done. Sleeping for five seconds before committing.")
+            time.sleep(5)
+            self._db.commit()
+
     def process_library(self, library):
         create_default_lanes(self._db, library)
-        self._db.commit()
 
 class ODLBibliographicImportScript(OPDSImportScript):
     """Import bibliographic information from the feed associated

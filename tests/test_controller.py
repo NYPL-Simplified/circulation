@@ -73,6 +73,7 @@ from core.model import (
 from core.lane import (
     Facets,
     Pagination,
+    Lane,
 )
 from core.problem_details import *
 from core.user_profile import (
@@ -748,43 +749,63 @@ class FullLaneSetupTest(CirculationControllerTest):
 class TestIndexController(CirculationControllerTest):
     
     def test_simple_redirect(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY: None
-            }
-            with self.app.test_request_context('/'):
-                flask.request.library = self.library
-                response = self.manager.index_controller()
-                eq_(302, response.status_code)
-                eq_("http://cdn/default/groups/", response.headers['location'])
+        with self.app.test_request_context('/'):
+            flask.request.library = self.library
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/", response.headers['location'])
 
     def test_authenticated_patron_root_lane(self):
+        root_1, root_2 = self._db.query(Lane).all()[:2]
+
+        # Patrons of external type '1' and '2' have a certain root lane.
+        root_1.root_for_patron_type = ["1", "2"]
+
+        # Patrons of external type '3' have a different root.
+        root_2.root_for_patron_type = ["3"]
+
         self.default_patron.external_type = "1"
-        with temp_config() as config:
-            # Patrons of external type '1' get sent to the Adult
-            # Fiction lane.
-            root_lane = self.library.lanes[0]
-            config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY : { "1": root_lane.id},
-            }
-            with self.request_context_with_library(
-                "/", headers=dict(Authorization=self.invalid_auth)):
-                response = self.manager.index_controller()
-                eq_(401, response.status_code)
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.invalid_auth)):
+            response = self.manager.index_controller()
+            eq_(401, response.status_code)
 
-            with self.request_context_with_library(
-                "/", headers=dict(Authorization=self.valid_auth)):
-                response = self.manager.index_controller()
-                eq_(302, response.status_code)
-                eq_("http://cdn/default/groups/%s" % root_lane.id, response.headers['location'])
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/%s" % root_1.id, 
+                response.headers['location'])
 
-            # Now those patrons get sent to the top-level lane.
-            config['policies'][Configuration.ROOT_LANE_POLICY] = { "1": None }
-            with self.request_context_with_library(
-                "/", headers=dict(Authorization=self.valid_auth)):
-                response = self.manager.index_controller()
-                eq_(302, response.status_code)
-                eq_("http://cdn/default/groups/", response.headers['location'])
+        self.default_patron.external_type = "2"
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/%s" % root_1.id, response.headers['location'])
+
+        self.default_patron.external_type = "3"
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/%s" % root_2.id, response.headers['location'])
+
+        # Patrons with a different type get sent to the top-level lane.
+        self.default_patron.external_type = '4'
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/", response.headers['location'])
+
+        # Patrons with no type get sent to the top-level lane.
+        self.default_patron.external_type = None
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/", response.headers['location'])
 
     def test_authentication_document(self):
         """Test the ability to retrieve an Authentication For OPDS document."""
