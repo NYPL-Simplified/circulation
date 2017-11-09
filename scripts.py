@@ -425,14 +425,14 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         annotator = self.app.manager.annotator(lane)
         a = time.time()
         self.log.info(
-            "Generating feed(s) for %s/%s", lane.id, lane.display_name
+            "Generating feed(s) for %s", lane.full_identifier
         )
         cached_feeds = list(self.do_generate(lane))
         b = time.time()
         total_size = sum(len(x.content) for x in cached_feeds if x)
         self.log.info(
             "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
-            len(cached_feeds), lane.identifier, (b-a), total_size
+            len(cached_feeds), lane.full_identifier, (b-a), total_size
         )
         return cached_feeds
         
