@@ -383,9 +383,6 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         return parsed
     
     def should_process_lane(self, lane):
-        if lane.identifier is None:
-            return False
-            
         if not isinstance(lane, Lane):
             return False
 
