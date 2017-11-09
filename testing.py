@@ -362,15 +362,17 @@ class DatabaseTest(object):
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
-    def _lane(self, identifier=None, display_name=None, library=None, 
-              parent=None, genres=None, languages=None):
-        identifier = identifier or self._str
-        display_name = display_name or identifier
+    def _lane(self, display_name=None, library=None, 
+              parent=None, genres=None, languages=None,
+              fiction=None
+    ):
+        display_name = display_name or self._str
         library = library or self._default_library
         lane, is_new = get_one_or_create(
             self._db, Lane,
-            identifier=identifier, library=library,
-            parent=parent, display_name=display_name
+            library=library,
+            parent=parent, display_name=display_name,
+            create_method_kwargs=dict(fiction=fiction)
         )
         if genres:
             if not isinstance(genres, list):
