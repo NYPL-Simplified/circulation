@@ -2308,11 +2308,17 @@ class Identifier(Base):
                 if not description or resource.quality > description.quality:
                     description = resource
 
+        last_coverage_update = None
+        if self.coverage_records:
+            timestamps = [c.timestamp for c in self.coverage_records]
+            last_coverage_update = max(timestamps)
+
         quality = Measurement.overall_quality(self.measurements)
         from opds import AcquisitionFeed
         return AcquisitionFeed.minimal_opds_entry(
-            identifier=self, cover=cover_image, 
-            description=description, quality=quality)
+            identifier=self, cover=cover_image, description=description,
+            quality=quality, most_recent_update=last_coverage_update
+        )
 
 
 class Contributor(Base):
@@ -10767,9 +10773,7 @@ class Collection(Base, HasFullTableCache):
             .options(joinedload(Identifier.coverage_records))
 
         if timestamp:
-            isbns = isbns.filter(
-                CoverageRecord.timestamp > timestamp
-            )
+            isbns = isbns.filter(CoverageRecord.timestamp > timestamp)
 
         return isbns
 

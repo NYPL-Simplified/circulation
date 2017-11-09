@@ -2,6 +2,7 @@
 from StringIO import StringIO
 import base64
 import datetime
+import feedparser
 import os
 import sys
 import site
@@ -30,6 +31,8 @@ from sqlalchemy.orm.exc import (
     MultipleResultsFound
 )
 from sqlalchemy.orm.session import Session
+
+from lxml import etree
 
 from config import (
     Configuration, 
@@ -685,6 +688,61 @@ class TestIdentifier(DatabaseTest):
                 count_as_missing_before=timestamp+datetime.timedelta(seconds=1)
             ).all()
         )
+
+    def test_opds_entry(self):
+        identifier = self._identifier()
+        source = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
+
+        summary = identifier.add_link(
+            Hyperlink.DESCRIPTION, 'http://description', source,
+            media_type=Representation.TEXT_PLAIN, content='a book'
+        )[0]
+        cover = identifier.add_link(
+            Hyperlink.IMAGE, 'http://cover', source,
+            media_type=Representation.JPEG_MEDIA_TYPE
+        )[0]
+
+        def get_entry_dict(entry):
+            return feedparser.parse(unicode(etree.tostring(entry))).entries[0]
+
+        def format_timestamp(timestamp):
+            return timestamp.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        # The entry includes the urn, description, and cover link.
+        entry = get_entry_dict(identifier.opds_entry())
+        eq_(identifier.urn, entry.id)
+        eq_('a book', entry.summary)
+        [cover_link] = entry.links
+        eq_('http://cover', cover_link.href)
+
+        # Its updated time is set to the cover representation time.
+        expected = cover.resource.representation.mirrored_at
+        eq_(format_timestamp(expected), entry.updated)
+
+        # If a coverage record is dated after the representation time,
+        # That becomes the new updated time.
+        record = self._coverage_record(identifier, source)
+        entry = get_entry_dict(identifier.opds_entry())
+        eq_(format_timestamp(record.timestamp), entry.updated)
+
+        # Basically the latest date is taken from either a coverage record
+        # or a representation.
+        thumbnail = identifier.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, 'http://thumb', source,
+            media_type=Representation.JPEG_MEDIA_TYPE
+        )[0]
+        thumb_rep = thumbnail.resource.representation
+        cover_rep = cover.resource.representation
+        thumbnail.resource.representation.thumbnail_of_id = cover_rep.id
+        cover_rep.thumbnails.append(thumb_rep)
+
+        entry = get_entry_dict(identifier.opds_entry())
+        # The thumbnail has been added to the links.
+        eq_(2, len(entry.links))
+        assert any(filter(lambda l: l.href=='http://thumb', entry.links))
+        # And the updated time has been changed accordingly.
+        expected = thumbnail.resource.representation.mirrored_at
+        eq_(format_timestamp(expected), entry.updated)
 
 
 class TestGenre(DatabaseTest):
@@ -7348,7 +7406,9 @@ class TestCollection(DatabaseTest):
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
+
         # An empty catalog returns nothing.
+        timestamp = datetime.datetime.utcnow()
         eq_([], self.collection.works_updated_since(self._db, timestamp).all())
 
         self.collection.catalog_identifier(w1.license_pools[0].identifier)
@@ -7361,7 +7421,6 @@ class TestCollection(DatabaseTest):
 
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
-        timestamp = datetime.datetime.utcnow()
         w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
         eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
 

@@ -1018,7 +1018,9 @@ class AcquisitionFeed(OPDSFeed):
             self.feed.append(breadcrumbs)
 
     @classmethod
-    def minimal_opds_entry(cls, identifier, cover, description, quality):
+    def minimal_opds_entry(cls, identifier, cover, description, quality,
+        most_recent_update=None
+    ):
         elements = []
         representations = []
         most_recent_update = None
@@ -1056,7 +1058,9 @@ class AcquisitionFeed(OPDSFeed):
             r.mirrored_at or r.fetched_at for r in representations
             if r.mirrored_at or r.fetched_at
         ]
-        
+        if most_recent_update:
+            potential_update_dates.append(most_recent_update)
+
         if potential_update_dates:
             update_date = max(potential_update_dates)
             elements.append(AtomFeed.updated(AtomFeed._strftime(update_date)))
