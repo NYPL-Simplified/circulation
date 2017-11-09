@@ -79,7 +79,7 @@ class TestCirculationManagerAnnotator(VendorIDTest):
     def setup(self):
         super(TestCirculationManagerAnnotator, self).setup()
         self.work = self._work(with_open_access_download=True)
-        lane, ignore = create(self._db, Lane, library=self._default_library, identifier="Fantasy")
+        lane = self._lane(display_name="Fantasy")
         self.annotator = CirculationManagerAnnotator(
             None, lane, self._default_library, test_mode=True, top_level_title="Test Top Level Title"
         )
@@ -148,9 +148,7 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         eq_("Test Top Level Title", self.annotator.top_level_title())
 
     def test_group_uri_with_flattened_lane(self):
-        spanish_lane, ignore = create(
-            self._db, Lane, library=self._default_library, identifier="Spanish", languages=["spa"]
-        )
+        spanish_lane = self._lane(display_name="Spanish", languages=["spa"])
         flat_spanish_lane = dict({
             "lane": spanish_lane,
             "label": "All Spanish",
@@ -169,20 +167,18 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         eq_((feed_url, "All Spanish"), group_uri)
 
     def test_lane_url(self):
-        fantasy_lane_with_sublanes, ignore = create(
-            self._db, Lane, library=self._default_library,
-            identifier="Fantasy with sublanes", languages=["eng"])
+        fantasy_lane_with_sublanes = self._lane(
+            display_name="Fantasy with sublanes", languages=["eng"]
+        )
         fantasy_lane_with_sublanes.add_genre(Fantasy.name)
 
-        urban_fantasy_lane, ignore = create(
-            self._db, Lane, library=self._default_library,
-            identifier="Urban Fantasy")
+        urban_fantasy_lane = self._lane(display_name="Urban Fantasy")
         urban_fantasy_lane.add_genre(Urban_Fantasy.name)
         fantasy_lane_with_sublanes.sublanes.append(urban_fantasy_lane)
 
-        fantasy_lane_without_sublanes, ignore = create(
-            self._db, Lane, library=self._default_library,
-            identifier="Fantasy without sublanes", languages=["eng"])
+        fantasy_lane_without_sublanes = self._lane(
+            display_name="Fantasy without sublanes", languages=["eng"]
+        )
         fantasy_lane_without_sublanes.add_genre(Fantasy.name)
 
         default_lane_url = self.annotator.lane_url(None)
@@ -298,12 +294,10 @@ class TestOPDS(VendorIDTest):
 
     def setup(self):
         super(TestOPDS, self).setup()
-        parent, ignore = create(
-            self._db, Lane, library=self._default_library,
-            identifier="Fiction", languages=["eng"], fiction=True)
-        self.lane, ignore = create(
-            self._db, Lane, library=self._default_library,
-            identifier="Fantasy", languages=["eng"])
+        parent = self._lane(
+            display_name="Fiction", languages=["eng"], fiction=True
+        )
+        self.lane = self._lane(display_name="Fantasy", languages=["eng"])
         self.lane.add_genre(Fantasy.name)
         self.lane.parent = parent
         self.annotator = CirculationManagerAnnotator(None, self.lane, self._default_library, test_mode=True)
@@ -318,22 +312,22 @@ class TestOPDS(VendorIDTest):
     def test_default_lane_url(self):
         default_lane_url = self.annotator.default_lane_url()
         assert "groups" in default_lane_url
-        assert "Fantasy" not in default_lane_url
+        assert str(self.lane.id) not in default_lane_url
 
     def test_groups_url(self):
         groups_url_no_lane = self.annotator.groups_url(None)
         assert "groups" in groups_url_no_lane
-        assert "Fantasy" not in groups_url_no_lane
+        assert str(self.lane.id) not in groups_url_no_lane
 
         groups_url_fantasy = self.annotator.groups_url(self.lane)
         assert "groups" in groups_url_fantasy
-        assert "Fantasy" in groups_url_fantasy
+        assert str(self.lane.id) in groups_url_fantasy
 
     def test_feed_url(self):
         # A regular Lane.
         feed_url_fantasy = self.annotator.feed_url(self.lane, dict(), dict())
         assert "feed" in feed_url_fantasy
-        assert "Fantasy" in feed_url_fantasy
+        assert str(self.lane.id) in feed_url_fantasy
 
         # A QueryGeneratedLane.
         self.annotator.lane = self.contributor_lane
@@ -345,14 +339,14 @@ class TestOPDS(VendorIDTest):
         search_url = self.annotator.search_url(self.lane, "query", dict())
         assert "search" in search_url
         assert "query" in search_url
-        assert "Fantasy" in search_url
+        assert str(self.lane.id) in search_url
 
     def test_facet_url(self):
         # A regular Lane.
         facets = dict(collection="main")
         facet_url = self.annotator.facet_url(facets)
         assert "collection=main" in facet_url
-        assert "Fantasy" in facet_url
+        assert str(self.lane.id) in facet_url
 
         # A QueryGeneratedLane.
         self.annotator.lane = self.contributor_lane
@@ -383,9 +377,7 @@ class TestOPDS(VendorIDTest):
 
     def get_parsed_feed(self, works, lane=None):
         if not lane:
-            lane, ignore = get_one_or_create(
-                self._db, Lane,
-                library=self._default_library, identifier="Main Lane")
+            lane = self._lane(display_name="Main Lane")
         feed = AcquisitionFeed(
             self._db, "test", "url", works,
             CirculationManagerAnnotator(None, lane, self._default_library, test_mode=True)
