@@ -9,6 +9,7 @@ import urllib
 from psycopg2.extras import NumericRange
 
 from config import Configuration
+from flask_babel import lazy_gettext as _
 
 import classifier
 from classifier import (
@@ -460,6 +461,13 @@ class WorkList(object):
     def get_library(self, _db):
         """Find the Library object associated with this WorkList."""
         return Library.by_id(_db, self.library_id)
+
+    @property
+    def display_name_for_all(self):
+        """The display name to use when referring to the set of all books in
+        this WorkList, as opposed to the WorkList itself.
+        """
+        return _("All %(worklist)s", worklist=self.display_name)
 
     @property
     def visible_children(self):
@@ -1282,6 +1290,23 @@ class Lane(Base, WorkList):
                       languages=languages, media=media, audiences=audiences)
         return wl
 
+    def groups(self, _db):
+        """Extract a list of samples from each child of this Lane, as well as
+        from the lane itself. This can be used to create a grouped
+        acquisition feed for the Lane.
+
+        :return: A list of (Work, Lane) 2-tuples, with each Lane
+        representing the Lane in which the Work can be found.
+        """
+        # This takes care of all of the children.
+        works_and_lanes = super(Lane, self).groups(_db)
+
+        # Now add additional works for the lane itself.
+        lane = _db.merge(self)
+        works = lane.featured_works(_db)
+        for work in works:
+            works_and_lanes.append((work, lane))
+        return works_and_lanes
            
     def search(self, _db, query, search_client, pagination=None):
         """Find works in this lane that also match a search query.
