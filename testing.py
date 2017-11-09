@@ -363,13 +363,16 @@ class DatabaseTest(object):
         SessionManager.refresh_materialized_views(self._db)
 
     def _lane(self, display_name=None, library=None, 
-              parent=None, genres=None, languages=None):
+              parent=None, genres=None, languages=None,
+              fiction=None
+    ):
         display_name = display_name or self._str
         library = library or self._default_library
         lane, is_new = get_one_or_create(
             self._db, Lane,
             library=library,
-            parent=parent, display_name=display_name
+            parent=parent, display_name=display_name,
+            create_method_kwargs=dict(fiction=fiction)
         )
         if genres:
             if not isinstance(genres, list):
