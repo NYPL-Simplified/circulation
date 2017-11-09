@@ -973,6 +973,10 @@ class TestOPDS(DatabaseTest):
         eq_(l1['title'], 'Group Title for Epic Fantasy!')
         eq_(l2['href'], 'http://group/Urban Fantasy')
         eq_(l2['title'], 'Group Title for Urban Fantasy!')
+        eq_(l3['href'], 'http://group/Fantasy')
+        eq_(l3['title'], 'Group Title for Fantasy!')
+        eq_(l4['href'], 'http://group/Fantasy')
+        eq_(l4['title'], 'Group Title for Fantasy!')
 
         # The feed itself has an 'up' link which points to the
         # groups for Fiction, and a 'start' link which points to
