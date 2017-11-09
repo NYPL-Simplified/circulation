@@ -7421,7 +7421,11 @@ class TestCollection(DatabaseTest):
 
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
-        w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        [w1_coverage_record] = [
+            c for c in w1.coverage_records
+            if c.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION
+        ]
+        w1_coverage_record.timestamp = datetime.datetime.utcnow()
         eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
 
     def test_isbns_updated_since(self):
@@ -7442,7 +7446,7 @@ class TestCollection(DatabaseTest):
 
         # Give one ISBN more than one coverage record.
         oclc = DataSource.lookup(self._db, DataSource.OCLC)
-        self._coverage_record(i1, oclc)
+        i1_oclc_record = self._coverage_record(i1, oclc)
 
         def assert_isbns(expected, result_query):
             results = [r[0] for r in result_query]
@@ -7455,8 +7459,9 @@ class TestCollection(DatabaseTest):
         assert_isbns([i2, i1], updated_isbns)
 
         # That CoverageRecord timestamp is also returned.
-        first_result = updated_isbns[0]
-        assert isinstance(first_result[1], datetime.datetime)
+        i1_timestamp = updated_isbns[1][1]
+        assert isinstance(i1_timestamp, datetime.datetime)
+        eq_(i1_oclc_record.timestamp, i1_timestamp)
 
         # When a timestamp is passed, only works that have been updated since
         # then will be returned.
