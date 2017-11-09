@@ -1301,7 +1301,17 @@ class Lane(Base, WorkList):
         # This takes care of all of the children.
         works_and_lanes = super(Lane, self).groups(_db)
 
-        # Now add additional works for the lane itself.
+        if not works_and_lanes:
+            # The children of this Lane did not contribute any works
+            # to the groups feed. This means there should not be
+            # a groups feed in the first place -- we should send a list
+            # feed instead.
+            return works_and_lanes
+
+        # The children of this Lane contributed works to the groups
+        # feed, which means we need an additional group in the feed
+        # representing everything in the Lane (since the child lanes
+        # are almost never exhaustive).
         lane = _db.merge(self)
         works = lane.featured_works(_db)
         for work in works:

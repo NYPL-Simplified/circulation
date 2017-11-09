@@ -1161,13 +1161,20 @@ class TestLane(DatabaseTest):
         child.featured_works = mock_child_featured_works
 
         # Calling groups() on the parent Lane returns three
-        # 2-tuples; one for a work featured in the sublanes,
+        # 2-tuples; one for a work featured in the sublane,
         # and then two for a work featured in the parent lane.
         [wwl1, wwl2, wwl3] = parent.groups(self._db)
         eq_((w2, child), wwl1)
         eq_((w1, parent), wwl2)
         eq_((w2, parent), wwl3)
 
+        # If a lane's sublanes don't contribute any books, then
+        # groups() returns an entirely empty list, indicating that no
+        # groups feed should be displayed.
+        def mock_child_featured_works(_db):
+            return []
+        child.featured_works = mock_child_featured_works
+        eq_([], parent.groups(self._db))
 
     def test_search_target(self):
 
