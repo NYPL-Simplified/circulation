@@ -425,7 +425,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         annotator = self.app.manager.annotator(lane)
         a = time.time()
         self.log.info(
-            "Generating feed(s) for %s", lane.identifier
+            "Generating feed(s) for %s/%s", lane.id, lane.display_name
         )
         cached_feeds = list(self.do_generate(lane))
         b = time.time()
