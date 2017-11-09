@@ -214,6 +214,13 @@ class ControllerTest(VendorIDTest):
             self.library.id
         ]
         self.controller = CirculationManagerController(self.manager)
+
+        # Set a convenient default lane.
+        [self.english_adult_fiction] = [
+            x for x in self.library.lanes
+            if x.display_name=='Fiction' and x.languages==[u'eng']
+        ]
+
         return self.manager
 
     def library_setup(self, library):
@@ -2259,7 +2266,7 @@ class TestFeedController(CirculationControllerTest):
 
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.feed(
-                'English Adult Fiction'
+                self.english_adult_fiction.id
             )
 
             assert self.english_1.title in response.data
@@ -2281,7 +2288,8 @@ class TestFeedController(CirculationControllerTest):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.feed('English Adult Fiction')
+            lane_id = self.english_adult_fiction.id
+            response = self.manager.opds_feeds.feed(lane_id)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2298,14 +2306,16 @@ class TestFeedController(CirculationControllerTest):
             assert any('order=author' in x['href'] for x in facet_links)
 
             search_link = [x for x in links if x['rel'] == 'search'][0]['href']
-            assert search_link.endswith('/search/English%20Adult%20Fiction')
+            assert search_link.endswith('/search/%s' % lane_id)
 
             shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
             assert shelf_link.endswith('/loans/')
 
     def test_bad_order_gives_problem_detail(self):
         with self.request_context_with_library("/?order=nosuchorder"):
-            response = self.manager.opds_feeds.feed('English Adult Fiction')
+            response = self.manager.opds_feeds.feed(
+                self.english_adult_fiction.id
+            )
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input", 
@@ -2314,7 +2324,9 @@ class TestFeedController(CirculationControllerTest):
 
     def test_bad_pagination_gives_problem_detail(self):
         with self.request_context_with_library("/?size=abc"):
-            response = self.manager.opds_feeds.feed('English Adult Fiction')
+            response = self.manager.opds_feeds.feed(
+                self.english_adult_fiction.id
+            )
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input", 
