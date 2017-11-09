@@ -2,6 +2,7 @@
 from StringIO import StringIO
 import base64
 import datetime
+import feedparser
 import os
 import sys
 import site
@@ -30,6 +31,8 @@ from sqlalchemy.orm.exc import (
     MultipleResultsFound
 )
 from sqlalchemy.orm.session import Session
+
+from lxml import etree
 
 from config import (
     Configuration, 
@@ -685,6 +688,61 @@ class TestIdentifier(DatabaseTest):
                 count_as_missing_before=timestamp+datetime.timedelta(seconds=1)
             ).all()
         )
+
+    def test_opds_entry(self):
+        identifier = self._identifier()
+        source = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
+
+        summary = identifier.add_link(
+            Hyperlink.DESCRIPTION, 'http://description', source,
+            media_type=Representation.TEXT_PLAIN, content='a book'
+        )[0]
+        cover = identifier.add_link(
+            Hyperlink.IMAGE, 'http://cover', source,
+            media_type=Representation.JPEG_MEDIA_TYPE
+        )[0]
+
+        def get_entry_dict(entry):
+            return feedparser.parse(unicode(etree.tostring(entry))).entries[0]
+
+        def format_timestamp(timestamp):
+            return timestamp.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        # The entry includes the urn, description, and cover link.
+        entry = get_entry_dict(identifier.opds_entry())
+        eq_(identifier.urn, entry.id)
+        eq_('a book', entry.summary)
+        [cover_link] = entry.links
+        eq_('http://cover', cover_link.href)
+
+        # Its updated time is set to the cover representation time.
+        expected = cover.resource.representation.mirrored_at
+        eq_(format_timestamp(expected), entry.updated)
+
+        # If a coverage record is dated after the representation time,
+        # That becomes the new updated time.
+        record = self._coverage_record(identifier, source)
+        entry = get_entry_dict(identifier.opds_entry())
+        eq_(format_timestamp(record.timestamp), entry.updated)
+
+        # Basically the latest date is taken from either a coverage record
+        # or a representation.
+        thumbnail = identifier.add_link(
+            Hyperlink.THUMBNAIL_IMAGE, 'http://thumb', source,
+            media_type=Representation.JPEG_MEDIA_TYPE
+        )[0]
+        thumb_rep = thumbnail.resource.representation
+        cover_rep = cover.resource.representation
+        thumbnail.resource.representation.thumbnail_of_id = cover_rep.id
+        cover_rep.thumbnails.append(thumb_rep)
+
+        entry = get_entry_dict(identifier.opds_entry())
+        # The thumbnail has been added to the links.
+        eq_(2, len(entry.links))
+        assert any(filter(lambda l: l.href=='http://thumb', entry.links))
+        # And the updated time has been changed accordingly.
+        expected = thumbnail.resource.representation.mirrored_at
+        eq_(format_timestamp(expected), entry.updated)
 
 
 class TestGenre(DatabaseTest):
@@ -7348,23 +7406,78 @@ class TestCollection(DatabaseTest):
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
-        timestamp = datetime.datetime.utcnow()
+
         # An empty catalog returns nothing.
+        timestamp = datetime.datetime.utcnow()
         eq_([], self.collection.works_updated_since(self._db, timestamp).all())
 
-        # When no timestamp is passed, all works in the catalog are returned.
         self.collection.catalog_identifier(w1.license_pools[0].identifier)
         self.collection.catalog_identifier(w2.license_pools[0].identifier)
-        updated_works = self.collection.works_updated_since(self._db, None).all()
 
-        eq_(2, len(updated_works))
-        assert w1 in updated_works and w2 in updated_works
-        assert w3 not in updated_works
+        # When no timestamp is passed, all works in the catalog are returned.
+        # in order of their WorkCoverageRecord timestamp.
+        updated_works = self.collection.works_updated_since(self._db, None).all()
+        eq_([w1, w2], updated_works)
 
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
-        w1.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        [w1_coverage_record] = [
+            c for c in w1.coverage_records
+            if c.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION
+        ]
+        w1_coverage_record.timestamp = datetime.datetime.utcnow()
         eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+
+    def test_isbns_updated_since(self):
+        i1 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
+        i2 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
+        i3 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
+        i4 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)
+
+        timestamp = datetime.datetime.utcnow()
+
+        # An empty catalog returns nothing..
+        eq_([], self.collection.isbns_updated_since(self._db, None).all())
+
+        # Give the ISBNs some coverage.
+        content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
+        for isbn in [i2, i3, i1]:
+            self._coverage_record(isbn, content_cafe)
+
+        # Give one ISBN more than one coverage record.
+        oclc = DataSource.lookup(self._db, DataSource.OCLC)
+        i1_oclc_record = self._coverage_record(i1, oclc)
+
+        def assert_isbns(expected, result_query):
+            results = [r[0] for r in result_query]
+            eq_(expected, results)
+
+        # When no timestamp is given, all ISBNs in the catalog are returned,
+        # in order of their CoverageRecord timestamp.
+        self.collection.catalog_identifiers([i1, i2])
+        updated_isbns = self.collection.isbns_updated_since(self._db, None).all()
+        assert_isbns([i2, i1], updated_isbns)
+
+        # That CoverageRecord timestamp is also returned.
+        i1_timestamp = updated_isbns[1][1]
+        assert isinstance(i1_timestamp, datetime.datetime)
+        eq_(i1_oclc_record.timestamp, i1_timestamp)
+
+        # When a timestamp is passed, only works that have been updated since
+        # then will be returned.
+        timestamp = datetime.datetime.utcnow()
+        i1.coverage_records[0].timestamp = datetime.datetime.utcnow()
+        updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)
+        assert_isbns([i1], updated_isbns)
+
+        # Prepare an ISBN associated with a Work.
+        work = self._work(with_license_pool=True)
+        work.license_pools[0].identifier = i2
+        i2.coverage_records[0].timestamp = datetime.datetime.utcnow()
+
+        # ISBNs that have a Work will be ignored.
+        updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)
+        assert_isbns([i1], updated_isbns)
 
 
 class TestCollectionForMetadataWrangler(DatabaseTest):

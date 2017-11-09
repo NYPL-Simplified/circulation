@@ -2308,11 +2308,17 @@ class Identifier(Base):
                 if not description or resource.quality > description.quality:
                     description = resource
 
+        last_coverage_update = None
+        if self.coverage_records:
+            timestamps = [c.timestamp for c in self.coverage_records]
+            last_coverage_update = max(timestamps)
+
         quality = Measurement.overall_quality(self.measurements)
         from opds import AcquisitionFeed
         return AcquisitionFeed.minimal_opds_entry(
-            identifier=self, cover=cover_image, 
-            description=description, quality=quality)
+            identifier=self, cover=cover_image, description=description,
+            quality=quality, most_recent_update=last_coverage_update
+        )
 
 
 class Contributor(Base):
@@ -10718,21 +10724,49 @@ class Collection(Base, HasFullTableCache):
         flush(_db)
 
     def works_updated_since(self, _db, timestamp):
-        """Returns all works in a collection's catalog that have been updated
-        since the last time the catalog was checked.
+        """Finds all works in a collection's catalog that have been updated
+           since the timestamp. Used in the metadata wrangler.
+
+           :return: a Query
         """
-        query = _db.query(Work).join(Work.coverage_records)\
+        opds_operation = WorkCoverageRecord.GENERATE_OPDS_OPERATION
+        qu = _db.query(Work).join(Work.coverage_records)\
             .join(Work.license_pools).join(Identifier)\
-            .join(Identifier.collections)\
-            .filter(Collection.id==self.id)\
-            .options(joinedload(Work.license_pools, LicensePool.identifier))
+            .join(Identifier.collections).filter(
+                Collection.id==self.id,
+                WorkCoverageRecord.operation==opds_operation,
+            ).options(joinedload(Work.license_pools, LicensePool.identifier))
 
         if timestamp:
-            query = query.filter(
+            qu = qu.filter(
                 WorkCoverageRecord.timestamp > timestamp
             )
 
-        return query.distinct()
+        qu = qu.order_by(WorkCoverageRecord.timestamp)
+        return qu
+
+    def isbns_updated_since(self, _db, timestamp):
+        """Finds all ISBNs in a collection's catalog that have been updated
+           since the timestamp but don't have a Work to show for it. Used in
+           the metadata wrangler.
+
+           :return: a Query
+        """
+        isbns = _db.query(Identifier, func.max(CoverageRecord.timestamp).label('latest'))\
+            .join(Identifier.collections)\
+            .join(Identifier.coverage_records)\
+            .outerjoin(Identifier.licensed_through)\
+            .group_by(Identifier.id).order_by('latest')\
+            .filter(
+                Collection.id==self.id,
+                LicensePool.work_id==None,
+                CoverageRecord.status==CoverageRecord.SUCCESS,
+            ).enable_eagerloads(False).options(joinedload(Identifier.coverage_records))
+
+        if timestamp:
+            isbns = isbns.filter(CoverageRecord.timestamp > timestamp)
+
+        return isbns
 
 
 collections_libraries = Table(
@@ -10826,7 +10860,7 @@ class IntegrationClient(Base):
 
     @classmethod
     def authenticate(cls, _db, shared_secret):
-        client = get_one(_db, cls, shared_secret=shared_secret)
+        client = get_one(_db, cls, shared_secret=unicode(shared_secret))
         if client:
             client.last_accessed = datetime.datetime.utcnow()
             return client

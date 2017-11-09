@@ -142,7 +142,9 @@ class DatabaseTest(object):
         self.counter = 2000
 
         self.time_counter = datetime(2014, 1, 1)
-        self.isbns = ["9780674368279", "0636920028468", "9781936460236"]
+        self.isbns = [
+            "9780674368279", "0636920028468", "9781936460236", "9780316075978"
+        ]
         if mock_search:
             self.search_mock = mock.patch(external_search.__name__ + ".ExternalSearchIndex", DummyExternalSearchIndex)
             self.search_mock.start()
