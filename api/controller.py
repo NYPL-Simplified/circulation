@@ -409,11 +409,13 @@ class CirculationManagerController(BaseCirculationManagerController):
         if lane_identifier is None:
             return top_level_lane
 
-        lane = get_one(self._db, Lane, identifier=lane_identifier, library_id=library_id)
+        lane = get_one(self._db, Lane, id=lane_identifier, library_id=library_id)
 
         if not lane:
             return NO_SUCH_LANE.detailed(
-                _("No such lane: %(lane_identifier)s", lane_identifier=lane_identifier)
+                _("Lane %(lane_identifier)s does not exist or is not associated with library %(library_id)s", 
+                  lane_identifier=lane_identifier, library_id=library_id
+                )
             )
         return lane
 
@@ -557,7 +559,7 @@ class IndexController(CirculationManagerController):
             self.cdn_url_for(
                 'acquisition_groups', 
                 library_short_name=library_short_name,
-                lane_identifier=root_lane.identifier,
+                lane_identifier=root_lane.id,
             )
         )
 

@@ -383,9 +383,6 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         return parsed
     
     def should_process_lane(self, lane):
-        if lane.identifier is None:
-            return False
-            
         if not isinstance(lane, Lane):
             return False
 
@@ -428,14 +425,14 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         annotator = self.app.manager.annotator(lane)
         a = time.time()
         self.log.info(
-            "Generating feed(s) for %s", lane.identifier
+            "Generating feed(s) for %s", lane.full_identifier
         )
         cached_feeds = list(self.do_generate(lane))
         b = time.time()
         total_size = sum(len(x.content) for x in cached_feeds if x)
         self.log.info(
             "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
-            len(cached_feeds), lane.identifier, (b-a), total_size
+            len(cached_feeds), lane.full_identifier, (b-a), total_size
         )
         return cached_feeds
         

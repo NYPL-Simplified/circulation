@@ -118,18 +118,13 @@ class TestRepresentationPerLane(TestLaneScript):
         )
         eq_(['fre', 'eng'], script.languages)
 
-        english_lane, ignore = create(self._db, Lane, library=self._default_library,
-                                      identifier=self._str, languages=['eng'])
+        english_lane = self._lane(languages=['eng'])
         eq_(True, script.should_process_lane(english_lane))
 
-        no_english_lane, ignore = create(self._db, Lane, library=self._default_library,
-                                         identifier=self._str, languages=['spa','fre'])
+        no_english_lane = self._lane(languages=['spa','fre'])
         eq_(True, script.should_process_lane(no_english_lane))
 
-        no_english_or_french_lane, ignore = create(
-            self._db, Lane, library=self._default_library,
-            identifier=self._str, languages=['spa']
-        )
+        no_english_or_french_lane = self._lane(languages=['spa'])
         eq_(False, script.should_process_lane(no_english_or_french_lane))
             
     def test_max_and_min_depth(self):
@@ -139,8 +134,9 @@ class TestRepresentationPerLane(TestLaneScript):
         )
         eq_(0, script.max_depth)
 
-        child, ignore = create(self._db, Lane, library=self._default_library, identifier="sublane")
-        parent, ignore = create(self._db, Lane, library=self._default_library, identifier="parent", sublanes=[child])
+        child = self._lane(display_name="sublane")
+        parent = self._lane(display_name="parent")
+        parent.sublanes=[child]
         eq_(True, script.should_process_lane(parent))
         eq_(False, script.should_process_lane(child))
 
@@ -186,7 +182,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         )
         with script.app.test_request_context("/"):
             flask.request.library = self._default_library
-            lane, ignore = create(self._db, Lane, library=self._default_library, identifier=self._str)
+            lane = self._lane()
             cached_feeds = script.process_lane(lane)
             # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
             eq_(4, len(cached_feeds))

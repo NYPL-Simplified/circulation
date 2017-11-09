@@ -215,6 +215,13 @@ class ControllerTest(VendorIDTest):
             self.library.id
         ]
         self.controller = CirculationManagerController(self.manager)
+
+        # Set a convenient default lane.
+        [self.english_adult_fiction] = [
+            x for x in self.library.lanes
+            if x.display_name=='Fiction' and x.languages==[u'eng']
+        ]
+
         return self.manager
 
     def library_setup(self, library):
@@ -749,14 +756,13 @@ class TestIndexController(CirculationControllerTest):
             eq_("http://cdn/default/groups/", response.headers['location'])
 
     def test_authenticated_patron_root_lane(self):
-        # Patrons of external type '1' and '2' get sent to the Adult
-        # Fiction lane.
-        adult_fiction = get_one(self._db, Lane, identifier="English Adult Fiction")
-        adult_fiction.root_for_patron_type = ["1", "2"]
+        root_1, root_2 = self._db.query(Lane).all()[:2]
 
-        # Patrons of external type '3' get sent to Adult Nonfiction.
-        adult_nonfiction = get_one(self._db, Lane, identifier="English Adult Nonfiction")
-        adult_nonfiction.root_for_patron_type = ["3"]
+        # Patrons of external type '1' and '2' have a certain root lane.
+        root_1.root_for_patron_type = ["1", "2"]
+
+        # Patrons of external type '3' have a different root.
+        root_2.root_for_patron_type = ["3"]
 
         self.default_patron.external_type = "1"
         with self.request_context_with_library(
@@ -768,21 +774,22 @@ class TestIndexController(CirculationControllerTest):
             "/", headers=dict(Authorization=self.valid_auth)):
             response = self.manager.index_controller()
             eq_(302, response.status_code)
-            eq_("http://cdn/default/groups/English%20Adult%20Fiction", response.headers['location'])
+            eq_("http://cdn/default/groups/%s" % root_1.id, 
+                response.headers['location'])
 
         self.default_patron.external_type = "2"
         with self.request_context_with_library(
             "/", headers=dict(Authorization=self.valid_auth)):
             response = self.manager.index_controller()
             eq_(302, response.status_code)
-            eq_("http://cdn/default/groups/English%20Adult%20Fiction", response.headers['location'])
+            eq_("http://cdn/default/groups/%s" % root_1.id, response.headers['location'])
 
         self.default_patron.external_type = "3"
         with self.request_context_with_library(
             "/", headers=dict(Authorization=self.valid_auth)):
             response = self.manager.index_controller()
             eq_(302, response.status_code)
-            eq_("http://cdn/default/groups/English%20Adult%20Nonfiction", response.headers['location'])
+            eq_("http://cdn/default/groups/%s" % root_2.id, response.headers['location'])
 
         # Patrons with a different type get sent to the top-level lane.
         self.default_patron.external_type = '4'
@@ -2280,7 +2287,7 @@ class TestFeedController(CirculationControllerTest):
 
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.feed(
-                'English Adult Fiction'
+                self.english_adult_fiction.id
             )
 
             assert self.english_1.title in response.data
@@ -2302,7 +2309,8 @@ class TestFeedController(CirculationControllerTest):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.feed('English Adult Fiction')
+            lane_id = self.english_adult_fiction.id
+            response = self.manager.opds_feeds.feed(lane_id)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2319,14 +2327,16 @@ class TestFeedController(CirculationControllerTest):
             assert any('order=author' in x['href'] for x in facet_links)
 
             search_link = [x for x in links if x['rel'] == 'search'][0]['href']
-            assert search_link.endswith('/search/English%20Adult%20Fiction')
+            assert search_link.endswith('/search/%s' % lane_id)
 
             shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
             assert shelf_link.endswith('/loans/')
 
     def test_bad_order_gives_problem_detail(self):
         with self.request_context_with_library("/?order=nosuchorder"):
-            response = self.manager.opds_feeds.feed('English Adult Fiction')
+            response = self.manager.opds_feeds.feed(
+                self.english_adult_fiction.id
+            )
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input", 
@@ -2335,7 +2345,9 @@ class TestFeedController(CirculationControllerTest):
 
     def test_bad_pagination_gives_problem_detail(self):
         with self.request_context_with_library("/?size=abc"):
-            response = self.manager.opds_feeds.feed('English Adult Fiction')
+            response = self.manager.opds_feeds.feed(
+                self.english_adult_fiction.id
+            )
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input", 
@@ -2417,7 +2429,7 @@ class TestFeedController(CirculationControllerTest):
 
             # The query also works in a different searchable lane.
             english = self._lane("English", languages=["eng"])
-            response = self.manager.opds_feeds.search(english.identifier)
+            response = self.manager.opds_feeds.search(english.id)
             feed = feedparser.parse(response.data)
             entries = feed['entries']
             eq_(1, len(entries))
