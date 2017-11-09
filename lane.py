@@ -1202,7 +1202,7 @@ class Lane(Base, WorkList):
             else:
                 bucket = excluded_ids
             if self.fiction != None and genre.default_fiction != None and self.fiction != genre.default_fiction:
-                logging.error("Lane %s (%s) has a genre %s that does not match its fiction restriction.", (self.id, self.display_name, genre.name))
+                logging.error("Lane %s has a genre %s that does not match its fiction restriction.", (self.full_identifier, genre.name))
             bucket.add(genre.id)
             if lanegenre.recursive:
                 for subgenre in genre.subgenres:
@@ -1218,8 +1218,8 @@ class Lane(Base, WorkList):
             # Fantasy' is included but 'Fantasy' and its subgenres are
             # excluded.
             logging.error(
-                "Lane %s (%s) has a self-negating set of genre IDs.", 
-                self.id, self.display_name
+                "Lane %s has a self-negating set of genre IDs.", 
+                self.full_identifier
             )
         return genre_ids
 
