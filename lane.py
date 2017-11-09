@@ -486,6 +486,14 @@ class WorkList(object):
         return []
 
     @property
+    def full_identifier(self):
+        """A human-readable identifier for this Lane that
+        captures its position within the heirarchy.
+        """
+        full_parentage = list(self.parentage) + [self]
+        return " / ".join([x.display_name for x in full_parentage])
+
+    @property
     def language_key(self):
         """Return a string identifying the languages used in this WorkList.
         This will usually be in the form of 'eng,spa' (English and Spanish).

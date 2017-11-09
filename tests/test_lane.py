@@ -992,6 +992,7 @@ class TestLane(DatabaseTest):
 
     def test_parentage(self):
         worklist = WorkList()
+        worklist.display_name = "A WorkList"
         lane = self._lane()
         child_lane = self._lane(parent=lane)
         unrelated = self._lane()
@@ -999,11 +1000,16 @@ class TestLane(DatabaseTest):
 
         # A WorkList has no parentage.
         eq_([], list(worklist.parentage))
+        eq_("A WorkList", worklist.full_identifier)
 
         # The WorkList has the Lane as a child, but the Lane doesn't know
         # this.
         eq_([], list(lane.parentage))
         eq_([lane], list(child_lane.parentage))
+        eq_(lane.display_name, lane.full_identifier)
+
+        eq_("%s / %s" % (lane.display_name, child_lane.display_name), 
+            child_lane.full_identifier)
 
         # TODO: The error should be raised when we try to set the parent
         # to an illegal value, not afterwards.
