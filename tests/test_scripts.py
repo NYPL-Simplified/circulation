@@ -182,7 +182,7 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         )
         with script.app.test_request_context("/"):
             flask.request.library = self._default_library
-            lane, ignore = self._lane()
+            lane = self._lane()
             cached_feeds = script.process_lane(lane)
             # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
             eq_(4, len(cached_feeds))
