@@ -10750,27 +10750,18 @@ class Collection(Base, HasFullTableCache):
            since the timestamp but don't have a Work to show for it. Used in
            the metadata wrangler.
 
-           :return: None or a Query
+           :return: a Query
         """
-        isbn_ids = [i.id for i in self.catalog if i.type==Identifier.ISBN]
-        if not isbn_ids:
-            # There are no ISBNs in this catalog.
-            return None
-
-        updated_isbn_ids = _db.query(Identifier.id)\
+        isbns = _db.query(Identifier, func.max(CoverageRecord.timestamp).label('latest'))\
+            .join(Identifier.collections)\
             .join(Identifier.coverage_records)\
             .outerjoin(Identifier.licensed_through)\
-            .outerjoin(LicensePool.work)\
+            .group_by(Identifier.id).order_by('latest')\
             .filter(
-                Work.id==None, Identifier.id.in_(isbn_ids),
+                Collection.id==self.id,
+                LicensePool.work_id==None,
                 CoverageRecord.status==CoverageRecord.SUCCESS,
-            )
-
-        updated_isbn_ids = updated_isbn_ids.subquery()
-        isbns = _db.query(Identifier).join(Identifier.coverage_records)\
-            .filter(Identifier.id.in_(updated_isbn_ids))\
-            .order_by(CoverageRecord.timestamp)\
-            .options(joinedload(Identifier.coverage_records))
+            ).enable_eagerloads(False).options(joinedload(Identifier.coverage_records))
 
         if timestamp:
             isbns = isbns.filter(CoverageRecord.timestamp > timestamp)

@@ -7432,8 +7432,8 @@ class TestCollection(DatabaseTest):
 
         timestamp = datetime.datetime.utcnow()
 
-        # An empty catalog returns nothing.
-        eq_(None, self.collection.isbns_updated_since(self._db, None))
+        # An empty catalog returns nothing..
+        eq_([], self.collection.isbns_updated_since(self._db, None).all())
 
         # Give the ISBNs some coverage.
         content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
@@ -7444,18 +7444,26 @@ class TestCollection(DatabaseTest):
         oclc = DataSource.lookup(self._db, DataSource.OCLC)
         self._coverage_record(i1, oclc)
 
+        def assert_isbns(expected, result_query):
+            results = [r[0] for r in result_query]
+            eq_(expected, results)
+
         # When no timestamp is given, all ISBNs in the catalog are returned,
         # in order of their CoverageRecord timestamp.
         self.collection.catalog_identifiers([i1, i2])
         updated_isbns = self.collection.isbns_updated_since(self._db, None).all()
-        eq_([i2, i1], updated_isbns)
+        assert_isbns([i2, i1], updated_isbns)
+
+        # That CoverageRecord timestamp is also returned.
+        first_result = updated_isbns[0]
+        assert isinstance(first_result[1], datetime.datetime)
 
         # When a timestamp is passed, only works that have been updated since
         # then will be returned.
         timestamp = datetime.datetime.utcnow()
         i1.coverage_records[0].timestamp = datetime.datetime.utcnow()
         updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)
-        eq_([i1], updated_isbns.all())
+        assert_isbns([i1], updated_isbns)
 
         # Prepare an ISBN associated with a Work.
         work = self._work(with_license_pool=True)
@@ -7464,7 +7472,7 @@ class TestCollection(DatabaseTest):
 
         # ISBNs that have a Work will be ignored.
         updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)
-        eq_([i1], updated_isbns.all())
+        assert_isbns([i1], updated_isbns)
 
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
