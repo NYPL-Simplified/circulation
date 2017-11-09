@@ -1029,6 +1029,10 @@ class TestLane(DatabaseTest):
         lane = self._lane("Fantasy / Science Fiction")
         eq_(lane.id, lane.url_name)
 
+    def test_display_name_for_all(self):
+        lane = self._lane("Fantasy / Science Fiction")
+        eq_("All Fantasy / Science Fiction", lane.display_name_for_all)
+
     def test_setting_target_age_locks_audiences(self):
         lane = self._lane()
         lane.target_age = (16, 18)
@@ -1139,6 +1143,38 @@ class TestLane(DatabaseTest):
         no_inclusive_genres.add_genre("Science Fiction", inclusive=False)
         assert len(no_inclusive_genres.genre_ids) > 10
         assert science_fiction.id not in no_inclusive_genres.genre_ids
+
+    def test_groups(self):
+        w1 = MockWork(1)
+        w2 = MockWork(2)
+        w3 = MockWork(3)
+
+        parent = self._lane()
+        def mock_parent_featured_works(_db):
+            return [w1, w2]
+        parent.featured_works = mock_parent_featured_works
+
+        child = self._lane()
+        parent.sublanes = [child]
+        def mock_child_featured_works(_db):
+            return [w2]
+        child.featured_works = mock_child_featured_works
+
+        # Calling groups() on the parent Lane returns three
+        # 2-tuples; one for a work featured in the sublane,
+        # and then two for a work featured in the parent lane.
+        [wwl1, wwl2, wwl3] = parent.groups(self._db)
+        eq_((w2, child), wwl1)
+        eq_((w1, parent), wwl2)
+        eq_((w2, parent), wwl3)
+
+        # If a lane's sublanes don't contribute any books, then
+        # groups() returns an entirely empty list, indicating that no
+        # groups feed should be displayed.
+        def mock_child_featured_works(_db):
+            return []
+        child.featured_works = mock_child_featured_works
+        eq_([], parent.groups(self._db))
 
     def test_search_target(self):
 

@@ -472,29 +472,33 @@ class AcquisitionFeed(OPDSFeed):
             )
             return cached
 
-        if isinstance(lane, Lane):
-            # Create an 'all' group so that patrons can browse every
-            # book in this lane.
-            works = lane.featured_works(_db)
-            for work in works:
-                works_and_lanes.append((work, None))
-
         all_works = []
         for work, sublane in works_and_lanes:
-            if sublane is None:
-                # This work is in the (e.g.) 'All Science Fiction'
-                # group. Whether or not this lane has sublanes,
-                # the group URI will point to a linear feed, not a
-                # groups feed.
+            if sublane==lane:
+                # We are looking at the groups feed for (e.g.)
+                # "Science Fiction", and we're seeing a book
+                # that is featured within "Science Fiction" itself
+                # rather than one of the sublanes. 
+                #
+                # We want to assign this work to a group called "All
+                # Science Fiction" and point its 'group URI' to 
+                # the linear feed of the "Science Fiction" lane
+                # (as opposed to the groups feed, which is where we
+                # are now).
                 v = dict(
                     lane=lane,
-                    label='All ' + lane.display_name,
+                    label=lane.display_name_for_all,
                     link_to_list_feed=True,
                 )
             else:
-                v = dict(
-                    lane=sublane
-                )
+                # We are looking at the groups feed for (e.g.)
+                # "Science Fiction", and we're seeing a book
+                # that is featured within one of its sublanes,
+                # such as "Space Opera".
+                #
+                # We want to assign this work to a group derived
+                # from the sublane.
+                v = dict(lane=sublane)
             annotator.lanes_by_work[work].append(v)
             all_works.append(work)
 
@@ -1241,6 +1245,9 @@ class LookupAcquisitionFeed(AcquisitionFeed):
 
 class TestAnnotator(Annotator):
 
+    def __init__(self):
+        self.lanes_by_work = defaultdict(list)
+
     @classmethod
     def lane_url(cls, lane):
         if lane and lane.has_visible_children:
@@ -1299,9 +1306,6 @@ class TestAnnotator(Annotator):
 
 
 class TestAnnotatorWithGroup(TestAnnotator):
-
-    def __init__(self):
-        self.lanes_by_work = defaultdict(list)
 
     def group_uri(self, work, license_pool, identifier):
         lanes = self.lanes_by_work.get(work, None)
