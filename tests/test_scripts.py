@@ -1098,14 +1098,13 @@ class TestDatabaseMigrationInitializationScript(DatabaseMigrationScriptTest):
         last_migration_date = filter(lambda m: m.endswith('.py'), migrations_sorted)[-1][0:8]
         self.assert_matches_timestamp(timestamp, last_migration_date)
 
-    def assert_matches_latest_migration(self, timestamp, script=None, last_migration_date=None):
+    def assert_matches_latest_migration(self, timestamp, script=None):
         script = script or self.script
         migrations = script.fetch_migration_files()[0]
-        if not last_migration_date:
-            migrations_sorted = script.sort_migrations(migrations)
-            py_migration = filter(lambda m: m.endswith('.py'), migrations_sorted)[-1][0:8]
-            sql_migration = filter(lambda m: m.endswith('.sql'), migrations_sorted)[-1][0:8]
-            last_migration_date = py_migration if int(py_migration) > int(sql_migration) else sql_migration
+        migrations_sorted = script.sort_migrations(migrations)
+        py_migration = filter(lambda m: m.endswith('.py'), migrations_sorted)[-1][0:8]
+        sql_migration = filter(lambda m: m.endswith('.sql'), migrations_sorted)[-1][0:8]
+        last_migration_date = py_migration if int(py_migration) > int(sql_migration) else sql_migration
         self.assert_matches_timestamp(timestamp, last_migration_date)
 
     def assert_matches_timestamp(self, timestamp, migration_date):
