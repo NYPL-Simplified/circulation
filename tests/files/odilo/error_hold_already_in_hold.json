@@ -1,0 +1,8 @@
+{
+  "errors": [
+    {
+      "id": "LOAN_ALREADY_RESERVED",
+      "description": "Required record has been already reserverd."
+    }
+  ]
+}

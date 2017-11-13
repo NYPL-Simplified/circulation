@@ -19,10 +19,8 @@ from core.odilo import (
 from core.model import (
     Credential,
     DataSource,
-    DeliveryMechanism,
     ExternalIntegration,
-    Identifier,
-    Representation,
+    Identifier
 )
 
 from core.monitor import (
@@ -44,34 +42,17 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
 
-    # Create a lookup table between common DeliveryMechanism identifiers
-    # and Odilo format types.
-    epub = Representation.EPUB_MEDIA_TYPE
-    pdf = Representation.PDF_MEDIA_TYPE
-    mp3 = Representation.MP3_MEDIA_TYPE
-    mp4 = Representation.MP4_MEDIA_TYPE
-    wmv = Representation.WMV_MEDIA_TYPE
-    jpg = Representation.JPEG_MEDIA_TYPE
-    scorm = Representation.ZIP_MEDIA_TYPE
-
-    adobe_drm = DeliveryMechanism.ADOBE_DRM
-    no_drm = DeliveryMechanism.NO_DRM
-    streaming_text = DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE
-
     # maps a 2-tuple (media_type, drm_mechanism) to the internal string used in Odilo API to describe that setup.
     delivery_mechanism_to_internal_format = {
-        (pdf, adobe_drm): 'ACSM',
-        (pdf, streaming_text): 'PDF',
-        (epub, streaming_text): 'EPUB',
-        (mp3, no_drm): 'MP3',
-        (mp4, streaming_text): 'MP4',
-        (wmv, streaming_text): 'WMV',
-        (jpg, no_drm): 'JPG',
-        (scorm, no_drm): 'SCORM',
-    }
+        v: k for k, v in OdiloRepresentationExtractor.format_data_for_odilo_format.iteritems()
+        }
 
     error_to_exception = {
         "TitleNotCheckedOut": NoActiveLoan,
+        "patronNotFound": PatronNotFoundOnRemote,
+        "ERROR_DATA_NOT_FOUND": NotFoundOnRemote,
+        "LOAN_ALREADY_RESERVED": AlreadyOnHold,
+        "CHECKOUT_NOT_FOUND": NotCheckedOut,
     }
 
     def __init__(self, _db, collection):
@@ -99,14 +80,15 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
             else:
                 method = 'get'
 
-        response = HTTP.request_with_timeout(method, url, headers=headers, data=data, timeout=60)
+        response = HTTP.request_with_timeout(method, self.library_api_base_url + url, headers=headers, data=data,
+                                             timeout=60)
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
                 raise Exception("Something's wrong with the patron OAuth Bearer Token!")
             else:
                 # Refresh the token and try again.
-                self.get_patron_credential(patron, pin)
+                self.check_creds(True)
                 return self.patron_request(patron, pin, url, extra_headers, data, True)
         else:
             return response
@@ -150,6 +132,12 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         """
         record_id = licensepool.identifier.identifier
 
+        # We have 2 formats, 'EBOOK_STREAMING' could be in our API ('PDF', 'EPUB'):
+        ebook_streaming = False
+        if internal_format == 'EBOOK_STREAMING':
+            ebook_streaming = True
+            internal_format = 'EPUB'  # Try first ebook_streaming as EPUB
+
         # Data just as 'x-www-form-urlencoded', no JSON
         payload = dict(patronId=patron, format=internal_format)
 
@@ -158,23 +146,23 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
             extra_headers={'Content-Type': 'application/x-www-form-urlencoded'},
             data=payload)
 
-        response_json = response.json()
-        if response.status_code == 404:
-            if response_json and response_json['errors'] and len(response_json['errors']) > 0:
-                error = response_json['errors'][0]
-                if error['id'] == 'ERROR_DATA_NOT_FOUND':
-                    raise NotFoundOnRemote('Record %s' % record_id)
+        if response.content:
+            response_json = response.json()
+            if response.status_code == 404:
+                error_id, error_description = self.raise_exception_on_error(response_json)
+                raise CannotLoan('Error id: %s, description: %s' % (error_id, error_description))
+            else:
+                return self.loan_info_from_odilo_checkout(licensepool.collection, response_json)
 
-                elif error['id'] == 'NoCopiesAvailable':
-                    # Clearly our info is out of date.
-                    # self.update_licensepool(identifier.identifier)
-                    raise NoAvailableCopies()
-                elif error['id'] == 'PatronHasExceededCheckoutLimit':
-                    raise PatronLoanLimitReached()
-                else:
-                    raise CannotLoan(error['id'])
-        else:
-            return self.loan_info_from_odilo_checkout(licensepool.collection, response_json)
+        elif response.status_code == 400 and ebook_streaming:
+            internal_format = 'PDF'  # Retry now with ebook_streaming as PDF
+            return self.checkout(patron, pin, licensepool, internal_format)
+
+        # TODO: we need to improve this at the API and use an error code
+        elif response.status_code == 400:
+            raise NoAcceptableFormat('record_id: %s, format: %s' % (record_id, internal_format))
+
+        raise CannotLoan('patron: %s, record_id: %s, format: %s' % (patron, record_id, internal_format))
 
     def loan_info_from_odilo_checkout(self, collection, checkout):
         start_date = self.extract_date(checkout, 'startTime')
@@ -191,86 +179,86 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         )
 
     def checkin(self, patron, pin, licensepool):
-        checkout_id = licensepool.identifier.identifier
-        url = self.CHECKIN_ENDPOINT.replace("{checkoutId}", checkout_id) + "?patronId=" + patron
+        record_id = licensepool.identifier.identifier
+        loan = self.get_checkout(patron, pin, record_id)
+        url = self.CHECKIN_ENDPOINT.format(checkoutId=loan['id'], patronId=patron)
 
         response = self.patron_request(patron, pin, url, method='POST')
-        if response.status_code == 404:
-            data = response.json()
-            if data and data['errors'] and len(response.json()['errors']) > 0:
-                error = data['errors'][0]
-                if error['id'] == 'CHECKOUT_NOT_FOUND':
-                    raise NotCheckedOut(error['description'])
-                else:
-                    raise CannotReturn(error['id'] + ': ' + error['description'])
-        else:
+        if response.status_code == 200:
             return response
+
+        error_code, error_description = self.raise_exception_on_error(response.json())
+        raise CannotReturn(error_code + ': ' + error_description)
 
     @classmethod
     def extract_date(cls, data, field_name):
-        if field_name not in data:
+        if field_name not in data or not data[field_name]:
             d = None
         else:
             # OdiloAPI dates are timestamps in milliseconds
-            d = datetime.datetime.fromtimestamp(float(data[field_name]) / 1000.0)
+            d = datetime.datetime.utcfromtimestamp(float(data[field_name]) / 1000.0)
         return d
 
-    def raise_exception_on_error(self, data, custom_error_to_exception={}):
+    @classmethod
+    def raise_exception_on_error(cls, data, custom_error_to_exception={}):
         if not data or 'errors' not in data or len(data['errors']) <= 0:
-            return
+            return '', ''
 
         error = data['errors'][0]
         error_code = error['id']
         message = ('description' in error and error['description']) or ''
-        for d in custom_error_to_exception, self.error_to_exception:
-            if error in d:
+        for d in custom_error_to_exception, cls.error_to_exception:
+            if error_code in d:
                 raise d[error_code](message)
 
-    def get_loan(self, patron, pin, checkout_id):
-        url = self.CHECKOUT_GET.replace("{checkoutId}", checkout_id) + '?patronId=' + patron
-        response = self.patron_request(patron, pin, url)
-        if response.status_code == 200 and response.content:
-            data = response.json()
-            self.raise_exception_on_error(data)
-            return data
-        else:
-            return None
+        return error_code, message
 
-    def get_hold(self, patron, pin, hold_id):
-        url = self.HOLD_GET.replace("{holdId}", hold_id)
-        data = self.patron_request(patron, pin, url).json()
-        self.raise_exception_on_error(data)
-        return data
+    def get_checkout(self, patron, pin, record_id):
+        patron_checkouts = self.get_patron_checkouts(patron, pin)
+        for checkout in patron_checkouts:
+            if checkout['recordId'] == record_id:
+                return checkout
+
+        raise NotFoundOnRemote("Could not find active for patron %s, record %s" % (patron, record_id))
+
+    def get_hold(self, patron, pin, record_id):
+        patron_holds = self.get_patron_holds(patron, pin)
+        for hold in patron_holds:
+            if hold['recordId'] == record_id and hold['status'] in ('informed', 'waiting'):
+                return hold
+
+        raise NotFoundOnRemote("Could not find active hold for patron %s, record %s" % (patron, record_id))
 
     def fulfill(self, patron, pin, licensepool, internal_format):
-        checkout_id = licensepool.identifier.identifier
-        content_link, content, content_type = self.get_fulfillment_link(patron, pin, checkout_id, internal_format)
+        record_id = licensepool.identifier.identifier
+        content_link, content, content_type = self.get_fulfillment_link(patron, pin, record_id, internal_format)
 
         if not content_link and not content:
-            self.log.info("Odilo record_id %s was not available as %s" % (checkout_id, internal_format))
+            self.log.info("Odilo record_id %s was not available as %s" % (record_id, internal_format))
         else:
             return FulfillmentInfo(
                 licensepool.collection,
                 DataSource.ODILO,
                 Identifier.ODILO_ID,
-                checkout_id,
+                record_id,
                 content_link=content_link,
                 content=content,
                 content_type=content_type,
                 content_expires=None
             )
 
-    def get_fulfillment_link(self, patron, pin, checkout_id, format_type):
-        """Get the link corresponding to an existing loan.
+    def get_fulfillment_link(self, patron, pin, record_id, format_type):
+        """Get the link corresponding to an existing checkout.
         """
-        # Retrieve loan with its download_ulr. It is necessary to generate a download token in our API
-        loan = self.get_loan(patron, pin, checkout_id)
-        if not loan:
-            raise NoActiveLoan("Could not find active loan for %s" % checkout_id)
-
-        if format_type and loan['format'] and format_type == loan['format']:
-            if 'downloadUrl' in loan and loan['downloadUrl']:
-                content_link = loan['downloadUrl']
+        # Retrieve checkout with its download_ulr. It is necessary to generate a download token in our API
+        checkout = self.get_checkout(patron, pin, record_id)
+        loan_format = checkout['format']
+        if format_type and loan_format and (
+                        format_type == loan_format or
+                        (format_type == 'EBOOK_STREAMING' and loan_format in ('EPUB', 'PDF'))
+        ):
+            if 'downloadUrl' in checkout and checkout['downloadUrl']:
+                content_link = checkout['downloadUrl']
                 content = None
                 content_type = OdiloRepresentationExtractor.format_data_for_odilo_format[format_type]
 
@@ -280,23 +268,21 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                     if response.status_code == 200:
                         content = response.content
                     elif response.status_code == 404 and response.content:
-                        data = response.json()
-                        if data and 'errors' in data and len(data['errors']) > 0:
-                            error = data['errors'][0]
-                            raise CannotFulfill(error['id'] + ': ' + error['description'])
+                        error_id, error_description = self.raise_exception_on_error(response.json())
+                        raise CannotFulfill(error_id + ': ' + error_description)
 
                 return content_link, content, content_type
 
-        raise CannotFulfill("Cannot obtain a download link for patron[%r], checkout_id[%s], format_type[%s].", patron,
-                            checkout_id, format_type)
+        raise CannotFulfill("Cannot obtain a download link for patron[%r], record_id[%s], format_type[%s].", patron,
+                            record_id, format_type)
 
     def get_patron_checkouts(self, patron, pin):
-        data = self.patron_request(patron, pin, self.PATRON_CHECKOUTS_ENDPOINT.replace("{patronId}", patron)).json()
+        data = self.patron_request(patron, pin, self.PATRON_CHECKOUTS_ENDPOINT.format(patronId=patron)).json()
         self.raise_exception_on_error(data)
         return data
 
     def get_patron_holds(self, patron, pin):
-        data = self.patron_request(patron, pin, self.PATRON_HOLDS_ENDPOINT.replace("{patronId}", patron)).json()
+        data = self.patron_request(patron, pin, self.PATRON_HOLDS_ENDPOINT.format(patronId=patron)).json()
         self.raise_exception_on_error(data)
         return data
 
@@ -329,7 +315,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
             position = int(position)
 
         # Patron already notified to borrow the title
-        if 'A' == hold['status']:
+        if 'informed' == hold['status']:
             position = 0
 
         return HoldInfo(
@@ -354,7 +340,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         payload = dict(patronId=patron)
 
         response = self.patron_request(
-            patron, pin, self.PLACE_HOLD_ENDPOINT.replace("{recordId}", record_id),
+            patron, pin, self.PLACE_HOLD_ENDPOINT.format(recordId=record_id),
             extra_headers={'Content-Type': 'application/x-www-form-urlencoded'},
             data=payload)
 
@@ -362,52 +348,27 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         if response.status_code == 200:
             return self.hold_from_odilo_hold(licensepool.collection, data)
 
-        if response.status_code in (403, 404):
-            if not data or 'errors' not in data or len(data['errors']) <= 0:
-                raise CannotHold()
-
-            error = data['errors'][0]
-            code = error['id']
-            description = ''
-            if 'description' in error:
-                description = error['description']
-
-            if code == 'LOAN_ALREADY_RESERVED':
-                raise AlreadyOnHold(description)
-            elif code == 'ERROR_DATA_NOT_FOUND':
-                raise NotFoundOnRemote(code + ', record: ' + record_id)
-            elif code == 'PatronExceededHoldLimit':
-                raise PatronHoldLimitReached(description)
-
-        raise CannotHold()
+        error_code, error_description = self.raise_exception_on_error(data)
+        raise CannotHold(error_code + ': ' + error_description)
 
     def release_hold(self, patron, pin, licensepool):
         """Release a patron's hold on a book.
         """
-        hold_id = licensepool.identifier.identifier
-        url = self.RELEASE_HOLD_ENDPOINT.replace("{holdId}", hold_id)
+
+        record_id = licensepool.identifier.identifier
+        hold = self.get_hold(patron, pin, record_id)
+        url = self.RELEASE_HOLD_ENDPOINT.format(holdId=hold['id'])
         payload = json.dumps(dict(patronId=patron))
 
         response = self.patron_request(patron, pin, url, extra_headers={}, data=payload, method='POST')
-
         if response.status_code == 200:
             return True
 
-        if not response.content:
-            raise CannotReleaseHold()
-
-        data = response.json()
-        if 'errors' not in data or len(data['errors']) <= 0:
-            raise CannotReleaseHold()
-
-        error = data['errors'][0]
-        code = error['id']
-        description = error['description']
-
-        if code == 'HOLD_NOT_FOUND':
+        error_code, error_description = self.raise_exception_on_error(response.json())
+        if error_code == 'HOLD_NOT_FOUND':
             return True
 
-        raise CannotReleaseHold(description)
+        raise CannotReleaseHold(error_code + ': ' + error_description)
 
 
 class OdiloCirculationMonitor(CollectionMonitor):
@@ -426,23 +387,13 @@ class OdiloCirculationMonitor(CollectionMonitor):
         self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
 
         start_time = datetime.datetime.now()
-        self.recently_changed_ids(start)
+        self.all_ids(start)
         finish_time = datetime.datetime.now()
 
         time_elapsed = finish_time - start_time
         self.log.info("recently_changed_ids finished in: " + str(time_elapsed))
 
-    def recently_changed_ids(self, start):
-        modification_date = None
-        if start:
-            if isinstance(start, datetime.date):
-                modification_date = start.strftime('%Y-%m-%d')  # Format YYYY-MM-DD
-            elif isinstance(start, basestring):
-                modification_date = start
-
-        self.all_ids(modification_date)
-
-    def all_ids(self, modication_date=None):
+    def all_ids(self, modification_date=None):
         """Get IDs for every book in the system, from modification date if any
         """
 
@@ -452,11 +403,11 @@ class OdiloCirculationMonitor(CollectionMonitor):
         offset = 0
         limit = self.api.PAGE_SIZE_LIMIT
 
-        url = "%s?limit=%i&offset=%i" % (self.api.ALL_PRODUCTS_ENDPOINT, limit, offset)
-        if modication_date:
-            url = "%s&modificationDate=%s" % (url, modication_date)
+        if modification_date and isinstance(modification_date, datetime.date):
+            modification_date = modification_date.strftime('%Y-%m-%d')  # Format YYYY-MM-DD
 
         # Retrieve first group of records
+        url = self.get_url(limit, modification_date, offset)
         status_code, headers, content = self.api.get(url)
         content = json.loads(content)
 
@@ -483,10 +434,7 @@ class OdiloCirculationMonitor(CollectionMonitor):
             self._db.commit()
 
             # Retrieve next group of records
-            url = "%s?limit=%i&offset=%i" % (self.api.ALL_PRODUCTS_ENDPOINT, limit, offset)
-            if modication_date:
-                url = "%s&modificationDate=%s" % (url, modication_date)
-
+            url = self.get_url(limit, modification_date, offset)
             status_code, headers, content = self.api.get(url)
             content = json.loads(content)
 
@@ -495,8 +443,14 @@ class OdiloCirculationMonitor(CollectionMonitor):
             if content:
                 self.log.error('ERROR response content: ' + str(content))
         else:
-            self.log.info('Retrieving all ids finished ok. Retrieved %i records!!' % retrieved)
-            self.log.info('New records: %i' % new)
+            self.log.info('Retrieving all ids finished ok. Retrieved %i records. New records: %i!!' % (retrieved, new))
+
+    def get_url(self, limit, modification_date, offset):
+        url = "%s?limit=%i&offset=%i" % (self.api.ALL_PRODUCTS_ENDPOINT, limit, offset)
+        if modification_date:
+            url = "%s&modificationDate=%s" % (url, modification_date)
+
+        return url
 
 
 class FullOdiloCollectionMonitor(OdiloCirculationMonitor):
@@ -513,7 +467,7 @@ class FullOdiloCollectionMonitor(OdiloCirculationMonitor):
         self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
 
         start_time = datetime.datetime.now()
-        self.recently_changed_ids(None)
+        self.all_ids(None)
         finish_time = datetime.datetime.now()
 
         time_elapsed = finish_time - start_time
@@ -529,4 +483,13 @@ class RecentOdiloCollectionMonitor(OdiloCirculationMonitor):
 
 class MockOdiloAPI(BaseMockOdiloAPI, OdiloAPI):
     def patron_request(self, patron, pin, *args, **kwargs):
-        pass
+        response = self._make_request(*args, **kwargs)
+
+        # Modify the record of the request to include the patron information.
+        original_data = self.requests[-1]
+
+        # The last item in the record of the request is keyword arguments.
+        # Stick this information in there to minimize confusion.
+        original_data[-1]['_patron'] = patron
+        original_data[-1]['_pin'] = patron
+        return response
