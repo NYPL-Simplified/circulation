@@ -174,7 +174,7 @@ class HasFullTableCache(object):
     """A mixin class for ORM classes that maintain an in-memory cache of
     (hopefully) every item in the database table for performance reasons.
     """
-    
+
     RESET = object()
 
     # You MUST define your own class-specific '_cache' and '_id_cache'
@@ -182,15 +182,15 @@ class HasFullTableCache(object):
     #
     # _cache = HasFullTableCache.RESET
     # _id_cache = HasFullTableCache.RESET
-    
+
     @classmethod
     def reset_cache(cls):
         cls._cache = cls.RESET
         cls._id_cache = cls.RESET
-        
+
     def cache_key(self):
         raise NotImplementedError()
-        
+
     @classmethod
     def _cache_insert(cls, obj, cache, id_cache):
         """Cache an object for later retrieval, possibly by a different
@@ -208,7 +208,7 @@ class HasFullTableCache(object):
             # reset and the time we tried to put an object in the
             # cache. Stop trying to mess with the cache.
             pass
-                
+
     @classmethod
     def populate_cache(cls, _db):
         """Populate the in-memory caches from scratch with every single
@@ -220,7 +220,7 @@ class HasFullTableCache(object):
             cls._cache_insert(obj, cache, id_cache)
         cls._cache = cache
         cls._id_cache = id_cache
-        
+
     @classmethod
     def _cache_lookup(cls, _db, cache, cache_name, cache_key, lookup_hook):
         """Helper method used by both by_id and by_cache_key.
@@ -247,7 +247,7 @@ class HasFullTableCache(object):
                 # reset just now, we still have a copy of the 'old'
                 # cache which passed the 'cache != cls.RESET' test.
                 pass
-                
+
         if not obj:
             # Either this object didn't exist when the cache was
             # populated, or the cache was reset while we were trying
@@ -266,7 +266,7 @@ class HasFullTableCache(object):
             # Stick the object in the caches, assuming they're not
             # currently in a reset state.
             cls._cache_insert(obj, cls._cache, cls._id_cache)
-            
+
         if obj and obj not in _db:
             try:
                 obj = _db.merge(obj, load=False)
@@ -285,17 +285,17 @@ class HasFullTableCache(object):
                 logging.error("Unable to look up a fresh copy of %r", obj)
                 raise e
         return obj, new
-        
+
     @classmethod
     def by_id(cls, _db, id):
         """Look up an item by its unique database ID."""
         def lookup_hook():
-            return get_one(_db, cls, id=id), False        
+            return get_one(_db, cls, id=id), False
         obj, is_new = cls._cache_lookup(
             _db, cls._id_cache, '_id_cache', id, lookup_hook
         )
         return obj
-            
+
     @classmethod
     def by_cache_key(cls, _db, cache_key, lookup_hook):
         return cls._cache_lookup(
@@ -356,7 +356,7 @@ class SessionManager(object):
                 "Loading materialized view %s from %s.",
                 view_name, resource_file)
             sql = open(resource_file).read()
-            connection.execute(sql)                
+            connection.execute(sql)
 
         if not connection:
             connection = engine.connect()
@@ -385,8 +385,8 @@ class SessionManager(object):
 
         class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
             __table__ = Table(
-                cls.MATERIALIZED_VIEW_WORKS_WORKGENRES, 
-                Base.metadata, 
+                cls.MATERIALIZED_VIEW_WORKS_WORKGENRES,
+                Base.metadata,
                 Column('works_id', Integer, primary_key=True),
                 Column('workgenres_id', Integer, primary_key=True),
                 Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
@@ -394,21 +394,21 @@ class SessionManager(object):
                 autoload_with=engine
             )
             license_pool = relationship(
-                LicensePool, 
+                LicensePool,
                 primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
                 foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
         class MaterializedWork(Base, BaseMaterializedWork):
             __table__ = Table(
-                cls.MATERIALIZED_VIEW_WORKS, 
-                Base.metadata, 
+                cls.MATERIALIZED_VIEW_WORKS,
+                Base.metadata,
                 Column('works_id', Integer, primary_key=True),
                 Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
               autoload=True,
                 autoload_with=engine
             )
             license_pool = relationship(
-                LicensePool, 
+                LicensePool,
                 primaryjoin="LicensePool.id==MaterializedWork.license_pool_id",
                 foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
@@ -446,7 +446,7 @@ class SessionManager(object):
 
         # Load all existing Genre objects.
         Genre.populate_cache(session)
-        
+
         # Create any genres not in the database.
         for g in classifier.genres.values():
             # TODO: On the very first startup this is rather expensive
@@ -467,7 +467,7 @@ class SessionManager(object):
         # If there is currently no 'site configuration change'
         # Timestamp in the database, create one.
         timestamp, is_new = get_one_or_create(
-            session, Timestamp, collection=None, 
+            session, Timestamp, collection=None,
             service=Configuration.SITE_CONFIGURATION_CHANGED,
             create_method_kwargs=dict(timestamp=datetime.datetime.utcnow())
         )
@@ -530,7 +530,7 @@ def get_one_or_create(db, model, create_method='',
             return obj
         except IntegrityError, e:
             logging.info(
-                "INTEGRITY ERROR on %r %r, %r: %r", model, create_method_kwargs, 
+                "INTEGRITY ERROR on %r %r, %r: %r", model, create_method_kwargs,
                 kwargs, e)
             __transaction.rollback()
             return db.query(model).filter_by(**kwargs).one(), False
@@ -572,7 +572,7 @@ class Patron(Base):
         Integer, ForeignKey('libraries.id'), index=True,
         nullable=False
     )
-    
+
     # The patron's permanent unique identifier in an external library
     # system, probably never seen by the patron.
     #
@@ -630,7 +630,7 @@ class Patron(Base):
     # library server).
     _synchronize_annotations = Column(Boolean, default=None,
                                       name="synchronize_annotations")
-    
+
     loans = relationship('Loan', backref='patron')
     holds = relationship('Hold', backref='patron')
 
@@ -644,7 +644,7 @@ class Patron(Base):
         UniqueConstraint('library_id', 'authorization_identifier'),
         UniqueConstraint('library_id', 'external_identifier'),
     )
-    
+
     AUDIENCE_RESTRICTION_POLICY = 'audiences'
 
     def identifier_to_remote_service(self, remote_data_source, generator=None):
@@ -666,7 +666,7 @@ class Patron(Base):
             self, refresh, allow_persistent_token=True
         )
         return credential.credential
-    
+
     def works_on_loan(self):
         db = Session.object_session(self)
         loans = db.query(Loan).filter(Loan.patron==self)
@@ -702,7 +702,7 @@ class Patron(Base):
     @hybrid_property
     def synchronize_annotations(self):
         return self._synchronize_annotations
-    
+
     @synchronize_annotations.setter
     def _set_synchronize_annotations(self, value):
         """When a patron says they don't want their annotations to be stored
@@ -725,7 +725,7 @@ Index("ix_patron_library_id_external_identifier", Patron.library_id, Patron.exte
 Index("ix_patron_library_id_authorization_identifier", Patron.library_id, Patron.authorization_identifier)
 Index("ix_patron_library_id_username", Patron.library_id, Patron.username)
 
-        
+
 class PatronProfileStorage(ProfileStorage):
     """Interface between a Patron object and the User Profile Management
     Protocol.
@@ -737,7 +737,7 @@ class PatronProfileStorage(ProfileStorage):
         :param patron: We are accessing the profile for this patron.
         """
         self.patron = patron
-    
+
     @property
     def writable_setting_names(self):
         """Return the subset of settings that are considered writable."""
@@ -783,7 +783,7 @@ class LoanAndHoldMixin(object):
             return license_pool.work
         if license_pool.presentation_edition and license_pool.presentation_edition.work:
             return license_pool.presentation_edition.work
-        return None        
+        return None
 
 
 class Loan(Base, LoanAndHoldMixin):
@@ -828,7 +828,7 @@ class Hold(Base, LoanAndHoldMixin):
 
         We have to wait for the available licenses to cycle a
         certain number of times before we get a turn.
-        
+
         Example: 4 licenses, queue position 21
         After 1 cycle: queue position 17
               2      : queue position 13
@@ -900,7 +900,7 @@ class Hold(Base, LoanAndHoldMixin):
         """When the book becomes available, position will be 0 and end will be
         set to the time at which point the patron will lose their place in
         line.
-        
+
         Otherwise, end is irrelevant and is set to None.
         """
         if start is not None:
@@ -923,7 +923,7 @@ class Annotation(Base):
 
     # We need to define some terms of our own.
     LS_NAMESPACE = u"http://librarysimplified.org/terms/annotation/"
-   
+
     IDLING = LS_NAMESPACE + u'idling'
     BOOKMARKING = OA_NAMESPACE + u'bookmarking'
 
@@ -951,7 +951,7 @@ class Annotation(Base):
             raise ValueError(
                 "Patron has opted out of synchronizing annotations."
             )
-    
+
         return get_one_or_create(
             _db, Annotation, patron=patron, *args, **kwargs
         )
@@ -1006,7 +1006,7 @@ class DataSource(Base, HasFullTableCache):
     }
     THREEM = BIBLIOTHECA
     ONECLICK = RB_DIGITAL
-    
+
     # Some sources of open-access ebooks are better than others. This
     # list shows which sources we prefer, in ascending order of
     # priority. unglue.it is lowest priority because it tends to
@@ -1032,9 +1032,9 @@ class DataSource(Base, HasFullTableCache):
     #
     # This list keeps track of the high-priority portion of that
     # ordering.
-    # 
+    #
     # "LIBRARY_STAFF" comes from the Admin Interface.
-    # "MANUAL" is not currently used, but will give the option of putting in 
+    # "MANUAL" is not currently used, but will give the option of putting in
     # software engineer-created system overrides.
     PRESENTATION_EDITION_PRIORITY = [METADATA_WRANGLER, LIBRARY_STAFF, MANUAL]
 
@@ -1090,13 +1090,13 @@ class DataSource(Base, HasFullTableCache):
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
-    
+
     def __repr__(self):
         return '<DataSource: name="%s">' % (self.name)
 
     def cache_key(self):
         return self.name
-    
+
     @classmethod
     def lookup(cls, _db, name, autocreate=False, offers_licenses=False,
                primary_identifier_type=None):
@@ -1125,7 +1125,7 @@ class DataSource(Base, HasFullTableCache):
         # to the database if necessary.
         obj, is_new = cls.by_cache_key(_db, name, lookup_hook)
         return obj
-    
+
     URI_PREFIX = u"http://librarysimplified.org/terms/sources/"
 
     @classmethod
@@ -1174,7 +1174,7 @@ class DataSource(Base, HasFullTableCache):
     def metadata_sources_for(cls, _db, identifier):
         """Finds the DataSources that provide metadata for books
         identified by the given identifier.
-        """       
+        """
         if isinstance(identifier, basestring):
             type = identifier
         else:
@@ -1184,7 +1184,7 @@ class DataSource(Base, HasFullTableCache):
             # This should only happen during testing.
             list(DataSource.well_known_sources(_db))
 
-        names = cls.metadata_lookups_by_identifier_type[type] 
+        names = cls.metadata_lookups_by_identifier_type[type]
         return _db.query(DataSource).filter(DataSource.name.in_(names)).all()
 
     @classmethod
@@ -1242,10 +1242,10 @@ class DataSource(Base, HasFullTableCache):
             yield obj
 
 class BaseCoverageRecord(object):
-    """Contains useful constants used by both CoverageRecord and 
+    """Contains useful constants used by both CoverageRecord and
     WorkCoverageRecord.
     """
-    
+
     SUCCESS = u'success'
     TRANSIENT_FAILURE = u'transient failure'
     PERSISTENT_FAILURE = u'persistent failure'
@@ -1258,11 +1258,11 @@ class BaseCoverageRecord(object):
     # as present if it ended in transient failure.
     DEFAULT_COUNT_AS_COVERED = [SUCCESS, PERSISTENT_FAILURE]
 
-    status_enum = Enum(SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE, 
+    status_enum = Enum(SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE,
                        REGISTERED, name='coverage_status')
 
     @classmethod
-    def not_covered(cls, count_as_covered=None, 
+    def not_covered(cls, count_as_covered=None,
                     count_as_not_covered_if_covered_before=None):
         """Filter a query to find only items without coverage records.
 
@@ -1330,7 +1330,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
     exception = Column(Unicode, index=True)
-    
+
     # If applicable, this is the ID of the collection for which
     # coverage has taken place. This is currently only applicable
     # for Metadata Wrangler coverage.
@@ -1361,10 +1361,10 @@ class CoverageRecord(Base, BaseCoverageRecord):
             exception = ''
         template = '<CoverageRecord: identifier=%s/%s data_source="%s"%s timestamp="%s"%s>'
         return template % (
-            self.identifier.type, 
+            self.identifier.type,
             self.identifier.identifier,
             self.data_source.name,
-            operation, 
+            operation,
             self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             exception
         )
@@ -1378,7 +1378,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             identifier = edition_or_identifier.primary_identifier
         else:
             raise ValueError(
-                "Cannot look up a coverage record for %r." % edition) 
+                "Cannot look up a coverage record for %r." % edition)
         return get_one(
             _db, CoverageRecord,
             identifier=identifier,
@@ -1397,7 +1397,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             identifier = edition.primary_identifier
         else:
             raise ValueError(
-                "Cannot create a coverage record for %r." % edition) 
+                "Cannot create a coverage record for %r." % edition)
         timestamp = timestamp or datetime.datetime.utcnow()
         coverage_record, is_new = get_one_or_create(
             _db, CoverageRecord,
@@ -1434,7 +1434,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
     work_id = Column(
         Integer, ForeignKey('works.id'), index=True)
     operation = Column(String(255), index=True, default=None)
-        
+
     timestamp = Column(DateTime, index=True)
 
     status = Column(BaseCoverageRecord.status_enum, index=True)
@@ -1451,7 +1451,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
             exception = ''
         template = '<WorkCoverageRecord: work_id=%s operation="%s" timestamp="%s"%s>'
         return template % (
-            self.work_id, self.operation, 
+            self.work_id, self.operation,
             self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
             exception
         )
@@ -1467,7 +1467,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         )
 
     @classmethod
-    def add_for(self, work, operation, timestamp=None, 
+    def add_for(self, work, operation, timestamp=None,
                 status=CoverageRecord.SUCCESS):
         _db = Session.object_session(work)
         timestamp = timestamp or datetime.datetime.utcnow()
@@ -1482,9 +1482,9 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
         return coverage_record, is_new
 
     @classmethod
-    def bulk_add(self, works, operation, timestamp=None, 
+    def bulk_add(self, works, operation, timestamp=None,
                  status=CoverageRecord.SUCCESS, exception=None):
-        """Create and update WorkCoverageRecords so that every Work in 
+        """Create and update WorkCoverageRecords so that every Work in
         `works` has an identical record.
         """
         if not works:
@@ -1517,9 +1517,9 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
 
         # The SELECT part of the INSERT...SELECT query.
         new_records = _db.query(
-            Work.id.label('work_id'), 
+            Work.id.label('work_id'),
             literal(operation, type_=BaseCoverageRecord.status_enum).label('operation'),
-            literal(timestamp, type_=DateTime).label('timestamp'), 
+            literal(timestamp, type_=DateTime).label('timestamp'),
 
             literal(status, type_=BaseCoverageRecord.status_enum).label('status')
         ).select_from(
@@ -1538,7 +1538,7 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
                 literal_column('operation'),
                 literal_column('timestamp'),
                 literal_column('status'),
-            ], 
+            ],
             new_records
         )
         _db.execute(insert)
@@ -1600,7 +1600,7 @@ class Equivalency(Base):
 class Identifier(Base):
     """A way of uniquely referring to a particular edition.
     """
-    
+
     # Common types of identifiers.
     OVERDRIVE_ID = u"Overdrive ID"
     ODILO_ID = u"Odilo ID"
@@ -1708,7 +1708,7 @@ class Identifier(Base):
         "LicensePoolDeliveryMechanism", backref="identifier",
         foreign_keys=lambda: [LicensePoolDeliveryMechanism.identifier_id]
     )
-    
+
     # Type + identifier is unique.
     __table_args__ = (
         UniqueConstraint('type', 'identifier'),
@@ -1745,7 +1745,7 @@ class Identifier(Base):
         foreign_identifier_type = cls.DEPRECATED_NAMES.get(
             foreign_identifier_type, foreign_identifier_type
         )
-        
+
         if foreign_identifier_type in (
                 Identifier.OVERDRIVE_ID, Identifier.BIBLIOTHECA_ID):
             foreign_id = foreign_id.lower()
@@ -1795,7 +1795,7 @@ class Identifier(Base):
         if any(x in id for x in forbidden_characters):
             return False
         return True
-            
+
     @property
     def urn(self):
         identifier_text = urllib.quote(self.identifier)
@@ -1820,7 +1820,7 @@ class Identifier(Base):
         for lp in self.licensed_through:
             if lp.work:
                 return lp.work
-        
+
     class UnresolvableIdentifierException(Exception):
         # Raised when an identifier that can't be resolved into a LicensePool
         # is provided in a context that requires a resolvable identifier
@@ -1833,7 +1833,7 @@ class Identifier(Base):
         m = cls.GUTENBERG_URN_SCHEME_RE.match(identifier_string)
         if m:
             type = Identifier.GUTENBERG_ID
-            identifier_string = m.groups()[0]            
+            identifier_string = m.groups()[0]
         elif identifier_string.startswith("http:") or identifier_string.startswith("https:"):
             type = Identifier.URI
         elif identifier_string.startswith(Identifier.URN_SCHEME_PREFIX):
@@ -1875,7 +1875,7 @@ class Identifier(Base):
     def equivalent_to(self, data_source, identifier, strength):
         """Make one Identifier equivalent to another.
 
-        `data_source` is the DataSource that believes the two 
+        `data_source` is the DataSource that believes the two
         identifiers are equivalent.
         """
         _db = Session.object_session(self)
@@ -1893,7 +1893,7 @@ class Identifier(Base):
         eq.strength=strength
         if new:
             logging.info(
-                "Identifier equivalency: %r==%r p=%.2f", self, identifier, 
+                "Identifier equivalency: %r==%r p=%.2f", self, identifier,
                 strength
             )
         return eq
@@ -1904,7 +1904,7 @@ class Identifier(Base):
         """Get a SQL statement that will return all Identifier IDs
         equivalent to a given ID at the given confidence threshold.
 
-        `identifier_id_column` can be a single Identifier ID, or a column 
+        `identifier_id_column` can be a single Identifier ID, or a column
         like `Edition.primary_identifier_id` if the query will be used as
         a subquery.
 
@@ -1936,7 +1936,7 @@ class Identifier(Base):
             equivalent = r[1]
             equivalents[original].append(equivalent)
         return equivalents
-        
+
     def equivalent_identifier_ids(self, levels=5, threshold=0.5):
         _db = Session.object_session(self)
         return Identifier.recursively_equivalent_identifier_ids(
@@ -1962,7 +1962,7 @@ class Identifier(Base):
         created. It might be good to move that code into here.
         """
         _db = Session.object_session(self)
-        
+
         # Find or create the Resource.
         if not href:
             href = Hyperlink.generic_uri(data_source, self, rel, content)
@@ -1981,7 +1981,7 @@ class Identifier(Base):
             # We have content for this resource.
             resource.set_fetched_content(media_type, content, content_path)
         elif (media_type and (
-                not resource.representation 
+                not resource.representation
                 or not resource.representation.mirrored_at)
         ):
             # There's a version of this resource stored elsewhere that we
@@ -2052,7 +2052,7 @@ class Identifier(Base):
         logging.debug(
             "CLASSIFICATION: %s on %s/%s: %s %s/%s (wt=%d)",
             data_source.name, self.type, self.identifier,
-            subject.type, subject.identifier, subject.name, 
+            subject.type, subject.identifier, subject.name,
             weight
         )
 
@@ -2239,7 +2239,7 @@ class Identifier(Base):
         quality = Measurement.overall_quality(self.measurements)
         from opds import AcquisitionFeed
         return AcquisitionFeed.minimal_opds_entry(
-            identifier=self, cover=cover_image, 
+            identifier=self, cover=cover_image,
             description=description, quality=quality)
 
 
@@ -2266,7 +2266,7 @@ class Contributor(Base):
     # situations where the full name is too long. For corporate contributors
     # this value will be None.
     family_name = Column(Unicode, index=True)
-    
+
     # This is the name used for this contributor on Wikipedia. This
     # gives us an entry point to Wikipedia, Wikidata, etc.
     wikipedia_name = Column(Unicode, index=True)
@@ -2317,11 +2317,11 @@ class Contributor(Base):
     # People from these roles can be put into the 'author' slot if no
     # author proper is given.
     AUTHOR_SUBSTITUTE_ROLES = [
-        EDITOR_ROLE, COMPILER_ROLE, COMPOSER_ROLE, DIRECTOR_ROLE, 
-         CONTRIBUTOR_ROLE, TRANSLATOR_ROLE, ADAPTER_ROLE, PHOTOGRAPHER_ROLE, 
+        EDITOR_ROLE, COMPILER_ROLE, COMPOSER_ROLE, DIRECTOR_ROLE,
+         CONTRIBUTOR_ROLE, TRANSLATOR_ROLE, ADAPTER_ROLE, PHOTOGRAPHER_ROLE,
          ARTIST_ROLE, LYRICIST_ROLE, COPYRIGHT_HOLDER_ROLE
     ]
-    
+
     PERFORMER_ROLES = [ACTOR_ROLE, PERFORMER_ROLE, NARRATOR_ROLE, MUSICIAN_ROLE]
 
     # Extra fields
@@ -2347,7 +2347,7 @@ class Contributor(Base):
     def lookup(cls, _db, sort_name=None, viaf=None, lc=None, aliases=None,
                extra=None, create_new=True, name=None):
         """Find or create a record (or list of records) for the given Contributor.
-        :return: A tuple of found Contributor (or None), and a boolean flag 
+        :return: A tuple of found Contributor (or None), and a boolean flag
         indicating if new Contributor database object has beed created.
         """
 
@@ -2424,15 +2424,15 @@ class Contributor(Base):
     @sort_name.setter
     def sort_name(self, new_sort_name):
         """ See if the passed-in value is in the prescribed Last, First format.
-        If it is, great, set the self._sprt_name to the new value.  
+        If it is, great, set the self._sprt_name to the new value.
 
-        If new value is not in correct format, then 
+        If new value is not in correct format, then
         attempt to re-format the value to look like: "Last, First Middle, Dr./Jr./etc.".
 
-        Note: If for any reason you need to force the sort_name to an improper value, 
-        set it like so:  contributor._sort_name="Foo Bar", and you'll avoid further processing. 
+        Note: If for any reason you need to force the sort_name to an improper value,
+        set it like so:  contributor._sort_name="Foo Bar", and you'll avoid further processing.
 
-        Note: For now, have decided to not automatically update any edition.sort_author 
+        Note: For now, have decided to not automatically update any edition.sort_author
         that might have contributions by this Contributor.
         """
 
@@ -2475,7 +2475,7 @@ class Contributor(Base):
             destination,
             destination.viaf
         )
-        
+
         # make sure we're not losing any names we know for the contributor
         existing_aliases = set(destination.aliases)
         new_aliases = list(destination.aliases)
@@ -2540,7 +2540,7 @@ class Contributor(Base):
     ALPHABETIC = re.compile("[a-zA-z]")
     NUMBERS = re.compile("[0-9]")
 
-    DATE_RES = [re.compile("\(?" + x + "\)?") for x in 
+    DATE_RES = [re.compile("\(?" + x + "\)?") for x in
                 "[0-9?]+-",
                 "[0-9]+st cent",
                 "[0-9]+nd cent",
@@ -2589,13 +2589,13 @@ class Contributor(Base):
             for date_re in cls.DATE_RES:
                 m = date_re.search(final)
                 if m:
-                    new_part = final[:m.start()].strip() 
+                    new_part = final[:m.start()].strip()
                     if new_part:
                         parts[-1] = new_part
                     else:
                         del parts[-1]
                     break
-               
+
             family_name = parts[0]
             p = parts[-1].lower()
             if (p in ('llc', 'inc', 'inc.')
@@ -2689,7 +2689,7 @@ class Edition(Base):
     # An Edition may be the presentation edition for a single Work. If it's not
     # a presentation edition for a work, work will be None.
     work = relationship("Work", uselist=False, backref="presentation_edition")
- 
+
     # An Edition may show up in many CustomListEntries.
     custom_list_entries = relationship("CustomListEntry", backref="edition")
 
@@ -2719,7 +2719,7 @@ class Edition(Base):
     publisher = Column(Unicode, index=True)
     imprint = Column(Unicode, index=True)
 
-    # `issued` is the date the ebook edition was sent to the distributor by the publisher, 
+    # `issued` is the date the ebook edition was sent to the distributor by the publisher,
     # i.e. the date it became available for librarians to buy for their libraries
     issued = Column(Date)
     # `published is the original publication date of the text.
@@ -2732,6 +2732,7 @@ class Edition(Base):
     MUSIC_MEDIUM = u"Music"
     VIDEO_MEDIUM = u"Video"
     IMAGE_MEDIUM = u"Image"
+    COURSEWARE_MEDIUM = u"Courseware"
 
     ELECTRONIC_FORMAT = u"Electronic"
     CODEX_FORMAT = u"Codex"
@@ -2742,6 +2743,8 @@ class Edition(Base):
         PERIODICAL_MEDIUM : u"http://schema.org/PublicationIssue",
         MUSIC_MEDIUM :  u"http://schema.org/MusicRecording",
         VIDEO_MEDIUM :  u"http://schema.org/VideoObject",
+        IMAGE_MEDIUM :  u"http://schema.org/ImageObject",
+        COURSEWARE_MEDIUM : u""
     }
 
     additional_type_to_medium = {}
@@ -2749,20 +2752,20 @@ class Edition(Base):
         additional_type_to_medium[v] = k
 
     medium = Column(
-        Enum(BOOK_MEDIUM, PERIODICAL_MEDIUM, AUDIO_MEDIUM,
-             MUSIC_MEDIUM, VIDEO_MEDIUM, name="medium"),
+        Enum(BOOK_MEDIUM, PERIODICAL_MEDIUM, AUDIO_MEDIUM, MUSIC_MEDIUM, VIDEO_MEDIUM, IMAGE_MEDIUM, COURSEWARE_MEDIUM,
+             name="medium"),
         default=BOOK_MEDIUM, index=True
     )
 
     cover_id = Column(
         Integer, ForeignKey(
-            'resources.id', use_alter=True, name='fk_editions_summary_id'), 
+            'resources.id', use_alter=True, name='fk_editions_summary_id'),
         index=True)
     # These two let us avoid actually loading up the cover Resource
     # every time.
     cover_full_url = Column(Unicode)
     cover_thumbnail_url = Column(Unicode)
-    
+
     # An OPDS entry containing all metadata about this entry that
     # would be relevant to display to a library patron.
     simple_opds_entry = Column(Unicode, default=None)
@@ -2832,7 +2835,7 @@ class Edition(Base):
                     l.append(x.contributor)
 
         def dedupe(l):
-            """If an item shows up multiple times in a list, 
+            """If an item shows up multiple times in a list,
             keep only the first occurence.
             """
             seen = set()
@@ -2851,7 +2854,7 @@ class Edition(Base):
             return dedupe(other_authors)
 
         for role in (
-                Contributor.AUTHOR_SUBSTITUTE_ROLES 
+                Contributor.AUTHOR_SUBSTITUTE_ROLES
                 + Contributor.PERFORMER_ROLES
         ):
             if role in acceptable_substitutes:
@@ -2946,7 +2949,7 @@ class Edition(Base):
 
     @classmethod
     def missing_coverage_from(
-            cls, _db, edition_data_sources, coverage_data_source, 
+            cls, _db, edition_data_sources, coverage_data_source,
             operation=None
     ):
         """Find Editions from `edition_data_source` whose primary
@@ -2972,7 +2975,7 @@ class Edition(Base):
             (CoverageRecord.data_source_id==coverage_data_source.id) &
             (CoverageRecord.operation==operation)
         )
-        
+
         q = _db.query(Edition).outerjoin(
             CoverageRecord, join_clause)
         if edition_data_source_ids:
@@ -3049,7 +3052,7 @@ class Edition(Base):
                 if scaled_down.mirror_url and scaled_down.mirrored_at:
                     self.cover_thumbnail_url = scaled_down.mirror_url
                     break
-        if (not self.cover_thumbnail_url and 
+        if (not self.cover_thumbnail_url and
             resource.representation.image_height
             and resource.representation.image_height <= self.MAX_FALLBACK_THUMBNAIL_HEIGHT):
             # The full-sized image is too large to be a thumbnail, but it's
@@ -3057,7 +3060,7 @@ class Edition(Base):
             self.cover_thumbnail_url = resource.representation.mirror_url
         if old_cover != self.cover or old_cover_full_url != self.cover_full_url:
             logging.debug(
-                "Setting cover for %s/%s: full=%s thumb=%s", 
+                "Setting cover for %s/%s: full=%s thumb=%s",
                 self.primary_identifier.type, self.primary_identifier.identifier,
                 self.cover_full_url, self.cover_thumbnail_url
             )
@@ -3067,7 +3070,7 @@ class Edition(Base):
         """Assign a contributor to this Edition."""
         _db = Session.object_session(self)
         if isinstance(roles, basestring):
-            roles = [roles]            
+            roles = [roles]
 
         # First find or create the Contributor.
         if isinstance(name, Contributor):
@@ -3109,7 +3112,7 @@ class Edition(Base):
         should outnumber the fuzzy cases, so we we should still group
         the Editions that really matter--the ones backed by
         LicensePools--together correctly.
-        
+
         TODO: apply much more lenient terms if the two Editions are
         identified by the same ISBN or other unique identifier.
         """
@@ -3136,7 +3139,7 @@ class Edition(Base):
                     language_factor = 0.80
                 else:
                     language_factor = 0.50
-       
+
         title_quotient = MetadataSimilarity.title_similarity(
             self.title, other_record.title)
 
@@ -3154,7 +3157,7 @@ class Edition(Base):
             (title_quotient * 0.80) + (author_quotient * 0.20))
 
     def apply_similarity_threshold(self, candidates, threshold=0.5):
-        """Yield the Editions from the given list that are similar 
+        """Yield the Editions from the given list that are similar
         enough to this one.
         """
         for candidate in candidates:
@@ -3214,6 +3217,10 @@ class Edition(Base):
             medium = "book"
         elif self.medium == Edition.VIDEO_MEDIUM:
             medium = "movie"
+        elif self.medium == Edition.IMAGE_MEDIUM:
+            medium = "image"
+        elif self.medium == Edition.COURSEWARE_MEDIUM:
+            medium = "courseware"
 
         w = WorkIDCalculator
         norm_title = w.normalize_title(title)
@@ -3275,7 +3282,7 @@ class Edition(Base):
         if policy.choose_cover:
             self.choose_cover()
 
-        if (self.author != old_author 
+        if (self.author != old_author
             or self.sort_author != old_sort_author
             or self.sort_title != old_sort_title
             or self.permanent_work_id != old_work_id
@@ -3295,7 +3302,7 @@ class Edition(Base):
                 level = logging.debug
 
             msg = u"Presentation %s for Edition %s (by %s, pub=%s, ident=%s/%s, pwid=%s, language=%s, cover=%r)"
-            args = [changed_status, self.title, self.author, self.publisher, 
+            args = [changed_status, self.title, self.author, self.publisher,
                     self.primary_identifier.type, self.primary_identifier.identifier,
                     self.permanent_work_id, self.language
             ]
@@ -3351,7 +3358,7 @@ class Edition(Base):
                     if not rep.mirrored_at and not rep.thumbnails:
                         logging.warn(
                             "Best cover for %r (%s) was never mirrored or thumbnailed!",
-                            self.primary_identiifer, 
+                            self.primary_identiifer,
                             rep.url
                         )
                 self.set_cover(best_cover)
@@ -3366,7 +3373,7 @@ class Edition(Base):
                 self.cover_full_url = None
 
         if not self.cover_thumbnail_url:
-            # The process we went through above did not result in the 
+            # The process we went through above did not result in the
             # setting of a thumbnail cover.
             #
             # It's possible there's a thumbnail even when there's no
@@ -3379,7 +3386,7 @@ class Edition(Base):
                 if best_thumbnail:
                     if not best_thumbnail.representation:
                         logging.warn(
-                            "Best thumbnail for %r has no representation!", 
+                            "Best thumbnail for %r has no representation!",
                             self.primary_identifier,
                         )
                     else:
@@ -3431,14 +3438,14 @@ class PresentationCalculationPolicy(object):
     """Which parts of the Work or Edition's presentation
     are we actually looking to update?
     """
-    def __init__(self, 
-                 choose_edition=True, 
+    def __init__(self,
+                 choose_edition=True,
                  set_edition_metadata=True,
                  classify=True,
-                 choose_summary=True, 
+                 choose_summary=True,
                  calculate_quality=True,
                  choose_cover=True,
-                 regenerate_opds_entries=False, 
+                 regenerate_opds_entries=False,
                  update_search_index=False,
                  verbose=True,
     ):
@@ -3541,7 +3548,7 @@ class Work(Base):
 
     # One Work may be associated with many CustomListEntries.
     custom_list_entries = relationship('CustomListEntry', backref='work')
-    
+
     # One Work may have multiple CachedFeeds.
     cached_feeds = relationship('CachedFeed', backref='work')
 
@@ -3556,7 +3563,7 @@ class Work(Base):
 
     summary_id = Column(
         Integer, ForeignKey(
-            'resources.id', use_alter=True, name='fk_works_summary_id'), 
+            'resources.id', use_alter=True, name='fk_works_summary_id'),
         index=True)
     # This gives us a convenient place to store a cleaned-up version of
     # the content of the summary Resource.
@@ -3794,7 +3801,7 @@ class Work(Base):
                 # here.)
 
                 # First, make sure this Work is the exclusive
-                # open-access work for its permanent work ID. 
+                # open-access work for its permanent work ID.
                 # Otherwise the merge may fail.
                 work.make_exclusive_open_access_for_permanent_work_id(
                     pwid, medium
@@ -3808,7 +3815,7 @@ class Work(Base):
                         # Work we're about to merge into.
                         needs_merge.make_exclusive_open_access_for_permanent_work_id(pwid, medium)
                         needs_merge.merge_into(work)
-            
+
         # At this point we have one, and only one, Work for this
         # permanent work ID. Assign it to every LicensePool whose
         # presentation Edition has that permanent work ID.
@@ -3911,7 +3918,7 @@ class Work(Base):
 
         # Every LicensePool associated with this work becomes
         # associated instead with the other work.
-        for pool in self.license_pools:            
+        for pool in self.license_pools:
             other_work.license_pools.append(pool)
 
         # All WorkGenres and WorkCoverageRecords for this Work are
@@ -4045,7 +4052,7 @@ class Work(Base):
         )
 
     def all_editions(self, recursion_level=5):
-        """All Editions identified by an Identifier equivalent to 
+        """All Editions identified by an Identifier equivalent to
         the identifiers of this Work's license pools.
 
         `recursion_level` controls how far to go when looking for equivalent
@@ -4107,7 +4114,7 @@ class Work(Base):
         """ Sets presentation edition and lets owned pools and editions know.
             Raises exception if edition to set to is None.
         """
-        # only bother if something changed, or if were explicitly told to 
+        # only bother if something changed, or if were explicitly told to
         # set (useful for setting to None)
         if not new_presentation_edition:
             error_message = "Trying to set presentation_edition to None on Work [%s]" % self.id
@@ -4126,7 +4133,7 @@ class Work(Base):
         First, every LicensePool associated with this work must have
         its presentation edition set.
 
-        Then, we go through the pools, see which has the best presentation edition, 
+        Then, we go through the pools, see which has the best presentation edition,
         and make it our presentation edition.
         """
         changed = False
@@ -4136,7 +4143,7 @@ class Work(Base):
 
         # For each owned edition, see if its LicensePool was superceded or suppressed
         # if yes, the edition is unlikely to be the best.
-        # An open access pool may be "superceded", if there's a better-quality 
+        # An open access pool may be "superceded", if there's a better-quality
         # open-access pool available.
         self.mark_licensepools_as_superceded()
         edition_metadata_changed = False
@@ -4145,17 +4152,17 @@ class Work(Base):
 
         for pool in self.license_pools:
             # a superceded pool's composite edition is not good enough
-            # Note:  making the assumption here that we won't have a situation 
-            # where we marked all of the work's pools as superceded or suppressed. 
+            # Note:  making the assumption here that we won't have a situation
+            # where we marked all of the work's pools as superceded or suppressed.
             if pool.superceded or pool.suppressed:
                 continue
 
-            # make sure the pool has most up-to-date idea of its presentation edition, 
+            # make sure the pool has most up-to-date idea of its presentation edition,
             # and then ask what it is.
             pool_edition_changed = pool.set_presentation_edition()
             edition_metadata_changed = (
                 edition_metadata_changed or
-                pool_edition_changed   
+                pool_edition_changed
             )
             potential_presentation_edition = pool.presentation_edition
 
@@ -4195,7 +4202,7 @@ class Work(Base):
     ):
         """Make a Work ready to show to patrons.
 
-        Call calculate_presentation_edition() to find the best-quality presentation edition 
+        Call calculate_presentation_edition() to find the best-quality presentation edition
         that could represent this work.
 
         Then determine the following information, global to the work:
@@ -4206,7 +4213,7 @@ class Work(Base):
         * The best available summary for the work.
         * The overall popularity of the work.
         """
-        
+
         # Gather information up front so we can see if anything
         # actually changed.
         changed = False
@@ -4259,7 +4266,7 @@ class Work(Base):
                 _db, identifier_ids, [staff_data_source, licensed_data_sources]
             )
             # TODO: clean up the content
-            self.set_summary(summary)      
+            self.set_summary(summary)
 
         if policy.calculate_quality:
             # In the absense of other data, we will make a rough
@@ -4275,10 +4282,10 @@ class Work(Base):
                 if q is None:
                     continue
                 if default_quality is None or q > default_quality:
-                    default_quality = q                    
+                    default_quality = q
 
             if not default_quality:
-                # if we still haven't found anything of a quality measurement, 
+                # if we still haven't found anything of a quality measurement,
                 # then at least make it an integer zero, not none.
                 default_quality = 0
             self.calculate_quality(identifier_ids, default_quality)
@@ -4312,14 +4319,14 @@ class Work(Base):
             self.external_index_needs_updating()
 
         # Now that everything's calculated, print it out.
-        if policy.verbose:            
+        if policy.verbose:
             if changed:
                 changed = "changed"
                 representation = self.detailed_representation
             else:
                 # TODO: maybe change changed to a boolean, and return it as method result
                 changed = "unchanged"
-                representation = repr(self)                
+                representation = repr(self)
             logging.info("Presentation %s for work: %s", changed, representation)
 
     @property
@@ -4403,7 +4410,7 @@ class Work(Base):
                                               force_create=True)
         if simple is not None:
             self.simple_opds_entry = unicode(etree.tostring(simple))
-        verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator, 
+        verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator,
                                                force_create=True)
         if verbose is not None:
             self.verbose_opds_entry = unicode(etree.tostring(verbose))
@@ -4425,7 +4432,7 @@ class Work(Base):
         return record
 
     def update_external_index(self, client, add_coverage_record=True):
-        """Create a WorkCoverageRecord so that this work's 
+        """Create a WorkCoverageRecord so that this work's
         entry in the search index can be modified or deleted.
 
         This method is deprecated -- call
@@ -4506,7 +4513,7 @@ class Work(Base):
         for classification in classifications:
             classifier.add(classification)
 
-        (genre_weights, self.fiction, self.audience, 
+        (genre_weights, self.fiction, self.audience,
          target_age) = classifier.classify(default_fiction=default_fiction,
                                            default_audience=default_audience)
         self.target_age = tuple_to_numericrange(target_age)
@@ -4516,7 +4523,7 @@ class Work(Base):
         )
 
         classification_changed = (
-            workgenres_changed or 
+            workgenres_changed or
             old_fiction != self.fiction or
             old_audience != self.audience or
             numericrange_to_tuple(old_target_age) != target_age
@@ -4591,7 +4598,7 @@ class Work(Base):
     @classmethod
     def to_search_documents(cls, works):
         """Generate search documents for these Works.
-        
+
         This is done by constructing an extremely complicated
         SQL query. The code is ugly, but it's about 100 times
         faster than using python to create documents for
@@ -4694,7 +4701,7 @@ class Work(Base):
             literal_column(works_alias.name + "." + works_alias.c.identifier_id.name),
             levels=5, threshold=0.5)
 
-        # Map our constants for Subject type to their URIs. 
+        # Map our constants for Subject type to their URIs.
         scheme_column = case(
             [(Subject.type==key, literal_column("'%s'" % val)) for key, val in Subject.uri_lookup.items()]
         )
@@ -4817,7 +4824,7 @@ class Work(Base):
         ).select_from(
             works_alias
         ).alias("search_data_subquery")
-        
+
         # Finally, convert everything to json.
         search_json = select(
             [func.row_to_json(
@@ -4851,7 +4858,7 @@ class Work(Base):
                 pool.superceded = False
             else:
                 pool.superceded = True
-    
+
     @classmethod
     def restrict_to_custom_lists_from_data_source(
             cls, _db, base_query, data_source, on_list_as_of=None):
@@ -4929,7 +4936,7 @@ class Measurement(Base):
     # If a book's popularity measurement is found between index n and
     # index n+1 on this list, it is in the nth percentile for
     # popularity and its 'popularity' value should be n * 0.01.
-    # 
+    #
     # These values are empirically determined and may change over
     # time.
     POPULARITY_PERCENTILES = {
@@ -4988,7 +4995,7 @@ class Measurement(Base):
 
     # When the measurement was taken
     taken_at = Column(DateTime, index=True)
-    
+
     # True if this is the most recent measurement of this quantity for
     # this Identifier.
     #
@@ -5048,7 +5055,7 @@ class Measurement(Base):
             # We have popularity and rating but not quality.
             final = (popularity * popularity_weight) + (rating * rating_weight)
             logging.debug(
-                "(%.2f * %.2f) + (%.2f * %.2f) = %.2f", 
+                "(%.2f * %.2f) + (%.2f * %.2f) = %.2f",
                 popularity, popularity_weight, rating, rating_weight, final
             )
         if quality:
@@ -5082,12 +5089,12 @@ class Measurement(Base):
               and self.data_source.name in self.POPULARITY_PERCENTILES):
             d = self.POPULARITY_PERCENTILES[self.data_source.name]
             position = bisect.bisect_left(d, self.value)
-            self._normalized_value = position * 0.01            
+            self._normalized_value = position * 0.01
         elif (self.quantity_measured == self.DOWNLOADS
               and self.data_source.name in self.DOWNLOAD_PERCENTILES):
             d = self.DOWNLOAD_PERCENTILES[self.data_source.name]
             position = bisect.bisect_left(d, self.value)
-            self._normalized_value = position * 0.01            
+            self._normalized_value = position * 0.01
         elif (self.quantity_measured == self.RATING
               and self.data_source.name in self.RATING_SCALES):
             scale_min, scale_max = self.RATING_SCALES[self.data_source.name]
@@ -5097,7 +5104,7 @@ class Measurement(Base):
         elif self.data_source.name == DataSource.METADATA_WRANGLER:
             # Data from the metadata wrangler comes in pre-normalized.
             self._normalized_value = self.value
-            
+
         return self._normalized_value
 
 
@@ -5124,9 +5131,9 @@ class LicensePoolDeliveryMechanism(Base):
     identifier_id = Column(
         Integer, ForeignKey('identifiers.id'), index=True, nullable=False
     )
-    
+
     delivery_mechanism_id = Column(
-        Integer, ForeignKey('deliverymechanisms.id'), 
+        Integer, ForeignKey('deliverymechanisms.id'),
         index=True,
         nullable=False
     )
@@ -5181,17 +5188,17 @@ class LicensePoolDeliveryMechanism(Base):
         """Is this an open-access delivery mechanism?"""
         return (self.rights_status
                 and self.rights_status.uri in RightsStatus.OPEN_ACCESS)
-    
+
     def delete(self):
         """Delete a LicensePoolDeliveryMechanism."""
         _db = Session.object_session(self)
         pools = list(self.license_pools)
-        _db.delete(self)        
+        _db.delete(self)
         # The deletion of a LicensePoolDeliveryMechanism might affect
         # the open-access status of its associated LicensePools.
         for pool in pools:
             pool.set_open_access_status()
-        
+
     def set_rights_status(self, uri):
         _db = Session.object_session(self)
         status = RightsStatus.lookup(_db, uri)
@@ -5211,7 +5218,7 @@ class LicensePoolDeliveryMechanism(Base):
         return _db.query(LicensePool).filter(
             LicensePool.data_source==self.data_source).filter(
                 LicensePool.identifier==self.identifier)
-    
+
     def __repr__(self):
         return "<LicensePoolDeliveryMechanism: data_source=%s, identifier=%r, mechanism=%r>" % (self.data_source, self.identifier, self.delivery_mechanism)
 
@@ -5228,7 +5235,7 @@ Index(
     LicensePoolDeliveryMechanism.resource_id,
 )
 
-    
+
 class Hyperlink(Base):
     """A link between an Identifier and a Resource."""
 
@@ -5252,7 +5259,7 @@ class Hyperlink(Base):
     DRM_ENCRYPTED_DOWNLOAD = u"http://opds-spec.org/acquisition/"
 
     CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD, GENERIC_OPDS_ACQUISITION]
-    METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW, 
+    METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW,
         DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, ALTERNATE, SAMPLE]
     MIRRORED = [OPEN_ACCESS_DOWNLOAD, IMAGE, THUMBNAIL_IMAGE]
 
@@ -5379,7 +5386,7 @@ class Resource(Base):
     )
 
     @property
-    def final_url(self):        
+    def final_url(self):
         """URL to the final, mirrored version of this resource, suitable
         for serving to the client.
 
@@ -5517,10 +5524,10 @@ class Resource(Base):
         :return: A lower number is better. None means it's not an
         image type or we don't care about it at all.
         """
-        if media_type in Representation.IMAGE_MEDIA_TYPES: 
+        if media_type in Representation.IMAGE_MEDIA_TYPES:
             return Representation.IMAGE_MEDIA_TYPES.index(media_type)
         return None
-        
+
     @classmethod
     def best_covers_among(cls, resources):
 
@@ -5586,9 +5593,9 @@ class Resource(Base):
             quality = quality * 0.25
         elif source_name in DataSource.PRESENTATION_EDITION_PRIORITY:
             # Covers from the data sources listed in
-            # PRESENTATION_EDITION_PRIORITY (e.g. the metadata wrangler 
+            # PRESENTATION_EDITION_PRIORITY (e.g. the metadata wrangler
             # and the administrative interface) are given priority
-            # over all others, relative to their position in 
+            # over all others, relative to their position in
             # PRESENTATION_EDITION_PRIORITY.
             i = DataSource.PRESENTATION_EDITION_PRIORITY.index(source_name)
             quality = quality * (i+2)
@@ -5611,12 +5618,12 @@ class Genre(Base, HasFullTableCache):
     # One Genre may participate in many WorkGenre assignments.
     works = association_proxy('work_genres', 'work')
 
-    work_genres = relationship("WorkGenre", backref="genre", 
+    work_genres = relationship("WorkGenre", backref="genre",
                                cascade="all, delete-orphan")
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
-    
+
     def __repr__(self):
         if classifier.genres.get(self.name):
             length = len(classifier.genres[self.name].subgenres)
@@ -5627,7 +5634,7 @@ class Genre(Base, HasFullTableCache):
 
     def cache_key(self):
         return self.name
-    
+
     @classmethod
     def lookup(cls, _db, name, autocreate=False, use_cache=True):
         if isinstance(name, GenreData):
@@ -5712,7 +5719,6 @@ class Subject(Base):
 
     GUTENBERG_BOOKSHELF = Classifier.GUTENBERG_BOOKSHELF
     TOPIC = Classifier.TOPIC
-    TOPIC_TERM = Classifier.TOPIC_TERM
     PLACE = Classifier.PLACE
     PERSON = Classifier.PERSON
     ORGANIZATION = Classifier.ORGANIZATION
@@ -5756,7 +5762,7 @@ class Subject(Base):
     # Whether classification under this subject implies anything about
     # the book's audience.
     audience = Column(
-        Enum("Adult", "Young Adult", "Children", "Adults Only", 
+        Enum("Adult", "Young Adult", "Children", "Adults Only",
              name="audience"),
         default=None, index=True)
 
@@ -5862,7 +5868,7 @@ class Subject(Base):
         return subject, new
 
     @classmethod
-    def common_but_not_assigned_to_genre(cls, _db, min_occurances=1000, 
+    def common_but_not_assigned_to_genre(cls, _db, min_occurances=1000,
                                          type_restriction=None):
         q = _db.query(Subject).join(Classification).filter(Subject.genre==None)
 
@@ -5955,7 +5961,7 @@ class Subject(Base):
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
                 self.target_age, tuple_to_numericrange(target_age)
-            )        
+            )
         self.target_age = tuple_to_numericrange(target_age)
 
 
@@ -5999,7 +6005,7 @@ class Classification(Base):
     ])
 
     _quality_as_indicator_of_target_age = {
-        
+
         # Not all classifications are equally reliable as indicators
         # of a target age. This dictionary contains the coefficients
         # we multiply against the weights of incoming classifications
@@ -6011,9 +6017,9 @@ class Classification(Base):
         # classifications. But we sometimes have very little
         # information about target age, so being careful about how
         # much we trust different data sources can become important.
-        
+
         DataSource.MANUAL : 1.0,
-        DataSource.LIBRARY_STAFF: 1.0,        
+        DataSource.LIBRARY_STAFF: 1.0,
         (DataSource.METADATA_WRANGLER, Subject.AGE_RANGE) : 1.0,
 
         Subject.AXIS_360_AUDIENCE : 0.9,
@@ -6021,16 +6027,16 @@ class Classification(Base):
         (DataSource.OVERDRIVE, Subject.OVERDRIVE) : 0.9, # But see below
         (DataSource.AMAZON, Subject.AGE_RANGE) : 0.85,
         (DataSource.AMAZON, Subject.GRADE_LEVEL) : 0.85,
-        
+
         # Although Overdrive usually reserves Fiction and Nonfiction
         # for books for adults, it's not as reliable an indicator as
         # other Overdrive classifications.
         (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Fiction") : 0.7,
         (DataSource.OVERDRIVE, Subject.OVERDRIVE, "Nonfiction") : 0.7,
-        
+
         Subject.AGE_RANGE : 0.6,
         Subject.GRADE_LEVEL : 0.6,
-        
+
         # There's no real way to know what this measures, since it
         # could be anything. If a tag mentions a target age or a grade
         # level, the accuracy seems to be... not terrible.
@@ -6039,7 +6045,7 @@ class Classification(Base):
         # Tags that come from OCLC Linked Data are of lower quality
         # because they sometimes talk about completely the wrong book.
         (DataSource.OCLC_LINKED_DATA, Subject.TAG) : 0.3,
-        
+
         # These measure reading level, not age appropriateness.
         # However, if the book is a remedial work for adults we won't
         # be calculating a target age in the first place, so it's okay
@@ -6051,7 +6057,7 @@ class Classification(Base):
     }
 
     @property
-    def generic_juvenile_audience(self):        
+    def generic_juvenile_audience(self):
         """Is this a classification that mentions (e.g.) a Children's audience
         but is actually a generic 'Juvenile' classification?
         """
@@ -6059,7 +6065,7 @@ class Classification(Base):
             self.subject.audience in Classifier.AUDIENCES_JUVENILE
             and self.subject.type in self._juvenile_subject_types
         )
-    
+
     @property
     def quality_as_indicator_of_target_age(self):
         if not self.subject.target_age:
@@ -6134,7 +6140,7 @@ class CachedFeed(Base):
     library_id = Column(
         Integer, ForeignKey('libraries.id'), index=True
     )
-    
+
     # A feed may be associated with a Work.
     work_id = Column(Integer, ForeignKey('works.id'),
         nullable=True, index=True)
@@ -6220,7 +6226,7 @@ class CachedFeed(Base):
                     lane.name
                 )
                 return cls.fetch(
-                    _db, lane, CachedFeed.PAGE_TYPE, facets, pagination, 
+                    _db, lane, CachedFeed.PAGE_TYPE, facets, pagination,
                     annotator, force_refresh, max_age=None
                 )
         else:
@@ -6246,7 +6252,7 @@ class CachedFeed(Base):
         else:
             length = "No content"
         return "<CachedFeed #%s %s %s %s %s %s %s %s >" % (
-            self.id, self.languages, self.lane_name, self.type, 
+            self.id, self.languages, self.lane_name, self.type,
             self.facets, self.pagination,
             self.timestamp, length
         )
@@ -6278,7 +6284,7 @@ class LicensePool(Base):
     # Each LicensePool belongs to one Collection.
     collection_id = Column(Integer, ForeignKey('collections.id'),
                            index=True, nullable=False)
-    
+
     # Each LicensePool has an Edition which contains the metadata used
     # to describe this book.
     presentation_edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
@@ -6324,7 +6330,7 @@ class LicensePool(Base):
     # This lets us cache the work of figuring out the best open access
     # link for this LicensePool.
     _open_access_download_url = Column(Unicode, name="open_access_download_url")
-    
+
     # A Collection can not have more than one LicensePool for a given
     # Identifier from a given DataSource.
     __table_args__ = (
@@ -6333,22 +6339,22 @@ class LicensePool(Base):
 
     @property
     def delivery_mechanisms(self):
-        """Find all LicensePoolDeliveryMechanisms for this LicensePool.        
+        """Find all LicensePoolDeliveryMechanisms for this LicensePool.
         """
         _db = Session.object_session(self)
         LPDM = LicensePoolDeliveryMechanism
         return _db.query(LPDM).filter(
             LPDM.data_source==self.data_source).filter(
                 LPDM.identifier==self.identifier)
-    
+
     def __repr__(self):
         if self.identifier:
-            identifier = "%s/%s" % (self.identifier.type, 
+            identifier = "%s/%s" % (self.identifier.type,
                                     self.identifier.identifier)
         else:
             identifier = "unknown identifier"
         return "<LicensePool #%s for %s: owned=%d available=%d reserved=%d holds=%d>" % (
-            self.id, identifier, self.licenses_owned, self.licenses_available, 
+            self.id, identifier, self.licenses_owned, self.licenses_available,
             self.licenses_reserved, self.patrons_in_hold_queue
         )
 
@@ -6359,14 +6365,14 @@ class LicensePool(Base):
 
         if not collection:
             raise CollectionMissing()
-        
+
         # Get the DataSource.
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
 
         # The type of the foreign ID must be the primary identifier
         # type for the data source.
-        if (data_source.primary_identifier_type and 
+        if (data_source.primary_identifier_type and
             foreign_id_type != data_source.primary_identifier_type
             and foreign_id_type != Identifier.DEPRECATED_NAMES.get(data_source.primary_identifier_type)
         ):
@@ -6377,7 +6383,7 @@ class LicensePool(Base):
                     foreign_id_type
                 )
             )
- 
+
         # Get the Identifier.
         identifier, ignore = Identifier.for_foreign_id(
             _db, foreign_id_type, foreign_id
@@ -6395,7 +6401,7 @@ class LicensePool(Base):
         else:
             license_pool = get_one(_db, LicensePool, **kw)
             was_new = False
-            
+
         if was_new and not license_pool.availability_time:
             now = datetime.datetime.utcnow()
             license_pool.availability_time = now
@@ -6461,7 +6467,7 @@ class LicensePool(Base):
     def open_access_source_priority(self):
         """What priority does this LicensePool's DataSource have in
         our list of open-access content sources?
-        
+
         e.g. GITenberg books are prefered over Gutenberg books,
         because there's a defined process for fixing errors and they
         are more likely to have good cover art.
@@ -6565,11 +6571,11 @@ class LicensePool(Base):
             editions = self.identifier.primarily_identifies
         all_editions = list(Edition.sort_by_priority(editions))
 
-        # Note: We can do a cleaner solution, if we refactor to not use metadata's 
+        # Note: We can do a cleaner solution, if we refactor to not use metadata's
         # methods to update editions.  For now, we're choosing to go with the below approach.
         from metadata_layer import (
-            Metadata, 
-            IdentifierData, 
+            Metadata,
+            IdentifierData,
             ReplacementPolicy,
         )
 
@@ -6602,13 +6608,13 @@ class LicensePool(Base):
         presentation_changed = self.presentation_edition.calculate_presentation()
         changed = changed or presentation_changed
 
-        # if the license pool is associated with a work, and the work currently has no presentation edition, 
+        # if the license pool is associated with a work, and the work currently has no presentation edition,
         # then do a courtesy call to the work, and tell it about the presentation edition.
         if self.work and not self.work.presentation_edition:
             self.work.set_presentation_edition(self.presentation_edition)
 
         return (
-            self.presentation_edition != old_presentation_edition 
+            self.presentation_edition != old_presentation_edition
             or changed
         )
 
@@ -6644,7 +6650,7 @@ class LicensePool(Base):
         return age > maximum_stale_time
 
     def update_availability(
-            self, new_licenses_owned, new_licenses_available, 
+            self, new_licenses_owned, new_licenses_available,
             new_licenses_reserved, new_patrons_in_hold_queue,
             analytics=None, as_of=None):
         """Update the LicensePool with new availability information.
@@ -6755,7 +6761,7 @@ class LicensePool(Base):
         :param event_type: A CirculationEvent constant representing the
         type of change that was seen.
 
-        :param event_date: A datetime corresponding to when the 
+        :param event_date: A datetime corresponding to when the
         change was seen.
 
         :param delta: The magnitude of the change that was seen.
@@ -6774,14 +6780,14 @@ class LicensePool(Base):
             ignore = True
 
         if not ignore:
-            (new_licenses_owned, new_licenses_available, 
-             new_licenses_reserved, 
+            (new_licenses_owned, new_licenses_available,
+             new_licenses_reserved,
              new_patrons_in_hold_queue) = self._calculate_change_from_one_event(
                  event_type, delta
              )
 
             changes_made = self.update_availability(
-                new_licenses_owned, new_licenses_available, 
+                new_licenses_owned, new_licenses_available,
                 new_licenses_reserved, new_patrons_in_hold_queue,
                 analytics=analytics, as_of=event_date
             )
@@ -6824,7 +6830,7 @@ class LicensePool(Base):
                 # patrons in the hold queue _does_ make books
                 # available.  However, in neither case do patrons
                 # leave the hold queue. That will happen in the near
-                # future as DISTRIBUTOR_AVAILABILITY_NOTIFICATION events 
+                # future as DISTRIBUTOR_AVAILABILITY_NOTIFICATION events
                 # are sent out.
                 if delta > new_patrons_in_hold_queue:
                     new_licenses_available += (delta-new_patrons_in_hold_queue)
@@ -6861,14 +6867,14 @@ class LicensePool(Base):
             # latter is more likely.
             new_licenses_available = new_licenses_owned
 
-        return (new_licenses_owned, new_licenses_available, 
+        return (new_licenses_owned, new_licenses_available,
                 new_licenses_reserved, new_patrons_in_hold_queue)
 
     def circulation_changelog(self, old_licenses_owned, old_licenses_available,
                               old_licenses_reserved, old_patrons_in_hold_queue):
         """Generate a log message describing a change to the circulation.
 
-        :return: a 2-tuple (message, args) suitable for passing into 
+        :return: a 2-tuple (message, args) suitable for passing into
         logging.info or a similar method
         """
         edition = self.presentation_edition
@@ -6882,7 +6888,7 @@ class LicensePool(Base):
             identifier_args = [self.identifier]
         if edition:
             message += u'%s "%s" %s (' + identifier_template + ')'
-            args.extend([edition.medium, 
+            args.extend([edition.medium,
                          edition.title or "[NO TITLE]",
                          edition.author or "[NO AUTHOR]"]
                     )
@@ -6900,19 +6906,19 @@ class LicensePool(Base):
         message, args = _part(
             message, args, "OWN", old_licenses_owned, self.licenses_owned
         )
-        
+
         message, args = _part(
-            message, args, "AVAIL", old_licenses_available, 
+            message, args, "AVAIL", old_licenses_available,
             self.licenses_available
         )
 
         message, args = _part(
-            message, args, "RSRV", old_licenses_reserved, 
+            message, args, "RSRV", old_licenses_reserved,
             self.licenses_reserved
         )
 
         message, args =_part(
-            message, args, "HOLD", old_patrons_in_hold_queue, 
+            message, args, "HOLD", old_patrons_in_hold_queue,
             self.patrons_in_hold_queue
         )
         return message, tuple(args)
@@ -6922,7 +6928,7 @@ class LicensePool(Base):
         kwargs = dict(start=start or datetime.datetime.utcnow(),
                       end=end)
         loan, is_new = get_one_or_create(
-            _db, Loan, patron=patron, license_pool=self, 
+            _db, Loan, patron=patron, license_pool=self,
             create_method_kwargs=kwargs)
         if fulfillment:
             loan.fulfillment = fulfillment
@@ -6987,19 +6993,19 @@ class LicensePool(Base):
             # A LicensePool with no Identifier should never have a Work.
             self.work = None
             return None, False
-       
+
         if known_edition:
             presentation_edition = known_edition
         else:
             self.set_presentation_edition()
             presentation_edition = self.presentation_edition
-            
+
         if presentation_edition:
             if self not in presentation_edition.is_presentation_for:
                 raise ValueError(
                     "Alleged presentation edition is not the presentation edition for the license pool for which work is being calculated!"
                 )
-                    
+
         logging.info("Calculating work for %r", presentation_edition)
         if not presentation_edition:
             # We don't have any information about the identifier
@@ -7031,7 +7037,7 @@ class LicensePool(Base):
             and not even_if_no_author
         ):
             logging.warn(
-                "Edition %r has no author, not assigning Work to Edition.", 
+                "Edition %r has no author, not assigning Work to Edition.",
                 presentation_edition
             )
             # If there was a work associated with this LicensePool,
@@ -7067,7 +7073,7 @@ class LicensePool(Base):
             # could conceivably lead to an infinite loop, or at least
             # a very long recursive call, so I've put it here.
             work.make_exclusive_open_access_for_permanent_work_id(
-                presentation_edition.permanent_work_id, 
+                presentation_edition.permanent_work_id,
                 presentation_edition.medium
             )
             self.work = work
@@ -7153,7 +7159,7 @@ class LicensePool(Base):
         # in this method.)
         for lp in self.identifier.licensed_through:
             lp.work = work
-        
+
         if is_new:
             logging.info("Created a new work: %r", work)
 
@@ -7183,7 +7189,7 @@ class LicensePool(Base):
         to a good value if possible.
         """
         return self.best_open_access_link
-        
+
     @property
     def best_open_access_link(self):
         """Find the best open-access link for this LicensePool.
@@ -7202,7 +7208,7 @@ class LicensePool(Base):
 
     @property
     def best_open_access_resource(self):
-        """Determine the best open-access Resource currently provided by this 
+        """Determine the best open-access Resource currently provided by this
         LicensePool.
         """
         best = None
@@ -7211,12 +7217,12 @@ class LicensePool(Base):
             if not any(
                     [resource.representation and
                      resource.representation.media_type and
-                     resource.representation.media_type.startswith(x) 
+                     resource.representation.media_type.startswith(x)
                      for x in Representation.SUPPORTED_BOOK_MEDIA_TYPES]):
-                # This representation is not in a media type we 
+                # This representation is not in a media type we
                 # support. We can't serve it, so we won't consider it.
                 continue
-                
+
             data_source_priority = self.open_access_source_priority
             if not best or data_source_priority > best_priority:
                 # Something is better than nothing.
@@ -7296,7 +7302,7 @@ class RightsStatus(Base):
 
     # Creative Commons Attribution (CC BY)
     CC_BY = u"http://creativecommons.org/licenses/by/4.0/"
-    
+
     # Creative Commons Attribution-ShareAlike (CC BY-SA)
     CC_BY_SA = u"https://creativecommons.org/licenses/by-sa/4.0"
 
@@ -7354,7 +7360,7 @@ class RightsStatus(Base):
         DataSource.THREEM: IN_COPYRIGHT,
         DataSource.AXIS_360: IN_COPYRIGHT,
     }
-    
+
     __tablename__ = 'rightsstatus'
     id = Column(Integer, primary_key=True)
 
@@ -7413,7 +7419,7 @@ class RightsStatus(Base):
         else:
             return RightsStatus.UNKNOWN
 
-    
+
 class CirculationEvent(Base):
 
     """Changes to a license pool's circulation status.
@@ -7474,7 +7480,7 @@ class CirculationEvent(Base):
 
     # Events that we hear about from a client app.
     OPEN_BOOK = u"open_book"
-    
+
     CLIENT_EVENTS = [
         OPEN_BOOK,
     ]
@@ -7505,7 +7511,7 @@ class CirculationEvent(Base):
                 end=end)
             )
         return event, was_new
-        
+
 
 Index("ix_circulationevents_start_desc_nullslast", CirculationEvent.start.desc().nullslast())
 
@@ -7524,7 +7530,7 @@ class Credential(Base):
     drm_device_identifiers = relationship(
         "DRMDeviceIdentifier", backref=backref("credential", lazy='joined')
     )
-    
+
     __table_args__ = (
         UniqueConstraint('data_source_id', 'patron_id', 'type'),
     )
@@ -7545,7 +7551,7 @@ class Credential(Base):
         credential, is_new = get_one_or_create(
             _db, Credential, data_source=data_source, type=type, patron=patron)
         if (is_new or (not credential.expires and not allow_persistent_token)
-            or (credential.expires 
+            or (credential.expires
                 and credential.expires <= datetime.datetime.utcnow())):
             if refresher_method:
                 refresher_method(credential)
@@ -7561,7 +7567,7 @@ class Credential(Base):
         """
 
         credential = get_one(
-            _db, Credential, data_source=data_source, type=type, 
+            _db, Credential, data_source=data_source, type=type,
             credential=token)
 
         if not credential:
@@ -7610,7 +7616,7 @@ class Credential(Base):
 
     @classmethod
     def persistent_token_create(self, _db, data_source, type, patron):
-        """Create or retrieve a persistent token for the given 
+        """Create or retrieve a persistent token for the given
         data_source/type/patron.
         """
         token_string = str(uuid.uuid1())
@@ -7640,7 +7646,7 @@ class Credential(Base):
         if device_id_obj:
             _db.delete(device_id_obj)
 
-    
+
 # Index to make lookup_by_token() fast.
 Index("ix_credentials_data_source_id_type_token", Credential.data_source_id, Credential.type, Credential.credential, unique=True)
 
@@ -7655,7 +7661,7 @@ class DelegatedPatronIdentifier(Base):
     Those identifiers are stored here.
     """
     ADOBE_ACCOUNT_ID = u'Adobe Account ID'
-    
+
     __tablename__ = 'delegatedpatronidentifiers'
     id = Column(Integer, primary_key=True)
     type = Column(String(255), index=True)
@@ -7668,7 +7674,7 @@ class DelegatedPatronIdentifier(Base):
     # This is the identifier we made up for the patron. This is what the
     # foreign library is trying to look up.
     delegated_identifier = Column(String)
-    
+
     __table_args__ = (
         UniqueConstraint('type', 'library_uri', 'patron_identifier'),
     )
@@ -7694,7 +7700,7 @@ class DelegatedPatronIdentifier(Base):
         :param create_function: If this patron does not have a
          DelegatedPatronIdentifier, one will be created, and this
          function will be called to determine the value of
-         DelegatedPatronIdentifier.delegated_identifier. 
+         DelegatedPatronIdentifier.delegated_identifier.
 
         :return: A 2-tuple (DelegatedPatronIdentifier, is_new)
         """
@@ -7706,7 +7712,7 @@ class DelegatedPatronIdentifier(Base):
             identifier.delegated_identifier = create_function()
         return identifier, is_new
 
-    
+
 class DRMDeviceIdentifier(Base):
     """A device identifier for a particular DRM scheme.
 
@@ -7716,9 +7722,9 @@ class DRMDeviceIdentifier(Base):
     __tablename__ = 'drmdeviceidentifiers'
     id = Column(Integer, primary_key=True)
     credential_id = Column(Integer, ForeignKey('credentials.id'), index=True)
-    device_identifier = Column(String(255), index=True)    
+    device_identifier = Column(String(255), index=True)
 
-    
+
 class Timestamp(Base):
     """A general-purpose timestamp for Monitors."""
 
@@ -7755,7 +7761,7 @@ class Timestamp(Base):
         if not stamp:
             return None
         return stamp.timestamp
-    
+
     @classmethod
     def stamp(cls, _db, service, collection, date=None):
         date = date or datetime.datetime.utcnow()
@@ -7772,7 +7778,7 @@ class Timestamp(Base):
         UniqueConstraint('service', 'collection_id'),
     )
 
-    
+
 class Representation(Base):
     """A cached document obtained from (and possibly mirrored to) the Web
     at large.
@@ -7800,6 +7806,7 @@ class Representation(Base):
     MP3_MEDIA_TYPE = u"audio/mpeg"
     MP4_MEDIA_TYPE = u"video/mp4"
     WMV_MEDIA_TYPE = u"video/x-ms-wmv"
+    SCORM_MEDIA_TYPE = u"application/vnd.librarysimplified.scorm+zip"
     ZIP_MEDIA_TYPE = u"application/zip"
     OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
@@ -7848,7 +7855,7 @@ class Representation(Base):
         TEXT_HTML_MEDIA_TYPE: "html",
         APPLICATION_XML_MEDIA_TYPE: "xml",
         AUDIOBOOK_MANIFEST_MEDIA_TYPE: "audiobook-manifest",
-        ZIP_MEDIA_TYPE: "zip"
+        SCORM_MEDIA_TYPE: "zip"
     }
 
     # Invert FILE_EXTENSIONS and add some extra guesses.
@@ -7885,7 +7892,7 @@ class Representation(Base):
 
     # When the representation was last pushed to `mirror_url`.
     mirrored_at = Column(DateTime, index=True)
-    
+
     # An exception that happened while pushing this representation
     # to `mirror_url.
     mirror_exception = Column(Unicode, index=True)
@@ -7929,7 +7936,7 @@ class Representation(Base):
 
     # The size of the representation, in bytes.
     file_size = Column(Integer)
-    
+
     # If this representation is an image, the height of the image.
     image_height = Column(Integer, index=True)
 
@@ -7987,14 +7994,14 @@ class Representation(Base):
             return False
         s = s.lower()
         return any(s.startswith(x) for x in [
-                   'application/', 
+                   'application/',
                    'audio/',
                    'example/',
                    'image/',
                    'message/',
                    'model/',
                    'multipart/',
-                   'text/', 
+                   'text/',
                    'video/'
         ])
 
@@ -8022,10 +8029,10 @@ class Representation(Base):
             presumed_media_type=None, debug=True, response_reviewer=None,
             exception_handler=None):
         """Retrieve a representation from the cache if possible.
-        
+
         If not possible, retrieve it from the web and store it in the
         cache.
-        
+
         :param do_get: A function that takes arguments (url, headers)
         and retrieves a representation over the network.
 
@@ -8169,7 +8176,7 @@ class Representation(Base):
                 setattr(representation, field, value)
 
             representation.headers = cls.headers_to_string(headers)
-            representation.content = content          
+            representation.content = content
             representation.update_image_size()
             return representation, False
 
@@ -8241,14 +8248,14 @@ class Representation(Base):
         Basically, images and books.
         """
         return any(
-            self.media_type in x for x in 
-            (Representation.BOOK_MEDIA_TYPES, 
+            self.media_type in x for x in
+            (Representation.BOOK_MEDIA_TYPES,
              Representation.IMAGE_MEDIA_TYPES)
         )
 
     def update_image_size(self):
         """Make sure .image_height and .image_width are up to date.
-       
+
         Clears .image_height and .image_width if the representation
         is not an image.
         """
@@ -8272,7 +8279,7 @@ class Representation(Base):
     @property
     def unicode_content(self):
         """Attempt to convert the content into Unicode.
-        
+
         If all attempts fail, we will return None rather than raise an exception.
         """
         content = None
@@ -8385,7 +8392,7 @@ class Representation(Base):
 
         else:
             any_extension_re = re.compile("\.[\w\d]*$", re.I)
-        
+
             any_match = any_extension_re.search(url_path)
 
             if any_match:
@@ -8499,7 +8506,7 @@ class Representation(Base):
         """Load this Representation's contents as a PIL image."""
         if not self.is_image:
             raise ValueError(
-                "Cannot load non-image representation as image: type %s." 
+                "Cannot load non-image representation as image: type %s."
                 % self.media_type)
         if not self.content and not self.local_path:
             raise ValueError("Image representation has no content.")
@@ -8534,7 +8541,7 @@ class Representation(Base):
 
         if not destination_media_type in self.pil_format_for_media_type:
             raise ValueError("Unsupported destination media type: %s" % destination_media_type)
-                
+
         pil_format = self.pil_format_for_media_type[destination_media_type]
 
         # Make sure we actually have an image to scale.
@@ -8556,14 +8563,14 @@ class Representation(Base):
 
         # If the image is already a thumbnail-size bitmap, don't bother.
         if (self.clean_media_type != Representation.SVG_MEDIA_TYPE
-            and self.image_height <= max_height 
+            and self.image_height <= max_height
             and self.image_width <= max_width):
             self.thumbnails = []
             return self, False
 
         # Do we already have a representation for the given URL?
         thumbnail, is_new = get_one_or_create(
-            _db, Representation, url=destination_url, 
+            _db, Representation, url=destination_url,
             media_type=destination_media_type
         )
         if thumbnail not in self.thumbnails:
@@ -8620,7 +8627,7 @@ class Representation(Base):
         output.close()
         thumbnail.scale_exception = None
         thumbnail.scaled_at = now
-        return thumbnail, True      
+        return thumbnail, True
 
     @property
     def thumbnail_size_quality_penalty(self):
@@ -8698,7 +8705,6 @@ class DeliveryMechanism(Base, HasFullTableCache):
     STREAMING_TEXT_CONTENT_TYPE = u"Streaming Text"
     STREAMING_AUDIO_CONTENT_TYPE = u"Streaming Audio"
     STREAMING_VIDEO_CONTENT_TYPE = u"Streaming Video"
-    PERIODICAL_STREAMING_TEXT_CONTENT_TYPE = u"Periodical Streaming Text"
 
     NO_DRM = None
     ADOBE_DRM = u"application/vnd.adobe.adept+xml"
@@ -8720,7 +8726,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     # Can the Library Simplified client fulfill a book with this
     # content type and this DRM scheme?
     default_client_can_fulfill = Column(Boolean, default=False, index=True)
- 
+
     # These are the media type/DRM scheme combos known to be supported
     # by the default Library Simplified client.
     default_client_can_fulfill_lookup = set([
@@ -8735,7 +8741,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
-    
+
     @property
     def name(self):
         if self.drm_scheme is self.NO_DRM:
@@ -8746,8 +8752,8 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     def cache_key(self):
         return (self.content_type, self.drm_scheme)
-    
-    def __repr__(self):   
+
+    def __repr__(self):
 
         if self.default_client_can_fulfill:
             fulfillable = "fulfillable"
@@ -8791,7 +8797,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
         if x is None:
             return False
 
-        return any(x.startswith(prefix) for prefix in 
+        return any(x.startswith(prefix) for prefix in
                    ['vnd.', 'application', 'text', 'video', 'audio', 'image'])
 
     @property
@@ -8822,8 +8828,8 @@ class DeliveryMechanism(Base, HasFullTableCache):
         return None
 
 
-Index("ix_deliverymechanisms_drm_scheme_content_type", 
-      DeliveryMechanism.drm_scheme, 
+Index("ix_deliverymechanisms_drm_scheme_content_type",
+      DeliveryMechanism.drm_scheme,
       DeliveryMechanism.content_type,
       unique=True)
 
@@ -8932,7 +8938,7 @@ class CustomList(Base):
                 create_method_kwargs=dict(first_appearance=first_appearance)
             )
 
-        if (not entry.most_recent_appearance 
+        if (not entry.most_recent_appearance
             or entry.most_recent_appearance < first_appearance):
             entry.most_recent_appearance = first_appearance
         if annotation:
@@ -8983,7 +8989,7 @@ class CustomList(Base):
 class CustomListEntry(Base):
 
     __tablename__ = 'customlistentries'
-    id = Column(Integer, primary_key=True)    
+    id = Column(Integer, primary_key=True)
     list_id = Column(Integer, ForeignKey('customlists.id'), index=True)
     edition_id = Column(Integer, ForeignKey('editions.id'), index=True)
     work_id = Column(Integer, ForeignKey('works.id'), index=True)
@@ -8995,7 +9001,7 @@ class CustomListEntry(Base):
     # still relevant.
     first_appearance = Column(DateTime, index=True)
     most_recent_appearance = Column(DateTime, index=True)
-    
+
     def set_work(self, metadata=None, metadata_client=None):
         """If possible, identify a locally known Work that is the same
         title as the title identified by this CustomListEntry.
@@ -9044,12 +9050,12 @@ class CustomListEntry(Base):
         if old_work != new_work:
             if old_work:
                 logging.info(
-                    "Changing work for list entry %r to %r (was %r)", 
+                    "Changing work for list entry %r to %r (was %r)",
                     self.edition, new_work, old_work
                 )
             else:
                 logging.info(
-                    "Setting work for list entry %r to %r", 
+                    "Setting work for list entry %r to %r",
                     self.edition, new_work
                 )
         self.work = new_work
@@ -9136,14 +9142,14 @@ class Complaint(Base):
         u"http://librarysimplified.org/terms/problem/" + x
         for x in [
                 'wrong-genre',
-                'wrong-audience', 
+                'wrong-audience',
                 'wrong-age-range',
                 'wrong-title',
                 'wrong-medium',
                 'wrong-author',
                 'bad-cover-image',
                 'bad-description',
-                'cannot-fulfill-loan', 
+                'cannot-fulfill-loan',
                 'cannot-issue-loan',
                 'cannot-render',
                 'cannot-return',
@@ -9164,7 +9170,7 @@ class Complaint(Base):
         Integer, ForeignKey('licensepools.id'), index=True)
 
     # The type of complaint.
-    type = Column(String, nullable=False, index=True) 
+    type = Column(String, nullable=False, index=True)
 
     # The source of the complaint.
     source = Column(String, nullable=True, index=True)
@@ -9191,7 +9197,7 @@ class Complaint(Base):
         if source:
             complaint, is_new = get_one_or_create(
                 _db, Complaint,
-                license_pool=license_pool, 
+                license_pool=license_pool,
                 source=source, type=type,
                 resolved=resolved,
                 on_multiple='interchangeable',
@@ -9240,7 +9246,7 @@ class Library(Base, HasFullTableCache):
     # A short name of this library, to use when identifying it in
     # scripts. e.g. "NYPL" for NYPL.
     short_name = Column(Unicode, unique=True, nullable=False)
-    
+
     # A UUID that uniquely identifies the library among all libraries
     # in the world. This is used to serve the library's Authentication
     # for OPDS document, and it also goes to the library registry.
@@ -9250,7 +9256,7 @@ class Library(Base, HasFullTableCache):
     # library is the one chosen when an incoming request does not
     # designate a library.
     _is_default = Column(Boolean, index=True, default=False, name='is_default')
-    
+
     # The name of this library to use when signing short client tokens
     # for consumption by the library registry. e.g. "NYNYPL" for NYPL.
     # This name must be unique across the library registry.
@@ -9277,13 +9283,13 @@ class Library(Base, HasFullTableCache):
     custom_lists = relationship(
         "CustomList", backref="library", lazy='joined',
     )
-    
+
     # A Library may have many ExternalIntegrations.
     integrations = relationship(
         "ExternalIntegration", secondary=lambda: externalintegrations_libraries,
         backref="libraries"
     )
-    
+
     # Any additional configuration information is stored as
     # ConfigurationSettings.
     settings = relationship(
@@ -9293,7 +9299,7 @@ class Library(Base, HasFullTableCache):
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
-    
+
     def __repr__(self):
         return '<Library: name="%s", short name="%s", uuid="%s", library registry short name="%s">' % (
             self.name, self.short_name, self.uuid, self.library_registry_short_name
@@ -9310,7 +9316,7 @@ class Library(Base, HasFullTableCache):
             return library, False
         library, is_new = cls.by_cache_key(_db, short_name, _lookup)
         return library
-    
+
     @classmethod
     def default(cls, _db):
         """Find the default Library."""
@@ -9367,7 +9373,7 @@ class Library(Base, HasFullTableCache):
                 )
             value = unicode(value)
         self._library_registry_short_name = value
-        
+
     def setting(self, key):
         """Find or create a ConfigurationSetting on this Library.
 
@@ -9394,7 +9400,7 @@ class Library(Base, HasFullTableCache):
     # The name of the per-library configuration policy that controls whether
     # books may be put on hold.
     ALLOW_HOLDS = Configuration.ALLOW_HOLDS
-    
+
     # Each facet group has two associated per-library keys: one
     # configuring which facets are enabled for that facet group, and
     # one configuring which facet is the default.
@@ -9408,7 +9414,7 @@ class Library(Base, HasFullTableCache):
     # Each library may configure the maximum number of books in the
     # 'featured' lanes.
     FEATURED_LANE_SIZE = Configuration.FEATURED_LANE_SIZE
-    
+
     @property
     def allow_holds(self):
         """Does this library allow patrons to put items on hold?"""
@@ -9426,7 +9432,7 @@ class Library(Base, HasFullTableCache):
         if value is None:
             value = 0.65
         return value
-            
+
     @property
     def featured_lane_size(self):
         """The minimum quality a book must have to be 'featured'."""
@@ -9434,7 +9440,7 @@ class Library(Base, HasFullTableCache):
         if value is None:
             value = 15
         return value
-        
+
     def enabled_facets(self, group_name):
         """Look up the enabled facets for a given facet group."""
         setting = self.enabled_facets_setting(group_name)
@@ -9477,7 +9483,7 @@ class Library(Base, HasFullTableCache):
         collection_ids = collection_ids or [x.id for x in self.all_collections]
         # Only find presentation-ready works.
         #
-        # Such works are automatically filtered out of 
+        # Such works are automatically filtered out of
         # the materialized view, but we need to filter them out of Work.
         if work_model == Work:
             query = query.filter(
@@ -9491,7 +9497,7 @@ class Library(Base, HasFullTableCache):
                 LicensePool.identifier_id==LPDM.identifier_id)
         )
         query = query.filter(exists_clause)
-            
+
         # Only find books with unsuppressed LicensePools.
         if not show_suppressed:
             query = query.filter(LicensePool.suppressed==False)
@@ -9505,14 +9511,14 @@ class Library(Base, HasFullTableCache):
         query = query.filter(
             LicensePool.collection_id.in_(collection_ids)
         )
-        
+
         # If we don't allow holds, hide any books with no available copies.
         if not self.allow_holds:
             query = query.filter(
                 or_(LicensePool.licenses_available > 0, LicensePool.open_access)
             )
         return query
-    
+
     def estimated_holdings_by_language(self, include_open_access=True):
         """Estimate how many titles this library has in various languages.
 
@@ -9535,7 +9541,7 @@ class Library(Base, HasFullTableCache):
         for language, count in qu:
             counter[language] = count
         return counter
-    
+
     def default_facet(self, group_name):
         """Look up the default facet for a given facet group."""
         value = self.default_facet_setting(group_name).value
@@ -9546,7 +9552,7 @@ class Library(Base, HasFullTableCache):
     def default_facet_setting(self, group_name):
         key = self.DEFAULT_FACET_KEY_PREFIX + group_name
         return self.setting(key)
-    
+
     def explain(self, include_secrets=False):
         """Create a series of human-readable strings to explain a library's
         settings.
@@ -9585,7 +9591,7 @@ class Library(Base, HasFullTableCache):
         for setting in settings:
             if (include_secrets or not setting.is_secret) and setting.value is not None:
                 lines.append("%s='%s'" % (setting.key, setting.value))
-            
+
         integrations = list(self.integrations)
         if integrations:
             lines.append("")
@@ -9608,8 +9614,8 @@ class Library(Base, HasFullTableCache):
         if self._is_default and not new_is_default:
             raise ValueError(
                 "You cannot stop a library from being the default library; you must designate a different library as the default."
-            )            
-        
+            )
+
         _db = Session.object_session(self)
         for library in _db.query(Library):
             if library == self:
@@ -9805,7 +9811,7 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
-    
+
     __tablename__ = 'externalintegrations'
     id = Column(Integer, primary_key=True)
 
@@ -9820,7 +9826,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     # A unique name for this ExternalIntegration. This is primarily
     # used to identify ExternalIntegrations from command-line scripts.
     name = Column(Unicode, nullable=True, unique=True)
-    
+
     # Any additional configuration information goes into
     # ConfigurationSettings.
     settings = relationship(
@@ -9841,10 +9847,10 @@ class ExternalIntegration(Base, HasFullTableCache):
         # This is okay because we need by_id() quite a
         # bit and by_cache_key() not as much.
         return self.id
-    
+
     @classmethod
     def lookup(cls, _db, protocol, goal, library=None):
-        
+
         integrations = _db.query(cls).outerjoin(cls.libraries).filter(
             cls.protocol==protocol, cls.goal==goal
         )
@@ -9875,7 +9881,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         setting = self.setting(key)
         setting.value = value
         return setting
-    
+
     def setting(self, key):
         """Find or create a ConfigurationSetting on this ExternalIntegration.
 
@@ -9988,7 +9994,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
-    
+
     def __repr__(self):
         return u'<ConfigurationSetting: key=%s, ID=%d>' % (
             self.key, self.id)
@@ -10012,7 +10018,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         """Explain all site-wide ConfigurationSettings."""
         lines = []
         site_wide_settings = []
-        
+
         for setting in _db.query(ConfigurationSetting).filter(
                 ConfigurationSetting.library==None).filter(
                     ConfigurationSetting.external_integration==None):
@@ -10060,10 +10066,10 @@ class ConfigurationSetting(Base, HasFullTableCache):
         else:
             external_integration_id = None
         return (library_id, external_integration_id, key)
-        
+
     def cache_key(self):
         return self._cache_key(self.library, self.external_integration, self.key)
-        
+
     @classmethod
     def for_library_and_externalintegration(
             cls, _db, key, library, external_integration
@@ -10086,12 +10092,12 @@ class ConfigurationSetting(Base, HasFullTableCache):
         cache_key = cls._cache_key(library, external_integration, key)
         setting, ignore = cls.by_cache_key(_db, cache_key, create)
         return setting
-        
+
     @hybrid_property
     def value(self):
 
         """What's the current value of this configuration setting?
-        
+
         If not present, the value may be inherited from some other
         ConfigurationSetting.
         """
@@ -10110,7 +10116,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
             _db = Session.object_session(self)
             return self.sitewide(_db, self.key).value
         return self._value
-    
+
     @value.setter
     def set_value(self, new_value):
         if new_value is not None:
@@ -10144,7 +10150,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         if self.value is None:
             self.value = default
         return self.value
-    
+
     MEANS_YES = set(['true', 't', 'yes', 'y'])
     @property
     def bool_value(self):
@@ -10157,7 +10163,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
                 return True
             return False
         return None
-        
+
     @property
     def int_value(self):
         """Turn the value into an int if possible.
@@ -10181,7 +10187,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         if self.value:
             return float(self.value)
         return None
-    
+
     @property
     def json_value(self):
         """Interpret the value as JSON if possible.
@@ -10238,13 +10244,13 @@ class Collection(Base, HasFullTableCache):
         "Collection", backref=backref("parent", remote_side = [id]),
         uselist=True
     )
-    
+
     # A Collection can provide books to many Libraries.
     libraries = relationship(
         "Library", secondary=lambda: collections_libraries,
         backref="collections"
     )
-    
+
     # A Collection can include many LicensePools.
     licensepools = relationship(
         "LicensePool", backref="collection",
@@ -10254,7 +10260,7 @@ class Collection(Base, HasFullTableCache):
     # A Collection can be monitored by many Monitors, each of which
     # will have its own Timestamp.
     timestamps = relationship("Timestamp", backref="collection")
-    
+
     catalog = relationship(
         "Identifier", secondary=lambda: collections_identifiers,
         backref="collections"
@@ -10269,10 +10275,10 @@ class Collection(Base, HasFullTableCache):
 
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
-    
+
     def __repr__(self):
         return (u'<Collection "%s"/"%s" ID=%d>' %
-                (self.name, self.protocol, self.id)).encode('utf8')        
+                (self.name, self.protocol, self.id)).encode('utf8')
 
     def cache_key(self):
         return (self.name, self.external_integration.protocol)
@@ -10302,11 +10308,11 @@ class Collection(Base, HasFullTableCache):
         :return: A 2-tuple (collection, is_new)
         """
         name, protocol = cache_key
-        
+
         qu = cls.by_protocol(_db, protocol)
         qu = qu.filter(Collection.name==name)
         try:
-            collection = qu.one()                    
+            collection = qu.one()
             is_new = False
         except NoResultFound, e:
             # Make a new Collection.
@@ -10324,7 +10330,7 @@ class Collection(Base, HasFullTableCache):
             )
             collection.external_integration.protocol=protocol
         return collection, is_new
-    
+
     @classmethod
     def by_protocol(cls, _db, protocol):
         """Query collections that get their licenses through the given protocol.
@@ -10356,11 +10362,11 @@ class Collection(Base, HasFullTableCache):
 
     @hybrid_property
     def protocol(self):
-        """What protocol do we need to use to get licenses for this 
+        """What protocol do we need to use to get licenses for this
         collection?
         """
         return self.external_integration.protocol
-    
+
     @protocol.setter
     def set_protocol(self, new_protocol):
         """Modify the protocol in use by this Collection."""
@@ -10381,7 +10387,7 @@ class Collection(Base, HasFullTableCache):
     # source generally tells us when each loan will end.
     DEFAULT_LOAN_PERIOD_KEY = 'default_loan_period'
     STANDARD_DEFAULT_LOAN_PERIOD = 21
-        
+
     @hybrid_property
     def default_loan_period(self):
         """Until we hear otherwise from the license provider, we assume
@@ -10402,7 +10408,7 @@ class Collection(Base, HasFullTableCache):
 
     DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
     STANDARD_DEFAULT_RESERVATION_PERIOD = 3
-            
+
     @hybrid_property
     def default_reservation_period(self):
         """Until we hear otherwise from the license provider, we assume
@@ -10420,7 +10426,7 @@ class Collection(Base, HasFullTableCache):
         new_value = int(new_value)
         self.external_integration.setting(
             self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
-            
+
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
 
@@ -10448,13 +10454,13 @@ class Collection(Base, HasFullTableCache):
             )
         self.external_integration_id = external_integration.id
         return external_integration
-            
+
     @property
     def external_integration(self):
         """Find the external integration for this Collection, assuming
         it already exists.
 
-        This is generally a safe assumption since by_name_and_protocol and 
+        This is generally a safe assumption since by_name_and_protocol and
         from_metadata_identifier both create ExternalIntegrations for the
         Collections they create.
         """
@@ -10475,8 +10481,8 @@ class Collection(Base, HasFullTableCache):
 
         if self.parent:
             return self.parent.unique_account_id + '+' + unique_account_id
-        return unique_account_id        
-    
+        return unique_account_id
+
     @hybrid_property
     def data_source(self):
         """Find the data source associated with this Collection.
@@ -10807,7 +10813,7 @@ def site_configuration_has_changed(_db, timeout=1):
             dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
                  timestamp=now)
         )
-        
+
         # Update the Configuration's record of when the configuration
         # was updated. This will update our local record immediately
         # without requiring a trip to the database.
@@ -10872,7 +10878,7 @@ def licensepool_open_access_change(target, value, oldvalue, initiator):
         return
     work.external_index_needs_updating()
 
-            
+
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the
 # configuration it gets from the database. These hooks will call
@@ -10925,7 +10931,7 @@ def refresh_configuration_settings(mapper, connection, target):
     # The next time someone tries to access a configuration setting,
     # the cache will be repopulated.
     ConfigurationSetting.reset_cache()
-    
+
 @event.listens_for(DataSource, 'after_insert')
 @event.listens_for(DataSource, 'after_delete')
 @event.listens_for(DataSource, 'after_update')
@@ -10941,7 +10947,7 @@ def refresh_datasource_cache(mapper, connection, target):
     # The next time someone tries to access a DeliveryMechanism,
     # the cache will be repopulated.
     DeliveryMechanism.reset_cache()
-    
+
 @event.listens_for(ExternalIntegration, 'after_insert')
 @event.listens_for(ExternalIntegration, 'after_delete')
 @event.listens_for(ExternalIntegration, 'after_update')
@@ -10949,7 +10955,7 @@ def refresh_datasource_cache(mapper, connection, target):
     # The next time someone tries to access an ExternalIntegration,
     # the cache will be repopulated.
     ExternalIntegration.reset_cache()
-    
+
 @event.listens_for(Library, 'after_insert')
 @event.listens_for(Library, 'after_delete')
 @event.listens_for(Library, 'after_update')
@@ -10957,7 +10963,7 @@ def refresh_library_cache(mapper, connection, target):
     # The next time someone tries to access a library,
     # the cache will be repopulated.
     Library.reset_cache()
-    
+
 @event.listens_for(Genre, 'after_insert')
 @event.listens_for(Genre, 'after_delete')
 @event.listens_for(Genre, 'after_update')
