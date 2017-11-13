@@ -10,6 +10,7 @@ from sqlalchemy.engine.url import make_url
 from flask_babel import lazy_gettext as _
 
 from facets import FacetConstants
+from sqlalchemy.exc import ArgumentError
 
 class CannotLoadConfiguration(Exception):
     pass
