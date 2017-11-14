@@ -376,13 +376,14 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
         # Straightforward identifier that's represented in the OPDS response.
         valid_id = self._identifier(foreign_id=u'2020110')
 
-        # Mapped identifier.
+        # An identifier mapped to an identifier represented in the OPDS
+        # response.
         source = DataSource.lookup(self._db, DataSource.AXIS_360)
         mapped_id = self._identifier(
             identifier_type=Identifier.AXIS_360_ID, foreign_id=u'0015187876'
         )
         equivalent_id = self._identifier(
-            identifier_type=Identifier.ISBN, foreign_id=self._isbn
+            identifier_type=Identifier.ISBN, foreign_id='9781936460236'
         )
         mapped_id.equivalent_to(source, equivalent_id, 1)
 
