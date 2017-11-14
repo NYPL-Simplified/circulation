@@ -83,15 +83,17 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
         if not response:
             return [], [], timestamp
 
-        # TODO: We parse the feed three different times here.
-
         # Import the metadata
         raw_feed = response.text
         (editions, licensepools,
          works, errors) = self.importer.import_from_feed(raw_feed)
 
+        # TODO: this oughtn't be necessary, import_from_feed parsed
+        # the feed but there's no way to access the parsed copy.
+        parsed = feedparser.parse(raw_feed)
+
         # Get last update times to set the timestamp.
-        update_dates = self.importer.extract_last_update_dates(raw_feed)
+        update_dates = self.importer.extract_last_update_dates(parsed)
         update_dates = [d[1] for d in update_dates]
         if update_dates:
             # We know that every entry updated before the earliest
@@ -101,7 +103,7 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
             timestamp = min(update_dates)
 
         # Add all links with rel='next' to the queue.
-        next_links = self.importer.extract_next_links(raw_feed)
+        next_links = self.importer.extract_next_links(parsed)
         return next_links, editions, timestamp
 
     def get_response(self, timestamp, url=None):
