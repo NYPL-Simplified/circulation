@@ -16,6 +16,7 @@ from core.model import (
     Identifier,
 )
 from core.opds_import import MockMetadataWranglerOPDSLookup
+from core.testing import MockRequestsResponse
 from core.util.opds_writer import OPDSFeed
 
 from api.monitor import (
@@ -174,3 +175,45 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         eq_((None, u'http://different-link/'), third)
 
         eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp)
+
+    def test_get_response(self):
+
+        class Mock(MockMetadataWranglerOPDSLookup):
+            def __init__(self):
+                self.last_timestamp = None
+                self.urls = []
+
+            def updates(self, timestamp):
+                self.last_timestamp = timestamp
+                return MockRequestsResponse(
+                    200, {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}
+                )
+
+            def _get(self, _url):
+                self.urls.append(_url)
+                return MockRequestsResponse(
+                    200, {"content-type": OPDSFeed.ACQUISITION_FEED_TYPE}
+                )
+
+        # If you pass in None for the URL, it passes the timestamp into
+        # updates()
+        lookup = Mock()
+        monitor = MetadataWranglerCollectionUpdateMonitor(
+            self._db, self.collection, lookup
+        )
+        timestamp = object()
+        response = monitor.get_response(timestamp, None)
+        eq_(200, response.status_code)
+        eq_(timestamp, lookup.last_timestamp)
+        eq_([], lookup.urls)
+
+        # If you pass in a URL, the timestamp is ignored and
+        # the URL is passed into _get().
+        lookup = Mock()
+        monitor = MetadataWranglerCollectionUpdateMonitor(
+            self._db, self.collection, lookup
+        )
+        response = monitor.get_response(None, 'http://now used/')
+        eq_(200, response.status_code)
+        eq_(None, lookup.last_timestamp)
+        eq_(['http://now used/'], lookup.urls)
