@@ -276,6 +276,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 class MockSimplifiedOPDSLookup(SimplifiedOPDSLookup):
 
     def __init__(self, *args, **kwargs):
+        self.requests = []
         self.responses = []
         super(MockSimplifiedOPDSLookup, self).__init__(*args, **kwargs)
 
@@ -286,6 +287,7 @@ class MockSimplifiedOPDSLookup(SimplifiedOPDSLookup):
         )
 
     def _get(self, url, *args, **kwargs):
+        self.requests.append((url, args, kwargs))
         response = self.responses.pop()
         return HTTP._process_response(
             url, response, kwargs.get('allowed_response_codes'),
@@ -296,6 +298,7 @@ class MockSimplifiedOPDSLookup(SimplifiedOPDSLookup):
 class MockMetadataWranglerOPDSLookup(MockSimplifiedOPDSLookup, MetadataWranglerOPDSLookup):
 
     def _post(self, url, *args, **kwargs):
+        self.requests.append((url, args, kwargs))
         response = self.responses.pop()
         return HTTP._process_response(
             url, response, kwargs.get('allowed_response_codes'),
@@ -538,7 +541,10 @@ class OPDSImporter(object):
 
     @classmethod
     def extract_next_links(self, feed):
-        parsed = feedparser.parse(feed)
+        if isinstance(feed, basestring):
+            parsed = feedparser.parse(feed)
+        else:
+            parsed = feed
         feed = parsed['feed']
         next_links = []
         if feed and 'links' in feed:
@@ -551,7 +557,10 @@ class OPDSImporter(object):
 
     @classmethod
     def extract_last_update_dates(cls, feed):
-        parsed_feed = feedparser.parse(feed)
+        if isinstance(feed, basestring):
+            parsed_feed = feedparser.parse(feed)
+        else:
+            parsed_feed = feed
         return [
             cls.last_update_date_for_feedparser_entry(entry)
             for entry in parsed_feed['entries']
