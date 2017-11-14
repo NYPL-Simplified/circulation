@@ -49,11 +49,16 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         eq_([], lp.identifier.measurements)
 
         # Queue some data to be found.
-        data = sample_data('metadata_isbn_response.opds', 'opds')
         lookup = MockMetadataWranglerOPDSLookup.from_config(self._db, collection)
-        lookup.queue_response(
-            200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        responses = (
+            'metadata_updates_response.opds',
+            'metadata_updates_empty_response.opds'
         )
+        for filename in responses:
+            data = sample_data(filename, 'opds')
+            lookup.queue_response(
+                200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
+            )
 
         monitor = MetadataWranglerCollectionUpdateMonitor(
             self._db, collection, lookup)
