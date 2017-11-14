@@ -12,5 +12,5 @@
     <schema:Rating schema:ratingValue="1.0000" schema:additionalType="http://librarysimplified.org/terms/rel/quality"/>
     <updated>2016-09-20T19:37:02Z</updated>
   </entry>
-  <link href="http://metadata.alpha.librarysimplified.org/updates?size=1&after=1" rel="next"/>
+  <link href="http://next-link/" rel="next"/>
 </feed>

@@ -51,37 +51,58 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
             self.keep_timestamp = False
             return
 
-        initial = True
         entries = list()
-        next_links = list()
-        timestamp = start
+        queue = [None]
+        seen_links = set()
 
-        while initial or (entries or next_links):
-            url = None
-            if next_links:
-                url = next_links[0]
-            response = self.get_response(timestamp, url=url)
-            if not response:
-                break
+        new_timestamp = None
+        while queue:
+            url = queue.pop()
+            if url in seen_links:
+                continue
+            next_links, editions, possible_new_timestamp = self.import_one_feed(
+                start, url
+            )
+            if not new_timestamp or (
+                    possible_new_timestamp 
+                    and possible_new_timestamp > new_timestamp
+            ):
+                new_timestamp = possible_new_timestamp
+            seen_links.add(url)
 
-            # Import the metadata
-            raw_feed = response.text
-            self.importer.import_from_feed(raw_feed)
+            # If we didn't import any editions, then don't add any of
+            # the 'next' links found in this feed to the queue.
+            if editions:
+                for link in next_links:
+                    if link not in seen_links:
+                        queue.append(link)
+        return new_timestamp
 
-            # Get last update times to set the timestamp.
-            update_dates = self.importer.extract_last_update_dates(raw_feed)
-            update_dates = [d[1] for d in update_dates]
-            if timestamp:
-                # Including the existing timestamp, in case it's the latest.
-                update_dates.append(timestamp)
-            timestamp = max(update_dates)
+    def import_one_feed(self, timestamp, url):
+        response = self.get_response(timestamp, url=url)
+        if not response:
+            return [], [], timestamp
 
-            next_links = self.importer.extract_next_links(raw_feed)
-            entries = feedparser.parse(raw_feed).entries
-            if initial:
-                initial = False
+        # TODO: We parse the feed three different times here.
 
-        return timestamp
+        # Import the metadata
+        raw_feed = response.text
+        (editions, licensepools,
+         works, errors) = self.importer.import_from_feed(raw_feed)
+
+        # Get last update times to set the timestamp.
+        update_dates = self.importer.extract_last_update_dates(raw_feed)
+        update_dates = [d[1] for d in update_dates]
+        if update_dates:
+            # We know that every entry updated before the earliest
+            # date in the OPDS feed has been handled already, or the
+            # server would have sent it and we would have an even
+            # earlier date.
+            timestamp = min(update_dates)
+
+        # Add all links with rel='next' to the queue.
+        next_links = self.importer.extract_next_links(raw_feed)
+        return next_links, editions, timestamp
 
     def get_response(self, timestamp, url=None):
         try:
