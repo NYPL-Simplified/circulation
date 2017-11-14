@@ -87,11 +87,15 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
 
-        self.monitor.run_once(None, None)
+        new_timestamp = self.monitor.run_once(None, None)
 
         # We could have followed the 'next' link, but we chose not to.
         eq_([(None, None)], self.monitor.imports)
         eq_(1, len(self.lookup.requests))
+
+        # The timestamp was not updated because nothing was in the feed.
+        eq_(None, new_timestamp)
+        eq_(None, self.monitor.timestamp().timestamp)
 
     def test_run_once(self):
         # Setup authentication and Metadata Wrangler details.
@@ -124,6 +128,11 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         # earliest date seen in the last OPDS feed that contained
         # any entries.
         eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp)
+
+        # Normally run_once() doesn't update the monitor's timestamp,
+        # but this implementation does, so that work isn't redone if
+        # run_once() crashes or the monitor is killed.
+        eq_(new_timestamp, self.monitor.timestamp().timestamp)
 
         # The original Identifier has information from the
         # mock Metadata Wrangler.
