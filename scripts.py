@@ -2174,11 +2174,12 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 
         migrations = self.sort_migrations(self.fetch_migration_files()[0])
         py_migrations = filter(lambda m: m.endswith('.py'), migrations)
+        sql_migrations = filter(lambda m: m.endswith('.sql'), migrations)
 
-        most_recent_migration = migrations[-1]
+        most_recent_sql_migration = sql_migrations[-1]
         most_recent_python_migration = py_migrations[-1]
 
-        self.update_timestamps(most_recent_migration)
+        self.update_timestamps(most_recent_sql_migration)
         self.update_timestamps(most_recent_python_migration)
         self._db.commit()
 
