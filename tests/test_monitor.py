@@ -67,7 +67,11 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
             None, None
         )
 
+        # The 'next' links found in the OPDS feed are returned.
         eq_([u'http://next-link/'], next_links)
+
+        # Insofar as is possible, all <entry> tags are converted into
+        # Editions.
         eq_([u'9781594632556'], [x.primary_identifier.identifier
                                  for x in editions])
 
@@ -159,7 +163,7 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         self.lookup.queue_response(
             200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
-        self.monitor.run_once(None, None)
+        new_timestamp = self.monitor.run_once(None, None)
 
         # Even though all these pages had the same content, we kept
         # processing them until we encountered a 'next' link we had
@@ -168,3 +172,5 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         eq_((None, None), first)
         eq_((None, u'http://next-link/'), second)
         eq_((None, u'http://different-link/'), third)
+
+        eq_(datetime.datetime(2016, 9, 20, 19, 37, 2), new_timestamp)

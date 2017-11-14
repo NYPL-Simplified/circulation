@@ -57,16 +57,23 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
 
         new_timestamp = None
         while queue:
-            url = queue.pop()
+            url = queue.pop(0)
             if url in seen_links:
                 continue
             next_links, editions, possible_new_timestamp = self.import_one_feed(
                 start, url
             )
             if not new_timestamp or (
-                    possible_new_timestamp 
+                    possible_new_timestamp
                     and possible_new_timestamp > new_timestamp
             ):
+                # We imported an OPDS feed that included an entry
+                # with a certain 'last updated' timestamp. We make the
+                # assumption here that if there were an OPDS entry with
+                # a prior timestamp, the server would have sent it to us
+                # earlier. Thus, we can update the timestamp associated
+                # with this Monitor so that the next time it runs, it
+                # only asks for entries updated after this time.
                 new_timestamp = possible_new_timestamp
             seen_links.add(url)
 
@@ -88,8 +95,9 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
         (editions, licensepools,
          works, errors) = self.importer.import_from_feed(raw_feed)
 
-        # TODO: this oughtn't be necessary, import_from_feed parsed
-        # the feed but there's no way to access the parsed copy.
+        # TODO: this oughtn't be necessary, because import_from_feed
+        # already parsed the feed, but there's no way to access the
+        # parsed copy.
         parsed = feedparser.parse(raw_feed)
 
         # Get last update times to set the timestamp.
