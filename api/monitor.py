@@ -1,4 +1,3 @@
-import csv
 import datetime
 import feedparser
 import logging
@@ -23,7 +22,6 @@ from core.opds_import import (
 )
 from core.util.http import RemoteIntegrationException
 
-from config import Configuration
 from coverage import MetadataWranglerCoverageProvider
 
 
