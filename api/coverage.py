@@ -240,15 +240,21 @@ class MetadataWranglerCollectionManager(MetadataWranglerCoverageProvider):
         for message in self.process_feed_response(response, id_mapping):
             try:
                 identifier, _new = Identifier.parse_urn(self._db, message.urn)
-                mapped_batch.remove(identifier)
+                if identifier in mapped_batch:
+                    mapped_batch.remove(identifier)
             except ValueError as e:
                 # For some reason this URN can't be parsed. This
                 # shouldn't happen.
                 continue
 
             if message.status_code in success_codes:
-                result = id_mapping[identifier]
-                results.append(result)
+                if identifier in id_mapping:
+                    result = id_mapping[identifier]
+                    results.append(result)
+                else:
+                    # The server sent information about an identifier
+                    # we didn't ask for. Do nothing.
+                    pass
             elif message.status_code == 400:
                 # The URN couldn't be recognized. (This shouldn't happen,
                 # since if we can parse it here, we can parse it on MW, too.)

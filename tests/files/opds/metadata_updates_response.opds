@@ -1,0 +1,16 @@
+<feed xmlns:app="http://www.w3.org/2007/app" xmlns:bibframe="http://bibframe.org/vocab/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns:simplified="http://librarysimplified.org/terms/" xmlns="http://www.w3.org/2005/Atom">
+  <id>http://metadata.alpha.librarysimplified.org/updates</id>
+  <title>Updates results</title>
+  <updated>2016-09-20T19:37:10Z</updated>
+  <link href="http://metadata.alpha.librarysimplified.org/updates?size=1" rel="self"/>
+  <entry>
+    <id>urn:isbn:9781594632556</id>
+    <title>http://librarysimplified.org/terms/problem/no-title</title>
+    <link href="http://book-covers.nypl.org/Content%20Cafe/ISBN/9781594632556/cover.jpg" rel="http://opds-spec.org/image" type="image/jpeg"/>
+    <link href="http://book-covers.nypl.org/scaled/300/Content%20Cafe/ISBN/9781594632556/cover.jpg" rel="http://opds-spec.org/image/thumbnail" type="image/jpeg"/>
+    <summary type="html">&lt;b&gt;A captivating and atmospheric historical novel about a young girl in Nazi Germany, a psychoanalyst in fin-de-si&#232;cle Vienna, and the powerful mystery that links them together.&lt;/b&gt;&lt;br/&gt;&lt;br/&gt;&lt;i&gt;Gretel and the Dark&lt;/i&gt; explores good and evil, hope and despair, showing how the primal thrills and horrors of the stories we learn as children can illuminate the darkest moments in history, in two rich, intertwining narratives that come together to form one exhilarating, page-turning read. In 1899 Vienna, celebrated psychoanalyst Josef Breuer is about to encounter his strangest case yet: a mysterious, beautiful woman who claims to have no name, no feelings&#8212;to be, in fact, a machine. Intrigued, he tries to fathom the roots of her disturbance.&lt;br/&gt;&lt;br/&gt;Years later, in Nazi-controlled Germany, Krysta plays alone while her papa works in the menacingly strange infirmary next door. Young, innocent, and fiercely stubborn, she retreats into a world of fairy tales, unable to see the danger closing in around her. When everything changes and the real world becomes as frightening as any of her stories, Krysta finds that her imagination holds powers beyond what she could ever have guessed.&lt;br/&gt;&lt;br/&gt;Rich, compelling, and propulsively building to a dizzying final twist, &lt;i&gt;Gretel and the Dark&lt;/i&gt; is a testament to the lifesaving power of the imagination and a mesmerizingly original story of redemption.</summary>
+    <schema:Rating schema:ratingValue="1.0000" schema:additionalType="http://librarysimplified.org/terms/rel/quality"/>
+    <updated>2016-09-20T19:37:02Z</updated>
+  </entry>
+  <link href="http://next-link/" rel="next"/>
+</feed>
