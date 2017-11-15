@@ -2258,7 +2258,8 @@ class Identifier(Base):
     @classmethod
     def missing_coverage_from(
             cls, _db, identifier_types, coverage_data_source, operation=None,
-            count_as_covered=None, count_as_missing_before=None, identifiers=None
+            count_as_covered=None, count_as_missing_before=None, identifiers=None,
+            collection=None
     ):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
@@ -2267,9 +2268,15 @@ class Identifier(Base):
         covered if their CoverageRecords have a status in this list.
         :param identifiers: Restrict search to a specific set of identifier objects.
         """
+        if collection:
+            collection_id = collection.id
+        else:
+            collection_id = None
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
                       CoverageRecord.data_source==coverage_data_source,
-                      CoverageRecord.operation==operation)
+                      CoverageRecord.operation==operation,
+                      CoverageRecord.collection_id==collection_id
+        )
         qu = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
             qu = qu.filter(Identifier.type.in_(identifier_types))
