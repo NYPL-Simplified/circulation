@@ -654,6 +654,37 @@ class TestIdentifier(DatabaseTest):
                 self._db, [Identifier.GUTENBERG_ID], web)])
         )
 
+    def test_missing_coverage_from_with_collection(self):
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        identifier = self._identifier()
+        collection1 = self._default_collection
+        collection2 = self._collection()
+        self._coverage_record(identifier, gutenberg, collection=collection1)
+
+        # The Identifier has coverage in collection 1.
+        eq_([], 
+            Identifier.missing_coverage_from(
+                self._db, [identifier.type], gutenberg, collection=collection1
+            ).all()
+        )
+
+        # It is missing coverage in collection 2.
+        eq_(
+            [identifier], Identifier.missing_coverage_from(
+                self._db, [identifier.type], gutenberg, collection=collection2
+            ).all()
+        )
+
+        # If no collection is specified, we look for a CoverageRecord
+        # that also has no collection specified, and the Identifier is
+        # not treated as covered.
+        eq_([identifier], 
+            Identifier.missing_coverage_from(
+                self._db, [identifier.type], gutenberg
+            ).all()
+        )
+
+
     def test_missing_coverage_from_with_cutoff_date(self):
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         oclc = DataSource.lookup(self._db, DataSource.OCLC)
