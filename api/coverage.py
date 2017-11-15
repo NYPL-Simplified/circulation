@@ -295,7 +295,6 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
         # Start with items in this Collection that have not been synced.
         uncovered = super(MetadataWranglerCoverageProvider, self)\
             .items_that_need_coverage(identifiers, **kwargs)
-
         # Make sure they're licensed by this collection.
         uncovered = uncovered.filter(
             or_(LicensePool.open_access, LicensePool.licenses_owned > 0)
@@ -322,6 +321,7 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
         # relicensed identifiers. This ensures that we can get Metadata
         # Wrangler coverage for books that have had their licenses repurchased
         # or extended.
+        needs_commit = False
         for identifier in relicensed.all():
             for record in identifier.coverage_records:
                 if (record.data_source==self.data_source and
@@ -330,12 +330,15 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
                     # Delete any reaper CoverageRecord for this Identifier
                     # in this Collection.
                     self._db.delete(record)
+                    needs_commit = True
+        if needs_commit:
+            self._db.commit()
 
         # We want all items that don't have a SYNC coverage record, so
         # long as they're also missing a REAP coverage record (uncovered).
-        # But if we have licenses for them (relicensed), we want them
-        # even if they do have a REAP coverage record.
-        return uncovered.except_(reaper_covered).union(relicensed)
+        # If they were relicensed, we just removed the REAP coverage
+        # record.
+        return uncovered.except_(reaper_covered).order_by(Identifier.id)
 
     def process_batch(self, batch):
         # Success codes:
