@@ -154,6 +154,23 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         # Since that URL didn't contain any new imports, we didn't process
         # its 'next' link, http://another-next-link/.
 
+    def test_no_changes_means_no_timestamp_update(self):
+        before = datetime.datetime.utcnow()
+        self.monitor.timestamp().timestamp = before
+
+        # We're going to ask the metadata wrangler for updates, but
+        # there will be none.
+        data = sample_data('metadata_updates_empty_response.opds', 'opds')
+        self.lookup.queue_response(
+            200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+        new_timestamp = self.monitor.run_once(None, None)
+
+        # run_once() returned the original timestamp, and the 
+        # Timestamp object was not updated.
+        eq_(before, new_timestamp)
+        eq_(before, self.monitor.timestamp().timestamp)
+
     def test_no_import_loop(self):
         """We stop processing a feed's 'next' link if it links to a URL we've
         already seen.

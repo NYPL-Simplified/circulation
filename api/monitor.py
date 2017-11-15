@@ -81,9 +81,10 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
                 for link in next_links:
                     if link not in seen_links:
                         queue.append(link)
-            self.timestamp().timestamp = new_timestamp
+            if new_timestamp:
+                self.timestamp().timestamp = new_timestamp
             self._db.commit()
-        return new_timestamp
+        return new_timestamp or self.timestamp().timestamp
 
     def import_one_feed(self, timestamp, url):
         response = self.get_response(timestamp, url=url)
