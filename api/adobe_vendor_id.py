@@ -723,6 +723,7 @@ class AuthdataUtility(object):
         secret = ConfigurationSetting.for_library_and_externalintegration(
             _db, ExternalIntegration.PASSWORD, library, integration
         ).value
+        set_trace()
 
         other_libraries = None
         adobe_integration = ExternalIntegration.lookup(
@@ -1009,7 +1010,7 @@ class AuthdataUtility(object):
         return patron_identifier_credential, delegated_identifier
 
 
-class ShortClientTokenLibraryConfigurationScript(Script):
+class VendorIDLibraryConfigurationScript(Script):
 
     @classmethod
     def arg_parser(cls):
@@ -1037,10 +1038,11 @@ class ShortClientTokenLibraryConfigurationScript(Script):
             _db, ExternalIntegration.ADOBE_VENDOR_ID,
             ExternalIntegration.DRM_GOAL, library=default_library
         )
+
         if not adobe_integration:
             output.write(
                 "Could not find an Adobe Vendor ID integration for default library %s.\n" %
-                library.short_name
+                default_library.short_name
             )
             return
 
@@ -1092,3 +1094,78 @@ class ShortClientTokenLibraryConfigurationScript(Script):
         output.write("Website: %s\n" % website)
         output.write(" Short name: %s\n" % short_name)
         output.write(" Short Client Token secret: %s\n" % secret)
+
+
+class ShortClientTokenLibraryConfigurationScript(Script):
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--website-url', 
+            help="The URL to this library's patron-facing website (not their circulation manager), e.g. \"https://nypl.org/\". This is used to uniquely identify a library.",
+            required=True,
+        )
+        parser.add_argument(
+            '--vendor-id', 
+            help="The name of the vendor ID the library will use. The default of 'NYPL' is probably what you want.",
+            default='NYPL'
+        )
+        parser.add_argument(
+            '--short-name', 
+            help="The short name the library will use in Short Client Tokens, e.g. \"NYBPL\".",
+        )
+        parser.add_argument(
+            '--secret', 
+            help="The secret the library will use to sign Short Client Tokens.",
+        )
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(self._db, cmd_args=cmd_args)
+
+        # Look up a library by its url setting.
+        library_setting = get_one(
+            _db, ConfigurationSetting,
+            key=Configuration.WEBSITE_URL,
+            value=args.website_url,
+        )
+        if not library_setting:
+            available_urls = _db.query(
+                ConfigurationSetting
+            ).filter(
+                ConfigurationSetting.key==Configuration.WEBSITE_URL
+            ).filter(
+                ConfigurationSetting.library!=None
+            )
+            raise Exception(
+                "Could not locate library with URL %s. Available URLs: %s" %
+                (args.website_url, ",".join(x.value for x in available_urls))
+            )
+        library = library_setting.library
+        integration = ExternalIntegration.lookup(
+            _db, ExternalIntegration.OPDS_REGISTRATION,
+            ExternalIntegration.DISCOVERY_GOAL, library=library
+        )
+
+        vendor_id = integration.setting(AuthdataUtility.VENDOR_ID_KEY)
+        username = ConfigurationSetting.for_library_and_externalintegration(
+            _db, ExternalIntegration.USERNAME, library, integration
+        )
+        password = ConfigurationSetting.for_library_and_externalintegration(
+            _db, ExternalIntegration.PASSWORD, library, integration
+        )
+
+        if args.vendor_id and args.short_name and args.secret:
+            vendor_id.value = args.vendor_id
+            username.value = args.short_name
+            password.value = args.secret
+        output.write(
+            "Current Short Client Token configuration for %s:\n" 
+            % args.website_url
+        )
+        output.write(" Vendor ID: %s\n" % vendor_id.value)
+        output.write(" Library name: %s\n" % username.value)
+        output.write(" Shared secret: %s\n" % password.value)
+        self._db.commit()
