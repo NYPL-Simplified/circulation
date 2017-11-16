@@ -452,6 +452,46 @@ def custom_lists():
 def custom_list(list_id):
     return app.manager.admin_custom_lists_controller.custom_list(list_id)
 
+@library_route("/admin/lanes", methods=["GET", "POST"])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def lanes():
+    return app.manager.admin_lanes_controller.lanes()
+
+@library_route("/admin/lane/<lane_identifier>", methods=["DELETE"])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def lane(lane_identifier):
+    return app.manager.admin_lanes_controller.lane(lane_identifier)
+
+@library_route("/admin/lane/<lane_identifier>/show", methods=["POST"])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def lane_show(lane_identifier):
+    return app.manager.admin_lanes_controller.show_lane(lane_identifier)
+
+@library_route("/admin/lane/<lane_identifier>/hide", methods=["POST"])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def lane_hide(lane_identifier):
+    return app.manager.admin_lanes_controller.hide_lane(lane_identifier)
+
+@library_route("/admin/lanes/reset", methods=["POST"])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def reset_lanes():
+    return app.manager.admin_lanes_controller.reset()
+
 @app.route('/admin/sitewide_registration', methods=['POST'])
 @returns_json_or_response_or_problem_detail
 @requires_admin

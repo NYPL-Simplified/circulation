@@ -288,3 +288,45 @@ CUSTOM_LIST_NAME_ALREADY_IN_USE = pd(
     title=_("Custom list name already in use"),
     detail=_("The library already has a custom list with that name."),
 )
+
+MISSING_LANE = pd(
+    "http://librarysimplified.org/terms/problem/missing-lane",
+    status_code=404,
+    title=_("Missing lane"),
+    detail=_("The specified lane doesn't exist, or is associated with a different library."),
+)
+
+CANNOT_EDIT_DEFAULT_LANE = pd(
+    "http://librarysimplified.org/terms/problem/cannot-edit-default-lane",
+    status_code=400,
+    title=_("Cannot edit default lane"),
+    detail=_("You can't change one of the default auto-generated lanes."),
+)
+
+NO_DISPLAY_NAME_FOR_LANE = pd(
+    "http://librarysimplified.org/terms/problem/no-display-name-for-lane",
+    status_code=400,
+    title=_("No display name for lane"),
+    detail=_("A custom lane must have a name."),
+)
+
+NO_CUSTOM_LISTS_FOR_LANE = pd(
+    "http://librarysimplified.org/terms/problem/no-custom-lists-for-lane",
+    status_code=400,
+    title=_("No custom lists for lane"),
+    detail=_("A custom lane must have at least one associated list."),
+)    
+
+LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS = pd(
+    "http://librarysimplified.org/terms/problem/lane-with-parent-and-display-name-already-exists",
+    status_code=400,
+    title=_("Lane with parent and display name already exists"),
+    detail=_("You cannot create a lane with the same parent and display name as an existing lane."),
+)    
+
+CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT = pd(
+    "http://librarysimplified.org/terms/problem/cannot-show-lane-with-hidden-parent",
+    status_code=400,
+    title=_("Cannot show lane with hidden parent"),
+    detail=_("You can only make a lane visible if its parent is already visible."),
+)

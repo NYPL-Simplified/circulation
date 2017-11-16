@@ -46,6 +46,7 @@ from core.model import (
     Subject,
     WorkGenre
 )
+from core.lane import Lane
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
@@ -1214,6 +1215,295 @@ class TestCustomListsController(AdminControllerTest):
         with self.request_context_with_library("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(123)
             eq_(MISSING_CUSTOM_LIST, response)
+
+class TestLanesController(AdminControllerTest):
+    def test_lanes_get(self):
+        library = self._library()
+        collection = self._collection()
+        library.collections += [collection]
+
+        english = self._lane("English", library=library, languages=["eng"])
+        english.priority = 0
+        english_fiction = self._lane("Fiction", library=library, parent=english, fiction=True)
+        english_fiction.visible = False
+        english_sf = self._lane("Science Fiction", library=library, parent=english_fiction)
+        english_sf.add_genre("Science Fiction")
+        spanish = self._lane("Spanish", library=library, languages=["spa"])
+        spanish.priority = 1
+
+        w1 = self._work(with_license_pool=True, language="eng", genre="Science Fiction", collection=collection)
+        w2 = self._work(with_license_pool=True, language="eng", fiction=False, collection=collection)
+
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list.library = library
+        lane_for_list = self._lane("List Lane", library=library)
+        lane_for_list.customlists += [list]
+        lane_for_list.priority = 2
+
+        SessionManager.refresh_materialized_views(self._db)
+
+        with self.request_context_with_library("/"):
+            flask.request.library = library
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(3, len(response.get("lanes")))
+            [english_info, spanish_info, list_info] = response.get("lanes")
+
+            eq_(english.id, english_info.get("id"))
+            eq_(english.display_name, english_info.get("display_name"))
+            eq_(english.visible, english_info.get("visible"))
+            eq_(2, english_info.get("count"))
+            eq_([], english_info.get("custom_list_ids"))
+
+            [fiction_info] = english_info.get("sublanes")
+            eq_(english_fiction.id, fiction_info.get("id"))
+            eq_(english_fiction.display_name, fiction_info.get("display_name"))
+            eq_(english_fiction.visible, fiction_info.get("visible"))
+            eq_(1, fiction_info.get("count"))
+            eq_([], fiction_info.get("custom_list_ids"))
+
+            [sf_info] = fiction_info.get("sublanes")
+            eq_(english_sf.id, sf_info.get("id"))
+            eq_(english_sf.display_name, sf_info.get("display_name"))
+            eq_(english_sf.visible, sf_info.get("visible"))
+            eq_(1, sf_info.get("count"))
+            eq_([], sf_info.get("custom_list_ids"))
+
+            eq_(spanish.id, spanish_info.get("id"))
+            eq_(spanish.display_name, spanish_info.get("display_name"))
+            eq_(spanish.visible, spanish_info.get("visible"))
+            eq_(0, spanish_info.get("count"))
+            eq_([], spanish_info.get("custom_list_ids"))
+
+            eq_(lane_for_list.id, list_info.get("id"))
+            eq_(lane_for_list.display_name, list_info.get("display_name"))
+            eq_(lane_for_list.visible, list_info.get("visible"))
+            eq_(0, list_info.get("count"))
+            eq_([list.id], list_info.get("custom_list_ids"))
+
+    def test_lanes_post_errors(self):
+        with self.request_context_with_library("/", method='POST'):
+            flask.request.form = MultiDict([
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(NO_DISPLAY_NAME_FOR_LANE, response)
+
+        with self.request_context_with_library("/", method='POST'):
+            flask.request.form = MultiDict([
+                ("display_name", "lane"),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(NO_CUSTOM_LISTS_FOR_LANE, response)
+
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list.library = self._default_library
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "12345"),
+                ("display_name", "lane"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(MISSING_LANE, response)
+
+        lane1 = self._lane("lane1")
+        lane2 = self._lane("lane2")
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", lane1.id),
+                ("display_name", "lane1"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(CANNOT_EDIT_DEFAULT_LANE, response)
+
+        lane1.customlists += [list]
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", lane1.id),
+                ("display_name", "lane2"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS, response)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("display_name", "lane2"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS, response)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("parent_id", "12345"),
+                ("display_name", "lane"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(MISSING_LANE.uri, response.uri)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("parent_id", lane1.id),
+                ("display_name", "lane"),
+                ("custom_list_ids", json.dumps(["12345"])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(MISSING_CUSTOM_LIST.uri, response.uri)
+
+    def test_lanes_create(self):
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list.library = self._default_library
+
+        # The new lane's parent has a sublane already.
+        parent = self._lane("parent")
+        sibling = self._lane("sibling", parent=parent)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("parent_id", parent.id),
+                ("display_name", "lane"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(201, response.status_code)
+
+            [lane] = self._db.query(Lane).filter(Lane.display_name=="lane")
+            eq_(lane.id, int(response.response[0]))
+            eq_(self._default_library, lane.library)
+            eq_("lane", lane.display_name)
+            eq_(parent, lane.parent)
+            eq_(1, len(lane.customlists))
+            eq_(list, lane.customlists[0])
+            eq_(0, lane.priority)
+
+            # The sibling's priority has been shifted down to put the new lane at the top.
+            eq_(1, sibling.priority)
+
+    def test_lanes_edit(self):
+        list1, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list1.library = self._default_library
+        list2, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list2.library = self._default_library
+
+        lane = self._lane("old name")
+        lane.customlists += [list1]
+        
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", str(lane.id)),
+                ("display_name", "new name"),
+                ("custom_list_ids", json.dumps([list2.id])),
+            ])
+
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(200, response.status_code)
+            eq_(lane.id, int(response.response[0]))
+
+            eq_("new name", lane.display_name)
+            eq_([list2], lane.customlists)
+
+    def test_lane_delete_success(self):
+        library = self._library()
+        lane = self._lane("lane", library=library)
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list.library = library
+        lane.customlists += [list]
+        eq_(1, self._db.query(Lane).filter(Lane.library==library).count())
+
+        with self.request_context_with_library("/", method="DELETE"):
+            flask.request.library = library
+            response = self.manager.admin_lanes_controller.lane(lane.id)
+            eq_(200, response.status_code)
+
+            # The lane has been deleted.
+            eq_(0, self._db.query(Lane).filter(Lane.library==library).count())
+
+            # The custom list still exists though.
+            eq_(1, self._db.query(CustomList).filter(CustomList.library==library).count())
+
+        lane = self._lane("lane", library=library)
+        lane.customlists += [list]
+        child = self._lane("child", parent=lane, library=library)
+        child.customlists += [list]
+        grandchild = self._lane("grandchild", parent=child, library=library)
+        grandchild.customlists += [list]
+        eq_(3, self._db.query(Lane).filter(Lane.library==library).count())
+
+        with self.request_context_with_library("/", method="DELETE"):
+            flask.request.library = library
+            response = self.manager.admin_lanes_controller.lane(lane.id)
+            eq_(200, response.status_code)
+
+            # The lanes have all been deleted.
+            eq_(0, self._db.query(Lane).filter(Lane.library==library).count())
+
+            # The custom list still exists though.
+            eq_(1, self._db.query(CustomList).filter(CustomList.library==library).count())
+
+    def test_lane_delete_errors(self):
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_lanes_controller.lane(123)
+            eq_(MISSING_LANE, response)
+
+        lane = self._lane("lane")
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_lanes_controller.lane(lane.id)
+            eq_(CANNOT_EDIT_DEFAULT_LANE, response)
+
+    def test_show_lane_success(self):
+        lane = self._lane("lane")
+        lane.visible = False
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.show_lane(lane.id)
+            eq_(200, response.status_code)
+            eq_(True, lane.visible)
+
+    def test_show_lane_errors(self):
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.show_lane(123)
+            eq_(MISSING_LANE, response)
+
+        parent = self._lane("parent")
+        parent.visible = False
+        child = self._lane("lane")
+        child.visible = False
+        child.parent = parent
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.show_lane(child.id)
+            eq_(CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT, response)
+
+    def test_hide_lane_success(self):
+        lane = self._lane("lane")
+        lane.visible = True
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.hide_lane(lane.id)
+            eq_(200, response.status_code)
+            eq_(False, lane.visible)
+
+    def test_hide_lane_errors(self):
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.hide_lane(123)
+            eq_(MISSING_LANE, response)
+
+    def test_reset(self):
+        library = self._library()
+        old_lane = self._lane("old lane", library=library)
+
+        with self.request_context_with_library("/"):
+            flask.request.library = library
+            response = self.manager.admin_lanes_controller.reset()
+            eq_(200, response.status_code)
+
+            # The old lane is gone.
+            eq_(0, self._db.query(Lane).filter(Lane.library==library).filter(Lane.id==old_lane.id).count())
+            # tests/test_lanes.py tests the default lane creation, but make sure some
+            # lanes were created.
+            assert 0 < self._db.query(Lane).filter(Lane.library==library).count()
 
 class TestDashboardController(AdminControllerTest):
 

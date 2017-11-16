@@ -51,17 +51,20 @@ from core.model import (
     Work,
     WorkGenre,
 )
+from core.lane import Lane
 from core.util.problem_detail import (
     ProblemDetail, 
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
 from core.util.http import HTTP
 from problem_details import *
+from core.util import fast_query_count
 
 from api.config import (
     Configuration, 
     CannotLoadConfiguration
 )
+from api.lanes import create_default_lanes
 
 from google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
 from password_admin_authentication_provider import PasswordAdminAuthenticationProvider
@@ -131,6 +134,7 @@ def setup_admin_controllers(manager):
     manager.admin_work_controller = WorkController(manager)
     manager.admin_feed_controller = FeedController(manager)
     manager.admin_custom_lists_controller = CustomListsController(manager)
+    manager.admin_lanes_controller = LanesController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
 
@@ -900,6 +904,126 @@ class CustomListsController(CirculationManagerController):
                 self._db.delete(entry)
             self._db.delete(list)
             return Response(unicode(_("Deleted")), 200)
+
+
+class LanesController(CirculationManagerController):
+
+    def lanes(self):
+        library = flask.request.library
+
+        if flask.request.method == "GET":
+            def lanes_for_parent(parent):
+                lanes = self._db.query(Lane).filter(Lane.library==library).filter(Lane.parent==parent).order_by(Lane.priority)
+                return [{ "id": lane.id,
+                          "display_name": lane.display_name,
+                          "visible": lane.visible,
+                          # TODO: getting the counts is very slow.
+                          "count": fast_query_count(lane.works(self._db).limit(None)),
+                          "sublanes": lanes_for_parent(lane),
+                          "custom_list_ids": [list.id for list in lane.customlists],
+                          } for lane in lanes]
+            return dict(lanes=lanes_for_parent(None))
+
+        if flask.request.method == "POST":
+            id = flask.request.form.get("id")
+            parent_id = flask.request.form.get("parent_id")
+            display_name = flask.request.form.get("display_name")
+            custom_list_ids = json.loads(flask.request.form.get("custom_list_ids", "[]"))
+
+            if not display_name:
+                return NO_DISPLAY_NAME_FOR_LANE
+
+            if not custom_list_ids or len(custom_list_ids) == 0:
+                return NO_CUSTOM_LISTS_FOR_LANE
+
+            if id:
+                is_new = False
+                lane = get_one(self._db, Lane, id=id, library=library)
+                if not lane:
+                    return MISSING_LANE
+                if not lane.customlists:
+                    return CANNOT_EDIT_DEFAULT_LANE
+                if display_name != lane.display_name:
+                    old_lane = get_one(self._db, Lane, display_name=display_name, parent=lane.parent)
+                    if old_lane:
+                        return LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS
+                lane.display_name = display_name
+            else:
+                parent = None
+                if parent_id:
+                    parent = get_one(self._db, Lane, id=parent_id, library=library)
+                    if not parent:
+                        return MISSING_LANE.detailed(_("The specified parent lane does not exist, or is associated with a different library."))
+                old_lane = get_one(self._db, Lane, display_name=display_name, parent=parent)
+                if old_lane:
+                    return LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS
+
+                lane, is_new = create(
+                    self._db, Lane, display_name=display_name,
+                    parent=parent, library=library)
+
+                # Make a new lane the first child of its parent and bump all the siblings down in priority.
+                siblings = self._db.query(Lane).filter(Lane.library==library).filter(Lane.parent==lane.parent).filter(Lane.id!=lane.id)
+                for sibling in siblings:
+                    sibling.priority += 1
+                lane.priority = 0
+
+            for list_id in custom_list_ids:
+                list = get_one(self._db, CustomList, library=library, id=list_id)
+                if not list:
+                    self._db.rollback()
+                    return MISSING_CUSTOM_LIST.detailed(
+                        _("The list with id %(list_id)s does not exist or is associated with a different library.", list_id=list_id))
+                lane.customlists.append(list)
+
+            for list in lane.customlists:
+                if list.id not in custom_list_ids:
+                    lane.customlists.remove(list)
+
+            if is_new:
+                return Response(unicode(lane.id), 201)
+            else:
+                return Response(unicode(lane.id), 200)
+
+    def lane(self, lane_identifier):
+        if flask.request.method == "DELETE":
+            library = flask.request.library
+            lane = get_one(self._db, Lane, id=lane_identifier, library=library)
+            if not lane:
+                return MISSING_LANE
+            if not lane.customlists:
+                return CANNOT_EDIT_DEFAULT_LANE
+
+            # Recursively delete all the lane's sublanes.
+            def delete_lane_and_sublanes(lane):
+                for sublane in lane.sublanes:
+                    delete_lane_and_sublanes(sublane)
+                self._db.delete(lane)
+
+            delete_lane_and_sublanes(lane)
+            return Response(unicode(_("Deleted")), 200)
+
+    def show_lane(self, lane_identifier):
+        library = flask.request.library
+        lane = get_one(self._db, Lane, id=lane_identifier, library=library)
+        if not lane:
+            return MISSING_LANE
+        if lane.parent and not lane.parent.visible:
+            return CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT
+        lane.visible = True
+        return Response(unicode(_("Success")), 200)
+
+    def hide_lane(self, lane_identifier):
+        library = flask.request.library
+        lane = get_one(self._db, Lane, id=lane_identifier, library=library)
+        if not lane:
+            return MISSING_LANE
+        lane.visible = False
+        return Response(unicode(_("Success")), 200)
+
+    def reset(self):
+        create_default_lanes(self._db, flask.request.library)
+        return Response(unicode(_("Success")), 200)
 
 
 class DashboardController(CirculationManagerController):
