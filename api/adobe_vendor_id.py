@@ -24,6 +24,7 @@ from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
 from core.app_server import url_for
 from core.model import (
+    create,
     get_one,
     ConfigurationSetting,
     Credential,
@@ -1123,11 +1124,19 @@ class ShortClientTokenLibraryConfigurationScript(Script):
         _db = _db or self._db
         args = self.parse_command_line(self._db, cmd_args=cmd_args)
 
+        self.set_secret(
+            _db, args.website_url, args.vendor_id, args.short_name,
+            args.secret
+        )
+        _db.commit()
+
+    def set_secret(self, _db, website_url, vendor_id, short_name,
+                   secret, output):
         # Look up a library by its url setting.
         library_setting = get_one(
             _db, ConfigurationSetting,
             key=Configuration.WEBSITE_URL,
-            value=args.website_url,
+            value=website_url,
         )
         if not library_setting:
             available_urls = _db.query(
@@ -1139,31 +1148,38 @@ class ShortClientTokenLibraryConfigurationScript(Script):
             )
             raise Exception(
                 "Could not locate library with URL %s. Available URLs: %s" %
-                (args.website_url, ",".join(x.value for x in available_urls))
+                (website_url, ",".join(x.value for x in available_urls))
             )
         library = library_setting.library
         integration = ExternalIntegration.lookup(
             _db, ExternalIntegration.OPDS_REGISTRATION,
             ExternalIntegration.DISCOVERY_GOAL, library=library
         )
+        if not integration:
+            integration, ignore = create(
+                _db, ExternalIntegration,
+                protocol=ExternalIntegration.OPDS_REGISTRATION,
+                goal=ExternalIntegration.DISCOVERY_GOAL
+            )
+            library.integrations.append(integration)
 
-        vendor_id = integration.setting(AuthdataUtility.VENDOR_ID_KEY)
-        username = ConfigurationSetting.for_library_and_externalintegration(
+        vendor_id_s = integration.setting(AuthdataUtility.VENDOR_ID_KEY)
+        username_s = ConfigurationSetting.for_library_and_externalintegration(
             _db, ExternalIntegration.USERNAME, library, integration
         )
-        password = ConfigurationSetting.for_library_and_externalintegration(
+        password_s = ConfigurationSetting.for_library_and_externalintegration(
             _db, ExternalIntegration.PASSWORD, library, integration
         )
 
-        if args.vendor_id and args.short_name and args.secret:
-            vendor_id.value = args.vendor_id
-            username.value = args.short_name
-            password.value = args.secret
+        if vendor_id and short_name and secret:
+            vendor_id_s.value = vendor_id
+            username_s.value = short_name
+            password_s.value = secret
+        
         output.write(
             "Current Short Client Token configuration for %s:\n" 
-            % args.website_url
+            % website_url
         )
-        output.write(" Vendor ID: %s\n" % vendor_id.value)
-        output.write(" Library name: %s\n" % username.value)
-        output.write(" Shared secret: %s\n" % password.value)
-        self._db.commit()
+        output.write(" Vendor ID: %s\n" % vendor_id_s.value)
+        output.write(" Library name: %s\n" % username_s.value)
+        output.write(" Shared secret: %s\n" % password_s.value)
