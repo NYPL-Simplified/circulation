@@ -1234,8 +1234,7 @@ class TestLanesController(AdminControllerTest):
         w1 = self._work(with_license_pool=True, language="eng", genre="Science Fiction", collection=collection)
         w2 = self._work(with_license_pool=True, language="eng", fiction=False, collection=collection)
 
-        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list.library = library
         lane_for_list = self._lane("List Lane", library=library)
         lane_for_list.customlists += [list]
@@ -1295,8 +1294,7 @@ class TestLanesController(AdminControllerTest):
             response = self.manager.admin_lanes_controller.lanes()
             eq_(NO_CUSTOM_LISTS_FOR_LANE, response)
 
-        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list.library = self._default_library
 
         with self.request_context_with_library("/", method="POST"):
@@ -1358,8 +1356,7 @@ class TestLanesController(AdminControllerTest):
             eq_(MISSING_CUSTOM_LIST.uri, response.uri)
 
     def test_lanes_create(self):
-        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list.library = self._default_library
 
         # The new lane's parent has a sublane already.
@@ -1388,10 +1385,9 @@ class TestLanesController(AdminControllerTest):
             eq_(1, sibling.priority)
 
     def test_lanes_edit(self):
-        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        list1, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list1, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list1.library = self._default_library
-        list2, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list2, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list2.library = self._default_library
 
         lane = self._lane("old name")
@@ -1414,8 +1410,8 @@ class TestLanesController(AdminControllerTest):
     def test_lane_delete_success(self):
         library = self._library()
         lane = self._lane("lane", library=library)
-        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-        list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list.library = library
         lane.customlists += [list]
         eq_(1, self._db.query(Lane).filter(Lane.library==library).count())
 
@@ -1439,7 +1435,11 @@ class TestLanesController(AdminControllerTest):
             response = self.manager.admin_lanes_controller.lane(lane.id)
             eq_(200, response.status_code)
 
+            # The lanes have all been deleted.
             eq_(0, self._db.query(Lane).filter(Lane.library==library).count())
+
+            # The custom list still exists though.
+            eq_(1, self._db.query(CustomList).filter(CustomList.library==library).count())
 
     def test_lane_delete_errors(self):
         with self.request_context_with_library("/", method="DELETE"):
