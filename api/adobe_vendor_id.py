@@ -723,7 +723,6 @@ class AuthdataUtility(object):
         secret = ConfigurationSetting.for_library_and_externalintegration(
             _db, ExternalIntegration.PASSWORD, library, integration
         ).value
-        set_trace()
 
         other_libraries = None
         adobe_integration = ExternalIntegration.lookup(
@@ -1038,7 +1037,6 @@ class VendorIDLibraryConfigurationScript(Script):
             _db, ExternalIntegration.ADOBE_VENDOR_ID,
             ExternalIntegration.DRM_GOAL, library=default_library
         )
-
         if not adobe_integration:
             output.write(
                 "Could not find an Adobe Vendor ID integration for default library %s.\n" %
