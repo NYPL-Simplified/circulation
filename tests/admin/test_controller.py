@@ -1420,7 +1420,11 @@ class TestLanesController(AdminControllerTest):
             response = self.manager.admin_lanes_controller.lane(lane.id)
             eq_(200, response.status_code)
 
+            # The lane has been deleted.
             eq_(0, self._db.query(Lane).filter(Lane.library==library).count())
+
+            # The custom list still exists though.
+            eq_(1, self._db.query(CustomList).filter(CustomList.library==library).count())
 
         lane = self._lane("lane", library=library)
         lane.customlists += [list]
