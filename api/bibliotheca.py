@@ -81,6 +81,9 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         (Representation.PDF_MEDIA_TYPE, adobe_drm): 'PDF',
         (Representation.MP3_MEDIA_TYPE, findaway_drm) : 'MP3'
     }
+    internal_format_to_delivery_mechanism = dict(
+        [v,k] for k, v in delivery_mechanism_to_internal_format.items()
+    )
 
     def get_events_between(self, start, end, cache_result=False):
         """Return event objects for events between the given times."""
@@ -186,8 +189,11 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         )
         return loan
 
-    def fulfill(self, patron, password, pool, delivery_mechanism):
-        if delivery_mechanism.drm_scheme == DeliveryMechanism.FINDAWAY_DRM:
+    def fulfill(self, patron, password, pool, internal_delivery):
+        media_type, drm_scheme = self.internal_format_to_delivery_mechanism.get(
+            internal_delivery, internal_delivery
+        )
+        if drm_scheme == DeliveryMechanism.FINDAWAY_DRM:
             fulfill_method = self.get_audio_fulfillment_file
             # The provided media type is application/json, which
             # is too vague for us.
