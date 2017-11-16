@@ -247,24 +247,13 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         edition, pool = self._edition(
             data_source_name=DataSource.BIBLIOTHECA, with_license_pool=True
         )
-        audio = pool.set_delivery_mechanism(
-            Representation.MP3_MEDIA_TYPE,
-            DeliveryMechanism.FINDAWAY_DRM,
-            rights_uri=None
-        ).delivery_mechanism
-
-        epub = pool.set_delivery_mechanism(
-            Representation.EPUB_MEDIA_TYPE,
-            DeliveryMechanism.ADOBE_DRM,
-            rights_uri=None
-        ).delivery_mechanism
 
         # Let's fulfill the EPUB first.
         self.api.queue_response(
             200, headers={"Content-Type": "presumably/an-acsm"},
             content="this is an ACSM"
         )
-        fulfillment = self.api.fulfill(patron, 'password', pool, epub)
+        fulfillment = self.api.fulfill(patron, 'password', pool, 'ePub')
         assert isinstance(fulfillment, FulfillmentInfo)
         eq_("this is an ACSM", fulfillment.content)
         eq_(pool.identifier.identifier, fulfillment.identifier)
@@ -279,7 +268,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             200, headers={"Content-Type": "application/json"},
             content="this is a Findaway license"
         )
-        fulfillment = self.api.fulfill(patron, 'password', pool, audio)
+        fulfillment = self.api.fulfill(patron, 'password', pool, 'MP3')
         assert isinstance(fulfillment, FulfillmentInfo)
         eq_("this is a Findaway license", fulfillment.content)
 
