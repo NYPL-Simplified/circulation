@@ -1126,7 +1126,7 @@ class ShortClientTokenLibraryConfigurationScript(Script):
 
         self.set_secret(
             _db, args.website_url, args.vendor_id, args.short_name,
-            args.secret
+            args.secret, output
         )
         _db.commit()
 
