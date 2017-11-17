@@ -492,8 +492,8 @@ class BibliographicParser(Axis360Parser):
             for subject_identifier in self.parse_list(subject):
                 subjects.append(
                     SubjectData(
-                        type=Subject.BISAC, identifier=subject_identifier,
-                        weight=1
+                        type=Subject.BISAC, identifier=None,
+                        name=subject_identifier, weight=1
                     )
                 )
 

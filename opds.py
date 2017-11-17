@@ -1006,7 +1006,9 @@ class AcquisitionFeed(OPDSFeed):
             self.feed.append(breadcrumbs)
 
     @classmethod
-    def minimal_opds_entry(cls, identifier, cover, description, quality):
+    def minimal_opds_entry(cls, identifier, cover, description, quality,
+        most_recent_update=None
+    ):
         elements = []
         representations = []
         most_recent_update = None
@@ -1044,7 +1046,9 @@ class AcquisitionFeed(OPDSFeed):
             r.mirrored_at or r.fetched_at for r in representations
             if r.mirrored_at or r.fetched_at
         ]
-        
+        if most_recent_update:
+            potential_update_dates.append(most_recent_update)
+
         if potential_update_dates:
             update_date = max(potential_update_dates)
             elements.append(AtomFeed.updated(AtomFeed._strftime(update_date)))
@@ -1103,8 +1107,13 @@ class AcquisitionFeed(OPDSFeed):
         default_loan_period = default_reservation_period = None
         collection = license_pool.collection
         if (loan or hold) and not license_pool.open_access:
+            if loan:
+                obj = loan
+            elif hold:
+                obj = hold
+            library = obj.patron.library
             default_loan_period = datetime.timedelta(
-                collection.default_loan_period
+                collection.default_loan_period(library)
             )
         if loan:
             status = 'available'

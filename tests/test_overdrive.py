@@ -75,12 +75,18 @@ class OverdriveTestWithAPI(OverdriveTest):
 
 class TestOverdriveAPI(OverdriveTestWithAPI):
 
-    def test_default_ils_name(self):
-        # The 'ils_name' setting (defined in
-        # MockOverdriveAPI.mock_collection) becomes
-        # OverdriveAPI.ils_name.
-        eq_("e", self.api.ils_name)
-        
+    def test_ils_name(self):
+        """The 'ils_name' setting (defined in
+        MockOverdriveAPI.mock_collection) is available through
+        OverdriveAPI.ils_name().
+        """
+        eq_("e", self.api.ils_name(self._default_library))
+
+        # The value must be explicitly set for a given library, or
+        # else the default will be used.
+        l2 = self._library()
+        eq_("default", self.api.ils_name(l2))
+
     def test_make_link_safe(self):
         eq_("http://foo.com?q=%2B%3A%7B%7D",
             OverdriveAPI.make_link_safe("http://foo.com?q=+:{}"))

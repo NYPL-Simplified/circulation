@@ -705,7 +705,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         qu = Identifier.missing_coverage_from(
             self._db, self.input_identifier_types, self.data_source,
             count_as_missing_before=self.cutoff_time, operation=self.operation,
-            identifiers=self.input_identifiers, **kwargs
+            identifiers=self.input_identifiers, collection=self.collection,
+            **kwargs
         )
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))

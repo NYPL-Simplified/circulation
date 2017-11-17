@@ -916,6 +916,58 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             collection
         )
 
+    def test_items_that_need_coverage_respects_collection(self):
+
+        # Two providers that do the same work, but one is associated
+        # with a collection and the other is not.
+        collection_provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
+        )
+        no_collection_provider = AlwaysSuccessfulCoverageProvider(
+            self._db
+        )
+        eq_(collection_provider.data_source, 
+            no_collection_provider.data_source)
+        data_source = collection_provider.data_source
+
+        # Create a license pool belonging to the default collection so
+        # that its Identifier will show up as needing coverage by the
+        # CoverageProvider that manages that collection.
+        pool = self._licensepool(None, collection=self._default_collection)
+        identifier = pool.identifier
+
+        def needs():
+            """Returns all items that need coverage from both test
+            CoverageProviders.
+            """
+            return tuple(
+                p.items_that_need_coverage().all() for p in
+                (collection_provider, no_collection_provider)
+            )
+
+        # We start out in the state where the identifier needs
+        # coverage from both CoverageProviders.
+        eq_(([identifier], [identifier]), needs())
+
+        # Add coverage for an irrelevant collection, and nothing happens.
+        self._coverage_record(
+            identifier, data_source, collection=self._collection()
+        )
+        eq_(([identifier], [identifier]), needs())
+
+        # Add coverage for a relevant collection, and it's treated as
+        # covered by the provider that uses that collection.
+        self._coverage_record(
+            identifier, data_source, collection=self._default_collection
+        )
+        eq_(([], [identifier]), needs())
+
+        # Add coverage not associated with a collection, and it's
+        # treated as covered by the provider not associated with
+        # any collection.
+        self._coverage_record(identifier, data_source, collection=None)
+        eq_(([], []), needs())
+
     def test_replacement_policy(self):
         """Unless a different replacement policy is passed in, the
         replacement policy is ReplacementPolicy.from_license_source().

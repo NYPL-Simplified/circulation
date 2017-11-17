@@ -1200,7 +1200,7 @@ class DataSource(Base, HasFullTableCache):
                 (cls.GUTENBERG, True, False, Identifier.GUTENBERG_ID, None),
                 (cls.RB_DIGITAL, True, True, Identifier.RB_DIGITAL_ID, None),
                 (cls.OVERDRIVE, True, False, Identifier.OVERDRIVE_ID, 0),
-                (cls.THREEM, True, False, Identifier.BIBLIOTHECA_ID, 60*60*6),
+                (cls.BIBLIOTHECA, True, False, Identifier.BIBLIOTHECA_ID, 60*60*6),
                 (cls.AXIS_360, True, False, Identifier.AXIS_360_ID, 0),
                 (cls.OCLC, False, False, None, None),
                 (cls.OCLC_LINKED_DATA, False, False, None, None),
@@ -1886,6 +1886,8 @@ class Identifier(Base):
 
         identifiers_by_urn = dict()
         def find_existing_identifiers(identifier_details):
+            if not identifier_details:
+                return
             and_clauses = list()
             for type, identifier in identifier_details:
                 and_clauses.append(
@@ -1899,21 +1901,31 @@ class Identifier(Base):
         # Find identifiers that are already in the database.
         find_existing_identifiers(identifier_details.values())
 
+        # Remove the existing identifiers from the identifier_details list,
+        # regardless of whether the provided URN was accurate.
+        existing_details = [(i.type, i.identifier) for i in identifiers_by_urn.values()]
+        identifier_details = {
+            k: v for k, v in identifier_details.items()
+            if v not in existing_details and k not in identifiers_by_urn.keys()
+        }
+
         # Find any identifier details that don't correspond to an existing
         # identifier. Try to create them.
         new_identifiers = list()
+        new_identifiers_details = set([])
         for urn, details in identifier_details.items():
-            if urn not in identifiers_by_urn:
-                new_identifiers.append(
-                    dict(type=details[0], identifier=details[1])
-                )
-            else:
-                del identifier_details[urn]
+            if details in new_identifiers_details:
+                # For some reason, this identifier is here twice.
+                # Don't try to insert it twice.
+                continue
+            new_identifiers.append(dict(type=details[0], identifier=details[1]))
+            new_identifiers_details.add(details)
 
         # Insert new identifiers into the database, then add them to the
         # results.
-        _db.bulk_insert_mappings(cls, new_identifiers)
-        _db.commit()
+        if new_identifiers:
+            _db.bulk_insert_mappings(cls, new_identifiers)
+            _db.commit()
         find_existing_identifiers(identifier_details.values())
 
         return identifiers_by_urn, failures
@@ -2246,7 +2258,8 @@ class Identifier(Base):
     @classmethod
     def missing_coverage_from(
             cls, _db, identifier_types, coverage_data_source, operation=None,
-            count_as_covered=None, count_as_missing_before=None, identifiers=None
+            count_as_covered=None, count_as_missing_before=None, identifiers=None,
+            collection=None
     ):
         """Find identifiers of the given types which have no CoverageRecord
         from `coverage_data_source`.
@@ -2255,9 +2268,15 @@ class Identifier(Base):
         covered if their CoverageRecords have a status in this list.
         :param identifiers: Restrict search to a specific set of identifier objects.
         """
+        if collection:
+            collection_id = collection.id
+        else:
+            collection_id = None
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
                       CoverageRecord.data_source==coverage_data_source,
-                      CoverageRecord.operation==operation)
+                      CoverageRecord.operation==operation,
+                      CoverageRecord.collection_id==collection_id
+        )
         qu = _db.query(Identifier).outerjoin(CoverageRecord, clause)
         if identifier_types:
             qu = qu.filter(Identifier.type.in_(identifier_types))
@@ -2296,11 +2315,17 @@ class Identifier(Base):
                 if not description or resource.quality > description.quality:
                     description = resource
 
+        last_coverage_update = None
+        if self.coverage_records:
+            timestamps = [c.timestamp for c in self.coverage_records]
+            last_coverage_update = max(timestamps)
+
         quality = Measurement.overall_quality(self.measurements)
         from opds import AcquisitionFeed
         return AcquisitionFeed.minimal_opds_entry(
-            identifier=self, cover=cover_image, 
-            description=description, quality=quality)
+            identifier=self, cover=cover_image, description=description,
+            quality=quality, most_recent_update=last_coverage_update
+        )
 
 
 class Contributor(Base):
@@ -3578,7 +3603,7 @@ class Work(Base):
         DataSource.GUTENBERG: 0,
         DataSource.RB_DIGITAL: 0.4,
         DataSource.OVERDRIVE: 0.4,
-        DataSource.THREEM : 0.65,
+        DataSource.BIBLIOTHECA : 0.65,
         DataSource.AXIS_360: 0.65,
         DataSource.STANDARD_EBOOKS: 0.8,
         DataSource.UNGLUE_IT: 0.4,
@@ -3797,6 +3822,20 @@ class Work(Base):
         )
         q2 = q.filter(missing)
         return q2
+
+    @classmethod
+    def for_unchecked_subjects(cls, _db):
+        """Find all Works whose LicensePools have an Identifier that
+        is classified under an unchecked Subject.
+
+        This is a good indicator that the Work needs to be
+        reclassified.
+        """
+        qu = _db.query(Work).join(Work.license_pools).join(
+            LicensePool.identifier).join(
+                Identifier.classifications).join(
+                    Classification.subject)
+        return qu.filter(Subject.checked==False).distinct()
 
     @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid, medium):
@@ -5748,8 +5787,7 @@ class Subject(Base):
     FAST = Classifier.FAST
     DDC = Classifier.DDC              # Dewey Decimal Classification
     OVERDRIVE = Classifier.OVERDRIVE  # Overdrive's classification system
-    ONECLICK = Classifier.ONECLICK    # OneClick's genre system
-    THREEM = Classifier.THREEM        # 3M's classification system
+    RBDIGITAL = Classifier.RBDIGITAL  # RBdigital's genre system
     BISAC = Classifier.BISAC
     BIC = Classifier.BIC              # BIC Subject Categories
     TAG = Classifier.TAG              # Folksonomic tags.
@@ -5758,11 +5796,11 @@ class Subject(Base):
 
     # Types with terms that are suitable for search.
     TYPES_FOR_SEARCH = [
-        FAST, OVERDRIVE, THREEM, BISAC, TAG
+        FAST, OVERDRIVE, BISAC, TAG
     ]
 
     AXIS_360_AUDIENCE = Classifier.AXIS_360_AUDIENCE
-    ONECLICK_AUDIENCE = Classifier.ONECLICK_AUDIENCE
+    RBDIGITAL_AUDIENCE = Classifier.RBDIGITAL_AUDIENCE
     GRADE_LEVEL = Classifier.GRADE_LEVEL
     AGE_RANGE = Classifier.AGE_RANGE
     LEXILE_SCORE = Classifier.LEXILE_SCORE
@@ -5781,13 +5819,16 @@ class Subject(Base):
         SIMPLIFIED_GENRE : SIMPLIFIED_GENRE,
         SIMPLIFIED_FICTION_STATUS : SIMPLIFIED_FICTION_STATUS,
         "http://librarysimplified.org/terms/genres/Overdrive/" : OVERDRIVE,
-        "http://librarysimplified.org/terms/genres/3M/" : THREEM,
+        "http://librarysimplified.org/terms/genres/3M/" : BISAC,
         "http://id.worldcat.org/fast/" : FAST, # I don't think this is official.
         "http://purl.org/dc/terms/LCC" : LCC,
         "http://purl.org/dc/terms/LCSH" : LCSH,
         "http://purl.org/dc/terms/DDC" : DDC,
         "http://schema.org/typicalAgeRange" : AGE_RANGE,
         "http://schema.org/audience" : FREEFORM_AUDIENCE,
+        "http://www.bisg.org/standards/bisac_subject/" : BISAC,
+        # Feedbooks uses a modified BISAC which we know how to handle.
+        "http://www.feedbooks.com/categories" : BISAC,
     }
 
     uri_lookup = dict()
@@ -6009,7 +6050,8 @@ class Subject(Base):
                 )
         self.fiction = fiction
 
-        if numericrange_to_tuple(self.target_age) != target_age:
+        if (numericrange_to_tuple(self.target_age) != target_age and 
+            not (not self.target_age and not target_age)):
             log.info(
                 "%s:%s target_age %r=>%r", self.type, self.identifier,
                 self.target_age, tuple_to_numericrange(target_age)
@@ -6047,12 +6089,7 @@ class Classification(Base):
     # This goes into Classification rather than Subject because it's
     # possible that one particular data source could use a certain
     # subject type in an unreliable way.
-    #
-    # In fact, the 3M classifications are basically BISAC
-    # classifications used in an unreliable way, so we could merge
-    # them in the future.
     _juvenile_subject_types = set([
-        Subject.THREEM,
         Subject.LCC
     ])
 
@@ -7426,7 +7463,7 @@ class RightsStatus(Base):
         DataSource.OA_CONTENT_SERVER : GENERIC_OPEN_ACCESS,
 
         DataSource.OVERDRIVE: IN_COPYRIGHT,
-        DataSource.THREEM: IN_COPYRIGHT,
+        DataSource.BIBLIOTHECA: IN_COPYRIGHT,
         DataSource.AXIS_360: IN_COPYRIGHT,
     }
     
@@ -8770,6 +8807,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     NO_DRM = None
     ADOBE_DRM = u"application/vnd.adobe.adept+xml"
+    FINDAWAY_DRM = u"application/vnd.librarysimplified.findaway.license+json"
     KINDLE_DRM = u"Kindle DRM"
     NOOK_DRM = u"Nook DRM"
     STREAMING_DRM = u"Streaming"
@@ -10441,35 +10479,44 @@ class Collection(Base, HasFullTableCache):
         for child in self.children:
             child.protocol = new_protocol
 
-    # TODO: The default loan period needs to be expanded to handle
-    # different defaults for different media types (e.g. on Overdrive
-    # the default loan period for audiobooks is 14 days, and for video
-    # it's 5 days). This isn't a high priority because the license
-    # source generally tells us when each loan will end.
-    DEFAULT_LOAN_PERIOD_KEY = 'default_loan_period'
+    # For collections that can control the duration of the loans they
+    # create, the durations are stored in these settings and new loans are
+    # expected to be created using these settings. For collections
+    # where loan duration is negotiated out-of-bounds, all loans are
+    # _assumed_ to have these durations unless we hear otherwise from
+    # the server.
+    AUDIOBOOK_LOAN_DURATION_KEY = 'audio_loan_duration'
+    EBOOK_LOAN_DURATION_KEY = 'ebook_loan_duration'
     STANDARD_DEFAULT_LOAN_PERIOD = 21
         
-    @hybrid_property
-    def default_loan_period(self):
+    def default_loan_period(self, library, medium=Edition.BOOK_MEDIUM):
         """Until we hear otherwise from the license provider, we assume
         that someone who borrows a non-open-access item from this
         collection has it for this number of days.
         """
+        return self.default_loan_period_setting(
+            library, medium).int_value or self.STANDARD_DEFAULT_LOAN_PERIOD
+
+    def default_loan_period_setting(self, library, medium=Edition.BOOK_MEDIUM):
+        """Until we hear otherwise from the license provider, we assume
+        that someone who borrows a non-open-access item from this
+        collection has it for this number of days.
+        """
+        _db = Session.object_session(library)
+        if medium == Edition.AUDIO_MEDIUM:
+            key = self.AUDIOBOOK_LOAN_DURATION_KEY
+        else:
+            key = self.EBOOK_LOAN_DURATION_KEY
         return (
-            self.external_integration.setting(
-                self.DEFAULT_LOAN_PERIOD_KEY).int_value
-            or self.STANDARD_DEFAULT_LOAN_PERIOD
+            ConfigurationSetting.for_library_and_externalintegration(
+                _db, key, library, self.external_integration
+            )
         )
 
-    @default_loan_period.setter
-    def set_default_loan_period(self, new_value):
-        new_value = int(new_value)
-        self.external_integration.setting(
-            self.DEFAULT_LOAN_PERIOD_KEY).value = str(new_value)
 
     DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
     STANDARD_DEFAULT_RESERVATION_PERIOD = 3
-            
+
     @hybrid_property
     def default_reservation_period(self):
         """Until we hear otherwise from the license provider, we assume
@@ -10478,16 +10525,16 @@ class Collection(Base, HasFullTableCache):
         """
         return (
             self.external_integration.setting(
-                self.DEFAULT_RESERVATION_PERIOD_KEY).int_value
-            or self.STANDARD_DEFAULT_RESERVATION_PERIOD
+                self.DEFAULT_RESERVATION_PERIOD_KEY,
+            ).int_value or self.STANDARD_DEFAULT_RESERVATION_PERIOD
         )
 
     @default_reservation_period.setter
     def set_default_reservation_period(self, new_value):
         new_value = int(new_value)
         self.external_integration.setting(
-            self.DEFAULT_RESERVATION_PERIOD__KEY).value = str(new_value)
-            
+            self.DEFAULT_RESERVATION_PERIOD_KEY).value = str(new_value)
+
     def create_external_integration(self, protocol):
         """Create an ExternalIntegration for this Collection.
 
@@ -10700,21 +10747,49 @@ class Collection(Base, HasFullTableCache):
         flush(_db)
 
     def works_updated_since(self, _db, timestamp):
-        """Returns all works in a collection's catalog that have been updated
-        since the last time the catalog was checked.
+        """Finds all works in a collection's catalog that have been updated
+           since the timestamp. Used in the metadata wrangler.
+
+           :return: a Query
         """
-        query = _db.query(Work).join(Work.coverage_records)\
+        opds_operation = WorkCoverageRecord.GENERATE_OPDS_OPERATION
+        qu = _db.query(Work).join(Work.coverage_records)\
             .join(Work.license_pools).join(Identifier)\
-            .join(Identifier.collections)\
-            .filter(Collection.id==self.id)\
-            .options(joinedload(Work.license_pools, LicensePool.identifier))
+            .join(Identifier.collections).filter(
+                Collection.id==self.id,
+                WorkCoverageRecord.operation==opds_operation,
+            ).options(joinedload(Work.license_pools, LicensePool.identifier))
 
         if timestamp:
-            query = query.filter(
+            qu = qu.filter(
                 WorkCoverageRecord.timestamp > timestamp
             )
 
-        return query.distinct()
+        qu = qu.order_by(WorkCoverageRecord.timestamp)
+        return qu
+
+    def isbns_updated_since(self, _db, timestamp):
+        """Finds all ISBNs in a collection's catalog that have been updated
+           since the timestamp but don't have a Work to show for it. Used in
+           the metadata wrangler.
+
+           :return: a Query
+        """
+        isbns = _db.query(Identifier, func.max(CoverageRecord.timestamp).label('latest'))\
+            .join(Identifier.collections)\
+            .join(Identifier.coverage_records)\
+            .outerjoin(Identifier.licensed_through)\
+            .group_by(Identifier.id).order_by('latest')\
+            .filter(
+                Collection.id==self.id,
+                LicensePool.work_id==None,
+                CoverageRecord.status==CoverageRecord.SUCCESS,
+            ).enable_eagerloads(False).options(joinedload(Identifier.coverage_records))
+
+        if timestamp:
+            isbns = isbns.filter(CoverageRecord.timestamp > timestamp)
+
+        return isbns
 
 
 collections_libraries = Table(
@@ -10794,7 +10869,7 @@ class IntegrationClient(Base):
 
         generate_secret = (client.shared_secret is None) or submitted_secret
         if generate_secret:
-            client.shared_secret = os.urandom(24).encode('hex')
+            client.shared_secret = unicode(os.urandom(24).encode('hex'))
 
         return client, is_new
 
@@ -10808,7 +10883,7 @@ class IntegrationClient(Base):
 
     @classmethod
     def authenticate(cls, _db, shared_secret):
-        client = get_one(_db, cls, shared_secret=shared_secret)
+        client = get_one(_db, cls, shared_secret=unicode(shared_secret))
         if client:
             client.last_accessed = datetime.datetime.utcnow()
             return client
@@ -10846,6 +10921,8 @@ def numericrange_to_tuple(r):
 
 def tuple_to_numericrange(t):
     """Helper method to convert a tuple to an inclusive NumericRange."""
+    if not t:
+        return None
     return NumericRange(t[0], t[1], '[]')
 
 def site_configuration_has_changed(_db, timeout=1):
@@ -10948,6 +11025,14 @@ def licensepool_open_access_change(target, value, oldvalue, initiator):
         return
     work.external_index_needs_updating()
 
+def directly_modified(obj):
+    """Return True only if `obj` has itself been modified, as opposed to
+    having an object added or removed to one of its associated
+    collections.
+    """
+    return Session.object_session(obj).is_modified(
+        obj, include_collections=False
+    )
             
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the
@@ -10973,18 +11058,22 @@ def configuration_relevant_collection_change(target, value, initiator):
 
 @event.listens_for(Library, 'after_insert')
 @event.listens_for(Library, 'after_delete')
-@event.listens_for(Library, 'after_update')
 @event.listens_for(ExternalIntegration, 'after_insert')
 @event.listens_for(ExternalIntegration, 'after_delete')
-@event.listens_for(ExternalIntegration, 'after_update')
 @event.listens_for(Collection, 'after_insert')
 @event.listens_for(Collection, 'after_delete')
-@event.listens_for(Collection, 'after_update')
 @event.listens_for(ConfigurationSetting, 'after_insert')
 @event.listens_for(ConfigurationSetting, 'after_delete')
-@event.listens_for(ConfigurationSetting, 'after_update')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(target)
+
+@event.listens_for(Library, 'after_update')
+@event.listens_for(ExternalIntegration, 'after_update')
+@event.listens_for(Collection, 'after_update')
+@event.listens_for(ConfigurationSetting, 'after_update')
+def configuration_relevant_update(mapper, connection, target):
+    if directly_modified(target):
+        site_configuration_has_changed(target)
 
 @event.listens_for(Collection, 'after_insert')
 @event.listens_for(Collection, 'after_delete')

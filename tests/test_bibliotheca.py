@@ -138,8 +138,8 @@ class TestItemListParser(BaseBibliothecaTest):
     def test_parse_genre_string(self):
         def f(genre_string):
             genres = ItemListParser.parse_genre_string(genre_string)
-            assert all([x.type == Subject.THREEM for x in genres])
-            return [x.identifier for x in genres]
+            assert all([x.type == Subject.BISAC for x in genres])
+            return [x.name for x in genres]
 
         eq_(["Children's Health", "Health"], 
             f("Children&amp;#39;s Health,Health,"))
@@ -180,7 +180,7 @@ class TestItemListParser(BaseBibliothecaTest):
         eq_("Rowland, Laura Joh", author.sort_name)
         eq_([Contributor.AUTHOR_ROLE], author.roles)
 
-        subjects = [x.identifier for x in cooked.subjects]
+        subjects = [x.name for x in cooked.subjects]
         eq_(["Children's Health", "Mystery & Detective"], sorted(subjects))
 
         [pages] = cooked.measurements
@@ -267,6 +267,7 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
 
         rep = Representation
         adobe = DeliveryMechanism.ADOBE_DRM
+        findaway = DeliveryMechanism.FINDAWAY_DRM
         book = Edition.BOOK_MEDIUM
 
         # Verify that we handle the known strings from Bibliotheca
@@ -274,7 +275,7 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         _check_format("EPUB", book, rep.EPUB_MEDIA_TYPE, adobe)
         _check_format("EPUB3", book, rep.EPUB_MEDIA_TYPE, adobe)
         _check_format("PDF", book, rep.PDF_MEDIA_TYPE, adobe)
-        _check_format("MP3", Edition.AUDIO_MEDIUM, rep.MP3_MEDIA_TYPE, adobe)
+        _check_format("MP3", Edition.AUDIO_MEDIUM, rep.MP3_MEDIA_TYPE, findaway)
 
         # Now Try a string we don't recognize from Bibliotheca.
         medium, formats = m("Unknown")

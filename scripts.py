@@ -1473,6 +1473,24 @@ class WorkClassificationScript(WorkPresentationScript):
     )
 
 
+class ReclassifyWorksForUncheckedSubjectsScript(WorkClassificationScript):
+    """Reclassify all Works whose current classifications appear to 
+    depend on Subjects in the 'unchecked' state.
+
+    This generally means that some migration script reset those
+    Subjects because the rules for processing them changed.
+    """
+
+    policy = WorkClassificationScript.policy
+
+    batch_size = 100
+
+    def __init__(self, _db=None):
+        if _db:
+            self._session = _db
+        self.query = Work.for_unchecked_subjects(self._db)
+
+
 class WorkOPDSScript(WorkPresentationScript):
     """Recalculate the OPDS entries and search index entries for Work objects.
 
@@ -2156,11 +2174,12 @@ class DatabaseMigrationInitializationScript(DatabaseMigrationScript):
 
         migrations = self.sort_migrations(self.fetch_migration_files()[0])
         py_migrations = filter(lambda m: m.endswith('.py'), migrations)
+        sql_migrations = filter(lambda m: m.endswith('.sql'), migrations)
 
-        most_recent_migration = migrations[-1]
+        most_recent_sql_migration = sql_migrations[-1]
         most_recent_python_migration = py_migrations[-1]
 
-        self.update_timestamps(most_recent_migration)
+        self.update_timestamps(most_recent_sql_migration)
         self.update_timestamps(most_recent_python_migration)
         self._db.commit()
 
