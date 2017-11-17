@@ -44,6 +44,7 @@ from model import (
     Admin,
     Annotation,
     BaseCoverageRecord,
+    CachedFeed,
     CirculationEvent,
     Classification,
     Collection,
@@ -6961,6 +6962,9 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
             "Assert that `was_called` is True, then reset it for the next assertion."
             assert self.was_called
             self.was_called = False
+
+        def assert_was_not_called(self):
+            assert not self.was_called
             
     def setup(self):
         super(TestSiteConfigurationHasChanged, self).setup()
@@ -7077,12 +7081,22 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         library = self._default_library
         collection = self._collection()
         self.mock.assert_was_called()
-        
+        self._db.commit()
+        self.mock.assert_was_called()
+
         # Add the collection to the library, and
         # site_configuration_has_changed() is called.
         library.collections.append(collection)
+        self._db.commit()
         self.mock.assert_was_called()
-        
+
+        # Associate a CachedFeed with the library, and
+        # site_configuration_has_changed() is _not_ called,
+        # because nothing changed on the Library object.
+        create(self._db, CachedFeed, type='page', pagination='', 
+               facets='', library=library)
+        self._db.commit()
+        self.mock.assert_was_not_called()
     
 class TestCollection(DatabaseTest):
 
