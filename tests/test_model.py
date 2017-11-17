@@ -7077,22 +7077,22 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         site_configuration_has_changed is called.
         """                
 
-        # Creating a library calls the method.
+        # Creating a collection calls the method via an 'after_insert'
+        # event on Collection.
         library = self._default_library
         collection = self._collection()
-        self.mock.assert_was_called()
         self._db.commit()
         self.mock.assert_was_called()
 
-        # Add the collection to the library, and
-        # site_configuration_has_changed() is called.
+        # Adding the collection to the library calls the method via
+        # an 'append' event on Collection.libraries.
         library.collections.append(collection)
         self._db.commit()
         self.mock.assert_was_called()
 
-        # Associate a CachedFeed with the library, and
-        # site_configuration_has_changed() is _not_ called,
-        # because nothing changed on the Library object.
+        # Associating a CachedFeed with the library does _not_ call
+        # the method, because nothing changed on the Library object and
+        # we don't listen for 'append' events on Library.cachedfeeds.
         create(self._db, CachedFeed, type='page', pagination='', 
                facets='', library=library)
         self._db.commit()
