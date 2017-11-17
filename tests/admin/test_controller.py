@@ -1228,6 +1228,7 @@ class TestLanesController(AdminControllerTest):
         english_fiction.visible = False
         english_sf = self._lane("Science Fiction", library=library, parent=english_fiction)
         english_sf.add_genre("Science Fiction")
+        english_sf.inherit_parent_restrictions = True
         spanish = self._lane("Spanish", library=library, languages=["spa"])
         spanish.priority = 1
 
@@ -1253,6 +1254,7 @@ class TestLanesController(AdminControllerTest):
             eq_(english.visible, english_info.get("visible"))
             eq_(2, english_info.get("count"))
             eq_([], english_info.get("custom_list_ids"))
+            eq_(False, english_info.get("inherit_parent_restrictions"))
 
             [fiction_info] = english_info.get("sublanes")
             eq_(english_fiction.id, fiction_info.get("id"))
@@ -1260,6 +1262,7 @@ class TestLanesController(AdminControllerTest):
             eq_(english_fiction.visible, fiction_info.get("visible"))
             eq_(1, fiction_info.get("count"))
             eq_([], fiction_info.get("custom_list_ids"))
+            eq_(False, fiction_info.get("inherit_parent_restrictions"))
 
             [sf_info] = fiction_info.get("sublanes")
             eq_(english_sf.id, sf_info.get("id"))
@@ -1267,18 +1270,21 @@ class TestLanesController(AdminControllerTest):
             eq_(english_sf.visible, sf_info.get("visible"))
             eq_(1, sf_info.get("count"))
             eq_([], sf_info.get("custom_list_ids"))
+            eq_(True, sf_info.get("inherit_parent_restrictions"))
 
             eq_(spanish.id, spanish_info.get("id"))
             eq_(spanish.display_name, spanish_info.get("display_name"))
             eq_(spanish.visible, spanish_info.get("visible"))
             eq_(0, spanish_info.get("count"))
             eq_([], spanish_info.get("custom_list_ids"))
+            eq_(False, spanish_info.get("inherit_parent_restrictions"))
 
             eq_(lane_for_list.id, list_info.get("id"))
             eq_(lane_for_list.display_name, list_info.get("display_name"))
             eq_(lane_for_list.visible, list_info.get("visible"))
             eq_(0, list_info.get("count"))
             eq_([list.id], list_info.get("custom_list_ids"))
+            eq_(False, list_info.get("inherit_parent_restrictions"))
 
     def test_lanes_post_errors(self):
         with self.request_context_with_library("/", method='POST'):
@@ -1368,6 +1374,7 @@ class TestLanesController(AdminControllerTest):
                 ("parent_id", parent.id),
                 ("display_name", "lane"),
                 ("custom_list_ids", json.dumps([list.id])),
+                ("inherit_parent_restrictions", True),
             ])
             response = self.manager.admin_lanes_controller.lanes()
             eq_(201, response.status_code)
@@ -1379,6 +1386,7 @@ class TestLanesController(AdminControllerTest):
             eq_(parent, lane.parent)
             eq_(1, len(lane.customlists))
             eq_(list, lane.customlists[0])
+            eq_(True, lane.inherit_parent_restrictions)
             eq_(0, lane.priority)
 
             # The sibling's priority has been shifted down to put the new lane at the top.
@@ -1398,6 +1406,7 @@ class TestLanesController(AdminControllerTest):
                 ("id", str(lane.id)),
                 ("display_name", "new name"),
                 ("custom_list_ids", json.dumps([list2.id])),
+                ("inherit_parent_restrictions", True),
             ])
 
             response = self.manager.admin_lanes_controller.lanes()
@@ -1406,6 +1415,7 @@ class TestLanesController(AdminControllerTest):
 
             eq_("new name", lane.display_name)
             eq_([list2], lane.customlists)
+            eq_(True, lane.inherit_parent_restrictions)
 
     def test_lane_delete_success(self):
         library = self._library()
