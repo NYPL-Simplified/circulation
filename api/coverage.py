@@ -240,15 +240,21 @@ class MetadataWranglerCollectionManager(MetadataWranglerCoverageProvider):
         for message in self.process_feed_response(response, id_mapping):
             try:
                 identifier, _new = Identifier.parse_urn(self._db, message.urn)
-                mapped_batch.remove(identifier)
+                if identifier in mapped_batch:
+                    mapped_batch.remove(identifier)
             except ValueError as e:
                 # For some reason this URN can't be parsed. This
                 # shouldn't happen.
                 continue
 
             if message.status_code in success_codes:
-                result = id_mapping[identifier]
-                results.append(result)
+                if identifier in id_mapping:
+                    result = id_mapping[identifier]
+                    results.append(result)
+                else:
+                    # The server sent information about an identifier
+                    # we didn't ask for. Do nothing.
+                    pass
             elif message.status_code == 400:
                 # The URN couldn't be recognized. (This shouldn't happen,
                 # since if we can parse it here, we can parse it on MW, too.)
@@ -289,7 +295,6 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
         # Start with items in this Collection that have not been synced.
         uncovered = super(MetadataWranglerCoverageProvider, self)\
             .items_that_need_coverage(identifiers, **kwargs)
-
         # Make sure they're licensed by this collection.
         uncovered = uncovered.filter(
             or_(LicensePool.open_access, LicensePool.licenses_owned > 0)
@@ -316,6 +321,7 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
         # relicensed identifiers. This ensures that we can get Metadata
         # Wrangler coverage for books that have had their licenses repurchased
         # or extended.
+        needs_commit = False
         for identifier in relicensed.all():
             for record in identifier.coverage_records:
                 if (record.data_source==self.data_source and
@@ -324,12 +330,15 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
                     # Delete any reaper CoverageRecord for this Identifier
                     # in this Collection.
                     self._db.delete(record)
+                    needs_commit = True
+        if needs_commit:
+            self._db.commit()
 
         # We want all items that don't have a SYNC coverage record, so
         # long as they're also missing a REAP coverage record (uncovered).
-        # But if we have licenses for them (relicensed), we want them
-        # even if they do have a REAP coverage record.
-        return uncovered.except_(reaper_covered).union(relicensed)
+        # If they were relicensed, we just removed the REAP coverage
+        # record.
+        return uncovered.except_(reaper_covered).order_by(Identifier.id)
 
     def process_batch(self, batch):
         # Success codes:

@@ -1,4 +1,5 @@
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
@@ -7,10 +8,12 @@ import contextlib
 import datetime
 import flask
 import json
+from StringIO import StringIO
 
 from api.adobe_vendor_id import (
     AdobeVendorIDModel,
     AuthdataUtility,
+    ShortClientTokenLibraryConfigurationScript,
 )
 
 from api.config import (
@@ -328,3 +331,67 @@ class TestLanguageListScript(DatabaseTest):
         # English is ignored because all its works are open-access.
         # Tagalog shows up with the correct estimate.
         eq_(["tgl 1 (Tagalog)"], output)
+
+
+class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
+
+    def setup(self):
+        super(TestShortClientTokenLibraryConfigurationScript, self).setup()
+        self._default_library.setting(
+            Configuration.WEBSITE_URL
+        ).value = "http://foo/"
+        self.script = ShortClientTokenLibraryConfigurationScript(self._db)
+
+    def test_identify_library_by_url(self):
+        assert_raises_regexp(
+            Exception,
+            "Could not locate library with URL http://bar/. Available URLs: http://foo/",
+            self.script.set_secret,
+            self._db, "http://bar/", "vendorid", "libraryname", "secret", None
+        )
+
+    def test_set_secret(self):
+        eq_([], self._default_library.integrations)
+
+        output = StringIO()
+        self.script.set_secret(
+            self._db, "http://foo/", "vendorid", "libraryname", "secret", 
+            output
+        )
+        eq_(
+            u'Current Short Client Token configuration for http://foo/:\n Vendor ID: vendorid\n Library name: libraryname\n Shared secret: secret\n',
+            output.getvalue()
+        )
+        [integration] = self._default_library.integrations
+        eq_(
+            [('password', 'secret'), ('username', 'libraryname'),
+             ('vendor_id', 'vendorid')],
+            sorted((x.key, x.value) for x in integration.settings)
+        )
+
+        # We can modify an existing configuration.
+        output = StringIO()
+        self.script.set_secret(
+            self._db, "http://foo/", "newid", "newname", "newsecret", 
+            output
+        )
+        expect = u'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
+        eq_(expect, output.getvalue())
+        expect_settings = [
+            ('password', 'newsecret'), ('username', 'newname'),
+             ('vendor_id', 'newid')
+        ]
+        eq_(expect_settings,
+            sorted((x.key, x.value) for x in integration.settings)
+        )
+
+        # We can also just check on the existing configuration without
+        # changing anything.
+        output = StringIO()
+        self.script.set_secret(
+            self._db, "http://foo/", None, None, None, output
+        )
+        eq_(expect, output.getvalue())
+        eq_(expect_settings,
+            sorted((x.key, x.value) for x in integration.settings)
+        )

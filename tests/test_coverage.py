@@ -268,7 +268,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         )
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
-            operation=self.provider.OPERATION
+            operation=self.provider.OPERATION, collection=self.collection
         )
 
         # We have a coverage record already, so this book doesn't show
@@ -298,7 +298,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source, 
             operation=self.provider.operation,
-            status=CoverageRecord.TRANSIENT_FAILURE
+            status=CoverageRecord.TRANSIENT_FAILURE,
+            collection=self.collection
         )
         
         # Ordinarily, a transient failure does not count as coverage.
@@ -376,13 +377,14 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
         # Straightforward identifier that's represented in the OPDS response.
         valid_id = self._identifier(foreign_id=u'2020110')
 
-        # Mapped identifier.
+        # An identifier mapped to an identifier represented in the OPDS
+        # response.
         source = DataSource.lookup(self._db, DataSource.AXIS_360)
         mapped_id = self._identifier(
             identifier_type=Identifier.AXIS_360_ID, foreign_id=u'0015187876'
         )
         equivalent_id = self._identifier(
-            identifier_type=Identifier.ISBN, foreign_id=self._isbn
+            identifier_type=Identifier.ISBN, foreign_id='9781936460236'
         )
         mapped_id.equivalent_to(source, equivalent_id, 1)
 
@@ -549,9 +551,7 @@ class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
         eq_(2, len(items))
 
         # The REAP coverage record for the repurchased book has been
-        # deleted, and committing will remove it from the database.
-        assert relicensed_coverage_record in relicensed.identifier.coverage_records
-        self._db.commit()
+        # deleted and removed from the database.
         assert relicensed_coverage_record not in relicensed.identifier.coverage_records
 
     def test_process_batch(self):
@@ -700,7 +700,7 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
-            operation=self.provider.OPERATION
+            operation=self.provider.OPERATION, collection=self.collection
         )
 
         # With a successful or persistent failure CoverageRecord, it still doesn't show up.

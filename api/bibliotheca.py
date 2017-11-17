@@ -62,6 +62,10 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
     ] + BaseCirculationAPI.SETTINGS
 
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
+    ]
+
     MAX_AGE = datetime.timedelta(days=730).seconds
     CAN_REVOKE_HOLD_WHEN_RESERVED = False
     SET_DELIVERY_MECHANISM_AT = None
@@ -71,11 +75,15 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
     # Create a lookup table between common DeliveryMechanism identifiers
     # and Overdrive format types.
     adobe_drm = DeliveryMechanism.ADOBE_DRM
+    findaway_drm = DeliveryMechanism.FINDAWAY_DRM
     delivery_mechanism_to_internal_format = {
         (Representation.EPUB_MEDIA_TYPE, adobe_drm): 'ePub',
         (Representation.PDF_MEDIA_TYPE, adobe_drm): 'PDF',
-        (Representation.MP3_MEDIA_TYPE, adobe_drm) : 'MP3'
+        (Representation.MP3_MEDIA_TYPE, findaway_drm) : 'MP3'
     }
+    internal_format_to_delivery_mechanism = dict(
+        [v,k] for k, v in delivery_mechanism_to_internal_format.items()
+    )
 
     def get_events_between(self, start, end, cache_result=False):
         """Return event objects for events between the given times."""
@@ -181,15 +189,28 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         )
         return loan
 
-    def fulfill(self, patron, password, pool, delivery_mechanism):
-        response = self.get_fulfillment_file(
-            patron.authorization_identifier, pool.identifier.identifier)
+    def fulfill(self, patron, password, pool, internal_delivery):
+        media_type, drm_scheme = self.internal_format_to_delivery_mechanism.get(
+            internal_delivery, internal_delivery
+        )
+        if drm_scheme == DeliveryMechanism.FINDAWAY_DRM:
+            fulfill_method = self.get_audio_fulfillment_file
+            # The provided media type is application/json, which
+            # is too vague for us.
+            force_content_type = DeliveryMechanism.FINDAWAY_DRM
+        else:
+            fulfill_method = self.get_fulfillment_file
+            force_content_type = None
+        response = fulfill_method(
+            patron.authorization_identifier, pool.identifier.identifier
+        )
         return FulfillmentInfo(
             pool.collection, DataSource.BIBLIOTHECA,
             pool.identifier.type,
             pool.identifier.identifier,
             content_link=None,
-            content_type=response.headers.get('Content-Type'),
+            content_type=(force_content_type
+                          or response.headers.get('Content-Type')),
             content=response.content,
             content_expires=None,
         )
@@ -199,6 +220,12 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
                    item_id=bibliotheca_id, patron_id=patron_id)
         body = self.TEMPLATE % args 
         return self.request('GetItemACSM', body, method="PUT")
+
+    def get_audio_fulfillment_file(self, patron_id, bibliotheca_id):
+        args = dict(request_type='AudioFulfillmentRequest', 
+                    item_id=bibliotheca_id, patron_id=patron_id)
+        body = self.TEMPLATE % args 
+        return self.request('GetItemAudioFulfillment', body, method="POST")
     
     def checkin(self, patron, pin, licensepool):
         patron_id = patron.authorization_identifier

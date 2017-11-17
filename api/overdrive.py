@@ -56,9 +56,15 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         { "key": BaseOverdriveAPI.WEBSITE_ID, "label": _("Website ID") },
         { "key": ExternalIntegration.USERNAME, "label": _("Client Key") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
-        { "key": BaseOverdriveAPI.ILS_NAME, "label": _("ILS Name"),
-          "default": "default" },
     ] + BaseCirculationAPI.SETTINGS
+
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        { "key": BaseOverdriveAPI.ILS_NAME_KEY, "label": _("ILS Name"),
+          "default": BaseOverdriveAPI.ILS_NAME_DEFAULT,
+          "description": _("When multiple libraries share an Overdrive account, Overdrive uses a setting called 'ILS Name' to determine which ILS to check when validating a given patron."),
+        },
+        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
+    ]
 
     # An Overdrive Advantage collection inherits everything except the library id
     # from its parent.
@@ -155,7 +161,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             grant_type="password",
             username=patron.authorization_identifier,
             scope="websiteid:%s authorizationname:%s" % (
-                self.website_id, self.ils_name)
+                self.website_id, self.ils_name(patron.library))
         )
         if pin:
             # A PIN was provided.
