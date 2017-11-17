@@ -418,47 +418,6 @@ class MetadataUploadCoverageProvider(BaseMetadataWranglerCoverageProvider):
         return results
 
 
-class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
-    """Make sure our records for open-access books match what the content
-    server says.
-    """
-    SERVICE_NAME = "Open-access content server bibliographic coverage provider"
-    DATA_SOURCE_NAME = DataSource.OA_CONTENT_SERVER
-    INPUT_IDENTIFIER_TYPES = None
-
-    PROTOCOL = ExternalIntegration.OPDS_IMPORT
-    
-    def __init__(self, collection, lookup_client, *args, **kwargs):
-        if not lookup_client:
-            content_server_url = (
-                Configuration.integration_url(
-                    Configuration.CONTENT_SERVER_INTEGRATION
-                )
-            )
-            lookup_client = SimplifiedOPDSLookup(content_server_url)
-        super(ContentServerBibliographicCoverageProvider, self).__init__(
-            collection, lookup_client, *args, **kwargs
-        )
-
-    def finalize_license_pool(self, license_pool):
-        """Ensure that a LicensePool successfully imported from the content
-        server has a presentation-ready Work.
-        """
-        work, new_work = license_pool.calculate_work(even_if_no_author=True)
-        work.set_presentation_ready()
-        
-    def items_that_need_coverage(self, *args, **kwargs):
-        """Only identifiers already associated with an open-access LicensePool
-        need coverage.
-        """
-        qu = super(ContentServerBibliographicCoverageProvider, 
-                   self).items_that_need_coverage(*args, **kwargs)
-        qu = qu.join(Identifier.licensed_through).filter(
-            LicensePool.open_access==True
-        )
-        return qu
-
-
 class MockOPDSImportCoverageProvider(OPDSImportCoverageProvider):
 
     SERVICE_NAME = "Mock Provider"
