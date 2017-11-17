@@ -99,20 +99,6 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         super(OPDSImportCoverageProvider, self).__init__(collection, **kwargs)
         self.lookup_client = lookup_client
 
-    @classmethod
-    def all(cls, _db, **kwargs):
-        if cls.PROTOCOL and cls.DATA_SOURCE_NAME:
-            qu = Collection.by_protocol(_db, cls.PROTOCOL)
-            qu = qu.join(ExternalIntegration.settings).filter(
-                ConfigurationSetting.key == Collection.DATA_SOURCE_NAME_SETTING,
-                ConfigurationSetting.value == cls.DATA_SOURCE_NAME
-            ).order_by(func.random())
-            for collection in qu:
-                yield cls(collection, **kwargs)
-        else:
-            for collection in super(OPDSImportCoverageProvider, cls).all(_db, **kwargs):
-                yield collection
-
     def process_batch(self, batch):
         """Perform a Simplified lookup and import the resulting OPDS feed."""
         (imported_editions, pools, works, 
