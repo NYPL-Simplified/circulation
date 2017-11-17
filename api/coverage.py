@@ -40,12 +40,56 @@ from core.util.http import (
     RemoteIntegrationException,
 )
 
+class CollectionSyncImporter(OPDSImporter):
 
+    # Status codes that are generally considered to indicate failure,
+    # but which actually indicate success as far as this OPDSImporter
+    # is concerned.
+    SUCCESS_STATUS_CODES = []
+
+    @classmethod
+    def coveragefailure_from_message(cls, data_source, message):
+        """Turn a <simplified:message> tag into a CoverageFailure."""
+
+        # The superclass will parse the Identifier for us and handle
+        # cases like invalid URNs.
+        failure = OPDSImporter.coveragefailure_from_message(
+            cls, data_source, message
+        )
+        if (not failure 
+            or not failure.identifier 
+            or message.status_code not in cls.SUCCESS_STATUS_CODES):
+            return failure
+
+        # What a normal OPDSImporter would consider a failure,
+        # we consider a success. Returning the Identifier instead
+        # of the CoverageFailure will make sure this Identifier
+        # gets a 'success' CoverageRecord.
+        return failure.identifier
+
+
+class RegistrarImporter(CollectionSyncImporter):
+    """We are successful whenever the metadata wrangler puts an identifier
+    into the catalog, even if no metadata is immediately available.
+    """
+    SUCCESS_STATUS_CODES = [201, 202]
+
+
+class ReaperImporter(CollectionSyncImporter):
+    """We are successful if the metadata wrangler acknowledges that an
+    identifier has been removed, and also if the identifier wasn't in
+    the catalog in the first place.
+    """
+    SUCCESS_STATUS_CODES = [200, 404]
+
+
+    
 class OPDSImportCoverageProvider(CollectionCoverageProvider):
     """Provide coverage for identifiers by looking them up, in batches,
     using the Simplified lookup protocol.
     """
     DEFAULT_BATCH_SIZE = 25
+    OPDS_IMPORTER_CLASS = OPDSImporter
     
     def __init__(self, collection, lookup_client, **kwargs):
         """Constructor.
@@ -71,9 +115,8 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
 
     def process_batch(self, batch):
         """Perform a Simplified lookup and import the resulting OPDS feed."""
-        imported_editions, pools, works, error_messages_by_id = self.lookup_and_import_batch(
-            batch
-        )
+        (imported_editions, pools, works, 
+         error_messages_by_id) = self.lookup_and_import_batch(batch)
 
         results = []
         imported_identifiers = set()
@@ -95,9 +138,12 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
                     self.failure(identifier, msg, transient=True)
                 )
 
-        # Failures during the OPDS import process are propagated.
-        for failure in error_messages_by_id.values():
-            results.append(failure)
+        # Anything left over is either a CoverageFailure, or an
+        # Identifier that used to be a CoverageFailure, indicating a
+        # 'failure' that the OPDSImporter in use decided was actually
+        # a success.
+        for failure_or_identifier in error_messages_by_id.values():
+            results.append(failure_or_identifier)
         return results
 
     def process_item(self, identifier):
@@ -146,43 +192,43 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         """Confirms OPDS feed response and imports feed.
         """
         self.lookup_client.check_content_type(response)
-        importer = OPDSImporter(self._db, self.collection,
-                                identifier_mapping=id_mapping,
-                                data_source_name=self.data_source.name)
+        importer = self.OPDS_IMPORTER_CLASS(
+            self._db, self.collection,
+            identifier_mapping=id_mapping,
+            data_source_name=self.data_source.name
+        )
         return importer.import_from_feed(response.text)
 
 
-class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
+class BaseMetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
+    """Makes sure the metadata wrangler knows about all Identifiers
+    licensed to a Collection.
 
-    """Make sure that the metadata wrangler has weighed in on all 
-    Identifiers licensed to a Collection.
+    This has two subclasses: MetadataWranglerCollectionRegistrar
+    (which adds Identifiers from a circulation manager's catalog to
+    the corresponding catalog on the metadata wrangler) and
+    MetadataWranglerCollectionReaper (which removes Identifiers from
+    the metadata wrangler catalog once they no longer exist in the
+    circulation manager's catalog).
     """
 
-    SERVICE_NAME = "Metadata Wrangler Coverage Provider"
-    OPERATION = CoverageRecord.IMPORT_OPERATION
-    DATA_SOURCE_NAME = DataSource.METADATA_WRANGLER
-    INPUT_IDENTIFIER_TYPES = [
-        Identifier.OVERDRIVE_ID,
-        Identifier.BIBLIOTHECA_ID,
-        Identifier.AXIS_360_ID,
-        Identifier.ONECLICK_ID,
-        Identifier.URI,
-    ]
-    
     def __init__(self, collection, lookup_client=None, **kwargs):
+        """Since we are processing a specific collection, we must be able to
+        get an _authenticated_ metadata wrangler lookup client for the
+        collection.
+        """
         _db = Session.object_session(collection)
         lookup_client = lookup_client or MetadataWranglerOPDSLookup.from_config(
             _db, collection=collection
         )
-
         super(MetadataWranglerCoverageProvider, self).__init__(
             collection, lookup_client, **kwargs
         )
         if not self.lookup_client.authenticated:
-            self.log.warn(
+            raise CannotLoadConfiguration(
                 "Authentication for the Library Simplified Metadata Wrangler "
-                "is not set up. You can still use the metadata wrangler, but "
-                "it will not know which collection you're asking about."
+                "is not set up. Without this, there is no way to register "
+                "your identifiers with the metadata wrangler."
             )
 
     def create_identifier_mapping(self, batch):
@@ -205,103 +251,39 @@ class MetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         return mapping
 
 
-class MetadataWranglerCollectionManager(MetadataWranglerCoverageProvider):
+class MetadataWranglerCollectionRegistrar(BaseMetadataWranglerCoverageProvider):
+    """Register all Identifiers licensed to a Collection with the
+    metadata wrangler.
 
-    def add_coverage_record_for(self, item):
-        """Record this CoverageProvider's coverage for the given
-        Edition/Identifier in the known Collection
-        """
-        return CoverageRecord.add_for(
-            item, data_source=self.data_source, operation=self.operation,
-            collection=self.collection
-        )
+    If OPDS metadata is immediately returned, make use of it. Even if
+    no metadata is returned for an Identifier, mark it as covered.
 
-    def failure(self, identifier, error, transient=True):
-        """Create a CoverageFailure object with an associated Collection"""
-        return CoverageFailure(
-            identifier, error,
-            data_source=self.data_source,
-            transient=transient,
-            collection=self.collection,
-        )
-
-    def _process_batch(self, client_method, success_codes, batch):
-        results = list()
-        id_mapping = self.create_identifier_mapping(batch)
-        mapped_batch = id_mapping.keys()
-
-        try:
-            response = client_method(mapped_batch)
-            self.lookup_client.check_content_type(response)
-        except RemoteIntegrationException as e:
-            return [self.failure(id_mapping[obj], e.debug_message)
-                    for obj in mapped_batch]
-
-        for message in self.process_feed_response(response, id_mapping):
-            try:
-                identifier, _new = Identifier.parse_urn(self._db, message.urn)
-                if identifier in mapped_batch:
-                    mapped_batch.remove(identifier)
-            except ValueError as e:
-                # For some reason this URN can't be parsed. This
-                # shouldn't happen.
-                continue
-
-            if message.status_code in success_codes:
-                if identifier in id_mapping:
-                    result = id_mapping[identifier]
-                    results.append(result)
-                else:
-                    # The server sent information about an identifier
-                    # we didn't ask for. Do nothing.
-                    pass
-            elif message.status_code == 400:
-                # The URN couldn't be recognized. (This shouldn't happen,
-                # since if we can parse it here, we can parse it on MW, too.)
-                exception = "%s: %s" % (message.status_code, message.message)
-                failure = self.failure(identifier, exception)
-                results.append(failure)
-            else:
-                exception = "Unknown OPDSMessage status: %s" % message.status_code
-                failure = self.failure(identifier, exception)
-                results.append(failure)
-
-        return results
-
-    def process_feed_response(self, response, id_mapping):
-        """Extracts messages from OPDS feed"""
-        importer = OPDSImporter(
-            self._db, self.collection, data_source_name=self.data_source.name,
-            identifier_mapping=id_mapping
-        )
-        parser = OPDSXMLParser()
-        root = etree.parse(StringIO(response.text))
-        return importer.extract_messages(parser, root)
-
-
-class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
-    """Adds identifiers from a local Collection to the remote Metadata
-    Wrangler Collection
+    Once it's registered, any future updates to the available metadata
+    for a given Identifier will be detected by the
+    MetadataWranglerCollectionUpdateMonitor.
     """
 
-    SERVICE_NAME = "Metadata Wrangler Sync"
-    OPERATION = CoverageRecord.SYNC_OPERATION
+    SERVICE_NAME = "Metadata Wrangler Collection Registrar"
+    OPERATION = CoverageRecord.IMPORT_OPERATION
+    OPDS_IMPORTER_CLASS = RegistrarImporter
 
     def items_that_need_coverage(self, identifiers=None, **kwargs):
-        """Retrieves items from the Collection that need to be synced
-        with the Metadata Wrangler.
+        """Retrieves items from the Collection that are not registered with
+        the Metadata Wrangler.
         """
 
-        # Start with items in this Collection that have not been synced.
+        # Start with all items in this Collection that have not been
+        # registered.
         uncovered = super(MetadataWranglerCoverageProvider, self)\
             .items_that_need_coverage(identifiers, **kwargs)
-        # Make sure they're licensed by this collection.
+        # Make sure they're actually available through this
+        # collection.
         uncovered = uncovered.filter(
             or_(LicensePool.open_access, LicensePool.licenses_owned > 0)
         )
 
-        # We'll be excluding items that have been reaped because we
-        # stopped having a license.
+        # Exclude items that have been reaped because we stopped
+        # having a license.
         reaper_covered = self._db.query(Identifier)\
             .join(Identifier.coverage_records)\
             .filter(
@@ -310,17 +292,16 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
                 CoverageRecord.operation==CoverageRecord.REAP_OPERATION
             )
 
-        # But we'll be _including_ items that were reaped but have since been
-        # relicensed or otherwise added back to the collection.
+        # If any items were reaped earlier but have since been
+        # relicensed or otherwise added back to the collection, remove
+        # their reaper CoverageRecords. This ensures we get Metadata
+        # Wrangler coverage for books that have had their licenses
+        # repurchased or extended.
         relicensed = reaper_covered.join(Identifier.licensed_through).filter(
                 LicensePool.collection_id==self.collection_id,
                 or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
             ).options(contains_eager(Identifier.coverage_records))
 
-        # Remove MetadataWranglerCollectionReaper coverage records from
-        # relicensed identifiers. This ensures that we can get Metadata
-        # Wrangler coverage for books that have had their licenses repurchased
-        # or extended.
         needs_commit = False
         for identifier in relicensed.all():
             for record in identifier.coverage_records:
@@ -340,22 +321,15 @@ class MetadataWranglerCollectionSync(MetadataWranglerCollectionManager):
         # record.
         return uncovered.except_(reaper_covered).order_by(Identifier.id)
 
-    def process_batch(self, batch):
-        # Success codes:
-            # - 200: It's already in the remote Collection.
-            # - 201: It was added successfully.
-        return self._process_batch(
-            self.lookup_client.add, (200, 201), batch
-        )
 
-
-class MetadataWranglerCollectionReaper(MetadataWranglerCollectionManager):
+class MetadataWranglerCollectionReaper(BaseMetadataWranglerCoverageProvider):
     """Removes unlicensed identifiers from the remote Metadata Wrangler
     Collection
     """
 
     SERVICE_NAME = "Metadata Wrangler Reaper"
     OPERATION = CoverageRecord.REAP_OPERATION
+    OPDS_IMPORTER_CLASS = ReaperImporter
 
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Retrieves Identifiers that were synced but are no longer licensed.
@@ -372,14 +346,6 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCollectionManager):
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
         return qu
-
-    def process_batch(self, batch):
-        # Success codes:
-            # - 200: It was removed successfully.
-            # - 404: It wasn't found in the remote Collection
-        return self._process_batch(
-            self.lookup_client.remove, (200, 404), batch
-        )
 
     def finalize_batch(self):
         """Deletes Metadata Wrangler coverage records of reaped Identifiers
@@ -412,7 +378,7 @@ class MetadataWranglerCollectionReaper(MetadataWranglerCollectionManager):
         super(MetadataWranglerCollectionReaper, self).finalize_batch()
 
 
-class MetadataUploadCoverageProvider(CollectionCoverageProvider):
+class MetadataUploadCoverageProvider(BaseMetadataWranglerCoverageProvider):
     """Provide coverage for identifiers by uploading OPDS metadata to
     the metadata wrangler.
     """
@@ -420,22 +386,7 @@ class MetadataUploadCoverageProvider(CollectionCoverageProvider):
     SERVICE_NAME = "Metadata Upload Coverage Provider"
     OPERATION = CoverageRecord.METADATA_UPLOAD_OPERATION
     DATA_SOURCE_NAME = DataSource.INTERNAL_PROCESSING
-    
-    def __init__(self, collection, upload_client=None, **kwargs):
-        _db = Session.object_session(collection)
-        self.upload_client = upload_client or MetadataWranglerOPDSLookup.from_config(
-            _db, collection=collection
-        )
-
-        super(MetadataUploadCoverageProvider, self).__init__(
-            collection, **kwargs
-        )
-        if not self.upload_client.authenticated:
-            raise CannotLoadConfiguration(
-                "Authentication for the Library Simplified Metadata Wrangler "
-                "is not set up. You can't upload metadata without authenticating."
-            )
-    
+       
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Find all identifiers lacking coverage from this CoverageProvider.
         Only identifiers that have CoverageRecords in the 'transient
@@ -466,12 +417,6 @@ class MetadataUploadCoverageProvider(CollectionCoverageProvider):
         # We grant coverage for all identifiers if the upload doesn't raise an exception.
         return results
 
-    def process_item(self, identifier):
-        """Handle an individual item (e.g. through ensure_coverage) as a very
-        small batch. Not efficient, but it works.
-        """
-        [result] = self.process_batch([identifier])
-        return result
 
 class ContentServerBibliographicCoverageProvider(OPDSImportCoverageProvider):
     """Make sure our records for open-access books match what the content
