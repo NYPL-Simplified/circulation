@@ -24,6 +24,7 @@ from core.util.xmlparser import XMLParser
 from core.util.problem_detail import ProblemDetail
 from core.app_server import url_for
 from core.model import (
+    create,
     get_one,
     ConfigurationSetting,
     Credential,
@@ -1009,7 +1010,7 @@ class AuthdataUtility(object):
         return patron_identifier_credential, delegated_identifier
 
 
-class ShortClientTokenLibraryConfigurationScript(Script):
+class VendorIDLibraryConfigurationScript(Script):
 
     @classmethod
     def arg_parser(cls):
@@ -1040,7 +1041,7 @@ class ShortClientTokenLibraryConfigurationScript(Script):
         if not adobe_integration:
             output.write(
                 "Could not find an Adobe Vendor ID integration for default library %s.\n" %
-                library.short_name
+                default_library.short_name
             )
             return
 
@@ -1092,3 +1093,93 @@ class ShortClientTokenLibraryConfigurationScript(Script):
         output.write("Website: %s\n" % website)
         output.write(" Short name: %s\n" % short_name)
         output.write(" Short Client Token secret: %s\n" % secret)
+
+
+class ShortClientTokenLibraryConfigurationScript(Script):
+
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--website-url', 
+            help="The URL to this library's patron-facing website (not their circulation manager), e.g. \"https://nypl.org/\". This is used to uniquely identify a library.",
+            required=True,
+        )
+        parser.add_argument(
+            '--vendor-id', 
+            help="The name of the vendor ID the library will use. The default of 'NYPL' is probably what you want.",
+            default='NYPL'
+        )
+        parser.add_argument(
+            '--short-name', 
+            help="The short name the library will use in Short Client Tokens, e.g. \"NYBPL\".",
+        )
+        parser.add_argument(
+            '--secret', 
+            help="The secret the library will use to sign Short Client Tokens.",
+        )
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(self._db, cmd_args=cmd_args)
+
+        self.set_secret(
+            _db, args.website_url, args.vendor_id, args.short_name,
+            args.secret, output
+        )
+        _db.commit()
+
+    def set_secret(self, _db, website_url, vendor_id, short_name,
+                   secret, output):
+        # Look up a library by its url setting.
+        library_setting = get_one(
+            _db, ConfigurationSetting,
+            key=Configuration.WEBSITE_URL,
+            value=website_url,
+        )
+        if not library_setting:
+            available_urls = _db.query(
+                ConfigurationSetting
+            ).filter(
+                ConfigurationSetting.key==Configuration.WEBSITE_URL
+            ).filter(
+                ConfigurationSetting.library!=None
+            )
+            raise Exception(
+                "Could not locate library with URL %s. Available URLs: %s" %
+                (website_url, ",".join(x.value for x in available_urls))
+            )
+        library = library_setting.library
+        integration = ExternalIntegration.lookup(
+            _db, ExternalIntegration.OPDS_REGISTRATION,
+            ExternalIntegration.DISCOVERY_GOAL, library=library
+        )
+        if not integration:
+            integration, ignore = create(
+                _db, ExternalIntegration,
+                protocol=ExternalIntegration.OPDS_REGISTRATION,
+                goal=ExternalIntegration.DISCOVERY_GOAL
+            )
+            library.integrations.append(integration)
+
+        vendor_id_s = integration.setting(AuthdataUtility.VENDOR_ID_KEY)
+        username_s = ConfigurationSetting.for_library_and_externalintegration(
+            _db, ExternalIntegration.USERNAME, library, integration
+        )
+        password_s = ConfigurationSetting.for_library_and_externalintegration(
+            _db, ExternalIntegration.PASSWORD, library, integration
+        )
+
+        if vendor_id and short_name and secret:
+            vendor_id_s.value = vendor_id
+            username_s.value = short_name
+            password_s.value = secret
+        
+        output.write(
+            "Current Short Client Token configuration for %s:\n" 
+            % website_url
+        )
+        output.write(" Vendor ID: %s\n" % vendor_id_s.value)
+        output.write(" Library name: %s\n" % username_s.value)
+        output.write(" Shared secret: %s\n" % password_s.value)
