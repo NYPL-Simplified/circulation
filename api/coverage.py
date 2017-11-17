@@ -147,6 +147,12 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         """
         pass
 
+    @property
+    def api_method(self):
+        """The method to call to get an OPDS feed from the remote server.
+        """
+        return self.lookup_client.lookup
+
     def lookup_and_import_batch(self, batch):
         """Look up a batch of identifiers and parse the resulting OPDS feed.
 
@@ -160,7 +166,7 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         else:
             foreign_identifiers = batch
 
-        response = self.lookup_client.lookup(foreign_identifiers)
+        response = self.api_method(foreign_identifiers)
 
         # import_feed_response takes id_mapping so it can map the
         # foreign identifiers back to their local counterparts.
@@ -332,6 +338,10 @@ class MetadataWranglerCollectionReaper(BaseMetadataWranglerCoverageProvider):
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
         return qu
+
+    @property
+    def api_method(self):
+        return self.lookup_client.remove
 
     def finalize_batch(self):
         """Deletes Metadata Wrangler coverage records of reaped Identifiers
