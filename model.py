@@ -11010,6 +11010,14 @@ def licensepool_open_access_change(target, value, oldvalue, initiator):
         return
     work.external_index_needs_updating()
 
+def directly_modified(obj):
+    """Return True only if `obj` has itself been modified, as opposed to
+    having an object added or removed to one of its associated
+    collections.
+    """
+    return Session.object_session(obj).is_modified(
+        obj, include_collections=False
+    )
             
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the
@@ -11035,18 +11043,22 @@ def configuration_relevant_collection_change(target, value, initiator):
 
 @event.listens_for(Library, 'after_insert')
 @event.listens_for(Library, 'after_delete')
-@event.listens_for(Library, 'after_update')
 @event.listens_for(ExternalIntegration, 'after_insert')
 @event.listens_for(ExternalIntegration, 'after_delete')
-@event.listens_for(ExternalIntegration, 'after_update')
 @event.listens_for(Collection, 'after_insert')
 @event.listens_for(Collection, 'after_delete')
-@event.listens_for(Collection, 'after_update')
 @event.listens_for(ConfigurationSetting, 'after_insert')
 @event.listens_for(ConfigurationSetting, 'after_delete')
-@event.listens_for(ConfigurationSetting, 'after_update')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(target)
+
+@event.listens_for(Library, 'after_update')
+@event.listens_for(ExternalIntegration, 'after_update')
+@event.listens_for(Collection, 'after_update')
+@event.listens_for(ConfigurationSetting, 'after_update')
+def configuration_relevant_update(mapper, connection, target):
+    if directly_modified(target):
+        site_configuration_has_changed(target)
 
 @event.listens_for(Collection, 'after_insert')
 @event.listens_for(Collection, 'after_delete')
