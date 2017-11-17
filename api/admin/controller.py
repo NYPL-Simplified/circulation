@@ -921,6 +921,7 @@ class LanesController(CirculationManagerController):
                           "count": fast_query_count(lane.works(self._db).limit(None)),
                           "sublanes": lanes_for_parent(lane),
                           "custom_list_ids": [list.id for list in lane.customlists],
+                          "inherit_parent_restrictions": lane.inherit_parent_restrictions,
                           } for lane in lanes]
             return dict(lanes=lanes_for_parent(None))
 
@@ -929,6 +930,7 @@ class LanesController(CirculationManagerController):
             parent_id = flask.request.form.get("parent_id")
             display_name = flask.request.form.get("display_name")
             custom_list_ids = json.loads(flask.request.form.get("custom_list_ids", "[]"))
+            inherit_parent_restrictions = flask.request.form.get("inherit_parent_restrictions", False)
 
             if not display_name:
                 return NO_DISPLAY_NAME_FOR_LANE
@@ -967,6 +969,8 @@ class LanesController(CirculationManagerController):
                 for sibling in siblings:
                     sibling.priority += 1
                 lane.priority = 0
+
+            lane.inherit_parent_restrictions = inherit_parent_restrictions
 
             for list_id in custom_list_ids:
                 list = get_one(self._db, CustomList, library=library, id=list_id)
