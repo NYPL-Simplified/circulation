@@ -857,10 +857,41 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         assert (timestamp-now).total_seconds() < 1
 
     def test_add_coverage_record_for(self):
-        """TODO: We need test coverage here."""
+        """Calling CollectionCoverageProvider.add_coverage_record is the same
+        as calling CoverageRecord.add_for with the relevant
+        information.
+        """
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
+        )
+        identifier = self._identifier()
+        record = provider.add_coverage_record_for(identifier)
+
+        # This is the same as calling CoverageRecord.add_for with
+        # appropriate arguments.
+        record2, is_new = CoverageRecord.add_for(
+            identifier, data_source=provider.data_source, 
+            operation=provider.operation,
+            collection=provider.collection
+        )
+        eq_(False, is_new)
+        eq_(record, record2)
         
     def test_record_failure_as_coverage_record(self):
         """TODO: We need test coverage here."""
+
+    def test_failure(self):
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
+        )
+        identifier = self._identifier()
+        failure = provider.failure(
+            identifier, error="an error", transient=False
+        )
+        eq_(provider.data_source, failure.data_source)
+        eq_("an error", failure.exception)
+        eq_(self._default_collection, failure.collection)
+        eq_(False, failure.transient)
         
     def test_failure_for_ignored_item(self):
         """Test that failure_for_ignored_item creates an appropriate
@@ -1138,13 +1169,13 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # presentation. We know this because the tripwire was
         # triggered.
         eq_(True, presentation_calculation_policy.tripped)
-        
+
     def test_items_that_need_coverage(self):
         # Here's an Identifier that was covered on 01/01/2016.
         identifier = self._identifier()
         cutoff_time = datetime.datetime(2016, 1, 1)
         provider = AlwaysSuccessfulCoverageProvider(self._db)
-        record = CoverageRecord.add_for(
+        record, is_new = CoverageRecord.add_for(
             identifier, provider.data_source, timestamp=cutoff_time
         )
 

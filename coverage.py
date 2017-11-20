@@ -561,9 +561,12 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         return DataSource.lookup(self._db, self.DATA_SOURCE_NAME)
 
     def failure(self, identifier, error, transient=True):
-        """Create a CoverageFailure object."""
+        """Create a CoverageFailure object to memorialize an error."""
         return CoverageFailure(
-            identifier, error, data_source=self.data_source, transient=transient
+            identifier, error,
+            data_source=self.data_source,
+            transient=transient,
+            collection=self.collection,
         )
     
     def run_on_specific_identifiers(self, identifiers):
@@ -723,7 +726,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         Edition/Identifier, as a CoverageRecord.
         """
         record, is_new = CoverageRecord.add_for(
-            item, data_source=self.data_source, operation=self.operation
+            item, data_source=self.data_source, operation=self.operation,
+            collection=self.collection
         )
         record.status = CoverageRecord.SUCCESS
         record.exception = None
