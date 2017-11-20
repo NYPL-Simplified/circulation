@@ -67,7 +67,7 @@ from google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthentic
 from password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
 from api.controller import CirculationManagerController
-from api.coverage import MetadataWranglerCoverageProvider
+from api.coverage import MetadataWranglerCollectionRegistrar
 from core.app_server import entry_response
 from core.app_server import (
     entry_response, 
@@ -529,7 +529,7 @@ class WorkController(CirculationManagerController):
             return work
 
         if not provider and work.license_pools:
-            provider = MetadataWranglerCoverageProvider(work.license_pools[0].collection)
+            provider = MetadataWranglerCollectionRegistrar(work.license_pools[0].collection)
 
         if not provider:
             return METADATA_REFRESH_FAILURE
