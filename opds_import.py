@@ -609,24 +609,9 @@ class OPDSImporter(object):
 
         # translate the id in failures to identifier.urn
         identified_failures = {}
-        for id, failure in fp_failures.items() + xml_failures.items():
-            external_identifier, ignore = Identifier.parse_urn(self._db, id)
-            if self.identifier_mapping:
-                internal_identifier = self.identifier_mapping.get(
-                    external_identifier, external_identifier)
-            else:
-                internal_identifier = external_identifier
-            if isinstance(failure, Identifier):
-                # The OPDSImporter does not actually consider this a
-                # failure. Signal success for the internal identifier
-                # instead of the external identifier.
-                failure = internal_identifier
-            else:
-                # This really is a failure. Associate the internal
-                # identifier with the CoverageRecord _instead_ of
-                # doing so with the external identifier.
-                failure.obj = internal_identifier
-            identified_failures[internal_identifier.urn] = failure
+        for urn, failure in fp_failures.items() + xml_failures.items():
+            identifier, failure = self.handle_failure(urn, failure)
+            identified_failures[identifier.urn] = failure
 
         # Use one loop for both, since the id will be the same for both dictionaries.
         metadata = {}
@@ -699,6 +684,30 @@ class OPDSImporter(object):
                     # ODL support.
                     pass
         return metadata, identified_failures
+
+    def handle_failure(self, urn, failure):
+        """Convert a URN and a failure message that came in through
+        an OPDS feed into an Identifier and a CoverageFailure object.
+        """
+        external_identifier, ignore = Identifier.parse_urn(self._db, urn)
+        if self.identifier_mapping:
+            # The identifier found in the OPDS feed is different from 
+            # the identifier we want to export.
+            internal_identifier = self.identifier_mapping.get(
+                external_identifier, external_identifier)
+        else:
+            internal_identifier = external_identifier
+        if isinstance(failure, Identifier):
+            # The OPDSImporter does not actually consider this a
+            # failure. Signal success for the internal identifier
+            # instead of the external identifier.
+            failure = internal_identifier
+        else:
+            # This really is a failure. Associate the internal
+            # identifier with the CoverageRecord _instead_ of
+            # doing so with the external identifier.
+            failure.obj = internal_identifier
+        return internal_identifier, failure
 
     @classmethod
     def _add_format_data(cls, circulation):

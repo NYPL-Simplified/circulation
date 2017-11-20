@@ -467,6 +467,59 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_('urn:librarysimplified.org/terms/id/Gutenberg ID/100', message.urn)
         eq_(404, message.status_code)
         eq_("I've never heard of this work.", message.message)
+
+    def test_handle_failure(self):
+        axis_id = self._identifier(identifier_type=Identifier.AXIS_360_ID)
+        axis_isbn = self._identifier(Identifier.ISBN, "9781453219539")
+        identifier_mapping = {axis_isbn : axis_id}
+        importer = OPDSImporter(
+            self._db, collection=None, 
+            data_source_name=DataSource.OA_CONTENT_SERVER,
+            identifier_mapping = identifier_mapping
+        )        
+
+        # The simplest case -- an identifier associated with a
+        # CoverageFailure. The Identifier and CoverageFailure are
+        # returned as-is.
+        input_failure = CoverageFailure(object(), "exception")
+
+        urn = "urn:isbn:9781449358068"
+        expect_identifier, ignore = Identifier.parse_urn(self._db, urn)
+        identifier, output_failure = importer.handle_failure(
+            urn, input_failure
+        )
+        eq_(expect_identifier, identifier)
+        eq_(input_failure, output_failure)
+
+        # A normal OPDSImporter would consider this a failure, but
+        # because the 'failure' is an Identifier, not a
+        # CoverageFailure, we're going to treat it as a success.
+        identifier, not_a_failure = importer.handle_failure(
+            "urn:isbn:9781449358068", self._identifier()
+        )
+        eq_(expect_identifier, identifier)
+        eq_(identifier, not_a_failure)
+        # Note that the 'failure' object retuned is the Identifier that 
+        # was passed in, not the Identifier that substituted as the 'failure'.
+        # (In real usage, though, they should be the same.)
+
+        # An identifier that maps to some other identifier,
+        # associated with a CoverageFailure.
+        identifier, output_failure = importer.handle_failure(
+            axis_isbn.urn, input_failure
+        )
+        eq_(axis_id, identifier)
+        eq_(input_failure, output_failure)
+
+        # An identifier that maps to some other identifier,
+        # in a scenario where what OPDSImporter considers failure
+        # is considered success.
+        identifier, not_a_failure = importer.handle_failure(
+            axis_isbn.urn, self._identifier()
+        )
+        eq_(axis_id, identifier)
+        eq_(axis_id, not_a_failure)
+        
         
     def test_coveragefailure_from_message(self):
         """Test all the different ways a <simplified:message> tag might
