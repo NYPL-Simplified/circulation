@@ -616,7 +616,16 @@ class OPDSImporter(object):
                     external_identifier, external_identifier)
             else:
                 internal_identifier = external_identifier
-            failure.obj = internal_identifier
+            if isinstance(failure, Identifier):
+                # The OPDSImporter does not actually consider this a
+                # failure. Signal success for the internal identifier
+                # instead of the external identifier.
+                failure = internal_identifier
+            else:
+                # This really is a failure. Associate the internal
+                # identifier with the CoverageRecord _instead_ of
+                # doing so with the external identifier.
+                failure.obj = internal_identifier
             identified_failures[internal_identifier.urn] = failure
 
         # Use one loop for both, since the id will be the same for both dictionaries.
@@ -792,7 +801,14 @@ class OPDSImporter(object):
         for failure in cls.coveragefailures_from_messages(
                 data_source, parser, root
         ):
-            failures[failure.obj.urn] = failure
+            if isinstance(failure, Identifier):
+                # A subclass believes that the Simplified <message>
+                # tag does not actually represent a failure -- it
+                # returned an Identifier instead of a CoverageFailure.
+                urn = failure.urn
+            else:
+                urn = failure.obj.urn
+            failures[urn] = failure
 
         # Then turn Atom <entry> tags into Metadata objects.
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
@@ -1026,7 +1042,8 @@ class OPDSImporter(object):
                 yield failure
 
     @classmethod
-    def coveragefailure_from_message(cls, data_source, message):
+    def coveragefailure_from_message(
+            cls, data_source, message, success_on_200=False):
         """Turn a <simplified:message> tag into a CoverageFailure."""
 
         _db = Session.object_session(data_source)
@@ -1047,7 +1064,10 @@ class OPDSImporter(object):
 
         if message.status_code == 200:
             # This message is telling us that nothing went wrong. It
-            # shouldn't become a CoverageFailure.
+            # should either be ignored altogether or treated as a
+            # success.
+            if success_on_200:
+                return identifier
             return None
 
         description = message.message
