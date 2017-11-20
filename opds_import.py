@@ -705,13 +705,12 @@ class OPDSImporter(object):
             internal_identifier = external_identifier
         if isinstance(failure, Identifier):
             # The OPDSImporter does not actually consider this a
-            # failure. Signal success for the internal identifier
-            # instead of the external identifier.
+            # failure. Signal success by returning the internal
+            # identifier as the 'failure' object.
             failure = internal_identifier
         else:
             # This really is a failure. Associate the internal
-            # identifier with the CoverageRecord _instead_ of
-            # doing so with the external identifier.
+            # identifier with the CoverageFailure object.
             failure.obj = internal_identifier
         return internal_identifier, failure
 
