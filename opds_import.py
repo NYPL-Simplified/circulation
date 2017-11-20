@@ -688,6 +688,12 @@ class OPDSImporter(object):
     def handle_failure(self, urn, failure):
         """Convert a URN and a failure message that came in through
         an OPDS feed into an Identifier and a CoverageFailure object.
+
+        The Identifier may not be the one designated by `urn` (if it's
+        found in self.identifier_mapping) and the 'failure' may turn out not
+        to be a CoverageFailure at all -- if it's an Identifier, that means
+        that what a normal OPDSImporter would consider 'failure' is
+        considered success.
         """
         external_identifier, ignore = Identifier.parse_urn(self._db, urn)
         if self.identifier_mapping:
@@ -811,9 +817,9 @@ class OPDSImporter(object):
                 data_source, parser, root
         ):
             if isinstance(failure, Identifier):
-                # A subclass believes that the Simplified <message>
-                # tag does not actually represent a failure -- it
-                # returned an Identifier instead of a CoverageFailure.
+                # The Simplified <message> tag does not actually
+                # represent a failure -- it was turned into an
+                # Identifier instead of a CoverageFailure.
                 urn = failure.urn
             else:
                 urn = failure.obj.urn

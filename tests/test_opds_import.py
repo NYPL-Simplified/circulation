@@ -557,6 +557,26 @@ class TestOPDSImporter(OPDSImporterTest):
         
         no_information = f(identifier.urn, None, None)
         eq_("No detail provided.", no_information.exception)
+
+    def test_extract_metadata_from_elementtree_handles_messages_that_become_identifiers(self):
+        not_a_failure = self._identifier()
+        class MockOPDSImporter(OPDSImporter):
+            @classmethod
+            def coveragefailures_from_messages(
+                    cls, data_source, message, success_on_200=False):
+                """No matter what input we get, we act as though there were 
+                a single simplified:message tag in the OPDS feed, which we
+                decided to treat as success rather than failure.
+                """
+                return [not_a_failure]
+
+        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
+
+        values, failures = MockOPDSImporter.extract_metadata_from_elementtree(
+            self.content_server_mini_feed, data_source
+        )
+        eq_({not_a_failure.urn: not_a_failure}, failures)
+                
         
     def test_extract_metadata_from_elementtree_handles_exception(self):
         class DoomedElementtreeOPDSImporter(OPDSImporter):
