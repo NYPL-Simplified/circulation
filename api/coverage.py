@@ -54,10 +54,10 @@ class CollectionSyncImporter(OPDSImporter):
         # The superclass will parse the Identifier for us and handle
         # cases like invalid URNs.
         failure = OPDSImporter.coveragefailure_from_message(
-            cls, data_source, message
+            data_source, message
         )
         if (not failure 
-            or not failure.identifier 
+            or not failure.obj 
             or message.status_code not in cls.SUCCESS_STATUS_CODES):
             return failure
 
@@ -65,14 +65,14 @@ class CollectionSyncImporter(OPDSImporter):
         # we consider a success. Returning the Identifier instead
         # of the CoverageFailure will make sure this Identifier
         # gets a 'success' CoverageRecord.
-        return failure.identifier
+        return failure.obj
 
 
 class RegistrarImporter(CollectionSyncImporter):
     """We are successful whenever the metadata wrangler puts an identifier
     into the catalog, even if no metadata is immediately available.
     """
-    SUCCESS_STATUS_CODES = [201, 202]
+    SUCCESS_STATUS_CODES = [200, 201, 202]
 
 
 class ReaperImporter(CollectionSyncImporter):
@@ -81,7 +81,6 @@ class ReaperImporter(CollectionSyncImporter):
     the catalog in the first place.
     """
     SUCCESS_STATUS_CODES = [200, 404]
-
 
     
 class OPDSImportCoverageProvider(CollectionCoverageProvider):
@@ -125,10 +124,11 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
                 )
 
         # Anything left over is either a CoverageFailure, or an
-        # Identifier that used to be a CoverageFailure, indicating a
-        # 'failure' that the OPDSImporter in use decided was actually
-        # a success.
-        for failure_or_identifier in error_messages_by_id.values():
+        # Identifier that used to be a CoverageFailure, indicating
+        # that a simplified:message that a normal OPDSImporter would
+        # consider a 'failure' should actually be considered a
+        # success.
+        for failure_or_identifier in sorted(error_messages_by_id.values()):
             results.append(failure_or_identifier)
         return results
 
@@ -149,7 +149,7 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
 
     @property
     def api_method(self):
-        """The method to call to get an OPDS feed from the remote server.
+        """The method to call to fetch an OPDS feed from the remote server.
         """
         return self.lookup_client.lookup
 
@@ -181,7 +181,8 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         return None
 
     def import_feed_response(self, response, id_mapping):
-        """Confirms OPDS feed response and imports feed.
+        """Confirms OPDS feed response and imports feed through
+        the appropriate OPDSImporter subclass.
         """
         self.lookup_client.check_content_type(response)
         importer = self.OPDS_IMPORTER_CLASS(
@@ -408,7 +409,7 @@ class MetadataUploadCoverageProvider(BaseMetadataWranglerCoverageProvider):
             else:
                 results.append(work)
         feed = AcquisitionFeed(self._db, "Metadata Upload Feed", "", works, None)
-        self.upload_client.add_with_metadata(feed)
+        self.lookup_client.add_with_metadata(feed)
         
         # We grant coverage for all identifiers if the upload doesn't raise an exception.
         return results

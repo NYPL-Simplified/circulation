@@ -32,7 +32,10 @@ from core.model import (
     Work,
     WorkCoverageRecord,
 )
-from core.util.opds_writer import OPDSFeed
+from core.util.opds_writer import (
+    OPDSFeed,
+    OPDSMessage,
+)
 from core.opds_import import (
     MockSimplifiedOPDSLookup,
     MockMetadataWranglerOPDSLookup,
@@ -45,14 +48,58 @@ from core.util.http import BadResponseException
 from core.util.opds_writer import OPDSMessage
 
 from api.coverage import (
-    ContentServerBibliographicCoverageProvider,
-    MetadataWranglerCoverageProvider,
-    MetadataWranglerCollectionSync,
-    MetadataWranglerCollectionReaper,
+    BaseMetadataWranglerCoverageProvider,
+    CollectionSyncImporter,
     MetadataUploadCoverageProvider,
-    OPDSImportCoverageProvider,
+    MetadataWranglerCollectionReaper,
+    MetadataWranglerCollectionRegistrar,
     MockOPDSImportCoverageProvider,
+    OPDSImportCoverageProvider,
+    ReaperImporter,
+    RegistrarImporter,
 )
+
+class TestCollectionSyncImporter(DatabaseTest):
+    """Test the CollectionSyncImporter and its subclasses."""
+    
+    def test_success_status_codes(self):
+        """Validate the status codes that different importers
+        will treat as successes.
+        """
+        eq_([200, 201, 202], RegistrarImporter.SUCCESS_STATUS_CODES)
+        eq_([200, 404], ReaperImporter.SUCCESS_STATUS_CODES)
+
+    def test_coveragefailure_from_message(self):
+        """A CollectionSyncImporter treats certain types of 
+        OPDSMessages as indicating success rather than failure.
+        """
+
+        class Mock(CollectionSyncImporter):
+            SUCCESS_STATUS_CODES = [999]
+
+        data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        def f(*args):
+            message = OPDSMessage(*args)
+            return Mock.coveragefailure_from_message(data_source, message)
+
+        identifier = self._identifier()
+
+        # If the status code is 999, then the identifier is returned
+        # instead of a CoverageFailure -- we know that 999 means
+        # coverage was in fact provided.
+        failure = f(identifier.urn, "999", "hooray!")
+        eq_(identifier, failure)
+
+        failure = f(identifier.urn, 999, "hooray!")
+        eq_(identifier, failure)
+
+        # If the status code is anything else, a CoverageFailure
+        # is returned.
+        failure = f(identifier.urn, 500, "hooray???")
+        assert isinstance(failure, CoverageFailure)
+        eq_("500: hooray???", failure.exception)
+
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
 
@@ -143,10 +190,17 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # the corresponding Edition will not.
         edition2, pool2 = self._edition(with_license_pool=True)
         
-        # Here's an identifier that can't be looked up at all.
-        identifier = self._identifier()
+        # Here's an identifier that can't be looked up at all,
+        # and an identifier that shows up in messages_by_id because
+        # its simplified:message was determined to indicate success
+        # rather than failure.
+        error_identifier = self._identifier()
+        not_an_error_identifier = self._identifier()
         messages_by_id = {
-            identifier.urn : CoverageFailure(identifier, "201: try again later")
+            error_identifier.urn : CoverageFailure(
+                error_identifier, "500: internal error"
+            ),
+            not_an_error_identifier.urn : not_an_error_identifier,
         }
 
         # When we call CoverageProvider.process_batch(), it's going to
@@ -159,13 +213,16 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         # Make the CoverageProvider do its thing.
         fake_batch = [object()]
-        success, failure1, failure2 = provider.process_batch(fake_batch)
+        (success_import, failure_mismatched, failure_message, 
+         success_message) = provider.process_batch(
+            fake_batch
+        )
         
         # The fake batch was provided to lookup_and_import_batch.
         eq_([fake_batch], provider.batches)
 
         # The matched Edition/LicensePool pair was returned.
-        eq_(success, edition.primary_identifier)
+        eq_(success_import, edition.primary_identifier)
         
         # The LicensePool of that pair was passed into finalize_license_pool.
         # The mismatched LicensePool was not.
@@ -173,16 +230,22 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         # The mismatched LicensePool turned into a CoverageFailure
         # object.
-        assert isinstance(failure1, CoverageFailure)
+        assert isinstance(failure_mismatched, CoverageFailure)
         eq_('OPDS import operation imported LicensePool, but no Edition.',
-            failure1.exception)
-        eq_(pool2.identifier, failure1.obj)
-        eq_(True, failure1.transient)
+            failure_mismatched.exception)
+        eq_(pool2.identifier, failure_mismatched.obj)
+        eq_(True, failure_mismatched.transient)
         
-        # The failure was returned as a CoverageFailure object.
-        assert isinstance(failure2, CoverageFailure)
-        eq_(identifier, failure2.obj)
-        eq_(True, failure2.transient)
+        # The OPDSMessage with status code 500 was returned as a
+        # CoverageFailure object.
+        assert isinstance(failure_message, CoverageFailure)
+        eq_("500: internal error", failure_message.exception)
+        eq_(error_identifier, failure_message.obj)
+        eq_(True, failure_message.transient)
+
+        # The identifier that had a treat-as-success OPDSMessage was returned
+        # as-is.
+        eq_(not_an_error_identifier, success_message)
         
     def test_process_batch_success_even_if_no_licensepool_exists(self):
         """This shouldn't happen since CollectionCoverageProvider
