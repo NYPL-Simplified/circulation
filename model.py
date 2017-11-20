@@ -1370,7 +1370,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
         )
 
     @classmethod
-    def lookup(self, edition_or_identifier, data_source, operation=None,
+    def lookup(cls, edition_or_identifier, data_source, operation=None,
                collection=None):
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
