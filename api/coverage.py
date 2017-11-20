@@ -212,6 +212,10 @@ class BaseMetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
 
     DATA_SOURCE_NAME = DataSource.METADATA_WRANGLER
 
+    # We want to register a given identifier once for every
+    # collection it's catalogued under.
+    COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+
     def __init__(self, collection, lookup_client=None, **kwargs):
         """Since we are processing a specific collection, we must be able to
         get an _authenticated_ metadata wrangler lookup client for the
