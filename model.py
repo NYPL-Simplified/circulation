@@ -1309,7 +1309,6 @@ class CoverageRecord(Base, BaseCoverageRecord):
 
     SET_EDITION_METADATA_OPERATION = u'set-edition-metadata'
     CHOOSE_COVER_OPERATION = u'choose-cover'
-    SYNC_OPERATION = u'sync'
     REAP_OPERATION = u'reap'
     IMPORT_OPERATION = u'import'
     RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
