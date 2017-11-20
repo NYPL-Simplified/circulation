@@ -17,6 +17,7 @@ from core.scripts import RunCollectionCoverageProviderScript
 from core.testing import MockRequestsResponse
 
 from core.config import (
+    CannotLoadConfiguration,
     Configuration,
     temp_config,
 )
@@ -321,16 +322,14 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_(provider.data_source.name, data_source_name)
             
 
-class TestMetadataWranglerCoverageProvider(DatabaseTest):
+class MetadataWranglerCoverageProviderTest(DatabaseTest):
 
     def create_provider(self, **kwargs):
         lookup = MockMetadataWranglerOPDSLookup.from_config(self._db, self.collection)
-        return MetadataWranglerCoverageProvider(
-            self.collection, lookup, **kwargs
-        )
+        return self.TEST_CLASS(self.collection, lookup, **kwargs)
 
     def setup(self):
-        super(TestMetadataWranglerCoverageProvider, self).setup()
+        super(MetadataWranglerCoverageProviderTest, self).setup()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
@@ -341,6 +340,29 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
             protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
         )
         self.provider = self.create_provider()
+
+
+class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderTest):
+
+    class Mock(BaseMetadataWranglerCoverageProvider):
+        SERVICE_NAME = "Mock"
+        DATA_SOURCE_NAME = DataSource.OVERDRIVE
+
+    TEST_CLASS = Mock
+
+    def test_must_be_authenticated(self):
+        """CannotLoadConfiguration is raised if you try to create a
+        metadata wrangler coverage provider that can't authenticate
+        with the metadata wrangler.
+        """
+        class UnauthenticatedLookupClient(object):
+            authenticated = False
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Authentication for the Library Simplified Metadata Wrangler ",
+            self.Mock, self.collection, UnauthenticatedLookupClient()
+        )
 
     def test_create_identifier_mapping(self):
         # Most identifiers map to themselves.
@@ -361,6 +383,10 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         eq_(overdrive, mapping[overdrive])
         eq_(axis, mapping[isbn_axis])
         eq_(threem, mapping[isbn_threem])
+
+class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTest):
+
+    TEST_CLASS = MetadataWranglerCollectionRegistrar
 
     def test_items_that_need_coverage_respects_cutoff(self):
         """Verify that this coverage provider respects the cutoff_time

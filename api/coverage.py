@@ -214,7 +214,7 @@ class BaseMetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
         lookup_client = lookup_client or MetadataWranglerOPDSLookup.from_config(
             _db, collection=collection
         )
-        super(MetadataWranglerCoverageProvider, self).__init__(
+        super(BaseMetadataWranglerCoverageProvider, self).__init__(
             collection, lookup_client, **kwargs
         )
         if not self.lookup_client.authenticated:
