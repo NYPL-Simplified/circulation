@@ -431,6 +431,13 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
     # Identifier in the system, which is probably not what you want.
     NO_SPECIFIED_TYPES = object()
     INPUT_IDENTIFIER_TYPES = NO_SPECIFIED_TYPES
+
+    # Set this to True if a given Identifier needs to be run through
+    # this CoverageProvider once for every Collection that has this
+    # Identifier in its catalog. Otherwise, a given Identifier will be
+    # considered completely covered the first time it's run through
+    # this CoverageProvider.
+    COVERAGE_COUNTS_FOR_EVERY_COLLECTION = True
     
     def __init__(self, _db, collection=None, input_identifiers=None,
                  replacement_policy=None, preregistered_only=False, **kwargs
@@ -483,6 +490,16 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         this data from a reliable metadata source.
         """
         return ReplacementPolicy.from_metadata_source()
+
+    @property
+    def collection_or_not(self):
+        """If this CoverageProvider needs to be run multiple times on
+        the same identifier in different collections, this
+        returns the collection. Otherwise, this returns None.
+        """
+        if self.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
+            return None
+        return self.collection
         
     @classmethod
     def _input_identifier_types(cls):
@@ -535,7 +552,9 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         operation = cls.OPERATION
 
         was_registered = False
-        existing_record = CoverageRecord.lookup(identifier, source, operation)
+        existing_record = CoverageRecord.lookup(
+            identifier, source, operation, collection=collection
+        )
         if existing_record:
             log.info('FOUND %r' % existing_record)
             return existing_record, was_registered
@@ -543,7 +562,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         was_registered = True
         new_record, is_new = CoverageRecord.add_for(
             identifier, source, operation=operation,
-            status=CoverageRecord.REGISTERED
+            status=CoverageRecord.REGISTERED,
+            collection=collection
         )
         log.info('CREATED %r' % new_record)
         return new_record, was_registered
@@ -566,7 +586,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             identifier, error,
             data_source=self.data_source,
             transient=transient,
-            collection=self.collection,
+            collection=self.collection_or_not,
         )
     
     def run_on_specific_identifiers(self, identifiers):
@@ -674,7 +694,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
 
         try:
             metadata.apply(
-                edition, collection=self.collection,
+                edition, collection=self.collection_or_not,
                 replace=self.replacement_policy,
             )
         except Exception as e:
@@ -708,7 +728,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         qu = Identifier.missing_coverage_from(
             self._db, self.input_identifier_types, self.data_source,
             count_as_missing_before=self.cutoff_time, operation=self.operation,
-            identifiers=self.input_identifiers, collection=self.collection,
+            identifiers=self.input_identifiers, collection=self.collection_or_not,
             **kwargs
         )
         if identifiers:
@@ -727,7 +747,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         """
         record, is_new = CoverageRecord.add_for(
             item, data_source=self.data_source, operation=self.operation,
-            collection=self.collection
+            collection=self.collection_or_not
         )
         record.status = CoverageRecord.SUCCESS
         record.exception = None
@@ -1042,6 +1062,7 @@ class BibliographicCoverageProvider(CollectionCoverageProvider):
     Collections, and you should use a CollectionMonitor to make sure
     your circulation information is up-to-date for each Collection.
     """
+
     def handle_success(self, identifier):
         """Once a book has bibliographic coverage, it can be given a
         work and made presentation ready.
