@@ -39,6 +39,7 @@ from core.util.opds_writer import (
 from core.opds_import import (
     MockSimplifiedOPDSLookup,
     MockMetadataWranglerOPDSLookup,
+    OPDSImporter,
 )
 from core.coverage import (
     CoverageFailure,
@@ -278,6 +279,47 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_(edition.primary_identifier, result)
         eq_([[item]], provider.batches)
 
+    def test_api_method(self):
+        """lookup() is the default API method used by 
+        OPDSImportCoverageProvider.
+        """
+        provider = self._provider()
+        eq_(provider.lookup_client.lookup, provider.api_method)
+
+    def test_import_feed_response(self):
+        """Verify that import_feed_response instantiates the 
+        OPDS_IMPORTER_CLASS subclass and calls import_from_feed
+        on it.
+        """
+
+        class MockOPDSImporter(OPDSImporter):
+            def import_from_feed(self, text):
+                """Return information that's useful for verifying
+                that the OPDSImporter was instantiated with the
+                right values.
+                """
+                return (
+                    text, self.collection, 
+                    self.identifier_mapping, self.data_source_name
+                )
+
+        class MockProvider(MockOPDSImportCoverageProvider):
+            OPDS_IMPORTER_CLASS = MockOPDSImporter
+
+        provider = MockProvider(self._default_collection)
+        provider.lookup_client = MockSimplifiedOPDSLookup(self._url)
+
+        response = MockRequestsResponse(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, "some data"
+        )
+        id_mapping = object()
+        (text, collection, mapping, 
+         data_source_name) = provider.import_feed_response(response, id_mapping)
+        eq_("some data", text)
+        eq_(provider.collection, collection)
+        eq_(id_mapping, mapping)
+        eq_(provider.data_source.name, data_source_name)
+            
 
 class TestMetadataWranglerCoverageProvider(DatabaseTest):
 
