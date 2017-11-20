@@ -54,8 +54,11 @@ class CollectionSyncImporter(OPDSImporter):
         # The superclass will parse the Identifier for us and handle
         # cases like invalid URNs.
         failure = OPDSImporter.coveragefailure_from_message(
-            data_source, message
+            data_source, message,
+            success_on_200=200 in cls.SUCCESS_STATUS_CODES
         )
+        if isinstance(failure, Identifier):
+            return failure
         if (not failure 
             or not failure.obj 
             or message.status_code not in cls.SUCCESS_STATUS_CODES):
@@ -129,6 +132,8 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         # consider a 'failure' should actually be considered a
         # success.
         for failure_or_identifier in sorted(error_messages_by_id.values()):
+            if isinstance(failure_or_identifier, CoverageFailure):
+                failure_or_identifier.collection = self.collection
             results.append(failure_or_identifier)
         return results
 
@@ -205,6 +210,8 @@ class BaseMetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     circulation manager's catalog).
     """
 
+    DATA_SOURCE_NAME = DataSource.METADATA_WRANGLER
+
     def __init__(self, collection, lookup_client=None, **kwargs):
         """Since we are processing a specific collection, we must be able to
         get an _authenticated_ metadata wrangler lookup client for the
@@ -267,7 +274,7 @@ class MetadataWranglerCollectionRegistrar(BaseMetadataWranglerCoverageProvider):
 
         # Start with all items in this Collection that have not been
         # registered.
-        uncovered = super(MetadataWranglerCoverageProvider, self)\
+        uncovered = super(MetadataWranglerCollectionRegistrar, self)\
             .items_that_need_coverage(identifiers, **kwargs)
         # Make sure they're actually available through this
         # collection.
@@ -308,7 +315,7 @@ class MetadataWranglerCollectionRegistrar(BaseMetadataWranglerCoverageProvider):
         if needs_commit:
             self._db.commit()
 
-        # We want all items that don't have a SYNC coverage record, so
+        # We want all items that don't have a IMPORT coverage record, so
         # long as they're also missing a REAP coverage record (uncovered).
         # If they were relicensed, we just removed the REAP coverage
         # record.
@@ -324,25 +331,25 @@ class MetadataWranglerCollectionReaper(BaseMetadataWranglerCoverageProvider):
     OPERATION = CoverageRecord.REAP_OPERATION
     OPDS_IMPORTER_CLASS = ReaperImporter
 
+    @property
+    def api_method(self):
+        return self.lookup_client.remove
+
     def items_that_need_coverage(self, identifiers=None, **kwargs):
-        """Retrieves Identifiers that were synced but are no longer licensed.
+        """Retrieves Identifiers that were imported but are no longer licensed.
         """
         qu = self._db.query(Identifier).select_from(LicensePool).\
             join(LicensePool.identifier).join(CoverageRecord).\
             filter(LicensePool.collection_id==self.collection_id).\
             filter(LicensePool.licenses_owned==0, LicensePool.open_access!=True).\
             filter(CoverageRecord.data_source==self.data_source).\
-            filter(CoverageRecord.operation==CoverageRecord.SYNC_OPERATION).\
+            filter(CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION).\
             filter(CoverageRecord.status==CoverageRecord.SUCCESS).\
             filter(CoverageRecord.collection==self.collection)
 
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
         return qu
-
-    @property
-    def api_method(self):
-        return self.lookup_client.remove
 
     def finalize_batch(self):
         """Deletes Metadata Wrangler coverage records of reaped Identifiers
@@ -357,18 +364,18 @@ class MetadataWranglerCollectionReaper(BaseMetadataWranglerCoverageProvider):
         )
         wrangler_covered = qu.filter(
             CoverageRecord.data_source==self.data_source,
-            CoverageRecord.operation==CoverageRecord.SYNC_OPERATION
+            CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION
         )
-        # Get the db ids of identifiers that have been both synced and reaped.
+        # Get the db ids of identifiers that have been both imported and reaped.
         subquery = reaper_covered.intersect(wrangler_covered).subquery()
 
-        # Retrieve the outdated syncing coverage record and delete it.
+        # Retrieve the outdated import coverage record and delete it.
         coverage_records = self._db.query(CoverageRecord).\
                 join(CoverageRecord.identifier).\
                 join(subquery, Identifier.id.in_(subquery)).\
                 filter(
                     CoverageRecord.data_source==self.data_source,
-                    CoverageRecord.operation==CoverageRecord.SYNC_OPERATION
+                    CoverageRecord.operation==CoverageRecord.IMPORT_OPERATION
                 )
         for record in coverage_records.all():
             self._db.delete(record)
