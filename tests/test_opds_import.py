@@ -543,6 +543,16 @@ class TestOPDSImporter(OPDSImporterTest):
         this_is_fine = f(identifier.urn, "200", "description")
         eq_(None, this_is_fine)
 
+        # ...unless we pass in True for success_on_200 -- then the
+        # Identifier itself is returned. This can be useful if 
+        # a 200 response code means a CoverageRecord should be created
+        # for an Identifier.
+        message = OPDSMessage(identifier.urn, "200", "description")
+        this_is_fine = OPDSImporter.coveragefailure_from_message(
+            data_source, message, success_on_200=True
+        )
+        eq_(identifier, this_is_fine)
+
         # Test the various ways the status code and message might be
         # transformed into CoverageFailure.exception.
         description_and_status_code = f(identifier.urn, "404", "description")
