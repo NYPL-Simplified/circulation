@@ -461,16 +461,17 @@ class MockEnkiAPI(EnkiAPI):
 
 class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Enki records.
-
-    Currently this is only used by BibliographicRefreshScript. It's
-    not normally necessary because the Enki API combines
-    bibliographic and availability data.
     """
 
     SERVICE_NAME = "Enki Bibliographic Coverage Provider"
     DATA_SOURCE_NAME = DataSource.ENKI
     PROTOCOL = EnkiAPI.ENKI
     INPUT_IDENTIFIER_TYPES = EnkiAPI.ENKI_ID
+
+    # Enki combines bibliographic and circulation metadata, so
+    # coverage gained for one collection does not count as coverage
+    # for another.
+    COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
 
     def __init__(self, collection, api_class=EnkiAPI, **kwargs):
         """Constructor.
