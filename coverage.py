@@ -432,11 +432,12 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
     NO_SPECIFIED_TYPES = object()
     INPUT_IDENTIFIER_TYPES = NO_SPECIFIED_TYPES
 
-    # Set this to True if a given Identifier needs to be run through
+    # Set this to False if a given Identifier needs to be run through
     # this CoverageProvider once for every Collection that has this
-    # Identifier in its catalog. Otherwise, a given Identifier will be
-    # considered completely covered the first time it's run through
-    # this CoverageProvider.
+    # Identifier in its catalog. If this is set to True, a given
+    # Identifier will be considered completely covered the first time
+    # it's run through this CoverageProvider, no matter how many
+    # Collections the Identifier belongs to.
     COVERAGE_COUNTS_FOR_EVERY_COLLECTION = True
     
     def __init__(self, _db, collection=None, input_identifiers=None,
