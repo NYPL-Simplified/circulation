@@ -266,11 +266,6 @@ class Axis360BibliographicCoverageProvider(BibliographicCoverageProvider):
     PROTOCOL = ExternalIntegration.AXIS_360
     INPUT_IDENTIFIER_TYPES = Identifier.AXIS_360_ID
     DEFAULT_BATCH_SIZE = 25
-
-    # Axis combines bibliographic and circulation metadata, so
-    # coverage gained for one collection does not count as coverage
-    # for another.
-    COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
     
     def __init__(self, collection, api_class=Axis360API, **kwargs):
         """Constructor.

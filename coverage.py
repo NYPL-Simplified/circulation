@@ -694,8 +694,15 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             return self.failure(identifier, e, transient=True)
 
         try:
+            # We're passing in the Collection even if this
+            # CoverageProvider has
+            # COVERAGE_COUNTS_FOR_EVERY_COLLECTION set to False. If
+            # we did happen to get some circulation information while
+            # we were at it, we might as well store it properly.
+            # The metadata layer will not use the collection when creating
+            # CoverageRecords for the metadata actions.
             metadata.apply(
-                edition, collection=self.collection_or_not,
+                edition, collection=self.collection,
                 replace=self.replacement_policy,
             )
         except Exception as e:
