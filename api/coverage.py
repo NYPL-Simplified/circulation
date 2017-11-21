@@ -103,7 +103,7 @@ class OPDSImportCoverageProvider(CollectionCoverageProvider):
         # success.
         for failure_or_identifier in sorted(error_messages_by_id.values()):
             if isinstance(failure_or_identifier, CoverageFailure):
-                failure_or_identifier.collection = self.collection
+                failure_or_identifier.collection = self.collection_or_not
             results.append(failure_or_identifier)
         return results
 
@@ -185,6 +185,14 @@ class BaseMetadataWranglerCoverageProvider(OPDSImportCoverageProvider):
     # We want to register a given identifier once for every
     # collection it's catalogued under.
     COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+
+    INPUT_IDENTIFIER_TYPES = [
+        Identifier.OVERDRIVE_ID,
+        Identifier.BIBLIOTHECA_ID,
+        Identifier.AXIS_360_ID,
+        Identifier.ONECLICK_ID,
+        Identifier.URI,
+    ]
 
     def __init__(self, collection, lookup_client=None, **kwargs):
         """Since we are processing a specific collection, we must be able to

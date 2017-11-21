@@ -348,6 +348,21 @@ class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderT
             self.Mock, self.collection, UnauthenticatedLookupClient()
         )
 
+    def test_input_identifier_types(self):
+        """Verify all the different types of identifiers we send
+        to the metadata wrangler.
+        """
+        eq_(
+            set([
+                Identifier.OVERDRIVE_ID,
+                Identifier.BIBLIOTHECA_ID,
+                Identifier.AXIS_360_ID,
+                Identifier.ONECLICK_ID,
+                Identifier.URI,
+            ]), 
+            set(BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES)
+        )
+
     def test_create_identifier_mapping(self):
         # Most identifiers map to themselves.
         overdrive = self._identifier(Identifier.OVERDRIVE_ID)
@@ -544,7 +559,8 @@ class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTe
         eq_([], qu.all())
 
     def test_identifier_reaped_from_one_collection_covered_in_another(self):
-        """A LicensePool that's not actually available doesn't need coverage.
+        """An Identifier can be reaped from one collection but still
+        need coverage in another.
         """
         edition, pool = self._edition(
             with_license_pool=True, collection=self.collection,

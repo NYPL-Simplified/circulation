@@ -461,6 +461,10 @@ class MockEnkiAPI(EnkiAPI):
 
 class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
     """Fill in bibliographic metadata for Enki records.
+
+    Currently this is only used by BibliographicRefreshScript. It's
+    not normally necessary because the Enki API combines
+    bibliographic and availability data.
     """
 
     SERVICE_NAME = "Enki Bibliographic Coverage Provider"
