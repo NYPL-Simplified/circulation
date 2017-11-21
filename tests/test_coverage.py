@@ -979,7 +979,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             collection
         )
 
-    def test_items_that_need_coverage_respects_collection(self):
+    def test_items_that_need_coverage_ignores_collection_when_collection_is_irrelevant(self):
 
         # Two providers that do the same work, but one is associated
         # with a collection and the other is not.
@@ -989,9 +989,76 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         no_collection_provider = AlwaysSuccessfulCoverageProvider(
             self._db
         )
+
+        # This distinction is irrelevant because they both consider an
+        # Identifier covered when it has a CoverageRecord not
+        # associated with any particular collection.
+        eq_(True, collection_provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION)
+        eq_(True, no_collection_provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION)
+
         eq_(collection_provider.data_source, 
             no_collection_provider.data_source)
         data_source = collection_provider.data_source
+
+        # Create a license pool belonging to the default collection.
+        pool = self._licensepool(None, collection=self._default_collection)
+        identifier = pool.identifier
+
+        def needs():
+            """Returns all items that need coverage from both test
+            CoverageProviders.
+            """
+            return tuple(
+                p.items_that_need_coverage().all() for p in
+                (collection_provider, no_collection_provider)
+            )
+
+        # We start out in the state where the identifier appears to need
+        # coverage from both CoverageProviders.
+        eq_(([identifier], [identifier]), needs())
+
+        # Add coverage for the default collection, and both
+        # CoverageProviders still consider the identifier
+        # uncovered. (This shouldn't happen, but if it does, we don't
+        # count it.)
+        self._coverage_record(
+            identifier, data_source, collection=self._default_collection
+        )
+        eq_(([identifier], [identifier]), needs())
+
+        # Add coverage not associated with any collection, and both
+        # CoverageProviders consider it covered.
+        self._coverage_record(
+            identifier, data_source, collection=None
+        )
+        eq_(([], []), needs())
+
+    def test_items_that_need_coverage_respects_collection_when_collection_is_relevant(self):
+
+        # Two providers that do the same work, but are associated
+        # with different collections.
+        collection_1_provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
+        )
+        collection_2 = self._collection()
+        collection_2_provider = AlwaysSuccessfulCollectionCoverageProvider(
+            collection_2
+        )
+
+        # And one that does the same work but is not associated with
+        # any collection.
+        no_collection_provider = AlwaysSuccessfulCoverageProvider(self._db)
+
+        # The 'collection' distinction is relevant, because these
+        # CoverageProviders consider an identifier covered only when
+        # it has a CoverageRecord for _their_ collection.
+        collection_1_provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+        collection_2_provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+        no_collection_provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+
+        eq_(collection_1_provider.data_source, 
+            collection_2_provider.data_source)
+        data_source = collection_1_provider.data_source
 
         # Create a license pool belonging to the default collection so
         # that its Identifier will show up as needing coverage by the
@@ -1005,12 +1072,20 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
             """
             return tuple(
                 p.items_that_need_coverage().all() for p in
-                (collection_provider, no_collection_provider)
+                (collection_1_provider, no_collection_provider)
             )
 
         # We start out in the state where the identifier needs
-        # coverage from both CoverageProviders.
+        # coverage from the CoverageProvider not associated with
+        # any Collection, and the CoverageProvider associated with
+        # the Collection where the LicensePool lives.
+        #
         eq_(([identifier], [identifier]), needs())
+
+        # The CoverageProvider associated with a different Collection
+        # doesn't care about this Identifier, because its Collection
+        # doesn't include that Identiifer.
+        eq_([], collection_2_provider.items_that_need_coverage().all())
 
         # Add coverage for an irrelevant collection, and nothing happens.
         self._coverage_record(
