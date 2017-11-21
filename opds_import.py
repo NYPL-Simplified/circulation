@@ -350,6 +350,11 @@ class OPDSImporter(object):
     # tags from an additional namespace.
     PARSER_CLASS = OPDSXMLParser
 
+    # Subclasses of OPDSImporter may define a list of status codes
+    # that should be treated as indicating success, rather than failure,
+    # when they show up in <simplified:message> tags.
+    SUCCESS_STATUS_CODES = None
+
     def __init__(self, _db, collection, data_source_name=None,
                  identifier_mapping=None, mirror=None, http_get=None,
                  metadata_client=None, content_modifier=None,
@@ -1056,8 +1061,7 @@ class OPDSImporter(object):
                 yield failure
 
     @classmethod
-    def coveragefailure_from_message(
-            cls, data_source, message, success_on_200=False):
+    def coveragefailure_from_message(cls, data_source, message):
         """Turn a <simplified:message> tag into a CoverageFailure."""
 
         _db = Session.object_session(data_source)
@@ -1076,12 +1080,15 @@ class OPDSImporter(object):
             # Identifier so we can't turn it into a CoverageFailure.
             return None
 
-        if message.status_code == 200:
+        if (cls.SUCCESS_STATUS_CODES 
+            and message.status_code in cls.SUCCESS_STATUS_CODES):
             # This message is telling us that nothing went wrong. It
-            # should either be ignored altogether or treated as a
-            # success.
-            if success_on_200:
-                return identifier
+            # should be treated as a success.
+            return identifier
+
+        if message.status_code == 200:
+            # By default, we treat a message with a 200 status code
+            # as though nothing had been returned at all.
             return None
 
         description = message.message

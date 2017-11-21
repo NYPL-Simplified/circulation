@@ -543,16 +543,6 @@ class TestOPDSImporter(OPDSImporterTest):
         this_is_fine = f(identifier.urn, "200", "description")
         eq_(None, this_is_fine)
 
-        # ...unless we pass in True for success_on_200 -- then the
-        # Identifier itself is returned. This can be useful if 
-        # a 200 response code means a CoverageRecord should be created
-        # for an Identifier.
-        message = OPDSMessage(identifier.urn, "200", "description")
-        this_is_fine = OPDSImporter.coveragefailure_from_message(
-            data_source, message, success_on_200=True
-        )
-        eq_(identifier, this_is_fine)
-
         # Test the various ways the status code and message might be
         # transformed into CoverageFailure.exception.
         description_and_status_code = f(identifier.urn, "404", "description")
@@ -567,6 +557,38 @@ class TestOPDSImporter(OPDSImporterTest):
         
         no_information = f(identifier.urn, None, None)
         eq_("No detail provided.", no_information.exception)
+
+    def test_coveragefailure_from_message_with_success_status_codes(self):
+        """When an OPDSImporter defines SUCCESS_STATUS_CODES, messages with
+        those status codes are always treated as successes.
+        """
+        class Mock(OPDSImporter):
+            SUCCESS_STATUS_CODES = [200, 999]
+
+        data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        def f(*args):
+            message = OPDSMessage(*args)
+            return Mock.coveragefailure_from_message(data_source, message)
+
+        identifier = self._identifier()
+
+        # If the status code is 999, then the identifier is returned
+        # instead of a CoverageFailure -- we know that 999 means
+        # coverage was in fact provided.
+        failure = f(identifier.urn, "999", "hooray!")
+        eq_(identifier, failure)
+
+        # If the status code is 200, then the identifier is returned
+        # instead of None.
+        failure = f(identifier.urn, "200", "ok!")
+        eq_(identifier, failure)
+
+        # If the status code is anything else, a CoverageFailure
+        # is returned.
+        failure = f(identifier.urn, 500, "hooray???")
+        assert isinstance(failure, CoverageFailure)
+        eq_("500: hooray???", failure.exception)
 
     def test_extract_metadata_from_elementtree_handles_messages_that_become_identifiers(self):
         not_a_failure = self._identifier()
