@@ -1309,7 +1309,6 @@ class CoverageRecord(Base, BaseCoverageRecord):
 
     SET_EDITION_METADATA_OPERATION = u'set-edition-metadata'
     CHOOSE_COVER_OPERATION = u'choose-cover'
-    SYNC_OPERATION = u'sync'
     REAP_OPERATION = u'reap'
     IMPORT_OPERATION = u'import'
     RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
@@ -1371,7 +1370,8 @@ class CoverageRecord(Base, BaseCoverageRecord):
         )
 
     @classmethod
-    def lookup(self, edition_or_identifier, data_source, operation=None):
+    def lookup(cls, edition_or_identifier, data_source, operation=None,
+               collection=None):
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
             identifier = edition_or_identifier
@@ -1389,6 +1389,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             identifier=identifier,
             data_source=data_source,
             operation=operation,
+            collection=collection,
             on_multiple='interchangeable',
         )
 

@@ -1647,9 +1647,12 @@ class Metadata(MetaToModelUtility):
                                        status=CoverageRecord.TRANSIENT_FAILURE)
 
         # Finally, update the coverage record for this edition
-        # and data source.
+        # and data source. We omit the collection information,
+        # even if we know which collection this is, because
+        # we only changed metadata.
         CoverageRecord.add_for(
-            edition, data_source, timestamp=self.data_source_last_updated
+            edition, data_source, timestamp=self.data_source_last_updated,
+            collection=None
         )
         return edition, made_core_changes
 

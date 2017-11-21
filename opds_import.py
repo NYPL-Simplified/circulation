@@ -350,6 +350,11 @@ class OPDSImporter(object):
     # tags from an additional namespace.
     PARSER_CLASS = OPDSXMLParser
 
+    # Subclasses of OPDSImporter may define a list of status codes
+    # that should be treated as indicating success, rather than failure,
+    # when they show up in <simplified:message> tags.
+    SUCCESS_STATUS_CODES = None
+
     def __init__(self, _db, collection, data_source_name=None,
                  identifier_mapping=None, mirror=None, http_get=None,
                  metadata_client=None, content_modifier=None,
@@ -609,15 +614,9 @@ class OPDSImporter(object):
 
         # translate the id in failures to identifier.urn
         identified_failures = {}
-        for id, failure in fp_failures.items() + xml_failures.items():
-            external_identifier, ignore = Identifier.parse_urn(self._db, id)
-            if self.identifier_mapping:
-                internal_identifier = self.identifier_mapping.get(
-                    external_identifier, external_identifier)
-            else:
-                internal_identifier = external_identifier
-            failure.obj = internal_identifier
-            identified_failures[internal_identifier.urn] = failure
+        for urn, failure in fp_failures.items() + xml_failures.items():
+            identifier, failure = self.handle_failure(urn, failure)
+            identified_failures[identifier.urn] = failure
 
         # Use one loop for both, since the id will be the same for both dictionaries.
         metadata = {}
@@ -690,6 +689,35 @@ class OPDSImporter(object):
                     # ODL support.
                     pass
         return metadata, identified_failures
+
+    def handle_failure(self, urn, failure):
+        """Convert a URN and a failure message that came in through
+        an OPDS feed into an Identifier and a CoverageFailure object.
+
+        The Identifier may not be the one designated by `urn` (if it's
+        found in self.identifier_mapping) and the 'failure' may turn out not
+        to be a CoverageFailure at all -- if it's an Identifier, that means
+        that what a normal OPDSImporter would consider 'failure' is
+        considered success.
+        """
+        external_identifier, ignore = Identifier.parse_urn(self._db, urn)
+        if self.identifier_mapping:
+            # The identifier found in the OPDS feed is different from 
+            # the identifier we want to export.
+            internal_identifier = self.identifier_mapping.get(
+                external_identifier, external_identifier)
+        else:
+            internal_identifier = external_identifier
+        if isinstance(failure, Identifier):
+            # The OPDSImporter does not actually consider this a
+            # failure. Signal success by returning the internal
+            # identifier as the 'failure' object.
+            failure = internal_identifier
+        else:
+            # This really is a failure. Associate the internal
+            # identifier with the CoverageFailure object.
+            failure.obj = internal_identifier
+        return internal_identifier, failure
 
     @classmethod
     def _add_format_data(cls, circulation):
@@ -792,7 +820,14 @@ class OPDSImporter(object):
         for failure in cls.coveragefailures_from_messages(
                 data_source, parser, root
         ):
-            failures[failure.obj.urn] = failure
+            if isinstance(failure, Identifier):
+                # The Simplified <message> tag does not actually
+                # represent a failure -- it was turned into an
+                # Identifier instead of a CoverageFailure.
+                urn = failure.urn
+            else:
+                urn = failure.obj.urn
+            failures[urn] = failure
 
         # Then turn Atom <entry> tags into Metadata objects.
         for entry in parser._xpath(root, '/atom:feed/atom:entry'):
@@ -1045,9 +1080,15 @@ class OPDSImporter(object):
             # Identifier so we can't turn it into a CoverageFailure.
             return None
 
-        if message.status_code == 200:
+        if (cls.SUCCESS_STATUS_CODES 
+            and message.status_code in cls.SUCCESS_STATUS_CODES):
             # This message is telling us that nothing went wrong. It
-            # shouldn't become a CoverageFailure.
+            # should be treated as a success.
+            return identifier
+
+        if message.status_code == 200:
+            # By default, we treat a message with a 200 status code
+            # as though nothing had been returned at all.
             return None
 
         description = message.message

@@ -5833,19 +5833,43 @@ class TestCoverageRecord(DatabaseTest):
         source = DataSource.lookup(self._db, DataSource.OCLC)
         edition = self._edition()
         operation = 'foo'
-        record = self._coverage_record(edition, source, operation)
+        collection = self._default_collection
+        record = self._coverage_record(edition, source, operation, 
+                                       collection=collection)
 
-        lookup = CoverageRecord.lookup(edition, source, operation)
+
+        # To find the CoverageRecord, edition, source, operation,
+        # and collection must all match.
+        result = CoverageRecord.lookup(edition, source, operation, 
+                                       collection=collection)
+        eq_(record, result)
+
+        # You can substitute the Edition's primary identifier for the
+        # Edition iteslf.
+        lookup = CoverageRecord.lookup(
+            edition.primary_identifier, source, operation, 
+            collection=self._default_collection
+        )
         eq_(lookup, record)
 
-        lookup = CoverageRecord.lookup(edition, source)
-        eq_(None, lookup)
 
-        lookup = CoverageRecord.lookup(edition.primary_identifier, source, operation)
-        eq_(lookup, record)
+        # Omit the collection, and you find nothing.
+        result = CoverageRecord.lookup(edition, source, operation)
+        eq_(None, result)
 
-        lookup = CoverageRecord.lookup(edition.primary_identifier, source)
-        eq_(None, lookup)
+        # Same for operation.
+        result = CoverageRecord.lookup(edition, source, collection=collection)
+        eq_(None, result)
+
+        result = CoverageRecord.lookup(edition, source, "other operation",
+                                       collection=collection)
+        eq_(None, result)
+
+        # Same for data source.
+        other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        result = CoverageRecord.lookup(edition, other_source, operation,
+                                       collection=collection)
+        eq_(None, result)
 
     def test_add_for(self):
         source = DataSource.lookup(self._db, DataSource.OCLC)
