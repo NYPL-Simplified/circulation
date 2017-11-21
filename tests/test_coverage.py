@@ -872,10 +872,30 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         record2, is_new = CoverageRecord.add_for(
             identifier, data_source=provider.data_source, 
             operation=provider.operation,
-            collection=provider.collection
+            collection=provider.collection_or_not
         )
         eq_(False, is_new)
         eq_(record, record2)
+
+        # By default, the CoverageRecord is not associated with any
+        # particular collection.
+        eq_(None, record.collection)
+        
+        # Setting COVERAGE_COUNTS_FOR_EVERY_COLLECTION to False will
+        # change that -- a CoverageRecord will only count for the
+        # collection associated with the CoverageProvider.
+        provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+        record = provider.add_coverage_record_for(identifier)
+        eq_(self._default_collection, record.collection)
+
+        record2, is_new = CoverageRecord.add_for(
+            identifier, data_source=provider.data_source, 
+            operation=provider.operation,
+            collection=provider.collection_or_not
+        )
+        eq_(False, is_new)
+        eq_(record, record2)
+
         
     def test_record_failure_as_coverage_record(self):
         """TODO: We need test coverage here."""
@@ -890,9 +910,21 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         )
         eq_(provider.data_source, failure.data_source)
         eq_("an error", failure.exception)
-        eq_(self._default_collection, failure.collection)
         eq_(False, failure.transient)
+
+        # By default, the failure is not associated with any
+        # particular collection.
+        eq_(None, failure.collection)
         
+        # Setting COVERAGE_COUNTS_FOR_EVERY_COLLECTION to False
+        # will change that -- a failure will only count for the
+        # collection associated with the CoverageProvider.
+        provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+        failure = provider.failure(
+            identifier, error="an error", transient=False
+        )
+        eq_(self._default_collection, failure.collection)
+
     def test_failure_for_ignored_item(self):
         """Test that failure_for_ignored_item creates an appropriate
         CoverageFailure.
