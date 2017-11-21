@@ -24,7 +24,7 @@ HOME=/var/www/circulation
 30 3 * * * root core/bin/run update_nyt_bestseller_lists >> /var/log/cron.log 2>&1
 
 # Add newly discovered identifiers to our Metadata Wrangler collection.
-*/10 * * * * root core/bin/run metadata_wrangler_collection_sync >> /var/log/cron.log 2>&1
+*/10 * * * * root core/bin/run metadata_wrangler_collection_registrar >> /var/log/cron.log 2>&1
 
 # Remove newly removed identifiers from our Metadata Wrangler collection
 0 */22 * * * root core/bin/run metadata_wrangler_collection_reaper >> /var/log/cron.log 2>&1
@@ -36,10 +36,6 @@ HOME=/var/www/circulation
 # If the Metadata Wrangler needs content such as book covers that only we
 # can provide, send it over.
 30 21 * * * root core/bin/run metadata_upload_coverage >> /var/log/cron.log 2>&1
-
-# DEPRECATED: Ask the Metadata Wrangler about all unresolved
-# identifiers, 25 at a time.
-# */10 * * * * root core/bin/run metadata_wrangler_coverage >> /var/log/cron.log 2>&1
 
 # If any works are classified under unprocessed subjects, reclassify
 # those works.
