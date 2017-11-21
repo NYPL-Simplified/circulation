@@ -51,7 +51,6 @@ from core.util.opds_writer import OPDSMessage
 
 from api.coverage import (
     BaseMetadataWranglerCoverageProvider,
-    CollectionSyncImporter,
     MetadataUploadCoverageProvider,
     MetadataWranglerCollectionReaper,
     MetadataWranglerCollectionRegistrar,
@@ -61,8 +60,8 @@ from api.coverage import (
     RegistrarImporter,
 )
 
-class TestCollectionSyncImporter(DatabaseTest):
-    """Test the CollectionSyncImporter and its subclasses."""
+class TestImporterSubclasses(DatabaseTest):
+    """Test the subclasses of OPDSImporter."""
     
     def test_success_status_codes(self):
         """Validate the status codes that different importers
@@ -70,37 +69,6 @@ class TestCollectionSyncImporter(DatabaseTest):
         """
         eq_([200, 201, 202], RegistrarImporter.SUCCESS_STATUS_CODES)
         eq_([200, 404], ReaperImporter.SUCCESS_STATUS_CODES)
-
-    def test_coveragefailure_from_message(self):
-        """A CollectionSyncImporter treats certain types of 
-        OPDSMessages as indicating success rather than failure.
-        """
-
-        class Mock(CollectionSyncImporter):
-            SUCCESS_STATUS_CODES = [999]
-
-        data_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-
-        def f(*args):
-            message = OPDSMessage(*args)
-            return Mock.coveragefailure_from_message(data_source, message)
-
-        identifier = self._identifier()
-
-        # If the status code is 999, then the identifier is returned
-        # instead of a CoverageFailure -- we know that 999 means
-        # coverage was in fact provided.
-        failure = f(identifier.urn, "999", "hooray!")
-        eq_(identifier, failure)
-
-        failure = f(identifier.urn, 999, "hooray!")
-        eq_(identifier, failure)
-
-        # If the status code is anything else, a CoverageFailure
-        # is returned.
-        failure = f(identifier.urn, 500, "hooray???")
-        assert isinstance(failure, CoverageFailure)
-        eq_("500: hooray???", failure.exception)
 
 
 class TestOPDSImportCoverageProvider(DatabaseTest):

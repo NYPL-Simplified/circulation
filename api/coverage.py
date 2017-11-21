@@ -40,45 +40,15 @@ from core.util.http import (
     RemoteIntegrationException,
 )
 
-class CollectionSyncImporter(OPDSImporter):
 
-    # Status codes that are generally considered to indicate failure,
-    # but which actually indicate success as far as this OPDSImporter
-    # is concerned.
-    SUCCESS_STATUS_CODES = []
-
-    @classmethod
-    def coveragefailure_from_message(cls, data_source, message):
-        """Turn a <simplified:message> tag into a CoverageFailure."""
-
-        # The superclass will parse the Identifier for us and handle
-        # cases like invalid URNs.
-        failure = OPDSImporter.coveragefailure_from_message(
-            data_source, message,
-            success_on_200=200 in cls.SUCCESS_STATUS_CODES
-        )
-        if isinstance(failure, Identifier):
-            return failure
-        if (not failure 
-            or not failure.obj 
-            or message.status_code not in cls.SUCCESS_STATUS_CODES):
-            return failure
-
-        # What a normal OPDSImporter would consider a failure,
-        # we consider a success. Returning the Identifier instead
-        # of the CoverageFailure will make sure this Identifier
-        # gets a 'success' CoverageRecord.
-        return failure.obj
-
-
-class RegistrarImporter(CollectionSyncImporter):
+class RegistrarImporter(OPDSImporter):
     """We are successful whenever the metadata wrangler puts an identifier
     into the catalog, even if no metadata is immediately available.
     """
     SUCCESS_STATUS_CODES = [200, 201, 202]
 
 
-class ReaperImporter(CollectionSyncImporter):
+class ReaperImporter(OPDSImporter):
     """We are successful if the metadata wrangler acknowledges that an
     identifier has been removed, and also if the identifier wasn't in
     the catalog in the first place.
