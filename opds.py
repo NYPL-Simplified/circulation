@@ -848,6 +848,9 @@ class AcquisitionFeed(OPDSFeed):
 
     def _make_entry_xml(self, work, license_pool, edition, identifier):
 
+        if work and not edition:
+            edition = work.presentation_edition
+
         # Find the .epub link
         epub_href = None
         p = None
@@ -878,7 +881,6 @@ class AcquisitionFeed(OPDSFeed):
             content = content.decode("utf8")
 
         content_type = 'html'
-
         kw = {}
         if edition.medium:
             additional_type = Edition.medium_to_additional_type.get(
