@@ -3,6 +3,7 @@
 (https://github.com/HadrienGardeur/audiobook-manifest).
 """
 
+from nose.tools import set_trace
 import json
 
 class JSONable(object):
@@ -16,6 +17,15 @@ class JSONable(object):
     @property
     def as_dict(self):
         raise NotImplementedError()
+
+    @classmethod
+    def json_ready(cls, value):
+        if isinstance(value, JSONable):
+            return value.as_dict
+        elif isinstance(value, list):
+            return [cls.json_ready(x) for x in value]
+        else:
+            return value
 
 
 class Manifest(JSONable):
@@ -46,11 +56,12 @@ class Manifest(JSONable):
         for key in self.component_lists:
             value = getattr(self, key)
             if value:
-                dict[key] = value
+                data[key] = self.json_ready(value)
+        return data
 
     @property
     def component_lists(self):
-        return 'metadata', 'links', 'spine', 'resource'
+        return 'metadata', 'links', 'spine', 'resources'
 
     def _append(self, append_to, **kwargs):
         append_to.append(kwargs)
@@ -62,7 +73,7 @@ class Manifest(JSONable):
         self._append(self.spine, href=href, type=type, title=title, **kwargs)
 
     def add_resource(self, href, type, **kwargs):
-        self._append(self.resources, href=href, type=type)
+        self._append(self.resources, href=href, type=type, **kwargs)
 
 
 class TimelinePart(JSONable):
@@ -99,8 +110,10 @@ class AudiobookManifest(Manifest):
 
     @property
     def component_lists(self):
-        return super(AudiobookManifest, self).component_lists + ['timeline']
+        return super(AudiobookManifest, self).component_lists + ('timeline',)
 
     def add_timeline(self, href, title, children=None, **kwargs):
         """Add an item to the timeline."""
-        self.timeline.append(TimelinePart(href, title, children, **kwargs))
+        part = TimelinePart(href, title, children, **kwargs)
+        self.timeline.append(part)
+        return part
