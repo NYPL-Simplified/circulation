@@ -301,6 +301,11 @@ class URNLookupController(object):
         return feed_response(opds_feed)
 
     def process_urns(self, urns, **process_urn_kwargs):
+        """Processes a list of URNs for a lookup request.
+
+        :return: None or, to override default feed behavior, a ProblemDetail
+        or Response
+        """
         identifiers_by_urn, failures = Identifier.parse_urns(self._db, urns)
         self.add_urn_failure_messages(failures)
 
