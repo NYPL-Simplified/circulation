@@ -270,7 +270,7 @@ class URNLookupController(object):
         urns = flask.request.args.getlist('urn')
 
         this_url = cdn_url_for(route_name, _external=True, urn=urns)
-        response = self.process_urns(urns)
+        response = self.process_urns(urns, **process_urn_kwargs)
         self.post_lookup_hook()
 
         if response:
