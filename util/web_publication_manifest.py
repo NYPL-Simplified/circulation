@@ -42,7 +42,7 @@ class Manifest(JSONable):
     def __init__(self, context=None, type=None):
         self.context = context or self.DEFAULT_CONTEXT
         self.type = type or self.DEFAULT_TYPE
-        self.metadata = { "@type": type }
+        self.metadata = { "@type": self.type }
 
         # Initialize all component lists to the empty list.
         for name in self.component_lists:
@@ -51,7 +51,8 @@ class Manifest(JSONable):
     @property
     def as_dict(self):
         data = {
-            "@context": self.context
+            "@context": self.context,
+            "metadata": self.metadata
         }
         for key in self.component_lists:
             value = getattr(self, key)
@@ -61,7 +62,7 @@ class Manifest(JSONable):
 
     @property
     def component_lists(self):
-        return 'metadata', 'links', 'spine', 'resources'
+        return 'links', 'spine', 'resources'
 
     def _append(self, append_to, **kwargs):
         append_to.append(kwargs)

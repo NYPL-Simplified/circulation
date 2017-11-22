@@ -35,7 +35,13 @@ class TestManifest(object):
         manifest = Manifest()
         eq_(Manifest.DEFAULT_CONTEXT, manifest.context)
         eq_(Manifest.DEFAULT_TYPE, manifest.type)
-        eq_({'@context' : manifest.context}, manifest.as_dict)
+        eq_(
+            {
+                '@context' : manifest.context,
+                'metadata' : {'@type': manifest.type}
+            },
+            manifest.as_dict
+        )
 
     def test_add_link(self):
         manifest = Manifest()
@@ -97,7 +103,13 @@ class TestAudiobookManifest(object):
         manifest = AudiobookManifest()
         eq_(AudiobookManifest.DEFAULT_CONTEXT, manifest.context)
         eq_(AudiobookManifest.DEFAULT_TYPE, manifest.type)
-        eq_({'@context' : manifest.context}, manifest.as_dict)        
+        eq_(
+            {
+                '@context' : manifest.context,
+                'metadata' : {'@type': manifest.type}
+            },
+            manifest.as_dict
+        )
 
     def test_add_timeline(self):
         manifest = AudiobookManifest()
