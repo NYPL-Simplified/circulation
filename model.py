@@ -49,6 +49,7 @@ from sqlalchemy.orm import (
     contains_eager,
     joinedload,
     lazyload,
+    mapper,
     relationship,
     sessionmaker,
     synonym,
@@ -7864,6 +7865,8 @@ class Timestamp(Base):
             create_method_kwargs=dict(timestamp=date))
         if not was_new:
             stamp.timestamp = date
+        # Committing immediately reduces the risk of contention.
+        _db.commit()
         return stamp
 
     __table_args__ = (
@@ -10728,8 +10731,20 @@ class Collection(Base, HasFullTableCache):
             return
 
         _db = Session.object_session(identifiers[0])
-        uncatalogued = filter(lambda i: i not in self.catalog, identifiers)
-        self.catalog.extend(uncatalogued)
+        already_in_catalog = _db.query(Identifier).join(
+            CollectionIdentifier
+        ).filter(
+            CollectionIdentifier.collection_id==self.id
+        ).filter(
+             Identifier.id.in_([x.id for x in identifiers])
+        ).all()
+
+        new_catalog_entries = [
+            dict(collection_id=self.id, identifier_id=identifier.id)
+            for identifier in identifiers
+            if identifier not in already_in_catalog
+        ]
+        _db.bulk_insert_mappings(CollectionIdentifier, new_catalog_entries)
         flush(_db)
 
     def works_updated_since(self, _db, timestamp):
@@ -10817,6 +10832,18 @@ collections_identifiers = Table(
     UniqueConstraint('collection_id', 'identifier_id'),
 )
 
+# Create an ORM model for the collections_identifiers join table
+# so it can be used in a bulk_insert_mappings call.
+class CollectionIdentifier(object):
+    pass
+
+mapper(
+    CollectionIdentifier, collections_identifiers,
+    primary_key=(
+        collections_identifiers.columns.collection_id,
+        collections_identifiers.columns.identifier_id
+    )
+)
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.
@@ -10872,6 +10899,8 @@ class IntegrationClient(Base):
         client = get_one(_db, cls, shared_secret=unicode(shared_secret))
         if client:
             client.last_accessed = datetime.datetime.utcnow()
+            # Committing immediately reduces the risk of contention.
+            _db.commit()
             return client
         return None
 
