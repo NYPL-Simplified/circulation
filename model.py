@@ -10739,10 +10739,10 @@ class Collection(Base, HasFullTableCache):
              Identifier.id.in_([x.id for x in identifiers])
         ).all()
 
-        uncatalogued = filter(lambda i: i not in already_in_catalog, identifiers)
         new_catalog_entries = [
             dict(collection_id=self.id, identifier_id=identifier.id)
-            for identifier in uncatalogued
+            for identifier in identifiers
+            if identifier not in already_in_catalog
         ]
         _db.bulk_insert_mappings(CollectionIdentifier, new_catalog_entries)
         flush(_db)
