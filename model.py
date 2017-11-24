@@ -7896,6 +7896,7 @@ class Representation(Base):
     GIF_MEDIA_TYPE = u"image/gif"
     SVG_MEDIA_TYPE = u"image/svg+xml"
     MP3_MEDIA_TYPE = u"audio/mpeg"
+    ZIP_MEDIA_TYPE = u"application/zip"
     OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
     AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
@@ -7937,6 +7938,7 @@ class Representation(Base):
         PNG_MEDIA_TYPE: "png",
         SVG_MEDIA_TYPE: "svg",
         GIF_MEDIA_TYPE: "gif",
+        ZIP_MEDIA_TYPE: "zip",
         TEXT_PLAIN: "txt",
         TEXT_HTML_MEDIA_TYPE: "html",
         APPLICATION_XML_MEDIA_TYPE: "xml",
@@ -8093,6 +8095,8 @@ class Representation(Base):
     @classmethod
     def guess_media_type(cls, filename):
         """Guess a likely media type from a filename."""
+        if not filename:
+            return None
         filename = filename.lower()
         for extension, media_type in cls.MEDIA_TYPE_FOR_EXTENSION.items():
             if filename.endswith(extension):
