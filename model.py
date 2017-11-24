@@ -10745,7 +10745,7 @@ class Collection(Base, HasFullTableCache):
             if identifier not in already_in_catalog
         ]
         _db.bulk_insert_mappings(CollectionIdentifier, new_catalog_entries)
-        flush(_db)
+        _db.commit()
 
     def works_updated_since(self, _db, timestamp):
         """Finds all works in a collection's catalog that have been updated
