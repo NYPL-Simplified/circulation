@@ -7469,6 +7469,8 @@ class TestCollection(DatabaseTest):
         self.collection.catalog_identifier(i3)
 
         self.collection.catalog_identifiers([i1, i2, i3])
+
+        # Now all three identifiers are in the catalog.
         assert sorted([i1, i2, i3]) == sorted(self.collection.catalog)
 
     def test_works_updated_since(self):
