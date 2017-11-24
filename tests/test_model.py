@@ -4633,11 +4633,13 @@ class TestRepresentation(DatabaseTest):
         m = Representation.guess_media_type
 
         eq_(Representation.JPEG_MEDIA_TYPE, m("file.jpg"))
+        eq_(Representation.ZIP_MEDIA_TYPE, m("file.ZIP"))
 
         for extension, media_type in Representation.MEDIA_TYPE_FOR_EXTENSION.items():
             filename = "file" + extension
             eq_(media_type, m(filename))
 
+        eq_(None, m(None))
         eq_(None, m("file"))
         eq_(None, m("file.unknown-extension"))
 
