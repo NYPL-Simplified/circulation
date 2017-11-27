@@ -4,41 +4,80 @@ from . import *
 
 class OverdriveClassifier(Classifier):
 
+    # These genres are only used to describe video titles.
+    VIDEO_GENRES = [
+        "Action",
+        "Adventure",
+        "Animation",
+        "Ballet",
+        "Cartoon",
+        "Classic Film",
+        "Comedy",
+        "Children's Video",
+        "Documentary",
+        "Feature Film",
+        "Foreign Film",
+        "Instructional",
+        "Martial Arts",
+        "Music Video",
+        "Short Film",
+        "Stage Production",
+        "Theater",
+        "TV Series",
+        "Young Adult Video"
+    ]
+
+    # These genres are only used to describe music titles.
+    MUSIC_GENRES = [
+        "Alternative",
+        "Ambient",
+        "Blues",
+        "Chamber Music",
+        "Children's Music",
+        "Choral",
+        "Christian",
+        "Classical",
+        "Compilations",
+        "Concertos",
+        "Country",
+        "Dance",
+        "Electronica",
+        "Film Music",
+        "Folk",
+        "Hip-Hop",
+        "Holiday Music",
+        "Indie",
+        "Instrumental",
+        "Jazz",
+        "Opera & Operetta",
+        "Orchestral",
+        "Pop",
+        "Ragtime",
+        "Rap",
+        "R & B",
+        "Rock",
+        "Soundtrack",
+        "Vocal",
+        "World Music"
+    ]
+
     # Any classification that includes the string "Fiction" will be
     # counted as fiction. This is just the leftovers.
     FICTION = set([
-        "Short Stories",
         "Fantasy",
         "Horror",
+        "Literary Anthologies",
         "Mystery",
         "Romance",
-        "Western",
+        "Short Stories",
         "Suspense",
         "Thriller",
-        "Science Fiction & Fantasy",
+        "Western",
         ])
 
-    NONFICTION = set([
-        "Biography & Autobiography",
-        "Business",
-        "Careers",
-        "Computer Technology",
-        "Cooking & Food",
-        "Family & Relationships",
-        "Finance",
-        "Health & Fitness",
-        "History",
-        "Politics",
-        "Psychology",
-        "Reference",
-        "Science",
-        "Self Help",
-        "Self-Improvement",
-        "Sociology",
-        "Sports & Recreations",
-        "Technology"
-        "Travel",
-    ])
+    NEITHER_FICTION_NOR_NONFICTION = [
+        "Drama", "Poetry", "Latin",
+    ] + MUSIC_GENRES + VIDEO_GENRES
 
     GENRES = {
         Antiques_Collectibles : "Antiques",
@@ -47,20 +86,22 @@ class OverdriveClassifier(Classifier):
         Biography_Memoir : "Biography & Autobiography",
         Business : ["Business", "Marketing & Sales", "Careers"],
         Christianity : "Christian Nonfiction",
-        Computers : "Computer Technology",
+        Computers : ["Computer Technology", "Social Media"],
         Classics : "Classic Literature",
         Cooking : "Cooking & Food",
         Crafts_Hobbies : "Crafts",
         Games : "Games",
         Drama : "Drama",
+        Economics : "Economics",
         Education : "Education",
         Erotica : "Erotic Literature",
         Fantasy : "Fantasy",
+        Folklore : ["Folklore", "Mythology"],
         Foreign_Language_Study : "Foreign Language Study",
         Gardening : "Gardening",
         Comics_Graphic_Novels : "Comic and Graphic Books",
         Health_Diet : "Health & Fitness",
-        Historical_Fiction : "Historical Fiction",
+        Historical_Fiction : ["Historical Fiction", "Antiquarian"],
         History : "History",
         Horror : "Horror",
         House_Home : u"Home Design & Décor",
@@ -70,17 +111,17 @@ class OverdriveClassifier(Classifier):
         Judaism : "Judaica",
         Law : "Law",
         Literary_Criticism : [
-            "Literary Criticism", "Criticism", "Literary Anthologies",
-            "Language Arts"],
+            "Literary Criticism", "Criticism", "Language Arts", "Writing",
+        ],
         Management_Leadership : "Management",
         Mathematics : "Mathematics",
         Medical : "Medical",
         Military_History : "Military",
-        Music : "Music",
+        Music : ["Music", "Songbook"],
         Mystery : "Mystery",
         Nature : "Nature",
         Body_Mind_Spirit : "New Age",
-        Parenting_Family : "Family & Relationships",
+        Parenting_Family : ["Family & Relationships", "Child Development"],
         Performing_Arts : "Performing Arts",
         Personal_Finance_Investing : "Finance",
         Pets : "Pets",
@@ -93,18 +134,23 @@ class OverdriveClassifier(Classifier):
         Religious_Fiction : ["Christian Fiction"],
         Religion_Spirituality : "Religion & Spirituality",
         Romance : "Romance",
-        Science : ["Science", "Physics", "Chemistry"],
+        Science : ["Science", "Physics", "Chemistry", "Biology"],
         Science_Fiction : "Science Fiction",
         # Science_Fiction_Fantasy : "Science Fiction & Fantasy",
-        Self_Help : ["Self-Improvement", "Self-Help", "Self Help"],
-        Social_Sciences : ["Sociology", "Gender Studies"],
+        Self_Help : ["Self-Improvement", "Self-Help", "Self Help", "Recovery"],
+        Short_Stories : ["Literary Anthologies", "Short Stories"],
+        Social_Sciences : [
+            "Sociology", "Gender Studies", 
+            "Genealogy", "Media Studies", "Social Studies",
+        ],
         Sports : "Sports & Recreations",
-        Study_Aids : "Study Aids & Workbooks",
+        Study_Aids : ["Study Aids & Workbooks", "Text Book"],
         Technology : ["Technology", "Engineering", "Transportation"],
         Suspense_Thriller : ["Suspense", "Thriller"],
-        Travel : ["Travel", "Travel Literature"],
+        Travel : ["Travel", "Travel Literature", "Outdoor Recreation"],
         True_Crime : "True Crime",
         Urban_Fiction: ["African American Fiction", "Urban Fiction"],
+        Westerns : "Western",
         Womens_Fiction: "Chick Lit Fiction",
     }
 
@@ -124,10 +170,12 @@ class OverdriveClassifier(Classifier):
             # "Literature" on Overdrive seems to be synonymous with fiction,
             # but not necessarily "Literary Fiction".
             return True
-        if (identifier in cls.NONFICTION or 'Nonfiction' in identifier
-            or 'Study' in identifier or 'Studies' in identifier):
-            return False
-        return None
+
+        if identifier in cls.NEITHER_FICTION_NOR_NONFICTION:
+            return None
+
+        # Everything else is presumed nonfiction.
+        return False
 
     @classmethod
     def audience(cls, identifier, name):
@@ -161,6 +209,8 @@ class OverdriveClassifier(Classifier):
         for l, v in cls.GENRES.items():
             if identifier == v or (isinstance(v, list) and identifier in v):
                 return l
+        if identifier == 'Gay/Lesbian' and fiction:
+            return LGBTQ_Fiction
         return None
 
 Classifier.classifiers[Classifier.OVERDRIVE] = OverdriveClassifier
