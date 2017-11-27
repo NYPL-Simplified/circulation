@@ -143,7 +143,6 @@ class TestClassifierLookup(object):
         eq_(GradeLevelClassifier, Classifier.lookup(Classifier.GRADE_LEVEL))
         eq_(AgeClassifier, Classifier.lookup(Classifier.AGE_RANGE))
         eq_(InterestLevelClassifier, Classifier.lookup(Classifier.INTEREST_LEVEL))
-        eq_(Overdrive, Classifier.lookup(Classifier.OVERDRIVE))
         eq_(None, Classifier.lookup('no-such-key'))
 
 class TestTargetAge(object):
@@ -723,30 +722,6 @@ class TestConsolidateWeights(object):
         eq_(100, w2[classifier.History])
         eq_(1, w2[classifier.Middle_East_History])
 
-
-class TestOverdriveClassifier(object):
-
-    def test_foreign_languages(self):
-        eq_("Foreign Language Study", 
-            Overdrive.scrub_identifier("Foreign Language Study - Italian"))
-
-    def test_target_age(self):
-        def a(x, y):
-            return Overdrive.target_age(x,y)
-        eq_((0,4), a("Picture Book Nonfiction", None))
-        eq_((5,8), a("Beginning Reader", None))
-        eq_((12,17), a("Young Adult Fiction", None))
-        eq_((None,None), a("Fiction", None))
-
-    def test_audience(self):
-        def a(identifier):
-            return Overdrive.audience(identifier, None)
-        eq_(Classifier.AUDIENCE_CHILDREN, a("Picture Books"))
-        eq_(Classifier.AUDIENCE_CHILDREN, a("Beginning Reader"))
-        eq_(Classifier.AUDIENCE_CHILDREN, a("Children's Video"))
-        eq_(Classifier.AUDIENCE_CHILDREN, a("Juvenile Nonfiction"))
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, a("Young Adult Nonfiction"))
-        eq_(Classifier.AUDIENCE_ADULTS_ONLY, a("Erotic Literature"))
 
 class TestSimplifiedGenreClassifier(object):
 
