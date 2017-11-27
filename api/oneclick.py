@@ -41,6 +41,7 @@ from core.model import (
     DeliveryMechanism,
     Edition,
     ExternalIntegration,
+    Hyperlink,
     Identifier, 
     Library,
     LicensePool,
@@ -55,6 +56,10 @@ from core.monitor import (
 
 from core.util.http import (
     BadResponseException,
+)
+
+from core.util.web_publication_manifest import (
+    AudiobookManifest as CoreAudiobookManifest
 )
 
 
@@ -927,10 +932,8 @@ class RBFulfillmentInfo(object):
     def process_audiobook_manifest(self, rb_data):
         """Convert RBdigital's proprietary manifest format
         into a standard Audiobook Manifest document.
-       
-        TODO: This currently just returns the original manifest.
         """
-        return json.dumps(rb_data)
+        return unicode(AudiobookManifest(rb_data))
 
     @classmethod
     def process_access_document(self, access_document):
@@ -1032,7 +1035,113 @@ class OneClickCirculationMonitor(CollectionMonitor):
         self.log.info("Processed %d ebooks and %d audiobooks.", ebook_count, eaudio_count)
 
 
+class AudiobookManifest(CoreAudiobookManifest):
+    """A standard AudiobookManifest derived from an RBdigital audiobook
+    manifest.
+    """
 
+    # Information not used because it's redundant or not useful.
+    # "bookmarks": [],
+    # "hasBookmark": false,
+    # "mediaType": "eAudio",
+    # "dateAdded": "2011-03-28",
 
+    # Information not used because it's loan-specific
+    # "expiration": "2017-11-15",
+    # "canRenew": true,
+    # "transactionId": 101,
+    # "patronId": 111,
+    # "libraryId": 222
 
+    def __init__(self, content_dict, **kwargs):
+        super(AudiobookManifest, self).__init__(**kwargs)
+        self.raw = content_dict
 
+        # Metadata values that map directly onto the core spec.
+        self.import_metadata('title')
+        self.import_metadata('publisher')
+        self.import_metadata('description')
+        self.import_metadata('isbn', 'identifier')
+        self.import_metadata('authors', 'author')
+        self.import_metadata('narrators', 'narrator')
+        self.import_metadata('minutes', 'duration', lambda x: x*60)
+
+        # Metadata values that have no equivalent in the core spec,
+        # but are potentially useful.
+        self.import_metadata('size', 'schema:contentSize')
+        self.import_metadata('titleid', 'rbdigital:id', str)
+        self.import_metadata('hasDrm', 'rbdigital:hasDrm')
+        self.import_metadata('encryptionKey', 'rbdigital:encryptionKey')
+
+        # Spine items.
+        for file_data in self.raw.get('files', []):
+            self.import_spine(file_data)
+
+        # Links.
+        download_url = self.raw.get('downloadUrl')
+        if download_url:
+            self.add_link(
+                download_url, 'alternate', 
+                type=Representation.guess_media_type(download_url)
+            )
+
+        cover = self.best_cover(self.raw.get('images', []))
+        if cover:
+            self.add_link(
+                cover, "cover", type=Representation.guess_media_type(cover)
+            )
+
+    @classmethod
+    def best_cover(self, images=[]):
+        if not images:
+            return None
+        # Find the largest image that's large enough to use as a
+        # cover.
+        sizes = ['xx-large', 'x-large', 'large']
+        images_by_size = {}
+        for image in images:
+            size = image.get('name')
+            href = image.get('url')
+            if href and size in sizes:
+                images_by_size[size] = href
+
+        for size in sizes:
+            if size in images_by_size:
+                return images_by_size[size]
+
+    def import_metadata(
+            self, rbdigital_field, standard_field=None, transform=None
+    ):
+        """Map a field in an RBdigital manifest to the corresponding
+        standard manifest field.
+        """
+        standard_field = standard_field or rbdigital_field
+        value = self.raw.get(rbdigital_field)
+        if value is None:
+            return
+        if transform:
+            value = transform(value)
+        self.metadata[standard_field] = value
+
+    def import_spine(self, file_data):
+        """Import an RBdigital spine item as a Web Publication Manifest
+        spine item.
+        """
+        href = file_data.get('downloadUrl')
+        duration = file_data.get('minutes') * 60
+        title = file_data.get('display')
+
+        id = file_data.get('id')
+        size = file_data.get('size')
+        filename = file_data.get('filename')
+        type = Representation.guess_media_type(filename)
+
+        extra = {}
+        for k, v, transform in (
+                ('id', 'rbdigital:id', str),
+                ('size', 'schema:contentSize', lambda x: x),
+                ('minutes', 'duration', lambda x: x*60),
+        ):
+            if k in file_data:
+                extra[v] = transform(file_data[k])
+        self.add_spine(href, type, title, **extra)
