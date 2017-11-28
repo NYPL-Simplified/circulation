@@ -230,6 +230,10 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             self.les_mis.presentation_edition.title = u"Les Mis\u00E9rables"
             self.les_mis.set_presentation_ready()
 
+            self.modern_romance = _work()
+            self.modern_romance.presentation_edition.title = u"Modern Romance"
+            self.modern_romance.set_presentation_ready()
+
             self.lincoln = _work(genre="Biography & Memoir", title="Abraham Lincoln")
             self.lincoln.set_presentation_ready()
 
@@ -248,7 +252,13 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             self.adult_work = _work(title="Still Alice", audience=Classifier.AUDIENCE_ADULT)
             self.adult_work.set_presentation_ready()
 
-            self.ya_romance = _work(audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance")
+            self.ya_romance = _work(
+                title="Gumby In Love",
+                audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance"
+            )
+            self.ya_romance.presentation_edition.subtitle = (
+                "Modern Fairytale Series, Book 3"
+            )
             self.ya_romance.set_presentation_ready()
 
             self.no_age = _work()
@@ -467,11 +477,32 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Matches genre
 
-        results = query("romance", None, None, None, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.ya_romance.id), hits[0]['_id'])
+        def expect_ids(works, *query_args):
+            original_query_args = list(query_args)
+            query_args = list(original_query_args)
+            while len(query_args) < 8:
+                query_args.append(None)
+            results = query(*query_args)
+            hits = results["hits"]["hits"]
+            expect = [unicode(x.id) for x in works]
+            actual = [x['_id'] for x in hits]
+            expect_titles = ", ".join([x.title for x in works])
+            actual_titles = ", ".join([x['_source']['title'] for x in hits])
+            eq_(
+                expect, actual,
+                "Query args %r did not find %d works (%s), instead found %d (%s)" % (
+                    original_query_args, len(expect), expect_titles,
+                    len(actual), actual_titles
+                )
+            )
 
+        # Search by genre. The name of the genre also shows up in the
+        # title of a book, but the genre comes up first.
+        expect_ids([self.ya_romance, self.modern_romance], "romance")
+
+        # A full title match takes precedence over a match that's
+        # split across genre and subtitle.
+        expect_ids([self.modern_romance, self.ya_romance], "modern romance")
 
         # Matches audience
 
@@ -752,6 +783,10 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         )
         hits = results["hits"]["hits"]
         eq_(2, len(hits))        
+
+        #
+        # Test searching across collections.
+        #
 
         # If we add the missing collection to the default library, "A
         # Tiny Book" starts showing up in searches against that
