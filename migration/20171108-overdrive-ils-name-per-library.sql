@@ -9,7 +9,7 @@ insert into configurationsettings (external_integration_id, library_id, key, val
        join collections_libraries cl on c.id=cl.collection_id
        where ei.protocol='Overdrive'
        and cs.key='ils_name'
-       and not exists (select ei.id, cl.library_id, key, value from configurationsettings);
+       and not exists (select * from configurationsettings where library_id = cl.library_id and external_integration_id = ei.id and key = 'ils_name');
 
 -- Delete all 'ils_name' configuration settings associated with an
 -- Overdrive integration but not affiliated with any library.
