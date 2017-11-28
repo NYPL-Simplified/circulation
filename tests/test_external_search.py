@@ -818,6 +818,72 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         ]
         eq_(set(collections), set(expect_collections))
 
+class TestModernRomance(ExternalSearchTest):
+
+    def setup(self):
+        super(TestModernRomance, self).setup()
+        def _work(*args, **kwargs):
+            """Convenience method to create a work with a license pool
+            in the default collection.
+            """
+            return self._work(
+                *args, with_license_pool=True, 
+                collection=self._default_collection, **kwargs
+            )
+
+        self.modern_romance = _work()
+        self.modern_romance.presentation_edition.title = u"Modern Romance"
+        self.modern_romance.set_presentation_ready()
+
+        self.ya_romance = _work(
+            title="Gumby In Love",
+            audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance"
+        )
+        self.ya_romance.presentation_edition.subtitle = (
+            "Modern Fairytale Series, Book 3"
+        )
+        self.ya_romance.set_presentation_ready()
+
+        # Add all the works created in the setup to the search index.
+        SearchIndexCoverageProvider(
+            self._db, search_index_client=self.search
+        ).run_once_and_update_timestamp()
+
+        # Sleep to give the index time to catch up.
+        time.sleep(2)
+
+    def test_modern_romance(self):
+
+        # Convenience method to query the default library.
+        def query(*args, **kwargs):
+            return self.search.query_works(
+                self._default_library, *args, **kwargs
+            )
+
+        def expect_ids(works, *query_args):
+            original_query_args = list(query_args)
+            query_args = list(original_query_args)
+            while len(query_args) < 8:
+                query_args.append(None)
+            results = query(*query_args)
+            hits = results["hits"]["hits"]
+            expect = [unicode(x.id) for x in works]
+            actual = [x['_id'] for x in hits]
+            expect_titles = ", ".join([x.title for x in works])
+            actual_titles = ", ".join([x['_source']['title'] for x in hits])
+            eq_(
+                expect, actual,
+                "Query args %r did not find %d works (%s), instead found %d (%s)" % (
+                    original_query_args, len(expect), expect_titles,
+                    len(actual), actual_titles
+                )
+            )
+
+        # A full title match takes precedence over a match that's
+        # split across genre and subtitle.
+        expect_ids([self.modern_romance, self.ya_romance], "modern romance")
+
+
 
 class TestSearchQuery(DatabaseTest):
     def test_make_query(self):
