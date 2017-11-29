@@ -41,6 +41,7 @@ from core.metadata_layer import (
 )
 
 from api.oneclick import (
+    AudiobookManifest,
     OneClickAPI,
     OneClickCirculationMonitor, 
     MockOneClickAPI,
@@ -595,11 +596,13 @@ class TestOneClickAPI(OneClickAPITest):
         assert isinstance(found_fulfillment, RBFulfillmentInfo)
 
         # Without making any further HTTP requests, we were able to get
-        # a (improperly formatted) audiobook manifest for the loan.
+        # a Readium Web Publication manifest for the loan.
         eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, 
             found_fulfillment.content_type)
-        assert "downloadUrl" in found_fulfillment.content
 
+        manifest = json.loads(found_fulfillment.content)
+        eq_('http://readium.org/webpub/default.jsonld', manifest['@context'])
+        eq_('http://bib.schema.org/Audiobook', manifest['metadata']['@type'])
 
     def test_patron_activity(self):
         # Get patron's current checkouts and holds.
@@ -814,3 +817,89 @@ class TestCirculationMonitor(OneClickAPITest):
         item_count = monitor.process_availability()
         eq_(1, item_count)
         pool_ebook.licenses_available = 0
+
+
+class TestAudiobookManifest(OneClickAPITest):
+
+    def test_constructor(self):
+        """A reasonable RBdigital manifest becomes a reasonable
+        AudiobookManifest object.
+        """
+        ignore, [book] = self.api.get_data(
+            "response_patron_checkouts_with_audiobook.json"
+        )
+        manifest = AudiobookManifest(book)
+
+        # We know about a lot of metadata.
+        eq_('http://bib.schema.org/Audiobook', manifest.metadata['@type'])
+        eq_(u'Sharyn McCrumb', manifest.metadata['author'])
+        eq_(u'Award-winning, New York Times best-selling novelist Sharyn McCrumb crafts absorbing, lyrical tales featuring the rich culture and lore of Appalachia. In the compelling...', manifest.metadata['description'])
+        eq_(52710.0, manifest.metadata['duration'])
+        eq_(u'9781449871789', manifest.metadata['identifier'])
+        eq_(u'Barbara Rosenblat', manifest.metadata['narrator'])
+        eq_(u'Recorded Books, Inc.', manifest.metadata['publisher'])
+        eq_(u'', manifest.metadata['rbdigital:encryptionKey'])
+        eq_(False, manifest.metadata['rbdigital:hasDrm'])
+        eq_(316314528, manifest.metadata['schema:contentSize'])
+        eq_(u'The Ballad of Frankie Silver', manifest.metadata['title'])
+
+        # We know about 21 spine items.
+        eq_(21, len(manifest.spine))
+
+        # Let's spot check one.
+        first = manifest.spine[0]
+        eq_("358456", first['rbdigital:id'])
+        eq_("https://download-piece/1", first['href'])
+        eq_("audio/mpeg", first['type'])
+        eq_(417200, first['schema:contentSize'])
+        eq_("Introduction", first['title'])
+        eq_(69.0, first['duration'])
+
+        # An alternate link and a cover link were imported.
+        alternate, cover = manifest.links
+        eq_("alternate", alternate['rel'])
+        eq_("https://download/full-book.zip", alternate['href'])
+        eq_("application/zip", alternate['type'])
+
+        eq_("cover", cover['rel'])
+        assert "image_512x512" in cover['href']
+        eq_("image/png", cover['type'])
+
+    def test_empty_constructor(self):
+        """An empty RBdigital manifest becomes an empty AudioManifest
+        object.
+
+        The manifest will not be useful -- this is just to test that
+        the constructor can move forward in the absence of any
+        particular input.
+        """
+        manifest = AudiobookManifest({})
+
+        # We know it's an audiobook, and that's it.
+        eq_(
+            {'@context': 'http://readium.org/webpub/default.jsonld', 
+             'metadata': {'@type': 'http://bib.schema.org/Audiobook'}},
+            manifest.as_dict
+        )
+
+    def test_best_cover(self):
+        m = AudiobookManifest.best_cover
+
+        # If there are no covers, or no URLs, None is returned.
+        eq_(None, m(None))
+        eq_(None, m([]))
+        eq_(None, m([{'nonsense': 'value'}]))
+        eq_(None, m([{'name': 'xx-large'}]))
+        eq_(None, m([{'url': 'somewhere'}]))
+
+        # No image with a name other than 'large', 'x-large', or
+        # 'xx-large' will be accepted.
+        eq_(None, m([{'name': 'xx-small', 'url': 'foo'}]))
+
+        # Of those, the largest sized image will be used.
+        eq_('yep', m([
+            {'name': 'small', 'url': 'no way'},
+            {'name': 'large', 'url': 'nope'},
+            {'name': 'x-large', 'url': 'still nope'},
+            {'name': 'xx-large', 'url': 'yep'},
+        ]))

@@ -22,8 +22,6 @@ from core.opds_import import (
 )
 from core.util.http import RemoteIntegrationException
 
-from coverage import MetadataWranglerCoverageProvider
-
 
 class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
     """Retrieves updated metadata from the Metadata Wrangler"""
