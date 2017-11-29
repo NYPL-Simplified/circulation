@@ -12,6 +12,9 @@ from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from config import Configuration
 
+from lane import (
+    Lane,
+)
 from model import (
     Base,
     Classification,
@@ -278,7 +281,7 @@ class DatabaseTest(object):
     def _work(self, title=None, authors=None, genre=None, language=None,
               audience=None, fiction=True, with_license_pool=False, 
               with_open_access_download=False, quality=0.5, series=None,
-              presentation_edition=None, collection=None):
+              presentation_edition=None, collection=None, data_source_name=None):
         """Create a Work.
 
         For performance reasons, this method does not generate OPDS
@@ -293,11 +296,11 @@ class DatabaseTest(object):
         language = language or "eng"
         title = unicode(title or self._str)
         audience = audience or Classifier.AUDIENCE_ADULT
-        if audience == Classifier.AUDIENCE_CHILDREN:
+        if audience == Classifier.AUDIENCE_CHILDREN and not data_source_name:
             # TODO: This is necessary because Gutenberg's childrens books
             # get filtered out at the moment.
             data_source_name = DataSource.OVERDRIVE
-        else:
+        elif not data_source_name:
             data_source_name = DataSource.GUTENBERG
         if fiction is None:
             fiction = True
@@ -348,6 +351,48 @@ class DatabaseTest(object):
             work.calculate_opds_entries(verbose=False)
 
         return work
+
+    def add_to_materialized_view(self, works, true_opds=False):
+        """Make sure all the works in `works` show up in the materialized view.
+
+        :param true_opds: Generate real OPDS entries for each each work,
+        rather than faking it.
+        """
+        if not isinstance(works, list):
+            works = [works]
+        for work in works:
+            if true_opds:
+                work.calculate_opds_entries(verbose=False)
+            else:
+                work.presentation_ready = True
+                work.simple_opds_entry = "<entry>an entry</entry>"
+        self._db.commit()
+        SessionManager.refresh_materialized_views(self._db)
+
+    def _lane(self, display_name=None, library=None, 
+              parent=None, genres=None, languages=None,
+              fiction=None
+    ):
+        display_name = display_name or self._str
+        library = library or self._default_library
+        lane, is_new = get_one_or_create(
+            self._db, Lane,
+            library=library,
+            parent=parent, display_name=display_name,
+            create_method_kwargs=dict(fiction=fiction)
+        )
+        if genres:
+            if not isinstance(genres, list):
+                genres = [genres]
+            for genre in genres:
+                if isinstance(genre, basestring):
+                    genre, ignore = Genre.lookup(self._db, genre)
+                lane.genres.append(genre)
+        if languages:
+            if not isinstance(languages, list):
+                languages = [languages]
+            lane.languages = languages
+        return lane
 
     def _slow_work(self, *args, **kwargs):
         """Create a work that closely resembles one that might be found in the

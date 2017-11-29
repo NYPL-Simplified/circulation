@@ -559,8 +559,10 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Filters on media
 
-        book_lane = Lane(self._db, self._default_library, "Books", media=Edition.BOOK_MEDIUM)
-        audio_lane = Lane(self._db, self._default_library, "Audio", media=Edition.AUDIO_MEDIUM)
+        book_lane = self._lane("Books")
+        book_lane.media=[Edition.BOOK_MEDIUM]
+        audio_lane = self._lane("Audio")
+        audio_lane.media=[Edition.AUDIO_MEDIUM]
 
         results = query("pride and prejudice", book_lane.media, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
@@ -575,9 +577,9 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Filters on languages
 
-        english_lane = Lane(self._db, self._default_library, "English", languages="en")
-        spanish_lane = Lane(self._db, self._default_library, "Spanish", languages="es")
-        both_lane = Lane(self._db, self._default_library, "Both", languages=["en", "es"])
+        english_lane = self._lane("English", languages="en")
+        spanish_lane = self._lane("Spanish", languages="es")
+        both_lane = self._lane("Both", languages=["en", "es"])
 
         results = query("sherlock", None, english_lane.languages, None, None, None, None, None)
         hits = results["hits"]["hits"]
@@ -591,74 +593,59 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         results = query("sherlock", None, both_lane.languages, None, None, None, None, None)
         hits = results["hits"]["hits"]
-        eq_(2, len(hits))
-
-
-        # Filters on exclude languages
-
-        no_english_lane = Lane(self._db, self._default_library, "English", exclude_languages="en")
-        no_spanish_lane = Lane(self._db, self._default_library, "Spanish", exclude_languages="es")
-        neither_lane = Lane(self._db, self._default_library, "Both", exclude_languages=["en", "es"])
-
-        results = query("sherlock", None, None, no_english_lane.exclude_languages, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.sherlock_spanish.id), hits[0]["_id"])
-
-        results = query("sherlock", None, None, no_spanish_lane.exclude_languages, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.sherlock.id), hits[0]["_id"])
-
-        results = query("sherlock", None, None, neither_lane.exclude_languages, None, None, None, None)
-        hits = results["hits"]["hits"]
-        eq_(0, len(hits))
-        
+        eq_(2, len(hits))        
 
         # Filters on fiction
 
-        fiction_lane = Lane(self._db, self._default_library, "fiction", fiction=True)
-        nonfiction_lane = Lane(self._db, self._default_library, "nonfiction", fiction=False)
-        both_lane = Lane(self._db, self._default_library, "both", fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+        fiction_lane = self._lane("fiction")
+        fiction_lane.fiction = True
+        nonfiction_lane = self._lane("nonfiction")
+        nonfiction_lane.fiction = False
+        both_lane = self._lane("both")
 
-        results = query("moby dick", None, None, None, fiction_lane.fiction, None, None, None)
+        results = query("moby dick", None, None, fiction_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.moby_dick.id), hits[0]["_id"])
 
-        results = query("moby dick", None, None, None, nonfiction_lane.fiction, None, None, None)
+        results = query("moby dick", None, None, nonfiction_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.moby_duck.id), hits[0]["_id"])
 
-        results = query("moby dick", None, None, None, both_lane.fiction, None, None, None)
+        results = query("moby dick", None, None, both_lane.fiction, None, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
 
         # Filters on audience
 
-        adult_lane = Lane(self._db, self._default_library, "Adult", audiences=Classifier.AUDIENCE_ADULT)
-        ya_lane = Lane(self._db, self._default_library, "YA", audiences=Classifier.AUDIENCE_YOUNG_ADULT)
-        children_lane = Lane(self._db, self._default_library, "Children", audiences=Classifier.AUDIENCE_CHILDREN)
-        ya_and_children_lane = Lane(self._db, self._default_library, "YA and Children", audiences=[Classifier.AUDIENCE_YOUNG_ADULT, Classifier.AUDIENCE_CHILDREN])
+        adult_lane = self._lane("Adult")
+        adult_lane.audiences = [Classifier.AUDIENCE_ADULT]
+        ya_lane = self._lane("YA")
+        ya_lane.audiences = [Classifier.AUDIENCE_YOUNG_ADULT]
+        children_lane = self._lane("Children")
+        children_lane.audiences = [Classifier.AUDIENCE_CHILDREN]
+        ya_and_children_lane = self._lane("YA and Children")
+        ya_and_children_lane.audiences = [Classifier.AUDIENCE_CHILDREN,
+                                          Classifier.AUDIENCE_YOUNG_ADULT]
 
-        results = query("alice", None, None, None, None, adult_lane.audiences, None, None)
+        results = query("alice", None, None, None, adult_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.adult_work.id), hits[0]["_id"])
 
-        results = query("alice", None, None, None, None, ya_lane.audiences, None, None)
+        results = query("alice", None, None, None, ya_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.ya_work.id), hits[0]["_id"])
 
-        results = query("alice", None, None, None, None, children_lane.audiences, None, None)
+        results = query("alice", None, None, None, children_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.children_work.id), hits[0]["_id"])
 
-        results = query("alice", None, None, None, None, ya_and_children_lane.audiences, None, None)
+        results = query("alice", None, None, None, ya_and_children_lane.audiences, None, None)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
         work_ids = sorted([unicode(self.ya_work.id), unicode(self.children_work.id)])
@@ -668,19 +655,26 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Filters on age range
 
-        age_8_lane = Lane(self._db, self._default_library, "Age 8", age_range=[8, 8])
-        age_5_8_lane = Lane(self._db, self._default_library, "Age 5-8", age_range=[5, 8])
-        age_5_10_lane = Lane(self._db, self._default_library, "Age 5-10", age_range=[5, 10])
-        age_8_10_lane = Lane(self._db, self._default_library, "Age 8-10", age_range=[8, 10])
+        age_8_lane = self._lane("Age 8")
+        age_8_lane.target_age = 8
 
-        results = query("president", None, None, None, None, None, age_8_lane.age_range, None)
+        age_5_8_lane = self._lane("Age 5-8")
+        age_5_8_lane.target_age = (5,8)
+
+        age_5_10_lane = self._lane("Age 5-10")
+        age_5_10_lane.target_age = (5,10)
+
+        age_8_10_lane = self._lane("Age 8-10")
+        age_8_10_lane.target_age = (8,10)
+
+        results = query("president", None, None, None, None, age_8_lane.target_age, None)
         hits = results["hits"]["hits"]
         eq_(3, len(hits))
         work_ids = sorted([unicode(self.no_age.id), unicode(self.obama.id), unicode(self.dodger.id)])
         result_ids = sorted([hit["_id"] for hit in hits])
         eq_(work_ids, result_ids)
 
-        results = query("president", None, None, None, None, None, age_5_8_lane.age_range, None)
+        results = query("president", None, None, None, None, age_5_8_lane.target_age, None)
         hits = results["hits"]["hits"]
         eq_(4, len(hits))
         work_ids = sorted([unicode(self.no_age.id),
@@ -690,7 +684,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         result_ids = sorted([hit["_id"] for hit in hits])
         eq_(work_ids, result_ids)
 
-        results = query("president", None, None, None, None, None, age_5_10_lane.age_range, None)
+        results = query("president", None, None, None, None, age_5_10_lane.target_age, None)
         hits = results["hits"]["hits"]
         eq_(5, len(hits))
         work_ids = sorted([unicode(self.no_age.id),
@@ -701,7 +695,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         result_ids = sorted([hit["_id"] for hit in hits])
         eq_(work_ids, result_ids)
 
-        results = query("president", None, None, None, None, None, age_8_10_lane.age_range, None)
+        results = query("president", None, None, None, None, age_8_10_lane.target_age, None)
         hits = results["hits"]["hits"]
         eq_(4, len(hits))
         work_ids = sorted([unicode(self.no_age.id),
@@ -714,28 +708,29 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         # Filters on genre
 
-        biography_lane = Lane(self._db, self._default_library, "Biography", genres=["Biography & Memoir"])
-        fantasy_lane = Lane(self._db, self._default_library, "Fantasy", genres=["Fantasy"])
-        both_lane = Lane(self._db, self._default_library, "Both", genres=["Biography & Memoir", "Fantasy"], fiction=Lane.BOTH_FICTION_AND_NONFICTION)
+        biography_lane = self._lane("Biography", genres=["Biography & Memoir"])
+        fantasy_lane = self._lane("Fantasy", genres=["Fantasy"])
+        both_lane = self._lane("Both", genres=["Biography & Memoir", "Fantasy"])
+        self._db.flush()
 
-        results = query("lincoln", None, None, None, None, None, None, biography_lane.genre_ids)
+        results = query("lincoln", None, None, None, None, None, biography_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln.id), hits[0]["_id"])
 
-        results = query("lincoln", None, None, None, None, None, None, fantasy_lane.genre_ids)
+        results = query("lincoln", None, None, None, None, None, fantasy_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(1, len(hits))
         eq_(unicode(self.lincoln_vampire.id), hits[0]["_id"])
 
-        results = query("lincoln", None, None, None, None, None, None, both_lane.genre_ids)
+        results = query("lincoln", None, None, None, None, None, both_lane.genre_ids)
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
         # This query does not match anything because the book in
         # question is not in a collection associated with the default
         # library.
-        results = query("a tiny book", None, None, None, None, None, None, None)
+        results = query("a tiny book", None, None, None, None, None, None)
         hits = results["hits"]["hits"]
         eq_(0, len(hits))
 
@@ -945,38 +940,49 @@ class TestSearchFilterFromLane(DatabaseTest):
     def test_make_filter_handles_collection_id(self):
         search = DummyExternalSearchIndex()
 
-        lane = Lane(
-            self._db, self._default_library, "anything", 
-        )
+        lane = self._lane("anything")
         collection_ids = [x.id for x in lane.library.collections]
         filter = search.make_filter(
             collection_ids,
-            lane.media, lane.languages, lane.exclude_languages,
-            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.media, lane.languages,
+            lane.fiction, list(lane.audiences), lane.target_age,
             lane.genre_ids,
         )
-        collection_filter, medium_filter = filter['and']
+        [collection_filter] = filter['and']
         expect = [
             {'terms': {'collection_id': collection_ids}},
             {'bool': {'must_not': {'exists': {'field': 'collection_id'}}}}
         ]
         eq_(expect, collection_filter['or'])
+
+    def test_query_works_from_lane_definition_handles_medium(self):
+        search = DummyExternalSearchIndex()
+
+        lane = self._lane("Only Audio")
+        lane.media = [Edition.AUDIO_MEDIUM]
+        filter = search.make_filter(
+            [self._default_collection.id],
+            lane.media, lane.languages,
+            lane.fiction, lane.audiences, lane.target_age,
+            lane.genre_ids,
+        )
+        collection_filter, medium_filter = filter['and']
+        expect = dict(terms=dict(medium=[Edition.AUDIO_MEDIUM.lower()]))
+        eq_(expect, medium_filter)
         
     def test_query_works_from_lane_definition_handles_age_range(self):
         search = DummyExternalSearchIndex()
 
-        lane = Lane(
-            self._db, self._default_library, "For Ages 5-10", 
-            age_range=[5,10]
-        )
+        lane = self._lane("For Ages 5-10")
+        lane.target_age = (5,10)
         filter = search.make_filter(
             [self._default_collection.id],
-            lane.media, lane.languages, lane.exclude_languages,
-            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.media, lane.languages,
+            lane.fiction, list(lane.audiences), lane.target_age,
             lane.genre_ids,
         )
 
-        collection_filter, medium_filter, audience_filter, target_age_filter = filter['and']
+        collection_filter, audience_filter, target_age_filter = filter['and']
         upper_filter, lower_filter = target_age_filter['and']
         expect_upper = {'or': [{'range': {'target_age.upper': {'gte': 5}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.upper'}}}}]}
         expect_lower = {'or': [{'range': {'target_age.lower': {'lte': 10}}}, {'bool': {'must_not': {'exists': {'field': 'target_age.lower'}}}}]}
@@ -986,43 +992,19 @@ class TestSearchFilterFromLane(DatabaseTest):
     def test_query_works_from_lane_definition_handles_languages(self):
         search = DummyExternalSearchIndex()
 
-        lane = Lane(
-            self._db, self._default_library, "english or spanish", 
-            languages=set(['eng', 'spa']),
-        )
+        lane = self._lane("english or spanish", languages=['eng', 'spa'])
         filter = search.make_filter(
             [self._default_collection.id],
-            lane.media, lane.languages, lane.exclude_languages,
-            lane.fiction, list(lane.audiences), lane.age_range,
+            lane.media, lane.languages,
+            lane.fiction, lane.audiences, lane.target_age,
             lane.genre_ids,
         )
         
-        collection_filter, languages_filter, medium_filter = filter['and']
+        collection_filter, languages_filter = filter['and']
         expect_languages = ['eng', 'spa']
         assert 'terms' in languages_filter
         assert 'language' in languages_filter['terms']
         eq_(expect_languages, sorted(languages_filter['terms']['language']))
-
-    def test_query_works_from_lane_definition_handles_exclude_languages(self):
-        search = DummyExternalSearchIndex()
-
-        lane = Lane(
-            self._db, self._default_library, "Not english or spanish", 
-            exclude_languages=set(['eng', 'spa']),
-        )
-        filter = search.make_filter(
-            [self._default_collection.id],
-            lane.media, lane.languages, lane.exclude_languages,
-            lane.fiction, list(lane.audiences), lane.age_range,
-            lane.genre_ids,
-        )
-        
-        collection_filter, exclude_languages_filter, medium_filter = filter['and']
-        expect_exclude_languages = ['eng', 'spa']
-        assert 'not' in exclude_languages_filter
-        assert 'terms' in exclude_languages_filter['not']
-        assert 'language' in exclude_languages_filter['not']['terms']
-        eq_(expect_exclude_languages, sorted(exclude_languages_filter['not']['terms']['language']))
 
 
 class TestBulkUpdate(DatabaseTest):

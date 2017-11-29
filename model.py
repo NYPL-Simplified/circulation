@@ -6205,17 +6205,21 @@ class CachedFeed(Base):
     id = Column(Integer, primary_key=True)
 
     # Every feed is associated with a lane. If null, this is a feed
-    # for the top level.
-    lane_name = Column(Unicode, nullable=True)
-
-    # Every feed includes book from a subset of available languages
-    languages = Column(Unicode)
+    # for a WorkList. If work_id is also null, it's a feed for the
+    # top-level.
+    lane_id = Column(
+        Integer, ForeignKey('lanes.id'),
+        nullable=True, index=True)
 
     # Every feed has a timestamp reflecting when it was created.
     timestamp = Column(DateTime, nullable=True)
 
     # A feed is of a certain type--currently either 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
+
+    # A feed associated with a WorkList can have a unique key.
+    # This should be null if the feed is associated with a Lane.
+    unique_key = Column(Unicode, nullable=True)
 
     # A 'page' feed is associated with a set of values for the facet
     # groups.
@@ -6248,26 +6252,32 @@ class CachedFeed(Base):
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
               force_refresh=False, max_age=None):
         from opds import AcquisitionFeed
+        from lane import Lane, WorkList
         if max_age is None:
-            if lane and hasattr(lane, 'MAX_CACHE_AGE'):
-                max_age = lane.MAX_CACHE_AGE
-            elif type == cls.GROUPS_TYPE:
+            if type == cls.GROUPS_TYPE:
                 max_age = AcquisitionFeed.grouped_max_age(_db)
             elif type == cls.PAGE_TYPE:
                 max_age = AcquisitionFeed.nongrouped_max_age(_db)
+            elif hasattr(lane, 'MAX_CACHE_AGE'):
+                max_age = lane.MAX_CACHE_AGE
+            else:
+                max_age = 0
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
+        if lane and isinstance(lane, Lane):
+            lane_id = lane.id
+            unique_key = None
+        else:
+            lane_id = None
+            unique_key = "%s-%s-%s" % (lane.display_name, lane.language_key, lane.audience_key)
         work = None
         if lane:
-            lane_name = unicode(lane.name)
             work = getattr(lane, 'work', None)
-        else:
-            lane_name = None
-
-        if not lane.languages:
-            languages_key = None
-        else:
-            languages_key = unicode(",".join(lane.languages))
+        library = None
+        if lane and isinstance(lane, Lane):
+            library = lane.library
+        elif lane and isinstance(lane, WorkList):
+            library = lane.get_library(_db)
 
         if facets:
             facets_key = unicode(facets.query_string)
@@ -6286,11 +6296,11 @@ class CachedFeed(Base):
             _db, cls,
             on_multiple='interchangeable',
             constraint=constraint_clause,
-            lane_name=lane_name,
-            library=lane.library,
+            lane_id=lane_id,
+            unique_key=unique_key,
+            library=library,
             work=work,
             type=type,
-            languages=languages_key,
             facets=facets_key,
             pagination=pagination_key)
 
@@ -6312,9 +6322,14 @@ class CachedFeed(Base):
                 # Rather than generate an error (which will provide a
                 # terrible user experience), fall back to generating a
                 # default page-type feed, which should be cheap to fetch.
+                identifier = None
+                if isinstance(lane, Lane):
+                    identifier = lane.id
+                elif isinstance(lane, WorkList):
+                    identifier = lane.display_name
                 cls.log.warn(
                     "Could not generate a groups feed for %s, falling back to a page feed.",
-                    lane.name
+                    identifier
                 )
                 return cls.fetch(
                     _db, lane, CachedFeed.PAGE_TYPE, facets, pagination, 
@@ -6342,16 +6357,16 @@ class CachedFeed(Base):
             length = len(self.content)
         else:
             length = "No content"
-        return "<CachedFeed #%s %s %s %s %s %s %s %s >" % (
-            self.id, self.languages, self.lane_name, self.type, 
+        return "<CachedFeed #%s %s %s %s %s %s %s >" % (
+            self.id, self.lane_id, self.type, 
             self.facets, self.pagination,
             self.timestamp, length
         )
 
 
 Index(
-    "ix_cachedfeeds_library_id_lane_name_type_facets_pagination",
-    CachedFeed.library_id, CachedFeed.lane_name, CachedFeed.type,
+    "ix_cachedfeeds_library_id_lane_id_type_facets_pagination",
+    CachedFeed.library_id, CachedFeed.lane_id, CachedFeed.type,
     CachedFeed.facets, CachedFeed.pagination
 )
 
