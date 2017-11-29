@@ -2644,6 +2644,55 @@ class SubjectAssignmentScript(SubjectInputScript):
         monitor.run()
 
 
+class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
+    """List the metadata identifiers for Collections in the database.
+
+    This script is helpful for accounting for and tracking collections on
+    the metadata wrangler.
+    """
+    def __init__(self, _db=None, output=None):
+        _db = _db or self._db
+        super(ListCollectionMetadataIdentifiersScript, self).__init__(_db)
+        self.output = output or sys.stdout
+
+    def run(self, cmd_args=None):
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
+        self.do_run(parsed.collections)
+
+    def do_run(self, collections=None):
+        collection_ids = list()
+        if collections:
+            collection_ids = [c.id for c in collections]
+
+        collections = self._db.query(Collection).order_by(Collection.id)
+        if collection_ids:
+            collections = collections.filter(Collection.id.in_(collection_ids))
+
+        self.output.write('COLLECTIONS\n')
+        self.output.write('='*50+'\n')
+        def add_line(id, name, protocol, metadata_identifier):
+            line = '(%s) %s/%s => %s\n' % (
+                id, name, protocol, metadata_identifier
+            )
+            self.output.write(line)
+
+        count = 0
+        for collection in collections:
+            if not count:
+                # Add a format line.
+                add_line('id', 'name', 'protocol', 'metadata_identifier')
+
+            count += 1
+            add_line(
+                unicode(collection.id),
+                collection.name,
+                collection.protocol,
+                collection.metadata_identifier,
+            )
+
+        self.output.write('\n%d collections found.\n' % count)
+
+
 class MockStdin(object):
     """Mock a list of identifiers passed in on standard input."""
     def __init__(self, *lines):
