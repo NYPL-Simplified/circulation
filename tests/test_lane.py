@@ -516,6 +516,7 @@ class MockWorks(WorkList):
     def reset(self):
         self._works = []
         self.works_calls = []
+        self.random_sample_calls = []
 
     def queue_works(self, works):
         """Set the next return value for works()."""
@@ -532,6 +533,7 @@ class MockWorks(WorkList):
         # The 'query' is actually a list, and we're in a test
         # environment where randomness is not welcome. Just take
         # a sample from the front of the list.
+        self.random_sample_calls.append((query, target_size))
         return query[:target_size]
 
 
@@ -651,48 +653,20 @@ class TestWorkList(DatabaseTest):
         wl = MockWorks()
         wl.initialize(library=self._default_library)
 
-        # We're going to try to get 3 featured works.
-        self._default_library.setting(Library.FEATURED_LANE_SIZE).value = 3
-
-        # Here are four.
         w1 = MockWork(1)
-        w2 = MockWork(2)
-        w3 = MockWork(3)
-        w4 = MockWork(4)
 
-        # With a single work queued, we will call works() several
-        # times -- once for every item in the
-        # featured_collection_facets() generator -- but we will not be
-        # able to get more than that one featured work.
-        queue = wl.queue_works
-        queue([w1])
+        wl.queue_works([w1])
         featured = wl.featured_works(self._db)
         eq_([w1], featured)
 
-        # Here, we will get three sets of results before we have enough works.
-        wl.reset()
-        queue([w1, w3, w4, w2])
-        featured = wl.featured_works(self._db)
+        # We created a FeaturedFacets object and passed it in to works().
+        [(facets, pagination, featured)] = wl.works_calls
+        set_trace()
 
-        # Works are presented in the order they were received, to put
-        # higher-quality works at the front. Duplicates are ignored.
-        eq_([w1.id, w3.id, w4.id], [x.id for x in featured])
-
-        # In a previous version, featured_works had to call works()
-        # multiple times to meet its quota. Now it only has to call
-        # works() once.
-        eq_(1, len(wl.works_calls))
-
-        # Here, the WorkList thinks that calling works() is a bad
-        # idea, and returns None.
-        wl.reset()
-
-        # featured_works() doesn't crash, but it doesn't return
-        # any values either.
-        eq_([], wl.featured_works(self._db))
-
-        # Still only one call.
-        eq_(1, len(wl.works_calls))
+        # We then called random_sample() on the results.
+        [(query, target_size)] = wl.random_sample_calls
+        eq_([w1], query)
+        eq_(self._default_library.featured_lane_size, target_size)
 
     def test_works(self):
         """Verify that WorkList.works() correctly locates works
