@@ -20,8 +20,6 @@ class Configuration(CoreConfiguration):
 
     DEFAULT_OPDS_FORMAT = "simple_opds_entry"
 
-    ROOT_LANE_POLICY = "root_lane"
-
     # The name of the sitewide url that points to the patron web catalog.
     PATRON_WEB_CLIENT_URL = u"Patron Web Client"
 
@@ -224,10 +222,6 @@ class Configuration(CoreConfiguration):
     @classmethod
     def lending_policy(cls):
         return cls.policy(cls.LENDING_POLICY)
-
-    @classmethod
-    def root_lane_policy(cls):
-        return cls.policy(cls.ROOT_LANE_POLICY)
 
     @classmethod
     def _collection_languages(cls, library, key):
