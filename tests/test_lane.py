@@ -18,6 +18,7 @@ from external_search import (
 
 from lane import (
     Facets,
+    FeaturedFacets,
     Pagination,
     WorkList,
     Lane,
@@ -299,6 +300,56 @@ class TestFacetsApply(DatabaseTest):
         eq_([licensed_low.id, open_access_high.id, licensed_high.id, 
              open_access_low.id],
             [x.works_id for x in random_order])
+
+
+class TestFeaturedFacets(DatabaseTest):
+
+    def test_quality_calculation(self):
+        minimum_featured_quality = 0.6
+
+        featurable = self._work(title="Featurable", with_license_pool=True)
+        featurable.quality = minimum_featured_quality
+
+        featurable_but_not_available = self._work(
+            title="Featurable but not available",
+            with_license_pool=True
+        )
+        featurable_but_not_available.quality = minimum_featured_quality
+        featurable_but_not_available.license_pools[0].licenses_available = 0
+
+        awful_but_licensed = self._work(
+            title="Awful but licensed",
+            with_license_pool=True
+        )
+        awful_but_licensed.quality = 0
+
+        decent_open_access = self._work(
+            title="Decent open access", with_license_pool=True,
+            with_open_access_download=True
+        )
+        decent_open_access.quality = 0.3
+    
+        awful_open_access = self._work(
+            title="Awful open access", with_license_pool=True,
+            with_open_access_download=True
+        )
+        awful_open_access.quality = 0
+
+        awful_but_featured_on_a_list = self._work(
+            title="Awful but featured on a list", with_license_pool=True,
+            with_open_access_download=True
+        )
+        awful_but_featured_on_a_list.license_pools[0].licenses_available = 0
+        awful_but_featured_on_a_list.quality = 0
+
+        facets = FeaturedFacets(minimum_featured_quality, True)
+        quality_field = facets.quality_tier_field(Work).label("tier")
+        self._db.commit()
+
+        qu = self._db.query(Work, quality_field).join(
+            Work.license_pools).outerjoin(Work.custom_list_entries)
+        set_trace()
+
 
 class TestPagination(DatabaseTest):
 

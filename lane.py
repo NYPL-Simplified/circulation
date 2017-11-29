@@ -19,6 +19,7 @@ from classifier import (
 
 from sqlalchemy import (
     and_,
+    case,
     or_,
     not_,
     Table,
@@ -377,26 +378,33 @@ class FeaturedFacets(object):
         featurable_quality = self.minimum_featured_quality
 
         # Being of featureable quality is great.
-        featurable_quality = case(mv.quality > featurable, 5, 0)
+        featurable_quality = case(
+            [(mv.quality > featurable_quality, 5)],
+            else_=0
+        )
 
         # Being a licensed work or an open-access work of decent quality
         # is good.
         regular_collection = case(
-            and_(LicensePool.open_access==False, mv.quality > 0.3), 2, 0
+            [(and_(LicensePool.open_access==False, mv.quality > 0.3), 2)],
+            else_=0
         )
 
         # All else being equal, it's better if a book is available
         # now.
         available_now = case(
-            or_(LicensePool.licenses_available > 0, 
-                LicensePool.open_access==True), 1, 0
+            [(or_(LicensePool.licenses_available > 0, 
+                  LicensePool.open_access==True), 1)],
+            else_=0
         )
 
-        tier = high_quality + regular_collection + available_now
+        tier = featurable_quality + regular_collection + available_now
         if self.uses_customlists:
             # Being explicitly featured in your CustomListEntry is the
             # best.
-            featured_on_list = case(CustomListEntry.featured, 11, 0)
+            featured_on_list = case(
+                [(CustomListEntry.featured, 11)], else_=0
+            )
             tier = tier + featured_on_list
         return tier
 
