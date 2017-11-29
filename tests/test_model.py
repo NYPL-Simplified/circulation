@@ -2499,7 +2499,7 @@ class TestWork(DatabaseTest):
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        work = self._work(presentation_edition=edition2)
+        work = self._slow_work(presentation_edition=edition2)
         # add in 3, 2, 1 order to make sure the selection of edition1 as presentation
         # in the second half of the test is based on business logic, not list order.
         for p in pool3, pool1:
