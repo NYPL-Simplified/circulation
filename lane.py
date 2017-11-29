@@ -328,6 +328,79 @@ class Facets(FacetConstants):
         return order_by_sorted, order_by
 
 
+class FeaturedFacets(object):
+
+    """A Facets-like object that configures a query so that the 'most
+    featurable' items are at the front.
+
+    The only method of Facets implemented is apply(), and there is no
+    way to navigate to or from this Facets object. It's just a
+    convenient thing to pass into Lane.works().
+    """
+
+    def __init__(self, minimum_featured_quality, uses_customlists):
+        """Set up an object that finds featured books in a given
+        WorkList.
+        """
+        self.minimum_featured_quality = minimum_featured_quality
+        self.uses_customlists = uses_customlists
+
+    def apply(self, _db, qu, work_model, distinct):
+        qu = qu.order_by(
+            self.quality_tier_field(work_model).desc(), work_model.random
+        )
+        if distinct:
+            qu = qu.distinct()
+
+    def quality_tier_field(self, mv):
+        """A selectable field that summarizes the overall quality of a work
+        from a materialized view as a single numeric value.
+
+        Works of featurable quality will have a higher number than
+        works not of featurable quality; works that are available now
+        will have a higher number than works not currently available;
+        and so on.
+
+        The tiers correspond roughly to the selectable facets, but
+        this is a historical quirk and could change in the future.
+
+        Using this field in an ORDER BY statement ensures that
+        higher-quality works show up at the beginning of the
+        results. But if there aren't enough high-quality works,
+        lower-quality works will show up later on in the results,
+        eliminating the need to find lower-quality works with a second
+        query.
+
+        :param featurable_quality: The quality score necessary for a
+        work to be considered 'featurable'.
+        """
+        featurable_quality = self.minimum_featured_quality
+
+        # Being of featureable quality is great.
+        featurable_quality = case(mv.quality > featurable, 5, 0)
+
+        # Being a licensed work or an open-access work of decent quality
+        # is good.
+        regular_collection = case(
+            and_(LicensePool.open_access==False, mv.quality > 0.3), 2, 0
+        )
+
+        # All else being equal, it's better if a book is available
+        # now.
+        available_now = case(
+            or_(LicensePool.licenses_available > 0, 
+                LicensePool.open_access==True), 1, 0
+        )
+
+        tier = high_quality + regular_collection + available_now
+        if self.uses_customlists:
+            # Being explicitly featured in your CustomListEntry is the
+            # best.
+            featured_on_list = case(CustomListEntry.featured, 11, 0)
+            tier = tier + featured_on_list
+        return tier
+
+
 class Pagination(object):
 
     DEFAULT_SIZE = 50
@@ -560,73 +633,20 @@ class WorkList(object):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
-        # Try various Facets configurations in hopes of finding enough
-        # books to fill the lane. Running the query multiple times is
-        # the main reason why this method might be slow.
+        facets = FeaturedFacets(
+            library.minimum_featured_quality,
+            self.uses_customlists
+        )
+        query = self.works(_db, facets=facets)
+        if not query:
+            # works() may return None, indicating that the whole
+            # thing is a bad idea and the query should not even be
+            # run.
+            return []
 
-        for (collection, availability, 
-             featured_on_list) in self.featured_collection_facets():
-            facets = Facets(
-                library, collection=collection, availability=availability,
-                order=Facets.ORDER_RANDOM
-            )
-            query = self.works(_db, facets=facets, featured=featured_on_list)
-            if not query:
-                # works() may return None, indicating that the whole
-                # thing is a bad idea and the query should not even be
-                # run. It will probably think the whole thing is a bad
-                # idea no matter which arguments we pass in, but let's
-                # keep trying.
-                continue
+        return self.random_sample(query, target_size)[:target_size]
 
-            # Get a new list of books that meet our (possibly newly 
-            # reduced) standards.
-            new_books = self.random_sample(query, target_size)
-            for book in new_books:
-                if book.works_id not in book_ids:
-                    books.append(book)
-                    book_ids.add(book.works_id)
-            if len(books) >= target_size:
-                # We found enough books.
-                break
-        return books[:target_size]
-
-    def featured_collection_facets(self):
-        """Yield a sequence of Facets settings to use when trying to find
-        featured works.
-
-        The sequence represents our becoming more and more desperate
-        to find enough books to fill a 'featured' lane.
-
-        :yield: A series of 3-tuples (collection_facet,
-                availability_facet, featured_on_customlist).
-        """
-        if self.uses_customlists:
-            # If a WorkList uses CustomLists, then the surest way to
-            # know that a work is featured is to check whether its
-            # entry on one of its CustomLists has been explicitly
-            # marked as 'featured'. The work's 'quality' setting is
-            # irrelevant.
-            #
-            # However, we still prefer currently available books to
-            # books that have a holds queue.
-            yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, True)
-            yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, True)
-
-        # The 'featured' collection contains high quality works.
-        yield (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False)
-        yield (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, False)
-
-        # The 'main' collection contains everything except low-quality
-        # open-access works, 
-        yield (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW, False)
-        yield (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False)
-
-        # The 'full' collection contains absolutely everything.
-        yield (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False)
-
-    def works(self, _db, facets=None, pagination=None, featured=False):
-
+    def works(self, _db, facets=None, pagination=None):
         """Create a query against a materialized view that finds Work-like
         objects corresponding to all the Works that belong in this
         WorkList.
@@ -639,12 +659,6 @@ class WorkList(object):
            constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
-        :param featured: If this is true, then Works that belong on a
-           WorkList by virtue of belonging in a CustomList must be _featured_
-           on that CustomList. If this is False, then all Works on an
-           eligible CustomList are also on the WorkList. If the 
-           WorkList does not consider CustomLists at all, then this value is
-           irrelevant.
         :return: A Query, or None if the WorkList is deemed to be a
            bad idea in the first place.
         """
@@ -654,11 +668,14 @@ class WorkList(object):
         )
         if self.genre_ids:
             mw = MaterializedWorkWithGenre
-            qu = _db.query(mw)
             # apply_bibliographic_filters() will apply the genre
             # restrictions.
         else:
             mw = MaterializedWork
+
+        if isinstance(facets, FeaturedFacets):
+            qu = _db.query(mw, facets.quality_tier_field)
+        else:
             qu = _db.query(mw)
 
         # Apply some database optimizations.
@@ -675,9 +692,7 @@ class WorkList(object):
                 LicensePool.collection_id.in_(self.collection_ids)
             )
 
-        return self.apply_filters(
-            _db, qu, mw, facets, pagination, featured
-        )
+        return self.apply_filters(_db, qu, mw, facets, pagination)
 
     def works_for_specific_ids(self, _db, work_ids):
         """Create the appearance of having called works(),
@@ -797,13 +812,35 @@ class WorkList(object):
         )
 
     @classmethod
-    def random_sample(self, query, target_size):
-        """Find a random sample of items obtained from a query"""
+    def random_sample(self, query, target_size, quality_coefficient=0.1):
+        """Take a random sample of high-quality items from a query.
+
+        :param: A database query, assumed to cover every relevant
+        item, with the higher-quality items grouped at the front and
+        with items ordered randomly within each quality tier.
+
+        :param quality_coefficient: What fraction of the query
+        represents 'high-quality' works. Empirical measurement
+        indicates that the top tier of titles -- very high quality
+        items that are currently available -- represents about ten
+        percent of a library's holdings at any given time.
+        """
         total_size = fast_query_count(query)
 
-        if total_size > target_size:
-            # We have enough results to randomly offset the selection.
-            offset = random.randint(0, total_size-target_size)
+        # Determine the highest offset we could choose and still
+        # choose `target_size` items that fit entirely in the portion
+        # of the query delimited by the quality coefficient.
+        if quality_coefficient < 0:
+            quality_coefficient = 0.1
+        if quality_coefficient > 1:
+            quality_coefficient = 1
+        max_offset = (total_size * quality_coefficient)-target_size
+
+        if max_offset > 0:
+            # There are enough high-quality items that we can pick a
+            # random entry point into the list, increasing the variety
+            # of featured works shown to patrons.
+            offset = random.randint(0, max_offset)
         else:
             offset = 0
         items = query.offset(offset).limit(target_size).all()

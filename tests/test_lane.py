@@ -519,78 +519,30 @@ class TestWorkList(DatabaseTest):
         featured = wl.featured_works(self._db)
         eq_([w1], featured)
 
-        # To verify that works() was called multiple times and that
-        # the calls were driven by featured_collection_facets(),
-        # compare the actual arguments passed into works() with what
-        # featured_collection_facets() would dictate.
-        actual_facets = [
-            (facets.collection, facets.availability, featured)
-            for [facets, pagination, featured] in wl.works_calls
-        ]
-        expect_facets = list(MockWorks().featured_collection_facets())
-        eq_(actual_facets, expect_facets)
-
         # Here, we will get three sets of results before we have enough works.
         wl.reset()
-        queue([w1, w1, w3])
-        # Putting w2 at the end of the second set of results simulates
-        # a situation where query results include a work that has not
-        # been chosen, but the random sample chooses a bunch of works
-        # that _have_ already been chosen instead. If the random
-        # sample had turned out differently, we would have had
-        # slightly better results and saved some time.
-        queue([w3, w1, w1, w1, w2])
-        queue([w4])
+        queue([w1, w3, w4, w2])
         featured = wl.featured_works(self._db)
 
         # Works are presented in the order they were received, to put
         # higher-quality works at the front. Duplicates are ignored.
         eq_([w1.id, w3.id, w4.id], [x.id for x in featured])
 
-        # We only had to make three calls to works() before filling
-        # our quota.
-        eq_(3, len(wl.works_calls))
-
-        # Here, we only have to try once.
-        wl.reset()
-        queue([w2, w3, w4, w1])
-        featured = wl.featured_works(self._db)
-        eq_([w2.id, w3.id, w4.id], [x.id for x in featured])        
+        # In a previous version, featured_works had to call works()
+        # multiple times to meet its quota. Now it only has to call
+        # works() once.
         eq_(1, len(wl.works_calls))
 
-        # Here, the WorkList thinks that calling works() is a bad idea,
-        # and persistently returns None.
+        # Here, the WorkList thinks that calling works() is a bad
+        # idea, and returns None.
         wl.reset()
-        for i in range(len(expect_facets)):
-            queue(None)
 
         # featured_works() doesn't crash, but it doesn't return
         # any values either.
         eq_([], wl.featured_works(self._db))
 
-        # And it keeps calling works() for every facet, rather than
-        # giving up after the first None.
-        eq_(len(expect_facets), len(wl.works_calls))
-
-    def test_featured_collection_facets(self):
-        """Test the specific values expected from the default
-        featured_collection_facets() implementation.
-
-        This encodes our belief about what aspects of a book make it
-        "featurable". We like works that have high .quality scores
-        and can be loaned out immediately.
-        """
-        expect = [(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False),
-         (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, False),
-         (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW, False),
-         (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False),
-         (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False)
-        ]
-        actual = list(WorkList().featured_collection_facets())
-        eq_(expect, actual)
-
-        # See TestLane.test_featured_collection_facets to see what
-        # changes when a WorkList can draw from CustomLists.
+        # Still only one call.
+        eq_(1, len(wl.works_calls))
 
     def test_works(self):
         """Verify that WorkList.works() correctly locates works
@@ -910,7 +862,7 @@ class TestWorkList(DatabaseTest):
         # shuffled. (It's presumed that the query sorts items by some
         # randomly generated number such as Work.random, so that choosing
         # a slice gets you a random sample -- that's not the case here.)
-        sample = WorkList.random_sample(qu, 2)
+        sample = WorkList.random_sample(qu, 2, quality_coefficient=1)
         eq_([i3, i4], sorted(sample, key=lambda x: x.id))
 
         # If the random sample is larger than the sample population,
@@ -1295,29 +1247,6 @@ class TestLane(DatabaseTest):
             self._db, work.title, search_client, pagination
         )
         eq_(results, target_results)
-
-    def test_featured_collection_facets(self):
-        default_facets = list(WorkList().featured_collection_facets())
-        
-        # A Lane that's not based on CustomLists has a generic set of
-        # facets.
-        lane = self._lane()
-        eq_(False, lane.uses_customlists)
-        eq_(default_facets, list(lane.featured_collection_facets()))
-
-        # A Lane that's based on CustomLists uses the same facets to
-        # build its featured collection, but before it tries them it
-        # tries to build a collection based on items that are featured
-        # _within the CustomLists_.
-        lane.list_datasource = DataSource.lookup(
-            self._db, DataSource.GUTENBERG
-        )
-        self._db.commit()
-        eq_(True, lane.uses_customlists)
-        additional = [(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, True),
-                      (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, True)]
-        eq_(additional + default_facets, 
-            list(lane.featured_collection_facets()))
 
     def test_apply_custom_filters(self):
 
