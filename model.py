@@ -49,6 +49,7 @@ from sqlalchemy.orm import (
     contains_eager,
     joinedload,
     lazyload,
+    mapper,
     relationship,
     sessionmaker,
     synonym,
@@ -1309,7 +1310,6 @@ class CoverageRecord(Base, BaseCoverageRecord):
 
     SET_EDITION_METADATA_OPERATION = u'set-edition-metadata'
     CHOOSE_COVER_OPERATION = u'choose-cover'
-    SYNC_OPERATION = u'sync'
     REAP_OPERATION = u'reap'
     IMPORT_OPERATION = u'import'
     RESOLVE_IDENTIFIER_OPERATION = u'resolve-identifier'
@@ -1371,7 +1371,8 @@ class CoverageRecord(Base, BaseCoverageRecord):
         )
 
     @classmethod
-    def lookup(self, edition_or_identifier, data_source, operation=None):
+    def lookup(cls, edition_or_identifier, data_source, operation=None,
+               collection=None):
         _db = Session.object_session(edition_or_identifier)
         if isinstance(edition_or_identifier, Identifier):
             identifier = edition_or_identifier
@@ -1389,6 +1390,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             identifier=identifier,
             data_source=data_source,
             operation=operation,
+            collection=collection,
             on_multiple='interchangeable',
         )
 
@@ -7878,6 +7880,8 @@ class Timestamp(Base):
             create_method_kwargs=dict(timestamp=date))
         if not was_new:
             stamp.timestamp = date
+        # Committing immediately reduces the risk of contention.
+        _db.commit()
         return stamp
 
     __table_args__ = (
@@ -7910,6 +7914,7 @@ class Representation(Base):
     GIF_MEDIA_TYPE = u"image/gif"
     SVG_MEDIA_TYPE = u"image/svg+xml"
     MP3_MEDIA_TYPE = u"audio/mpeg"
+    ZIP_MEDIA_TYPE = u"application/zip"
     OCTET_STREAM_MEDIA_TYPE = u"application/octet-stream"
     TEXT_PLAIN = u"text/plain"
     AUDIOBOOK_MANIFEST_MEDIA_TYPE = u"application/audiobook+json"
@@ -7951,6 +7956,7 @@ class Representation(Base):
         PNG_MEDIA_TYPE: "png",
         SVG_MEDIA_TYPE: "svg",
         GIF_MEDIA_TYPE: "gif",
+        ZIP_MEDIA_TYPE: "zip",
         TEXT_PLAIN: "txt",
         TEXT_HTML_MEDIA_TYPE: "html",
         APPLICATION_XML_MEDIA_TYPE: "xml",
@@ -8107,6 +8113,8 @@ class Representation(Base):
     @classmethod
     def guess_media_type(cls, filename):
         """Guess a likely media type from a filename."""
+        if not filename:
+            return None
         filename = filename.lower()
         for extension, media_type in cls.MEDIA_TYPE_FOR_EXTENSION.items():
             if filename.endswith(extension):
@@ -10742,9 +10750,21 @@ class Collection(Base, HasFullTableCache):
             return
 
         _db = Session.object_session(identifiers[0])
-        uncatalogued = filter(lambda i: i not in self.catalog, identifiers)
-        self.catalog.extend(uncatalogued)
-        flush(_db)
+        already_in_catalog = _db.query(Identifier).join(
+            CollectionIdentifier
+        ).filter(
+            CollectionIdentifier.collection_id==self.id
+        ).filter(
+             Identifier.id.in_([x.id for x in identifiers])
+        ).all()
+
+        new_catalog_entries = [
+            dict(collection_id=self.id, identifier_id=identifier.id)
+            for identifier in identifiers
+            if identifier not in already_in_catalog
+        ]
+        _db.bulk_insert_mappings(CollectionIdentifier, new_catalog_entries)
+        _db.commit()
 
     def works_updated_since(self, _db, timestamp):
         """Finds all works in a collection's catalog that have been updated
@@ -10831,6 +10851,18 @@ collections_identifiers = Table(
     UniqueConstraint('collection_id', 'identifier_id'),
 )
 
+# Create an ORM model for the collections_identifiers join table
+# so it can be used in a bulk_insert_mappings call.
+class CollectionIdentifier(object):
+    pass
+
+mapper(
+    CollectionIdentifier, collections_identifiers,
+    primary_key=(
+        collections_identifiers.columns.collection_id,
+        collections_identifiers.columns.identifier_id
+    )
+)
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.
@@ -10886,6 +10918,8 @@ class IntegrationClient(Base):
         client = get_one(_db, cls, shared_secret=unicode(shared_secret))
         if client:
             client.last_accessed = datetime.datetime.utcnow()
+            # Committing immediately reduces the risk of contention.
+            _db.commit()
             return client
         return None
 

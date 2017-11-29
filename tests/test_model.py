@@ -2500,7 +2500,7 @@ class TestWork(DatabaseTest):
         edition3.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition3.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        work = self._work(presentation_edition=edition2)
+        work = self._slow_work(presentation_edition=edition2)
         # add in 3, 2, 1 order to make sure the selection of edition1 as presentation
         # in the second half of the test is based on business logic, not list order.
         for p in pool3, pool1:
@@ -4634,11 +4634,13 @@ class TestRepresentation(DatabaseTest):
         m = Representation.guess_media_type
 
         eq_(Representation.JPEG_MEDIA_TYPE, m("file.jpg"))
+        eq_(Representation.ZIP_MEDIA_TYPE, m("file.ZIP"))
 
         for extension, media_type in Representation.MEDIA_TYPE_FOR_EXTENSION.items():
             filename = "file" + extension
             eq_(media_type, m(filename))
 
+        eq_(None, m(None))
         eq_(None, m("file"))
         eq_(None, m("file.unknown-extension"))
 
@@ -5834,19 +5836,43 @@ class TestCoverageRecord(DatabaseTest):
         source = DataSource.lookup(self._db, DataSource.OCLC)
         edition = self._edition()
         operation = 'foo'
-        record = self._coverage_record(edition, source, operation)
+        collection = self._default_collection
+        record = self._coverage_record(edition, source, operation, 
+                                       collection=collection)
 
-        lookup = CoverageRecord.lookup(edition, source, operation)
+
+        # To find the CoverageRecord, edition, source, operation,
+        # and collection must all match.
+        result = CoverageRecord.lookup(edition, source, operation, 
+                                       collection=collection)
+        eq_(record, result)
+
+        # You can substitute the Edition's primary identifier for the
+        # Edition iteslf.
+        lookup = CoverageRecord.lookup(
+            edition.primary_identifier, source, operation, 
+            collection=self._default_collection
+        )
         eq_(lookup, record)
 
-        lookup = CoverageRecord.lookup(edition, source)
-        eq_(None, lookup)
 
-        lookup = CoverageRecord.lookup(edition.primary_identifier, source, operation)
-        eq_(lookup, record)
+        # Omit the collection, and you find nothing.
+        result = CoverageRecord.lookup(edition, source, operation)
+        eq_(None, result)
 
-        lookup = CoverageRecord.lookup(edition.primary_identifier, source)
-        eq_(None, lookup)
+        # Same for operation.
+        result = CoverageRecord.lookup(edition, source, collection=collection)
+        eq_(None, result)
+
+        result = CoverageRecord.lookup(edition, source, "other operation",
+                                       collection=collection)
+        eq_(None, result)
+
+        # Same for data source.
+        other_source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        result = CoverageRecord.lookup(edition, other_source, operation,
+                                       collection=collection)
+        eq_(None, result)
 
     def test_add_for(self):
         source = DataSource.lookup(self._db, DataSource.OCLC)
@@ -7458,6 +7484,8 @@ class TestCollection(DatabaseTest):
         self.collection.catalog_identifier(i3)
 
         self.collection.catalog_identifiers([i1, i2, i3])
+
+        # Now all three identifiers are in the catalog.
         assert sorted([i1, i2, i3]) == sorted(self.collection.catalog)
 
     def test_works_updated_since(self):

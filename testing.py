@@ -38,6 +38,7 @@ from model import (
     LicensePool,
     LicensePoolDeliveryMechanism,
     Patron,
+    PresentationCalculationPolicy,
     Representation,
     Resource,
     RightsStatus,
@@ -281,6 +282,14 @@ class DatabaseTest(object):
               audience=None, fiction=True, with_license_pool=False, 
               with_open_access_download=False, quality=0.5, series=None,
               presentation_edition=None, collection=None, data_source_name=None):
+        """Create a Work.
+
+        For performance reasons, this method does not generate OPDS
+        entries or calculate a presentation edition for the new
+        Work. Tests that rely on this information being present
+        should call _slow_work() instead, which takes more care to present
+        the sort of Work that would be created in a real environment.
+        """
         pools = []
         if with_open_access_download:
             with_license_pool = True
@@ -314,8 +323,6 @@ class DatabaseTest(object):
                 pools = [pool]
         else:
             pools = presentation_edition.license_pools
-        if new_edition:
-            presentation_edition.calculate_presentation()
         work, ignore = get_one_or_create(
             self._db, Work, create_method_kwargs=dict(
                 audience=audience,
@@ -326,16 +333,14 @@ class DatabaseTest(object):
                 genre, ignore = Genre.lookup(self._db, genre, autocreate=True)
             work.genres = [genre]
         work.random = 0.5
-
         work.set_presentation_edition(presentation_edition)
-        work.calculate_presentation_edition()
 
         if pools:
             # make sure the pool's presentation_edition is set, 
             # bc loan tests assume that.
             if not work.license_pools:
                 for pool in pools:
-                    work.license_pools.append(pools)
+                    work.license_pools.append(pool)
 
             for pool in pools:
                 pool.set_presentation_edition()
@@ -388,6 +393,17 @@ class DatabaseTest(object):
                 languages = [languages]
             lane.languages = languages
         return lane
+
+    def _slow_work(self, *args, **kwargs):
+        """Create a work that closely resembles one that might be found in the
+        wild.
+
+        This is significantly slower than _work() but more reliable.
+        """
+        work = self._work(*args, **kwargs)
+        work.calculate_presentation_edition()
+        work.calculate_opds_entries(verbose=False)
+        return work
 
     def _add_generic_delivery_mechanism(self, license_pool):
         """Give a license pool a generic non-open-access delivery mechanism."""
