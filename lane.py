@@ -352,6 +352,7 @@ class FeaturedFacets(object):
         )
         if distinct:
             qu = qu.distinct()
+        return qu
 
     def quality_tier_field(self, mv):
         """A selectable field that summarizes the overall quality of a work
@@ -379,14 +380,14 @@ class FeaturedFacets(object):
 
         # Being of featureable quality is great.
         featurable_quality = case(
-            [(mv.quality > featurable_quality, 5)],
+            [(mv.quality >= featurable_quality, 5)],
             else_=0
         )
 
         # Being a licensed work or an open-access work of decent quality
         # is good.
         regular_collection = case(
-            [(and_(LicensePool.open_access==False, mv.quality > 0.3), 2)],
+            [(or_(LicensePool.open_access==False, mv.quality >= 0.3), 2)],
             else_=0
         )
 

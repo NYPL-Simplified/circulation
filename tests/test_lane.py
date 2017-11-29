@@ -305,8 +305,10 @@ class TestFacetsApply(DatabaseTest):
 class TestFeaturedFacets(DatabaseTest):
 
     def test_quality_calculation(self):
+        
         minimum_featured_quality = 0.6
 
+        # Create a number of works that fall into various quality tiers.
         featurable = self._work(title="Featurable", with_license_pool=True)
         featurable.quality = minimum_featured_quality
 
@@ -342,13 +344,110 @@ class TestFeaturedFacets(DatabaseTest):
         awful_but_featured_on_a_list.license_pools[0].licenses_available = 0
         awful_but_featured_on_a_list.quality = 0
 
-        facets = FeaturedFacets(minimum_featured_quality, True)
-        quality_field = facets.quality_tier_field(Work).label("tier")
-        self._db.commit()
+        custom_list, ignore = self._customlist(num_entries=0)
+        entry = custom_list.add_entry(
+            awful_but_featured_on_a_list, featured=True
+        )
 
+        # This FeaturedFacets object will be able to assign a numeric
+        # value to each work that places it in a quality tier.
+        facets = FeaturedFacets(minimum_featured_quality, True)
+
+        # This custom database query field will perform the calculation.
+        quality_field = facets.quality_tier_field(Work).label("tier")
+
+        # Test it out by using it in a SELECT statement.
         qu = self._db.query(Work, quality_field).join(
             Work.license_pools).outerjoin(Work.custom_list_entries)
-        set_trace()
+
+        expect_scores = {
+            # featured on list (11) + available (1)
+            awful_but_featured_on_a_list: 12,
+
+            # featurable (5) + licensed (2) + available (1)
+            featurable : 8,
+
+            # featurable (5) + licensed (2)
+            featurable_but_not_available : 7,
+
+            # quality open access (2) + available (1)
+            decent_open_access : 3,
+
+            # licensed (2) + available (1)
+            awful_but_licensed : 3,
+
+            # available (1)
+            awful_open_access : 1,
+        }
+
+        actual_scores = dict([(x,y) for x,y in qu])
+        eq_(expect_scores, actual_scores)
+
+        # If custom lists are not being considered, the "awful but
+        # featured on a list" work loses its cachet.
+        no_list_facets = FeaturedFacets(minimum_featured_quality, False)
+        quality_field = no_list_facets.quality_tier_field(Work).label("tier")
+        no_list_qu = self._db.query(Work, quality_field).join(
+            Work.license_pools
+        )
+
+        # 1 is the expected score for a work that has nothing going
+        # for it except that it's available right now.
+        expect_scores[awful_but_featured_on_a_list] = 1
+        actual_scores = dict([(x,y) for x,y in no_list_qu])
+        eq_(expect_scores, actual_scores)
+
+        # The same score is achieved if lists are considered, but the
+        # work is not actually featured on its list.
+        entry.featured = False
+        actual_scores = dict([(x,y) for x,y in qu])
+        eq_(expect_scores, actual_scores)
+
+
+    def test_apply(self):
+        """apply() orders a query randomly within quality tiers."""
+        high_quality_1 = self._work(
+            title="High quality, high random", with_license_pool=True
+        )
+        high_quality_1.quality = 1
+        high_quality_1.random = 1
+
+        high_quality_2 = self._work(
+            title="High quality, low random", with_license_pool=True
+        )
+        high_quality_2.quality = 0.7
+        high_quality_2.random = 0
+        
+        low_quality = self._work(
+            title="Low quality, high random", with_license_pool=True
+        )
+        low_quality.quality = 0
+        low_quality.random = 1
+
+        facets = FeaturedFacets(0.5, False)
+        base_query = self._db.query(Work).join(Work.license_pools)
+
+        # Higher-tier works show up before lower-tier works.
+        #
+        # Within a tier, works with a high random number show up
+        # before works with a low random number. The exact quality
+        # doesn't matter (high_quality_2 is slightly lower quality
+        # than high_quality_1), only the quality tier.
+        featured = facets.apply(self._db, base_query, Work, False)
+        eq_([high_quality_2, high_quality_1, low_quality], featured.all())
+
+        # Switch the random numbers, and the order of high-quality
+        # works is switched, but the high-quality works still show up
+        # first.
+        high_quality_1.random = 0
+        high_quality_2.random = 1
+        eq_([high_quality_1, high_quality_2, low_quality], featured.all())
+
+        # Passing in distinct=True makes the query distinct.
+        eq_(False, base_query._distinct)
+        distinct_query = facets.apply(self._db, base_query, Work, True)
+        eq_(True, distinct_query._distinct)
+
 
 
 class TestPagination(DatabaseTest):
