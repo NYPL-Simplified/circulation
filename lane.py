@@ -756,13 +756,14 @@ class WorkList(object):
 
         # This method applies whatever filters are necessary to implement
         # the rules of this particular WorkList.
-        qu, distinct = self.apply_bibliographic_filters(
+        qu, bibliographic_clause, distinct = self.bibliographic_filter_clause(
             _db, qu, work_model, featured
         )
         if not qu:
             # apply_bibliographic_filters() may return a null query to
             # indicate that the WorkList should not exist at all.
             return None
+        qu = qu.filter(bibliographic_clause)
 
         if facets:
             qu = facets.apply(_db, qu, work_model, distinct=distinct)
@@ -777,28 +778,42 @@ class WorkList(object):
         return qu
 
     def apply_bibliographic_filters(self, _db, qu, work_model, featured=False):
+        qu, clause, distinct = self.bibliographic_filter_clause(
+            _db, qu, work_model, featured
+        )
+        if not qu:
+            return None, distinct
+        return qu.filter(clause), distinct
+
+    def bibliographic_filter_clause(self, _db, qu, work_model, featured=False):
         """Filter out books whose bibliographic metadata doesn't match
         what we're looking for.
         """
         # Audience and language restrictions are common to all
         # WorkLists. (So are genre and collection restrictions, but those
         # were applied back in works().)
-        qu = self.apply_audience_filter(_db, qu, work_model)
+
+        clauses = self.audience_filter_clauses(_db, qu, work_model)
         if self.languages:
-            qu = qu.filter(work_model.language.in_(self.languages))
+            clauses.append(work_model.language.in_(self.languages))
         if self.media:
-            qu = qu.filter(work_model.medium.in_(self.media))
+            clauses.append(work_model.medium.in_(self.media))
         if self.genre_ids:
-            qu = qu.filter(work_model.genre_id.in_(self.genre_ids))
-        return qu, False
+            clauses.append(work_model.genre_id.in_(self.genre_ids))
+        return qu, and_(*clauses), False
 
     def apply_audience_filter(self, _db, qu, work_model):
         """Make sure that only Works classified under this lane's
         allowed audiences are returned.
+
+        This method should not be necessary anymore.
         """
+        return qu.filter(and_(*self.audience_filter_clauses(_db, qu, work_model)))
+
+    def audience_filter_clauses(self, _db, qu, work_model):
         if not self.audiences:
-            return qu
-        qu = qu.filter(work_model.audience.in_(self.audiences))
+            return []
+        clauses = [work_model.audience.in_(self.audiences)]
         if (Classifier.AUDIENCE_CHILDREN in self.audiences
             or Classifier.AUDIENCE_YOUNG_ADULT in self.audiences):
             # TODO: A huge hack to exclude Project Gutenberg
@@ -810,8 +825,8 @@ class WorkList(object):
             # whitelist system and some way of allowing adults
             # to see books aimed at pre-1923 children.
             gutenberg = DataSource.lookup(_db, DataSource.GUTENBERG)
-            qu = qu.filter(LicensePool.data_source_id != gutenberg.id)
-        return qu
+            clauses.append(LicensePool.data_source_id != gutenberg.id)
+        return clauses
 
     def only_show_ready_deliverable_works(
             self, _db, query, work_model, show_suppressed=False
@@ -1394,14 +1409,39 @@ class Lane(Base, WorkList):
 
         :param work_model: Either MaterializedWork or MaterializedWorkWithGenre
         """
-        qu, superclass_distinct = super(Lane, self).apply_bibliographic_filters(
+        qu, filter_by, distinct = self.bibliographic_filter_clause(
+            qu, work_model, featured
+        )
+        return qu.filter(filter_by), distinct
+
+    def bibliographic_filter_clause(self, _db, qu, work_model, featured):
+        """Create an AND clause that restricts a query to find
+        only works classified in this lane.
+
+        :param qu: A Query object. The filter will not be applied to this
+        Query, but the query may be extended with additional table joins.
+
+        :return: A 2-tuple (query, statement, distinct).
+
+        `query` is the same query as `qu`, possibly extended with
+        additional table joins.
+
+        `statement` is a SQLAlchemy statement suitable for passing
+        into filter() or case().
+
+        `distinct` is whether or not the query needs to be set as
+        DISTINCT.
+        """
+        clauses, superclass_distinct = super(
+            Lane, self
+        ).bibliographic_filter_clause(
             _db, qu, work_model, featured
         )
         if self.parent and self.inherit_parent_restrictions:
             # In addition to the other restrictions imposed by this
             # Lane, books will show up here only if they would
             # also show up in the parent Lane.
-            qu, parent_distinct = self.parent.apply_bibliographic_filters(
+            qu, parent_distinct = self.parent.bibliographic_filter_clause(
                 _db, qu, work_model, featured
             )
         else:
@@ -1410,26 +1450,39 @@ class Lane(Base, WorkList):
         # If a license source is specified, only show books from that
         # source.
         if self.license_datasource:
-            qu = qu.filter(LicensePool.data_source==self.license_datasource)
+            clauses.append(LicensePool.data_source==self.license_datasource)
 
         if self.fiction is not None:
-            qu = qu.filter(work_model.fiction==self.fiction)
+            clauses.append(work_model.fiction==self.fiction)
 
         if self.media:
-            qu = qu.filter(work_model.medium.in_(self.media))
+            clauses.append(work_model.medium.in_(self.media))
 
-        qu = self.apply_age_range_filter(_db, qu, work_model)
-        qu, child_distinct = self.apply_customlist_filter(
+        clauses.extend(self.age_range_filter_clauses(work_model))
+        qu, customlist_clauses = self.customlist_filter_clauses(
             qu, work_model, featured
         )
-        return qu, (superclass_distinct or parent_distinct or child_distinct)
+        clauses.extend(customlist_clauses)
+        
+        return qu, and_(*clauses), (
+            superclass_distinct or parent_distinct or child_distinct
+        )
 
     def apply_age_range_filter(self, _db, qu, work_model):
         """Filter out all books that are not classified as suitable for this
         Lane's age range.
+
+        This method should not be necessary anymore.
         """
+        return qu.filter(self.age_range_filter_clauses(work_model))
+
+    def age_range_filter_clauses(self, work_model):
+        """Create a clause that filters out all books not classified as
+        suitable for this Lane's age range.
+        """
+
         if self.target_age == None:
-            return qu
+            return []
             
         if (Classifier.AUDIENCE_ADULT in self.audiences
             or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
@@ -1442,13 +1495,12 @@ class Lane(Base, WorkList):
         # The lane's target age is an inclusive NumericRange --
         # set_target_age makes sure of that. The work's target age
         # must overlap that of the lane.
-        qu = qu.filter(
+        return [
             or_(
                 work_model.target_age.overlaps(self.target_age),
                 audience_has_no_target_age
             )
-        )
-        return qu
+        ]
 
     def apply_customlist_filter(
             self, qu, work_model, must_be_featured=False

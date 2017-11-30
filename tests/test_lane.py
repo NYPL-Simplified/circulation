@@ -841,7 +841,7 @@ class TestWorkList(DatabaseTest):
             believes the WorkList should not exist at all.
             """
 
-            def apply_bibliographic_filters(
+            def bibliographic__bibliographic_filters(
                     self, _db, query, work_model, featured
             ):
                 return None, False
@@ -865,9 +865,9 @@ class TestWorkList(DatabaseTest):
                 self.genre_ids = genre_ids
                 self.media = media
 
-            def apply_audience_filter(self, _db, qu, work_model):
+            def audience_filter_clauses(self, _db, qu, work_model):
                 called['apply_audience_filter'] = True
-                return qu
+                return []
 
             def apply_custom_filters(self, _db, qu, work_model, featured):
                 called['apply_custom_filters'] = True
