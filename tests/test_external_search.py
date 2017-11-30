@@ -63,6 +63,17 @@ class ExternalSearchTest(DatabaseTest):
             ExternalSearchIndex.reset()
         super(ExternalSearchTest, self).teardown()
 
+    def default_work(self, *args, **kwargs):
+        """Convenience method to create a work with a license pool
+        in the default collection.
+        """
+        work = self._work(
+            *args, with_license_pool=True, 
+            collection=self._default_collection, **kwargs
+        )
+        work.set_presentation_ready()
+        return work
+
 
 class TestExternalSearch(ExternalSearchTest):
 
@@ -180,15 +191,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
     def setup(self):
         super(TestExternalSearchWithWorks, self).setup()
-
-        def _work(*args, **kwargs):
-            """Convenience method to create a work with a license pool
-            in the default collection.
-            """
-            return self._work(
-                *args, with_license_pool=True, 
-                collection=self._default_collection, **kwargs
-            )
+        _work = self.default_work
 
         if self.search:
 
@@ -813,31 +816,61 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         ]
         eq_(set(collections), set(expect_collections))
 
-class TestModernRomance(ExternalSearchTest):
+class TestExactMatches(ExternalSearchTest):
+    """Verify that exact or near-exact title and author matches are
+    privileged over matches that span fields.
+    """
 
     def setup(self):
-        super(TestModernRomance, self).setup()
-        def _work(*args, **kwargs):
-            """Convenience method to create a work with a license pool
-            in the default collection.
-            """
-            return self._work(
-                *args, with_license_pool=True, 
-                collection=self._default_collection, **kwargs
-            )
+        super(TestExactMatches, self).setup()
+        _work = self.default_work
 
-        self.modern_romance = _work()
-        self.modern_romance.presentation_edition.title = u"Modern Romance"
-        self.modern_romance.set_presentation_ready()
+        # Here the title is 'Modern Romance'
+        self.modern_romance = _work(
+            title="Modern Romance",
+            authors=["Aziz Ansari", "Eric Klinenberg"],
+        )
 
+        # Here 'Modern' is in the subtitle and 'Romance' is the genre.
         self.ya_romance = _work(
             title="Gumby In Love",
+            authors="Pokey",
             audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance"
         )
         self.ya_romance.presentation_edition.subtitle = (
             "Modern Fairytale Series, Book 3"
         )
-        self.ya_romance.set_presentation_ready()
+
+        # TODO: Uncomment these lines and the 'modern romance'
+        # test fails for some reason.
+        # self.parent_book = _work(
+        #     title="Our Son Aziz",
+        #     authors=["Fatima Ansari", "Shoukath Ansari"],
+        #     genre="Biography & Memoir",
+        # )
+
+        self.behind_the_scenes = _work(
+            title="The Making of Biography With Peter Graves",
+            genre="Entertainment",
+        )
+
+        self.biography_of_peter_graves = _work(
+            "He Is Peter Graves",
+            authors="Kelly Ghostwriter",
+            genre="Biography & Memoir",
+        )
+
+        self.book_by_peter_graves = _work(
+            title="My Experience At The University of Minnesota",
+            authors="Peter Graves",
+            genre="Entertainment",
+        )
+
+        self.book_by_someone_else = _work(
+            title="The Deadly Graves",
+            authors="Peter Ansari",
+            genre="Mystery"
+        )
 
         # Add all the works created in the setup to the search index.
         SearchIndexCoverageProvider(
@@ -847,7 +880,7 @@ class TestModernRomance(ExternalSearchTest):
         # Sleep to give the index time to catch up.
         time.sleep(2)
 
-    def test_modern_romance(self):
+    def test_exact_matches(self):
 
         # Convenience method to query the default library.
         def query(*args, **kwargs):
@@ -878,8 +911,30 @@ class TestModernRomance(ExternalSearchTest):
         # split across genre and subtitle.
         expect_ids([self.modern_romance, self.ya_romance], "modern romance")
 
-        expect_ids([self.modern_romance, self.ya_romance], "modern romance")
+        # A full author match takes precedence over a partial author
+        # match.
+        expect_ids([self.modern_romance, self.book_by_someone_else],
+                   "aziz ansari")
 
+        # When a string exactly matches both a title and an author,
+        # the books that match exactly are promoted.
+        expect_ids(
+            [self.biography_of_peter_graves, self.behind_the_scenes,
+             self.book_by_peter_graves, self.book_by_someone_else],
+            "peter graves"
+        )
+
+        # 'The Making of Biography With Peter Graves' does worse in a
+        # search for 'peter graves biography' than a biography whose
+        # title includes the phrase 'peter graves'. Although the title
+        # contains all three search terms, it's not an exact token
+        # match. But "The Making of..." still does better than book
+        # that matches the query string against two different fields.
+        expect_ids(
+            [self.biography_of_peter_graves, self.book_by_peter_graves,
+             self.behind_the_scenes, self.book_by_someone_else],
+            "peter graves biography"
+        )
 
 
 class TestSearchQuery(DatabaseTest):

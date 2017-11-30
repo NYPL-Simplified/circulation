@@ -453,9 +453,11 @@ class ExternalSearchIndex(object):
         match_phrase = make_phrase_query(query_string, ['title.minimal', 'author', 'series.minimal'])
         must_match_options.append(match_phrase)
 
-        match_title = make_phrase_query(query_string, ['title.minimal'])
+        # An exact title or author match outweighs a match that is split
+        # across fields.
+        match_title = make_phrase_query(query_string, ['title.minimal'], 150)
         must_match_options.append(match_title)
-        match_author = make_phrase_query(query_string, ['author.minimal'])
+        match_author = make_phrase_query(query_string, ['author.minimal'], 150)
         must_match_options.append(match_author)
 
         if not fuzzy_blacklist_re.search(query_string):
