@@ -834,6 +834,8 @@ class WorkList(object):
         items that are currently available -- represents about ten
         percent of a library's holdings at any given time.
         """
+        if not query:
+            return []
         if isinstance(query, list):
             # This is probably a unit test.
             total_size = len(query)
