@@ -747,8 +747,7 @@ class WorkList(object):
                       featured=False):
         """Apply common WorkList filters to a query. Also apply
         subclass-specific filters by calling
-        apply_bibliographic_filters(), which will call the
-        apply_custom_filters() hook method.
+        apply_bibliographic_filters().
         """
         # In general, we only show books that are ready to be delivered
         # to patrons.
@@ -801,14 +800,6 @@ class WorkList(object):
         if self.genre_ids:
             clauses.append(work_model.genre_id.in_(self.genre_ids))
         return qu, and_(*clauses), False
-
-    def apply_audience_filter(self, _db, qu, work_model):
-        """Make sure that only Works classified under this lane's
-        allowed audiences are returned.
-
-        This method should not be necessary anymore.
-        """
-        return qu.filter(and_(*self.audience_filter_clauses(_db, qu, work_model)))
 
     def audience_filter_clauses(self, _db, qu, work_model):
         if not self.audiences:

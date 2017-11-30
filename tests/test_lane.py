@@ -869,11 +869,6 @@ class TestWorkList(DatabaseTest):
                 called['apply_audience_filter'] = True
                 return []
 
-            def apply_custom_filters(self, _db, qu, work_model, featured):
-                called['apply_custom_filters'] = True
-                called['apply_custom_filters.featured'] = featured
-                return qu, featured
-
         wl = MockWorkList()
         from model import MaterializedWorkWithGenre as wg
         original_qu = self._db.query(wg)
