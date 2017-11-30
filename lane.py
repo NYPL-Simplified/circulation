@@ -653,7 +653,15 @@ class WorkList(object):
             # run.
             return []
 
-        return self.random_sample(query, target_size)[:target_size]
+        works = []
+        for work in self.random_sample(query, target_size)[:target_size]:
+            if isinstance(work, tuple):
+                # This is a (work, score) 2-tuple.
+                works.append(work[0])
+            else:
+                # This is a regular work.
+                works.append(work)
+        return works
 
     def works(self, _db, facets=None, pagination=None):
         """Create a query against a materialized view that finds Work-like
@@ -1366,7 +1374,7 @@ class Lane(Base, WorkList):
         # are almost never exhaustive).
         lane = _db.merge(self)
         works = lane.featured_works(_db)
-        for work, score in works:
+        for work in works:
             works_and_lanes.append((work, lane))
         return works_and_lanes
            
