@@ -9,7 +9,10 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
-from sqlalchemy import func
+from sqlalchemy import (
+    and_,
+    func,
+)
 
 from classifier import Classifier
 
@@ -1558,11 +1561,18 @@ class TestLane(DatabaseTest):
         )
         eq_([audiobook], qu.all())
 
-    def test_apply_age_range_filter(self):
-        """Standalone test of apply_age_range_filter.
-        
-        Some of this code is also tested by test_apply_custom_filters.
+    def test_age_range_filter_clauses(self):
+        """Standalone test of age_range_filter_clauses().
         """
+        def filtered(lane):
+            """Build a query that applies the given lane's age filter to the 
+            works table.
+            """
+            qu = self._db.query(Work)
+            clauses = lane.age_range_filter_clauses(Work)
+            qu.filter(and_(*clauses))
+            return qu.all()
+
         adult = self._work(audience=Classifier.AUDIENCE_ADULT)
         eq_(None, adult.target_age)
         fourteen_or_fifteen = self._work(
@@ -1570,27 +1580,22 @@ class TestLane(DatabaseTest):
         )
         fourteen_or_fifteen.target_age = tuple_to_numericrange((14,15))
 
-        qu = self._db.query(Work)
-
         # This lane contains the YA book because its age range overlaps
         # the age range of the book.
         younger_ya = self._lane()
         younger_ya.target_age = (12,14)
-        younger_ya_q = younger_ya.apply_age_range_filter(self._db, qu, Work)
-        eq_([fourteen_or_fifteen], younger_ya_q.all())
+        eq_([fourteen_or_fifteen], filtered(younger_ya))
 
         # This lane contains no books because it skews too old for the YA
         # book, but books for adults are not allowed.
         older_ya = self._lane()
         older_ya.target_age = (16,17)
-        older_ya_q = older_ya.apply_age_range_filter(self._db, qu, Work)
-        eq_([], older_ya_q.all())
+        eq_([], filtered(older_ya))
 
         # Expand it to include books for adults, and the adult book
         # shows up despite having no target age at all.
         older_ya.target_age = (16,18)
-        older_ya_q = older_ya.apply_age_range_filter(self._db, qu, Work)
-        eq_([adult], older_ya_q.all())
+        eq_([adult], filtered(older_ya_q))
 
     def test_apply_customlist_filter(self):
         """Standalone test of apply_age_range_filter.
