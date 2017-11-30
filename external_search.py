@@ -289,8 +289,8 @@ class ExternalSearchIndex(object):
 
         return base_works_index
 
-    def query_works(self, library, query_string, media, languages, exclude_languages, fiction, audience,
-                    age_range, in_any_of_these_genres=[], fields=None, size=30, offset=0):
+    def query_works(self, library, query_string, media, languages, fiction, audiences,
+                    target_age, in_any_of_these_genres=[], fields=None, size=30, offset=0):
         if not self.works_alias:
             return []
 
@@ -306,8 +306,8 @@ class ExternalSearchIndex(object):
             collection_ids = [x.id for x in library.collections]
 
         filter = self.make_filter(
-            collection_ids, media, languages, exclude_languages, fiction, 
-            audience, age_range, in_any_of_these_genres
+            collection_ids, media, languages, fiction, 
+            audiences, target_age, in_any_of_these_genres
         )
         q = dict(
             filtered=dict(
@@ -551,7 +551,7 @@ class ExternalSearchIndex(object):
             }
         }
         
-    def make_filter(self, collection_ids, media, languages, exclude_languages, fiction, audience, age_range, genres):
+    def make_filter(self, collection_ids, media, languages, fiction, audiences, target_age, genres):
         def _f(s):
             if not s:
                 return s
@@ -571,11 +571,10 @@ class ExternalSearchIndex(object):
             clauses.append({'or': [collection_id_matches, no_collection_id]})
         if languages:
             clauses.append(dict(terms=dict(language=list(languages))))
-        if exclude_languages:
-            clauses.append({'not': dict(terms=dict(language=list(exclude_languages)))})
         if genres:
+            genres = [x for x in genres]
             if isinstance(genres[0], int):
-                # We were given genre IDs.
+                # We were given genre IDs. Leave them alone.
                 genre_ids = genres
             else:
                 # We were given genre objects. This should
@@ -589,13 +588,16 @@ class ExternalSearchIndex(object):
             clauses.append(dict(term=dict(fiction="fiction")))
         elif fiction == False:
             clauses.append(dict(term=dict(fiction="nonfiction")))
-        if audience:
-            if isinstance(audience, list) or isinstance(audience, set):
-                audience = [_f(aud) for aud in audience]
-                clauses.append(dict(terms=dict(audience=audience)))
-        if age_range:
-            lower = age_range[0]
-            upper = age_range[-1]
+        if audiences:
+            if isinstance(audiences, list) or isinstance(audiences, set):
+                audiences = [_f(aud) for aud in audiences]
+                clauses.append(dict(terms=dict(audience=audiences)))
+        if target_age:
+            if isinstance(target_age, tuple) and len(target_age) == 2:
+                lower, upper = target_age
+            else:
+                lower = target_age.lower
+                upper = target_age.upper
 
             age_clause = {
                 "and": [
@@ -828,6 +830,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         self.works_index = "works"
         self.works_alias = "works-current"
         self.log = logging.getLogger("Dummy external search index")
+        self.queries = []
 
     def _key(self, index, doc_type, id):
         return (index, doc_type, id)
@@ -844,6 +847,7 @@ class DummyExternalSearchIndex(ExternalSearchIndex):
         return self._key(index, doc_type, id) in self.docs
 
     def query_works(self, *args, **kwargs):
+        self.queries.append((args, kwargs))
         doc_ids = sorted([dict(_id=key[2]) for key in self.docs.keys()])
         if 'offset' in kwargs and 'size' in kwargs:
             offset = kwargs['offset']

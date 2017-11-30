@@ -49,6 +49,7 @@ from lane import (
     Facets,
     Lane,
     Pagination,
+    WorkList,
 )
 from util.opds_writer import (
     AtomFeed,
@@ -433,8 +434,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator,
-               cache_type=None, force_refresh=False,
-               use_materialized_works=True):
+               cache_type=None, force_refresh=False):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
 
@@ -456,18 +456,12 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached
 
-        works_and_lanes = lane.sublane_samples(
-            use_materialized_works=use_materialized_works
-        )
+        works_and_lanes = lane.groups(_db)
         if not works_and_lanes:
             # We did not find enough works for a groups feed.
             # Instead we need to display a flat feed--the
             # contents of what would have been the 'all' feed.
-            if not isinstance(lane, Lane):
-                # This is probably a top-level controller or
-                # application object.  Create a dummy lane that
-                # contains everything.
-                lane = Lane(_db, "Everything")
+            #
             # Generate a page-type feed that is filed as a
             # groups-type feed so it will show up when the client
             # asks for it.
@@ -475,55 +469,43 @@ class AcquisitionFeed(OPDSFeed):
                 _db, title, url, lane, annotator,
                 cache_type=cache_type,
                 force_refresh=force_refresh,
-                use_materialized_works=use_materialized_works
             )
             return cached
 
-        if lane.include_all_feed:
-            # Create an 'all' group so that patrons can browse every
-            # book in this lane.
-            works = lane.featured_works(
-                use_materialized_works=use_materialized_works
-            )
-            for work in works:
-                works_and_lanes.append((work, None))
-
         all_works = []
         for work, sublane in works_and_lanes:
-            if sublane is None:
-                # This work is in the (e.g.) 'All Science Fiction'
-                # group. Whether or not this lane has sublanes,
-                # the group URI will point to a linear feed, not a
-                # groups feed.
+            if sublane==lane:
+                # We are looking at the groups feed for (e.g.)
+                # "Science Fiction", and we're seeing a book
+                # that is featured within "Science Fiction" itself
+                # rather than one of the sublanes. 
+                #
+                # We want to assign this work to a group called "All
+                # Science Fiction" and point its 'group URI' to 
+                # the linear feed of the "Science Fiction" lane
+                # (as opposed to the groups feed, which is where we
+                # are now).
                 v = dict(
                     lane=lane,
-                    label='All ' + lane.display_name,
+                    label=lane.display_name_for_all,
                     link_to_list_feed=True,
                 )
             else:
-                v = dict(
-                    lane=sublane
-                )
+                # We are looking at the groups feed for (e.g.)
+                # "Science Fiction", and we're seeing a book
+                # that is featured within one of its sublanes,
+                # such as "Space Opera".
+                #
+                # We want to assign this work to a group derived
+                # from the sublane.
+                v = dict(lane=sublane)
             annotator.lanes_by_work[work].append(v)
             all_works.append(work)
 
         all_works = annotator.sort_works_for_groups_feed(all_works)
         feed = AcquisitionFeed(_db, title, url, all_works, annotator)
 
-        # Render a 'start' link and an 'up' link.
-        top_level_title = annotator.top_level_title() or "Collection Home"
-        AcquisitionFeed.add_link_to_feed(feed=feed.feed, href=annotator.default_lane_url(), rel="start", title=top_level_title)
-
-        if isinstance(lane, Lane):
-            visible_parent = lane.visible_parent()
-            if isinstance(visible_parent, Lane):
-                title = visible_parent.display_name
-            else:
-                title = top_level_title
-            up_uri = annotator.groups_url(visible_parent)
-            AcquisitionFeed.add_link_to_feed(feed=feed.feed, href=up_uri, rel="up", title=title)
-            feed.add_breadcrumbs(lane, annotator)
-        
+        cls.add_breadcrumb_links(feed, lane, annotator)        
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
@@ -535,13 +517,19 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False, use_materialized_works=True,
+             force_refresh=False
     ):
         """Create a feed representing one page of works from a given lane.
 
         :return: CachedFeed (if use_cache is True) or unicode
         """
-        facets = facets or Facets.default(lane.library)
+        if isinstance(lane, Lane):
+            library = lane.library
+        elif isinstance(lane, WorkList):
+            library = lane.get_library(_db)
+        else:
+            library = None
+        facets = facets or Facets.default(library)
         pagination = pagination or Pagination.default()
 
         cached = None
@@ -560,12 +548,9 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached
 
-        if use_materialized_works:
-            works_q = lane.materialized_works(facets, pagination)
-        else:
-            works_q = lane.works(facets, pagination)
-
+        works_q = lane.works(_db, facets, pagination)
         if not works_q:
+            # The Lane believes that creating this feed is a bad idea.
             works = []
         else:
             works = works_q.all()
@@ -586,19 +571,7 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        # Add "up" link and breadcrumbs
-        top_level_title = annotator.top_level_title() or "Collection Home"
-        visible_parent = lane.visible_parent()
-        if isinstance(visible_parent, Lane):
-            title = visible_parent.display_name
-        else:
-            title = top_level_title
-        if visible_parent:
-            up_uri = annotator.lane_url(visible_parent)
-            OPDSFeed.add_link_to_feed(feed=feed.feed, href=up_uri, rel="up", title=title)
-            feed.add_breadcrumbs(lane, annotator)
-
-        OPDSFeed.add_link_to_feed(feed=feed.feed, rel='start', href=annotator.default_lane_url(), title=top_level_title)
+        cls.add_breadcrumb_links(feed, lane, annotator)
         
         annotator.annotate_feed(feed, lane)
 
@@ -609,16 +582,31 @@ class AcquisitionFeed(OPDSFeed):
         return content
 
     @classmethod
+    def add_breadcrumb_links(self, feed, lane, annotator):
+        # Add "up" link and breadcrumbs
+        top_level_title = annotator.top_level_title() or "Collection Home"
+        parent = None
+        if isinstance(lane, Lane):
+            parent = lane.parent
+        if parent and parent.display_name:
+            parent_title = parent.display_name
+        else:
+            parent_title = top_level_title
+        if parent:
+            up_uri = annotator.lane_url(parent)
+            OPDSFeed.add_link_to_feed(feed=feed.feed, href=up_uri, rel="up", title=parent_title)
+            feed.add_breadcrumbs(lane, annotator)
+
+        OPDSFeed.add_link_to_feed(feed=feed.feed, rel='start', href=annotator.default_lane_url(), title=top_level_title)
+
+
+    @classmethod
     def search(cls, _db, title, url, lane, search_engine, query, pagination=None,
                annotator=None
     ):
-        if not isinstance(lane, Lane):
-            search_lane = Lane(
-                _db, "Everything", searchable=True, fiction=Lane.BOTH_FICTION_AND_NONFICTION)
-        else:
-            search_lane = lane
-
-        results = search_lane.search(query, search_engine, pagination=pagination)
+        results = lane.search(
+            _db, query, search_engine, pagination=pagination
+        )
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
 
@@ -634,8 +622,8 @@ class AcquisitionFeed(OPDSFeed):
             AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="previous", href=annotator.search_url(lane, query, previous_page))
 
         # Add "up" link and breadcrumbs
-        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(search_lane), title=lane.display_name)
-        opds_feed.add_breadcrumbs(search_lane, annotator, include_lane=True)
+        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=str(lane.display_name))
+        opds_feed.add_breadcrumbs(lane, annotator, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)
@@ -1003,7 +991,7 @@ class AcquisitionFeed(OPDSFeed):
             )
             
             # Add links for all visible ancestors that aren't root
-            for ancestor in reversed(lane.visible_ancestors()):
+            for ancestor in reversed(list(lane.parentage)):
                 lane_url = annotator.lane_url(ancestor)
                 if lane_url != root_url:
                     breadcrumbs.append(
@@ -1268,9 +1256,12 @@ class LookupAcquisitionFeed(AcquisitionFeed):
 
 class TestAnnotator(Annotator):
 
+    def __init__(self):
+        self.lanes_by_work = defaultdict(list)
+
     @classmethod
     def lane_url(cls, lane):
-        if lane and lane.has_visible_sublane():
+        if lane and lane.has_visible_children:
             return cls.groups_url(lane)
         elif lane:
             return cls.feed_url(lane)
@@ -1279,7 +1270,10 @@ class TestAnnotator(Annotator):
 
     @classmethod
     def feed_url(cls, lane, facets=None, pagination=None):
-        base = "http://%s/" % lane.url_name
+        if isinstance(lane, Lane):
+            base = "http://%s/" % lane.url_name
+        else:
+            base = "http://%s/" % lane.display_name
         sep = '?'
         if facets:
             base += sep + facets.query_string
@@ -1290,7 +1284,10 @@ class TestAnnotator(Annotator):
 
     @classmethod
     def search_url(cls, lane, query, pagination):
-        base = "http://search/%s/" % lane.url_name
+        if isinstance(lane, Lane):
+            base = "http://%s/" % lane.url_name
+        else:
+            base = "http://%s/" % lane.display_name
         sep = '?'
         if pagination:
             base += sep + pagination.query_string
@@ -1298,11 +1295,11 @@ class TestAnnotator(Annotator):
 
     @classmethod
     def groups_url(cls, lane):
-        if lane:
-            name = lane.name
+        if lane and isinstance(lane, Lane):
+            identifier = lane.id
         else:
-            name = ""
-        return "http://groups/%s" % name
+            identifier = ""
+        return "http://groups/%s" % identifier
 
     @classmethod
     def default_lane_url(cls):
@@ -1320,9 +1317,6 @@ class TestAnnotator(Annotator):
 
 
 class TestAnnotatorWithGroup(TestAnnotator):
-
-    def __init__(self):
-        self.lanes_by_work = defaultdict(list)
 
     def group_uri(self, work, license_pool, identifier):
         lanes = self.lanes_by_work.get(work, None)

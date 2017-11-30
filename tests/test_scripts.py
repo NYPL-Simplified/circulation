@@ -61,6 +61,7 @@ from scripts import (
     IdentifierInputScript,
     FixInvisibleWorksScript,
     LibraryInputScript,
+    ListCollectionMetadataIdentifiersScript,
     MockStdin,
     OPDSImportScript,
     PatronInputScript,
@@ -2100,6 +2101,39 @@ class TestReclassifyWorksForUncheckedSubjectsScript(DatabaseTest):
         eq_(100, script.batch_size)
         eq_(dump_query(Work.for_unchecked_subjects(self._db)), 
             dump_query(script.query))
+
+
+class TestListCollectionMetadataIdentifiersScript(DatabaseTest):
+
+    def test_do_run(self):
+        output = StringIO()
+        script = ListCollectionMetadataIdentifiersScript(
+            _db=self._db, output=output
+        )
+
+        # Create two collections.
+        c1 = self._collection(external_account_id=self._url)
+        c2 = self._collection(
+            name='Local Over', protocol=ExternalIntegration.OVERDRIVE,
+            external_account_id='banana'
+        )
+
+        script.do_run()
+
+        def expected(c):
+            return '(%s) %s/%s => %s\n' % (
+                unicode(c.id), c.name, c.protocol, c.metadata_identifier
+            )
+
+        # In the output, there's a header, a line describing the format,
+        # metdata identifiers for each collection, and a count of the
+        # collections found.
+        output = output.getvalue()
+        assert 'COLLECTIONS' in output
+        assert '(id) name/protocol => metadata_identifier\n' in output
+        assert expected(c1) in output
+        assert expected(c2) in output
+        assert '2 collections found.\n' in output
 
 
 class TestWorkConsolidationScript(object):
