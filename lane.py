@@ -776,14 +776,6 @@ class WorkList(object):
             qu = pagination.apply(qu)
         return qu
 
-    def apply_bibliographic_filters(self, _db, qu, work_model, featured=False):
-        qu, clause, distinct = self.bibliographic_filter_clause(
-            _db, qu, work_model, featured
-        )
-        if not qu:
-            return None, distinct
-        return qu.filter(clause), distinct
-
     def bibliographic_filter_clause(self, _db, qu, work_model, featured=False):
         """Filter out books whose bibliographic metadata doesn't match
         what we're looking for.
@@ -1412,7 +1404,7 @@ class Lane(Base, WorkList):
         :param qu: A Query object. The filter will not be applied to this
         Query, but the query may be extended with additional table joins.
 
-        :return: A 2-tuple (query, statement, distinct).
+        :return: A 3-tuple (query, statement, distinct).
 
         `query` is the same query as `qu`, possibly extended with
         additional table joins.
@@ -1459,14 +1451,6 @@ class Lane(Base, WorkList):
             superclass_distinct or parent_distinct or child_distinct
         )
 
-    def apply_age_range_filter(self, _db, qu, work_model):
-        """Filter out all books that are not classified as suitable for this
-        Lane's age range.
-
-        This method should not be necessary anymore.
-        """
-        return qu.filter(self.age_range_filter_clauses(work_model))
-
     def age_range_filter_clauses(self, work_model):
         """Create a clause that filters out all books not classified as
         suitable for this Lane's age range.
@@ -1493,19 +1477,30 @@ class Lane(Base, WorkList):
             )
         ]
 
-    def apply_customlist_filter(
+    def customlist_filter_clauses(
             self, qu, work_model, must_be_featured=False
     ):
-        """Change the given query so that it finds only books that are
-        on one of the CustomLists allowed by Lane configuration.
+        """Create a filter clause that only books that are on one of the
+        CustomLists allowed by Lane configuration.
 
         :param must_be_featured: It's not enough for the book to be on
         an appropriate list; it must be _featured_ on an appropriate list.
+
+        :return: A 3-tuple (query, clauses, distinct).
+
+        `query` is the same query as `qu`, possibly extended with
+        additional table joins.
+
+        `clauses` is a list of SQLAlchemy statements for use in a
+        filter() or case() statement.
+
+        `distinct` is whether or not the query needs to be set as
+        DISTINCT.
         """
         if not self.customlists and not self.list_datasource:
             # This lane does not require that books be on any particular
             # CustomList.
-            return qu, False
+            return qu, [], False
 
         # There may already be a join against CustomListEntry, in the case 
         # of a Lane that inherits its parent's restrictions. To avoid
@@ -1519,24 +1514,23 @@ class Lane(Base, WorkList):
         a_list = aliased(CustomListEntry.customlist)
         qu = qu.join(a_list, a_entry.list_id==a_list.id)
 
-        # Actually apply the restriction.
-        if self.list_datasource:
-            qu = qu.filter(a_list.data_source==self.list_datasource)
-        else:
-            customlist_ids = [x.id for x in self.customlists]
-            if customlist_ids:
-                qu = qu.filter(a_list.id.in_(customlist_ids))
+        # Actually build the restriction clauses.
+        clauses = []
+        clauses.append(a_list.data_source==self.list_datasource)
+        customlist_ids = [x.id for x in self.customlists]
+        if customlist_ids:
+            clauses.append(a_list.id.in_(customlist_ids))
         if must_be_featured:
-            qu = qu.filter(a_entry.featured==True)
+            clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
             cutoff = datetime.datetime.utcnow() - datetime.timedelta(
                 self.list_seen_in_previous_days
             )
-            qu = qu.filter(a_entry.most_recent_appearance >=cutoff)
+            clauses.append(a_entry.most_recent_appearance >=cutoff)
             
         # Now that a custom list is involved, we must eventually set
         # DISTINCT to True on the query.
-        return qu, True
+        return qu, clauses, True
 
 Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id, cascade='all, delete-orphan')
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
