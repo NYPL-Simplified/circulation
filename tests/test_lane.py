@@ -392,13 +392,13 @@ class TestFeaturedFacets(DatabaseTest):
         )
 
         # 1 is the expected score for a work that has nothing going
-        # for it except that it's available right now.
+        # for it except for being available right now.
         expect_scores[awful_but_featured_on_a_list] = 1
         actual_scores = dict([(x,y) for x,y in no_list_qu])
         eq_(expect_scores, actual_scores)
 
-        # The same score is achieved if lists are considered, but the
-        # work is not actually featured on its list.
+        # A low-quality work achieves the same low score if lists are
+        # considered but the work is not _featured_ on its list.
         entry.featured = False
         actual_scores = dict([(x,y) for x,y in qu])
         eq_(expect_scores, actual_scores)
@@ -661,7 +661,9 @@ class TestWorkList(DatabaseTest):
 
         # We created a FeaturedFacets object and passed it in to works().
         [(facets, pagination, featured)] = wl.works_calls
-        set_trace()
+        eq_(self._default_library.minimum_featured_quality, 
+            facets.minimum_featured_quality)
+        eq_(featured, facets.uses_customlists)
 
         # We then called random_sample() on the results.
         [(query, target_size)] = wl.random_sample_calls
