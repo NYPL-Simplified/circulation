@@ -339,7 +339,7 @@ class ExternalSearchIndex(object):
                 }
             }
 
-        def make_phrase_query(query_string, fields):
+        def make_phrase_query(query_string, fields, boost=100):
             field_queries = []
             for field in fields:
                 field_query = {
@@ -352,7 +352,7 @@ class ExternalSearchIndex(object):
                 'bool': {
                   'should': field_queries,
                   'minimum_should_match': 1,
-                  'boost': 100,
+                  'boost': boost,
                 }
               }
 
@@ -452,6 +452,11 @@ class ExternalSearchIndex(object):
 
         match_phrase = make_phrase_query(query_string, ['title.minimal', 'author', 'series.minimal'])
         must_match_options.append(match_phrase)
+
+        match_title = make_phrase_query(query_string, ['title.minimal'])
+        must_match_options.append(match_title)
+        match_author = make_phrase_query(query_string, ['author.minimal'])
+        must_match_options.append(match_author)
 
         if not fuzzy_blacklist_re.search(query_string):
             fuzzy_query = make_fuzzy_query(query_string, fuzzy_fields)

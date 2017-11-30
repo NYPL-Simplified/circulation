@@ -878,6 +878,8 @@ class TestModernRomance(ExternalSearchTest):
         # split across genre and subtitle.
         expect_ids([self.modern_romance, self.ya_romance], "modern romance")
 
+        expect_ids([self.modern_romance, self.ya_romance], "modern romance")
+
 
 
 class TestSearchQuery(DatabaseTest):
