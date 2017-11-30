@@ -3936,7 +3936,8 @@ class Work(Base):
                 # This needs to have its own Work--we don't mix
                 # open-access and commercial versions of the same book.
                 pool.work = None
-                pool.presentation_edition.work = None
+                if pool.presentation_edition:
+                    pool.presentation_edition.work = None
                 other_work, is_new = pool.calculate_work()
             elif not pool.presentation_edition:
                 # A LicensePool with no presentation edition
