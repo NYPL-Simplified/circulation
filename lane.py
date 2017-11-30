@@ -373,8 +373,8 @@ class FeaturedFacets(object):
         eliminating the need to find lower-quality works with a second
         query.
 
-        :param featurable_quality: The quality score necessary for a
-        work to be considered 'featurable'.
+        :param mv: Either MaterializedWork, MaterializedWorkWithGenre,
+        or Work is acceptable here.
         """
         featurable_quality = self.minimum_featured_quality
 
