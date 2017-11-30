@@ -1364,7 +1364,7 @@ class Lane(Base, WorkList):
         # are almost never exhaustive).
         lane = _db.merge(self)
         works = lane.featured_works(_db)
-        for work in works:
+        for work, score in works:
             works_and_lanes.append((work, lane))
         return works_and_lanes
            
