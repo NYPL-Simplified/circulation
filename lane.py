@@ -834,7 +834,11 @@ class WorkList(object):
         items that are currently available -- represents about ten
         percent of a library's holdings at any given time.
         """
-        total_size = fast_query_count(query)
+        if isinstance(query, list):
+            # This is probably a unit test.
+            total_size = len(query)
+        else:
+            total_size = fast_query_count(query)
 
         # Determine the highest offset we could choose and still
         # choose `target_size` items that fit entirely in the portion

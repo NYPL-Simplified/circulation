@@ -979,7 +979,12 @@ class TestWorkList(DatabaseTest):
         i3 = self._identifier()
         i4 = self._identifier()
         i5 = self._identifier()
-        qu = self._db.query(Identifier)
+        i6 = self._identifier()
+        i7 = self._identifier()
+        i8 = self._identifier()
+        i9 = self._identifier()
+        i10 = self._identifier()
+        qu = self._db.query(Identifier).order_by(Identifier.id)
 
         # If the random sample is smaller than the population, a
         # randomly located slice is chosen, and the slice is
@@ -987,12 +992,39 @@ class TestWorkList(DatabaseTest):
         # randomly generated number such as Work.random, so that choosing
         # a slice gets you a random sample -- that's not the case here.)
         sample = WorkList.random_sample(qu, 2, quality_coefficient=1)
-        eq_([i3, i4], sorted(sample, key=lambda x: x.id))
+        eq_([i6, i7], sorted(sample, key=lambda x: x.id))
 
         # If the random sample is larger than the sample population,
         # the population is shuffled.
-        sample = WorkList.random_sample(qu, 6)
-        eq_([i1, i2, i3, i4, i5], sorted(sample, key=lambda x: x.id))
+        sample = WorkList.random_sample(qu, 11)
+        eq_(set([i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]),
+            set(sample))
+
+        # We weight the random sample towards the front of the list.
+        # By default we only choose from the first 10% of the list.
+        #
+        # This means if we sample one item from this ten-item
+        # population, we will always get the first value.
+        for i in range(0, 10):
+            eq_([i1], WorkList.random_sample(qu, 1))
+
+        # If we sample two items, we will always get the first and
+        # second values.
+        for i in range(0, 10):
+            eq_(set([i1, i2]), set(WorkList.random_sample(qu, 2)))
+
+        # If we set the quality coefficient to sample from the first
+        # half of the list, we will never get an item from the second
+        # half.
+        samples = [WorkList.random_sample(qu, 2, 0.5) for x in range(5)]
+        eq_(
+            [set([i4, i3]), 
+             set([i1, i2]), 
+             set([i3, i2]), 
+             set([i1, i2]), 
+             set([i3, i4])],
+            [set(x) for x in samples]
+        )
 
     def test_search_target(self):
         # A WorkList can be searched - it is its own search target.
