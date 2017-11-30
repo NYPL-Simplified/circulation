@@ -9,6 +9,7 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
+from sqlalchemy import func
 
 from classifier import Classifier
 
@@ -18,6 +19,7 @@ from external_search import (
 
 from lane import (
     Facets,
+    FeaturedFacets,
     Pagination,
     WorkList,
     Lane,
@@ -25,6 +27,7 @@ from lane import (
 
 from model import (
     tuple_to_numericrange,
+    CustomListEntry,
     DataSource,
     Edition,
     Genre,
@@ -300,6 +303,174 @@ class TestFacetsApply(DatabaseTest):
              open_access_low.id],
             [x.works_id for x in random_order])
 
+
+class TestFeaturedFacets(DatabaseTest):
+
+    def test_quality_calculation(self):
+        
+        minimum_featured_quality = 0.6
+
+        # Create a number of works that fall into various quality tiers.
+        featurable = self._work(title="Featurable", with_license_pool=True)
+        featurable.quality = minimum_featured_quality
+
+        featurable_but_not_available = self._work(
+            title="Featurable but not available",
+            with_license_pool=True
+        )
+        featurable_but_not_available.quality = minimum_featured_quality
+        featurable_but_not_available.license_pools[0].licenses_available = 0
+
+        awful_but_licensed = self._work(
+            title="Awful but licensed",
+            with_license_pool=True
+        )
+        awful_but_licensed.quality = 0
+
+        decent_open_access = self._work(
+            title="Decent open access", with_license_pool=True,
+            with_open_access_download=True
+        )
+        decent_open_access.quality = 0.3
+    
+        awful_open_access = self._work(
+            title="Awful open access", with_license_pool=True,
+            with_open_access_download=True
+        )
+        awful_open_access.quality = 0
+
+        awful_but_featured_on_a_list = self._work(
+            title="Awful but featured on a list", with_license_pool=True,
+            with_open_access_download=True
+        )
+        awful_but_featured_on_a_list.license_pools[0].licenses_available = 0
+        awful_but_featured_on_a_list.quality = 0
+
+        custom_list, ignore = self._customlist(num_entries=0)
+        entry, ignore = custom_list.add_entry(
+            awful_but_featured_on_a_list, featured=True
+        )
+
+        self.add_to_materialized_view(
+            [awful_but_featured_on_a_list, featurable,
+             featurable_but_not_available, decent_open_access,
+             awful_but_licensed, awful_open_access]
+        )
+
+        # This FeaturedFacets object will be able to assign a numeric
+        # value to each work that places it in a quality tier.
+        facets = FeaturedFacets(minimum_featured_quality, True)
+
+        # This custom database query field will perform the calculation.
+        from model import MaterializedWork
+        quality_field = facets.quality_tier_field(
+            MaterializedWork).label("tier")
+
+        # Test it out by using it in a SELECT statement.
+        qu = self._db.query(
+            MaterializedWork, quality_field
+        ).join(
+            LicensePool, 
+            LicensePool.id==MaterializedWork.license_pool_id
+        ).outerjoin(
+            CustomListEntry, CustomListEntry.work_id==MaterializedWork.works_id
+        )
+        from model import dump_query
+
+        expect_scores = {
+            # featured on list (11) + available (1)
+            awful_but_featured_on_a_list.sort_title: 12,
+
+            # featurable (5) + licensed (2) + available (1)
+            featurable.sort_title : 8,
+
+            # featurable (5) + licensed (2)
+            featurable_but_not_available.sort_title : 7,
+
+            # quality open access (2) + available (1)
+            decent_open_access.sort_title : 3,
+
+            # licensed (2) + available (1)
+            awful_but_licensed.sort_title : 3,
+
+            # available (1)
+            awful_open_access.sort_title : 1,
+        }
+
+        def best_score_dict(qu):
+            return dict((x.sort_title,y) for x, y in qu)
+
+        actual_scores = best_score_dict(qu)
+        eq_(expect_scores, actual_scores)
+
+        # If custom lists are not being considered, the "awful but
+        # featured on a list" work loses its cachet.
+        no_list_facets = FeaturedFacets(minimum_featured_quality, False)
+        quality_field = no_list_facets.quality_tier_field(MaterializedWork).label("tier")
+        no_list_qu = self._db.query(MaterializedWork, quality_field).join(
+            LicensePool, 
+            LicensePool.id==MaterializedWork.license_pool_id
+        )
+
+        # 1 is the expected score for a work that has nothing going
+        # for it except for being available right now.
+        expect_scores[awful_but_featured_on_a_list.sort_title] = 1
+        actual_scores = best_score_dict(no_list_qu)
+        eq_(expect_scores, actual_scores)
+
+        # A low-quality work achieves the same low score if lists are
+        # considered but the work is not _featured_ on its list.
+        entry.featured = False
+        actual_scores = best_score_dict(qu)
+        eq_(expect_scores, actual_scores)
+
+
+    def test_apply(self):
+        """apply() orders a query randomly within quality tiers."""
+        high_quality_1 = self._work(
+            title="High quality, high random", with_license_pool=True
+        )
+        high_quality_1.quality = 1
+        high_quality_1.random = 1
+
+        high_quality_2 = self._work(
+            title="High quality, low random", with_license_pool=True
+        )
+        high_quality_2.quality = 0.7
+        high_quality_2.random = 0
+        
+        low_quality = self._work(
+            title="Low quality, high random", with_license_pool=True
+        )
+        low_quality.quality = 0
+        low_quality.random = 1
+
+        facets = FeaturedFacets(0.5, False)
+        base_query = self._db.query(Work).join(Work.license_pools)
+
+        # Higher-tier works show up before lower-tier works.
+        #
+        # Within a tier, works with a high random number show up
+        # before works with a low random number. The exact quality
+        # doesn't matter (high_quality_2 is slightly lower quality
+        # than high_quality_1), only the quality tier.
+        featured = facets.apply(self._db, base_query, Work, False)
+        eq_([high_quality_2, high_quality_1, low_quality], featured.all())
+
+        # Switch the random numbers, and the order of high-quality
+        # works is switched, but the high-quality works still show up
+        # first.
+        high_quality_1.random = 0
+        high_quality_2.random = 1
+        eq_([high_quality_1, high_quality_2, low_quality], featured.all())
+
+        # Passing in distinct=True makes the query distinct.
+        eq_(False, base_query._distinct)
+        distinct_query = facets.apply(self._db, base_query, Work, True)
+        eq_(True, distinct_query._distinct)
+
+
+
 class TestPagination(DatabaseTest):
 
     def test_has_next_page(self):
@@ -366,6 +537,7 @@ class MockWorks(WorkList):
     def reset(self):
         self._works = []
         self.works_calls = []
+        self.random_sample_calls = []
 
     def queue_works(self, works):
         """Set the next return value for works()."""
@@ -382,6 +554,7 @@ class MockWorks(WorkList):
         # The 'query' is actually a list, and we're in a test
         # environment where randomness is not welcome. Just take
         # a sample from the front of the list.
+        self.random_sample_calls.append((query, target_size))
         return query[:target_size]
 
 
@@ -501,96 +674,22 @@ class TestWorkList(DatabaseTest):
         wl = MockWorks()
         wl.initialize(library=self._default_library)
 
-        # We're going to try to get 3 featured works.
-        self._default_library.setting(Library.FEATURED_LANE_SIZE).value = 3
-
-        # Here are four.
         w1 = MockWork(1)
-        w2 = MockWork(2)
-        w3 = MockWork(3)
-        w4 = MockWork(4)
 
-        # With a single work queued, we will call works() several
-        # times -- once for every item in the
-        # featured_collection_facets() generator -- but we will not be
-        # able to get more than that one featured work.
-        queue = wl.queue_works
-        queue([w1])
+        wl.queue_works([w1])
         featured = wl.featured_works(self._db)
         eq_([w1], featured)
 
-        # To verify that works() was called multiple times and that
-        # the calls were driven by featured_collection_facets(),
-        # compare the actual arguments passed into works() with what
-        # featured_collection_facets() would dictate.
-        actual_facets = [
-            (facets.collection, facets.availability, featured)
-            for [facets, pagination, featured] in wl.works_calls
-        ]
-        expect_facets = list(MockWorks().featured_collection_facets())
-        eq_(actual_facets, expect_facets)
+        # We created a FeaturedFacets object and passed it in to works().
+        [(facets, pagination, featured)] = wl.works_calls
+        eq_(self._default_library.minimum_featured_quality, 
+            facets.minimum_featured_quality)
+        eq_(featured, facets.uses_customlists)
 
-        # Here, we will get three sets of results before we have enough works.
-        wl.reset()
-        queue([w1, w1, w3])
-        # Putting w2 at the end of the second set of results simulates
-        # a situation where query results include a work that has not
-        # been chosen, but the random sample chooses a bunch of works
-        # that _have_ already been chosen instead. If the random
-        # sample had turned out differently, we would have had
-        # slightly better results and saved some time.
-        queue([w3, w1, w1, w1, w2])
-        queue([w4])
-        featured = wl.featured_works(self._db)
-
-        # Works are presented in the order they were received, to put
-        # higher-quality works at the front. Duplicates are ignored.
-        eq_([w1.id, w3.id, w4.id], [x.id for x in featured])
-
-        # We only had to make three calls to works() before filling
-        # our quota.
-        eq_(3, len(wl.works_calls))
-
-        # Here, we only have to try once.
-        wl.reset()
-        queue([w2, w3, w4, w1])
-        featured = wl.featured_works(self._db)
-        eq_([w2.id, w3.id, w4.id], [x.id for x in featured])        
-        eq_(1, len(wl.works_calls))
-
-        # Here, the WorkList thinks that calling works() is a bad idea,
-        # and persistently returns None.
-        wl.reset()
-        for i in range(len(expect_facets)):
-            queue(None)
-
-        # featured_works() doesn't crash, but it doesn't return
-        # any values either.
-        eq_([], wl.featured_works(self._db))
-
-        # And it keeps calling works() for every facet, rather than
-        # giving up after the first None.
-        eq_(len(expect_facets), len(wl.works_calls))
-
-    def test_featured_collection_facets(self):
-        """Test the specific values expected from the default
-        featured_collection_facets() implementation.
-
-        This encodes our belief about what aspects of a book make it
-        "featurable". We like works that have high .quality scores
-        and can be loaned out immediately.
-        """
-        expect = [(Facets.COLLECTION_FEATURED, Facets.AVAILABLE_NOW, False),
-         (Facets.COLLECTION_FEATURED, Facets.AVAILABLE_ALL, False),
-         (Facets.COLLECTION_MAIN, Facets.AVAILABLE_NOW, False),
-         (Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, False),
-         (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, False)
-        ]
-        actual = list(WorkList().featured_collection_facets())
-        eq_(expect, actual)
-
-        # See TestLane.test_featured_collection_facets to see what
-        # changes when a WorkList can draw from CustomLists.
+        # We then called random_sample() on the results.
+        [(query, target_size)] = wl.random_sample_calls
+        eq_([w1], query)
+        eq_(self._default_library.featured_lane_size, target_size)
 
     def test_works(self):
         """Verify that WorkList.works() correctly locates works
@@ -903,20 +1002,52 @@ class TestWorkList(DatabaseTest):
         i3 = self._identifier()
         i4 = self._identifier()
         i5 = self._identifier()
-        qu = self._db.query(Identifier)
+        i6 = self._identifier()
+        i7 = self._identifier()
+        i8 = self._identifier()
+        i9 = self._identifier()
+        i10 = self._identifier()
+        qu = self._db.query(Identifier).order_by(Identifier.id)
 
         # If the random sample is smaller than the population, a
         # randomly located slice is chosen, and the slice is
         # shuffled. (It's presumed that the query sorts items by some
         # randomly generated number such as Work.random, so that choosing
         # a slice gets you a random sample -- that's not the case here.)
-        sample = WorkList.random_sample(qu, 2)
-        eq_([i3, i4], sorted(sample, key=lambda x: x.id))
+        sample = WorkList.random_sample(qu, 2, quality_coefficient=1)
+        eq_([i6, i7], sorted(sample, key=lambda x: x.id))
 
         # If the random sample is larger than the sample population,
         # the population is shuffled.
-        sample = WorkList.random_sample(qu, 6)
-        eq_([i1, i2, i3, i4, i5], sorted(sample, key=lambda x: x.id))
+        sample = WorkList.random_sample(qu, 11)
+        eq_(set([i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]),
+            set(sample))
+
+        # We weight the random sample towards the front of the list.
+        # By default we only choose from the first 10% of the list.
+        #
+        # This means if we sample one item from this ten-item
+        # population, we will always get the first value.
+        for i in range(0, 10):
+            eq_([i1], WorkList.random_sample(qu, 1))
+
+        # If we sample two items, we will always get the first and
+        # second values.
+        for i in range(0, 10):
+            eq_(set([i1, i2]), set(WorkList.random_sample(qu, 2)))
+
+        # If we set the quality coefficient to sample from the first
+        # half of the list, we will never get an item from the second
+        # half.
+        samples = [WorkList.random_sample(qu, 2, 0.5) for x in range(5)]
+        eq_(
+            [set([i4, i3]), 
+             set([i1, i2]), 
+             set([i3, i2]), 
+             set([i1, i2]), 
+             set([i3, i4])],
+            [set(x) for x in samples]
+        )
 
     def test_search_target(self):
         # A WorkList can be searched - it is its own search target.
@@ -1295,29 +1426,6 @@ class TestLane(DatabaseTest):
             self._db, work.title, search_client, pagination
         )
         eq_(results, target_results)
-
-    def test_featured_collection_facets(self):
-        default_facets = list(WorkList().featured_collection_facets())
-        
-        # A Lane that's not based on CustomLists has a generic set of
-        # facets.
-        lane = self._lane()
-        eq_(False, lane.uses_customlists)
-        eq_(default_facets, list(lane.featured_collection_facets()))
-
-        # A Lane that's based on CustomLists uses the same facets to
-        # build its featured collection, but before it tries them it
-        # tries to build a collection based on items that are featured
-        # _within the CustomLists_.
-        lane.list_datasource = DataSource.lookup(
-            self._db, DataSource.GUTENBERG
-        )
-        self._db.commit()
-        eq_(True, lane.uses_customlists)
-        additional = [(Facets.COLLECTION_FULL, Facets.AVAILABLE_NOW, True),
-                      (Facets.COLLECTION_FULL, Facets.AVAILABLE_ALL, True)]
-        eq_(additional + default_facets, 
-            list(lane.featured_collection_facets()))
 
     def test_apply_custom_filters(self):
 
