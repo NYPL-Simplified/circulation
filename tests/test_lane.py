@@ -9,6 +9,7 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
+from sqlalchemy import func
 
 from classifier import Classifier
 
@@ -26,6 +27,7 @@ from lane import (
 
 from model import (
     tuple_to_numericrange,
+    CustomListEntry,
     DataSource,
     Edition,
     Genre,
@@ -345,8 +347,14 @@ class TestFeaturedFacets(DatabaseTest):
         awful_but_featured_on_a_list.quality = 0
 
         custom_list, ignore = self._customlist(num_entries=0)
-        entry = custom_list.add_entry(
+        entry, ignore = custom_list.add_entry(
             awful_but_featured_on_a_list, featured=True
+        )
+
+        self.add_to_materialized_view(
+            [awful_but_featured_on_a_list, featurable,
+             featurable_but_not_available, decent_open_access,
+             awful_but_licensed, awful_open_access]
         )
 
         # This FeaturedFacets object will be able to assign a numeric
@@ -354,53 +362,66 @@ class TestFeaturedFacets(DatabaseTest):
         facets = FeaturedFacets(minimum_featured_quality, True)
 
         # This custom database query field will perform the calculation.
-        quality_field = facets.quality_tier_field(Work).label("tier")
+        from model import MaterializedWork
+        quality_field = facets.quality_tier_field(
+            MaterializedWork).label("tier")
 
         # Test it out by using it in a SELECT statement.
-        qu = self._db.query(Work, quality_field).join(
-            Work.license_pools).outerjoin(Work.custom_list_entries)
+        qu = self._db.query(
+            MaterializedWork, quality_field
+        ).join(
+            LicensePool, 
+            LicensePool.id==MaterializedWork.license_pool_id
+        ).outerjoin(
+            CustomListEntry, CustomListEntry.work_id==MaterializedWork.works_id
+        )
+        from model import dump_query
 
         expect_scores = {
             # featured on list (11) + available (1)
-            awful_but_featured_on_a_list: 12,
+            awful_but_featured_on_a_list.sort_title: 12,
 
             # featurable (5) + licensed (2) + available (1)
-            featurable : 8,
+            featurable.sort_title : 8,
 
             # featurable (5) + licensed (2)
-            featurable_but_not_available : 7,
+            featurable_but_not_available.sort_title : 7,
 
             # quality open access (2) + available (1)
-            decent_open_access : 3,
+            decent_open_access.sort_title : 3,
 
             # licensed (2) + available (1)
-            awful_but_licensed : 3,
+            awful_but_licensed.sort_title : 3,
 
             # available (1)
-            awful_open_access : 1,
+            awful_open_access.sort_title : 1,
         }
 
-        actual_scores = dict([(x,y) for x,y in qu])
+        def best_score_dict(qu):
+            return dict((x.sort_title,y) for x, y in qu)
+
+        actual_scores = best_score_dict(qu)
         eq_(expect_scores, actual_scores)
 
         # If custom lists are not being considered, the "awful but
         # featured on a list" work loses its cachet.
         no_list_facets = FeaturedFacets(minimum_featured_quality, False)
-        quality_field = no_list_facets.quality_tier_field(Work).label("tier")
-        no_list_qu = self._db.query(Work, quality_field).join(
-            Work.license_pools
+        quality_field = no_list_facets.quality_tier_field(MaterializedWork).label("tier")
+        no_list_qu = self._db.query(MaterializedWork, quality_field).join(
+            LicensePool, 
+            LicensePool.id==MaterializedWork.license_pool_id
         )
 
         # 1 is the expected score for a work that has nothing going
         # for it except for being available right now.
-        expect_scores[awful_but_featured_on_a_list] = 1
-        actual_scores = dict([(x,y) for x,y in no_list_qu])
+        expect_scores[awful_but_featured_on_a_list.sort_title] = 1
+        actual_scores = best_score_dict(no_list_qu)
         eq_(expect_scores, actual_scores)
 
         # A low-quality work achieves the same low score if lists are
         # considered but the work is not _featured_ on its list.
         entry.featured = False
-        actual_scores = dict([(x,y) for x,y in qu])
+        actual_scores = best_score_dict(qu)
         eq_(expect_scores, actual_scores)
 
 
