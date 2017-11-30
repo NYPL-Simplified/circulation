@@ -683,7 +683,7 @@ class WorkList(object):
             mw = MaterializedWork
 
         if isinstance(facets, FeaturedFacets):
-            qu = _db.query(mw, facets.quality_tier_field)
+            qu = _db.query(mw, facets.quality_tier_field(mw))
         else:
             qu = _db.query(mw)
 
