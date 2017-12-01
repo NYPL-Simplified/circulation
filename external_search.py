@@ -738,7 +738,7 @@ class ExternalSearchIndex(object):
 
 class ExternalSearchIndexVersions(object):
 
-    VERSIONS = ['v2']
+    VERSIONS = ['v2', 'v3']
 
     @classmethod
     def latest(cls):
@@ -760,8 +760,11 @@ class ExternalSearchIndexVersions(object):
         return mapping
 
     @classmethod
-    def v2_body(cls):
-
+    def v3_body(cls):
+        """The v3 body is the same as the v2 except for the inclusion of the
+        '.standard' version of fields, analyzed using the standard
+        analyzer for near-exact matches.
+        """
         settings = {
             "analysis": {
                 "filter": {
@@ -808,6 +811,57 @@ class ExternalSearchIndexVersions(object):
                         "type": "string",
                         "analyzer": "standard"
                     }
+                }}
+        )
+        mappings = { ExternalSearchIndex.work_document_type : mapping }
+
+        return dict(settings=settings, mappings=mappings)
+
+    @classmethod
+    def v2_body(cls):
+
+        settings = {
+            "analysis": {
+                "filter": {
+                    "en_stop_filter": {
+                        "type": "stop",
+                        "stopwords": ["_english_"]
+                    },
+                    "en_stem_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                    "en_stem_minimal_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                },
+                "analyzer" : {
+                    "en_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
+                    },
+                    "en_minimal_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
+                    },
+                }
+            }
+        }
+
+        mapping = cls.map_fields(
+            fields=["title", "series", "subtitle", "summary", "classifications.term"],
+            field_description={
+                "type": "string",
+                "analyzer": "en_analyzer",
+                "fields": {
+                    "minimal": {
+                        "type": "string",
+                        "analyzer": "en_minimal_analyzer"},
                 }}
         )
         mappings = { ExternalSearchIndex.work_document_type : mapping }
@@ -886,7 +940,7 @@ class SearchIndexMonitor(WorkSweepMonitor):
     def __init__(self, _db, collection, index_name=None, index_client=None,
                  **kwargs):
         super(SearchIndexMonitor, self).__init__(_db, collection, **kwargs)
-        
+
         if index_client:
             # This would only happen during a test.
             self.search_index_client = index_client
