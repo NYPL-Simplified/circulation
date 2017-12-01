@@ -152,35 +152,14 @@ class ExternalSearchIndex(object):
         """Finds or creates the works_index and works_alias based on
         the current configuration.
         """
-
-        # We always know what the name of the alias _should_ be.
-        alias_name = self.works_alias_name(_db)    
-        index_details = self.indices.get_alias(name=alias_name, ignore=[404])
-
-        # But the alias may not exist in Elasticsearch.
-        found = (
-            bool(index_details) and not (
-                index_details.get('status')==404 or 'error' in index_details
-            )
-        )
-
-        def _set_works_index(name):
-            self.works_index = self.__client.works_index = name
-
-        if found:
-            # The alias exists and points to a specific index.  Assume
-            # there is only one such index.
-            _set_works_index(index_details.keys()[0])
-        else:
-            # The alias doesn't point to anything. The index name to
-            # use is the one known to be right for this version.
-            _set_works_index(self.works_index_name(_db))
-
+        # The index name to use is the one known to be right for this
+        # version.
+        self.works_index = self.__client.works_index = self.works_index_name(_db)
         if not self.indices.exists(self.works_index):
-            # The index doesn't actually exist. Set it up.
+            # That index doesn't actually exist. Set it up.
             self.setup_index()
 
-        # Make sure the alias points to the index we're using.
+        # Make sure the alias points to the most recent index.
         self.setup_current_alias(_db)
 
     def setup_current_alias(self, _db):
