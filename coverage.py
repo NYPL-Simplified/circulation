@@ -548,9 +548,14 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         source = DataSource.lookup(_db, cls.DATA_SOURCE_NAME)
         if collection and not source:
             # The registration DataSource is based on a given Collection
-            # instead of the class.
+            # instead of the class. This happens on the Metadata Wrangler.
             source = collection.data_source
         operation = cls.OPERATION
+
+        if cls.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
+            # There's no need for a collection when registering this
+            # Identifier, even if it provided the DataSource.
+            collection = None
 
         was_registered = False
         existing_record = CoverageRecord.lookup(
