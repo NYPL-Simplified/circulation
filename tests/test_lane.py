@@ -905,6 +905,9 @@ class TestWorkList(DatabaseTest):
         def worklist_has_books(
                 expect_books, **worklist_constructor_args
         ):
+            """Apply bibliographic filters to a query and verify
+            that it finds only the given books.
+            """
             worklist = MockWorkList(**worklist_constructor_args)
             qu, clause, distinct = worklist.bibliographic_filter_clause(
                 self._db, original_qu, wg, False
