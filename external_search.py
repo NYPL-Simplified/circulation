@@ -529,7 +529,7 @@ class ExternalSearchIndex(object):
                 # However, it's possible that they're searching for a subject that's not
                 # mentioned in the summary (eg, a person's name in a biography). So title
                 # is a possible match, but is less important than author, subtitle, and summary.
-                match_rest_of_query = make_query_string_query(remaining_string, ["author^4", "subtitle^2", "summary^4", "title^1", "series^1"])
+                match_rest_of_query = make_query_string_query(remaining_string, ["author^4", "subtitle^3", "summary^5", "title^1", "series^1"])
                 classification_queries.append(match_rest_of_query)
             
             # If classification queries and the remaining string all match, the result will
