@@ -1546,7 +1546,7 @@ class TestLane(DatabaseTest):
         best_sellers_lane.fiction = True
         match_works(best_selling_classics, [childrens_fiction])       
 
-    def test_apply_custom_filters_medium_restriction(self):
+    def test_bibliographic_filter_clause_medium_restriction(self):
         """We have to test the medium query specially in a kind of hacky way,
         since currently the materialized view only includes ebooks.
         """
@@ -1557,7 +1557,7 @@ class TestLane(DatabaseTest):
         # This lane only includes ebooks, and it's empty.
         lane.media = [Edition.BOOK_MEDIUM]
         qu = self._db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
-        qu, distinct = lane.apply_bibliographic_filters(
+        qu, bib_filter, distinct = lane.bibliographic_filter_clause(
             self._db, qu, Edition, False
         )
         eq_([], qu.all())
