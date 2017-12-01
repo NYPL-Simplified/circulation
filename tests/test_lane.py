@@ -793,7 +793,7 @@ class TestWorkList(DatabaseTest):
             ):
                 called['apply_bibliographic_filters'] = True
                 called['apply_bibliographic_filters.featured'] = featured
-                return query, self.distinct
+                return query, None, self.distinct
 
         class MockFacets(object):
             def apply(self, _db, query, work_model, distinct):
@@ -877,10 +877,10 @@ class TestWorkList(DatabaseTest):
         original_qu = self._db.query(wg)
 
         # If no languages or genre IDs are specified, and the hook
-        # methods do nothing, then apply_bibliographic_filters() has
+        # methods do nothing, then bibliographic_filter_clause() has
         # no effect.
         featured_object = object()
-        final_qu, distinct = wl.apply_bibliographic_filters(
+        final_qu, bibliographic_filter, distinct = wl.bibliographic_filter_clause(
             self._db, original_qu, wg, featured_object
         )
         eq_(original_qu, final_qu)
@@ -930,7 +930,7 @@ class TestWorkList(DatabaseTest):
         )
         eq_(0, audio_qu.count())
 
-    def test_apply_audience_filter(self):
+    def test_audience_filter_clauses(self):
 
         # Create two childrens' books (one from Gutenberg, one not)
         # and one book for adults.
@@ -964,16 +964,18 @@ class TestWorkList(DatabaseTest):
         )
 
         def for_audiences(*audiences):
-            """Invoke WorkList.apply_audience_filter using the given 
+            """Invoke WorkList.apply_audience_clauses using the given 
             `audiences`, and return all the matching Work objects.
             """
             wl = WorkList()
             wl.audiences = audiences
             qu = self._db.query(Work).join(Work.license_pools)
-            return wl.apply_audience_filter(self._db, qu, Work).all()
+            clauses = wl.audience_filter_clauses(self._db, qu, Work)
+            if clauses:
+                qu = qu.filter(and_(*clauses))
+            return qu.all()
 
-        eq_([gutenberg_adult], 
-            for_audiences(Classifier.AUDIENCE_ADULT))
+        eq_([gutenberg_adult], for_audiences(Classifier.AUDIENCE_ADULT))
 
         # The Gutenberg "children's" book is filtered out because it we have
         # no guarantee it is actually suitable for children.
@@ -985,6 +987,11 @@ class TestWorkList(DatabaseTest):
         eq_([non_gutenberg_children], 
             for_audiences(Classifier.AUDIENCE_ADULT, 
                           Classifier.AUDIENCE_CHILDREN))
+
+        # If no particular audiences are specified, no books are filtered.
+        eq_(set([gutenberg_adult, gutenberg_children, non_gutenberg_children]), 
+            set(for_audiences()))
+
 
     def test_random_sample(self):
         # This lets me test which items are chosen in a random sample,

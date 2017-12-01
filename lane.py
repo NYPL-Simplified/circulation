@@ -745,9 +745,9 @@ class WorkList(object):
 
     def apply_filters(self, _db, qu, work_model, facets, pagination,
                       featured=False):
-        """Apply common WorkList filters to a query. Also apply
-        subclass-specific filters by calling
-        apply_bibliographic_filters().
+        """Apply common WorkList filters to a query. Also apply any
+        subclass-specific filters defined by
+        bibliographic_filter_clause().
         """
         # In general, we only show books that are ready to be delivered
         # to patrons.
@@ -762,7 +762,8 @@ class WorkList(object):
             # apply_bibliographic_filters() may return a null query to
             # indicate that the WorkList should not exist at all.
             return None
-        qu = qu.filter(bibliographic_clause)
+        if bibliographic_clause:
+            qu = qu.filter(bibliographic_clause)
 
         if facets:
             qu = facets.apply(_db, qu, work_model, distinct=distinct)
@@ -776,26 +777,17 @@ class WorkList(object):
             qu = pagination.apply(qu)
         return qu
 
-    def apply_bibliographic_filters(self, _db, qu, work_model, featured=False):
-        """Apply filters to a base query against a materialized view,
-        yielding a query that only finds books in this WorkList.
-
-        :param work_model: Either MaterializedWork or MaterializedWorkWithGenre
-        """
-        qu, filter_by, distinct = self.bibliographic_filter_clause(
-            _db, qu, work_model, featured
-        )
-        return qu.filter(filter_by), distinct
-
     def bibliographic_filter_clause(self, _db, qu, work_model, featured=False):
-        """Filter out books whose bibliographic metadata doesn't match
-        what we're looking for.
+        """Create a SQLAlchemy filter that excludes books whose bibliographic
+        metadata doesn't match what we're looking for.
+
+        :return: None if there are no particular additional filters to
+        be added; otherwise a SQLAlchemy filter.
         """
         # Audience and language restrictions are common to all
         # WorkLists. (So are genre and collection restrictions, but those
         # were applied back in works().)
 
-        set_trace()
         clauses = self.audience_filter_clauses(_db, qu, work_model)
         if self.languages:
             clauses.append(work_model.language.in_(self.languages))
@@ -803,9 +795,16 @@ class WorkList(object):
             clauses.append(work_model.medium.in_(self.media))
         if self.genre_ids:
             clauses.append(work_model.genre_id.in_(self.genre_ids))
-        return qu, and_(*clauses), False
+        if not clauses:
+            clause = None
+        else:
+            clause = and_(*clauses)
+        return qu, clause, False
 
     def audience_filter_clauses(self, _db, qu, work_model):
+        """Create a SQLAlchemy filter that excludes books whose intended
+        audience doesn't match what we're looking for.
+        """
         if not self.audiences:
             return []
         clauses = [work_model.audience.in_(self.audiences)]
