@@ -78,9 +78,13 @@ class ExternalSearchTest(DatabaseTest):
 class TestExternalSearch(ExternalSearchTest):
 
     def test_works_index_name(self):
+        """The name of the search index is the prefix (defined in
+        ExternalSearchTest.setup) plus a version number associated
+        with this version of the core code.
+        """
         if not self.search:
             return
-        eq_("test_index-v0", self.search.works_index_name(self._db))
+        eq_("test_index-v3", self.search.works_index_name(self._db))
 
     def test_setup_index_creates_new_index(self):
         if not self.search:
@@ -97,7 +101,7 @@ class TestExternalSearch(ExternalSearchTest):
         eq_(current_index, self.search.works_index)
 
         # The alias hasn't been passed over to the new index.
-        alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
+        alias = 'test_index-' + self.search.CURRENT_ALIAS_SUFFIX
         eq_(alias, self.search.works_alias)
         eq_(True, self.search.indices.exists_alias(current_index, alias))
         eq_(False, self.search.indices.exists_alias('the_other_index', alias))
@@ -106,25 +110,34 @@ class TestExternalSearch(ExternalSearchTest):
         if not self.search:
             return
 
-        # If -current alias is given but doesn't exist, the appropriate
-        # index and alias will be created.
-        self.search.set_works_index_and_alias(self._db, 'banana-current')
+        # If the index or alias don't exist, set_works_index_and_alias
+        # will create them.
+        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'banana')
+        self.search.set_works_index_and_alias(self._db)
 
         expected_index = 'banana-' + ExternalSearchIndexVersions.latest()
+        expected_alias = 'banana-' + self.search.CURRENT_ALIAS_SUFFIX
         eq_(expected_index, self.search.works_index)
-        eq_('banana-current', self.search.works_alias)
+        eq_(expected_alias, self.search.works_alias)
+
+        # If the index and alias already exist, set_works_index_and_alias
+        # does nothing.
+        self.search.set_works_index_and_alias(self._db)
+        eq_(expected_index, self.search.works_index)
+        eq_(expected_alias, self.search.works_alias)
 
     def test_setup_current_alias(self):
         if not self.search:
             return
 
         # The index was generated from the string in configuration.
-        index_name = 'test_index-v0'
+        version = ExternalSearchIndexVersions.VERSIONS[-1]
+        index_name = 'test_index-' + version
         eq_(index_name, self.search.works_index)
         eq_(True, self.search.indices.exists(index_name))
 
         # The alias is also created from the configuration.
-        alias = 'test_index' + self.search.CURRENT_ALIAS_SUFFIX
+        alias = 'test_index-' + self.search.CURRENT_ALIAS_SUFFIX
         eq_(alias, self.search.works_alias)
         eq_(True, self.search.indices.exists_alias(index_name, alias))
 
@@ -132,19 +145,22 @@ class TestExternalSearch(ExternalSearchTest):
         # won't be reassigned. Instead, search will occur against the
         # index itself.
         ExternalSearchIndex.reset()
-        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_KEY, u'test_index-v100')
+        self.integration.set_setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, u'my-app')
         self.search = ExternalSearchIndex(self._db)
 
-        eq_('test_index-v100', self.search.works_index)
-        eq_('test_index-v100', self.search.works_alias)
+        eq_('my-app-%s' % version, self.search.works_index)
+        eq_('my-app-' + self.search.CURRENT_ALIAS_SUFFIX, self.search.works_alias)
 
     def test_transfer_current_alias(self):
         if not self.search:
             return
 
-        # If the index doesn't exist, an error is raised.
+        # An error is raised if you try to set the alias to point to
+        # an index that doesn't already exist.
         assert_raises(
-            ValueError, self.search.transfer_current_alias, 'test_index-v3')
+            ValueError, self.search.transfer_current_alias, self._db, 
+            'no-such-index'
+        )
 
         original_index = self.search.works_index
 
@@ -153,34 +169,37 @@ class TestExternalSearch(ExternalSearchTest):
         self.search.indices.delete_alias(
             index=original_index, name='test_index-current'
         )
-        self.search.setup_index(new_index='test_index-v100')
-        self.search.transfer_current_alias('test_index-v100')
-        eq_('test_index-v100', self.search.works_index)
+        self.search.setup_index(new_index='test_index-v9999')
+        self.search.transfer_current_alias(self._db, 'test_index-v9999')
+        eq_('test_index-v9999', self.search.works_index)
         eq_('test_index-current', self.search.works_alias)
 
         # If the -current alias already exists on the index,
         # it's used without a problem.
-        self.search.transfer_current_alias('test_index-v100')
-        eq_('test_index-v100', self.search.works_index)
+        self.search.transfer_current_alias(self._db, 'test_index-v9999')
+        eq_('test_index-v9999', self.search.works_index)
         eq_('test_index-current', self.search.works_alias)
 
         # If the -current alias is being used on a different version of the
         # index, it's deleted from that index and placed on the new one.
         self.search.setup_index(original_index)
-        self.search.transfer_current_alias(original_index)
+        self.search.transfer_current_alias(self._db, original_index)
         eq_(original_index, self.search.works_index)
         eq_('test_index-current', self.search.works_alias)
 
         # It has been removed from other index.
         eq_(False, self.search.indices.exists_alias(
-            index='test_index-v100', name='test_index-current'))
+            index='test_index-v9999', name='test_index-current'))
+
         # And only exists on the new index.
         alias_indices = self.search.indices.get_alias(name='test_index-current').keys()
-        eq_(['test_index-v0'], alias_indices)
+        eq_([original_index], alias_indices)
 
         # If the index doesn't have the same base name, an error is raised.
         assert_raises(
-            ValueError, self.search.transfer_current_alias, 'banana-v10')
+            ValueError, self.search.transfer_current_alias, self._db, 
+            'banana-v10'
+        )
 
 class TestExternalSearchWithWorks(ExternalSearchTest):
     """These tests run against a real search index with works in it.

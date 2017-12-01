@@ -37,7 +37,7 @@ class ExternalSearchIndex(object):
     work_document_type = 'work-type'
     __client = None
 
-    CURRENT_ALIAS_SUFFIX = '-current'
+    CURRENT_ALIAS_SUFFIX = 'current'
     VERSION_RE = re.compile('-v([0-9]+)$')
 
     SETTINGS = [
@@ -68,6 +68,21 @@ class ExternalSearchIndex(object):
         )
 
     @classmethod
+    def works_prefixed(cls, _db, value):
+        """Prefix the given value with the prefix to use when generating index
+        and alias names.
+
+        :return: A string "{prefix}-{value}", or None if no prefix is
+        configured.
+        """
+        integration = cls.search_integration(_db)
+        if not integration:
+            return None
+        setting = integration.setting(cls.WORKS_INDEX_PREFIX_KEY)
+        prefix = setting.value_or_default(cls.DEFAULT_WORKS_INDEX_PREFIX)
+        return prefix + '-' + value
+
+    @classmethod
     def works_index_name(cls, _db):
         """Look up the name of the search index.
 
@@ -76,12 +91,12 @@ class ExternalSearchIndex(object):
         new one needed to be created, this would be the name of that
         index.
         """
-        integration = cls.search_integration(_db)
-        if not integration:
-            return None
-        setting = integration.setting(cls.WORKS_INDEX_PREFIX_KEY)
-        prefix = setting.value_or_default(cls.DEFAULT_WORKS_INDEX_PREFIX)
-        return prefix + '-' + ExternalSearchIndexVersions.latest()
+        return cls.works_prefixed(_db, ExternalSearchIndexVersions.latest())
+
+    @classmethod
+    def works_alias_name(cls, _db):
+        """Look up the name of the search index alias."""
+        return cls.works_prefixed(_db, cls.CURRENT_ALIAS_SUFFIX)
 
     def __init__(self, _db, url=None, works_index=None):
     
@@ -127,53 +142,57 @@ class ExternalSearchIndex(object):
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
         if works_index and integration:
-            self.set_works_index_and_alias(_db, works_index)
-            self.update_integration_settings(integration)
+            self.set_works_index_and_alias(_db)
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
 
-    def set_works_index_and_alias(self, _db, current_alias):
+    def set_works_index_and_alias(self, _db):
         """Finds or creates the works_index and works_alias based on
-        provided configuration.
+        the current configuration.
         """
-        if current_alias:
-            index_details = self.indices.get_alias(name=current_alias, ignore=[404])
-            found = bool(index_details) and not (index_details.get('status')==404 or 'error' in index_details)
-        else:
-            found = False
+
+        # We always know what the name of the alias _should_ be.
+        alias_name = self.works_alias_name(_db)    
+        index_details = self.indices.get_alias(name=alias_name, ignore=[404])
+
+        # But the alias may not exist in Elasticsearch.
+        found = (
+            bool(index_details) and not (
+                index_details.get('status')==404 or 'error' in index_details
+            )
+        )
 
         def _set_works_index(name):
             self.works_index = self.__client.works_index = name
 
         if found:
-            # We found an index for the alias in configuration. Assume
-            # there is only one.
+            # The alias exists and points to a specific index.  Assume
+            # there is only one such index.
             _set_works_index(index_details.keys()[0])
         else:
-            # The alias culled from configuration is intended to be
-            # a current alias, but an index with that alias wasn't
-            # found. Find or create an index with the name known to
-            # be right for this version.
+            # The alias doesn't point to anything. The index name to
+            # use is the one known to be right for this version.
             _set_works_index(self.works_index_name(_db))
 
         if not self.indices.exists(self.works_index):
+            # The index doesn't actually exist. Set it up.
             self.setup_index()
-        self.setup_current_alias()
 
-    def setup_current_alias(self):
-        """Finds or creates a works_alias based on the base works_index
-        name and ending in the expected CURRENT_ALIAS_SUFFIX.
+        # Make sure the alias points to the index we're using.
+        self.setup_current_alias(_db)
+
+    def setup_current_alias(self, _db):
+        """Finds or creates the works_alias as named by the current site
+        settings.
 
         If the resulting alias exists and is affixed to a different
         index or if it can't be generated for any reason, the alias will
         not be created or moved. Instead, the search client will use the
         the works_index directly for search queries.
         """
-
-        base_works_index = self.base_index_name(self.works_index)
-        alias_name = base_works_index+self.CURRENT_ALIAS_SUFFIX
+        alias_name = self.works_alias_name(_db)
         exists = self.indices.exists_alias(name=alias_name)
 
         def _set_works_alias(name):
@@ -219,7 +238,7 @@ class ExternalSearchIndex(object):
         body = ExternalSearchIndexVersions.latest_body()
         self.indices.create(index=index, body=body)
 
-    def transfer_current_alias(self, new_index):
+    def transfer_current_alias(self, _db, new_index):
         """Force -current alias onto a new index"""
         if not self.indices.exists(index=new_index):
             raise ValueError(
@@ -235,11 +254,11 @@ class ExternalSearchIndex(object):
                  "is the same.") % (new_index, self.works_index))
 
         self.works_index = self.__client.works_index = new_index
-        alias_name = self.base_index_name(new_index)+self.CURRENT_ALIAS_SUFFIX
+        alias_name = self.works_alias_name(_db)
 
         exists = self.indices.exists_alias(name=alias_name)
         if not exists:
-            self.setup_current_alias()
+            self.setup_current_alias(_db)
             return
 
         exists_on_works_index = self.indices.get_alias(
