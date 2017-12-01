@@ -456,9 +456,9 @@ class ExternalSearchIndex(object):
 
         # An exact title or author match outweighs a match that is split
         # across fields.
-        match_title = make_phrase_query(query_string, ['title.standard'], 200)
+        match_title = make_phrase_query(query_string, ['title.standard'], 100)
         must_match_options.append(match_title)
-        match_author = make_phrase_query(query_string, ['author.standard'], 200)
+        match_author = make_phrase_query(query_string, ['author.standard'], 100)
         must_match_options.append(match_author)
 
         if not fuzzy_blacklist_re.search(query_string):
@@ -535,7 +535,7 @@ class ExternalSearchIndex(object):
                 # However, it's possible that they're searching for a subject that's not
                 # mentioned in the summary (eg, a person's name in a biography). So title
                 # is a possible match, but is less important than author, subtitle, and summary.
-                match_rest_of_query = make_query_string_query(remaining_string, ["author^3", "subtitle^2", "summary^4", "title^1", "series^1"])
+                match_rest_of_query = make_query_string_query(remaining_string, ["author^4", "subtitle^2", "summary^4", "title^1", "series^1"])
                 classification_queries.append(match_rest_of_query)
             
             # If classification queries and the remaining string all match, the result will
