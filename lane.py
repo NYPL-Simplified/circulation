@@ -781,8 +781,10 @@ class WorkList(object):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
         metadata doesn't match what we're looking for.
 
-        :return: None if there are no particular additional filters to
-        be added; otherwise a SQLAlchemy filter.
+        :return: A 3-tuple (query, clause, distinct).
+
+        - query is either `qu`, or a new query that has been modified to
+        join against additional tables.
         """
         # Audience and language restrictions are common to all
         # WorkLists. (So are genre and collection restrictions, but those
@@ -1424,9 +1426,11 @@ class Lane(Base, WorkList):
             # In addition to the other restrictions imposed by this
             # Lane, books will show up here only if they would
             # also show up in the parent Lane.
-            qu, parent_distinct = self.parent.bibliographic_filter_clause(
+            qu, clause, parent_distinct = self.parent.bibliographic_filter_clause(
                 _db, qu, work_model, featured
             )
+            if clause:
+                clauses.append(clause)
         else:
             parent_distinct = False
 

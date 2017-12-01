@@ -855,12 +855,12 @@ class TestWorkList(DatabaseTest):
         qu = self._db.query(MaterializedWork)
         eq_(None, wl.apply_filters(self._db, qu, MaterializedWork, None, None))
 
-    def test_apply_bibliographic_filters(self):
+    def test_bibliographic_filter_clause(self):
         called = dict()
 
         class MockWorkList(WorkList):
-            """Mock WorkList that simply verifies that apply_filters()
-            calls various hook methods.
+            """Mock WorkList that simply verifies that
+            bibliographic_filter_clause() calls various hook methods.
             """
 
             def __init__(self, languages=None, genre_ids=None, media=None):
@@ -884,51 +884,51 @@ class TestWorkList(DatabaseTest):
             self._db, original_qu, wg, featured_object
         )
         eq_(original_qu, final_qu)
+        eq_(None, bibliographic_filter)
 
-        # But the hook methods were called with the correct arguments.
+        # But at least the hook methods were called with the correct
+        # arguments.
         eq_(True, called['apply_audience_filter'])
 
         # If languages, media, and genre IDs are specified, then they are
         # incorporated into the query.
+        #
         english_sf = self._work(language="eng", with_license_pool=True)
         english_sf.presentation_edition.medium = Edition.BOOK_MEDIUM
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        romance, ignore = Genre.lookup(self._db, "Romance")
         english_sf.genres.append(sf)
         self.add_to_materialized_view(english_sf)
 
         # Create a WorkList that will find the MaterializedWorkWithGenre
         # for the English SF book.
-        english_sf_list = MockWorkList(languages=["eng"], genre_ids=[sf.id], media=[Edition.BOOK_MEDIUM])
-        english_sf_qu, distinct = english_sf_list.apply_bibliographic_filters(
-            self._db, original_qu, wg, False
-        )
+        def worklist_has_books(
+                expect_books, **worklist_constructor_args
+        ):
+            worklist = MockWorkList(**worklist_constructor_args)
+            qu, clause, distinct = worklist.bibliographic_filter_clause(
+                self._db, original_qu, wg, False
+            )
+            qu = qu.filter(clause)
+            if distinct:
+                qu = qu.distinct()
+            expect_titles = sorted([x.sort_title for x in expect_books])
+            actual_titles = sorted([x.sort_title for x in qu])
+            eq_(expect_titles, actual_titles)
 
-        # Here it is!
-        eq_([english_sf.sort_title], [x.sort_title for x in english_sf_qu])
+        worklist_has_books(
+            [english_sf], 
+            languages=["eng"], genre_ids=[sf.id], media=[Edition.BOOK_MEDIUM]
+        )
 
         # WorkLists that do not match by language, medium, or genre will not
         # find the English SF book.
-        spanish_sf_list = MockWorkList(languages=["spa"], genre_ids=[sf.id])
-        spanish_sf_qu, distinct = spanish_sf_list.apply_bibliographic_filters(
-            self._db, original_qu, wg, False
+        worklist_has_books([], languages=["spa"], genre_ids=[sf.id])
+        worklist_has_books([], languages=["eng"], genre_ids=[romance.id])
+        worklist_has_books(
+            [], 
+            languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM]
         )
-        eq_(0, spanish_sf_qu.count())
-        
-        romance, ignore = Genre.lookup(self._db, "Romance")
-        english_romance_list = MockWorkList(
-            languages=["eng"], genre_ids=[romance.id]
-        )
-        english_romance_qu, distinct = english_romance_list.apply_bibliographic_filters(
-            self._db, original_qu, wg, False
-        )
-        eq_(0, english_romance_qu.count())
-
-        audio_list = MockWorkList(
-            languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM])
-        audio_qu, distinct = audio_list.apply_bibliographic_filters(
-            self._db, original_qu, wg, False
-        )
-        eq_(0, audio_qu.count())
 
     def test_audience_filter_clauses(self):
 
@@ -991,7 +991,6 @@ class TestWorkList(DatabaseTest):
         # If no particular audiences are specified, no books are filtered.
         eq_(set([gutenberg_adult, gutenberg_children, non_gutenberg_children]), 
             set(for_audiences()))
-
 
     def test_random_sample(self):
         # This lets me test which items are chosen in a random sample,
