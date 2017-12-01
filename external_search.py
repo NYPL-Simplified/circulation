@@ -450,9 +450,9 @@ class ExternalSearchIndex(object):
 
         # An exact title or author match outweighs a match that is split
         # across fields.
-        match_title = make_phrase_query(query_string, ['title.standard'], 100)
+        match_title = make_phrase_query(query_string, ['title.standard'], 200)
         must_match_options.append(match_title)
-        match_author = make_phrase_query(query_string, ['author.standard'], 100)
+        match_author = make_phrase_query(query_string, ['author.standard'], 200)
         must_match_options.append(match_author)
 
         if not fuzzy_blacklist_re.search(query_string):
@@ -538,7 +538,7 @@ class ExternalSearchIndex(object):
             match_classification_and_rest_of_query = {
                 'bool': {
                     'must': classification_queries,
-                    'boost': 100
+                    'boost': 200
                 }
             }
 
