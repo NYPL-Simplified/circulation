@@ -32,7 +32,7 @@ class ExternalSearchIndex(object):
 
     WORKS_INDEX_PREFIX_KEY = u'works_index_prefix'
 
-    DEFAULT_WORKS_INDEX_PREFIX = u'works'
+    DEFAULT_WORKS_INDEX_PREFIX = u'circulation-works'
     
     work_document_type = 'work-type'
     __client = None
