@@ -30,10 +30,9 @@ class ExternalSearchIndex(object):
 
     NAME = ExternalIntegration.ELASTICSEARCH
 
-    WORKS_INDEX_KEY = u'works_index'
-    WORKS_ALIAS_KEY = u'works_alias'
+    WORKS_INDEX_PREFIX_KEY = u'works_index_prefix'
 
-    DEFAULT_WORKS_INDEX = u'works'
+    DEFAULT_WORKS_INDEX_PREFIX = u'works'
     
     work_document_type = 'work-type'
     __client = None
@@ -43,7 +42,10 @@ class ExternalSearchIndex(object):
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("URL") },
-        { "key": WORKS_INDEX_KEY, "label": _("Works index"), "default": DEFAULT_WORKS_INDEX },
+        { "key": WORKS_INDEX_PREFIX_KEY, "label": _("Index prefix"), 
+          "default": DEFAULT_WORKS_INDEX_PREFIX,
+          "description": _("Any Elasticsearch indexes needed for this application will be created with this unique prefix. In most cases, the default will work fine. You may need to change this if you have multiple application servers using a single Elasticsearch server.")
+        },
     ]
 
     SITEWIDE = True
@@ -67,12 +69,19 @@ class ExternalSearchIndex(object):
 
     @classmethod
     def works_index_name(cls, _db):
-        """Look up the name of the search index."""
+        """Look up the name of the search index.
+
+        It's possible, but unlikely, that the search index alias will
+        point to some other index. But if there were no indexes, and a
+        new one needed to be created, this would be the name of that
+        index.
+        """
         integration = cls.search_integration(_db)
         if not integration:
             return None
-        setting = integration.setting(cls.WORKS_INDEX_KEY)
-        return setting.value_or_default(cls.DEFAULT_WORKS_INDEX)
+        setting = integration.setting(cls.WORKS_INDEX_PREFIX_KEY)
+        prefix = setting.value_or_default(cls.DEFAULT_WORKS_INDEX_PREFIX)
+        return prefix + '-' + ExternalSearchIndexVersions.latest()
 
     def __init__(self, _db, url=None, works_index=None):
     
@@ -118,42 +127,14 @@ class ExternalSearchIndex(object):
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
         if works_index and integration:
-            self.set_works_index_and_alias(works_index)
+            self.set_works_index_and_alias(_db, works_index)
             self.update_integration_settings(integration)
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
-        
-    def update_integration_settings(self, integration, force=False):
-        """Updates the integration with an appropriate index and alias
-        setting if the index and alias have been updated.
-        """
-        if not integration or not (self.works_index and self.works_alias):
-            return
 
-        if self.works_index==self.works_alias:
-            # An index is being used as the alias. There is no alias
-            # to update with.
-            return
-
-        if integration.setting(self.WORKS_ALIAS_KEY).value and not force:
-            # This integration already has an alias and we don't want to
-            # force an update.
-            return
-
-        index_or_alias = [self.works_index, self.works_alias]
-        if (integration.setting(self.WORKS_INDEX_KEY).value not in index_or_alias
-            and not force
-        ):
-            # This ExternalSearchIndex was created for a different index and
-            # alias, and we don't want to force an update.
-            return
-
-        integration.setting(self.WORKS_INDEX_KEY).value = unicode(self.works_index)
-        integration.setting(self.WORKS_ALIAS_KEY).value = unicode(self.works_alias)
-
-    def set_works_index_and_alias(self, current_alias):
+    def set_works_index_and_alias(self, _db, current_alias):
         """Finds or creates the works_index and works_alias based on
         provided configuration.
         """
@@ -171,17 +152,11 @@ class ExternalSearchIndex(object):
             # there is only one.
             _set_works_index(index_details.keys()[0])
         else:
-            if current_alias.endswith(self.CURRENT_ALIAS_SUFFIX):
-                # The alias culled from configuration is intended to be
-                # a current alias, but an index with that alias wasn't
-                # found. Find or create an appropriate index.
-                base_index_name = self.base_index_name(current_alias)
-                new_index = base_index_name+'-'+ExternalSearchIndexVersions.latest()
-                _set_works_index(new_index)
-            else:
-                # Without the CURRENT_ALIAS_SUFFIX, assume the index string
-                # from config is the index itself and needs to be swapped.
-                _set_works_index(current_alias)
+            # The alias culled from configuration is intended to be
+            # a current alias, but an index with that alias wasn't
+            # found. Find or create an index with the name known to
+            # be right for this version.
+            _set_works_index(self.works_index_name(_db))
 
         if not self.indices.exists(self.works_index):
             self.setup_index()

@@ -44,7 +44,7 @@ class ExternalSearchTest(DatabaseTest):
             ExternalIntegration.ELASTICSEARCH,
             goal=ExternalIntegration.SEARCH_GOAL,
             url=u'http://localhost:9200',
-            settings={ExternalSearchIndex.WORKS_INDEX_KEY : u'test_index-v0'}
+            settings={ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY : u'test_index'}
         )
 
         try:
@@ -108,7 +108,7 @@ class TestExternalSearch(ExternalSearchTest):
 
         # If -current alias is given but doesn't exist, the appropriate
         # index and alias will be created.
-        self.search.set_works_index_and_alias('banana-current')
+        self.search.set_works_index_and_alias(self._db, 'banana-current')
 
         expected_index = 'banana-' + ExternalSearchIndexVersions.latest()
         eq_(expected_index, self.search.works_index)
