@@ -861,8 +861,6 @@ class TestExactMatches(ExternalSearchTest):
             "Modern Fairytale Series, Book 3"
         )
 
-        # TODO: Uncomment these lines and the 'modern romance'
-        # test fails for some reason.
         self.parent_book = _work(
              title="Our Son Aziz",
              authors=["Fatima Ansari", "Shoukath Ansari"],
