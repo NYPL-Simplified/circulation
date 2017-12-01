@@ -260,7 +260,7 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
                 audience=Classifier.AUDIENCE_YOUNG_ADULT, genre="Romance"
             )
             self.ya_romance.presentation_edition.subtitle = (
-                "Modern Fairytale Series, Book 7"
+                "Modern Fairytale Series, Volume 7"
             )
             self.ya_romance.set_presentation_ready()
 
@@ -558,9 +558,14 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
 
         results = query("young adult romance", None, None, None, None, None, None, None)
         hits = results["hits"]["hits"]
-        eq_(1, len(hits))
-        eq_(unicode(self.ya_romance.id), hits[0]['_id'])
 
+        # The book with 'Romance' in the title also shows up, but it
+        # shows up after the book whose audience matches 'young adult'
+        # and whose genre matches 'romance'.
+        eq_(
+            map(unicode, [self.ya_romance.id, self.modern_romance.id]),
+            [x['_id'] for x in hits]
+        )
 
         # Matches age + fiction
 
