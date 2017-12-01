@@ -776,6 +776,17 @@ class WorkList(object):
             qu = pagination.apply(qu)
         return qu
 
+    def apply_bibliographic_filters(self, _db, qu, work_model, featured=False):
+        """Apply filters to a base query against a materialized view,
+        yielding a query that only finds books in this WorkList.
+
+        :param work_model: Either MaterializedWork or MaterializedWorkWithGenre
+        """
+        qu, filter_by, distinct = self.bibliographic_filter_clause(
+            _db, qu, work_model, featured
+        )
+        return qu.filter(filter_by), distinct
+
     def bibliographic_filter_clause(self, _db, qu, work_model, featured=False):
         """Filter out books whose bibliographic metadata doesn't match
         what we're looking for.
@@ -784,6 +795,7 @@ class WorkList(object):
         # WorkLists. (So are genre and collection restrictions, but those
         # were applied back in works().)
 
+        set_trace()
         clauses = self.audience_filter_clauses(_db, qu, work_model)
         if self.languages:
             clauses.append(work_model.language.in_(self.languages))
@@ -1385,17 +1397,6 @@ class Lane(Base, WorkList):
             return super(Lane, self).search(_db, query, search_client, pagination)
         else:
             return target.search(_db, query, search_client, pagination)
-
-    def apply_bibliographic_filters(self, _db, qu, work_model, featured=False):
-        """Apply filters to a base query against a materialized view,
-        yielding a query that only finds books in this Lane.
-
-        :param work_model: Either MaterializedWork or MaterializedWorkWithGenre
-        """
-        qu, filter_by, distinct = self.bibliographic_filter_clause(
-            qu, work_model, featured
-        )
-        return qu.filter(filter_by), distinct
 
     def bibliographic_filter_clause(self, _db, qu, work_model, featured):
         """Create an AND clause that restricts a query to find

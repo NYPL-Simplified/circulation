@@ -788,7 +788,7 @@ class TestWorkList(DatabaseTest):
                 called['only_show_ready_deliverable_works'] = True
                 return query
 
-            def apply_bibliographic_filters(
+            def bibliographic_filter_clause(
                     self, _db, query, work_model, featured
             ):
                 called['apply_bibliographic_filters'] = True
