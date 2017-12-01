@@ -843,11 +843,11 @@ class TestExactMatches(ExternalSearchTest):
 
         # TODO: Uncomment these lines and the 'modern romance'
         # test fails for some reason.
-        # self.parent_book = _work(
-        #     title="Our Son Aziz",
-        #     authors=["Fatima Ansari", "Shoukath Ansari"],
-        #     genre="Biography & Memoir",
-        # )
+        self.parent_book = _work(
+             title="Our Son Aziz",
+             authors=["Fatima Ansari", "Shoukath Ansari"],
+             genre="Biography & Memoir",
+        )
 
         self.behind_the_scenes = _work(
             title="The Making of Biography With Peter Graves",
@@ -909,12 +909,25 @@ class TestExactMatches(ExternalSearchTest):
 
         # A full title match takes precedence over a match that's
         # split across genre and subtitle.
-        expect_ids([self.modern_romance, self.ya_romance], "modern romance")
+        expect_ids(
+            [
+                self.modern_romance, # "modern romance" in title
+                self.ya_romance      # "modern" in subtitle, genre "romance"
+            ],
+            "modern romance"
+        )
 
         # A full author match takes precedence over a partial author
-        # match.
-        expect_ids([self.modern_romance, self.book_by_someone_else],
-                   "aziz ansari")
+        # match. A partial author match that matches the entire search
+        # string takes precedence over a partial author match that doesn't.
+        expect_ids(
+            [
+                self.modern_romance,      # "Aziz Ansari" in author
+                self.parent_book,         # "Aziz" in title, "Ansari" in author
+                self.book_by_someone_else # "Ansari" in author
+            ],
+            "aziz ansari"
+        )
 
         # When a string exactly matches both a title and an author,
         # the books that match exactly are promoted.
@@ -928,11 +941,15 @@ class TestExactMatches(ExternalSearchTest):
         # search for 'peter graves biography' than a biography whose
         # title includes the phrase 'peter graves'. Although the title
         # contains all three search terms, it's not an exact token
-        # match. But "The Making of..." still does better than book
-        # that matches the query string against two different fields.
+        # match. But "The Making of..." still does better than
+        # books that match 'peter graves' (or 'peter' and 'graves'),
+        # but not 'biography'.
         expect_ids(
-            [self.biography_of_peter_graves, self.book_by_peter_graves,
-             self.behind_the_scenes, self.book_by_someone_else],
+            [self.biography_of_peter_graves, # title + genre 'biography'
+             self.behind_the_scenes,         # all words match in title
+             self.book_by_peter_graves,      # author (no 'biography')
+             self.book_by_someone_else       # title + author (no 'biography')
+            ],
             "peter graves biography"
         )
 

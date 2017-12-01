@@ -324,9 +324,10 @@ class ExternalSearchIndex(object):
         )
         if fields is not None:
             search_args['fields'] = fields
-        print "Args looks like: %r" % search_args
+        # search_args['explain'] = True
+        # print "Args looks like: %r" % search_args
         results = self.search(**search_args)
-        print "Results: %r" % results
+        # print "Results: %r" % results
         return results
 
     def make_query(self, query_string):
@@ -455,9 +456,9 @@ class ExternalSearchIndex(object):
 
         # An exact title or author match outweighs a match that is split
         # across fields.
-        match_title = make_phrase_query(query_string, ['title.minimal'], 150)
+        match_title = make_phrase_query(query_string, ['title.standard'], 200)
         must_match_options.append(match_title)
-        match_author = make_phrase_query(query_string, ['author.minimal'], 150)
+        match_author = make_phrase_query(query_string, ['author.standard'], 200)
         must_match_options.append(match_author)
 
         if not fuzzy_blacklist_re.search(query_string):
@@ -802,7 +803,12 @@ class ExternalSearchIndexVersions(object):
                 "fields": {
                     "minimal": {
                         "type": "string",
-                        "analyzer": "en_minimal_analyzer"}}}
+                        "analyzer": "en_minimal_analyzer"},
+                    "standard": {
+                        "type": "string",
+                        "analyzer": "standard"
+                    }
+                }}
         )
         mappings = { ExternalSearchIndex.work_document_type : mapping }
 
