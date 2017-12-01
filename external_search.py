@@ -855,8 +855,7 @@ class ExternalSearchIndexVersions(object):
                 "fields": {
                     "minimal": {
                         "type": "string",
-                        "analyzer": "en_minimal_analyzer"},
-                }}
+                        "analyzer": "en_minimal_analyzer"}}}
         )
         mappings = { ExternalSearchIndex.work_document_type : mapping }
 
