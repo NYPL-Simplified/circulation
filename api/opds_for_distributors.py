@@ -4,7 +4,7 @@ import base64
 import datetime
 import feedparser
 import json
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from core.opds_import import (
     OPDSImporter,

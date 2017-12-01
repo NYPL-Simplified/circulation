@@ -12,7 +12,7 @@ import sys
 
 import flask
 from flask import Response
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from config import (
     CannotLoadConfiguration,
     Configuration,

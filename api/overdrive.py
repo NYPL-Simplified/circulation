@@ -3,7 +3,7 @@ import datetime
 import json
 import requests
 import flask
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from sqlalchemy.orm import contains_eager
 

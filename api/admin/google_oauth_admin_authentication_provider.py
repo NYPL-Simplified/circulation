@@ -4,7 +4,7 @@ from nose.tools import set_trace
 from admin_authentication_provider import AdminAuthenticationProvider
 from problem_details import GOOGLE_OAUTH_FAILURE
 from oauth2client import client as GoogleClient
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from core.model import ExternalIntegration
 
 class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):

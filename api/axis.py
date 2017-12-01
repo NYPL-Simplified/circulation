@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 from datetime import datetime, timedelta
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from sqlalchemy.orm import contains_eager
 
 from lxml import etree

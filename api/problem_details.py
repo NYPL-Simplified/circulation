@@ -1,6 +1,6 @@
 from core.util.problem_detail import ProblemDetail as pd
 from core.problem_details import *
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 REMOTE_INTEGRATION_FAILED = pd(
       "http://librarysimplified.org/terms/problem/remote-integration-failed",
