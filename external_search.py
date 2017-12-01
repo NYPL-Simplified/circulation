@@ -538,7 +538,7 @@ class ExternalSearchIndex(object):
             match_classification_and_rest_of_query = {
                 'bool': {
                     'must': classification_queries,
-                    'boost': 200
+                    'boost': 200.0
                 }
             }
 
