@@ -759,7 +759,7 @@ class WorkList(object):
             _db, qu, work_model, featured
         )
         if not qu:
-            # apply_bibliographic_filters() may return a null query to
+            # bibliographic_filter_clause() may return a null query to
             # indicate that the WorkList should not exist at all.
             return None
         if bibliographic_clause:

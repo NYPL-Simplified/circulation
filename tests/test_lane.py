@@ -840,14 +840,14 @@ class TestWorkList(DatabaseTest):
 
     def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
         class MockWorkList(WorkList):
-            """Mock WorkList whose apply_bibliographic_filters implementation
+            """Mock WorkList whose bibliographic_filter_clause implementation
             believes the WorkList should not exist at all.
             """
 
-            def bibliographic__bibliographic_filters(
+            def bibliographic_filter_clause(
                     self, _db, query, work_model, featured
             ):
-                return None, False
+                return None, None, False
 
         wl = MockWorkList()
         wl.initialize(self._default_library)
