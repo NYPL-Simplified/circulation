@@ -30,20 +30,22 @@ class ExternalSearchIndex(object):
 
     NAME = ExternalIntegration.ELASTICSEARCH
 
-    WORKS_INDEX_KEY = u'works_index'
-    WORKS_ALIAS_KEY = u'works_alias'
+    WORKS_INDEX_PREFIX_KEY = u'works_index_prefix'
 
-    DEFAULT_WORKS_INDEX = u'works'
+    DEFAULT_WORKS_INDEX_PREFIX = u'circulation-works'
     
     work_document_type = 'work-type'
     __client = None
 
-    CURRENT_ALIAS_SUFFIX = '-current'
+    CURRENT_ALIAS_SUFFIX = 'current'
     VERSION_RE = re.compile('-v([0-9]+)$')
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("URL") },
-        { "key": WORKS_INDEX_KEY, "label": _("Works index"), "default": DEFAULT_WORKS_INDEX },
+        { "key": WORKS_INDEX_PREFIX_KEY, "label": _("Index prefix"), 
+          "default": DEFAULT_WORKS_INDEX_PREFIX,
+          "description": _("Any Elasticsearch indexes needed for this application will be created with this unique prefix. In most cases, the default will work fine. You may need to change this if you have multiple application servers using a single Elasticsearch server.")
+        },
     ]
 
     SITEWIDE = True
@@ -66,13 +68,35 @@ class ExternalSearchIndex(object):
         )
 
     @classmethod
-    def works_index_name(cls, _db):
-        """Look up the name of the search index."""
+    def works_prefixed(cls, _db, value):
+        """Prefix the given value with the prefix to use when generating index
+        and alias names.
+
+        :return: A string "{prefix}-{value}", or None if no prefix is
+        configured.
+        """
         integration = cls.search_integration(_db)
         if not integration:
             return None
-        setting = integration.setting(cls.WORKS_INDEX_KEY)
-        return setting.value_or_default(cls.DEFAULT_WORKS_INDEX)
+        setting = integration.setting(cls.WORKS_INDEX_PREFIX_KEY)
+        prefix = setting.value_or_default(cls.DEFAULT_WORKS_INDEX_PREFIX)
+        return prefix + '-' + value
+
+    @classmethod
+    def works_index_name(cls, _db):
+        """Look up the name of the search index.
+
+        It's possible, but unlikely, that the search index alias will
+        point to some other index. But if there were no indexes, and a
+        new one needed to be created, this would be the name of that
+        index.
+        """
+        return cls.works_prefixed(_db, ExternalSearchIndexVersions.latest())
+
+    @classmethod
+    def works_alias_name(cls, _db):
+        """Look up the name of the search index alias."""
+        return cls.works_prefixed(_db, cls.CURRENT_ALIAS_SUFFIX)
 
     def __init__(self, _db, url=None, works_index=None):
     
@@ -118,87 +142,36 @@ class ExternalSearchIndex(object):
         # Document upload runs against the works_index.
         # Search queries run against works_alias.
         if works_index and integration:
-            self.set_works_index_and_alias(works_index)
-            self.update_integration_settings(integration)
+            self.set_works_index_and_alias(_db)
 
         def bulk(docs, **kwargs):
             return elasticsearch_bulk(self.__client, docs, **kwargs)
         self.bulk = bulk
-        
-    def update_integration_settings(self, integration, force=False):
-        """Updates the integration with an appropriate index and alias
-        setting if the index and alias have been updated.
-        """
-        if not integration or not (self.works_index and self.works_alias):
-            return
 
-        if self.works_index==self.works_alias:
-            # An index is being used as the alias. There is no alias
-            # to update with.
-            return
-
-        if integration.setting(self.WORKS_ALIAS_KEY).value and not force:
-            # This integration already has an alias and we don't want to
-            # force an update.
-            return
-
-        index_or_alias = [self.works_index, self.works_alias]
-        if (integration.setting(self.WORKS_INDEX_KEY).value not in index_or_alias
-            and not force
-        ):
-            # This ExternalSearchIndex was created for a different index and
-            # alias, and we don't want to force an update.
-            return
-
-        integration.setting(self.WORKS_INDEX_KEY).value = unicode(self.works_index)
-        integration.setting(self.WORKS_ALIAS_KEY).value = unicode(self.works_alias)
-
-    def set_works_index_and_alias(self, current_alias):
+    def set_works_index_and_alias(self, _db):
         """Finds or creates the works_index and works_alias based on
-        provided configuration.
+        the current configuration.
         """
-        if current_alias:
-            index_details = self.indices.get_alias(name=current_alias, ignore=[404])
-            found = bool(index_details) and not (index_details.get('status')==404 or 'error' in index_details)
-        else:
-            found = False
-
-        def _set_works_index(name):
-            self.works_index = self.__client.works_index = name
-
-        if found:
-            # We found an index for the alias in configuration. Assume
-            # there is only one.
-            _set_works_index(index_details.keys()[0])
-        else:
-            if current_alias.endswith(self.CURRENT_ALIAS_SUFFIX):
-                # The alias culled from configuration is intended to be
-                # a current alias, but an index with that alias wasn't
-                # found. Find or create an appropriate index.
-                base_index_name = self.base_index_name(current_alias)
-                new_index = base_index_name+'-'+ExternalSearchIndexVersions.latest()
-                _set_works_index(new_index)
-            else:
-                # Without the CURRENT_ALIAS_SUFFIX, assume the index string
-                # from config is the index itself and needs to be swapped.
-                _set_works_index(current_alias)
-
+        # The index name to use is the one known to be right for this
+        # version.
+        self.works_index = self.__client.works_index = self.works_index_name(_db)
         if not self.indices.exists(self.works_index):
+            # That index doesn't actually exist. Set it up.
             self.setup_index()
-        self.setup_current_alias()
 
-    def setup_current_alias(self):
-        """Finds or creates a works_alias based on the base works_index
-        name and ending in the expected CURRENT_ALIAS_SUFFIX.
+        # Make sure the alias points to the most recent index.
+        self.setup_current_alias(_db)
+
+    def setup_current_alias(self, _db):
+        """Finds or creates the works_alias as named by the current site
+        settings.
 
         If the resulting alias exists and is affixed to a different
         index or if it can't be generated for any reason, the alias will
         not be created or moved. Instead, the search client will use the
         the works_index directly for search queries.
         """
-
-        base_works_index = self.base_index_name(self.works_index)
-        alias_name = base_works_index+self.CURRENT_ALIAS_SUFFIX
+        alias_name = self.works_alias_name(_db)
         exists = self.indices.exists_alias(name=alias_name)
 
         def _set_works_alias(name):
@@ -244,7 +217,7 @@ class ExternalSearchIndex(object):
         body = ExternalSearchIndexVersions.latest_body()
         self.indices.create(index=index, body=body)
 
-    def transfer_current_alias(self, new_index):
+    def transfer_current_alias(self, _db, new_index):
         """Force -current alias onto a new index"""
         if not self.indices.exists(index=new_index):
             raise ValueError(
@@ -260,11 +233,11 @@ class ExternalSearchIndex(object):
                  "is the same.") % (new_index, self.works_index))
 
         self.works_index = self.__client.works_index = new_index
-        alias_name = self.base_index_name(new_index)+self.CURRENT_ALIAS_SUFFIX
+        alias_name = self.works_alias_name(_db)
 
         exists = self.indices.exists_alias(name=alias_name)
         if not exists:
-            self.setup_current_alias()
+            self.setup_current_alias(_db)
             return
 
         exists_on_works_index = self.indices.get_alias(
@@ -324,9 +297,10 @@ class ExternalSearchIndex(object):
         )
         if fields is not None:
             search_args['fields'] = fields
-        #print "Args looks like: %r" % args
+        # search_args['explain'] = True
+        # print "Args looks like: %r" % search_args
         results = self.search(**search_args)
-        #print "Results: %r" % results
+        # print "Results: %r" % results
         return results
 
     def make_query(self, query_string):
@@ -339,7 +313,7 @@ class ExternalSearchIndex(object):
                 }
             }
 
-        def make_phrase_query(query_string, fields):
+        def make_phrase_query(query_string, fields, boost=100):
             field_queries = []
             for field in fields:
                 field_query = {
@@ -352,7 +326,7 @@ class ExternalSearchIndex(object):
                 'bool': {
                   'should': field_queries,
                   'minimum_should_match': 1,
-                  'boost': 100,
+                  'boost': boost,
                 }
               }
 
@@ -452,6 +426,13 @@ class ExternalSearchIndex(object):
 
         match_phrase = make_phrase_query(query_string, ['title.minimal', 'author', 'series.minimal'])
         must_match_options.append(match_phrase)
+
+        # An exact title or author match outweighs a match that is split
+        # across fields.
+        match_title = make_phrase_query(query_string, ['title.standard'], 200)
+        must_match_options.append(match_title)
+        match_author = make_phrase_query(query_string, ['author.standard'], 200)
+        must_match_options.append(match_author)
 
         if not fuzzy_blacklist_re.search(query_string):
             fuzzy_query = make_fuzzy_query(query_string, fuzzy_fields)
@@ -730,7 +711,7 @@ class ExternalSearchIndex(object):
 
 class ExternalSearchIndexVersions(object):
 
-    VERSIONS = ['v2']
+    VERSIONS = ['v2', 'v3']
 
     @classmethod
     def latest(cls):
@@ -750,6 +731,64 @@ class ExternalSearchIndexVersions(object):
         for field in fields:
             mapping["properties"][field] = field_description
         return mapping
+
+    @classmethod
+    def v3_body(cls):
+        """The v3 body is the same as the v2 except for the inclusion of the
+        '.standard' version of fields, analyzed using the standard
+        analyzer for near-exact matches.
+        """
+        settings = {
+            "analysis": {
+                "filter": {
+                    "en_stop_filter": {
+                        "type": "stop",
+                        "stopwords": ["_english_"]
+                    },
+                    "en_stem_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                    "en_stem_minimal_filter": {
+                        "type": "stemmer",
+                        "name": "english"
+                    },
+                },
+                "analyzer" : {
+                    "en_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_filter"]
+                    },
+                    "en_minimal_analyzer": {
+                        "type": "custom",
+                        "char_filter": ["html_strip"],
+                        "tokenizer": "standard",
+                        "filter": ["lowercase", "asciifolding", "en_stop_filter", "en_stem_minimal_filter"]
+                    },
+                }
+            }
+        }
+
+        mapping = cls.map_fields(
+            fields=["title", "series", "subtitle", "summary", "classifications.term"],
+            field_description={
+                "type": "string",
+                "analyzer": "en_analyzer",
+                "fields": {
+                    "minimal": {
+                        "type": "string",
+                        "analyzer": "en_minimal_analyzer"},
+                    "standard": {
+                        "type": "string",
+                        "analyzer": "standard"
+                    }
+                }}
+        )
+        mappings = { ExternalSearchIndex.work_document_type : mapping }
+
+        return dict(settings=settings, mappings=mappings)
 
     @classmethod
     def v2_body(cls):
@@ -873,7 +912,7 @@ class SearchIndexMonitor(WorkSweepMonitor):
     def __init__(self, _db, collection, index_name=None, index_client=None,
                  **kwargs):
         super(SearchIndexMonitor, self).__init__(_db, collection, **kwargs)
-        
+
         if index_client:
             # This would only happen during a test.
             self.search_index_client = index_client
