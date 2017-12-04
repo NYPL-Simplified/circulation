@@ -3358,7 +3358,7 @@ class Edition(Base):
                     if not rep.mirrored_at and not rep.thumbnails:
                         logging.warn(
                             "Best cover for %r (%s) was never mirrored or thumbnailed!",
-                            self.primary_identifer,
+                            self.primary_identifier,
                             rep.url
                         )
                 self.set_cover(best_cover)
