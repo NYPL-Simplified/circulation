@@ -3685,7 +3685,7 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.SEARCH_GOAL,
         )
         search_service.url = "search url"
-        search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value = "works-index"
+        search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.search_services()
@@ -3694,7 +3694,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(search_service.id, service.get("id"))
             eq_(search_service.protocol, service.get("protocol"))
             eq_("search url", service.get("settings").get(ExternalIntegration.URL))
-            eq_("works-index", service.get("settings").get(ExternalSearchIndex.WORKS_INDEX_KEY))
+            eq_("works-index-prefix", service.get("settings").get(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY))
 
     def test_search_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -3763,7 +3763,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
                 (ExternalIntegration.URL, "search url"),
-                (ExternalSearchIndex.WORKS_INDEX_KEY, "works-index"),
+                (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "works-index-prefix"),
             ])
             response = self.manager.admin_settings_controller.search_services()
             eq_(response.status_code, 201)
@@ -3772,7 +3772,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(service.id, int(response.response[0]))
         eq_(ExternalIntegration.ELASTICSEARCH, service.protocol)
         eq_("search url", service.url)
-        eq_("works-index", service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
+        eq_("works-index-prefix", service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value)
 
     def test_search_services_post_edit(self):
         search_service, ignore = create(
@@ -3781,14 +3781,14 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.SEARCH_GOAL,
         )
         search_service.url = "search url"
-        search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value = "works-index"
+        search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", search_service.id),
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
                 (ExternalIntegration.URL, "new search url"),
-                (ExternalSearchIndex.WORKS_INDEX_KEY, "new-works-index")
+                (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "new-works-index-prefix")
             ])
             response = self.manager.admin_settings_controller.search_services()
             eq_(response.status_code, 200)
@@ -3796,7 +3796,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(search_service.id, int(response.response[0]))
         eq_(ExternalIntegration.ELASTICSEARCH, search_service.protocol)
         eq_("new search url", search_service.url)
-        eq_("new-works-index", search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
+        eq_("new-works-index-prefix", search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value)
 
     def test_search_service_delete(self):
         search_service, ignore = create(
@@ -3805,7 +3805,7 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.SEARCH_GOAL,
         )
         search_service.url = "search url"
-        search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value = "works-index"
+        search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
         with self.app.test_request_context("/", method="DELETE"):
             response = self.manager.admin_settings_controller.search_service(search_service.id)
