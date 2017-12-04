@@ -2743,8 +2743,8 @@ class Edition(Base):
         PERIODICAL_MEDIUM : u"http://schema.org/PublicationIssue",
         MUSIC_MEDIUM :  u"http://schema.org/MusicRecording",
         VIDEO_MEDIUM :  u"http://schema.org/VideoObject",
-        IMAGE_MEDIUM :  u"http://schema.org/ImageObject",
-        COURSEWARE_MEDIUM : u""
+        IMAGE_MEDIUM: u"http://schema.org/ImageObject",
+        COURSEWARE_MEDIUM: u"http://schema.org/Course"
     }
 
     additional_type_to_medium = {}
@@ -3358,7 +3358,7 @@ class Edition(Base):
                     if not rep.mirrored_at and not rep.thumbnails:
                         logging.warn(
                             "Best cover for %r (%s) was never mirrored or thumbnailed!",
-                            self.primary_identiifer,
+                            self.primary_identifer,
                             rep.url
                         )
                 self.set_cover(best_cover)

@@ -7,8 +7,6 @@ import logging
 
 from sqlalchemy.orm.session import Session
 
-from httplib import HTTPException
-
 from model import (
     get_one_or_create,
     Collection,
@@ -23,8 +21,6 @@ from model import (
     Representation,
     Subject,
 )
-
-from util.http import RequestNetworkException
 
 from analytics import Analytics
 
@@ -54,6 +50,8 @@ from util.http import (
     BadResponseException,
 )
 
+from util.personal_names import display_name_to_sort_name
+
 from testing import MockRequestsResponse
 
 
@@ -67,15 +65,12 @@ class OdiloAPI(object):
 
     # --- Discovery API ---
     ALL_PRODUCTS_ENDPOINT = "/records"
-
     RECORD_METADATA_ENDPOINT = "/records/{recordId}"
     RECORD_AVAILABILITY_ENDPOINT = "/records/{recordId}/availability"
 
     # --- Circulation API ---
     CHECKOUT_ENDPOINT = "/records/{recordId}/checkout"
     CHECKIN_ENDPOINT = "/checkouts/{checkoutId}/return?patronId={patronId}"
-    # Downloads given checkout offering the url where to consume the digital resource.
-    CHECKOUT_URL_ENDPOINT = "/checkouts/{checkoutId}/download"
 
     PLACE_HOLD_ENDPOINT = "/records/{recordId}/hold"
     RELEASE_HOLD_ENDPOINT = "/holds/{holdId}/cancel"
@@ -143,27 +138,22 @@ class OdiloAPI(object):
 
     def refresh_creds(self, credential):
         """Fetch a new Bearer Token and update the given Credential object."""
-        try:
-            response = self.token_post(
-                self.TOKEN_ENDPOINT,
-                dict(grant_type="client_credentials"),
-                allowed_response_codes=[200]
-            )
-            data = response.json()
-        except (HTTPException, RequestNetworkException) as e:
-            self.log.error("Cannot connect with %s, error: %s" % (self.TOKEN_ENDPOINT, e.message))
-            return None
+
+        response = self.token_post(
+            self.TOKEN_ENDPOINT,
+            dict(grant_type="client_credentials"),
+            allowed_response_codes=[200]
+        )
+        data = response.json()
 
         if response.status_code == 200:
             self._update_credential(credential, data)
             self.token = credential.credential
-            return 'OK'
         elif response.status_code == 400:
-            response = response.json()
-            message = response['error']
-            if 'error_description' in response:
-                message += '/' + response['error_description']
-            return 'message'
+            if data and 'errors' in data and len(data['errors']) > 0:
+                error = data['errors'][0]
+                message = ('description' in error and error['description']) or ''
+                raise BadResponseException(message)
 
     def get(self, url, extra_headers={}, exception_on_401=False):
         """Make an HTTP GET request using the active Bearer Token."""
@@ -271,7 +261,7 @@ class MockOdiloAPI(OdiloAPI):
         )
         integration.username = u'username'
         integration.password = u'password'
-        integration.setting(OdiloAPI.LIBRARY_API_BASE_URL).value = u'http://localhost:8080/api/v2'
+        integration.setting(OdiloAPI.LIBRARY_API_BASE_URL).value = u'http://library_api_base_url/api/v2'
         library.collections.append(collection)
 
         return collection
@@ -281,7 +271,7 @@ class MockOdiloAPI(OdiloAPI):
         self.requests = []
         self.responses = []
 
-        self.access_token_response = self.mock_access_token_response('token')
+        self.access_token_response = self.mock_access_token_response('bearer token')
         super(MockOdiloAPI, self).__init__(_db, collection, *args, **kwargs)
 
     def token_post(self, url, payload, headers={}, **kwargs):
@@ -324,8 +314,11 @@ class OdiloRepresentationExtractor(object):
     log = logging.getLogger("OdiloRepresentationExtractor")
 
     format_data_for_odilo_format = {
-        "ACSM": (
+        "ACSM_PDF": (
             Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
+        ),
+        "ACSM_EPUB": (
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
         ),
         "EBOOK_STREAMING": (
             Representation.TEXT_HTML_MEDIA_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE
@@ -348,7 +341,8 @@ class OdiloRepresentationExtractor(object):
     }
 
     odilo_medium_to_simplified_medium = {
-        "ACSM": Edition.BOOK_MEDIUM,
+        "ACSM_PDF": Edition.BOOK_MEDIUM,
+        "ACSM_EPUB": Edition.BOOK_MEDIUM,
         "EBOOK_STREAMING": Edition.BOOK_MEDIUM,
         "MP3": Edition.AUDIO_MEDIUM,
         "MP4": Edition.VIDEO_MEDIUM,
@@ -425,7 +419,8 @@ class OdiloRepresentationExtractor(object):
         author = book.get('author')
         if author:
             roles = [Contributor.AUTHOR_ROLE]
-            contributor = ContributorData(sort_name=author, display_name=author, roles=roles, biography=None)
+            sort_author = display_name_to_sort_name(author)
+            contributor = ContributorData(sort_name=sort_author, display_name=author, roles=roles, biography=None)
             contributors.append(contributor)
 
         publisher = book.get('publisher')
@@ -443,7 +438,7 @@ class OdiloRepresentationExtractor(object):
                 cls.log.warn('Cannot parse publication date from: ' + published + ', message: ' + e.message)
 
         # yyyyMMdd --> record last modification date
-        last_update = book['modificationDate']
+        last_update = book.get('modificationDate')
         if last_update:
             try:
                 last_update = datetime.datetime.strptime(last_update, "%Y%m%d")
@@ -456,22 +451,22 @@ class OdiloRepresentationExtractor(object):
         for subject in book.get('subjects', []):
             subjects.append(SubjectData(type=Subject.TAG, identifier=subject, weight=100))
 
+        for subjectBisacCode in book.get('subjectsBisacCodes', []):
+            subjects.append(SubjectData(type=Subject.BISAC, identifier=subjectBisacCode, weight=100))
+
         grade_level = book.get('gradeLevel')
         if grade_level:
             subject = SubjectData(type=Subject.GRADE_LEVEL, identifier=grade_level, weight=10)
             subjects.append(subject)
 
         medium = None
+        file_format = book.get('fileFormat')
         formats = []
         for format_received in book.get('formats', []):
-            # Both formats (PDF and EPUB) behave the same, and are basically the same thing for the final users.
-            if format_received in ('PDF', 'EPUB'):
-                format_received = 'EBOOK_STREAMING'
             if format_received in cls.format_data_for_odilo_format:
-                content_type, drm_scheme = cls.format_data_for_odilo_format.get(format_received)
-                formats.append(FormatData(content_type, drm_scheme))
-                if not medium:
-                    medium = cls.odilo_medium_to_simplified_medium.get(format_received)
+                medium = cls.set_format(format_received, formats)
+            elif format_received == 'ACSM' and file_format:
+                medium = cls.set_format(format_received + '_' + file_format.upper(), formats)
             else:
                 cls.log.warn('Unrecognized format received: ' + format_received)
 
@@ -481,7 +476,7 @@ class OdiloRepresentationExtractor(object):
         identifiers = []
         isbn = book.get('isbn')
         if isbn:
-            if len(isbn) == 10:
+            if isbnlib.is_isbn10(isbn):
                 isbn = isbnlib.to_isbn13(isbn)
             identifiers.append(IdentifierData(Identifier.ISBN, isbn, 1))
 
@@ -489,7 +484,13 @@ class OdiloRepresentationExtractor(object):
         links = []
         cover_image_url = book.get('coverImageUrl')
         if cover_image_url:
-            image_data = cls.image_link_to_linkdata(cover_image_url, Hyperlink.IMAGE)
+            image_data = cls.image_link_to_linkdata(cover_image_url, Hyperlink.THUMBNAIL_IMAGE)
+            if image_data:
+                links.append(image_data)
+
+        original_image_url = book.get('originalImageUrl')
+        if original_image_url:
+            image_data = cls.image_link_to_linkdata(original_image_url, Hyperlink.IMAGE)
             if image_data:
                 links.append(image_data)
 
@@ -517,9 +518,19 @@ class OdiloRepresentationExtractor(object):
         )
 
         metadata.circulation = OdiloRepresentationExtractor.record_info_to_circulation(availability)
+        # 'active' --> means that the book exists but it's no longer in the collection
+        # (it could be available again in the future)
+        if not active:
+            metadata.circulation.licenses_owned = 0
         metadata.circulation.formats = formats
 
         return metadata, active
+
+    @classmethod
+    def set_format(cls, format_received, formats):
+        content_type, drm_scheme = cls.format_data_for_odilo_format.get(format_received)
+        formats.append(FormatData(content_type, drm_scheme))
+        return cls.odilo_medium_to_simplified_medium.get(format_received)
 
 
 class OdiloBibliographicCoverageProvider(BibliographicCoverageProvider):
@@ -592,7 +603,6 @@ class OdiloBibliographicCoverageProvider(BibliographicCoverageProvider):
         identifier = self.set_metadata(identifier, metadata)
 
         # calls work.set_presentation_ready() for us
-        if is_active:
-            self.handle_success(identifier)
+        self.handle_success(identifier)
 
         return identifier, made_new
