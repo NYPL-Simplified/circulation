@@ -108,12 +108,9 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
 
         self.client_key = patron
         self.client_secret = pin
-        message = self.refresh_creds(credential)
+        self.refresh_creds(credential)
 
-        if 'OK' == message:
-            return credential
-        else:
-            raise PatronAuthorizationFailedException(message)
+        return credential
 
     def checkout(self, patron, pin, licensepool, internal_format):
         """Check out a book on behalf of a patron.
@@ -132,31 +129,20 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         """
         record_id = licensepool.identifier.identifier
 
-        # We have 2 formats, 'EBOOK_STREAMING' could be in our API ('PDF', 'EPUB'):
-        ebook_streaming = False
-        if internal_format == 'EBOOK_STREAMING':
-            ebook_streaming = True
-            internal_format = 'EPUB'  # Try first ebook_streaming as EPUB
-
         # Data just as 'x-www-form-urlencoded', no JSON
         payload = dict(patronId=patron, format=internal_format)
 
         response = self.patron_request(
-            patron, pin, self.CHECKOUT_ENDPOINT.replace("{recordId}", record_id),
+            patron, pin, self.CHECKOUT_ENDPOINT.format(recordId=record_id),
             extra_headers={'Content-Type': 'application/x-www-form-urlencoded'},
             data=payload)
 
         if response.content:
             response_json = response.json()
             if response.status_code == 404:
-                error_id, error_description = self.raise_exception_on_error(response_json)
-                raise CannotLoan('Error id: %s, description: %s' % (error_id, error_description))
+                self.raise_exception_on_error(response_json, default_exception_class=CannotLoan)
             else:
                 return self.loan_info_from_odilo_checkout(licensepool.collection, response_json)
-
-        elif response.status_code == 400 and ebook_streaming:
-            internal_format = 'PDF'  # Retry now with ebook_streaming as PDF
-            return self.checkout(patron, pin, licensepool, internal_format)
 
         # TODO: we need to improve this at the API and use an error code
         elif response.status_code == 400:
@@ -187,8 +173,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         if response.status_code == 200:
             return response
 
-        error_code, error_description = self.raise_exception_on_error(response.json())
-        raise CannotReturn(error_code + ': ' + error_description)
+        self.raise_exception_on_error(response.json(), default_exception_class=CannotReturn)
 
     @classmethod
     def extract_date(cls, data, field_name):
@@ -200,18 +185,19 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         return d
 
     @classmethod
-    def raise_exception_on_error(cls, data, custom_error_to_exception={}):
+    def raise_exception_on_error(cls, data, default_exception_class=None, ignore_exception_code=None):
         if not data or 'errors' not in data or len(data['errors']) <= 0:
             return '', ''
 
         error = data['errors'][0]
         error_code = error['id']
         message = ('description' in error and error['description']) or ''
-        for d in custom_error_to_exception, cls.error_to_exception:
-            if error_code in d:
-                raise d[error_code](message)
 
-        return error_code, message
+        if not ignore_exception_code or ignore_exception_code != error_code:
+            if error_code in cls.error_to_exception:
+                raise cls.error_to_exception[error_code](message)
+            elif default_exception_class:
+                raise default_exception_class(message)
 
     def get_checkout(self, patron, pin, record_id):
         patron_checkouts = self.get_patron_checkouts(patron, pin)
@@ -219,7 +205,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
             if checkout['recordId'] == record_id:
                 return checkout
 
-        raise NotFoundOnRemote("Could not find active for patron %s, record %s" % (patron, record_id))
+        raise NotFoundOnRemote("Could not find active loan for patron %s, record %s" % (patron, record_id))
 
     def get_hold(self, patron, pin, record_id):
         patron_holds = self.get_patron_holds(patron, pin)
@@ -255,7 +241,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         loan_format = checkout['format']
         if format_type and loan_format and (
                         format_type == loan_format or
-                        (format_type == 'EBOOK_STREAMING' and loan_format in ('EPUB', 'PDF'))
+                        (loan_format == 'ACSM' and format_type in ('ACSM_EPUB', 'ACSM_PDF'))
         ):
             if 'downloadUrl' in checkout and checkout['downloadUrl']:
                 content_link = checkout['downloadUrl']
@@ -263,13 +249,12 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                 content_type = OdiloRepresentationExtractor.format_data_for_odilo_format[format_type]
 
                 # Get also .acsm file
-                if 'ACSM' == format_type:
+                if format_type in ('ACSM_EPUB', 'ACSM_PDF'):
                     response = self.patron_request(patron, pin, content_link)
                     if response.status_code == 200:
                         content = response.content
                     elif response.status_code == 404 and response.content:
-                        error_id, error_description = self.raise_exception_on_error(response.json())
-                        raise CannotFulfill(error_id + ': ' + error_description)
+                        self.raise_exception_on_error(response.json(), CannotFulfill)
 
                 return content_link, content, content_type
 
@@ -348,8 +333,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         if response.status_code == 200:
             return self.hold_from_odilo_hold(licensepool.collection, data)
 
-        error_code, error_description = self.raise_exception_on_error(data)
-        raise CannotHold(error_code + ': ' + error_description)
+        self.raise_exception_on_error(data, CannotHold)
 
     def release_hold(self, patron, pin, licensepool):
         """Release a patron's hold on a book.
@@ -364,11 +348,9 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         if response.status_code == 200:
             return True
 
-        error_code, error_description = self.raise_exception_on_error(response.json())
-        if error_code == 'HOLD_NOT_FOUND':
-            return True
-
-        raise CannotReleaseHold(error_code + ': ' + error_description)
+        self.raise_exception_on_error(response.json(), default_exception_class=CannotReleaseHold,
+                                      ignore_exception_code='HOLD_NOT_FOUND')
+        return True
 
 
 class OdiloCirculationMonitor(CollectionMonitor):
