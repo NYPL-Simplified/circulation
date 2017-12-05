@@ -762,7 +762,7 @@ class WorkList(object):
             # bibliographic_filter_clause() may return a null query to
             # indicate that the WorkList should not exist at all.
             return None
-        if bibliographic_clause:
+        if bibliographic_clause is not None:
             qu = qu.filter(bibliographic_clause)
 
         if facets:
