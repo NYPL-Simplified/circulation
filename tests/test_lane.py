@@ -1610,16 +1610,20 @@ class TestLane(DatabaseTest):
         eq_([adult], filtered(older_ya))
 
     def test_apply_customlist_filter(self):
-        """Standalone test of apply_age_range_filter.
+        """Standalone test of apply_customlist_filter.
         
         Some of this code is also tested by test_apply_custom_filters.
         """
-        qu = self._db.query(Work)
+
+        def filtered(lane):
+            qu = self._db.query(Work)
+            qu = qu.filter(lane.customlist_filter_clauses(qu, Work))
+            return qu.all()
 
         # If the lane has nothing to do with CustomLists,
         # apply_customlist_filter does nothing.
         no_lists = self._lane()
-        eq_((qu, False), no_lists.apply_customlist_filter(qu, Work))
+        eq_([], no_lists.customlist_filter_clauses(qu, Work))
 
         # Set up a Work and a CustomList that contains the work.
         work = self._work(with_license_pool=True)
