@@ -1520,7 +1520,8 @@ class Lane(Base, WorkList):
 
         # Actually build the restriction clauses.
         clauses = []
-        clauses.append(a_list.data_source==self.list_datasource)
+        if self.list_datasource:
+            clauses.append(a_list.data_source==self.list_datasource)
         customlist_ids = [x.id for x in self.customlists]
         if customlist_ids:
             clauses.append(a_list.id.in_(customlist_ids))

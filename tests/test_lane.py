@@ -1609,23 +1609,22 @@ class TestLane(DatabaseTest):
         older_ya.target_age = (16,18)
         eq_([adult], filtered(older_ya))
 
-    def test_apply_customlist_filter(self):
+    def test_customlist_filter_clauses(self):
         """Standalone test of apply_customlist_filter.
         
         Some of this code is also tested by test_apply_custom_filters.
         """
 
-        def filtered(lane):
-            qu = self._db.query(Work)
-            qu = qu.filter(lane.customlist_filter_clauses(qu, Work))
-            return qu.all()
-
-        # If the lane has nothing to do with CustomLists,
+        # If a lane has nothing to do with CustomLists,
         # apply_customlist_filter does nothing.
         no_lists = self._lane()
-        eq_([], no_lists.customlist_filter_clauses(qu, Work))
+        qu = self._db.query(Work)
+        new_qu, clauses, distinct = no_lists.customlist_filter_clauses(qu, Work)
+        eq_(qu, new_qu)
+        eq_([], clauses)
+        eq_(False, distinct)
 
-        # Set up a Work and a CustomList that contains the work.
+        # Now set up a Work and a CustomList that contains the work.
         work = self._work(with_license_pool=True)
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         eq_(gutenberg, work.license_pools[0].data_source)
@@ -1643,12 +1642,21 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_datasource = gutenberg
 
         def results(lane=gutenberg_lists_lane, must_be_featured=False):
-            modified, distinct = lane.apply_customlist_filter(
+            qu = self._db.query(Work)
+            new_qu, clauses, distinct = lane.customlist_filter_clauses(
                 qu, Work, must_be_featured=must_be_featured
             )
-            # Whenver a CustomList is in play, the query needs to be made
+
+            # The query comes out different than it goes in -- there's a
+            # new join against CustomList.
+            assert new_qu != qu
+
+            # Whenever a CustomList is in play, the query needs to be made
             # distinct.
             eq_(distinct, True)
+
+            # Run the query and see what it matches.
+            modified = new_qu.filter(and_(*clauses)).distinct()
             return modified.all()
 
         # Both lanes contain the work.
@@ -1660,10 +1668,7 @@ class TestLane(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         overdrive_lists_lane = self._lane()
         overdrive_lists_lane.list_datasource = overdrive
-        modified, distinct = overdrive_lists_lane.apply_customlist_filter(
-            qu, Work
-        )
-        eq_([], modified.all())
+        eq_([], results(overdrive_lists_lane))
 
         # It's possible to restrict a lane so that only works that are
         # _featured_ on a list show up. The work isn't featured, so it
