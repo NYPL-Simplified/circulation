@@ -1555,25 +1555,28 @@ class TestLane(DatabaseTest):
         """We have to test the medium query specially in a kind of hacky way,
         since currently the materialized view only includes ebooks.
         """
-        audiobook = self._work(fiction=False, with_license_pool=True)
+        audiobook = self._work(
+            title="Audiobook", fiction=False, with_license_pool=True
+        )
         audiobook.presentation_edition.medium = Edition.AUDIO_MEDIUM
         lane = self._lane()
 
+        def matches(lane):
+            qu = self._db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
+            new_qu, bib_filter, distinct = lane.bibliographic_filter_clause(
+                self._db, qu, Edition, False
+            )
+            eq_(new_qu, qu)
+            eq_(False, distinct)
+            return new_qu.filter(bib_filter).all()
+
         # This lane only includes ebooks, and it's empty.
         lane.media = [Edition.BOOK_MEDIUM]
-        qu = self._db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
-        qu, bib_filter, distinct = lane.bibliographic_filter_clause(
-            self._db, qu, Edition, False
-        )
-        eq_([], qu.all())
+        eq_([], matches(lane))
 
         # This lane only includes audiobooks, and it contains one book.
         lane.media = [Edition.AUDIO_MEDIUM]
-        qu = self._db.query(Work).join(Work.license_pools)
-        qu, distinct = lane.apply_bibliographic_filters(
-            self._db, qu, Edition, False
-        )
-        eq_([audiobook], qu.all())
+        eq_([audiobook], matches(lane))
 
     def test_age_range_filter_clauses(self):
         """Standalone test of age_range_filter_clauses().
