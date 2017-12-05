@@ -80,6 +80,11 @@ class OdiloAPI(object):
 
     # ---------------------------------------
 
+    ACSM = 'ACSM'
+    ACSM_EPUB = 'ACSM_EPUB'
+    ACSM_PDF = 'ACSM_PDF'
+    EBOOK_STREAMING = 'EBOOK_STREAMING'
+
     PAGE_SIZE_LIMIT = 200
 
     def __init__(self, _db, collection):
@@ -314,13 +319,13 @@ class OdiloRepresentationExtractor(object):
     log = logging.getLogger("OdiloRepresentationExtractor")
 
     format_data_for_odilo_format = {
-        "ACSM_PDF": (
+        OdiloAPI.ACSM_PDF: (
             Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
         ),
-        "ACSM_EPUB": (
+        OdiloAPI.ACSM_EPUB: (
             Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM
         ),
-        "EBOOK_STREAMING": (
+        OdiloAPI.EBOOK_STREAMING: (
             Representation.TEXT_HTML_MEDIA_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE
         ),
         "MP3": (
@@ -341,9 +346,9 @@ class OdiloRepresentationExtractor(object):
     }
 
     odilo_medium_to_simplified_medium = {
-        "ACSM_PDF": Edition.BOOK_MEDIUM,
-        "ACSM_EPUB": Edition.BOOK_MEDIUM,
-        "EBOOK_STREAMING": Edition.BOOK_MEDIUM,
+        OdiloAPI.ACSM_PDF: Edition.BOOK_MEDIUM,
+        OdiloAPI.ACSM_EPUB: Edition.BOOK_MEDIUM,
+        OdiloAPI.EBOOK_STREAMING: Edition.BOOK_MEDIUM,
         "MP3": Edition.AUDIO_MEDIUM,
         "MP4": Edition.VIDEO_MEDIUM,
         "WMV": Edition.VIDEO_MEDIUM,
@@ -465,7 +470,7 @@ class OdiloRepresentationExtractor(object):
         for format_received in book.get('formats', []):
             if format_received in cls.format_data_for_odilo_format:
                 medium = cls.set_format(format_received, formats)
-            elif format_received == 'ACSM' and file_format:
+            elif format_received == OdiloAPI.ACSM and file_format:
                 medium = cls.set_format(format_received + '_' + file_format.upper(), formats)
             else:
                 cls.log.warn('Unrecognized format received: ' + format_received)
