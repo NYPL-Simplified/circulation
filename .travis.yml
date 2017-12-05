@@ -33,10 +33,12 @@ install:
   - pip install -r requirements.txt
   - python -m textblob.download_corpora
   - cp config.json.sample config.json
-  - export SIMPLIFIED_CONFIGURATION_FILE="$TRAVIS_BUILD_DIR/config.json"
+  - export SIMPLIFIED_CONFIGURATION_FILE="${TRAVIS_BUILD_DIR}/config.json"
   - wget ${ES_DOWNLOAD}
-  - tar -xzf elasticsearch-${ES_VERSION}.tar.gz
-  - ./elasticsearch-${ES_VERSION}/bin/elasticsearch &
+  - export ES_PATH=elasticsearch-${ES_VERSION}
+  - tar -xzf ${ES_PATH}.tar.gz
+  - cp elasticsearch.yml.testing ./${ES_PATH}/config/elasticsearch.yml
+  - ./${ES_PATH}/bin/elasticsearch &
 
 before_script:
   - psql -c 'create user simplified_test;' -U postgres
