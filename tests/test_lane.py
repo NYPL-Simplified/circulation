@@ -1434,7 +1434,7 @@ class TestLane(DatabaseTest):
         )
         eq_(results, target_results)
 
-    def test_apply_custom_filters(self):
+    def test_bibliographic_filter_clause(self):
 
         # Create some works that will or won't show up in various
         # lanes.
@@ -1454,16 +1454,29 @@ class TestLane(DatabaseTest):
             base_query = self._db.query(MaterializedWork).join(
                 LicensePool, MaterializedWork.license_pool_id==LicensePool.id
             )
-            query, distinct = lane.apply_bibliographic_filters(
+            new_query, bibliographic_clause, distinct = lane.bibliographic_filter_clause(
                 self._db, base_query, MaterializedWork, featured
             )
-            results = query.all()
+            
+            if lane.uses_customlists:
+                # This query needs to be distinct, and
+                # bibliographic_filter_clause modifies the query (by
+                # calling customlist_filter_clauses).
+                assert base_query != new_query
+                eq_(True, distinct)
+            else:
+                # The input query is the same as the output query, and
+                # it does not need to be distinct.
+                eq_(base_query, new_query)
+                eq_(False, distinct)
+
+            final_query = new_query.filter(bibliographic_clause)
+            results = final_query.all()
             works = sorted([(x.id, x.sort_title) for x in works])
             materialized_works = sorted(
                 [(x.works_id, x.sort_title) for x in results]
             )
             eq_(works, materialized_works)
-            return distinct
 
         # A lane may show only titles that come from a specific license source.
         gutenberg_only = self._lane()
@@ -1471,10 +1484,7 @@ class TestLane(DatabaseTest):
             self._db, DataSource.GUTENBERG
         )
 
-        distinct = match_works(gutenberg_only, [nonfiction])
-        # No custom list is involved, so there's no need to make the query
-        # distinct.
-        eq_(False, distinct)
+        match_works(gutenberg_only, [nonfiction])
 
         # A lane may show fiction, nonfiction, or both.
         fiction_lane = self._lane()
@@ -1503,18 +1513,13 @@ class TestLane(DatabaseTest):
         )
         best_sellers_lane = self._lane()
         best_sellers_lane.customlists.append(best_sellers)
-        distinct = match_works(
+        match_works(
             best_sellers_lane, [childrens_fiction], featured=False
         )
 
-        # Now that CustomLists are in play, the query needs to be made
-        # distinct, because a single work can show up on more than one
-        # list.
-        eq_(True, distinct)
-
-        # Also, the `featured` argument makes a difference now. The
-        # work isn't featured on its list, so the lane appears empty
-        # when featured=True.
+        # Now that CustomLists are in play, the `featured` argument
+        # makes a difference. The work isn't featured on its list, so
+        # the lane appears empty when featured=True.
         match_works(best_sellers_lane, [], featured=True)
 
         # If the work becomes featured, it starts showing up again.

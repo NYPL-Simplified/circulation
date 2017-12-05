@@ -1417,11 +1417,14 @@ class Lane(Base, WorkList):
         `distinct` is whether or not the query needs to be set as
         DISTINCT.
         """
-        clauses, superclass_distinct = super(
+        qu, superclass_clause, superclass_distinct = super(
             Lane, self
         ).bibliographic_filter_clause(
             _db, qu, work_model, featured
         )
+        clauses = []
+        if superclass_clause is not None:
+            clauses.append(superclass_clause)
         if self.parent and self.inherit_parent_restrictions:
             # In addition to the other restrictions imposed by this
             # Lane, books will show up here only if they would
@@ -1429,7 +1432,7 @@ class Lane(Base, WorkList):
             qu, clause, parent_distinct = self.parent.bibliographic_filter_clause(
                 _db, qu, work_model, featured
             )
-            if clause:
+            if clause is not None:
                 clauses.append(clause)
         else:
             parent_distinct = False
@@ -1446,13 +1449,13 @@ class Lane(Base, WorkList):
             clauses.append(work_model.medium.in_(self.media))
 
         clauses.extend(self.age_range_filter_clauses(work_model))
-        qu, customlist_clauses = self.customlist_filter_clauses(
+        qu, customlist_clauses, customlist_distinct = self.customlist_filter_clauses(
             qu, work_model, featured
         )
         clauses.extend(customlist_clauses)
         
         return qu, and_(*clauses), (
-            superclass_distinct or parent_distinct or child_distinct
+            superclass_distinct or parent_distinct or customlist_distinct
         )
 
     def age_range_filter_clauses(self, work_model):
