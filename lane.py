@@ -685,7 +685,7 @@ class WorkList(object):
         )
         if self.genre_ids:
             mw = MaterializedWorkWithGenre
-            # apply_bibliographic_filters() will apply the genre
+            # apply_filters() will apply the genre
             # restrictions.
         else:
             mw = MaterializedWork
