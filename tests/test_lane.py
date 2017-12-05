@@ -1579,12 +1579,15 @@ class TestLane(DatabaseTest):
             """
             qu = self._db.query(Work)
             clauses = lane.age_range_filter_clauses(Work)
-            qu.filter(and_(*clauses))
+            if clauses:
+                qu = qu.filter(and_(*clauses))
             return qu.all()
 
-        adult = self._work(audience=Classifier.AUDIENCE_ADULT)
+        adult = self._work(title="For adults", 
+                           audience=Classifier.AUDIENCE_ADULT)
         eq_(None, adult.target_age)
         fourteen_or_fifteen = self._work(
+            title="For teens",
             audience=Classifier.AUDIENCE_YOUNG_ADULT
         )
         fourteen_or_fifteen.target_age = tuple_to_numericrange((14,15))
@@ -1604,7 +1607,7 @@ class TestLane(DatabaseTest):
         # Expand it to include books for adults, and the adult book
         # shows up despite having no target age at all.
         older_ya.target_age = (16,18)
-        eq_([adult], filtered(older_ya_q))
+        eq_([adult], filtered(older_ya))
 
     def test_apply_customlist_filter(self):
         """Standalone test of apply_age_range_filter.
