@@ -185,7 +185,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         return d
 
     @classmethod
-    def raise_exception_on_error(cls, data, default_exception_class=None, ignore_exception_code=None):
+    def raise_exception_on_error(cls, data, default_exception_class=None, ignore_exception_codes=None):
         if not data or 'errors' not in data or len(data['errors']) <= 0:
             return '', ''
 
@@ -193,7 +193,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         error_code = error['id']
         message = ('description' in error and error['description']) or ''
 
-        if not ignore_exception_code or ignore_exception_code != error_code:
+        if not ignore_exception_codes or error_code not in ignore_exception_codes:
             if error_code in cls.error_to_exception:
                 raise cls.error_to_exception[error_code](message)
             elif default_exception_class:
@@ -241,7 +241,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         loan_format = checkout['format']
         if format_type and loan_format and (
                         format_type == loan_format or
-                        (loan_format == 'ACSM' and format_type in ('ACSM_EPUB', 'ACSM_PDF'))
+                        (loan_format == self.ACSM and format_type in (self.ACSM_EPUB, self.ACSM_PDF))
         ):
             if 'downloadUrl' in checkout and checkout['downloadUrl']:
                 content_link = checkout['downloadUrl']
@@ -249,7 +249,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                 content_type = OdiloRepresentationExtractor.format_data_for_odilo_format[format_type]
 
                 # Get also .acsm file
-                if format_type in ('ACSM_EPUB', 'ACSM_PDF'):
+                if format_type in (self.ACSM_EPUB, self.ACSM_PDF):
                     response = self.patron_request(patron, pin, content_link)
                     if response.status_code == 200:
                         content = response.content
@@ -349,7 +349,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
             return True
 
         self.raise_exception_on_error(response.json(), default_exception_class=CannotReleaseHold,
-                                      ignore_exception_code='HOLD_NOT_FOUND')
+                                      ignore_exception_codes=['HOLD_NOT_FOUND'])
         return True
 
 
