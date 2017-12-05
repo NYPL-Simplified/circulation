@@ -1049,6 +1049,12 @@ class TestWorkList(DatabaseTest):
             [set(x) for x in samples]
         )
 
+        # This works even if the quality coefficient appears to limit
+        # selection to a fractional number of works.
+        sample = WorkList.random_sample(qu, 2, quality_coefficient=0.23109)
+        eq_([i1, i2], sorted(sample, key=lambda x: x.id))
+
+
     def test_search_target(self):
         # A WorkList can be searched - it is its own search target.
         wl = WorkList()

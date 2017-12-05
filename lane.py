@@ -857,7 +857,7 @@ class WorkList(object):
             quality_coefficient = 0.1
         if quality_coefficient > 1:
             quality_coefficient = 1
-        max_offset = (total_size * quality_coefficient)-target_size
+        max_offset = int((total_size * quality_coefficient)-target_size)
 
         if max_offset > 0:
             # There are enough high-quality items that we can pick a
