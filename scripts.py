@@ -720,14 +720,6 @@ class RunCoverageProviderScript(IdentifierInputScript):
             self.provider.run()
 
 
-class LaneSizeScript(LaneSweeperScript):
-    """Update the in-database cache explaining how many titles are
-    in each lane."""
-    
-    def process_lane(self, lane):
-        lane.size = lane.works(self._db).count()
-
-
 class BibliographicRefreshScript(RunCollectionCoverageProviderScript, IdentifierInputScript):
     """Refresh the core bibliographic data for Editions direct from the
     license source.

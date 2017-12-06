@@ -115,6 +115,7 @@ from classifier import (
 from facets import FacetConstants
 from user_profile import ProfileStorage
 from util import (
+    fast_query_count,
     LanguageCodes,
     MetadataSimilarity,
     TitleProcessor,
@@ -428,6 +429,11 @@ class SessionManager(object):
         for view_name in self.MATERIALIZED_VIEWS.keys():
             _db.execute("refresh materialized view %s;" % view_name)
             _db.commit()
+        # Immediately update the number of works associated with each
+        # lane.
+        from lane import Lane
+        for lane in _db.query(Lane):
+            lane.size = fast_query_count(lane.works(_db))
 
     @classmethod
     def session(cls, url, initialize_data=True):
