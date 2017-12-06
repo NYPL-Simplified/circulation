@@ -483,6 +483,7 @@ class TestLaneSweeperScript(DatabaseTest):
         # returned True.
         eq_([good, good_child], script.processed)
 
+
 class TestRunCoverageProviderScript(DatabaseTest):
 
     def test_parse_command_line(self):
@@ -555,6 +556,27 @@ class TestWorkProcessingScript(DatabaseTest):
             self._db, Identifier.URI, [], DataSource.STANDARD_EBOOKS
         )
         eq_([standard_ebooks], one_standard_ebook.all())
+
+
+class TestLaneSizeScript(DatabaseTest):
+
+    def test_do_run(self):
+
+        work = self._work(fiction=True, with_license_pool=True)
+        self.add_to_materialized_view([work])
+        fiction = self._lane(display_name="Fiction", fiction=True)
+        nonfiction = self._lane(display_name="Nonfiction", fiction=False)
+
+        # Set inaccurate counts.
+        fiction.size = 100
+        nonfiction.size = 100
+
+        script = LaneSizeScript(self._db)
+        script.do_run(cmd_args=[])
+
+        # Both lanes have had .size set to the correct value.
+        eq_(1, fiction.size)
+        eq_(0, nonfiction.size)
 
 
 class TestTimestampInfo(DatabaseTest):
