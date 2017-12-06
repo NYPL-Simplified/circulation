@@ -1393,10 +1393,14 @@ class TestLanesController(AdminControllerTest):
             eq_(1, sibling.priority)
 
     def test_lanes_edit(self):
+
+        work = self._work(with_license_pool=True)
+
         list1, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list1.library = self._default_library
         list2, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list2.library = self._default_library
+        list2.add_entry(work)
 
         lane = self._lane("old name")
         lane.customlists += [list1]
@@ -1416,6 +1420,7 @@ class TestLanesController(AdminControllerTest):
             eq_("new name", lane.display_name)
             eq_([list2], lane.customlists)
             eq_(True, lane.inherit_parent_restrictions)
+            eq_(1, lane.size)
 
     def test_lane_delete_success(self):
         library = self._library()

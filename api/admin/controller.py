@@ -982,6 +982,7 @@ class LanesController(CirculationManagerController):
             for list in lane.customlists:
                 if list.id not in custom_list_ids:
                     lane.customlists.remove(list)
+            lane.update_size(self._db)
 
             if is_new:
                 return Response(unicode(lane.id), 201)
