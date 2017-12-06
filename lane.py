@@ -1004,6 +1004,10 @@ class Lane(Base, WorkList):
                        nullable=True)
     priority = Column(Integer, index=True, nullable=False, default=0)
 
+    # How many titles are in this lane? This is periodically
+    # calculated and cached.
+    size = Column(Integer, nullable=False, default=0)
+
     # A lane may have one parent lane and many sublanes.
     sublanes = relationship(
         "Lane", 
