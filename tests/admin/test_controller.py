@@ -1401,6 +1401,7 @@ class TestLanesController(AdminControllerTest):
         list2, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list2.library = self._default_library
         list2.add_entry(work)
+        self.add_to_materialized_view([work])
 
         lane = self._lane("old name")
         lane.customlists += [list1]
