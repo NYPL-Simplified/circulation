@@ -43,4 +43,4 @@ newrelic
 # for author name manipulations
 nameparser
 fuzzywuzzy
-
+python-Levenshtein
