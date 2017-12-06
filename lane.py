@@ -1254,6 +1254,10 @@ class Lane(Base, WorkList):
             return True
         return False        
 
+    def update_size(self, _db):
+        """Update the stored estimate of the number of Works in this Lane."""
+        self.size = fast_query_count(self.works(_db).limit(None))
+
     @property
     def genre_ids(self):
         """Find the database ID of every Genre such that a Work classified in

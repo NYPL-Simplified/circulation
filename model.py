@@ -433,7 +433,7 @@ class SessionManager(object):
         # lane.
         from lane import Lane
         for lane in _db.query(Lane):
-            lane.size = fast_query_count(lane.works(_db))
+            lane.update_size(_db)
 
     @classmethod
     def session(cls, url, initialize_data=True):
