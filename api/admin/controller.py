@@ -917,8 +917,7 @@ class LanesController(CirculationManagerController):
                 return [{ "id": lane.id,
                           "display_name": lane.display_name,
                           "visible": lane.visible,
-                          # TODO: getting the counts is very slow.
-                          "count": fast_query_count(lane.works(self._db).limit(None)),
+                          "count": lane.size,
                           "sublanes": lanes_for_parent(lane),
                           "custom_list_ids": [list.id for list in lane.customlists],
                           "inherit_parent_restrictions": lane.inherit_parent_restrictions,
