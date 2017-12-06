@@ -1,7 +1,7 @@
 from nose.tools import set_trace
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 import time
 import elasticsearch
 import logging

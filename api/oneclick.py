@@ -6,7 +6,7 @@ import json;
 import os
 import requests
 import uuid
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from circulation import (
     BaseCirculationAPI, 

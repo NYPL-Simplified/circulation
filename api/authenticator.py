@@ -49,7 +49,7 @@ from flask import (
     url_for,
 )
 from werkzeug.datastructures import Headers
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 import importlib
 
 

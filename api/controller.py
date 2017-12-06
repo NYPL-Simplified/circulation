@@ -17,7 +17,7 @@ from flask import (
     Response,
     redirect,
 )
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from core.app_server import (
     entry_response,

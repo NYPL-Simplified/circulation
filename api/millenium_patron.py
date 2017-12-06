@@ -6,7 +6,7 @@ from urllib import urlencode
 import datetime
 import requests
 from money import Money
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from core.util.xmlparser import XMLParser
 from authenticator import (
