@@ -56,6 +56,7 @@ from core.scripts import (
     RunCoverageProvidersScript,
     RunCoverageProviderScript,
     IdentifierInputScript,
+    LaneSweeperScript,
     LibraryInputScript,
     PatronInputScript,
     RunMonitorScript,
@@ -294,44 +295,6 @@ class UpdateStaffPicksScript(Script):
             raise ValueError("Unexpected media type %s" % 
                              representation.media_type)
         return StringIO(representation.content)
-
-
-class LaneSweeperScript(LibraryInputScript):
-    """Do something to each lane in a library."""
-
-    def __init__(self, _db=None, testing=False):
-        _db = _db or self._db
-        super(LaneSweeperScript, self).__init__(_db)
-        from api.app import app
-        app.manager = CirculationManager(_db, testing=testing)
-        self.app = app
-        self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
-
-    def process_library(self, library):
-        begin = time.time()
-        client = self.app.test_client()
-        ctx = self.app.test_request_context(base_url=self.base_url)
-        ctx.push()
-        queue = [self.app.manager.top_level_lanes[library.id]]
-        while queue:
-            new_queue = []
-            self.log.debug("Beginning of loop: %d lanes to process", len(queue))
-            for l in queue:
-                if self.should_process_lane(l):
-                    self.process_lane(l)
-                    self._db.commit()
-                for sublane in l.sublanes:
-                    new_queue.append(sublane)
-            queue = new_queue
-        ctx.pop()
-        end = time.time()
-        self.log.info("Entire process took %.2fsec", (end-begin))
-
-    def should_process_lane(self, lane):
-        return True
-
-    def process_lane(self, lane):
-        pass
 
 
 class CacheRepresentationPerLane(LaneSweeperScript):
