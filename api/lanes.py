@@ -711,7 +711,7 @@ class WorkBasedLane(DynamicLane):
     ROUTE = None
 
     def __init__(self, library, work, display_name=None,
-                 children=[], **kwargs):
+                 children=None, **kwargs):
         self.work = work
         self.edition = work.presentation_edition
 
@@ -721,6 +721,8 @@ class WorkBasedLane(DynamicLane):
         audiences = self.audiences_list_from_source()
 
         display_name = display_name or self.DISPLAY_NAME
+
+        children = children or list()
 
         super(WorkBasedLane, self).initialize(
             library, display_name=display_name, children=children,
