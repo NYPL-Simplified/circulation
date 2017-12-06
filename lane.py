@@ -577,11 +577,17 @@ class WorkList(object):
 
     @property
     def full_identifier(self):
-        """A human-readable identifier for this Lane that
+        """A human-readable identifier for this WorkList that
         captures its position within the heirarchy.
         """
-        full_parentage = list(self.parentage) + [self]
-        return " / ".join([x.display_name for x in full_parentage])
+        lane_parentage = list(self.parentage) + [self]
+        full_parentage = [x.display_name for x in lane_parentage]
+        if getattr(self, 'library', None):
+            # This WorkList is associated with a specific library.
+            # incorporate the library's name to distinguish between it
+            # and other lanes in the same position in another library.
+            full_parentage.insert(0, self.library.short_name)
+        return " / ".join(full_parentage)
 
     @property
     def language_key(self):
