@@ -323,9 +323,13 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         )
         return parser
 
-    def __init__(self, _db=None, cmd_args=None, *args, **kwargs):
+    def __init__(self, _db=None, cmd_args=None, testing=False, *args, **kwargs):
         super(CacheRepresentationPerLane, self).__init__(_db, *args, **kwargs)
         self.parse_args(cmd_args)
+        from api.app import app
+        app.manager = CirculationManager(_db, testing=testing)
+        self.app = app
+        self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
         
     def parse_args(self, cmd_args=None):
         parser = self.arg_parser(self._db)
@@ -384,12 +388,22 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 
     cache_url_method = None
 
+    def process_library(self, library):
+        begin = time.time()
+        client = self.app.test_client()
+        ctx = self.app.test_request_context(base_url=self.base_url)
+        ctx.push()
+        super(CacheRepresentationPerLane, self).process_library(library)
+        ctx.pop()
+        end = time.time()
+        self.log.info(
+            "Processed library %s in %.2fsec", library.short_name, end-begin
+        )
+
     def process_lane(self, lane):
         annotator = self.app.manager.annotator(lane)
         a = time.time()
-        self.log.info(
-            "Generating feed(s) for %s", lane.full_identifier
-        )
+        self.log.info("Generating feed(s) for %s", lane.full_identifier)
         cached_feeds = list(self.do_generate(lane))
         b = time.time()
         total_size = sum(len(x.content) for x in cached_feeds if x)

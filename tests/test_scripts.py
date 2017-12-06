@@ -43,6 +43,7 @@ from scripts import (
     AdobeAccountIDResetScript,
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
+    CacheOPDSGroupFeedPerLane,
     InstanceInitializationScript,
     LanguageListScript,
     LoanReaperScript,
@@ -190,6 +191,28 @@ class TestCacheFacetListsPerLane(TestLaneScript):
             # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
             eq_(4, len(cached_feeds))
 
+
+class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
+    
+    def test_do_run(self):
+
+        work = self._work(fiction=True, with_license_pool=True, 
+                          genre="Science Fiction")
+        work.quality = 1
+        lane = self._lane(display_name="Fantastic Fiction", fiction=True)
+        sublane = self._lane(
+            parent=lane, display_name="Science Fiction", fiction=True,
+            genres=["Science Fiction"]
+        )
+        self.add_to_materialized_view([work])
+        script = CacheOPDSGroupFeedPerLane(self._db)
+        script.do_run(cmd_args=[])
+        from core.model import CachedFeed
+        [feed] = self._db.query(CachedFeed).all()
+        assert "Fantastic Fiction" in feed.content
+        assert "Science Fiction" in feed.content
+        set_trace()
+        assert work.title in feed.content
 
 class TestInstanceInitializationScript(DatabaseTest):
 
