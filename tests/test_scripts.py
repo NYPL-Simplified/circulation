@@ -27,6 +27,7 @@ from core.lane import (
 )
 
 from core.model import (
+    CachedFeed,
     ConfigurationSetting,
     create,
     Credential,
@@ -204,14 +205,17 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             parent=lane, display_name="Science Fiction", fiction=True,
             genres=["Science Fiction"]
         )
-        self.add_to_materialized_view([work])
+        self.add_to_materialized_view([work], true_opds=True)
         script = CacheOPDSGroupFeedPerLane(self._db)
         script.do_run(cmd_args=[])
-        from core.model import CachedFeed
-        [feed] = self._db.query(CachedFeed).all()
+
+        # The Lane object was disconnected from its database session
+        # when the app server was initialized. Reconnect it.
+        lane = self._db.merge(lane)
+        [feed] = lane.cachedfeeds
+
         assert "Fantastic Fiction" in feed.content
         assert "Science Fiction" in feed.content
-        set_trace()
         assert work.title in feed.content
 
 class TestInstanceInitializationScript(DatabaseTest):
