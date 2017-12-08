@@ -111,6 +111,42 @@ from . import (
 
 from mock_analytics_provider import MockAnalyticsProvider
 
+class TestSessionManager(DatabaseTest):
+
+    def test_refresh_materialized_views(self):
+        work = self._work(fiction=True, with_license_pool=True, 
+                          genre="Science Fiction")
+        romance, ignore = Genre.lookup(self._db, "Romance")
+        work.genres.append(romance)
+        fiction = self._lane(display_name="Fiction", fiction=True)
+        nonfiction = self._lane(display_name="Nonfiction", fiction=False)
+
+        from model import (
+            MaterializedWork as mwc,
+            MaterializedWorkWithGenre as mwg,
+        )
+
+        # There are no items in the materialized views.
+        eq_([], self._db.query(mwc).all())
+        eq_([], self._db.query(mwg).all())
+
+        # The lane sizes are wrong.
+        fiction.size = 100
+        nonfiction.size = 100
+
+        SessionManager.refresh_materialized_views(self._db)
+
+        # The work has been added to the materialized views.
+        # (It was added twice to MaterializedWorkWithGenre
+        # because it's filed under two genres.)
+        eq_([work.id], [x.works_id for x in self._db.query(mwc)])
+        eq_([work.id, work.id], [x.works_id for x in self._db.query(mwg)])
+
+        # Both lanes have had .size set to the correct value.
+        eq_(1, fiction.size)
+        eq_(0, nonfiction.size)
+
+
 class TestDatabaseInterface(DatabaseTest):
 
     def test_get_one(self):

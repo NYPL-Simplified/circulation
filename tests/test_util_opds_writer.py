@@ -5,6 +5,7 @@ from nose.tools import (
 )
 from lxml import etree
 from util.opds_writer import (
+    AtomFeed,
     OPDSMessage
 )
 
@@ -41,3 +42,13 @@ class TestOPDSMessage(object):
         assert '<simplified:status_code>200</simplified:status_code>' in text
         assert '<schema:description>message</schema:description>' in text
         assert text.endswith('</simplified:message>')
+
+
+class TestAtomFeed(object):
+
+    def test_add_link_to_entry(self):
+        kwargs = dict(title=1, href="url", extra="extra info")
+        entry = AtomFeed.E.entry()
+        link_child = AtomFeed.E.link_child()
+        AtomFeed.add_link_to_entry(entry, [link_child], **kwargs)
+        assert '<link extra="extra info" href="url" title="1"><link_child/></link>' in etree.tostring(entry)

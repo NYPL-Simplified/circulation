@@ -42,6 +42,7 @@ from sqlalchemy.orm.session import Session
 from app_server import ComplaintController
 from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
+from lane import Lane
 from metadata_layer import ReplacementPolicy
 from model import (
     get_one,
@@ -599,6 +600,30 @@ class LibraryInputScript(InputScript):
 
     def process_library(self, library):
         raise NotImplementedError()
+
+
+class LaneSweeperScript(LibraryInputScript):
+    """Do something to each lane in a library."""
+
+    def process_library(self, library):
+        queue = self._db.query(Lane).filter(
+            Lane.library==library).filter(
+                Lane.parent==None).all()
+        while queue:
+            new_queue = []
+            for l in queue:
+                if self.should_process_lane(l):
+                    self.process_lane(l)
+                    self._db.commit()
+                for sublane in l.sublanes:
+                    new_queue.append(sublane)
+            queue = new_queue
+
+    def should_process_lane(self, lane):
+        return True
+
+    def process_lane(self, lane):
+        pass
 
 
 class SubjectInputScript(Script):

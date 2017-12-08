@@ -60,6 +60,7 @@ from scripts import (
     Explain,
     IdentifierInputScript,
     FixInvisibleWorksScript,
+    LaneSweeperScript,
     LibraryInputScript,
     ListCollectionMetadataIdentifiersScript,
     MockStdin,
@@ -447,6 +448,39 @@ class TestLibraryInputScript(DatabaseTest):
         script.do_run(cmd_args=cmd_args)
         eq_(True, l1.processed)
         eq_(False, l2.processed)
+
+
+class TestLaneSweeperScript(DatabaseTest):
+
+    def test_process_library(self):
+
+        class Mock(LaneSweeperScript):
+            def __init__(self, _db):
+                super(Mock, self).__init__(_db)
+                self.considered = []
+                self.processed = []
+
+            def should_process_lane(self, lane):
+                self.considered.append(lane)
+                return lane.display_name == 'process me'
+
+            def process_lane(self, lane):
+                self.processed.append(lane)
+
+        good = self._lane(display_name="process me")
+        bad = self._lane(display_name="don't process me")
+        good_child = self._lane(display_name="process me", parent=bad)
+
+        script = Mock(self._db)
+        script.do_run(cmd_args=[])
+
+        # Every lane was considered for processing, with top-level
+        # lanes considered first.
+        eq_([good, bad, good_child], script.considered)
+
+        # But a lane was processed only if should_process_lane
+        # returned True.
+        eq_([good, good_child], script.processed)
 
 
 class TestRunCoverageProviderScript(DatabaseTest):
