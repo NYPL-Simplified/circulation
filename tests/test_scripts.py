@@ -206,7 +206,7 @@ class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
             genres=["Science Fiction"]
         )
         self.add_to_materialized_view([work], true_opds=True)
-        script = CacheOPDSGroupFeedPerLane(self._db)
+        script = CacheOPDSGroupFeedPerLane(self._db, cmd_args=[])
         script.do_run(cmd_args=[])
 
         # The Lane object was disconnected from its database session
