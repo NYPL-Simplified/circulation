@@ -1305,6 +1305,24 @@ class Lane(Base, WorkList):
             )
         return genre_ids
 
+    @classmethod
+    def affected_by_customlist(self, customlist):
+        """Find all Lanes whose membership is partially derived
+        from the membership of the given CustomList.
+        """
+        _db = Session.object_session(customlist)
+
+        # Either the data source must match, or there must be a specific link
+        # between the Lane and the CustomList.
+        data_source_matches = (
+            Lane._list_datasource_id==customlist.data_source_id
+        )
+        specific_link = CustomList.id==customlist.id
+
+        return _db.query(Lane).outerjoin(Lane.customlists).filter(
+            or_(data_source_matches, specific_link)
+        )            
+
     def add_genre(self, genre, inclusive=True, recursive=True):
         """Create a new LaneGenre for the given genre and
         associate it with this Lane.
