@@ -7,7 +7,7 @@ import os
 import json
 import logging
 import re
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from sqlalchemy.orm import contains_eager
 

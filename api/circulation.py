@@ -6,7 +6,7 @@ from threading import Thread
 import logging
 import re
 import time
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from core.config import CannotLoadConfiguration
 from core.cdn import cdnify

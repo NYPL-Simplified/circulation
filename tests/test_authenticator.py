@@ -2,7 +2,7 @@
 don't interact with any particular source of truth.
 """
 
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from nose.tools import (
     assert_raises_regexp,
     eq_,

@@ -6,7 +6,7 @@ import datetime
 import os
 import re
 import logging
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from nose.tools import set_trace
 

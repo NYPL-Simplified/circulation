@@ -2,13 +2,13 @@
 elasticsearch==2.1.0
 pillow
 psycopg2
-requests
-sqlalchemy==1.0.6
+requests==2.18.4
+sqlalchemy==1.1.15
 flask-sqlalchemy-session
 lxml
 flask
 isbnlib
-tinys3
+tinys3==0.1.12
 nose
 python-dateutil
 uwsgi

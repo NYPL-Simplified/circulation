@@ -3,7 +3,7 @@ import uuid
 import unicodedata
 import urllib
 import re
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from core.util.http import HTTP
 from core.model import (
     ConfigurationSetting,
