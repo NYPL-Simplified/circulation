@@ -1176,6 +1176,39 @@ class TestLane(DatabaseTest):
         lane = self._lane("Fantasy / Science Fiction")
         eq_("All Fantasy / Science Fiction", lane.display_name_for_all)
 
+    def test_affected_by_customlist(self):
+
+        # Two lists.
+        l1, ignore = self._customlist(
+            data_source_name=DataSource.GUTENBERG,
+            num_entries=0
+        )
+        l2, ignore = self._customlist(
+            data_source_name=DataSource.OVERDRIVE, num_entries=0
+        )
+
+        # A lane populated by specific lists.
+        lane = self._lane()
+
+        # Not affected by any lists.
+        for l in [l1, l2]:
+            eq_(0, Lane.affected_by_customlist(l1).count())
+
+        # Add a lane to the list, and it becomes affected.
+        lane.customlists.append(l1)
+        eq_([lane], lane.affected_by_customlist(l1).all())
+        eq_(0, lane.affected_by_customlist(l2).count())
+        lane.customlists = []
+
+        # A lane based on all lists with the GUTENBERG data source.
+        lane2 = self._lane()
+        lane2.list_datasource = l1.data_source
+
+        # It's affected by the GUTENBERG list but not the OVERDRIVE
+        # list.
+        eq_([lane2], Lane.affected_by_customlist(l1).all())
+        eq_(0, Lane.affected_by_customlist(l2).count())
+
     def test_setting_target_age_locks_audiences(self):
         lane = self._lane()
         lane.target_age = (16, 18)
