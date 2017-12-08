@@ -1,5 +1,5 @@
 from nose.tools import set_trace
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 import requests
 import logging
 from authenticator import (

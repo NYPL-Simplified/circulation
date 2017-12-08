@@ -18,7 +18,7 @@ from core.model import (
 )
 from core.log import LogConfiguration
 from core.util import LanguageCodes
-from flask.ext.babel import Babel
+from flask_babel import Babel
 
 
 app = Flask(__name__)

@@ -4,7 +4,7 @@ import base64
 import json
 import uuid
 import datetime
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 import urlparse
 
 from core.opds_import import (

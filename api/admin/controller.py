@@ -15,7 +15,7 @@ from flask import (
     Response,
     redirect,
 )
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from sqlalchemy.exc import ProgrammingError
 from PIL import Image
 from StringIO import StringIO
