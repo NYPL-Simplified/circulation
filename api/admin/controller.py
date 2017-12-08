@@ -870,6 +870,7 @@ class CustomListsController(CirculationManagerController):
                 entries = []
 
             old_entries = list.entries
+            membership_change = False
             for entry in entries:
                 pwid = entry.get("pwid")
                 work = self._db.query(
@@ -881,12 +882,21 @@ class CustomListsController(CirculationManagerController):
                 ).one()
 
                 if work:
-                    list.add_entry(work, featured=True)
+                    entry, entry_is_new = list.add_entry(work, featured=True)
+                    if entry_is_new:
+                        membership_change = True
 
             new_pwids = [entry.get("pwid") for entry in entries]
             for entry in old_entries:
                 if entry.edition.permanent_work_id not in new_pwids:
                     list.remove_entry(entry.edition)
+                    membership_change = True
+
+            if membership_change:
+                # If this list was used to populate any lanes, those
+                # lanes need to have their counts updated.
+                for lane in Lane.affected_by_customlist(list):
+                    lane.update_size(self._db)
 
             if is_new:
                 return Response(unicode(list.id), 201)
@@ -900,9 +910,15 @@ class CustomListsController(CirculationManagerController):
             list = get_one(self._db, CustomList, id=list_id, data_source=data_source)
             if not list:
                 return MISSING_CUSTOM_LIST
+
+            # Build the list of affected lanes before modifying the
+            # CustomList.
+            affected_lanes = Lane.affected_by_customlist(list)
             for entry in list.entries:
                 self._db.delete(entry)
             self._db.delete(list)
+            for lane in affected_lanes:
+                lane.update_size(self._db)
             return Response(unicode(_("Deleted")), 200)
 
 
@@ -917,8 +933,7 @@ class LanesController(CirculationManagerController):
                 return [{ "id": lane.id,
                           "display_name": lane.display_name,
                           "visible": lane.visible,
-                          # TODO: getting the counts is very slow.
-                          "count": fast_query_count(lane.works(self._db).limit(None)),
+                          "count": lane.size,
                           "sublanes": lanes_for_parent(lane),
                           "custom_list_ids": [list.id for list in lane.customlists],
                           "inherit_parent_restrictions": lane.inherit_parent_restrictions,
@@ -983,6 +998,7 @@ class LanesController(CirculationManagerController):
             for list in lane.customlists:
                 if list.id not in custom_list_ids:
                     lane.customlists.remove(list)
+            lane.update_size(self._db)
 
             if is_new:
                 return Response(unicode(lane.id), 201)

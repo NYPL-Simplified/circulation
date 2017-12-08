@@ -1171,11 +1171,17 @@ class TestCustomListsController(AdminControllerTest):
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
         list.library = self._default_library
 
+        # Create a Lane that depends on this CustomList for its membership.
+        lane = self._lane()
+        lane.customlists.append(list)
+        eq_(0, lane.size)
+
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
         list.add_entry(w1)
         list.add_entry(w2)
+        self.add_to_materialized_view([w1, w2, w3])
 
         new_entries = [dict(pwid=work.presentation_edition.permanent_work_id) for work in [w2, w3]]
         
@@ -1194,6 +1200,9 @@ class TestCustomListsController(AdminControllerTest):
             eq_(set([w2, w3]),
                 set([entry.work for entry in list.entries]))
 
+        # The lane's estimated size has been updated.
+        eq_(2, lane.size)
+
     def test_custom_list_delete_success(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
@@ -1204,12 +1213,21 @@ class TestCustomListsController(AdminControllerTest):
         list.add_entry(w1)
         list.add_entry(w2)
 
+        # This lane depends heavily on lists from this data source.
+        lane = self._lane()
+        lane.list_datasource = list.data_source
+        lane.size = 100
+
         with self.request_context_with_library("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
             eq_(200, response.status_code)
 
             eq_(0, self._db.query(CustomList).count())
             eq_(0, self._db.query(CustomListEntry).count())
+
+        # The lane's estimate has been updated to reflect the removal
+        # of a list from its data source.
+        eq_(0, lane.size)
 
     def test_custom_list_delete_errors(self):
         with self.request_context_with_library("/", method="DELETE"):
@@ -1393,10 +1411,15 @@ class TestLanesController(AdminControllerTest):
             eq_(1, sibling.priority)
 
     def test_lanes_edit(self):
+
+        work = self._work(with_license_pool=True)
+
         list1, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list1.library = self._default_library
         list2, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list2.library = self._default_library
+        list2.add_entry(work)
+        self.add_to_materialized_view([work])
 
         lane = self._lane("old name")
         lane.customlists += [list1]
@@ -1416,6 +1439,7 @@ class TestLanesController(AdminControllerTest):
             eq_("new name", lane.display_name)
             eq_([list2], lane.customlists)
             eq_(True, lane.inherit_parent_restrictions)
+            eq_(1, lane.size)
 
     def test_lane_delete_success(self):
         library = self._library()

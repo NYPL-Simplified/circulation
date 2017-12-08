@@ -27,6 +27,7 @@ from core.lane import (
 )
 
 from core.model import (
+    CachedFeed,
     ConfigurationSetting,
     create,
     Credential,
@@ -43,6 +44,7 @@ from scripts import (
     AdobeAccountIDResetScript,
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
+    CacheOPDSGroupFeedPerLane,
     InstanceInitializationScript,
     LanguageListScript,
     LoanReaperScript,
@@ -190,6 +192,31 @@ class TestCacheFacetListsPerLane(TestLaneScript):
             # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
             eq_(4, len(cached_feeds))
 
+
+class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
+    
+    def test_do_run(self):
+
+        work = self._work(fiction=True, with_license_pool=True, 
+                          genre="Science Fiction")
+        work.quality = 1
+        lane = self._lane(display_name="Fantastic Fiction", fiction=True)
+        sublane = self._lane(
+            parent=lane, display_name="Science Fiction", fiction=True,
+            genres=["Science Fiction"]
+        )
+        self.add_to_materialized_view([work], true_opds=True)
+        script = CacheOPDSGroupFeedPerLane(self._db, cmd_args=[])
+        script.do_run(cmd_args=[])
+
+        # The Lane object was disconnected from its database session
+        # when the app server was initialized. Reconnect it.
+        lane = self._db.merge(lane)
+        [feed] = lane.cachedfeeds
+
+        assert "Fantastic Fiction" in feed.content
+        assert "Science Fiction" in feed.content
+        assert work.title in feed.content
 
 class TestInstanceInitializationScript(DatabaseTest):
 
