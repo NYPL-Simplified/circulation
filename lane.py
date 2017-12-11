@@ -347,7 +347,7 @@ class FeaturedFacets(object):
         self.uses_customlists = uses_customlists
 
     def apply(self, _db, qu, work_model, distinct):
-        return
+        return qu
 
     #def apply(self, _db, qu, work_model, distinct):
     #    qu = qu.order_by(
@@ -672,7 +672,7 @@ class WorkList(object):
                 works.append(work)
         return works
 
-    def works(self, _db, facets=None, pagination=None):
+    def works(self, _db, facets=None, pagination=None, include_quality_tier=False):
         """Create a query against a materialized view that finds Work-like
         objects corresponding to all the Works that belong in this
         WorkList.
@@ -700,7 +700,10 @@ class WorkList(object):
             mw = MaterializedWork
 
         if isinstance(facets, FeaturedFacets):
-            qu = _db.query(mw, facets.quality_tier_field(mw))
+            field = facets.quality_tier_field(mw)
+            qu = _db.query(mw, field)
+            if include_quality_tier:
+                qu = qu.add_columns(field)
         else:
             qu = _db.query(mw)
 
@@ -1397,8 +1400,9 @@ class Lane(Base, WorkList):
         return wl
 
     def groups(self, _db):
-        """Return a CASE statement that explains why a given work
-        showed up in the given query.
+        """Return a list of (Lane, MaterializedWork) 2-tuples
+        describing a sequence of featured items for this lane and
+        its children.
         """
         from model import MaterializedWorkWithGenre
         work_model = MaterializedWorkWithGenre
@@ -1416,35 +1420,57 @@ class Lane(Base, WorkList):
         )
         qu = self.works(_db, facets=facets)
         if not qu:
-            return []
+            return
 
-        for sublane in [self] + self.visible_children:
+        visible_children = list(self.visible_children)
+
+        for sublane in [self] + visible_children:
             qu, bibliographic_filter_clause, distinct = self.bibliographic_filter_clause(
                 _db, qu, work_model, True
             )
             # Additionally restrict the query to pick up items 
             # within a randomly chosen 'window' of an appropriate size.
             clause = bibliographic_filter_clause
-            if clause and sublane.size > 0:
+            if clause is not None and sublane.size > 0:
                 window_size = target_size*2 / (sublane.size * 0.1)
                 clause = clause.append(
                     work_model.random < window_size
                 )
-            if clause:
+            if clause is not None:
                 clauses.append((clause, sublane.id))
 
         lane_id_field = case(clauses, else_=None).label("lane_id")
         qu = qu.add_columns(lane_id_field)
-        qu = qu.order_by("quality_tier", "lane_id", work_model.random)
+        qu = qu.order_by("quality_tier desc", "lane_id", work_model.random)
 
         # This query should always be distinct because we don't want to
         # feature a given book more than once.
         qu = qu.distinct()
         items = qu.all()
-        
-        # TODO: Go through the items and pull out the `target_size` best
-        # matches for each lane.
-        set_trace()
+
+        # `items` is ordered with highest-quality items at the front.
+        # Go down the list of results, filling in the featured items
+        # for each lane until we have `target_size` items for each
+        # lane.
+        by_lane_id = defaultdict(list)
+        total_size = 0
+        maximum_size = target_size * (len(visible_children)+1)
+        for mw, quality_tier, lane_id in items:
+            if len(by_lane_id) >= target_size:
+                # We already have enough featured items for this lane.
+                continue
+            by_lane_id[lane_id].append(mw)
+            total_size += 1
+            if total_size >= maximum_size:
+                # Every lane is full of recommended items. We can
+                # stop going through the results.
+                break
+
+        # The featured items for a lane come after the items for all
+        # of its sublanes.
+        for lane in visible_children + [self]:
+            for mw in by_lane_id.get(lane.id, []):
+                yield (lane, mw)
           
     def search(self, _db, query, search_client, pagination=None):
         """Find works in this lane that also match a search query.

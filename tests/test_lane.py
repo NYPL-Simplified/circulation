@@ -1746,3 +1746,37 @@ class TestLane(DatabaseTest):
         # Now it's been loosened to three days, and the work shows up.
         gutenberg_lists_lane.list_seen_in_previous_days = 3
         eq_([work], results())
+
+
+class TestNewGroups(DatabaseTest):
+
+    def test_groups(self):
+
+        def _w(**kwargs):
+            return self._work(with_license_pool=True, **kwargs)
+
+        sf1 = _w(title="HQ SF", genre="Science Fiction", fiction=True)
+        sf1.quality = 0.8
+        sf2 = _w(title="LQ SF", genre="Science Fiction", fiction=True)
+        sf2.quality = 0.3
+        r1 = _w(title="HQ Romance", genre="Romance", fiction=True)
+        r1.quality = 0.8
+        r2 = _w(title="LQ Romance", genre="Romance", fiction=True)
+        r2.quality = 0.3
+        fic = _w(title="General Fiction", fiction=True)
+        fic.quality = 0.9
+        self.add_to_materialized_view([sf1, sf2, r1, r2, fic])
+
+        fiction = self._lane("Fiction")
+        fiction.fiction = True
+
+        sf_lane = self._lane(
+            "Science Fiction", parent=fiction, genres=["Science Fiction"]
+        )
+        romance_lane = self._lane(
+            "Romance", parent=fiction, genres=["Romance"]
+        )
+
+        results = list(fiction.groups(self._db))
+        set_trace()
+        pass
