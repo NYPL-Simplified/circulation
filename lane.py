@@ -347,12 +347,15 @@ class FeaturedFacets(object):
         self.uses_customlists = uses_customlists
 
     def apply(self, _db, qu, work_model, distinct):
-        qu = qu.order_by(
-            self.quality_tier_field(work_model).desc(), work_model.random
-        )
-        if distinct:
-            qu = qu.distinct()
-        return qu
+        return
+
+    #def apply(self, _db, qu, work_model, distinct):
+    #    qu = qu.order_by(
+    #        self.quality_tier_field(work_model).desc(), work_model.random
+    #    )
+    #    if distinct:
+    #        qu = qu.distinct()
+    #    return qu
 
     def quality_tier_field(self, mv):
         """A selectable field that summarizes the overall quality of a work
@@ -407,7 +410,7 @@ class FeaturedFacets(object):
                 [(CustomListEntry.featured, 11)], else_=0
             )
             tier = tier + featured_on_list
-        return tier
+        return tier.label("quality_tier")
 
 
 class Pagination(object):
@@ -689,7 +692,7 @@ class WorkList(object):
             MaterializedWork,
             MaterializedWorkWithGenre,
         )
-        if self.genre_ids:
+        if self.genre_ids or True:
             mw = MaterializedWorkWithGenre
             # apply_filters() will apply the genre
             # restrictions.
@@ -1394,33 +1397,55 @@ class Lane(Base, WorkList):
         return wl
 
     def groups(self, _db):
-        """Extract a list of samples from each child of this Lane, as well as
-        from the lane itself. This can be used to create a grouped
-        acquisition feed for the Lane.
-
-        :return: A list of (Work, Lane) 2-tuples, with each Lane
-        representing the Lane in which the Work can be found.
+        """Return a CASE statement that explains why a given work
+        showed up in the given query.
         """
-        # This takes care of all of the children.
-        works_and_lanes = super(Lane, self).groups(_db)
+        from model import MaterializedWorkWithGenre
+        work_model = MaterializedWorkWithGenre
 
-        if not works_and_lanes:
-            # The children of this Lane did not contribute any works
-            # to the groups feed. This means there should not be
-            # a groups feed in the first place -- we should send a list
-            # feed instead.
-            return works_and_lanes
+        clauses = []
+        library = self.get_library(_db)
+        target_size = library.featured_lane_size
 
-        # The children of this Lane contributed works to the groups
-        # feed, which means we need an additional group in the feed
-        # representing everything in the Lane (since the child lanes
-        # are almost never exhaustive).
-        lane = _db.merge(self)
-        works = lane.featured_works(_db)
-        for work in works:
-            works_and_lanes.append((work, lane))
-        return works_and_lanes
-           
+        # We want to get `target_size` high-quality works. To do this
+        # without having a separate query for each lane we will be
+
+        facets = FeaturedFacets(
+            library.minimum_featured_quality,
+            self.uses_customlists
+        )
+        qu = self.works(_db, facets=facets)
+        if not qu:
+            return []
+
+        for sublane in [self] + self.visible_children:
+            qu, bibliographic_filter_clause, distinct = self.bibliographic_filter_clause(
+                _db, qu, work_model, True
+            )
+            # Additionally restrict the query to pick up items 
+            # within a randomly chosen 'window' of an appropriate size.
+            clause = bibliographic_filter_clause
+            if clause and sublane.size > 0:
+                window_size = target_size*2 / (sublane.size * 0.1)
+                clause = clause.append(
+                    work_model.random < window_size
+                )
+            if clause:
+                clauses.append((clause, sublane.id))
+
+        lane_id_field = case(clauses, else_=None).label("lane_id")
+        qu = qu.add_columns(lane_id_field)
+        qu = qu.order_by("quality_tier", "lane_id", work_model.random)
+
+        # This query should always be distinct because we don't want to
+        # feature a given book more than once.
+        qu = qu.distinct()
+        items = qu.all()
+        
+        # TODO: Go through the items and pull out the `target_size` best
+        # matches for each lane.
+        set_trace()
+          
     def search(self, _db, query, search_client, pagination=None):
         """Find works in this lane that also match a search query.
         """
