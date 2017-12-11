@@ -9,7 +9,10 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
-from sqlalchemy import func
+from sqlalchemy import (
+    and_,
+    func,
+)
 
 from classifier import Classifier
 
@@ -785,12 +788,12 @@ class TestWorkList(DatabaseTest):
                 called['only_show_ready_deliverable_works'] = True
                 return query
 
-            def apply_bibliographic_filters(
+            def bibliographic_filter_clause(
                     self, _db, query, work_model, featured
             ):
                 called['apply_bibliographic_filters'] = True
                 called['apply_bibliographic_filters.featured'] = featured
-                return query, self.distinct
+                return query, None, self.distinct
 
         class MockFacets(object):
             def apply(self, _db, query, work_model, distinct):
@@ -837,14 +840,14 @@ class TestWorkList(DatabaseTest):
 
     def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
         class MockWorkList(WorkList):
-            """Mock WorkList whose apply_bibliographic_filters implementation
+            """Mock WorkList whose bibliographic_filter_clause implementation
             believes the WorkList should not exist at all.
             """
 
-            def apply_bibliographic_filters(
+            def bibliographic_filter_clause(
                     self, _db, query, work_model, featured
             ):
-                return None, False
+                return None, None, False
 
         wl = MockWorkList()
         wl.initialize(self._default_library)
@@ -852,12 +855,12 @@ class TestWorkList(DatabaseTest):
         qu = self._db.query(MaterializedWork)
         eq_(None, wl.apply_filters(self._db, qu, MaterializedWork, None, None))
 
-    def test_apply_bibliographic_filters(self):
+    def test_bibliographic_filter_clause(self):
         called = dict()
 
         class MockWorkList(WorkList):
-            """Mock WorkList that simply verifies that apply_filters()
-            calls various hook methods.
+            """Mock WorkList that simply verifies that
+            bibliographic_filter_clause() calls various hook methods.
             """
 
             def __init__(self, languages=None, genre_ids=None, media=None):
@@ -865,74 +868,72 @@ class TestWorkList(DatabaseTest):
                 self.genre_ids = genre_ids
                 self.media = media
 
-            def apply_audience_filter(self, _db, qu, work_model):
+            def audience_filter_clauses(self, _db, qu, work_model):
                 called['apply_audience_filter'] = True
-                return qu
-
-            def apply_custom_filters(self, _db, qu, work_model, featured):
-                called['apply_custom_filters'] = True
-                called['apply_custom_filters.featured'] = featured
-                return qu, featured
+                return []
 
         wl = MockWorkList()
         from model import MaterializedWorkWithGenre as wg
         original_qu = self._db.query(wg)
 
         # If no languages or genre IDs are specified, and the hook
-        # methods do nothing, then apply_bibliographic_filters() has
+        # methods do nothing, then bibliographic_filter_clause() has
         # no effect.
         featured_object = object()
-        final_qu, distinct = wl.apply_bibliographic_filters(
+        final_qu, bibliographic_filter, distinct = wl.bibliographic_filter_clause(
             self._db, original_qu, wg, featured_object
         )
         eq_(original_qu, final_qu)
+        eq_(None, bibliographic_filter)
 
-        # But the hook methods were called with the correct arguments.
+        # But at least the hook methods were called with the correct
+        # arguments.
         eq_(True, called['apply_audience_filter'])
 
         # If languages, media, and genre IDs are specified, then they are
         # incorporated into the query.
+        #
         english_sf = self._work(language="eng", with_license_pool=True)
         english_sf.presentation_edition.medium = Edition.BOOK_MEDIUM
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        romance, ignore = Genre.lookup(self._db, "Romance")
         english_sf.genres.append(sf)
         self.add_to_materialized_view(english_sf)
 
         # Create a WorkList that will find the MaterializedWorkWithGenre
         # for the English SF book.
-        english_sf_list = MockWorkList(languages=["eng"], genre_ids=[sf.id], media=[Edition.BOOK_MEDIUM])
-        english_sf_qu, distinct = english_sf_list.apply_bibliographic_filters(
-            self._db, original_qu, wg, False
-        )
+        def worklist_has_books(
+                expect_books, **worklist_constructor_args
+        ):
+            """Apply bibliographic filters to a query and verify
+            that it finds only the given books.
+            """
+            worklist = MockWorkList(**worklist_constructor_args)
+            qu, clause, distinct = worklist.bibliographic_filter_clause(
+                self._db, original_qu, wg, False
+            )
+            qu = qu.filter(clause)
+            if distinct:
+                qu = qu.distinct()
+            expect_titles = sorted([x.sort_title for x in expect_books])
+            actual_titles = sorted([x.sort_title for x in qu])
+            eq_(expect_titles, actual_titles)
 
-        # Here it is!
-        eq_([english_sf.sort_title], [x.sort_title for x in english_sf_qu])
+        worklist_has_books(
+            [english_sf], 
+            languages=["eng"], genre_ids=[sf.id], media=[Edition.BOOK_MEDIUM]
+        )
 
         # WorkLists that do not match by language, medium, or genre will not
         # find the English SF book.
-        spanish_sf_list = MockWorkList(languages=["spa"], genre_ids=[sf.id])
-        spanish_sf_qu, distinct = spanish_sf_list.apply_bibliographic_filters(
-            self._db, original_qu, wg, False
+        worklist_has_books([], languages=["spa"], genre_ids=[sf.id])
+        worklist_has_books([], languages=["eng"], genre_ids=[romance.id])
+        worklist_has_books(
+            [], 
+            languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM]
         )
-        eq_(0, spanish_sf_qu.count())
-        
-        romance, ignore = Genre.lookup(self._db, "Romance")
-        english_romance_list = MockWorkList(
-            languages=["eng"], genre_ids=[romance.id]
-        )
-        english_romance_qu, distinct = english_romance_list.apply_bibliographic_filters(
-            self._db, original_qu, wg, False
-        )
-        eq_(0, english_romance_qu.count())
 
-        audio_list = MockWorkList(
-            languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM])
-        audio_qu, distinct = audio_list.apply_bibliographic_filters(
-            self._db, original_qu, wg, False
-        )
-        eq_(0, audio_qu.count())
-
-    def test_apply_audience_filter(self):
+    def test_audience_filter_clauses(self):
 
         # Create two childrens' books (one from Gutenberg, one not)
         # and one book for adults.
@@ -966,16 +967,18 @@ class TestWorkList(DatabaseTest):
         )
 
         def for_audiences(*audiences):
-            """Invoke WorkList.apply_audience_filter using the given 
+            """Invoke WorkList.apply_audience_clauses using the given 
             `audiences`, and return all the matching Work objects.
             """
             wl = WorkList()
             wl.audiences = audiences
             qu = self._db.query(Work).join(Work.license_pools)
-            return wl.apply_audience_filter(self._db, qu, Work).all()
+            clauses = wl.audience_filter_clauses(self._db, qu, Work)
+            if clauses:
+                qu = qu.filter(and_(*clauses))
+            return qu.all()
 
-        eq_([gutenberg_adult], 
-            for_audiences(Classifier.AUDIENCE_ADULT))
+        eq_([gutenberg_adult], for_audiences(Classifier.AUDIENCE_ADULT))
 
         # The Gutenberg "children's" book is filtered out because it we have
         # no guarantee it is actually suitable for children.
@@ -987,6 +990,10 @@ class TestWorkList(DatabaseTest):
         eq_([non_gutenberg_children], 
             for_audiences(Classifier.AUDIENCE_ADULT, 
                           Classifier.AUDIENCE_CHILDREN))
+
+        # If no particular audiences are specified, no books are filtered.
+        eq_(set([gutenberg_adult, gutenberg_children, non_gutenberg_children]), 
+            set(for_audiences()))
 
     def test_random_sample(self):
         # This lets me test which items are chosen in a random sample,
@@ -1472,7 +1479,7 @@ class TestLane(DatabaseTest):
         )
         eq_(results, target_results)
 
-    def test_apply_custom_filters(self):
+    def test_bibliographic_filter_clause(self):
 
         # Create some works that will or won't show up in various
         # lanes.
@@ -1492,16 +1499,29 @@ class TestLane(DatabaseTest):
             base_query = self._db.query(MaterializedWork).join(
                 LicensePool, MaterializedWork.license_pool_id==LicensePool.id
             )
-            query, distinct = lane.apply_bibliographic_filters(
+            new_query, bibliographic_clause, distinct = lane.bibliographic_filter_clause(
                 self._db, base_query, MaterializedWork, featured
             )
-            results = query.all()
+            
+            if lane.uses_customlists:
+                # This query needs to be distinct, and
+                # bibliographic_filter_clause modifies the query (by
+                # calling customlist_filter_clauses).
+                assert base_query != new_query
+                eq_(True, distinct)
+            else:
+                # The input query is the same as the output query, and
+                # it does not need to be distinct.
+                eq_(base_query, new_query)
+                eq_(False, distinct)
+
+            final_query = new_query.filter(bibliographic_clause)
+            results = final_query.all()
             works = sorted([(x.id, x.sort_title) for x in works])
             materialized_works = sorted(
                 [(x.works_id, x.sort_title) for x in results]
             )
             eq_(works, materialized_works)
-            return distinct
 
         # A lane may show only titles that come from a specific license source.
         gutenberg_only = self._lane()
@@ -1509,10 +1529,7 @@ class TestLane(DatabaseTest):
             self._db, DataSource.GUTENBERG
         )
 
-        distinct = match_works(gutenberg_only, [nonfiction])
-        # No custom list is involved, so there's no need to make the query
-        # distinct.
-        eq_(False, distinct)
+        match_works(gutenberg_only, [nonfiction])
 
         # A lane may show fiction, nonfiction, or both.
         fiction_lane = self._lane()
@@ -1541,18 +1558,13 @@ class TestLane(DatabaseTest):
         )
         best_sellers_lane = self._lane()
         best_sellers_lane.customlists.append(best_sellers)
-        distinct = match_works(
+        match_works(
             best_sellers_lane, [childrens_fiction], featured=False
         )
 
-        # Now that CustomLists are in play, the query needs to be made
-        # distinct, because a single work can show up on more than one
-        # list.
-        eq_(True, distinct)
-
-        # Also, the `featured` argument makes a difference now. The
-        # work isn't featured on its list, so the lane appears empty
-        # when featured=True.
+        # Now that CustomLists are in play, the `featured` argument
+        # makes a difference. The work isn't featured on its list, so
+        # the lane appears empty when featured=True.
         match_works(best_sellers_lane, [], featured=True)
 
         # If the work becomes featured, it starts showing up again.
@@ -1584,77 +1596,88 @@ class TestLane(DatabaseTest):
         best_sellers_lane.fiction = True
         match_works(best_selling_classics, [childrens_fiction])       
 
-    def test_apply_custom_filters_medium_restriction(self):
+    def test_bibliographic_filter_clause_medium_restriction(self):
         """We have to test the medium query specially in a kind of hacky way,
         since currently the materialized view only includes ebooks.
         """
-        audiobook = self._work(fiction=False, with_license_pool=True)
+        audiobook = self._work(
+            title="Audiobook", fiction=False, with_license_pool=True
+        )
         audiobook.presentation_edition.medium = Edition.AUDIO_MEDIUM
         lane = self._lane()
 
+        def matches(lane):
+            qu = self._db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
+            new_qu, bib_filter, distinct = lane.bibliographic_filter_clause(
+                self._db, qu, Edition, False
+            )
+            eq_(new_qu, qu)
+            eq_(False, distinct)
+            return new_qu.filter(bib_filter).all()
+
         # This lane only includes ebooks, and it's empty.
         lane.media = [Edition.BOOK_MEDIUM]
-        qu = self._db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
-        qu, distinct = lane.apply_bibliographic_filters(
-            self._db, qu, Edition, False
-        )
-        eq_([], qu.all())
+        eq_([], matches(lane))
 
         # This lane only includes audiobooks, and it contains one book.
         lane.media = [Edition.AUDIO_MEDIUM]
-        qu = self._db.query(Work).join(Work.license_pools)
-        qu, distinct = lane.apply_bibliographic_filters(
-            self._db, qu, Edition, False
-        )
-        eq_([audiobook], qu.all())
+        eq_([audiobook], matches(lane))
 
-    def test_apply_age_range_filter(self):
-        """Standalone test of apply_age_range_filter.
-        
-        Some of this code is also tested by test_apply_custom_filters.
+    def test_age_range_filter_clauses(self):
+        """Standalone test of age_range_filter_clauses().
         """
-        adult = self._work(audience=Classifier.AUDIENCE_ADULT)
+        def filtered(lane):
+            """Build a query that applies the given lane's age filter to the 
+            works table.
+            """
+            qu = self._db.query(Work)
+            clauses = lane.age_range_filter_clauses(Work)
+            if clauses:
+                qu = qu.filter(and_(*clauses))
+            return qu.all()
+
+        adult = self._work(title="For adults", 
+                           audience=Classifier.AUDIENCE_ADULT)
         eq_(None, adult.target_age)
         fourteen_or_fifteen = self._work(
+            title="For teens",
             audience=Classifier.AUDIENCE_YOUNG_ADULT
         )
         fourteen_or_fifteen.target_age = tuple_to_numericrange((14,15))
-
-        qu = self._db.query(Work)
 
         # This lane contains the YA book because its age range overlaps
         # the age range of the book.
         younger_ya = self._lane()
         younger_ya.target_age = (12,14)
-        younger_ya_q = younger_ya.apply_age_range_filter(self._db, qu, Work)
-        eq_([fourteen_or_fifteen], younger_ya_q.all())
+        eq_([fourteen_or_fifteen], filtered(younger_ya))
 
         # This lane contains no books because it skews too old for the YA
         # book, but books for adults are not allowed.
         older_ya = self._lane()
         older_ya.target_age = (16,17)
-        older_ya_q = older_ya.apply_age_range_filter(self._db, qu, Work)
-        eq_([], older_ya_q.all())
+        eq_([], filtered(older_ya))
 
         # Expand it to include books for adults, and the adult book
         # shows up despite having no target age at all.
         older_ya.target_age = (16,18)
-        older_ya_q = older_ya.apply_age_range_filter(self._db, qu, Work)
-        eq_([adult], older_ya_q.all())
+        eq_([adult], filtered(older_ya))
 
-    def test_apply_customlist_filter(self):
-        """Standalone test of apply_age_range_filter.
+    def test_customlist_filter_clauses(self):
+        """Standalone test of apply_customlist_filter.
         
         Some of this code is also tested by test_apply_custom_filters.
         """
-        qu = self._db.query(Work)
 
-        # If the lane has nothing to do with CustomLists,
+        # If a lane has nothing to do with CustomLists,
         # apply_customlist_filter does nothing.
         no_lists = self._lane()
-        eq_((qu, False), no_lists.apply_customlist_filter(qu, Work))
+        qu = self._db.query(Work)
+        new_qu, clauses, distinct = no_lists.customlist_filter_clauses(qu, Work)
+        eq_(qu, new_qu)
+        eq_([], clauses)
+        eq_(False, distinct)
 
-        # Set up a Work and a CustomList that contains the work.
+        # Now set up a Work and a CustomList that contains the work.
         work = self._work(with_license_pool=True)
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         eq_(gutenberg, work.license_pools[0].data_source)
@@ -1672,12 +1695,21 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_datasource = gutenberg
 
         def results(lane=gutenberg_lists_lane, must_be_featured=False):
-            modified, distinct = lane.apply_customlist_filter(
+            qu = self._db.query(Work)
+            new_qu, clauses, distinct = lane.customlist_filter_clauses(
                 qu, Work, must_be_featured=must_be_featured
             )
-            # Whenver a CustomList is in play, the query needs to be made
+
+            # The query comes out different than it goes in -- there's a
+            # new join against CustomList.
+            assert new_qu != qu
+
+            # Whenever a CustomList is in play, the query needs to be made
             # distinct.
             eq_(distinct, True)
+
+            # Run the query and see what it matches.
+            modified = new_qu.filter(and_(*clauses)).distinct()
             return modified.all()
 
         # Both lanes contain the work.
@@ -1689,10 +1721,7 @@ class TestLane(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         overdrive_lists_lane = self._lane()
         overdrive_lists_lane.list_datasource = overdrive
-        modified, distinct = overdrive_lists_lane.apply_customlist_filter(
-            qu, Work
-        )
-        eq_([], modified.all())
+        eq_([], results(overdrive_lists_lane))
 
         # It's possible to restrict a lane so that only works that are
         # _featured_ on a list show up. The work isn't featured, so it
