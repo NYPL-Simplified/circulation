@@ -56,12 +56,13 @@ class AtomFeed(object):
 
     @classmethod
     def add_link_to_entry(cls, entry, children=None, **kwargs):
+        if 'title' in kwargs:
+            kwargs['title'] = unicode(kwargs['title'])
         link = cls.E.link(**kwargs)
         entry.append(link)
         if children:
             for i in children:
                 link.append(i)
-
 
     @classmethod
     def author(cls, *args, **kwargs):

@@ -1056,6 +1056,12 @@ class TestWorkList(DatabaseTest):
             [set(x) for x in samples]
         )
 
+        # This works even if the quality coefficient appears to limit
+        # selection to a fractional number of works.
+        sample = WorkList.random_sample(qu, 2, quality_coefficient=0.23109)
+        eq_([i1, i2], sorted(sample, key=lambda x: x.id))
+
+
     def test_search_target(self):
         # A WorkList can be searched - it is its own search target.
         wl = WorkList()
@@ -1144,10 +1150,16 @@ class TestLane(DatabaseTest):
         # this.
         eq_([], list(lane.parentage))
         eq_([lane], list(child_lane.parentage))
-        eq_(lane.display_name, lane.full_identifier)
+        eq_("%s / %s" % (lane.library.short_name, lane.display_name),
+            lane.full_identifier)
 
-        eq_("%s / %s" % (lane.display_name, child_lane.display_name), 
-            child_lane.full_identifier)
+        eq_(
+            "%s / %s / %s" % (
+                lane.library.short_name, lane.display_name, 
+                child_lane.display_name
+            ), 
+            child_lane.full_identifier
+        )
 
         # TODO: The error should be raised when we try to set the parent
         # to an illegal value, not afterwards.
@@ -1170,6 +1182,39 @@ class TestLane(DatabaseTest):
     def test_display_name_for_all(self):
         lane = self._lane("Fantasy / Science Fiction")
         eq_("All Fantasy / Science Fiction", lane.display_name_for_all)
+
+    def test_affected_by_customlist(self):
+
+        # Two lists.
+        l1, ignore = self._customlist(
+            data_source_name=DataSource.GUTENBERG,
+            num_entries=0
+        )
+        l2, ignore = self._customlist(
+            data_source_name=DataSource.OVERDRIVE, num_entries=0
+        )
+
+        # A lane populated by specific lists.
+        lane = self._lane()
+
+        # Not affected by any lists.
+        for l in [l1, l2]:
+            eq_(0, Lane.affected_by_customlist(l1).count())
+
+        # Add a lane to the list, and it becomes affected.
+        lane.customlists.append(l1)
+        eq_([lane], lane.affected_by_customlist(l1).all())
+        eq_(0, lane.affected_by_customlist(l2).count())
+        lane.customlists = []
+
+        # A lane based on all lists with the GUTENBERG data source.
+        lane2 = self._lane()
+        lane2.list_datasource = l1.data_source
+
+        # It's affected by the GUTENBERG list but not the OVERDRIVE
+        # list.
+        eq_([lane2], Lane.affected_by_customlist(l1).all())
+        eq_(0, Lane.affected_by_customlist(l2).count())
 
     def test_setting_target_age_locks_audiences(self):
         lane = self._lane()

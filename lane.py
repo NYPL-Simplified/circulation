@@ -577,11 +577,17 @@ class WorkList(object):
 
     @property
     def full_identifier(self):
-        """A human-readable identifier for this Lane that
+        """A human-readable identifier for this WorkList that
         captures its position within the heirarchy.
         """
-        full_parentage = list(self.parentage) + [self]
-        return " / ".join([x.display_name for x in full_parentage])
+        lane_parentage = list(self.parentage) + [self]
+        full_parentage = [x.display_name for x in lane_parentage]
+        if getattr(self, 'library', None):
+            # This WorkList is associated with a specific library.
+            # incorporate the library's name to distinguish between it
+            # and other lanes in the same position in another library.
+            full_parentage.insert(0, self.library.short_name)
+        return " / ".join(full_parentage)
 
     @property
     def language_key(self):
@@ -868,7 +874,7 @@ class WorkList(object):
             quality_coefficient = 0.1
         if quality_coefficient > 1:
             quality_coefficient = 1
-        max_offset = (total_size * quality_coefficient)-target_size
+        max_offset = int((total_size * quality_coefficient)-target_size)
 
         if max_offset > 0:
             # There are enough high-quality items that we can pick a
@@ -1014,6 +1020,10 @@ class Lane(Base, WorkList):
     parent_id = Column(Integer, ForeignKey('lanes.id'), index=True,
                        nullable=True)
     priority = Column(Integer, index=True, nullable=False, default=0)
+
+    # How many titles are in this lane? This is periodically
+    # calculated and cached.
+    size = Column(Integer, nullable=False, default=0)
 
     # A lane may have one parent lane and many sublanes.
     sublanes = relationship(
@@ -1255,6 +1265,10 @@ class Lane(Base, WorkList):
             return True
         return False        
 
+    def update_size(self, _db):
+        """Update the stored estimate of the number of Works in this Lane."""
+        self.size = fast_query_count(self.works(_db).limit(None))
+
     @property
     def genre_ids(self):
         """Find the database ID of every Genre such that a Work classified in
@@ -1301,6 +1315,24 @@ class Lane(Base, WorkList):
                 self.full_identifier
             )
         return genre_ids
+
+    @classmethod
+    def affected_by_customlist(self, customlist):
+        """Find all Lanes whose membership is partially derived
+        from the membership of the given CustomList.
+        """
+        _db = Session.object_session(customlist)
+
+        # Either the data source must match, or there must be a specific link
+        # between the Lane and the CustomList.
+        data_source_matches = (
+            Lane._list_datasource_id==customlist.data_source_id
+        )
+        specific_link = CustomList.id==customlist.id
+
+        return _db.query(Lane).outerjoin(Lane.customlists).filter(
+            or_(data_source_matches, specific_link)
+        )            
 
     def add_genre(self, genre, inclusive=True, recursive=True):
         """Create a new LaneGenre for the given genre and
