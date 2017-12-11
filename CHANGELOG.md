@@ -1,4 +1,6 @@
-# Unreleased (2.1.1)
+This document contains release notes for the current development
+release of the circulation manager. When a release is tagged, release
+notes are removed from here and moved to [the release page](https://github.com/NYPL-Simplified/circulation/releases/).
 
 ## Circulation changes
 
@@ -11,20 +13,3 @@
   stored in the database.
 
 * Connector to the Odilo catalog/circulation API.
-
-# 2.1.0 (Released 20171206)
-
-## Circulation changes
-
-* Lane setup can be configured through the administrative interface.
-* * Initial lane setup depends on the languages in a library's collections.
-* * Individual lanes can be hidden.
-* * New lanes based on custom lists can be inserted into the default lane setup.
-* New script: `bin/informational/list_collection_metadata_identifiers`.
-  Lists all collections and the identifiers used to identify them
-  to the metadata wrangler.
-
-## Core changes
-
-* Search improvements when searching for specific title or author
-* Performance improvement: Find featured works using a single query
