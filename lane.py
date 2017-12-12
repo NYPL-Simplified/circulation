@@ -1107,7 +1107,7 @@ class Lane(Base, WorkList):
 
     # If this is set to True, then a book will show up in a lane only
     # if it would _also_ show up in its parent lane.
-    inherit_parent_restrictions = Column(Boolean, default=False, nullable=False)
+    inherit_parent_restrictions = Column(Boolean, default=True, nullable=False)
 
     # Patrons whose external type is in this list will be sent to this
     # lane when they ask for the root lane.
@@ -1418,10 +1418,10 @@ class Lane(Base, WorkList):
         start = min(random.random(), maximum_offset)
         return start, start+maximum_offset
 
-    def groups(self, _db):
+    def groups(self, _db, include_sublanes=True):
         """Return a list of (Lane, MaterializedWork) 2-tuples
         describing a sequence of featured items for this lane and
-        its children.
+        (optionally) its children.
         """
         from model import MaterializedWorkWithGenre
         work_model = MaterializedWorkWithGenre
@@ -1441,12 +1441,23 @@ class Lane(Base, WorkList):
         if not qu:
             return
 
-        visible_children = list(self.visible_children)
+        relevant_lanes = [self]
+        if include_sublanes:
+            # The child lanes go first.
+            relevant_lanes = list(self.visible_children) + relevant_lanes
+
+        # We can use a single query to build the featured feeds for
+        # this lane, as well as all of its sublanes, so long as their
+        # inherit this lane's restrictions. Lanes that don't inherit
+        # this lane's restrictions will need to be handled in 
+        # a separate call to groups().
+        single_query_lanes = [x for x in relevant_lanes 
+                              if x == self or x.inherit_parent_restrictions]
 
         # Create a field that assigns a work to one of the sublanes,
         # or to the parent lane if it doesn't match any of the
         # sublanes.
-        for sublane in visible_children + [self]:
+        for sublane in single_query_lanes:
             qu, bibliographic_filter_clause, distinct = sublane.bibliographic_filter_clause(
                 _db, qu, work_model, True, outer_join=True
             )
@@ -1475,7 +1486,7 @@ class Lane(Base, WorkList):
         # times the number of records we need. If this happens, it's
         # still bad -- we might not get records for the later lanes --
         # but at least the query won't run forever.
-        qu = qu.limit(target_size * (len(visible_children)+1) * 5)
+        qu = qu.limit(target_size * len(relevant_lanes) * 5)
 
         items = qu.all()
 
@@ -1489,39 +1500,37 @@ class Lane(Base, WorkList):
         by_lane_id = defaultdict(list)
         total_size = 0
         total_parent_lane_size = 0
-        maximum_size = target_size * (len(visible_children)+1)
+        maximum_size = target_size * single_query_lanes
         for mw, quality_tier, lane_id in items:
             if len(by_lane_id[lane_id]) >= target_size:
-                # We already have enough featured items for this lane.
-                # Add this to the 'unused' dictionary in case we need
-                # to fill in the main lane later.
-                unused_by_tier[quality_tier].append(mw)
+                if lane_id != self.id:
+                    # We already have enough featured items for this lane.
+                    # Add this to the 'unused' dictionary in case we need
+                    # to fill in the main lane later.
+                    unused_by_tier[quality_tier].append(mw)
                 continue
             by_lane_id[lane_id].append(mw)
-            used_by_tier[quality_tier].append(mw)
+            if lane_id != self.id:
+                # We may need to feature this title again in the 
+                # parent lane.
+                used_by_tier[quality_tier].append(mw)
             used.add(mw.works_id)
             total_size += 1
             if total_size >= maximum_size:
-                # Every lane is full of recommended items. We can
-                # stop going through the results.
+                # Every lane we wanted to fill from these results is
+                # full of recommended items. We can stop going through
+                # the results.
                 break
 
-        # The featured items for a lane come after the items for all
-        # of its sublanes.
-        #
-        # TODO: When a lane does not inherit its parent lane's
-        # restrictions, it's not appropriate to pick up its
-        # memberships from within a query from the parent. Even if
-        # such a query does pick up enough featurable items, they
-        # don't represent the full range of items available in the
-        # lane.
-        #
-        # In this case we should probably make a separate request to
-        # sublane.groups() for each sublane that does not inherit its
-        # parent's memberships, rather than trying to pick up titles
-        # for the lane. This is an uncommon case, which means we can
-        # usually do everything in one query.
-        for lane in visible_children + [self]:
+        used_in_parent = set()
+        for lane in relevant_lanes:
+            if not lane in single_query_lanes:
+                # We didn't try to use the main query to find results
+                # for this lane because we knew it might not work. Do
+                # a whole separate query and plug it in at this point.
+                for x in lane.groups(_db, include_sublanes=False):
+                    yield x
+                
             for mw in by_lane_id.get(lane.id, []):
                 yield (lane, mw)
 
@@ -1531,7 +1540,9 @@ class Lane(Base, WorkList):
         # order of quality, yielding random items.
         #
         # If things get really bad, we might need to reuse some of the
-        # items that _were_ previously featured in sublanes.
+        # items that _were_ previously featured in sublanes. But we'll
+        # never stoop so low as to reuse an item twice in the same
+        # lane.
         additional_needed = target_size - len(by_lane_id[self.id])
         additional_found = 0
         if additional_needed:

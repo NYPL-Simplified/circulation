@@ -1788,7 +1788,7 @@ class TestNewGroups(DatabaseTest):
         staff_picks_list, ignore = self._customlist(num_entries=0)
         staff_picks_list.add_entry(mq_sf)
 
-        # Create a 'Fiction' lane with four sublanes.
+        # Create a 'Fiction' lane with five sublanes.
         fiction = self._lane("Fiction")
         fiction.fiction = True
 
@@ -1815,7 +1815,15 @@ class TestNewGroups(DatabaseTest):
             "Romance", parent=fiction, genres=["Romance"]
         )
 
-        results = fiction.groups(self._db)
+        # "Discredited Nonfiction", which contains a book that would
+        # not normally appear in 'Fiction'.
+        discredited_nonfiction = self._lane(
+            "Discredited Nonfiction", fiction=False,
+            parent=fiction
+        )
+        discredited_nonfiction.inherit_parent_restrictions = False
+
+        results = list(fiction.groups(self._db))
         eq_(
             [
                 (best_sellers.display_name, mq_sf.sort_title),
@@ -1824,6 +1832,11 @@ class TestNewGroups(DatabaseTest):
                 (sf_lane.display_name, lq_sf.sort_title),
                 (romance_lane.display_name, hq_ro.sort_title),
                 (romance_lane.display_name, mq_ro.sort_title),
+
+                # The 'Discredited Nonfiction' lane contains a single
+                # book. There just weren't enough matching books to fill
+                # out the lane to FEATURED_LANE_SIZE.
+                (discredited_nonfiction.display_name, nonfiction.sort_title),
 
                 # The 'Fiction' lane contains the only title that fits
                 # in the fiction lane but was not classified under any
