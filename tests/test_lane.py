@@ -1755,28 +1755,85 @@ class TestNewGroups(DatabaseTest):
         def _w(**kwargs):
             return self._work(with_license_pool=True, **kwargs)
 
-        sf1 = _w(title="HQ SF", genre="Science Fiction", fiction=True)
-        sf1.quality = 0.8
-        sf2 = _w(title="LQ SF", genre="Science Fiction", fiction=True)
-        sf2.quality = 0.3
-        r1 = _w(title="HQ Romance", genre="Romance", fiction=True)
-        r1.quality = 0.8
-        r2 = _w(title="LQ Romance", genre="Romance", fiction=True)
-        r2.quality = 0.3
-        fic = _w(title="General Fiction", fiction=True)
-        fic.quality = 0.9
-        self.add_to_materialized_view([sf1, sf2, r1, r2, fic])
+        # In this library, the groups feed includes at most two books
+        # for each lane.
+        library = self._default_library
+        library.setting(library.FEATURED_LANE_SIZE).value = "2"
 
+        # Create six works (we'll create one more later).
+        hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
+        hq_sf.quality = 0.8
+        mq_sf = _w(title="MQ SF", genre="Science Fiction", fiction=True)
+        mq_sf.quality = 0.6
+        lq_sf = _w(title="LQ SF", genre="Science Fiction", fiction=True)
+        lq_sf.quality = 0.1
+        hq_ro = _w(title="HQ Romance", genre="Romance", fiction=True)
+        hq_ro.quality = 0.8
+        mq_ro = _w(title="MQ Romance", genre="Romance", fiction=True)
+        mq_ro.quality = 0.6
+        lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
+        lq_ro.quality = 0.1
+        litfic = _w(title="LQ LitFic", fiction=True, genre='Literary Fiction')
+        litfic.quality = 0
+        nonfiction = _w(title="Nonfiction", fiction=False)
+        self.add_to_materialized_view(
+            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, litfic, nonfiction]
+        )
+
+        # One of these works (mq_sf) is a best-seller and also a staff
+        # pick.
+        best_seller_list, ignore = self._customlist(num_entries=0)
+        best_seller_list.add_entry(mq_sf)
+
+        staff_picks_list, ignore = self._customlist(num_entries=0)
+        staff_picks_list.add_entry(mq_sf)
+
+        # Create a 'Fiction' lane with four sublanes.
         fiction = self._lane("Fiction")
         fiction.fiction = True
 
+        # "Best Sellers", which will contain one book.
+        best_sellers = self._lane(
+            "Best Sellers", parent=fiction
+        )
+        best_sellers.customlists.append(best_seller_list)
+
+        # "Staff Picks", which will contain the same book.
+        staff_picks = self._lane(
+            "Staff Picks", parent=fiction
+        )
+        staff_picks.customlists.append(staff_picks_list)
+
+        # "Science Fiction", which will contain two books (including
+        # the best-seller).
         sf_lane = self._lane(
             "Science Fiction", parent=fiction, genres=["Science Fiction"]
         )
+
+        # "Romance", which will contain two books.
         romance_lane = self._lane(
             "Romance", parent=fiction, genres=["Romance"]
         )
 
-        results = list(fiction.groups(self._db))
-        set_trace()
-        pass
+        results = fiction.groups(self._db)
+        eq_(
+            [
+                (best_sellers.display_name, mq_sf.sort_title),
+                (staff_picks.display_name, mq_sf.sort_title),
+                (sf_lane.display_name, hq_sf.sort_title),
+                (sf_lane.display_name, lq_sf.sort_title),
+                (romance_lane.display_name, hq_ro.sort_title),
+                (romance_lane.display_name, mq_ro.sort_title),
+
+                # The 'Fiction' lane contains the only title that fits
+                # in the fiction lane but was not classified under any
+                # other lane. It also contains a leftover title that
+                # would have been classified under 'Romance' but we
+                # already had enough titles to fill the 'Romance'
+                # lane. It does not include any titles that were
+                # featured earlier.
+                (fiction.display_name, litfic.sort_title),
+                (fiction.display_name, lq_ro.sort_title),
+            ],
+            [(x[0].display_name, x[1].sort_title) for x in results]
+        )

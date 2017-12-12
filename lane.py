@@ -1399,6 +1399,25 @@ class Lane(Base, WorkList):
                       languages=languages, media=media, audiences=audiences)
         return wl
 
+    def featured_window(self, target_size):
+        """Randomly select an interval over `Work.random` that ought to
+        contain approximately `target_size` high-quality works from
+        this lane.
+
+        :param: A 2-tuple (low value, high value), or None if the
+        entire span should be considered.
+        """
+        if self.size < 100:
+            # This lane is so small that there's a significant risk
+            # that the interval might not contain enough works. Just
+            # choose randomly from the entire lane.
+            return 0,1
+        width = target_size / self.size * 0.2
+
+        maximum_offset = 1-width
+        start = min(random.random(), maximum_offset)
+        return start, start+maximum_offset
+
     def groups(self, _db):
         """Return a list of (Lane, MaterializedWork) 2-tuples
         describing a sequence of featured items for this lane and
@@ -1424,42 +1443,63 @@ class Lane(Base, WorkList):
 
         visible_children = list(self.visible_children)
 
-        for sublane in [self] + visible_children:
-            qu, bibliographic_filter_clause, distinct = self.bibliographic_filter_clause(
-                _db, qu, work_model, True
+        # Create a field that assigns a work to one of the sublanes,
+        # or to the parent lane if it doesn't match any of the
+        # sublanes.
+        for sublane in visible_children + [self]:
+            qu, bibliographic_filter_clause, distinct = sublane.bibliographic_filter_clause(
+                _db, qu, work_model, True, outer_join=True
             )
-            # Additionally restrict the query to pick up items 
-            # within a randomly chosen 'window' of an appropriate size.
             clause = bibliographic_filter_clause
-            if clause is not None and sublane.size > 0:
-                window_size = target_size*2 / (sublane.size * 0.1)
-                clause = clause.append(
-                    work_model.random < window_size
-                )
+            if clause is not None:
+                # Additionally restrict the query to pick up items
+                # within a randomly chosen 'window' of an appropriate
+                # size.
+                window_start, window_end = sublane.featured_window(target_size)
+                if window_start > 0 and window_start < 1:
+                    clause = and_(
+                        clause, 
+                        work_model.random <= window_end,
+                        work_model.random >= window_start
+                    )
             if clause is not None:
                 clauses.append((clause, sublane.id))
-
         lane_id_field = case(clauses, else_=None).label("lane_id")
+
         qu = qu.add_columns(lane_id_field)
+
         qu = qu.order_by("quality_tier desc", "lane_id", work_model.random)
 
-        # This query should always be distinct because we don't want to
-        # feature a given book more than once.
-        qu = qu.distinct()
+        # Set a limit so that improperly distributed values for
+        # Work.random can't cause the query to return more than five
+        # times the number of records we need. If this happens, it's
+        # still bad -- we might not get records for the later lanes --
+        # but at least the query won't run forever.
+        qu = qu.limit(target_size * (len(visible_children)+1) * 5)
+
         items = qu.all()
 
         # `items` is ordered with highest-quality items at the front.
         # Go down the list of results, filling in the featured items
         # for each lane until we have `target_size` items for each
         # lane.
+        used_by_tier = defaultdict(list)
+        unused_by_tier = defaultdict(list)
+        used = set()
         by_lane_id = defaultdict(list)
         total_size = 0
+        total_parent_lane_size = 0
         maximum_size = target_size * (len(visible_children)+1)
         for mw, quality_tier, lane_id in items:
-            if len(by_lane_id) >= target_size:
+            if len(by_lane_id[lane_id]) >= target_size:
                 # We already have enough featured items for this lane.
+                # Add this to the 'unused' dictionary in case we need
+                # to fill in the main lane later.
+                unused_by_tier[quality_tier].append(mw)
                 continue
             by_lane_id[lane_id].append(mw)
+            used_by_tier[quality_tier].append(mw)
+            used.add(mw.works_id)
             total_size += 1
             if total_size >= maximum_size:
                 # Every lane is full of recommended items. We can
@@ -1468,9 +1508,47 @@ class Lane(Base, WorkList):
 
         # The featured items for a lane come after the items for all
         # of its sublanes.
+        #
+        # TODO: When a lane does not inherit its parent lane's
+        # restrictions, it's not appropriate to pick up its
+        # memberships from within a query from the parent. Even if
+        # such a query does pick up enough featurable items, they
+        # don't represent the full range of items available in the
+        # lane.
+        #
+        # In this case we should probably make a separate request to
+        # sublane.groups() for each sublane that does not inherit its
+        # parent's memberships, rather than trying to pick up titles
+        # for the lane. This is an uncommon case, which means we can
+        # usually do everything in one query.
         for lane in visible_children + [self]:
             for mw in by_lane_id.get(lane.id, []):
                 yield (lane, mw)
+
+        # To fill up the parent lane, we may need to send some of the
+        # items that weren't featured in sublanes to fill up the
+        # parent lane. We will go through those items in descending
+        # order of quality, yielding random items.
+        #
+        # If things get really bad, we might need to reuse some of the
+        # items that _were_ previously featured in sublanes.
+        additional_needed = target_size - len(by_lane_id[self.id])
+        additional_found = 0
+        if additional_needed:
+            for by_tier in unused_by_tier, used_by_tier:
+                for tier, mws in by_tier.items():
+                    random.shuffle(mws)
+                    for mw in mws:
+                        if (by_tier == unused_by_tier and mw.works_id in used):
+                            # This title showed up more often than it
+                            # was used, but it was used at least
+                            # once. Don't use it again.
+                            continue
+                        yield (self, mw)
+                        additional_found += 1
+                        if additional_found >= additional_needed:
+                            # We're all done.
+                            return
           
     def search(self, _db, query, search_client, pagination=None):
         """Find works in this lane that also match a search query.
@@ -1482,7 +1560,7 @@ class Lane(Base, WorkList):
         else:
             return target.search(_db, query, search_client, pagination)
 
-    def bibliographic_filter_clause(self, _db, qu, work_model, featured):
+    def bibliographic_filter_clause(self, _db, qu, work_model, featured, outer_join=False):
         """Create an AND clause that restricts a query to find
         only works classified in this lane.
 
@@ -1533,7 +1611,7 @@ class Lane(Base, WorkList):
 
         clauses.extend(self.age_range_filter_clauses(work_model))
         qu, customlist_clauses, customlist_distinct = self.customlist_filter_clauses(
-            qu, work_model, featured
+            qu, work_model, featured, outer_join
         )
         clauses.extend(customlist_clauses)
         
@@ -1568,7 +1646,7 @@ class Lane(Base, WorkList):
         ]
 
     def customlist_filter_clauses(
-            self, qu, work_model, must_be_featured=False
+            self, qu, work_model, must_be_featured=False, outer_join=False
     ):
         """Create a filter clause that only books that are on one of the
         CustomLists allowed by Lane configuration.
@@ -1600,9 +1678,13 @@ class Lane(Base, WorkList):
             clause = a_entry.work_id==work_model.id
         else:
             clause = a_entry.work_id==work_model.works_id
-        qu = qu.join(a_entry, clause)
         a_list = aliased(CustomListEntry.customlist)
-        qu = qu.join(a_list, a_entry.list_id==a_list.id)
+        if outer_join:
+            qu = qu.outerjoin(a_entry, clause)
+            qu = qu.outerjoin(a_list, a_entry.list_id==a_list.id)
+        else:
+            qu = qu.join(a_entry, clause)
+            qu = qu.join(a_list, a_entry.list_id==a_list.id)
 
         # Actually build the restriction clauses.
         clauses = []
@@ -1611,8 +1693,6 @@ class Lane(Base, WorkList):
         customlist_ids = [x.id for x in self.customlists]
         if customlist_ids:
             clauses.append(a_list.id.in_(customlist_ids))
-        if must_be_featured:
-            clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
             cutoff = datetime.datetime.utcnow() - datetime.timedelta(
                 self.list_seen_in_previous_days

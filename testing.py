@@ -381,6 +381,8 @@ class DatabaseTest(object):
             parent=parent, display_name=display_name,
             create_method_kwargs=dict(fiction=fiction)
         )
+        if is_new and parent:
+            lane.priority = len(parent.sublanes)-1
         if genres:
             if not isinstance(genres, list):
                 genres = [genres]
