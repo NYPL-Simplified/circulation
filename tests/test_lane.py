@@ -1751,6 +1751,7 @@ class TestLane(DatabaseTest):
 class TestNewGroups(DatabaseTest):
 
     def test_groups(self):
+        random.seed(42)
 
         def _w(**kwargs):
             return self._work(with_license_pool=True, **kwargs)
@@ -1841,8 +1842,19 @@ class TestNewGroups(DatabaseTest):
         assert_contents(
             fiction.groups(self._db),
             [
+                # The lanes based on lists feature every title on the
+                # list.  This isn't enough to pad out the lane to
+                # FEATURED_LANE_SIZE, but nothing else fits.
                 (best_sellers, mq_sf),
+
+                # In fact, both lanes feature the same title -- this
+                # generally won't happen but it can happen when
+                # multiple lanes are based on lists that feature the
+                # same title.
                 (staff_picks, mq_sf),
+
+                # The genre-based lanes contain FEATURED_LANE_SIZE
+                # (two) titles each.
                 (sf_lane, hq_sf),
                 (sf_lane, lq_sf),
                 (romance_lane, hq_ro),
@@ -1883,6 +1895,46 @@ class TestNewGroups(DatabaseTest):
                 discredited_nonfiction.groups(
                     self._db, include_sublanes=include_sublanes
                 ),
-                [discredited_nonfiction, nonfiction]
+                [(discredited_nonfiction, nonfiction)]
             )
+        
+
+        # If we make the lanes thirstier for content, we see slightly
+        # different behavior.
+        library.setting(library.FEATURED_LANE_SIZE).value = "3"
+        assert_contents(
+            fiction.groups(self._db),
+            [
+                (best_sellers, mq_sf),
+                (staff_picks, mq_sf),
+                (sf_lane, hq_sf),
+                (sf_lane, lq_sf),
+
+                # After using every single science fiction work that
+                # wasn't previously used, we reuse mq_sf to pad the
+                # "Science Fiction" lane up to three items. It's
+                # better to have lq_sf show up before mq_sf,
+                # even though it's lower quality, because it hasn't been
+                # used before.
+                (sf_lane, mq_sf),
+
+                # The 'Romance' lane now contains all Romance titles,
+                # with the higher-quality titles first.
+                (romance_lane, hq_ro),
+                (romance_lane, mq_ro),
+                (romance_lane, lq_ro),
+
+                (discredited_nonfiction, nonfiction),
+
+                # After using every single fiction work that wasn't
+                # previously used, we reuse high-quality works to pad
+                # the "Fiction" lane to three items. The
+                # lowest-quality Romance title doesn't show up here
+                # anymore, because the 'Romance' lane claimed it. If
+                # we have to reuse titles, we'll reuse the
+                # high-quality ones.
+                (fiction, litfic),
+                (fiction, hq_ro),
+                (fiction, hq_sf),
+            ]
         )
