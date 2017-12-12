@@ -1762,6 +1762,7 @@ class TestNewGroups(DatabaseTest):
 
         # Create six works (we'll create one more later).
         hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
+        hq_sf.random = 0.25
         hq_sf.quality = 0.8
         mq_sf = _w(title="MQ SF", genre="Science Fiction", fiction=True)
         mq_sf.quality = 0.6
@@ -1769,6 +1770,7 @@ class TestNewGroups(DatabaseTest):
         lq_sf.quality = 0.1
         hq_ro = _w(title="HQ Romance", genre="Romance", fiction=True)
         hq_ro.quality = 0.8
+        hq_ro.random = 0.75
         mq_ro = _w(title="MQ Romance", genre="Romance", fiction=True)
         mq_ro.quality = 0.6
         lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
@@ -1823,20 +1825,33 @@ class TestNewGroups(DatabaseTest):
         )
         discredited_nonfiction.inherit_parent_restrictions = False
 
-        results = list(fiction.groups(self._db))
-        eq_(
+        def assert_contents(g, expect):
+            """Assert that a generator yields the expected
+            (lane, MaterializedWork) 2-tuples.
+            """
+            results = list(g)
+            expect = [
+                (x[0].display_name, x[1].sort_title) for x in expect
+            ]
+            actual = [
+                (x[0].display_name, x[1].sort_title) for x in results
+            ]
+            eq_(expect, actual)
+
+        assert_contents(
+            fiction.groups(self._db),
             [
-                (best_sellers.display_name, mq_sf.sort_title),
-                (staff_picks.display_name, mq_sf.sort_title),
-                (sf_lane.display_name, hq_sf.sort_title),
-                (sf_lane.display_name, lq_sf.sort_title),
-                (romance_lane.display_name, hq_ro.sort_title),
-                (romance_lane.display_name, mq_ro.sort_title),
+                (best_sellers, mq_sf),
+                (staff_picks, mq_sf),
+                (sf_lane, hq_sf),
+                (sf_lane, lq_sf),
+                (romance_lane, hq_ro),
+                (romance_lane, mq_ro),
 
                 # The 'Discredited Nonfiction' lane contains a single
                 # book. There just weren't enough matching books to fill
                 # out the lane to FEATURED_LANE_SIZE.
-                (discredited_nonfiction.display_name, nonfiction.sort_title),
+                (discredited_nonfiction, nonfiction),
 
                 # The 'Fiction' lane contains the only title that fits
                 # in the fiction lane but was not classified under any
@@ -1845,8 +1860,29 @@ class TestNewGroups(DatabaseTest):
                 # already had enough titles to fill the 'Romance'
                 # lane. It does not include any titles that were
                 # featured earlier.
-                (fiction.display_name, litfic.sort_title),
-                (fiction.display_name, lq_ro.sort_title),
-            ],
-            [(x[0].display_name, x[1].sort_title) for x in results]
+                (fiction, litfic),
+                (fiction, lq_ro),
+            ]
+        )
+
+        # If we don't include sublanes, then the high-quality works
+        # show up as featured within 'Fiction' because the sublanes
+        # didn't claim them.
+        #
+        # hq_sf shows up before hq_ro because its .random is a smaller
+        # number.
+        assert_contents(
+            fiction.groups(self._db, include_sublanes=False),
+            [(fiction, hq_sf), (fiction, hq_ro)]
+        )
+
+        # When a lane has no sublanes, its behavior is the same whether
+        # it is called with include_sublanes true or false.
+        for include_sublanes in (True, False):
+            assert_contents(
+                discredited_nonfiction.groups(
+                    self._db, include_sublanes=include_sublanes
+                ),
+                [discredited_nonfiction, nonfiction]
+            )
         )
