@@ -1914,8 +1914,8 @@ class TestLaneGroups(DatabaseTest):
                 # we have to reuse titles, we'll reuse the
                 # high-quality ones.
                 (fiction, litfic),
-                (fiction, hq_ro),
                 (fiction, hq_sf),
+                (fiction, hq_ro),
             ]
         )
 
