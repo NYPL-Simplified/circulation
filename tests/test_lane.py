@@ -1715,6 +1715,9 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_seen_in_previous_days = 3
         eq_([work], results())
 
+class TestLaneGroups(DatabaseTest):
+    """Tests of Lane.groups() and the helper methods."""
+
     def test_groups(self):
         """A comprehensive test of Lane.groups()"""
         random.seed(42)
@@ -1910,3 +1913,33 @@ class TestLane(DatabaseTest):
                 (fiction, hq_sf),
             ]
         )
+
+    def test_fill_parent_lane(self):
+
+        class Mock(object):
+            def __init__(self, works_id):
+                self.works_id = works_id
+
+        a = Mock("a")
+        b = Mock("b")
+        c = Mock("c")
+
+        def f(lane, additional_needed, unused_by_tier, used_by_tier, 
+              used_ids=None):
+            mws = []
+            used_ids = used_ids or set()
+            for yielded_lane, mw in lane._fill_parent_lane(
+                    additional_needed, unused_by_tier, used_by_tier,
+                    used_ids
+            ):
+                # The lane should always be the lane on which
+                # _fill_parent_lane was called.
+                eq_(yielded_lane, lane)
+                mws.append(mw)
+            return mws
+
+        unused = { 10 : a, 1 : b}
+        used = { 10 : c }
+        lane = self._lane()
+
+        eq_([], f(lane, 0, unused, used))
