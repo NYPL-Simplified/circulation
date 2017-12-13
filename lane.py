@@ -1418,7 +1418,96 @@ class Lane(Base, WorkList):
         start = min(random.random(), maximum_offset)
         return start, start+maximum_offset
 
-    def groups_query(self, _db, relevant_lanes, single_query_lanes):
+    def groups(self, _db, include_sublanes=True):
+        """Return a list of (Lane, MaterializedWork) 2-tuples
+        describing a sequence of featured items for this lane and
+        (optionally) its children.
+        """
+        clauses = []
+        library = self.get_library(_db)
+        target_size = library.featured_lane_size
+
+        relevant_lanes = [self]
+        if include_sublanes:
+            # The child lanes go first.
+            relevant_lanes = list(self.visible_children) + relevant_lanes
+
+        # We can use a single query to build the featured feeds for
+        # this lane, as well as any of its sublanes that inherit this
+        # lane's restrictions. Lanes that don't inherit this lane's
+        # restrictions will need to be handled in a separate call to
+        # groups().
+        single_query_lanes = [x for x in relevant_lanes 
+                              if x == self or x.inherit_parent_restrictions]
+
+        qu = self._groups_query(_db, relevant_lanes, single_query_lanes)
+        if not qu:
+            return
+        items = qu.all()
+
+        # `items` is ordered with highest-quality items at the front.
+        # Go down the list of results, filling in the featured items
+        # for each lane until we have `target_size` items for each
+        # lane.
+        used_by_tier = defaultdict(list)
+        unused_by_tier = defaultdict(list)
+        used = set()
+        by_lane_id = defaultdict(list)
+        total_size = 0
+        total_parent_lane_size = 0
+        maximum_size = target_size * single_query_lanes
+        for mw, quality_tier, lane_id in items:
+            if len(by_lane_id[lane_id]) >= target_size:
+                if lane_id != self.id:
+                    # We already have enough featured items for this lane.
+                    # Add this to the 'unused' dictionary in case we need
+                    # to fill in the main lane later.
+                    unused_by_tier[quality_tier].append(mw)
+                continue
+            by_lane_id[lane_id].append(mw)
+            if lane_id != self.id:
+                # We may need to feature this title again in the 
+                # parent lane.
+                used_by_tier[quality_tier].append(mw)
+            used.add(mw.works_id)
+            total_size += 1
+            if total_size >= maximum_size:
+                # Every lane we wanted to fill from these results is
+                # full of recommended items. We can stop going through
+                # the results.
+                break
+
+        used_in_parent = set()
+        for lane in relevant_lanes:
+            if not lane in single_query_lanes:
+                # We didn't try to use the main query to find results
+                # for this lane because we knew it might not work. Do
+                # a whole separate query and plug it in at this point.
+                for x in lane.groups(_db, include_sublanes=False):
+                    yield x
+                
+            for mw in by_lane_id.get(lane.id, []):
+                yield (lane, mw)
+
+        # To fill up the parent lane, we may need to send some of the
+        # items that weren't featured in sublanes to fill up the
+        # parent lane. 
+        #
+        # If things get really bad, we might need to reuse some of the
+        # items that _were_ previously featured in sublanes. But we'll
+        # never stoop so low as to reuse an item twice in the same
+        # lane.
+        additional_needed = target_size - len(by_lane_id[self.id])
+        for mw in self._fill_parent_lane(
+                additional_needed, unused_by_tier, used_by_tier,
+                used
+        ):
+                yield mw
+
+    def _groups_query(self, _db, relevant_lanes, single_query_lanes):
+        """Create a query that pulls MaterializedWorkWithGenre
+        objects, plus additional lane classification information.
+        """
         from model import MaterializedWorkWithGenre
         work_model = MaterializedWorkWithGenre
 
@@ -1485,104 +1574,47 @@ class Lane(Base, WorkList):
             )
         return clause
 
-    def groups(self, _db, include_sublanes=True):
-        """Return a list of (Lane, MaterializedWork) 2-tuples
-        describing a sequence of featured items for this lane and
-        (optionally) its children.
+    def _fill_parent_lane(self, additional_needed, unused_by_tier,
+                          used_by_tier, previously_used):
+        """Yield up to `additional_needed` randomly selected items from
+        `unused_by_tier`, falling back to `used_by_tier` if necessary.
+
+        :param unused_by_tier: A dictionary mapping quality tiers to
+        lists of unused MaterializedWork items. Because the same book
+        may have shown up as multiple MaterializedWork items, it may
+        show up as 'unused' here even if another occurance of it has
+        been used.
+
+        :param used_by_tier: A dictionary mapping quality tiers to lists
+        of previously used MaterializedWork items. These will only
+        be chosen if
+
+        :param previously_used: A set of work IDs corresponding to
+        previously selected MaterializedWork items. A work in
+        `unused_by_tier` will be treated as actually having been used
+        if its ID is in this set.
         """
-        clauses = []
-        library = self.get_library(_db)
-        target_size = library.featured_lane_size
-
-        relevant_lanes = [self]
-        if include_sublanes:
-            # The child lanes go first.
-            relevant_lanes = list(self.visible_children) + relevant_lanes
-
-        # We can use a single query to build the featured feeds for
-        # this lane, as well as any of its sublanes that inherit this
-        # lane's restrictions. Lanes that don't inherit this lane's
-        # restrictions will need to be handled in a separate call to
-        # groups().
-        single_query_lanes = [x for x in relevant_lanes 
-                              if x == self or x.inherit_parent_restrictions]
-
-        qu = self.groups_query(_db, relevant_lanes, single_query_lanes)
-        if not qu:
+        if not additional_needed:
             return
-        items = qu.all()
-
-        # `items` is ordered with highest-quality items at the front.
-        # Go down the list of results, filling in the featured items
-        # for each lane until we have `target_size` items for each
-        # lane.
-        used_by_tier = defaultdict(list)
-        unused_by_tier = defaultdict(list)
-        used = set()
-        by_lane_id = defaultdict(list)
-        total_size = 0
-        total_parent_lane_size = 0
-        maximum_size = target_size * single_query_lanes
-        for mw, quality_tier, lane_id in items:
-            if len(by_lane_id[lane_id]) >= target_size:
-                if lane_id != self.id:
-                    # We already have enough featured items for this lane.
-                    # Add this to the 'unused' dictionary in case we need
-                    # to fill in the main lane later.
-                    unused_by_tier[quality_tier].append(mw)
-                continue
-            by_lane_id[lane_id].append(mw)
-            if lane_id != self.id:
-                # We may need to feature this title again in the 
-                # parent lane.
-                used_by_tier[quality_tier].append(mw)
-            used.add(mw.works_id)
-            total_size += 1
-            if total_size >= maximum_size:
-                # Every lane we wanted to fill from these results is
-                # full of recommended items. We can stop going through
-                # the results.
-                break
-
-        used_in_parent = set()
-        for lane in relevant_lanes:
-            if not lane in single_query_lanes:
-                # We didn't try to use the main query to find results
-                # for this lane because we knew it might not work. Do
-                # a whole separate query and plug it in at this point.
-                for x in lane.groups(_db, include_sublanes=False):
-                    yield x
-                
-            for mw in by_lane_id.get(lane.id, []):
-                yield (lane, mw)
-
-        # To fill up the parent lane, we may need to send some of the
-        # items that weren't featured in sublanes to fill up the
-        # parent lane. We will go through those items in descending
-        # order of quality, yielding random items.
-        #
-        # If things get really bad, we might need to reuse some of the
-        # items that _were_ previously featured in sublanes. But we'll
-        # never stoop so low as to reuse an item twice in the same
-        # lane.
-        additional_needed = target_size - len(by_lane_id[self.id])
         additional_found = 0
-        if additional_needed:
-            for by_tier in unused_by_tier, used_by_tier:
-                for tier, mws in by_tier.items():
-                    random.shuffle(mws)
-                    for mw in mws:
-                        if (by_tier == unused_by_tier and mw.works_id in used):
-                            # This title showed up more often than it
-                            # was used, but it was used at least
-                            # once. Don't use it again.
-                            continue
-                        yield (self, mw)
-                        additional_found += 1
-                        if additional_found >= additional_needed:
-                            # We're all done.
-                            return
-          
+        for by_tier in unused_by_tier, used_by_tier:
+            # Go through each tier in decreasing quality order.
+            for tier in sorted(by_tier.keys(), key=lambda x: -x):
+                mws = by_tier[tier]
+                random.shuffle(mws)
+                for mw in mws:
+                    if (by_tier is unused_by_tier 
+                        and mw.works_id in previously_used):
+                        # This title showed up more often than it
+                        # was used, but it was used at least
+                        # once. Don't use it again.
+                        continue
+                    yield (self, mw)
+                    additional_found += 1
+                    if additional_found >= additional_needed:
+                        # We're all done.
+                        return
+
     def search(self, _db, query, search_client, pagination=None):
         """Find works in this lane that also match a search query.
         """
