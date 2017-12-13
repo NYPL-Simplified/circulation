@@ -1920,6 +1920,9 @@ class TestLaneGroups(DatabaseTest):
             def __init__(self, works_id):
                 self.works_id = works_id
 
+            def __repr__(self):
+                return self.works_id
+
         a = Mock("a")
         b = Mock("b")
         c = Mock("c")
@@ -1938,8 +1941,24 @@ class TestLaneGroups(DatabaseTest):
                 mws.append(mw)
             return mws
 
-        unused = { 10 : a, 1 : b}
-        used = { 10 : c }
+        unused = { 10 : [a], 1 : [b]}
+        used = { 10 : [c] }
         lane = self._lane()
 
+        # If we don't ask for any works, we don't get any.
         eq_([], f(lane, 0, unused, used))
+
+        # If we ask for three or more, we get all three, with unused
+        # prioritized over used and high-quality prioritized over
+        # low-quality.
+        eq_([a,b,c], f(lane, 3, unused, used))
+        eq_([a,b,c], f(lane, 100, unused, used))
+
+        # If one of the items in 'unused' is actually used,
+        # it will be ignored.
+        eq_([b,c], f(lane, 3, unused, used, set([a, c])))
+
+        # TODO: If a work shows up multiple times in the 'used'
+        # dictionary it can be reused multiple times -- basically once
+        # we go into the 'used' dictionary we don't care how often we
+        # reuse things. I don't think this matters in real usage.
