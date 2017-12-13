@@ -1928,7 +1928,7 @@ class TestLaneGroups(DatabaseTest):
         c = Mock("c")
         d = Mock("d")
         e = Mock("e")
-        f = Mock("e")
+        f = Mock("f")
 
         def fill(lane, additional_needed, unused_by_tier, used_by_tier, 
               used_works=[]):
@@ -1971,4 +1971,4 @@ class TestLaneGroups(DatabaseTest):
         # Within a quality tier, works are given up in random order.
         random.seed(42)
         unused = { 10 : [a, b, c], 1 : [d, e, f]}
-        eq_([c,a,b, e,d,f], fill(lane, 6, unused, used))
+        eq_([c,a,b, e,f,d], fill(lane, 6, unused, used))
