@@ -1564,6 +1564,17 @@ class TestLane(DatabaseTest):
         best_sellers_lane.fiction = True
         match_works(best_selling_classics, [childrens_fiction])       
 
+    def test_bibliographic_filter_clause_no_restrictions(self):
+        """A lane that matches every single book has no bibliographic
+        filter clause.
+        """
+        lane = self._lane()
+        qu = self._db.query(Work)
+        eq_(
+            (qu, None, False), 
+            lane.bibliographic_filter_clause(self._db, qu, Work, False, False)
+        )
+
     def test_bibliographic_filter_clause_medium_restriction(self):
         """We have to test the medium query specially in a kind of hacky way,
         since currently the materialized view only includes ebooks.

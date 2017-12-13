@@ -1568,9 +1568,12 @@ class Lane(Base, WorkList):
             qu, clause, ignore = sublane.bibliographic_filter_clause(
                 _db, qu, work_model, featured=True, outer_join=True
             )
-            if not clause:
-                # This lane takes everything.
-                clause = 1==1
+            if clause is None:
+                # This lane doesn't put any restrictions whatsoever
+                # on its contents, but we need something for the CASE
+                # statement, so create a tautology.
+                clause = work_model.works_id==work_model.works_id
+
             clause = sublane._restrict_clause_to_window(
                 clause, work_model, target_size
             )
@@ -1705,8 +1708,12 @@ class Lane(Base, WorkList):
             qu, work_model, featured, outer_join
         )
         clauses.extend(customlist_clauses)
-        
-        return qu, and_(*clauses), (
+
+        if clauses:
+            clause = and_(*clauses)
+        else:
+            clause = None
+        return qu, clause, (
             superclass_distinct or parent_distinct or customlist_distinct
         )
 
