@@ -1931,12 +1931,12 @@ class TestLaneGroups(DatabaseTest):
         eq_(0.6394268, round(start, 8))
         eq_(0.65337494, round(end, 8))
 
+        # Given a lane with 6094 works, selecting works with .random
+        # between 0.639 and 0.653 should give us about 85 items, which
+        # is what we need to make it likely that we get 17 items of
+        # featurable quality.
         width = (end-start)
         estimated_items = lane.size * width
-
-        # Picking works with .random between 0.639 and 0.653 should
-        # give us about 85 items, which is what we need to make it
-        # likely that we get 17 items of featurable quality.
         eq_(85, round(estimated_items,1))
 
     def test_fill_parent_lane(self):
