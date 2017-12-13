@@ -1914,6 +1914,9 @@ class TestLaneGroups(DatabaseTest):
             ]
         )
 
+    def test_groups_query(self):
+        pass
+
     def test_featured_window(self):
         random.seed(42)
         lane = self._lane()
@@ -1997,3 +2000,10 @@ class TestLaneGroups(DatabaseTest):
         random.seed(42)
         unused = { 10 : [a, b, c], 1 : [d, e, f]}
         eq_([c,a,b, e,f,d], fill(lane, 6, unused, used))
+
+    def test_lane_match_clause(self):
+        pass
+
+    def test_restrict_clause_to_window(self):
+        pass
+
