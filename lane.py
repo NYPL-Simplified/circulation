@@ -1459,15 +1459,23 @@ class Lane(Base, WorkList):
         for mw, quality_tier, lane_id in items:
             if len(by_lane_id[lane_id]) >= target_size:
                 if lane_id != self.id:
-                    # We already have enough featured items for this lane.
-                    # Add this to the 'unused' dictionary in case we need
-                    # to fill in the main lane later.
-                    unused_by_tier[quality_tier].append(mw)
+                    if mw.works_id not in used:
+                        # We already have enough featured items for
+                        # this lane, and this MaterializedWork hasn't
+                        # already been used in someo ther lane. Add
+                        # this to the 'unused' dictionary in case we
+                        # need to fill in the main lane later.
+                        #
+                        # NOTE: Checking `used` isn't totally reliable
+                        # because this work might show up again
+                        # in another lane and get used then,
+                        # but it doesn't hurt.
+                        unused_by_tier[quality_tier].append(mw)
                 continue
             by_lane_id[lane_id].append(mw)
             if lane_id != self.id:
-                # We may need to feature this title again in the 
-                # parent lane.
+                # If we get really desperate, we may need to feature
+                # this title again in the parent lane.
                 used_by_tier[quality_tier].append(mw)
             used.add(mw.works_id)
             total_size += 1
@@ -1486,17 +1494,17 @@ class Lane(Base, WorkList):
                 for x in lane.groups(_db, include_sublanes=False):
                     yield x
                 
+            # We found results for this lane through the main query.
+            # Yield those results.
             for mw in by_lane_id.get(lane.id, []):
                 yield (lane, mw)
 
-        # To fill up the parent lane, we may need to send some of the
-        # items that weren't featured in sublanes to fill up the
-        # parent lane. 
+        # To fill up the parent lane, we may need to use some of the
+        # items that were gathered for sublanes but not featured.
         #
-        # If things get really bad, we might need to reuse some of the
-        # items that _were_ previously featured in sublanes. But we'll
-        # never stoop so low as to reuse an item twice in the same
-        # lane.
+        # If things get really bad, we might need to reuse some items
+        # that have already been featured in sublanes. But we'll never
+        # stoop so low as to reuse an item twice in the same lane.
         additional_needed = target_size - len(by_lane_id[self.id])
         for mw in self._fill_parent_lane(
                 additional_needed, unused_by_tier, used_by_tier,
@@ -1587,7 +1595,7 @@ class Lane(Base, WorkList):
 
         :param used_by_tier: A dictionary mapping quality tiers to lists
         of previously used MaterializedWork items. These will only
-        be chosen if
+        be chosen once every item in unused_by_tier has been chosen.
 
         :param previously_used: A set of work IDs corresponding to
         previously selected MaterializedWork items. A work in
@@ -1610,6 +1618,7 @@ class Lane(Base, WorkList):
                         # once. Don't use it again.
                         continue
                     yield (self, mw)
+                    previously_used.add(mw.works_id)
                     additional_found += 1
                     if additional_found >= additional_needed:
                         # We're all done.
