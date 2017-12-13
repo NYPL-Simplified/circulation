@@ -2008,23 +2008,25 @@ class TestLaneGroups(DatabaseTest):
         pass
 
     def test_restrict_clause_to_window(self):
-
         lane = self._lane()
-        lane.size = 1
         
         from model import MaterializedWorkWithGenre
         work_model = MaterializedWorkWithGenre
         clause = (work_model.fiction==True)
+        target_size = 10
 
         # If the lane is so small that windowing is not safe,
         # _restrict_clause_to_window does nothing.
-        eq_(clause, lane._restrict_clause_to_window(clause, work_model, 10))
+        lane.size = 1
+        eq_(
+            clause, 
+            lane._restrict_clause_to_window(clause, work_model, target_size)
+        )
 
         # If the lane size is small enough to window, then
         # _restrict_clause_to_window adds restrictions on the .random
         # field.
         lane.size = 960
-        target_size = 10
         modified = lane._restrict_clause_to_window(
             clause, work_model, target_size
         )
@@ -2038,10 +2040,10 @@ class TestLaneGroups(DatabaseTest):
         eq_(0.639, round(lower, 3))
         eq_(0.692, round(upper, 3))
 
+        # Those values came from featured_window(). If we call that
+        # method ourselves we will get a different window of
+        # approximately the same width.
         width = upper-lower
-
-        # If we call featured_window we will get a different window
-        # of approximately the same width.
         new_lower, new_upper = lane.featured_window(target_size)
         eq_(round(width, 10), round(new_upper-new_lower, 10))
         
