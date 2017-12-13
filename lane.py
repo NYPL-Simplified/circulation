@@ -1549,6 +1549,8 @@ class Lane(Base, WorkList):
         # lanes -- but at least the query won't run forever.
         qu = qu.limit(target_size * len(relevant_lanes) * 5)
 
+        qu.all()
+
         return qu
 
     @classmethod
@@ -1566,16 +1568,20 @@ class Lane(Base, WorkList):
             qu, clause, ignore = sublane.bibliographic_filter_clause(
                 _db, qu, work_model, featured=True, outer_join=True
             )
+            if not clause:
+                # This lane takes everything.
+                clause = 1==1
             clause = sublane._restrict_clause_to_window(
                 clause, work_model, target_size
             )
             if clause is not None:
                 lane_clauses.append((clause, sublane.id))
         # Convert the clauses to a CASE statement.
-        lane_id_field = case(lane_clauses, else_=None).label("lane_id")
+        if lane_clauses:
+            lane_id_field = case(lane_clauses, else_=None).label("lane_id")
 
-        # Add it to the query.
-        qu = qu.add_columns(lane_id_field)
+            # Add it to the query.
+            qu = qu.add_columns(lane_id_field)
         return qu
 
     def _restrict_clause_to_window(self, clause, work_model, target_size):

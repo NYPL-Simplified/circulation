@@ -1920,7 +1920,23 @@ class TestLaneGroups(DatabaseTest):
         )
 
     def test_groups_query(self):
-        pass
+        # Most of the _groups_query code is tested on a lower level,
+        # with tests of its helper methods, or at a higher level, with
+        # test_groups. This
+        lane = self._lane()
+        sublane = self._lane(parent=lane)
+
+        # This parameter is only used to calculate the LIMIT, so
+        # only its size matters.
+        relevant_lanes = [object()] * 3
+
+        qu = lane._groups_query(self._db, relevant_lanes, [lane, sublane])
+
+        # The LIMIT is set to get enough entries to supply every lane
+        # five times over.
+        eq_(qu._limit,
+            self._default_library.featured_lane_size * len(relevant_lanes) * 5)
+
 
     def test_featured_window(self):
         lane = self._lane()
