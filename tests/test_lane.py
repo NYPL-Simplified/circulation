@@ -1914,6 +1914,31 @@ class TestLaneGroups(DatabaseTest):
             ]
         )
 
+    def test_featured_window(self):
+        random.seed(42)
+        lane = self._lane()
+
+        # If the lane has fewer than 100 items, the 'window'
+        # spans the entire range from zero to one.
+        eq_((0,1), lane.featured_window(1))
+        lane.size = 99
+        eq_((0,1), lane.featured_window(1))
+
+        # Otherwise, the 'window' is a smaller, randomly selected range
+        # between zero and one.
+        lane.size = 6094
+        start, end = lane.featured_window(17)
+        eq_(0.6394268, round(start, 8))
+        eq_(0.65337494, round(end, 8))
+
+        width = (end-start)
+        estimated_items = lane.size * width
+
+        # Picking works with .random between 0.639 and 0.653 should
+        # give us about 85 items, which is what we need to make it
+        # likely that we get 17 items of featurable quality.
+        eq_(85, round(estimated_items,1))
+
     def test_fill_parent_lane(self):
 
         class Mock(object):

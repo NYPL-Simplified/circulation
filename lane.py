@@ -1412,11 +1412,11 @@ class Lane(Base, WorkList):
             # that the interval might not contain enough works. Just
             # choose randomly from the entire lane.
             return 0,1
-        width = target_size / self.size * 0.2
-
+        width = target_size / (self.size * 0.2)
+        
         maximum_offset = 1-width
         start = min(random.random(), maximum_offset)
-        return start, start+maximum_offset
+        return start, start+width
 
     def groups(self, _db, include_sublanes=True):
         """Return a list of (Lane, MaterializedWork) 2-tuples
