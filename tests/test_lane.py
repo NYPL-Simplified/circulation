@@ -1327,38 +1327,6 @@ class TestLane(DatabaseTest):
         assert len(no_inclusive_genres.genre_ids) > 10
         assert science_fiction.id not in no_inclusive_genres.genre_ids
 
-    def test_groups(self):
-        w1 = MockWork(1)
-        w2 = MockWork(2)
-        w3 = MockWork(3)
-
-        parent = self._lane()
-        def mock_parent_featured_works(_db):
-            return [w1, w2]
-        parent.featured_works = mock_parent_featured_works
-
-        child = self._lane()
-        parent.sublanes = [child]
-        def mock_child_featured_works(_db):
-            return [w2]
-        child.featured_works = mock_child_featured_works
-
-        # Calling groups() on the parent Lane returns three
-        # 2-tuples; one for a work featured in the sublane,
-        # and then two for a work featured in the parent lane.
-        [wwl1, wwl2, wwl3] = parent.groups(self._db)
-        eq_((w2, child), wwl1)
-        eq_((w1, parent), wwl2)
-        eq_((w2, parent), wwl3)
-
-        # If a lane's sublanes don't contribute any books, then
-        # groups() returns an entirely empty list, indicating that no
-        # groups feed should be displayed.
-        def mock_child_featured_works(_db):
-            return []
-        child.featured_works = mock_child_featured_works
-        eq_([], parent.groups(self._db))
-
     def test_search_target(self):
 
         # A Lane that is the root for a patron type can be
@@ -1747,13 +1715,12 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_seen_in_previous_days = 3
         eq_([work], results())
 
-
-class TestNewGroups(DatabaseTest):
-
     def test_groups(self):
+        """A comprehensive test of Lane.groups()"""
         random.seed(42)
 
         def _w(**kwargs):
+            """Helper method to create a work with license pool."""
             return self._work(with_license_pool=True, **kwargs)
 
         # In this library, the groups feed includes at most two books
@@ -1761,7 +1728,7 @@ class TestNewGroups(DatabaseTest):
         library = self._default_library
         library.setting(library.FEATURED_LANE_SIZE).value = "2"
 
-        # Create six works (we'll create one more later).
+        # Create eight works.
         hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
         hq_sf.random = 0.25
         hq_sf.quality = 0.8
@@ -1807,8 +1774,8 @@ class TestNewGroups(DatabaseTest):
         )
         staff_picks.customlists.append(staff_picks_list)
 
-        # "Science Fiction", which will contain two books (including
-        # the best-seller).
+        # "Science Fiction", which will contain two books (but
+        # will not contain the best-seller).
         sf_lane = self._lane(
             "Science Fiction", parent=fiction, genres=["Science Fiction"]
         )
@@ -1854,7 +1821,9 @@ class TestNewGroups(DatabaseTest):
                 (staff_picks, mq_sf),
 
                 # The genre-based lanes contain FEATURED_LANE_SIZE
-                # (two) titles each.
+                # (two) titles each. The 'Science Fiction' lane
+                # features a low-quality work because the middle-quality
+                # work was already featured above in a list.
                 (sf_lane, hq_sf),
                 (sf_lane, lq_sf),
                 (romance_lane, hq_ro),
@@ -1877,9 +1846,9 @@ class TestNewGroups(DatabaseTest):
             ]
         )
 
-        # If we don't include sublanes, then the high-quality works
-        # show up as featured within 'Fiction' because the sublanes
-        # didn't claim them.
+        # If we ask only about 'Fiction', not including its sublanes,
+        # then the high-quality works show up as featured within
+        # because there were no sublanes to claim them.
         #
         # hq_sf shows up before hq_ro because its .random is a smaller
         # number.
@@ -1905,25 +1874,28 @@ class TestNewGroups(DatabaseTest):
         assert_contents(
             fiction.groups(self._db),
             [
+                # The list-based lanes are the same as before.
                 (best_sellers, mq_sf),
                 (staff_picks, mq_sf),
-                (sf_lane, hq_sf),
-                (sf_lane, lq_sf),
 
                 # After using every single science fiction work that
                 # wasn't previously used, we reuse mq_sf to pad the
                 # "Science Fiction" lane up to three items. It's
-                # better to have lq_sf show up before mq_sf,
-                # even though it's lower quality, because it hasn't been
+                # better to have lq_sf show up before mq_sf, even
+                # though it's lower quality, because lq_sf hasn't been
                 # used before.
+                (sf_lane, hq_sf),
+                (sf_lane, lq_sf),
                 (sf_lane, mq_sf),
 
-                # The 'Romance' lane now contains all Romance titles,
-                # with the higher-quality titles first.
+                # The 'Romance' lane now contains all three Romance
+                # titles, with the higher-quality titles first.
                 (romance_lane, hq_ro),
                 (romance_lane, mq_ro),
                 (romance_lane, lq_ro),
 
+                # The 'Discredited Nonfiction' lane is the same as
+                # before.
                 (discredited_nonfiction, nonfiction),
 
                 # After using every single fiction work that wasn't
