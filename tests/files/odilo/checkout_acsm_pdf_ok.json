@@ -1,0 +1,10 @@
+{
+  "id": "4306",
+  "recordId": "00010982",
+  "downloadUrl": "http://localhost:8080/api/v2/checkouts/4306/download?token=e2f7721a11963ce5a572acb4f8599a&patronId=001000265",
+  "startTime": "1507716876495",
+  "endTime": "1516356876495",
+  "renewable": false,
+  "returnable": true,
+  "format": "ACSM_PDF"
+}
