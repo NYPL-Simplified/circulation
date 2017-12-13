@@ -1522,29 +1522,19 @@ class Lane(Base, WorkList):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
+        # Start with a basic works query.
         facets = FeaturedFacets(
             library.minimum_featured_quality,
             self.uses_customlists
         )
         qu = self.works(_db, facets=facets)
 
-        # Include a field in the query that assigns a work to one of
-        # the sublanes, or to the parent lane if it doesn't match any
-        # of the sublanes.
-        lane_clauses = []
-        for sublane in single_query_lanes:
-            # Build a match clause for each relevant lane.
-            qu, clause, ignore = sublane.bibliographic_filter_clause(
-                _db, qu, work_model, featured=True, outer_join=True
-            )
-            clause = sublane._restrict_clause_to_window(
-                clause, work_model, target_size
-            )
-            if clause is not None:
-                lane_clauses.append((clause, sublane.id))
-        # Convert the match clauses to a CASE statement.
-        lane_id_field = case(lane_clauses, else_=None).label("lane_id")
-        qu = qu.add_columns(lane_id_field)
+        # Include a field that assigns a work to one of the sublanes,
+        # or to the parent lane if it doesn't match any of the
+        # sublanes.
+        qu = self._add_lane_id_field(
+            _db, qu, work_model, single_query_lanes, target_size
+        )
 
         # We order by quality tier, then by lane, then randomly.  This
         # ensures that if we have to apply a LIMIT, the LIMIT is more
@@ -1559,6 +1549,33 @@ class Lane(Base, WorkList):
         # lanes -- but at least the query won't run forever.
         qu = qu.limit(target_size * len(relevant_lanes) * 5)
 
+        return qu
+
+    @classmethod
+    def _add_lane_id_field(cls, _db, qu, work_model, lanes, target_size):
+        """Add a CASE statement to the given query that explains
+        which lane a given book should be classified under.
+
+        :return: A modified query that includes a 'lane_id' field and
+        may also include new joins against the 'customlistentries'
+        table.
+        """
+        lane_clauses = []
+        for sublane in lanes:
+            # Build a match clause for each relevant lane.
+            qu, clause, ignore = sublane.bibliographic_filter_clause(
+                _db, qu, work_model, featured=True, outer_join=True
+            )
+            clause = sublane._restrict_clause_to_window(
+                clause, work_model, target_size
+            )
+            if clause is not None:
+                lane_clauses.append((clause, sublane.id))
+        # Convert the clauses to a CASE statement.
+        lane_id_field = case(lane_clauses, else_=None).label("lane_id")
+
+        # Add it to the query.
+        qu = qu.add_columns(lane_id_field)
         return qu
 
     def _restrict_clause_to_window(self, clause, work_model, target_size):
