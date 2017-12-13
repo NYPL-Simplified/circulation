@@ -1718,10 +1718,15 @@ class TestLane(DatabaseTest):
 class TestLaneGroups(DatabaseTest):
     """Tests of Lane.groups() and the helper methods."""
 
-    def test_groups(self):
-        """A comprehensive test of Lane.groups()"""
+    def setup(self):
+        super(TestLaneGroups, self).setup()
+
+        # Make sure random selections and range generations go the
+        # same way every time.
         random.seed(42)
 
+    def test_groups(self):
+        """A comprehensive test of Lane.groups()"""
         def _w(**kwargs):
             """Helper method to create a work with license pool."""
             return self._work(with_license_pool=True, **kwargs)
@@ -1918,7 +1923,6 @@ class TestLaneGroups(DatabaseTest):
         pass
 
     def test_featured_window(self):
-        random.seed(42)
         lane = self._lane()
 
         # If the lane has fewer than 100 items, the 'window'
@@ -1997,7 +2001,6 @@ class TestLaneGroups(DatabaseTest):
         # reuse things. I don't think this matters in real usage.
 
         # Within a quality tier, works are given up in random order.
-        random.seed(42)
         unused = { 10 : [a, b, c], 1 : [d, e, f]}
         eq_([c,a,b, e,f,d], fill(lane, 6, unused, used))
 
@@ -2005,5 +2008,40 @@ class TestLaneGroups(DatabaseTest):
         pass
 
     def test_restrict_clause_to_window(self):
-        pass
 
+        lane = self._lane()
+        lane.size = 1
+        
+        from model import MaterializedWorkWithGenre
+        work_model = MaterializedWorkWithGenre
+        clause = (work_model.fiction==True)
+
+        # If the lane is so small that windowing is not safe,
+        # _restrict_clause_to_window does nothing.
+        eq_(clause, lane._restrict_clause_to_window(clause, work_model, 10))
+
+        # If the lane size is small enough to window, then
+        # _restrict_clause_to_window adds restrictions on the .random
+        # field.
+        lane.size = 960
+        target_size = 10
+        modified = lane._restrict_clause_to_window(
+            clause, work_model, target_size
+        )
+
+        # Check the SQL.
+        expect = '%(mv)s.fiction = 1 AND %(mv)s.random <= :random_1 AND %(mv)s.random >= :random_2' % dict(mv=work_model.__table__.name)
+        eq_(expect, str(modified))
+
+        # Check the numeric values of :random_1 and :random_2
+        upper, lower = [x.right.value for x in modified.clauses[1:]]
+        eq_(0.639, round(lower, 3))
+        eq_(0.692, round(upper, 3))
+
+        width = upper-lower
+
+        # If we call featured_window we will get a different window
+        # of approximately the same width.
+        new_lower, new_upper = lane.featured_window(target_size)
+        eq_(round(width, 10), round(new_upper-new_lower, 10))
+        

@@ -1545,8 +1545,9 @@ class Lane(Base, WorkList):
         qu = qu.add_columns(lane_id_field)
 
         # We order by quality tier, then by lane, then randomly.  This
-        # ensures that if we have to apply a LIMIT, we are still
-        # likely to get high-quality results for each lane.
+        # ensures that if we have to apply a LIMIT, the LIMIT is more
+        # likely to cut off low-quality results for an early lane than
+        # high-quality results for a late lane.
         qu = qu.order_by("quality_tier desc", "lane_id", work_model.random)
 
         # Setting a limit ensures that improperly distributed values
