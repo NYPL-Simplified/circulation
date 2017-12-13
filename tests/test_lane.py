@@ -9,6 +9,7 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
+from sqlalchemy.sql.elements import Case
 from sqlalchemy import (
     and_,
     func,
@@ -1934,14 +1935,31 @@ class TestLaneGroups(DatabaseTest):
         # Most of the _groups_query code is tested on a lower level,
         # with tests of its helper methods, or at a higher level, with
         # test_groups. This
-        lane = self._lane()
-        sublane = self._lane(parent=lane)
+        lane = self._lane(fiction=True)
+        sublane = self._lane(parent=lane, fiction=False)
 
         # This parameter is only used to calculate the LIMIT, so
         # only its size matters.
         relevant_lanes = [object()] * 3
 
+        # Generate the query.
         qu = lane._groups_query(self._db, relevant_lanes, [lane, sublane])
+
+        # A 'lane_id' field was added to the query
+        [lane_id] = [x for x in qu.column_descriptions if x['name'] == 'lane_id']
+        # The lane field is a CASE statement with one clause for each lane.
+        element = lane_id['expr'].element
+        isinstance(element, Case)
+        [(parent_when, parent_value), 
+         (sublane_when, sublane_value)] = element.whens
+
+        # Each clause maps the bibliographic restrictions on a given
+        # lane to the ID of that lane.
+        assert str(parent_when.element).endswith('.fiction = 1')
+        eq_(lane.id, parent_value.value)
+
+        assert str(sublane_when.element).endswith('.fiction = 0')
+        eq_(sublane.id, sublane_value.value)
 
         # The LIMIT is set to get enough entries to supply every lane
         # five times over.
