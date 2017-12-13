@@ -2004,9 +2004,6 @@ class TestLaneGroups(DatabaseTest):
         unused = { 10 : [a, b, c], 1 : [d, e, f]}
         eq_([c,a,b, e,f,d], fill(lane, 6, unused, used))
 
-    def test_lane_match_clause(self):
-        pass
-
     def test_restrict_clause_to_window(self):
         lane = self._lane()
         
