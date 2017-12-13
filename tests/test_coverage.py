@@ -17,6 +17,7 @@ from core.scripts import RunCollectionCoverageProviderScript
 from core.testing import MockRequestsResponse
 
 from core.config import (
+    CannotLoadConfiguration,
     Configuration,
     temp_config,
 )
@@ -32,10 +33,14 @@ from core.model import (
     Work,
     WorkCoverageRecord,
 )
-from core.util.opds_writer import OPDSFeed
+from core.util.opds_writer import (
+    OPDSFeed,
+    OPDSMessage,
+)
 from core.opds_import import (
     MockSimplifiedOPDSLookup,
     MockMetadataWranglerOPDSLookup,
+    OPDSImporter,
 )
 from core.coverage import (
     CoverageFailure,
@@ -45,14 +50,26 @@ from core.util.http import BadResponseException
 from core.util.opds_writer import OPDSMessage
 
 from api.coverage import (
-    ContentServerBibliographicCoverageProvider,
-    MetadataWranglerCoverageProvider,
-    MetadataWranglerCollectionSync,
-    MetadataWranglerCollectionReaper,
+    BaseMetadataWranglerCoverageProvider,
     MetadataUploadCoverageProvider,
-    OPDSImportCoverageProvider,
+    MetadataWranglerCollectionReaper,
+    MetadataWranglerCollectionRegistrar,
     MockOPDSImportCoverageProvider,
+    OPDSImportCoverageProvider,
+    ReaperImporter,
+    RegistrarImporter,
 )
+
+class TestImporterSubclasses(DatabaseTest):
+    """Test the subclasses of OPDSImporter."""
+    
+    def test_success_status_codes(self):
+        """Validate the status codes that different importers
+        will treat as successes.
+        """
+        eq_([200, 201, 202], RegistrarImporter.SUCCESS_STATUS_CODES)
+        eq_([200, 404], ReaperImporter.SUCCESS_STATUS_CODES)
+
 
 class TestOPDSImportCoverageProvider(DatabaseTest):
 
@@ -143,10 +160,17 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         # the corresponding Edition will not.
         edition2, pool2 = self._edition(with_license_pool=True)
         
-        # Here's an identifier that can't be looked up at all.
-        identifier = self._identifier()
+        # Here's an identifier that can't be looked up at all,
+        # and an identifier that shows up in messages_by_id because
+        # its simplified:message was determined to indicate success
+        # rather than failure.
+        error_identifier = self._identifier()
+        not_an_error_identifier = self._identifier()
         messages_by_id = {
-            identifier.urn : CoverageFailure(identifier, "201: try again later")
+            error_identifier.urn : CoverageFailure(
+                error_identifier, "500: internal error"
+            ),
+            not_an_error_identifier.urn : not_an_error_identifier,
         }
 
         # When we call CoverageProvider.process_batch(), it's going to
@@ -159,13 +183,16 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         # Make the CoverageProvider do its thing.
         fake_batch = [object()]
-        success, failure1, failure2 = provider.process_batch(fake_batch)
+        (success_import, failure_mismatched, failure_message, 
+         success_message) = provider.process_batch(
+            fake_batch
+        )
         
         # The fake batch was provided to lookup_and_import_batch.
         eq_([fake_batch], provider.batches)
 
         # The matched Edition/LicensePool pair was returned.
-        eq_(success, edition.primary_identifier)
+        eq_(success_import, edition.primary_identifier)
         
         # The LicensePool of that pair was passed into finalize_license_pool.
         # The mismatched LicensePool was not.
@@ -173,16 +200,22 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
 
         # The mismatched LicensePool turned into a CoverageFailure
         # object.
-        assert isinstance(failure1, CoverageFailure)
+        assert isinstance(failure_mismatched, CoverageFailure)
         eq_('OPDS import operation imported LicensePool, but no Edition.',
-            failure1.exception)
-        eq_(pool2.identifier, failure1.obj)
-        eq_(True, failure1.transient)
+            failure_mismatched.exception)
+        eq_(pool2.identifier, failure_mismatched.obj)
+        eq_(True, failure_mismatched.transient)
         
-        # The failure was returned as a CoverageFailure object.
-        assert isinstance(failure2, CoverageFailure)
-        eq_(identifier, failure2.obj)
-        eq_(True, failure2.transient)
+        # The OPDSMessage with status code 500 was returned as a
+        # CoverageFailure object.
+        assert isinstance(failure_message, CoverageFailure)
+        eq_("500: internal error", failure_message.exception)
+        eq_(error_identifier, failure_message.obj)
+        eq_(True, failure_message.transient)
+
+        # The identifier that had a treat-as-success OPDSMessage was returned
+        # as-is.
+        eq_(not_an_error_identifier, success_message)
         
     def test_process_batch_success_even_if_no_licensepool_exists(self):
         """This shouldn't happen since CollectionCoverageProvider
@@ -215,17 +248,49 @@ class TestOPDSImportCoverageProvider(DatabaseTest):
         eq_(edition.primary_identifier, result)
         eq_([[item]], provider.batches)
 
+    def test_import_feed_response(self):
+        """Verify that import_feed_response instantiates the 
+        OPDS_IMPORTER_CLASS subclass and calls import_from_feed
+        on it.
+        """
 
-class TestMetadataWranglerCoverageProvider(DatabaseTest):
+        class MockOPDSImporter(OPDSImporter):
+            def import_from_feed(self, text):
+                """Return information that's useful for verifying
+                that the OPDSImporter was instantiated with the
+                right values.
+                """
+                return (
+                    text, self.collection, 
+                    self.identifier_mapping, self.data_source_name
+                )
+
+        class MockProvider(MockOPDSImportCoverageProvider):
+            OPDS_IMPORTER_CLASS = MockOPDSImporter
+
+        provider = MockProvider(self._default_collection)
+        provider.lookup_client = MockSimplifiedOPDSLookup(self._url)
+
+        response = MockRequestsResponse(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, "some data"
+        )
+        id_mapping = object()
+        (text, collection, mapping, 
+         data_source_name) = provider.import_feed_response(response, id_mapping)
+        eq_("some data", text)
+        eq_(provider.collection, collection)
+        eq_(id_mapping, mapping)
+        eq_(provider.data_source.name, data_source_name)
+            
+
+class MetadataWranglerCoverageProviderTest(DatabaseTest):
 
     def create_provider(self, **kwargs):
         lookup = MockMetadataWranglerOPDSLookup.from_config(self._db, self.collection)
-        return MetadataWranglerCoverageProvider(
-            self.collection, lookup, **kwargs
-        )
+        return self.TEST_CLASS(self.collection, lookup, **kwargs)
 
     def setup(self):
-        super(TestMetadataWranglerCoverageProvider, self).setup()
+        super(MetadataWranglerCoverageProviderTest, self).setup()
         self.integration = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL, url=self._url,
@@ -236,6 +301,67 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
             protocol=ExternalIntegration.BIBLIOTHECA, external_account_id=u'lib'
         )
         self.provider = self.create_provider()
+        self.lookup_client = self.provider.lookup_client
+
+    def opds_feed_identifiers(self):
+        """Creates three Identifiers to use for testing with sample OPDS files."""
+
+        # An identifier directly represented in the OPDS response.
+        valid_id = self._identifier(foreign_id=u'2020110')
+
+        # An identifier mapped to an identifier represented in the OPDS
+        # response.
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        mapped_id = self._identifier(
+            identifier_type=Identifier.AXIS_360_ID, foreign_id=u'0015187876'
+        )
+        equivalent_id = self._identifier(
+            identifier_type=Identifier.ISBN, foreign_id='9781936460236'
+        )
+        mapped_id.equivalent_to(source, equivalent_id, 1)
+
+        # An identifier that's not represented in the OPDS response.
+        lost_id = self._identifier()
+
+        return valid_id, mapped_id, lost_id
+
+
+class TestBaseMetadataWranglerCoverageProvider(MetadataWranglerCoverageProviderTest):
+
+    class Mock(BaseMetadataWranglerCoverageProvider):
+        SERVICE_NAME = "Mock"
+        DATA_SOURCE_NAME = DataSource.OVERDRIVE
+
+    TEST_CLASS = Mock
+
+    def test_must_be_authenticated(self):
+        """CannotLoadConfiguration is raised if you try to create a
+        metadata wrangler coverage provider that can't authenticate
+        with the metadata wrangler.
+        """
+        class UnauthenticatedLookupClient(object):
+            authenticated = False
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Authentication for the Library Simplified Metadata Wrangler ",
+            self.Mock, self.collection, UnauthenticatedLookupClient()
+        )
+
+    def test_input_identifier_types(self):
+        """Verify all the different types of identifiers we send
+        to the metadata wrangler.
+        """
+        eq_(
+            set([
+                Identifier.OVERDRIVE_ID,
+                Identifier.BIBLIOTHECA_ID,
+                Identifier.AXIS_360_ID,
+                Identifier.ONECLICK_ID,
+                Identifier.URI,
+            ]), 
+            set(BaseMetadataWranglerCoverageProvider.INPUT_IDENTIFIER_TYPES)
+        )
 
     def test_create_identifier_mapping(self):
         # Most identifiers map to themselves.
@@ -257,6 +383,204 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         eq_(axis, mapping[isbn_axis])
         eq_(threem, mapping[isbn_threem])
 
+    def test_coverage_records_for_unhandled_items_include_collection(self):
+        """NOTE: This could be made redundant by adding test coverage to
+        CoverageProvider.process_batch_and_handle_results in core.
+
+        """
+        data = sample_data('metadata_sync_response.opds', 'opds')
+        self.lookup_client.queue_response(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+
+        identifier = self._identifier()
+        self.provider.process_batch_and_handle_results([identifier])
+        [record] = identifier.coverage_records
+        eq_(CoverageRecord.TRANSIENT_FAILURE, record.status)
+        eq_(self.provider.data_source, record.data_source)
+        eq_(self.provider.operation, record.operation)
+        eq_(self.provider.collection, record.collection)
+
+
+class TestMetadataWranglerCollectionRegistrar(MetadataWranglerCoverageProviderTest):
+
+    TEST_CLASS = MetadataWranglerCollectionRegistrar
+
+    def test_constants(self):
+        # This CoverageProvider runs Identifiers through the 'lookup'
+        # endpoint and marks success with CoverageRecords that have
+        # the IMPORT_OPERATION operation.
+        eq_(self.provider.lookup_client.lookup, self.provider.api_method)
+        eq_(CoverageRecord.IMPORT_OPERATION, self.TEST_CLASS.OPERATION)
+
+    def test_process_batch(self):
+        """End-to-end test of the registrar's process_batch() implementation.
+        """
+        data = sample_data('metadata_sync_response.opds', 'opds')
+        self.lookup_client.queue_response(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+
+        valid_id, mapped_id, lost_id = self.opds_feed_identifiers()
+        results = self.provider.process_batch(
+            [valid_id, mapped_id, lost_id]
+        )
+
+        # The Identifier that resulted in a 200 message was returned.
+        #
+        # The Identifier that resulted in a 201 message was returned.
+        #
+        # The Identifier that was ignored by the server was not
+        # returned.
+        #
+        # The Identifier that was not requested but was sent back by
+        # the server anyway was ignored.
+        eq_(sorted([valid_id, mapped_id]), sorted(results))
+
+    def test_process_batch_errors(self):
+        """When errors are raised during batch processing, an exception is
+        raised and no CoverageRecords are created.
+        """
+        # This happens if the 'server' sends data with the wrong media
+        # type.
+        self.lookup_client.queue_response(
+            200, {'content-type': 'json/application'}, u'{ "title": "It broke." }'
+        )
+
+        id1 = self._identifier()
+        id2 = self._identifier()
+        assert_raises_regexp(
+            BadResponseException, 'Wrong media type', 
+            self.provider.process_batch, [id1, id2]
+        )
+        eq_([], id1.coverage_records)
+        eq_([], id2.coverage_records)
+
+        # Of if the 'server' sends an error response code.
+        self.lookup_client.queue_response(
+            500, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE},
+            'Internal Server Error'
+        )
+        assert_raises_regexp(
+            BadResponseException, "Got status code 500", 
+            self.provider.process_batch, [id1, id2]
+        )
+        eq_([], id1.coverage_records)
+        eq_([], id2.coverage_records)
+
+        # If a message comes back with an unexpected status, a
+        # CoverageFailure is created.
+        data = sample_data('unknown_message_status_code.opds', 'opds')
+        valid_id = self.opds_feed_identifiers()[0]
+        self.lookup_client.queue_response(
+            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+        [result] = self.provider.process_batch([valid_id])
+        eq_(True, isinstance(result, CoverageFailure))
+        eq_(valid_id, result.obj)
+        eq_('418: Mad Hatter', result.exception)
+
+        # The OPDS importer didn't know which Collection to associate
+        # with this CoverageFailure, but the CoverageProvider does,
+        # and it set .collection appropriately.
+        eq_(self.provider.collection, result.collection)
+
+    def test_items_that_need_coverage_excludes_unavailable_items(self):
+        """A LicensePool that's not actually available doesn't need coverage.
+        """
+        edition, pool = self._edition(
+            with_license_pool=True, collection=self.collection,
+            identifier_type=Identifier.BIBLIOTHECA_ID
+        )
+        pool.licenses_owned = 0
+        eq_(0, self.provider.items_that_need_coverage().count())
+
+        # Open-access titles _do_ need coverage.
+        pool.open_access = True
+        eq_([pool.identifier], self.provider.items_that_need_coverage().all())
+
+    def test_items_that_need_coverage_removes_reap_records_for_relicensed_items(self):
+        """A LicensePool that's not actually available doesn't need coverage.
+        """
+        edition, pool = self._edition(
+            with_license_pool=True, collection=self.collection,
+            identifier_type=Identifier.BIBLIOTHECA_ID
+        )
+
+        identifier = pool.identifier
+        original_coverage_records = list(identifier.coverage_records)
+
+        # This identifier was reaped...
+        cr = self._coverage_record(
+            pool.identifier, self.provider.data_source,
+            operation=CoverageRecord.REAP_OPERATION, 
+            collection=self.collection
+        )
+        eq_(
+            set(original_coverage_records + [cr]), 
+            set(identifier.coverage_records)
+        )
+
+        # ... but then it was relicensed.
+        pool.licenses_owned = 10
+
+        eq_([identifier], self.provider.items_that_need_coverage().all())
+
+        # The now-inaccurate REAP record has been removed.
+        eq_(original_coverage_records, identifier.coverage_records)
+
+    def test_identifier_covered_in_one_collection_not_covered_in_another(self):
+        edition, pool = self._edition(
+            with_license_pool=True, collection=self.collection,
+            identifier_type=Identifier.BIBLIOTHECA_ID
+        )
+
+        identifier = pool.identifier
+        other_collection = self._collection()
+
+        # This Identifier needs coverage.
+        qu = self.provider.items_that_need_coverage()
+        eq_([identifier], qu.all())
+
+        # Adding coverage for an irrelevant collection won't fix that.
+        cr = self._coverage_record(
+            pool.identifier, self.provider.data_source,
+            operation=self.provider.OPERATION, 
+            collection=other_collection
+        )
+        eq_([identifier], qu.all())
+
+        # Adding coverage for the relevant collection will.
+        cr = self._coverage_record(
+            pool.identifier, self.provider.data_source,
+            operation=self.provider.OPERATION, 
+            collection=self.provider.collection
+        )
+        eq_([], qu.all())
+
+    def test_identifier_reaped_from_one_collection_covered_in_another(self):
+        """An Identifier can be reaped from one collection but still
+        need coverage in another.
+        """
+        edition, pool = self._edition(
+            with_license_pool=True, collection=self.collection,
+            identifier_type=Identifier.BIBLIOTHECA_ID
+        )
+
+        identifier = pool.identifier
+        other_collection = self._collection()
+
+        # This identifier was reaped from other_collection, but not
+        # from self.provider.collection.
+        cr = self._coverage_record(
+            pool.identifier, self.provider.data_source,
+            operation=CoverageRecord.REAP_OPERATION, 
+            collection=other_collection
+        )
+
+        # It still needs to be covered in self.provider.collection.
+        eq_([identifier], self.provider.items_that_need_coverage().all())
+
     def test_items_that_need_coverage_respects_cutoff(self):
         """Verify that this coverage provider respects the cutoff_time
         argument.
@@ -268,7 +592,7 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         )
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
-            operation=self.provider.OPERATION
+            operation=self.provider.OPERATION, collection=self.collection
         )
 
         # We have a coverage record already, so this book doesn't show
@@ -298,7 +622,8 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source, 
             operation=self.provider.operation,
-            status=CoverageRecord.TRANSIENT_FAILURE
+            status=CoverageRecord.TRANSIENT_FAILURE,
+            collection=self.collection
         )
         
         # Ordinarily, a transient failure does not count as coverage.
@@ -352,7 +677,6 @@ class TestMetadataWranglerCoverageProvider(DatabaseTest):
         # The ISBN doesn't get any information.
         eq_(isbn.links, [])
 
-
 class MetadataWranglerCollectionManagerTest(DatabaseTest):
 
     def setup(self):
@@ -370,215 +694,25 @@ class MetadataWranglerCollectionManagerTest(DatabaseTest):
             self._db, collection=self.collection
         )
 
-    def opds_feed_identifiers(self):
-        """Creates three Identifiers to use for testing with a sample OPDS file."""
 
-        # Straightforward identifier that's represented in the OPDS response.
-        valid_id = self._identifier(foreign_id=u'2020110')
+class TestMetadataWranglerCollectionReaper(MetadataWranglerCoverageProviderTest):
 
-        # Mapped identifier.
-        source = DataSource.lookup(self._db, DataSource.AXIS_360)
-        mapped_id = self._identifier(
-            identifier_type=Identifier.AXIS_360_ID, foreign_id=u'0015187876'
-        )
-        equivalent_id = self._identifier(
-            identifier_type=Identifier.ISBN, foreign_id=self._isbn
-        )
-        mapped_id.equivalent_to(source, equivalent_id, 1)
+    TEST_CLASS = MetadataWranglerCollectionReaper
 
-        # An identifier that's not represented in the OPDS response.
-        lost_id = self._identifier()
-
-        return valid_id, mapped_id, lost_id
-
-    def test_add_coverage_record_for(self):
-        identifier = self._identifier()
-        record, _is_new = self.provider.add_coverage_record_for(identifier)
-
-        eq_(True, isinstance(record, CoverageRecord))
-        eq_(identifier, record.identifier)
-        eq_(CoverageRecord.SUCCESS, record.status)
-        eq_(self.provider.collection, record.collection)
-        eq_(self.provider.OPERATION, record.operation)
-
-    def test_process_feed_response(self):
-        data = sample_data("metadata_reaper_response.opds", "opds")
-        response = MockRequestsResponse(
-            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
-        )
-
-        # A successful response gives us OPDSMessage objects.
-        values = list(self.provider.process_feed_response(response, {}))
-        for x in values:
-            assert isinstance(x, OPDSMessage)
-
-        eq_(['Successfully removed', 'Not in collection catalog',
-             "I've never heard of this work."],
-            [x.message for x in values]
-        )
-
-    def test_process_batch_errors(self):
-        """When errors are raised during batch processing, the entire batch
-        gets CoverageFailures.
-        """
-        # If the 'server' sends data with the wrong media type, the whole
-        # batch gets CoverageFailures.
-        self.lookup.queue_response(
-            200, {'content-type': 'json/application'}, u'{ "title": "It broke." }'
-        )
-
-        id1 = self._identifier()
-        id2 = self._identifier()
-        results = self.provider.process_batch([id1, id2])
-        for result in results:
-            eq_(True, isinstance(result, CoverageFailure))
-            assert result.obj in [id1, id2]
-            eq_(True, result.transient)
-            eq_(self.provider.collection, result.collection)
-            assert "It broke." in result.exception
-
-        # If the 'server' is down, the whole batch gets CoverageFailures.
-        self.lookup.queue_response(
-            500, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, 'Internal Server Error'
-        )
-        results = self.provider.process_batch([id1, id2])
-        for result in results:
-            eq_(True, isinstance(result, CoverageFailure))
-            assert result.obj in [id1, id2]
-            eq_(True, result.transient)
-            assert 'Internal Server Error' in result.exception
-
-        # If a message comes back with an unexpected status, a
-        # CoverageFailure is created.
-        data = sample_data('unknown_message_status_code.opds', 'opds')
-        valid_id = self.opds_feed_identifiers()[0]
-        self.lookup.queue_response(
-            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
-        )
-        [result] = self.provider.process_batch([valid_id])
-        eq_(True, isinstance(result, CoverageFailure))
-        eq_(valid_id, result.obj)
-        eq_(self.provider.collection, result.collection)
-        eq_('Unknown OPDSMessage status: 418', result.exception)
-
-    def test_coverage_records_for_unhandled_items_include_collection(self):
-        data = sample_data('metadata_sync_response.opds', 'opds')
-        self.lookup.queue_response(
-            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
-        )
-
-        identifier = self._identifier()
-        self.provider.process_batch_and_handle_results([identifier])
-        [record] = identifier.coverage_records
-        eq_(CoverageRecord.TRANSIENT_FAILURE, record.status)
-        eq_(self.provider.data_source, record.data_source)
-        eq_(self.provider.operation, record.operation)
-        eq_(self.provider.collection, record.collection)
-
-
-class TestMetadataWranglerCollectionSync(MetadataWranglerCollectionManagerTest):
-
-    def setup(self):
-        super(TestMetadataWranglerCollectionSync, self).setup()
-        self.provider = MetadataWranglerCollectionSync(
-            self.collection, self.lookup
-        )
+    def test_constants(self):
+        # This CoverageProvider runs Identifiers through the 'remove'
+        # endpoint and marks success with CoverageRecords that have
+        # the REAP_OPERATION operation.
+        eq_(CoverageRecord.REAP_OPERATION, self.TEST_CLASS.OPERATION)
+        eq_(self.provider.lookup_client.remove, self.provider.api_method)
 
     def test_items_that_need_coverage(self):
-        source = self.provider.data_source
-        other_collection = self._collection(protocol=ExternalIntegration.OVERDRIVE)
-
-        # An item that has been synced for some other Collection, but not
-        # this one.
-        e1, other_covered = self._edition(
-            with_license_pool=True, collection=other_collection,
-            identifier_type=Identifier.AXIS_360_ID,
-        )
-        uncovered = self._licensepool(
-            e1, with_open_access_download=True,
-            collection=self.provider.collection
-        )
-        cr = self._coverage_record(
-            uncovered.identifier, source, collection=other_collection
-        )
-
-        # We've lost our license to this item and it has been covered
-        # by the reaper operation already.
-        e2, reaped = self._edition(
-            with_license_pool=True, collection=self.provider.collection,
-            identifier_type=Identifier.ONECLICK_ID,
-        )
-        reaped.update_availability(0, 0, 0, 0)
-        reaper_cr = self._coverage_record(
-            reaped.identifier, source,
-            operation=self.provider.OPERATION,
-            collection=self.provider.collection
-        )
-
-        # An item that has been covered by the reaper operation, but has
-        # had its license repurchased.
-        e3, relicensed = self._edition(
-            with_license_pool=True, collection=self.provider.collection,
-            identifier_type=Identifier.BIBLIOTHECA_ID
-        )
-        relicensed_coverage_record = self._coverage_record(
-            relicensed.identifier, source,
-            operation=CoverageRecord.REAP_OPERATION,
-            collection=self.provider.collection
-        )
-        relicensed.update_availability(1, 0, 0, 0)
-
-        # An item in the Collection that doesn't have any licenses.
-        e4, uncovered_unlicensed = self._edition(
-            with_license_pool=True,
-            collection=self.provider.collection,
-            identifier_type=Identifier.OVERDRIVE_ID
-        )
-        uncovered_unlicensed.update_availability(0, 0, 0, 0)
-
-        items = self.provider.items_that_need_coverage().all()
-
-        # Provider ignores anything that doesn't have licenses.
-        assert uncovered_unlicensed.identifier not in items
-        assert reaped.identifier not in items
-
-        # But it picks up anything that hasn't been covered at all and anything
-        # that's been licensed anew even if its already been reaped.
-        assert uncovered.identifier in items
-        assert relicensed.identifier in items
-        eq_(2, len(items))
-
-        # The REAP coverage record for the repurchased book has been
-        # deleted, and committing will remove it from the database.
-        assert relicensed_coverage_record in relicensed.identifier.coverage_records
-        self._db.commit()
-        assert relicensed_coverage_record not in relicensed.identifier.coverage_records
-
-    def test_process_batch(self):
-        data = sample_data('metadata_sync_response.opds', 'opds')
-        self.lookup.queue_response(
-            200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
-        )
-
-        valid_id, mapped_id, lost_id = self.opds_feed_identifiers()
-        results = self.provider.process_batch([valid_id, mapped_id, lost_id])
-        eq_(valid_id, results[0])
-        eq_(mapped_id, results[1])
-
-
-class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest):
-
-    def setup(self):
-        super(TestMetadataWranglerCollectionReaper, self).setup()
-        self.provider = MetadataWranglerCollectionReaper(
-            self.collection, self.lookup
-        )
-
-    def test_items_that_need_coverage(self):
-        """The reaper only returns identifiers with unlicensed license_pools
-        that have been synced with the Metadata Wrangler.
+        """The reaper only returns identifiers with no-longer-licensed
+        license_pools that have been synced with the Metadata
+        Wrangler.
         """
-        # Create a Wrangler-synced item that doesn't have any owned licenses
+        # Create an item that was imported into the Wrangler-side
+        # collection but no longer has any owned licenses
         covered_unlicensed_lp = self._licensepool(
             None, open_access=False, set_edition_as_presentation=True,
             collection=self.collection
@@ -586,7 +720,7 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest
         covered_unlicensed_lp.update_availability(0, 0, 0, 0)
         cr = self._coverage_record(
             covered_unlicensed_lp.presentation_edition, self.source,
-            operation=CoverageRecord.SYNC_OPERATION,
+            operation=CoverageRecord.IMPORT_OPERATION,
             collection=self.provider.collection,
         )
 
@@ -602,13 +736,17 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest
 
         items = self.provider.items_that_need_coverage().all()
         eq_(1, len(items))
+
         # Items that are licensed are ignored.
         assert licensed_lp.identifier not in items
+
         # Items with open access license pools are ignored.
         assert open_access_lp.identifier not in items
+
         # Items that haven't been synced with the Metadata Wrangler are
         # ignored, even if they don't have licenses.
         assert uncovered_unlicensed_lp.identifier not in items
+
         # Only synced items without owned licenses are returned.
         eq_([covered_unlicensed_lp.identifier], items)
 
@@ -617,30 +755,35 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest
         eq_([], self.provider.items_that_need_coverage().all())
 
     def test_process_batch(self):
-        # Queue up a feed with different possible Metadata Wrangler
-        # responses.
         data = sample_data('metadata_reaper_response.opds', 'opds')
-        self.lookup.queue_response(
+        self.lookup_client.queue_response(
             200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, data
         )
 
         valid_id, mapped_id, lost_id = self.opds_feed_identifiers()
         results = self.provider.process_batch([valid_id, mapped_id, lost_id])
 
-        eq_(valid_id, results[0])
-        eq_(mapped_id, results[1])
+        # The valid_id and mapped_id were handled successfully.
+        # The server ignored lost_id, so nothing happened to it,
+        # and the server sent a fourth ID we didn't ask for,
+        # which we ignored.
+        eq_(sorted(results), sorted([valid_id, mapped_id]))
 
     def test_finalize_batch(self):
         """Metadata Wrangler sync coverage records are deleted from the db
         when the the batch is finalized if the item has been reaped.
         """
-        # Create two identifiers that have been either synced or reaped.
+
+        # Create an identifier that has been imported and one that's
+        # been reaped.
         sync_cr = self._coverage_record(
-            self._edition(), self.source, operation=CoverageRecord.SYNC_OPERATION,
+            self._edition(), self.source,
+            operation=CoverageRecord.IMPORT_OPERATION,
             collection=self.provider.collection
         )
         reaped_cr = self._coverage_record(
-            self._edition(), self.source, operation=CoverageRecord.REAP_OPERATION,
+            self._edition(), self.source,
+            operation=CoverageRecord.REAP_OPERATION,
             collection=self.provider.collection
         )
 
@@ -648,11 +791,13 @@ class TestMetadataWranglerCollectionReaper(MetadataWranglerCollectionManagerTest
         # and reaped.
         doubly_covered = self._edition()
         doubly_sync_record = self._coverage_record(
-            doubly_covered, self.source, operation=CoverageRecord.SYNC_OPERATION,
+            doubly_covered, self.source,
+            operation=CoverageRecord.IMPORT_OPERATION,
             collection=self.provider.collection
         )
         doubly_reap_record = self._coverage_record(
-            doubly_covered, self.source, operation=CoverageRecord.REAP_OPERATION,
+            doubly_covered, self.source,
+            operation=CoverageRecord.REAP_OPERATION,
             collection=self.provider.collection,
         )
 
@@ -700,7 +845,7 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         
         cr = self._coverage_record(
             pool.identifier, self.provider.data_source,
-            operation=self.provider.OPERATION
+            operation=self.provider.OPERATION, collection=self.collection
         )
 
         # With a successful or persistent failure CoverageRecord, it still doesn't show up.
@@ -756,76 +901,3 @@ class TestMetadataUploadCoverageProvider(DatabaseTest):
         assert pool.identifier in results
         [failure] = [r for r in results if isinstance(r, CoverageFailure)]
         eq_(no_work, failure.obj)
-
-class TestContentServerBibliographicCoverageProvider(DatabaseTest):
-
-    def test_script_instantiation(self):
-        """Test that RunCollectionCoverageProviderScript can instantiate
-        the coverage provider.
-        """
-        # Create a Collection to be found.
-        collection = self._collection(
-            name="OA Content", data_source_name=DataSource.OA_CONTENT_SERVER
-        )
-
-        script = RunCollectionCoverageProviderScript(
-            ContentServerBibliographicCoverageProvider,
-            _db=self._db, lookup_client=object()
-        )
-        assert isinstance(script.providers[0],
-                          ContentServerBibliographicCoverageProvider)
-        eq_(collection, script.providers[0].collection)
-
-    def test_finalize_license_pool(self):
-
-        identifier = self._identifier()
-        license_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
-
-        # Here's a LicensePool with no presentation edition.
-        pool, is_new = LicensePool.for_foreign_id(
-            self._db, license_source, identifier.type, identifier.identifier,
-            collection=self._default_collection
-        )
-        eq_(None, pool.presentation_edition)
-
-        # Here's an Edition for the same book as the LicensePool but
-        # from a different data source.
-        edition, is_new = Edition.for_foreign_id(
-            self._db, data_source, identifier.type, identifier.identifier
-        )
-        edition.title = self._str
-
-        # Although Edition and LicensePool share an identifier, they
-        # are not otherwise related.
-        eq_(None, pool.presentation_edition)
-
-        # finalize_license_pool() will create a Work and update the
-        # LicensePool's presentation edition, based on the brand-new
-        # Edition.
-        lookup = MockSimplifiedOPDSLookup(self._url)        
-        provider = ContentServerBibliographicCoverageProvider(
-            self._default_collection, lookup
-        )
-        provider.finalize_license_pool(pool)
-        work = pool.work
-        eq_(edition.title, pool.presentation_edition.title)
-        eq_(True, work.presentation_ready)
-        
-    def test_only_open_access_books_considered(self):
-
-        lookup = MockSimplifiedOPDSLookup(self._url)        
-        provider = ContentServerBibliographicCoverageProvider(
-            self._default_collection, lookup
-        )
-
-        # Here's an open-access work.
-        w1 = self._work(with_license_pool=True, with_open_access_download=True)
-
-        # Here's a work that's not open-access.
-        w2 = self._work(with_license_pool=True, with_open_access_download=False)
-        w2.license_pools[0].open_access = False
-
-        # Only the open-access work needs coverage.
-        eq_([w1.license_pools[0].identifier],
-            provider.items_that_need_coverage().all())

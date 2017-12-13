@@ -11,13 +11,14 @@ from nose.tools import (
 import os
 from StringIO import StringIO
 
-from core.config import (
+from api.config import (
     Configuration, 
     temp_config,
 )
 
 from core.model import (
     get_one_or_create,
+    ConfigurationSetting,
     Contributor,
     Credential,
     DataSource,
@@ -40,6 +41,7 @@ from core.metadata_layer import (
 )
 
 from api.oneclick import (
+    AudiobookManifest,
     OneClickAPI,
     OneClickCirculationMonitor, 
     MockOneClickAPI,
@@ -66,6 +68,9 @@ class OneClickAPITest(DatabaseTest):
         super(OneClickAPITest, self).setup()
 
         self.base_path = os.path.split(__file__)[0]
+        # Make sure the default library is created so that it will
+        # be configured properly with the mock collection.
+        self._default_library
         self.collection = MockOneClickAPI.mock_collection(self._db)
         self.api = MockOneClickAPI(
             self._db, self.collection, base_path=self.base_path
@@ -73,8 +78,8 @@ class OneClickAPITest(DatabaseTest):
         self.default_patron = self._patron(external_identifier="oneclick_testuser")
         self.default_patron.authorization_identifier="13057226"
 
-class TestOneClickAPI(OneClickAPITest):
 
+class TestOneClickAPI(OneClickAPITest):
     
     def queue_initial_patron_id_lookup(self):
         """All the OneClickAPI methods that take a Patron object call
@@ -108,6 +113,16 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(Credential.IDENTIFIER_FROM_REMOTE_SERVICE, credential.type)
         eq_(external_id, credential.credential)
         eq_(None, credential.expires)
+
+    def _set_notification_address(self, library):
+        """Set the default notification address for the given library.
+
+        This is necessary to create RBdigital user accounts for its
+        patrons.
+        """
+        ConfigurationSetting.for_library(
+            Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, library
+        ).value = 'genericemail@library.org'
 
     def test_patron_remote_identifier_new_patron(self):
 
@@ -162,6 +177,31 @@ class TestOneClickAPI(OneClickAPITest):
         self._assert_patron_has_remote_identifier_credential(
             patron, "i know you"
         )
+
+    def test_patron_remote_email_address(self):
+
+        patron = self.default_patron
+
+        # Without a setting for DEFAULT_NOTIFICATION_EMAIL_ADDRESS, we
+        # can't calculate the email address to send RBdigital for a
+        # patron.
+        assert_raises_regexp(
+            RemotePatronCreationFailedException,
+            "Cannot create remote account for patron because library's default notification address is not set.",
+            self.api.remote_email_address, patron
+        )
+
+        self._set_notification_address(patron.library)
+        address = self.api.remote_email_address(patron)
+
+        # A credential was created to use when talking to RBdigital
+        # about this patron.
+        [credential] = patron.credentials
+
+        # The credential and default notification email address were
+        # used to construct the patron's
+        eq_("genericemail+rbdigital-%s@library.org" % credential.credential,
+            address)
 
     def test_patron_remote_identifier_lookup(self):
 
@@ -345,6 +385,16 @@ class TestOneClickAPI(OneClickAPITest):
                       patron, None, pool)
 
     def test_checkout(self):
+
+        # Ebooks and audiobooks have different loan durations.
+        ebook_period = self.api.collection.default_loan_period(
+            self._default_library, Edition.BOOK_MEDIUM
+        )
+        audio_period = self.api.collection.default_loan_period(
+            self._default_library, Edition.AUDIO_MEDIUM
+        )
+        assert ebook_period != audio_period
+
         patron = self.default_patron
         self.queue_initial_patron_id_lookup()
 
@@ -362,22 +412,38 @@ class TestOneClickAPI(OneClickAPITest):
 
         loan_info = self.api.checkout(patron, None, pool, None)
 
+        checkout_url = self.api.requests[-1][0]
+        assert "days=%s" % ebook_period in checkout_url
+
         # Now we have a LoanInfo that describes the remote loan.
         eq_(Identifier.RB_DIGITAL_ID, loan_info.identifier_type)
         eq_(pool.identifier.identifier, loan_info.identifier)
-        today = datetime.datetime.now()
+        today = datetime.datetime.utcnow()
         assert (loan_info.start_date - today).total_seconds() < 20
-        assert (loan_info.end_date - today).days < 60
+        assert (loan_info.end_date - today).days <= ebook_period
 
         # But we can only get a FulfillmentInfo by calling
         # get_patron_checkouts().
         eq_(None, loan_info.fulfillment_info)
+
+        # Try the checkout again but pretend that we're checking out
+        # an audiobook.
+        #
+        edition.medium = Edition.AUDIO_MEDIUM
+        self.api.queue_response(status_code=200, content=datastr)
+        loan_info = self.api.checkout(patron, None, pool, None)
+
+        # We requested a different loan duration.
+        checkout_url = self.api.requests[-1][0]
+        assert "days=%s" % audio_period in checkout_url
+        assert (loan_info.end_date - today).days <= audio_period
 
     def test_create_patron(self):
         """Test the method that creates an account for a library patron
         on the RBdigital side.
         """
         patron = self.default_patron
+        self._set_notification_address(patron.library)
 
         # If the patron already has an account, a
         # RemotePatronCreationFailedException is raised.
@@ -411,7 +477,7 @@ class TestOneClickAPI(OneClickAPITest):
         eq_(self.api.library_id, form_data['libraryId'])
         eq_(remote, form_data['libraryCardNumber'])
         eq_("username_" + remote, form_data['userName'])
-        eq_("patron_%s@librarysimplified.org" % remote, form_data['email'])
+        eq_("genericemail+rbdigital-%s@library.org" % remote, form_data['email'])
         eq_("Patron", form_data['firstName'])
         eq_("Reader", form_data['lastName'])
 
@@ -530,11 +596,13 @@ class TestOneClickAPI(OneClickAPITest):
         assert isinstance(found_fulfillment, RBFulfillmentInfo)
 
         # Without making any further HTTP requests, we were able to get
-        # a (improperly formatted) audiobook manifest for the loan.
+        # a Readium Web Publication manifest for the loan.
         eq_(Representation.AUDIOBOOK_MANIFEST_MEDIA_TYPE, 
             found_fulfillment.content_type)
-        assert "downloadUrl" in found_fulfillment.content
 
+        manifest = json.loads(found_fulfillment.content)
+        eq_('http://readium.org/webpub/default.jsonld', manifest['@context'])
+        eq_('http://bib.schema.org/Audiobook', manifest['metadata']['@type'])
 
     def test_patron_activity(self):
         # Get patron's current checkouts and holds.
@@ -749,3 +817,89 @@ class TestCirculationMonitor(OneClickAPITest):
         item_count = monitor.process_availability()
         eq_(1, item_count)
         pool_ebook.licenses_available = 0
+
+
+class TestAudiobookManifest(OneClickAPITest):
+
+    def test_constructor(self):
+        """A reasonable RBdigital manifest becomes a reasonable
+        AudiobookManifest object.
+        """
+        ignore, [book] = self.api.get_data(
+            "response_patron_checkouts_with_audiobook.json"
+        )
+        manifest = AudiobookManifest(book)
+
+        # We know about a lot of metadata.
+        eq_('http://bib.schema.org/Audiobook', manifest.metadata['@type'])
+        eq_(u'Sharyn McCrumb', manifest.metadata['author'])
+        eq_(u'Award-winning, New York Times best-selling novelist Sharyn McCrumb crafts absorbing, lyrical tales featuring the rich culture and lore of Appalachia. In the compelling...', manifest.metadata['description'])
+        eq_(52710.0, manifest.metadata['duration'])
+        eq_(u'9781449871789', manifest.metadata['identifier'])
+        eq_(u'Barbara Rosenblat', manifest.metadata['narrator'])
+        eq_(u'Recorded Books, Inc.', manifest.metadata['publisher'])
+        eq_(u'', manifest.metadata['rbdigital:encryptionKey'])
+        eq_(False, manifest.metadata['rbdigital:hasDrm'])
+        eq_(316314528, manifest.metadata['schema:contentSize'])
+        eq_(u'The Ballad of Frankie Silver', manifest.metadata['title'])
+
+        # We know about 21 spine items.
+        eq_(21, len(manifest.spine))
+
+        # Let's spot check one.
+        first = manifest.spine[0]
+        eq_("358456", first['rbdigital:id'])
+        eq_("https://download-piece/1", first['href'])
+        eq_("audio/mpeg", first['type'])
+        eq_(417200, first['schema:contentSize'])
+        eq_("Introduction", first['title'])
+        eq_(69.0, first['duration'])
+
+        # An alternate link and a cover link were imported.
+        alternate, cover = manifest.links
+        eq_("alternate", alternate['rel'])
+        eq_("https://download/full-book.zip", alternate['href'])
+        eq_("application/zip", alternate['type'])
+
+        eq_("cover", cover['rel'])
+        assert "image_512x512" in cover['href']
+        eq_("image/png", cover['type'])
+
+    def test_empty_constructor(self):
+        """An empty RBdigital manifest becomes an empty AudioManifest
+        object.
+
+        The manifest will not be useful -- this is just to test that
+        the constructor can move forward in the absence of any
+        particular input.
+        """
+        manifest = AudiobookManifest({})
+
+        # We know it's an audiobook, and that's it.
+        eq_(
+            {'@context': 'http://readium.org/webpub/default.jsonld', 
+             'metadata': {'@type': 'http://bib.schema.org/Audiobook'}},
+            manifest.as_dict
+        )
+
+    def test_best_cover(self):
+        m = AudiobookManifest.best_cover
+
+        # If there are no covers, or no URLs, None is returned.
+        eq_(None, m(None))
+        eq_(None, m([]))
+        eq_(None, m([{'nonsense': 'value'}]))
+        eq_(None, m([{'name': 'xx-large'}]))
+        eq_(None, m([{'url': 'somewhere'}]))
+
+        # No image with a name other than 'large', 'x-large', or
+        # 'xx-large' will be accepted.
+        eq_(None, m([{'name': 'xx-small', 'url': 'foo'}]))
+
+        # Of those, the largest sized image will be used.
+        eq_('yep', m([
+            {'name': 'small', 'url': 'no way'},
+            {'name': 'large', 'url': 'nope'},
+            {'name': 'x-large', 'url': 'still nope'},
+            {'name': 'xx-large', 'url': 'yep'},
+        ]))

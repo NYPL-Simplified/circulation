@@ -10,7 +10,7 @@ from sqlalchemy.orm.session import Session
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from config import CannotLoadConfiguration
 

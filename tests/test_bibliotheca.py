@@ -19,6 +19,7 @@ from core.model import (
     Collection,
     Contributor,
     DataSource,
+    DeliveryMechanism,
     Edition,
     ExternalIntegration,
     Hold,
@@ -26,6 +27,7 @@ from core.model import (
     LicensePool,
     Loan,
     Resource,
+    Representation,
     Timestamp,
     create,
 )
@@ -35,6 +37,7 @@ from core.util.http import (
 
 from api.circulation import (
     CirculationAPI,
+    FulfillmentInfo,
     HoldInfo,
     LoanInfo,
 )
@@ -220,6 +223,59 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         self.api.queue_response(400, content=self.sample_data("error_exceeded_hold_limit.xml"))
         assert_raises(PatronHoldLimitReached, self.api.place_hold,
                       patron, 'pin', pool)
+
+    def test_get_audio_fulfillment_file(self):
+        """Verify that get_audio_fulfillment_file sends the
+        request we expect.
+        """
+        self.api.queue_response(200, content="A license")
+        response = self.api.get_audio_fulfillment_file("patron id", "bib id")
+
+        [[method, url, args, kwargs]] = self.api.requests
+        eq_("POST", method)
+        assert url.endswith('GetItemAudioFulfillment')
+        eq_('<AudioFulfillmentRequest><ItemId>bib id</ItemId><PatronId>patron id</PatronId></AudioFulfillmentRequest>', kwargs['data'])
+
+        eq_(200, response.status_code)
+        eq_("A license", response.content)
+
+    def test_fulfill(self):
+        patron = self._patron()
+
+        # This miracle book is available either as an audiobook or as
+        # an EPUB.
+        edition, pool = self._edition(
+            data_source_name=DataSource.BIBLIOTHECA, with_license_pool=True
+        )
+
+        # Let's fulfill the EPUB first.
+        self.api.queue_response(
+            200, headers={"Content-Type": "presumably/an-acsm"},
+            content="this is an ACSM"
+        )
+        fulfillment = self.api.fulfill(patron, 'password', pool, 'ePub')
+        assert isinstance(fulfillment, FulfillmentInfo)
+        eq_("this is an ACSM", fulfillment.content)
+        eq_(pool.identifier.identifier, fulfillment.identifier)
+        eq_(pool.identifier.type, fulfillment.identifier_type)
+        eq_(pool.data_source.name, fulfillment.data_source_name)
+
+        # The media type reported by the server is passed through.
+        eq_("presumably/an-acsm", fulfillment.content_type)
+
+        # Now let's try the audio version.
+        self.api.queue_response(
+            200, headers={"Content-Type": "application/json"},
+            content="this is a Findaway license"
+        )
+        fulfillment = self.api.fulfill(patron, 'password', pool, 'MP3')
+        assert isinstance(fulfillment, FulfillmentInfo)
+        eq_("this is a Findaway license", fulfillment.content)
+
+        # The only difference here is that the media type reported by
+        # the server is _not_ passed through; it's replaced by a more
+        # specific media type
+        eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
 
 
 class TestBibliothecaCirculationSweep(BibliothecaAPITest):

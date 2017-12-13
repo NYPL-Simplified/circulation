@@ -3,6 +3,7 @@ from nose.tools import (
     eq_,
     assert_raises,
 )
+import datetime
 import os
 import json
 
@@ -62,19 +63,19 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         token_response = json.dumps({"access_token": token, "expires_in": 60})
         self.api.queue_response(200, content=token_response)
 
-        eq_(token, self.api._get_token(self._db))
+        eq_(token, self.api._get_token(self._db).credential)
 
         # Now that the API has the authenticate url, it only needs
         # to get the token.
         self.api.queue_response(200, content=token_response)
-        eq_(token, self.api._get_token(self._db))
+        eq_(token, self.api._get_token(self._db).credential)
 
         # A credential was created.
         [credential] = self._db.query(Credential).all()
         eq_(token, credential.credential)
 
         # If we call _get_token again, it uses the existing credential.
-        eq_(token, self.api._get_token(self._db))
+        eq_(token, self.api._get_token(self._db).credential)
 
         self._db.delete(credential)
 
@@ -96,7 +97,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         token_response = json.dumps({"access_token": token, "expires_in": 60})
         self.api.queue_response(200, content=token_response)
 
-        eq_(token, self.api._get_token(self._db))
+        eq_(token, self.api._get_token(self._db).credential)
 
     def test_get_token_errors(self):
         no_auth_document = '<feed></feed>'
@@ -202,7 +203,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
                       patron, "1234", pool, Representation.EPUB_MEDIA_TYPE)
 
         # Set up an epub acquisition link for the pool.
-        url = self._str
+        url = self._url
         link, ignore = pool.identifier.add_link(
             Hyperlink.GENERIC_OPDS_ACQUISITION,
             url, data_source,
@@ -221,17 +222,34 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
 
         token_response = json.dumps({"access_token": "token", "expires_in": 60})
         self.api.queue_response(200, content=token_response)
-        self.api.queue_response(200, content="a book")
 
+        fulfillment_time = datetime.datetime.utcnow()
         fulfillment_info = self.api.fulfill(patron, "1234", pool, Representation.EPUB_MEDIA_TYPE)
         eq_(self.collection.id, fulfillment_info.collection_id)
         eq_(data_source.name, fulfillment_info.data_source_name)
         eq_(Identifier.URI, fulfillment_info.identifier_type)
         eq_(pool.identifier.identifier, fulfillment_info.identifier)
         eq_(None, fulfillment_info.content_link)
-        eq_(Representation.EPUB_MEDIA_TYPE, fulfillment_info.content_type)
-        eq_("a book", fulfillment_info.content)
-        eq_(None, fulfillment_info.content_expires)
+
+        eq_(DeliveryMechanism.BEARER_TOKEN, fulfillment_info.content_type)
+        bearer_token_document = json.loads(fulfillment_info.content)
+        expires_in = bearer_token_document['expires_in']
+        assert expires_in < 60
+        eq_("Bearer", bearer_token_document['token_type'])
+        eq_("token", bearer_token_document['access_token'])
+        eq_(url, bearer_token_document['location'])
+
+        # The FulfillmentInfo's content_expires is approximately the
+        # time you get if you add the number of seconds until the
+        # bearer token expires to the time at which the title was
+        # originally fulfilled.
+        expect_expiration = fulfillment_time + datetime.timedelta(
+            seconds=expires_in
+        )
+        assert abs(
+            (fulfillment_info.content_expires-expect_expiration).total_seconds()
+        ) < 5
+
 
     def test_patron_activity(self):
         # The patron has two loans from this API's collection and
@@ -313,7 +331,7 @@ class TestOPDSForDistributorsImporter(DatabaseTest, BaseOPDSForDistributorsTest)
             eq_(False, pool.open_access)
             eq_(RightsStatus.IN_COPYRIGHT, pool.delivery_mechanisms[0].rights_status.uri)
             eq_(Representation.EPUB_MEDIA_TYPE, pool.delivery_mechanisms[0].delivery_mechanism.content_type)
-            eq_(DeliveryMechanism.NO_DRM, pool.delivery_mechanisms[0].delivery_mechanism.drm_scheme)
+            eq_(DeliveryMechanism.BEARER_TOKEN, pool.delivery_mechanisms[0].delivery_mechanism.drm_scheme)
             eq_(1, pool.licenses_owned)
             eq_(1, pool.licenses_available)
 

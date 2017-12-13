@@ -30,6 +30,7 @@ from api.controller import (
     CirculationManager,
     CirculationManagerController,
 )
+from api.lanes import create_default_lanes
 from api.authenticator import (
     BasicAuthenticationProvider,
     OAuthController,
@@ -72,6 +73,7 @@ from core.model import (
 from core.lane import (
     Facets,
     Pagination,
+    Lane,
 )
 from core.problem_details import *
 from core.user_profile import (
@@ -94,7 +96,7 @@ from api.adobe_vendor_id import (
     AuthdataUtility,
     DeviceManagementProtocolController,
 )
-from api.lanes import make_lanes_default
+from api.odl import MockODLWithConsolidatedCopiesAPI
 import base64
 import feedparser
 from core.opds import (
@@ -201,7 +203,7 @@ class ControllerTest(VendorIDTest):
         self.authdata = AuthdataUtility.from_config(self.library)
 
         self.manager = CirculationManager(
-            _db, lanes=None, testing=True
+            _db, testing=True
         )
 
         # Set CirculationAPI and top-level lane for the default
@@ -213,6 +215,13 @@ class ControllerTest(VendorIDTest):
             self.library.id
         ]
         self.controller = CirculationManagerController(self.manager)
+
+        # Set a convenient default lane.
+        [self.english_adult_fiction] = [
+            x for x in self.library.lanes
+            if x.display_name=='Fiction' and x.languages==[u'eng']
+        ]
+
         return self.manager
 
     def library_setup(self, library):
@@ -247,10 +256,10 @@ class ControllerTest(VendorIDTest):
         for k, v in [
                 (Configuration.LARGE_COLLECTION_LANGUAGES, []),
                 (Configuration.SMALL_COLLECTION_LANGUAGES, ['eng']),
-                (Configuration.TINY_COLLECTION_LANGUAGES, ['spa','chi'])
+                (Configuration.TINY_COLLECTION_LANGUAGES, ['spa','chi','fre'])
         ]:
             ConfigurationSetting.for_library(k, library).value = json.dumps(v)
-
+        create_default_lanes(_db, library)
             
     def make_default_libraries(self, _db):
         return [self._default_library]
@@ -359,7 +368,7 @@ class TestCirculationManager(CirculationControllerTest):
             def setup_search(self):
                 raise CannotLoadConfiguration("doomed!")
 
-        circulation = BadSearch(self._db, lanes=None, testing=True)
+        circulation = BadSearch(self._db, testing=True)
 
         # We didn't get a search object.
         eq_(None, circulation.external_search)
@@ -705,6 +714,7 @@ class FullLaneSetupTest(CirculationControllerTest):
                 (Configuration.TINY_COLLECTION_LANGUAGES, [])
         ]:
             ConfigurationSetting.for_library(k, library).value = json.dumps(v)
+        create_default_lanes(self._db, library)
     
     def test_load_lane(self):
         with self.request_context_with_library("/"):
@@ -739,42 +749,63 @@ class FullLaneSetupTest(CirculationControllerTest):
 class TestIndexController(CirculationControllerTest):
     
     def test_simple_redirect(self):
-        with temp_config() as config:
-            config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY: None
-            }
-            with self.app.test_request_context('/'):
-                flask.request.library = self.library
-                response = self.manager.index_controller()
-                eq_(302, response.status_code)
-                eq_("http://cdn/default/groups/", response.headers['location'])
+        with self.app.test_request_context('/'):
+            flask.request.library = self.library
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/", response.headers['location'])
 
     def test_authenticated_patron_root_lane(self):
+        root_1, root_2 = self._db.query(Lane).all()[:2]
+
+        # Patrons of external type '1' and '2' have a certain root lane.
+        root_1.root_for_patron_type = ["1", "2"]
+
+        # Patrons of external type '3' have a different root.
+        root_2.root_for_patron_type = ["3"]
+
         self.default_patron.external_type = "1"
-        with temp_config() as config:
-            # Patrons of external type '1' get sent to the Adult
-            # Fiction lane.
-            config[Configuration.POLICIES] = {
-                Configuration.ROOT_LANE_POLICY : { "1": ["eng", "Adult Fiction"]},
-            }
-            with self.request_context_with_library(
-                "/", headers=dict(Authorization=self.invalid_auth)):
-                response = self.manager.index_controller()
-                eq_(401, response.status_code)
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.invalid_auth)):
+            response = self.manager.index_controller()
+            eq_(401, response.status_code)
 
-            with self.request_context_with_library(
-                "/", headers=dict(Authorization=self.valid_auth)):
-                response = self.manager.index_controller()
-                eq_(302, response.status_code)
-                eq_("http://cdn/default/groups/eng/Adult%20Fiction", response.headers['location'])
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/%s" % root_1.id, 
+                response.headers['location'])
 
-            # Now those patrons get sent to the top-level lane.
-            config['policies'][Configuration.ROOT_LANE_POLICY] = { "1": None }
-            with self.request_context_with_library(
-                "/", headers=dict(Authorization=self.valid_auth)):
-                response = self.manager.index_controller()
-                eq_(302, response.status_code)
-                eq_("http://cdn/default/groups/", response.headers['location'])
+        self.default_patron.external_type = "2"
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/%s" % root_1.id, response.headers['location'])
+
+        self.default_patron.external_type = "3"
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/%s" % root_2.id, response.headers['location'])
+
+        # Patrons with a different type get sent to the top-level lane.
+        self.default_patron.external_type = '4'
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/", response.headers['location'])
+
+        # Patrons with no type get sent to the top-level lane.
+        self.default_patron.external_type = None
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.valid_auth)):
+            response = self.manager.index_controller()
+            eq_(302, response.status_code)
+            eq_("http://cdn/default/groups/", response.headers['location'])
 
     def test_authentication_document(self):
         """Test the ability to retrieve an Authentication For OPDS document."""
@@ -1810,6 +1841,16 @@ class TestWorkController(CirculationControllerTest):
         eq_(OPDSFeed.ENTRY_TYPE, response.headers['Content-Type'])
 
     def test_recommendations(self):
+        # TODO: This test creates its own work to avoid
+        # Gutenberg books getting filtered out, since
+        # the recommendation lanes have all audiences,
+        # including children and ya.
+        self.work = self._work("Quite British", "John Bull", with_license_pool=True, language="eng", data_source_name=DataSource.OVERDRIVE)
+        [self.lp] = self.work.license_pools
+        self.edition = self.lp.presentation_edition
+        self.datasource = self.lp.data_source.name
+        self.identifier = self.lp.identifier
+
         # Prep an empty recommendation.
         source = DataSource.lookup(self._db, self.datasource)
         metadata = Metadata(source)
@@ -1851,7 +1892,7 @@ class TestWorkController(CirculationControllerTest):
         # Delete the cache and prep a recommendation result.
         [cached_empty_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_empty_feed)
-        metadata.recommendations = [self.english_1.license_pools[0].identifier]
+        metadata.recommendations = [self.work.license_pools[0].identifier]
         mock_api.setup(metadata)
 
         SessionManager.refresh_materialized_views(self._db)
@@ -1866,8 +1907,8 @@ class TestWorkController(CirculationControllerTest):
 
         eq_('Recommended Books', feed.feed.title)
         [entry] = feed.entries
-        eq_(self.english_1.title, entry['title'])
-        author = self.english_1.presentation_edition.author_contributors[0]
+        eq_(self.work.title, entry['title'])
+        author = self.work.presentation_edition.author_contributors[0]
         expected_author_name = author.display_name or author.sort_name
         eq_(expected_author_name, entry.author)
 
@@ -1884,14 +1925,14 @@ class TestWorkController(CirculationControllerTest):
         eq_(404, response.status_code)
         eq_("http://librarysimplified.org/terms/problem/unknown-lane", response.uri)
 
-        another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True)
+        another_work = self._work("Before Quite British", "Not Before John Bull", with_open_access_download=True, data_source_name=DataSource.OVERDRIVE)
 
         # Delete the cache again and prep a recommendation result.
         [cached_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_feed)
 
         metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
+            self.work.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -1909,10 +1950,10 @@ class TestWorkController(CirculationControllerTest):
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
         eq_(another_work.title, entry1['title'])
-        eq_(self.english_1.title, entry2['title'])
+        eq_(self.work.title, entry2['title'])
 
         metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
+            self.work.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -1927,11 +1968,11 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(2, len(feed['entries']))
         [entry1, entry2] = feed['entries']
-        eq_(self.english_1.title, entry1['title'])
+        eq_(self.work.title, entry1['title'])
         eq_(another_work.title, entry2['title'])
 
         metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
+            self.work.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -1950,7 +1991,7 @@ class TestWorkController(CirculationControllerTest):
         eq_(another_work.title, entry['title'])
 
         metadata.recommendations = [
-            self.english_1.license_pools[0].identifier,
+            self.work.license_pools[0].identifier,
             another_work.license_pools[0].identifier,
         ]
         mock_api.setup(metadata)
@@ -1965,10 +2006,20 @@ class TestWorkController(CirculationControllerTest):
         feed = feedparser.parse(response.data)
         eq_(1, len(feed['entries']))
         [entry] = feed['entries']
-        eq_(self.english_1.title, entry['title'])
+        eq_(self.work.title, entry['title'])
 
     def test_related_books(self):
         # A book with no related books returns a ProblemDetail.
+
+        # TODO: This test creates its own work to avoid
+        # Gutenberg books getting filtered out, since
+        # the recommendation lanes have all audiences,
+        # including children and ya.
+        self.work = self._work("Quite British", "John Bull", with_license_pool=True, language="eng", data_source_name=DataSource.OVERDRIVE)
+        [self.lp] = self.work.license_pools
+        self.edition = self.lp.presentation_edition
+        self.datasource = self.lp.data_source.name
+        self.identifier = self.lp.identifier
 
         # Remove contribution.
         [contribution] = self.edition.contributions
@@ -1988,7 +2039,8 @@ class TestWorkController(CirculationControllerTest):
         self.lp.presentation_edition.add_contributor(original, role)
         same_author = self._work(
             "What is Sunday?", original.display_name,
-            language="eng", fiction=True, with_open_access_download=True
+            language="eng", fiction=True, with_open_access_download=True,
+            data_source_name=DataSource.OVERDRIVE
         )
         duplicate = same_author.presentation_edition.contributions[0].contributor
         original.display_name = duplicate.display_name = u"John Bull"
@@ -1998,9 +2050,9 @@ class TestWorkController(CirculationControllerTest):
 
         same_series_work = self._work(
             title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True,
-            series="Around the World")
+            series="Around the World", data_source_name=DataSource.OVERDRIVE)
         same_series_work.presentation_edition.series_position = 0
-        self.english_1.calculate_presentation(
+        self.work.calculate_presentation(
             PresentationCalculationPolicy(regenerate_opds_entries=True),
             DummyExternalSearchIndex()
         )
@@ -2036,13 +2088,13 @@ class TestWorkController(CirculationControllerTest):
             for link in e['links']:
                 if link['rel'] != 'collection':
                     continue
-                if link['title'] == 'Recommended Books':
+                if link['title'] == 'Recommendations for Quite British by John Bull':
                     recommendations.append(e)
                 elif link['title'] == 'Around the World':
                     same_series.append(e)
                 elif link['title'] == 'John Bull':
                     same_contributor.append(e)
-                if e['title'] == self.english_1.title:
+                if e['title'] == self.work.title:
                     feeds_with_original_book.append(link['title'])
 
         [recommendation] = recommendations
@@ -2071,7 +2123,7 @@ class TestWorkController(CirculationControllerTest):
         # The series feed is sorted by series position.
         [series_e1, series_e2] = same_series
         eq_(same_series_work.title, series_e1['title'])
-        eq_(self.english_1.title, series_e2['title'])
+        eq_(self.work.title, series_e2['title'])
 
     def test_report_problem_get(self):
         with self.request_context_with_library("/"):
@@ -2235,7 +2287,7 @@ class TestFeedController(CirculationControllerTest):
 
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.feed(
-                'eng', 'Adult Fiction'
+                self.english_adult_fiction.id
             )
 
             assert self.english_1.title in response.data
@@ -2257,7 +2309,8 @@ class TestFeedController(CirculationControllerTest):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+            lane_id = self.english_adult_fiction.id
+            response = self.manager.opds_feeds.feed(lane_id)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2274,14 +2327,16 @@ class TestFeedController(CirculationControllerTest):
             assert any('order=author' in x['href'] for x in facet_links)
 
             search_link = [x for x in links if x['rel'] == 'search'][0]['href']
-            assert search_link.endswith('/search/eng/Adult%20Fiction')
+            assert search_link.endswith('/search/%s' % lane_id)
 
             shelf_link = [x for x in links if x['rel'] == 'http://opds-spec.org/shelf'][0]['href']
             assert shelf_link.endswith('/loans/')
 
     def test_bad_order_gives_problem_detail(self):
         with self.request_context_with_library("/?order=nosuchorder"):
-            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+            response = self.manager.opds_feeds.feed(
+                self.english_adult_fiction.id
+            )
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input", 
@@ -2290,7 +2345,9 @@ class TestFeedController(CirculationControllerTest):
 
     def test_bad_pagination_gives_problem_detail(self):
         with self.request_context_with_library("/?size=abc"):
-            response = self.manager.opds_feeds.feed('eng', 'Adult Fiction')
+            response = self.manager.opds_feeds.feed(
+                self.english_adult_fiction.id
+            )
             eq_(400, response.status_code)
             eq_(
                 "http://librarysimplified.org/terms/problem/invalid-input", 
@@ -2313,7 +2370,7 @@ class TestFeedController(CirculationControllerTest):
             self._work("english work %i" % i, language="eng", fiction=True, with_open_access_download=True)
         
         with self.request_context_with_library("/"):
-            response = self.manager.opds_feeds.groups(None, None)
+            response = self.manager.opds_feeds.groups(None)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2348,7 +2405,8 @@ class TestFeedController(CirculationControllerTest):
 
         # Execute a search query designed to find the second one.
         with self.request_context_with_library("/?q=t&size=1&after=1"):
-            response = self.manager.opds_feeds.search(None, None)
+            # First, try the top-level lane.
+            response = self.manager.opds_feeds.search(None)
             feed = feedparser.parse(response.data)
             entries = feed['entries']
             eq_(1, len(entries))
@@ -2368,6 +2426,13 @@ class TestFeedController(CirculationControllerTest):
 
             previous_links = [link for link in feed['feed']['links'] if link.rel == 'previous']
             eq_(1, len(previous_links))
+
+            # The query also works in a different searchable lane.
+            english = self._lane("English", languages=["eng"])
+            response = self.manager.opds_feeds.search(english.id)
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+            eq_(1, len(entries))
 
 
 class TestAnalyticsController(CirculationControllerTest):
@@ -2568,6 +2633,48 @@ class TestDeviceManagementProtocolController(ControllerTest):
             eq_(405, response.status_code)
             eq_("Only DELETE is supported.", response.detail)
 
+
+class TestODLNotificationController(ControllerTest):
+    """Test that an ODL distributor can notify the circulation manager
+    when a loan's status changes."""
+
+    def test_notify_success(self):
+        collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+        patron = self._patron()
+        pool = self._licensepool(None, collection=collection)
+        pool.licenses_owned = 10
+        pool.licenses_available = 5
+        loan, ignore = pool.loan_to(patron)
+        loan.external_identifier = self._str
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.data = json.dumps({
+               "id": loan.external_identifier,
+               "status": "revoked",
+            })
+            response = self.manager.odl_notification_controller.notify(
+                loan.id)
+            eq_(200, response.status_code)
+
+            # The pool's availability has been updated.
+            api = self.manager.circulation_apis[self._default_library.id].api_for_license_pool(loan.license_pool)
+            eq_([loan.license_pool], api.availability_updated_for)
+
+    def test_notify_errors(self):
+        # No loan.
+        with self.request_context_with_library("/", method="POST"):
+            response = self.manager.odl_notification_controller.notify(self._str)
+            eq_(NO_ACTIVE_LOAN.uri, response.uri)
+
+        # Loan from a non-ODL collection.
+        patron = self._patron()
+        pool = self._licensepool(None)
+        loan, ignore = pool.loan_to(patron)
+        loan.external_identifier = self._str
+
+        with self.request_context_with_library("/", method="POST"):
+            response = self.manager.odl_notification_controller.notify(loan.id)
+            eq_(INVALID_LOAN_FOR_ODL_NOTIFICATION, response)
 
 class TestProfileController(ControllerTest):
     """Test that a client can interact with the User Profile Management

@@ -3,7 +3,7 @@ from flask import Response
 from core.util.problem_detail import ProblemDetail
 from circulation_exceptions import *
 from problem_details import *
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from core.model import Library, get_one
 
 class BaseCirculationManagerController(object):

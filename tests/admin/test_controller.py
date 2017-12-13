@@ -46,6 +46,7 @@ from core.model import (
     Subject,
     WorkGenre
 )
+from core.lane import Lane
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
@@ -442,6 +443,7 @@ class TestWorkController(AdminControllerTest):
             eq_(response.status_code, 200)
             
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
+
         eq_(sorted(new_genre_names), sorted(requested_genres))
         eq_("Adult", work.audience)
         eq_(18, work.target_age.lower)
@@ -1169,11 +1171,17 @@ class TestCustomListsController(AdminControllerTest):
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
         list.library = self._default_library
 
+        # Create a Lane that depends on this CustomList for its membership.
+        lane = self._lane()
+        lane.customlists.append(list)
+        eq_(0, lane.size)
+
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
         w3 = self._work(with_license_pool=True)
         list.add_entry(w1)
         list.add_entry(w2)
+        self.add_to_materialized_view([w1, w2, w3])
 
         new_entries = [dict(pwid=work.presentation_edition.permanent_work_id) for work in [w2, w3]]
         
@@ -1192,6 +1200,9 @@ class TestCustomListsController(AdminControllerTest):
             eq_(set([w2, w3]),
                 set([entry.work for entry in list.entries]))
 
+        # The lane's estimated size has been updated.
+        eq_(2, lane.size)
+
     def test_custom_list_delete_success(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
@@ -1202,6 +1213,11 @@ class TestCustomListsController(AdminControllerTest):
         list.add_entry(w1)
         list.add_entry(w2)
 
+        # This lane depends heavily on lists from this data source.
+        lane = self._lane()
+        lane.list_datasource = list.data_source
+        lane.size = 100
+
         with self.request_context_with_library("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
             eq_(200, response.status_code)
@@ -1209,10 +1225,319 @@ class TestCustomListsController(AdminControllerTest):
             eq_(0, self._db.query(CustomList).count())
             eq_(0, self._db.query(CustomListEntry).count())
 
+        # The lane's estimate has been updated to reflect the removal
+        # of a list from its data source.
+        eq_(0, lane.size)
+
     def test_custom_list_delete_errors(self):
         with self.request_context_with_library("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(123)
             eq_(MISSING_CUSTOM_LIST, response)
+
+class TestLanesController(AdminControllerTest):
+    def test_lanes_get(self):
+        library = self._library()
+        collection = self._collection()
+        library.collections += [collection]
+
+        english = self._lane("English", library=library, languages=["eng"])
+        english.priority = 0
+        english_fiction = self._lane("Fiction", library=library, parent=english, fiction=True)
+        english_fiction.visible = False
+        english_sf = self._lane("Science Fiction", library=library, parent=english_fiction)
+        english_sf.add_genre("Science Fiction")
+        english_sf.inherit_parent_restrictions = True
+        spanish = self._lane("Spanish", library=library, languages=["spa"])
+        spanish.priority = 1
+
+        w1 = self._work(with_license_pool=True, language="eng", genre="Science Fiction", collection=collection)
+        w2 = self._work(with_license_pool=True, language="eng", fiction=False, collection=collection)
+
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list.library = library
+        lane_for_list = self._lane("List Lane", library=library)
+        lane_for_list.customlists += [list]
+        lane_for_list.priority = 2
+
+        SessionManager.refresh_materialized_views(self._db)
+
+        with self.request_context_with_library("/"):
+            flask.request.library = library
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(3, len(response.get("lanes")))
+            [english_info, spanish_info, list_info] = response.get("lanes")
+
+            eq_(english.id, english_info.get("id"))
+            eq_(english.display_name, english_info.get("display_name"))
+            eq_(english.visible, english_info.get("visible"))
+            eq_(2, english_info.get("count"))
+            eq_([], english_info.get("custom_list_ids"))
+            eq_(False, english_info.get("inherit_parent_restrictions"))
+
+            [fiction_info] = english_info.get("sublanes")
+            eq_(english_fiction.id, fiction_info.get("id"))
+            eq_(english_fiction.display_name, fiction_info.get("display_name"))
+            eq_(english_fiction.visible, fiction_info.get("visible"))
+            eq_(1, fiction_info.get("count"))
+            eq_([], fiction_info.get("custom_list_ids"))
+            eq_(False, fiction_info.get("inherit_parent_restrictions"))
+
+            [sf_info] = fiction_info.get("sublanes")
+            eq_(english_sf.id, sf_info.get("id"))
+            eq_(english_sf.display_name, sf_info.get("display_name"))
+            eq_(english_sf.visible, sf_info.get("visible"))
+            eq_(1, sf_info.get("count"))
+            eq_([], sf_info.get("custom_list_ids"))
+            eq_(True, sf_info.get("inherit_parent_restrictions"))
+
+            eq_(spanish.id, spanish_info.get("id"))
+            eq_(spanish.display_name, spanish_info.get("display_name"))
+            eq_(spanish.visible, spanish_info.get("visible"))
+            eq_(0, spanish_info.get("count"))
+            eq_([], spanish_info.get("custom_list_ids"))
+            eq_(False, spanish_info.get("inherit_parent_restrictions"))
+
+            eq_(lane_for_list.id, list_info.get("id"))
+            eq_(lane_for_list.display_name, list_info.get("display_name"))
+            eq_(lane_for_list.visible, list_info.get("visible"))
+            eq_(0, list_info.get("count"))
+            eq_([list.id], list_info.get("custom_list_ids"))
+            eq_(False, list_info.get("inherit_parent_restrictions"))
+
+    def test_lanes_post_errors(self):
+        with self.request_context_with_library("/", method='POST'):
+            flask.request.form = MultiDict([
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(NO_DISPLAY_NAME_FOR_LANE, response)
+
+        with self.request_context_with_library("/", method='POST'):
+            flask.request.form = MultiDict([
+                ("display_name", "lane"),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(NO_CUSTOM_LISTS_FOR_LANE, response)
+
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list.library = self._default_library
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "12345"),
+                ("display_name", "lane"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(MISSING_LANE, response)
+
+        lane1 = self._lane("lane1")
+        lane2 = self._lane("lane2")
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", lane1.id),
+                ("display_name", "lane1"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(CANNOT_EDIT_DEFAULT_LANE, response)
+
+        lane1.customlists += [list]
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", lane1.id),
+                ("display_name", "lane2"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS, response)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("display_name", "lane2"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS, response)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("parent_id", "12345"),
+                ("display_name", "lane"),
+                ("custom_list_ids", json.dumps([list.id])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(MISSING_LANE.uri, response.uri)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("parent_id", lane1.id),
+                ("display_name", "lane"),
+                ("custom_list_ids", json.dumps(["12345"])),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(MISSING_CUSTOM_LIST.uri, response.uri)
+
+    def test_lanes_create(self):
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list.library = self._default_library
+
+        # The new lane's parent has a sublane already.
+        parent = self._lane("parent")
+        sibling = self._lane("sibling", parent=parent)
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("parent_id", parent.id),
+                ("display_name", "lane"),
+                ("custom_list_ids", json.dumps([list.id])),
+                ("inherit_parent_restrictions", True),
+            ])
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(201, response.status_code)
+
+            [lane] = self._db.query(Lane).filter(Lane.display_name=="lane")
+            eq_(lane.id, int(response.response[0]))
+            eq_(self._default_library, lane.library)
+            eq_("lane", lane.display_name)
+            eq_(parent, lane.parent)
+            eq_(1, len(lane.customlists))
+            eq_(list, lane.customlists[0])
+            eq_(True, lane.inherit_parent_restrictions)
+            eq_(0, lane.priority)
+
+            # The sibling's priority has been shifted down to put the new lane at the top.
+            eq_(1, sibling.priority)
+
+    def test_lanes_edit(self):
+
+        work = self._work(with_license_pool=True)
+
+        list1, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list1.library = self._default_library
+        list2, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list2.library = self._default_library
+        list2.add_entry(work)
+        self.add_to_materialized_view([work])
+
+        lane = self._lane("old name")
+        lane.customlists += [list1]
+        
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", str(lane.id)),
+                ("display_name", "new name"),
+                ("custom_list_ids", json.dumps([list2.id])),
+                ("inherit_parent_restrictions", True),
+            ])
+
+            response = self.manager.admin_lanes_controller.lanes()
+            eq_(200, response.status_code)
+            eq_(lane.id, int(response.response[0]))
+
+            eq_("new name", lane.display_name)
+            eq_([list2], lane.customlists)
+            eq_(True, lane.inherit_parent_restrictions)
+            eq_(1, lane.size)
+
+    def test_lane_delete_success(self):
+        library = self._library()
+        lane = self._lane("lane", library=library)
+        list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
+        list.library = library
+        lane.customlists += [list]
+        eq_(1, self._db.query(Lane).filter(Lane.library==library).count())
+
+        with self.request_context_with_library("/", method="DELETE"):
+            flask.request.library = library
+            response = self.manager.admin_lanes_controller.lane(lane.id)
+            eq_(200, response.status_code)
+
+            # The lane has been deleted.
+            eq_(0, self._db.query(Lane).filter(Lane.library==library).count())
+
+            # The custom list still exists though.
+            eq_(1, self._db.query(CustomList).filter(CustomList.library==library).count())
+
+        lane = self._lane("lane", library=library)
+        lane.customlists += [list]
+        child = self._lane("child", parent=lane, library=library)
+        child.customlists += [list]
+        grandchild = self._lane("grandchild", parent=child, library=library)
+        grandchild.customlists += [list]
+        eq_(3, self._db.query(Lane).filter(Lane.library==library).count())
+
+        with self.request_context_with_library("/", method="DELETE"):
+            flask.request.library = library
+            response = self.manager.admin_lanes_controller.lane(lane.id)
+            eq_(200, response.status_code)
+
+            # The lanes have all been deleted.
+            eq_(0, self._db.query(Lane).filter(Lane.library==library).count())
+
+            # The custom list still exists though.
+            eq_(1, self._db.query(CustomList).filter(CustomList.library==library).count())
+
+    def test_lane_delete_errors(self):
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_lanes_controller.lane(123)
+            eq_(MISSING_LANE, response)
+
+        lane = self._lane("lane")
+        with self.request_context_with_library("/", method="DELETE"):
+            response = self.manager.admin_lanes_controller.lane(lane.id)
+            eq_(CANNOT_EDIT_DEFAULT_LANE, response)
+
+    def test_show_lane_success(self):
+        lane = self._lane("lane")
+        lane.visible = False
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.show_lane(lane.id)
+            eq_(200, response.status_code)
+            eq_(True, lane.visible)
+
+    def test_show_lane_errors(self):
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.show_lane(123)
+            eq_(MISSING_LANE, response)
+
+        parent = self._lane("parent")
+        parent.visible = False
+        child = self._lane("lane")
+        child.visible = False
+        child.parent = parent
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.show_lane(child.id)
+            eq_(CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT, response)
+
+    def test_hide_lane_success(self):
+        lane = self._lane("lane")
+        lane.visible = True
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.hide_lane(lane.id)
+            eq_(200, response.status_code)
+            eq_(False, lane.visible)
+
+    def test_hide_lane_errors(self):
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_lanes_controller.hide_lane(123)
+            eq_(MISSING_LANE, response)
+
+    def test_reset(self):
+        library = self._library()
+        old_lane = self._lane("old lane", library=library)
+
+        with self.request_context_with_library("/"):
+            flask.request.library = library
+            response = self.manager.admin_lanes_controller.reset()
+            eq_(200, response.status_code)
+
+            # The old lane is gone.
+            eq_(0, self._db.query(Lane).filter(Lane.library==library).filter(Lane.id==old_lane.id).count())
+            # tests/test_lanes.py tests the default lane creation, but make sure some
+            # lanes were created.
+            assert 0 < self._db.query(Lane).filter(Lane.library==library).count()
 
 class TestDashboardController(AdminControllerTest):
 
@@ -1684,6 +2009,12 @@ class TestSettingsController(AdminControllerTest):
         c3.external_account_id = "5678"
         c3.parent = c2
 
+        l1 = self._library(short_name="L1")
+        c3.libraries += [l1]
+        c3.external_integration.libraries += [l1]
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "ebook_loan_duration", l1, c3.external_integration).value = "14"
+
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.collections()
             coll2, coll3, coll1 = sorted(
@@ -1709,6 +2040,11 @@ class TestSettingsController(AdminControllerTest):
             eq_(c2.external_integration.password, coll2.get("settings").get("password"))
 
             eq_(c2.id, coll3.get("parent_id"))
+
+            coll3_libraries = coll3.get("libraries")
+            eq_(1, len(coll3_libraries))
+            eq_("L1", coll3_libraries[0].get("short_name"))
+            eq_("14", coll3_libraries[0].get("ebook_loan_duration"))
 
     def test_collections_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -1862,14 +2198,14 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("name", "New Collection"),
                 ("protocol", "Overdrive"),
-                ("libraries", json.dumps([{"short_name": "L1"}, {"short_name":"L2"}])),
+                ("libraries", json.dumps([
+                    {"short_name": "L1", "ils_name": "l1_ils"},
+                    {"short_name":"L2", "ils_name": "l2_ils"}
+                ])),
                 ("external_account_id", "acctid"),
                 ("username", "username"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("ils_name", "the_ils"),
-                ("default_loan_period", "14"),
-                ("default_reservation_period", "3"),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 201)
@@ -1892,13 +2228,10 @@ class TestSettingsController(AdminControllerTest):
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
-        setting = collection.external_integration.setting("default_loan_period")
-        eq_("default_loan_period", setting.key)
-        eq_("14", setting.value)
-
-        setting = collection.external_integration.setting("default_reservation_period")
-        eq_("default_reservation_period", setting.key)
-        eq_("3", setting.value)
+        eq_("l1_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value)
+        eq_("l2_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l2, collection.external_integration).value)
 
         # This collection will be a child of the first collection.
         with self.app.test_request_context("/", method="POST"):
@@ -1906,7 +2239,7 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "Child Collection"),
                 ("protocol", "Overdrive"),
                 ("parent_id", collection.id),
-                ("libraries", json.dumps([{"short_name": "L3"}])),
+                ("libraries", json.dumps([{"short_name": "L3", "ils_name": "l3_ils"}])),
                 ("external_account_id", "child-acctid"),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -1926,6 +2259,9 @@ class TestSettingsController(AdminControllerTest):
 
         # One library has access to the collection.
         eq_([child], l3.collections)
+
+        eq_("l3_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l3, child.external_integration).value)
 
     def test_collections_post_edit(self):
         # The collection exists.
@@ -1947,10 +2283,7 @@ class TestSettingsController(AdminControllerTest):
                 ("username", "user2"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("ils_name", "the_ils"),
-                ("libraries", json.dumps([{"short_name": "L1"}])),
-                ("default_loan_period", "14"),
-                ("default_reservation_period", "3"),
+                ("libraries", json.dumps([{"short_name": "L1", "ils_name": "the_ils"}])),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.status_code, 200)
@@ -1968,13 +2301,8 @@ class TestSettingsController(AdminControllerTest):
         eq_("website_id", setting.key)
         eq_("1234", setting.value)
 
-        setting = collection.external_integration.setting("default_loan_period")
-        eq_("default_loan_period", setting.key)
-        eq_("14", setting.value)
-
-        setting = collection.external_integration.setting("default_reservation_period")
-        eq_("default_reservation_period", setting.key)
-        eq_("3", setting.value)
+        eq_("the_ils", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1985,9 +2313,6 @@ class TestSettingsController(AdminControllerTest):
                 ("username", "user2"),
                 ("password", "password"),
                 ("website_id", "1234"),
-                ("ils_name", "the_ils"),
-                ("default_loan_period", "14"),
-                ("default_reservation_period", "3"),
                 ("libraries", json.dumps([])),
             ])
             response = self.manager.admin_settings_controller.collections()
@@ -2001,6 +2326,9 @@ class TestSettingsController(AdminControllerTest):
 
         # But the library has been removed.
         eq_([], l1.collections)
+
+        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ils_name", l1, collection.external_integration).value)
 
         parent = self._collection(
             name="Parent",
@@ -2023,6 +2351,69 @@ class TestSettingsController(AdminControllerTest):
 
         # The collection now has a parent.
         eq_(parent, collection.parent)
+
+    def test_collections_post_edit_library_specific_configuration(self):
+        # The collection exists.
+        collection = self._collection(
+            name="Collection 1",
+            protocol=ExternalIntegration.RB_DIGITAL
+        )
+
+        l1, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", collection.id),
+                ("name", "Collection 1"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
+                ("external_account_id", "1234"),
+                ("username", "user2"),
+                ("password", "password"),
+                ("url", "http://rb/"),
+                ("libraries", json.dumps([
+                    {
+                        "short_name": "L1", 
+                        "ebook_loan_duration": "14",
+                        "audio_loan_duration": "12"
+                    }
+                ])
+                ),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+
+        # Additional settings were set on the collection+library.
+        eq_("14", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ebook_loan_duration", l1, collection.external_integration).value)
+        eq_("12", ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "audio_loan_duration", l1, collection.external_integration).value)
+
+        # Remove the connection between collection and library.
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", collection.id),
+                ("name", "Collection 1"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
+                ("external_account_id", "1234"),
+                ("username", "user2"),
+                ("password", "password"),
+                ("url", "http://rb/"),
+                ("libraries", json.dumps([])),
+            ])
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+
+        eq_(collection.id, int(response.response[0]))
+
+        # The settings associated with the collection+library were removed
+        # when the connection between collection and library was deleted.
+        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "ebook_loan_duration", l1, collection.external_integration).value)
+        eq_(None, ConfigurationSetting.for_library_and_externalintegration(
+                self._db, "audio_loan_duration", l1, collection.external_integration).value)
+        eq_([], collection.libraries)
 
     def test_collection_delete(self):
         collection = self._collection()
@@ -3318,7 +3709,7 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.SEARCH_GOAL,
         )
         search_service.url = "search url"
-        search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value = "works-index"
+        search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.search_services()
@@ -3327,7 +3718,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(search_service.id, service.get("id"))
             eq_(search_service.protocol, service.get("protocol"))
             eq_("search url", service.get("settings").get(ExternalIntegration.URL))
-            eq_("works-index", service.get("settings").get(ExternalSearchIndex.WORKS_INDEX_KEY))
+            eq_("works-index-prefix", service.get("settings").get(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY))
 
     def test_search_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -3396,7 +3787,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
                 (ExternalIntegration.URL, "search url"),
-                (ExternalSearchIndex.WORKS_INDEX_KEY, "works-index"),
+                (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "works-index-prefix"),
             ])
             response = self.manager.admin_settings_controller.search_services()
             eq_(response.status_code, 201)
@@ -3405,7 +3796,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(service.id, int(response.response[0]))
         eq_(ExternalIntegration.ELASTICSEARCH, service.protocol)
         eq_("search url", service.url)
-        eq_("works-index", service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
+        eq_("works-index-prefix", service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value)
 
     def test_search_services_post_edit(self):
         search_service, ignore = create(
@@ -3414,14 +3805,14 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.SEARCH_GOAL,
         )
         search_service.url = "search url"
-        search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value = "works-index"
+        search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", search_service.id),
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
                 (ExternalIntegration.URL, "new search url"),
-                (ExternalSearchIndex.WORKS_INDEX_KEY, "new-works-index")
+                (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "new-works-index-prefix")
             ])
             response = self.manager.admin_settings_controller.search_services()
             eq_(response.status_code, 200)
@@ -3429,7 +3820,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(search_service.id, int(response.response[0]))
         eq_(ExternalIntegration.ELASTICSEARCH, search_service.protocol)
         eq_("new search url", search_service.url)
-        eq_("new-works-index", search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value)
+        eq_("new-works-index-prefix", search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value)
 
     def test_search_service_delete(self):
         search_service, ignore = create(
@@ -3438,7 +3829,7 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.SEARCH_GOAL,
         )
         search_service.url = "search url"
-        search_service.setting(ExternalSearchIndex.WORKS_INDEX_KEY).value = "works-index"
+        search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
         with self.app.test_request_context("/", method="DELETE"):
             response = self.manager.admin_settings_controller.search_service(search_service.id)
@@ -3823,6 +4214,26 @@ class TestSettingsController(AdminControllerTest):
         assert_remote_integration_error(
             response, 'The service did not provide registration information.'
         )
+
+        # If we get all the way to the registration POST, but that
+        # request results in a ProblemDetail, that ProblemDetail is
+        # passed along.
+        self.responses.extend([
+            MockRequestsResponse(200, content=json.dumps(registration), headers=headers),
+            MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
+        ])
+
+        def bad_do_post(self, *args, **kwargs):
+            return MULTIPLE_BASIC_AUTH_SERVICES
+        with self.app.test_request_context('/', method='POST'):
+            flask.request.form = MultiDict([
+                ('integration_id', metadata_wrangler_service.id),
+            ])
+            response = self.manager.admin_settings_controller.sitewide_registration(
+                metadata_wrangler_service, do_get=self.do_request, do_post=bad_do_post
+            )
+        eq_(MULTIPLE_BASIC_AUTH_SERVICES, response)
+
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)

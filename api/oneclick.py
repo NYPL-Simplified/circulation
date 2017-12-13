@@ -6,7 +6,7 @@ import json;
 import os
 import requests
 import uuid
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from circulation import (
     BaseCirculationAPI, 
@@ -35,12 +35,15 @@ from core.metadata_layer import (
 from core.model import (
     CirculationEvent,
     Collection,
+    ConfigurationSetting,
     Credential,
     DataSource,
     DeliveryMechanism,
     Edition,
     ExternalIntegration,
+    Hyperlink,
     Identifier, 
+    Library,
     LicensePool,
     Patron,
     Representation,
@@ -55,16 +58,43 @@ from core.util.http import (
     BadResponseException,
 )
 
+from core.util.web_publication_manifest import (
+    AudiobookManifest as CoreAudiobookManifest
+)
+
 
 class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
     NAME = ExternalIntegration.RB_DIGITAL
+
+    # With this API we don't need to guess the default loan period -- we
+    # know which loan period we will ask for in which situations.
+    BASE_SETTINGS = [x for x in BaseCirculationAPI.SETTINGS
+                     if x['key'] != BaseCirculationAPI.DEFAULT_LOAN_PERIOD]
+
     SETTINGS = [
         { "key": ExternalIntegration.PASSWORD, "label": _("Basic Token") },
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": BaseOneClickAPI.PRODUCTION_BASE_URL },
-    ] + BaseCirculationAPI.SETTINGS
+    ] + BASE_SETTINGS
     
+    # The loan duration must be specified when connecting a library to an
+    # RBdigital account, but if it's not specified, try one week.
+    DEFAULT_LOAN_DURATION = 7
+
+    my_audiobook_setting = dict(
+        BaseCirculationAPI.AUDIOBOOK_LOAN_DURATION_SETTING
+    )
+    my_audiobook_setting.update(default=DEFAULT_LOAN_DURATION)
+    my_ebook_setting = dict(
+        BaseCirculationAPI.EBOOK_LOAN_DURATION_SETTING
+    )
+    my_ebook_setting.update(default=DEFAULT_LOAN_DURATION)
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        my_audiobook_setting, 
+        my_ebook_setting
+    ]
+
     EXPIRATION_DATE_FORMAT = '%Y-%m-%d'
 
     log = logging.getLogger("OneClick Patron API")
@@ -77,15 +107,19 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             )
         )
 
-        # TODO: We need a general system for tracking default loan
-        # durations for different media types. However it doesn't
-        # matter much because the license sources generally tell us
-        # when specific loans expire.
-        self.ebook_expiration_default = datetime.timedelta(
-            self.collection.default_reservation_period
+    def remote_email_address(self, patron):
+        """The fake email address to send to RBdigital when
+        signing up this patron.
+        """
+        default = self.default_notification_email_address(patron, None)
+        if not default:
+            raise RemotePatronCreationFailedException(
+                _("Cannot create remote account for patron because library's default notification address is not set.")
+            )
+        patron_identifier = patron.identifier_to_remote_service(
+            DataSource.RB_DIGITAL
         )
-        self.eaudio_expiration_default = self.ebook_expiration_default
-
+        return default.replace('@', '+rbdigital-%s@' % patron_identifier, 1)
 
     def checkin(self, patron, pin, licensepool):
         """
@@ -128,7 +162,22 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         patron_oneclick_id = self.patron_remote_identifier(patron)
         (item_oneclick_id, item_media) = self.validate_item(licensepool)
 
-        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False)
+        today = datetime.datetime.utcnow()
+
+        library = patron.library
+
+        if item_media == Edition.AUDIO_MEDIUM:
+            key = Collection.AUDIOBOOK_LOAN_DURATION_KEY
+            _db = Session.object_session(patron)
+            days = (
+                ConfigurationSetting.for_library_and_externalintegration(
+                    _db, key, library, self.collection.external_integration
+                ).int_value or Collection.STANDARD_DEFAULT_LOAN_PERIOD
+            )
+        else:
+            days = self.collection.default_loan_period(library)
+
+        resp_dict = self.circulate_item(patron_id=patron_oneclick_id, item_id=item_oneclick_id, return_item=False, days=days)
 
         if not resp_dict or ('error_code' in resp_dict):
             return None
@@ -136,16 +185,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         self.log.debug("Patron %s/%s checked out item %s with transaction id %s.", patron.authorization_identifier, 
             patron_oneclick_id, item_oneclick_id, resp_dict['transactionId'])
 
-        today = datetime.datetime.now()
-        if item_media == Edition.AUDIO_MEDIUM:
-            expires = today + self.eaudio_expiration_default
-        else:
-            expires = today + self.ebook_expiration_default
-
-        # Create the loan info. We don't know the expiration for sure, 
-        # but we know the library default.  We do have the option of 
-        # getting expiration by checking patron's activity, but that 
-        # would mean another http call and is not currently merited.
+        expires = today + datetime.timedelta(days=days)
         loan = LoanInfo(
             self.collection,
             DataSource.RB_DIGITAL,
@@ -158,7 +198,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         return loan
 
 
-    def circulate_item(self, patron_id, item_id, hold=False, return_item=False):
+    def circulate_item(self, patron_id, item_id, hold=False, return_item=False, days=None):
         """
         Borrow or return a catalog item.
         :param patron_id OneClick internal id
@@ -173,6 +213,10 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         method = "post"
         action = "checkout"
+
+        if not hold and not return_item and days:
+            url += "?days=%s" % days
+
         if not hold and return_item:
             method = "delete"
             action = "checkin"
@@ -468,7 +512,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         # Generate meaningless values for account fields that are not
         # relevant to our usage of the API.
         post_args['userName'] = 'username_' + patron_identifier
-        post_args['email'] = 'patron_' + patron_identifier + '@librarysimplified.org'
+        post_args['email'] = self.remote_email_address(patron)
         post_args['firstName'] = 'Patron'
         post_args['lastName'] = 'Reader'
 
@@ -888,10 +932,8 @@ class RBFulfillmentInfo(object):
     def process_audiobook_manifest(self, rb_data):
         """Convert RBdigital's proprietary manifest format
         into a standard Audiobook Manifest document.
-       
-        TODO: This currently just returns the original manifest.
         """
-        return json.dumps(rb_data)
+        return unicode(AudiobookManifest(rb_data))
 
     @classmethod
     def process_access_document(self, access_document):
@@ -913,7 +955,20 @@ class RBFulfillmentInfo(object):
 
 
 class MockOneClickAPI(BaseMockOneClickAPI, OneClickAPI):
-    pass
+
+    @classmethod
+    def mock_collection(cls, _db):
+        collection = BaseMockOneClickAPI.mock_collection(_db)
+        for library in _db.query(Library):
+            for key, value in (
+                    (Collection.AUDIOBOOK_LOAN_DURATION_KEY, 1),
+                    (Collection.EBOOK_LOAN_DURATION_KEY, 2)
+            ):
+                ConfigurationSetting.for_library_and_externalintegration(
+                    _db, key, library, 
+                    collection.external_integration
+                ).value = value
+        return collection
 
 
 class OneClickCirculationMonitor(CollectionMonitor):
@@ -980,7 +1035,113 @@ class OneClickCirculationMonitor(CollectionMonitor):
         self.log.info("Processed %d ebooks and %d audiobooks.", ebook_count, eaudio_count)
 
 
+class AudiobookManifest(CoreAudiobookManifest):
+    """A standard AudiobookManifest derived from an RBdigital audiobook
+    manifest.
+    """
 
+    # Information not used because it's redundant or not useful.
+    # "bookmarks": [],
+    # "hasBookmark": false,
+    # "mediaType": "eAudio",
+    # "dateAdded": "2011-03-28",
 
+    # Information not used because it's loan-specific
+    # "expiration": "2017-11-15",
+    # "canRenew": true,
+    # "transactionId": 101,
+    # "patronId": 111,
+    # "libraryId": 222
 
+    def __init__(self, content_dict, **kwargs):
+        super(AudiobookManifest, self).__init__(**kwargs)
+        self.raw = content_dict
 
+        # Metadata values that map directly onto the core spec.
+        self.import_metadata('title')
+        self.import_metadata('publisher')
+        self.import_metadata('description')
+        self.import_metadata('isbn', 'identifier')
+        self.import_metadata('authors', 'author')
+        self.import_metadata('narrators', 'narrator')
+        self.import_metadata('minutes', 'duration', lambda x: x*60)
+
+        # Metadata values that have no equivalent in the core spec,
+        # but are potentially useful.
+        self.import_metadata('size', 'schema:contentSize')
+        self.import_metadata('titleid', 'rbdigital:id', str)
+        self.import_metadata('hasDrm', 'rbdigital:hasDrm')
+        self.import_metadata('encryptionKey', 'rbdigital:encryptionKey')
+
+        # Spine items.
+        for file_data in self.raw.get('files', []):
+            self.import_spine(file_data)
+
+        # Links.
+        download_url = self.raw.get('downloadUrl')
+        if download_url:
+            self.add_link(
+                download_url, 'alternate', 
+                type=Representation.guess_media_type(download_url)
+            )
+
+        cover = self.best_cover(self.raw.get('images', []))
+        if cover:
+            self.add_link(
+                cover, "cover", type=Representation.guess_media_type(cover)
+            )
+
+    @classmethod
+    def best_cover(self, images=[]):
+        if not images:
+            return None
+        # Find the largest image that's large enough to use as a
+        # cover.
+        sizes = ['xx-large', 'x-large', 'large']
+        images_by_size = {}
+        for image in images:
+            size = image.get('name')
+            href = image.get('url')
+            if href and size in sizes:
+                images_by_size[size] = href
+
+        for size in sizes:
+            if size in images_by_size:
+                return images_by_size[size]
+
+    def import_metadata(
+            self, rbdigital_field, standard_field=None, transform=None
+    ):
+        """Map a field in an RBdigital manifest to the corresponding
+        standard manifest field.
+        """
+        standard_field = standard_field or rbdigital_field
+        value = self.raw.get(rbdigital_field)
+        if value is None:
+            return
+        if transform:
+            value = transform(value)
+        self.metadata[standard_field] = value
+
+    def import_spine(self, file_data):
+        """Import an RBdigital spine item as a Web Publication Manifest
+        spine item.
+        """
+        href = file_data.get('downloadUrl')
+        duration = file_data.get('minutes') * 60
+        title = file_data.get('display')
+
+        id = file_data.get('id')
+        size = file_data.get('size')
+        filename = file_data.get('filename')
+        type = Representation.guess_media_type(filename)
+
+        extra = {}
+        for k, v, transform in (
+                ('id', 'rbdigital:id', str),
+                ('size', 'schema:contentSize', lambda x: x),
+                ('minutes', 'duration', lambda x: x*60),
+        ):
+            if k in file_data:
+                extra[v] = transform(file_data[k])
+        self.add_spine(href, type, title, **extra)

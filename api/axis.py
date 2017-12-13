@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 from datetime import datetime, timedelta
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from sqlalchemy.orm import contains_eager
 
 from lxml import etree
@@ -68,6 +68,10 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         { "key": Collection.EXTERNAL_ACCOUNT_ID_KEY, "label": _("Library ID") },
         { "key": ExternalIntegration.URL, "label": _("Server"), "default": BaseAxis360API.PRODUCTION_BASE_URL },
     ] + BaseCirculationAPI.SETTINGS
+
+    LIBRARY_SETTINGS = BaseCirculationAPI.LIBRARY_SETTINGS + [
+        BaseCirculationAPI.DEFAULT_LOAN_DURATION_SETTING
+    ]
 
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 

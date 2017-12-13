@@ -15,7 +15,7 @@ from flask import (
     Response,
     redirect,
 )
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from sqlalchemy.exc import ProgrammingError
 from PIL import Image
 from StringIO import StringIO
@@ -51,23 +51,26 @@ from core.model import (
     Work,
     WorkGenre,
 )
+from core.lane import Lane
 from core.util.problem_detail import (
     ProblemDetail, 
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
 from core.util.http import HTTP
 from problem_details import *
+from core.util import fast_query_count
 
 from api.config import (
     Configuration, 
     CannotLoadConfiguration
 )
+from api.lanes import create_default_lanes
 
 from google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
 from password_admin_authentication_provider import PasswordAdminAuthenticationProvider
 
 from api.controller import CirculationManagerController
-from api.coverage import MetadataWranglerCoverageProvider
+from api.coverage import MetadataWranglerCollectionRegistrar
 from core.app_server import entry_response
 from core.app_server import (
     entry_response, 
@@ -105,6 +108,7 @@ from api.bibliotheca import BibliothecaAPI
 from api.axis import Axis360API
 from api.oneclick import OneClickAPI
 from api.enki import EnkiAPI
+from api.odl import ODLWithConsolidatedCopiesAPI
 
 from api.nyt import NYTBestSellerAPI
 from api.novelist import NoveListAPI
@@ -131,6 +135,7 @@ def setup_admin_controllers(manager):
     manager.admin_work_controller = WorkController(manager)
     manager.admin_feed_controller = FeedController(manager)
     manager.admin_custom_lists_controller = CustomListsController(manager)
+    manager.admin_lanes_controller = LanesController(manager)
     manager.admin_dashboard_controller = DashboardController(manager)
     manager.admin_settings_controller = SettingsController(manager)
 
@@ -529,7 +534,7 @@ class WorkController(CirculationManagerController):
             return work
 
         if not provider and work.license_pools:
-            provider = MetadataWranglerCoverageProvider(work.license_pools[0].collection)
+            provider = MetadataWranglerCollectionRegistrar(work.license_pools[0].collection)
 
         if not provider:
             return METADATA_REFRESH_FAILURE
@@ -717,7 +722,7 @@ class WorkController(CirculationManagerController):
             genre, is_new = Genre.lookup(self._db, name)
             if not isinstance(genre, Genre):
                 return GENRE_NOT_FOUND
-            if genres[name].is_fiction != new_fiction:
+            if genres[name].is_fiction is not None and genres[name].is_fiction != new_fiction:
                 return INCOMPATIBLE_GENRE
             if name == "Erotica" and new_audience != "Adults Only":
                 return EROTICA_FOR_ADULTS_ONLY
@@ -866,6 +871,7 @@ class CustomListsController(CirculationManagerController):
                 entries = []
 
             old_entries = list.entries
+            membership_change = False
             for entry in entries:
                 pwid = entry.get("pwid")
                 work = self._db.query(
@@ -877,12 +883,21 @@ class CustomListsController(CirculationManagerController):
                 ).one()
 
                 if work:
-                    list.add_entry(work, featured=True)
+                    entry, entry_is_new = list.add_entry(work, featured=True)
+                    if entry_is_new:
+                        membership_change = True
 
             new_pwids = [entry.get("pwid") for entry in entries]
             for entry in old_entries:
                 if entry.edition.permanent_work_id not in new_pwids:
                     list.remove_entry(entry.edition)
+                    membership_change = True
+
+            if membership_change:
+                # If this list was used to populate any lanes, those
+                # lanes need to have their counts updated.
+                for lane in Lane.affected_by_customlist(list):
+                    lane.update_size(self._db)
 
             if is_new:
                 return Response(unicode(list.id), 201)
@@ -896,10 +911,140 @@ class CustomListsController(CirculationManagerController):
             list = get_one(self._db, CustomList, id=list_id, data_source=data_source)
             if not list:
                 return MISSING_CUSTOM_LIST
+
+            # Build the list of affected lanes before modifying the
+            # CustomList.
+            affected_lanes = Lane.affected_by_customlist(list)
             for entry in list.entries:
                 self._db.delete(entry)
             self._db.delete(list)
+            for lane in affected_lanes:
+                lane.update_size(self._db)
             return Response(unicode(_("Deleted")), 200)
+
+
+class LanesController(CirculationManagerController):
+
+    def lanes(self):
+        library = flask.request.library
+
+        if flask.request.method == "GET":
+            def lanes_for_parent(parent):
+                lanes = self._db.query(Lane).filter(Lane.library==library).filter(Lane.parent==parent).order_by(Lane.priority)
+                return [{ "id": lane.id,
+                          "display_name": lane.display_name,
+                          "visible": lane.visible,
+                          "count": lane.size,
+                          "sublanes": lanes_for_parent(lane),
+                          "custom_list_ids": [list.id for list in lane.customlists],
+                          "inherit_parent_restrictions": lane.inherit_parent_restrictions,
+                          } for lane in lanes]
+            return dict(lanes=lanes_for_parent(None))
+
+        if flask.request.method == "POST":
+            id = flask.request.form.get("id")
+            parent_id = flask.request.form.get("parent_id")
+            display_name = flask.request.form.get("display_name")
+            custom_list_ids = json.loads(flask.request.form.get("custom_list_ids", "[]"))
+            inherit_parent_restrictions = flask.request.form.get("inherit_parent_restrictions", False)
+
+            if not display_name:
+                return NO_DISPLAY_NAME_FOR_LANE
+
+            if not custom_list_ids or len(custom_list_ids) == 0:
+                return NO_CUSTOM_LISTS_FOR_LANE
+
+            if id:
+                is_new = False
+                lane = get_one(self._db, Lane, id=id, library=library)
+                if not lane:
+                    return MISSING_LANE
+                if not lane.customlists:
+                    return CANNOT_EDIT_DEFAULT_LANE
+                if display_name != lane.display_name:
+                    old_lane = get_one(self._db, Lane, display_name=display_name, parent=lane.parent)
+                    if old_lane:
+                        return LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS
+                lane.display_name = display_name
+            else:
+                parent = None
+                if parent_id:
+                    parent = get_one(self._db, Lane, id=parent_id, library=library)
+                    if not parent:
+                        return MISSING_LANE.detailed(_("The specified parent lane does not exist, or is associated with a different library."))
+                old_lane = get_one(self._db, Lane, display_name=display_name, parent=parent)
+                if old_lane:
+                    return LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS
+
+                lane, is_new = create(
+                    self._db, Lane, display_name=display_name,
+                    parent=parent, library=library)
+
+                # Make a new lane the first child of its parent and bump all the siblings down in priority.
+                siblings = self._db.query(Lane).filter(Lane.library==library).filter(Lane.parent==lane.parent).filter(Lane.id!=lane.id)
+                for sibling in siblings:
+                    sibling.priority += 1
+                lane.priority = 0
+
+            lane.inherit_parent_restrictions = inherit_parent_restrictions
+
+            for list_id in custom_list_ids:
+                list = get_one(self._db, CustomList, library=library, id=list_id)
+                if not list:
+                    self._db.rollback()
+                    return MISSING_CUSTOM_LIST.detailed(
+                        _("The list with id %(list_id)s does not exist or is associated with a different library.", list_id=list_id))
+                lane.customlists.append(list)
+
+            for list in lane.customlists:
+                if list.id not in custom_list_ids:
+                    lane.customlists.remove(list)
+            lane.update_size(self._db)
+
+            if is_new:
+                return Response(unicode(lane.id), 201)
+            else:
+                return Response(unicode(lane.id), 200)
+
+    def lane(self, lane_identifier):
+        if flask.request.method == "DELETE":
+            library = flask.request.library
+            lane = get_one(self._db, Lane, id=lane_identifier, library=library)
+            if not lane:
+                return MISSING_LANE
+            if not lane.customlists:
+                return CANNOT_EDIT_DEFAULT_LANE
+
+            # Recursively delete all the lane's sublanes.
+            def delete_lane_and_sublanes(lane):
+                for sublane in lane.sublanes:
+                    delete_lane_and_sublanes(sublane)
+                self._db.delete(lane)
+
+            delete_lane_and_sublanes(lane)
+            return Response(unicode(_("Deleted")), 200)
+
+    def show_lane(self, lane_identifier):
+        library = flask.request.library
+        lane = get_one(self._db, Lane, id=lane_identifier, library=library)
+        if not lane:
+            return MISSING_LANE
+        if lane.parent and not lane.parent.visible:
+            return CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT
+        lane.visible = True
+        return Response(unicode(_("Success")), 200)
+
+    def hide_lane(self, lane_identifier):
+        library = flask.request.library
+        lane = get_one(self._db, Lane, id=lane_identifier, library=library)
+        if not lane:
+            return MISSING_LANE
+        lane.visible = False
+        return Response(unicode(_("Success")), 200)
+
+    def reset(self):
+        create_default_lanes(self._db, flask.request.library)
+        return Response(unicode(_("Success")), 200)
 
 
 class DashboardController(CirculationManagerController):
@@ -1260,6 +1405,22 @@ class SettingsController(CirculationManagerController):
             protocols.append(protocol)
         return protocols
 
+    def _get_integration_library_info(self, integration, library, protocol):
+        library_info = dict(short_name=library.short_name)
+        for setting in protocol.get("library_settings", []):
+            key = setting.get("key")
+            if setting.get("type") == "list":
+                value = ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, key, library, integration
+                ).json_value
+            else:
+                value = ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, key, library, integration
+                ).value
+            if value:
+                library_info[key] = value
+        return library_info
+
     def _get_integration_info(self, goal, protocols):
         services = []
         for service in self._db.query(ExternalIntegration).filter(
@@ -1269,20 +1430,8 @@ class SettingsController(CirculationManagerController):
             libraries = []
             if not protocol.get("sitewide"):
                 for library in service.libraries:
-                    library_info = dict(short_name=library.short_name)
-                    for setting in protocol.get("library_settings", []):
-                        key = setting.get("key")
-                        if setting.get("type") == "list":
-                            value = ConfigurationSetting.for_library_and_externalintegration(
-                                self._db, key, library, service
-                            ).json_value
-                        else:
-                            value = ConfigurationSetting.for_library_and_externalintegration(
-                                self._db, key, library, service
-                            ).value
-                        if value:
-                            library_info[key] = value
-                    libraries.append(library_info)
+                    libraries.append(self._get_integration_library_info(
+                            service, library, protocol))
 
             settings = dict()
             for setting in protocol.get("settings", []):
@@ -1307,33 +1456,63 @@ class SettingsController(CirculationManagerController):
 
         return services
 
+    def _set_integration_setting(self, integration, setting):
+        key = setting.get("key")
+        if setting.get("type") == "list" and not setting.get("options"):
+            value = [item for item in flask.request.form.getlist(key) if item]
+            if value:
+                value = json.dumps(value)
+        else:
+            value = flask.request.form.get(key)
+        if value and setting.get("options"):
+            # This setting can only take on values that are in its
+            # list of options.
+            allowed = [option.get("key") for option in setting.get("options")]
+            if value not in allowed:
+                self._db.rollback()
+                return INVALID_CONFIGURATION_OPTION.detailed(_(
+                    "The configuration value for %(setting)s is invalid.",
+                    setting=setting.get("label"),
+                ))
+        if not value and not setting.get("optional"):
+            # Roll back any changes to the integration that have already been made.
+            self._db.rollback()
+            return INCOMPLETE_CONFIGURATION.detailed(
+                _("The configuration is missing a required setting: %(setting)s",
+                  setting=setting.get("label")))
+        integration.setting(key).value = value
+
+    def _set_integration_library(self, integration, library_info, protocol):
+        library = get_one(self._db, Library, short_name=library_info.get("short_name"))
+        if not library:
+            self._db.rollback()
+            return NO_SUCH_LIBRARY.detailed(_("You attempted to add the integration to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
+
+        integration.libraries += [library]
+        for setting in protocol.get("library_settings", []):
+            key = setting.get("key")
+            value = library_info.get(key)
+            if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
+                self._db.rollback()
+                return INVALID_CONFIGURATION_OPTION.detailed(_(
+                    "The configuration value for %(setting)s is invalid.",
+                    setting=setting.get("label"),
+                ))
+            if not value and not setting.get("optional"):
+                self._db.rollback()
+                return INCOMPLETE_CONFIGURATION.detailed(
+                    _("The configuration is missing a required setting: %(setting)s for library %(library)s",
+                      setting=setting.get("label"),
+                      library=library.short_name,
+                      ))
+            ConfigurationSetting.for_library_and_externalintegration(self._db, key, library, integration).value = value
+
     def _set_integration_settings_and_libraries(self, integration, protocol):
         settings = protocol.get("settings")
         for setting in settings:
-            key = setting.get("key")
-            if setting.get("type") == "list" and not setting.get("options"):
-                value = [item for item in flask.request.form.getlist(key) if item]
-                if value:
-                    value = json.dumps(value)
-            else:
-                value = flask.request.form.get(key)
-            if value and setting.get("options"):
-                # This setting can only take on values that are in its
-                # list of options.
-                allowed = [option.get("key") for option in setting.get("options")]
-                if value not in allowed:
-                    self._db.rollback()
-                    return INVALID_CONFIGURATION_OPTION.detailed(_(
-                        "The configuration value for %(setting)s is invalid.",
-                        setting=setting.get("label"),
-                    ))
-            if not value and not setting.get("optional"):
-                # Roll back any changes to the integration that have already been made.
-                self._db.rollback()
-                return INCOMPLETE_CONFIGURATION.detailed(
-                    _("The configuration is missing a required setting: %(setting)s",
-                      setting=setting.get("label")))
-            integration.setting(key).value = value
+            result = self._set_integration_setting(integration, setting)
+            if isinstance(result, ProblemDetail):
+                return result
                 
         if not protocol.get("sitewide"):
             integration.libraries = []
@@ -1343,30 +1522,9 @@ class SettingsController(CirculationManagerController):
                 libraries = json.loads(flask.request.form.get("libraries"))
 
             for library_info in libraries:
-                library = get_one(self._db, Library, short_name=library_info.get("short_name"))
-                if not library:
-                    self._db.rollback()
-                    return NO_SUCH_LIBRARY.detailed(_("You attempted to add the integration to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
-
-                integration.libraries += [library]
-                for setting in protocol.get("library_settings", []):
-                    key = setting.get("key")
-                    value = library_info.get(key)
-                    if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
-                        self._db.rollback()
-                        return INVALID_CONFIGURATION_OPTION.detailed(_(
-                            "The configuration value for %(setting)s is invalid.",
-                            setting=setting.get("label"),
-                        ))
-                    if not value and not setting.get("optional"):
-                        self._db.rollback()
-                        return INCOMPLETE_CONFIGURATION.detailed(
-                            _("The configuration is missing a required setting: %(setting)s for library %(library)s",
-                              setting=setting.get("label"),
-                              library=library.short_name,
-                              ))
-                    ConfigurationSetting.for_library_and_externalintegration(self._db, key, library, integration).value = value
-
+                result = self._set_integration_library(integration, library_info, protocol)
+                if isinstance(result, ProblemDetail):
+                    return result
         return True
 
     def _delete_integration(self, integration_id, goal):
@@ -1386,6 +1544,7 @@ class SettingsController(CirculationManagerController):
                          Axis360API,
                          OneClickAPI,
                          EnkiAPI,
+                         ODLWithConsolidatedCopiesAPI,
                         ]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
@@ -1397,11 +1556,15 @@ class SettingsController(CirculationManagerController):
                     name=c.name,
                     protocol=c.protocol,
                     parent_id=c.parent_id,
-                    libraries=[{ "short_name": library.short_name } for library in c.libraries],
                     settings=dict(external_account_id=c.external_account_id),
                 )
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
+                    libraries = [
+                            self._get_integration_library_info(
+                                c.external_integration, library, protocol)
+                            for library in c.libraries]
+                    collection['libraries'] = libraries
                     for setting in protocol.get("settings"):
                         key = setting.get("key")
                         if key not in collection["settings"]:
@@ -1454,6 +1617,7 @@ class SettingsController(CirculationManagerController):
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
+        collection.name = name
         [protocol] = [p for p in protocols if p.get("name") == protocol]
 
         parent_id = flask.request.form.get("parent_id")
@@ -1473,21 +1637,21 @@ class SettingsController(CirculationManagerController):
             collection.parent = None
             settings = protocol.get("settings")
         
-
         for setting in settings:
             key = setting.get("key")
-            value = flask.request.form.get(key)
-            if not value and not setting.get("optional"):
-                # Roll back any changes to the collection that have already been made.
-                self._db.rollback()
-                return INCOMPLETE_CONFIGURATION.detailed(
-                    _("The collection configuration is missing a required setting: %(setting)s",
-                      setting=setting.get("label")))
-
             if key == "external_account_id":
+                value = flask.request.form.get(key)
+                if not value and not setting.get("optional"):
+                    # Roll back any changes to the collection that have already been made.
+                    self._db.rollback()
+                    return INCOMPLETE_CONFIGURATION.detailed(
+                        _("The collection configuration is missing a required setting: %(setting)s",
+                          setting=setting.get("label")))
                 collection.external_account_id = value
             else:
-                collection.external_integration.setting(key).value = value
+                result = self._set_integration_setting(collection.external_integration, setting)
+                if isinstance(result, ProblemDetail):
+                    return result
 
         libraries = []
         if flask.request.form.get("libraries"):
@@ -1499,9 +1663,17 @@ class SettingsController(CirculationManagerController):
                 return NO_SUCH_LIBRARY.detailed(_("You attempted to add the collection to %(library_short_name)s, but it does not exist.", library_short_name=library_info.get("short_name")))
             if collection not in library.collections:
                 library.collections.append(collection)
+            result = self._set_integration_library(collection.external_integration, library_info, protocol)
+            if isinstance(result, ProblemDetail):
+                return result
         for library in collection.libraries:
             if library.short_name not in [l.get("short_name") for l in libraries]:
                 library.collections.remove(collection)
+                for setting in protocol.get("library_settings", []):
+                    ConfigurationSetting.for_library_and_externalintegration(
+                        self._db, setting.get("key"), library, collection.external_integration,
+                    ).value = None
+
 
         if is_new:
             return Response(unicode(collection.id), 201)
@@ -1884,6 +2056,8 @@ class SettingsController(CirculationManagerController):
             public_key_setting.value = None
             return REMOTE_INTEGRATION_FAILED.detailed(e.message)
 
+        if isinstance(response, ProblemDetail):
+            return response
         registration_info = response.json()
         shared_secret = registration_info.get('metadata', {}).get('shared_secret')
 

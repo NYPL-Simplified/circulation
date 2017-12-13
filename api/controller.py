@@ -17,7 +17,7 @@ from flask import (
     Response,
     redirect,
 )
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from core.app_server import (
     entry_response,
@@ -41,7 +41,7 @@ from core.lane import (
     Facets, 
     Pagination,
     Lane,
-    LaneList,
+    WorkList,
 )
 from core.model import (
     get_one,
@@ -107,7 +107,7 @@ from config import (
 )
 
 from lanes import (
-    make_lanes,
+    load_lanes,
     ContributorLane,
     RecommendationLane,
     RelatedBooksLane,
@@ -123,6 +123,7 @@ from axis import Axis360API
 from overdrive import OverdriveAPI
 from bibliotheca import BibliothecaAPI
 from circulation import CirculationAPI
+from odl import ODLWithConsolidatedCopiesAPI
 from novelist import (
     NoveListAPI,
     MockNoveListAPI,
@@ -134,7 +135,7 @@ from core.analytics import Analytics
 
 class CirculationManager(object):
 
-    def __init__(self, _db, lanes=None, testing=False):
+    def __init__(self, _db, testing=False):
 
         self.log = logging.getLogger("Circulation manager web app")
         self._db = _db
@@ -150,7 +151,6 @@ class CirculationManager(object):
         self.site_configuration_last_update = (
             Configuration.site_configuration_last_update(self._db, timeout=0)
         )
-        self.lane_descriptions = lanes
         self.setup_one_time_controllers()
         self.load_settings()
         
@@ -183,16 +183,12 @@ class CirculationManager(object):
         new_top_level_lanes = {}
         # Create a CirculationAPI for each library.
         new_circulation_apis = {}
-        
+
         new_adobe_device_management = None
         for library in self._db.query(Library):
-            lanes = make_lanes(self._db, library, self.lane_descriptions)
+            lanes = load_lanes(self._db, library)
             
-            new_top_level_lanes[library.id] = (
-                self.create_top_level_lane(
-                    self._db, library, lanes
-                )
-            )
+            new_top_level_lanes[library.id] = lanes
 
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
@@ -238,20 +234,6 @@ class CirculationManager(object):
             self.__external_search = None
             self.external_search_initialization_exception = e
         return self.__external_search
-
-    def create_top_level_lane(self, _db, library, lanelist):
-        name = 'All Books'
-        return Lane(
-            _db,
-            library, name,
-            display_name=name,
-            parent=None,
-            sublanes=lanelist.lanes,
-            include_all=False,
-            languages=None,
-            searchable=True,
-            invisible=True
-        )
 
     def cdn_url_for(self, view, *args, **kwargs):
         return cdn_url_for(view, *args, **kwargs)
@@ -303,6 +285,7 @@ class CirculationManager(object):
         self.profiles = ProfileController(self)
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
+        self.odl_notification_controller = ODLNotificationController(self)
 
     def setup_configuration_dependent_controllers(self):
         """Set up all the controllers that depend on the 
@@ -374,8 +357,10 @@ class CirculationManager(object):
 
     def annotator(self, lane, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
-        if lane:
+        if lane and isinstance(lane, Lane):
             library = lane.library
+        elif lane and isinstance(lane, WorkList):
+            library = lane.get_library(self._db)
         else:
             library = flask.request.library
         return CirculationManagerAnnotator(
@@ -416,36 +401,23 @@ class CirculationManagerController(BaseCirculationManagerController):
         library_id = flask.request.library.id
         return self.manager.circulation_apis[library_id]
     
-    def load_lane(self, language_key, name):
+    def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
         top_level_lane = self.manager.top_level_lanes[library_id]
 
-        if language_key is None and name is None:
+        if lane_identifier is None:
             return top_level_lane
 
-        lanelist = top_level_lane.sublanes
-        if not language_key in lanelist.by_languages:
+        lane = get_one(self._db, Lane, id=lane_identifier, library_id=library_id)
+
+        if not lane:
             return NO_SUCH_LANE.detailed(
-                _("Unrecognized language key: %(language_key)s", language_key=language_key)
+                _("Lane %(lane_identifier)s does not exist or is not associated with library %(library_id)s", 
+                  lane_identifier=lane_identifier, library_id=library_id
+                )
             )
-
-        if name:
-            name = name.replace("__", "/")
-
-        lanes = lanelist.by_languages[language_key]
-
-        if not name:
-            defaults = [x for x in lanes.values() if x.default_for_language]
-            if len(defaults) == 1:
-                # This language has one, and only one, default lane.
-                return defaults[0]
-
-        if name not in lanes:
-            return NO_SUCH_LANE.detailed(
-                _("No such lane: %(lane_name)s", lane_name=name)
-            )
-        return lanes[name]
+        return lane
 
     def load_work(self, library, identifier_type, identifier):
         pools = self.load_licensepools(library, identifier_type, identifier)
@@ -487,7 +459,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         license_pool = get_one(self._db, LicensePool, id=license_pool_id)
         if not license_pool:
             return INVALID_INPUT.detailed(
-                _("License Pool #%d does not exist.") % license_pool_id
+                _("License Pool #%s does not exist.") % license_pool_id
             )
         return license_pool
 
@@ -526,8 +498,7 @@ class IndexController(CirculationManagerController):
     def __call__(self):
         # The simple case: the app is equally open to all clients.
         library_short_name = flask.request.library.short_name
-        policy = Configuration.root_lane_policy()
-        if not policy:
+        if not self.has_root_lanes():
             return redirect(self.cdn_url_for('acquisition_groups', library_short_name=library_short_name))
 
         # The more complex case. We must authorize the patron, check
@@ -544,6 +515,14 @@ class IndexController(CirculationManagerController):
             }
         )
 
+    def has_root_lanes(self):
+        root_lanes = self._db.query(Lane).filter(
+            Lane.library==flask.request.library
+        ).filter(
+            Lane.root_for_patron_type!=None
+        )
+        return root_lanes.count() > 0
+
     def authenticated_patron_root_lane(self):
         patron = self.authenticated_patron_from_request()
         if isinstance(patron, ProblemDetail):
@@ -551,13 +530,15 @@ class IndexController(CirculationManagerController):
         if isinstance(patron, Response):
             return patron
 
-        policy = Configuration.root_lane_policy()
-        lane_info = policy.get(patron.external_type)
-        if lane_info is None:
+        lanes = self._db.query(Lane).filter(
+            Lane.library==flask.request.library
+        ).filter(
+            Lane.root_for_patron_type.any(patron.external_type)
+        )
+        if lanes.count() < 1:
             return None
         else:
-            lang_key, name = lane_info
-            return self.load_lane(lang_key, name)
+            return lanes.one()
 
     def appropriate_index_for_patron_type(self):
         library_short_name = flask.request.library.short_name
@@ -578,8 +559,7 @@ class IndexController(CirculationManagerController):
             self.cdn_url_for(
                 'acquisition_groups', 
                 library_short_name=library_short_name,
-                languages=root_lane.language_key,
-                lane_name=root_lane.url_name
+                lane_identifier=root_lane.id,
             )
         )
 
@@ -593,15 +573,15 @@ class IndexController(CirculationManagerController):
 
 class OPDSFeedController(CirculationManagerController):
 
-    def groups(self, languages, lane_name):
+    def groups(self, lane_identifier):
         """Build or retrieve a grouped acquisition feed."""
 
-        lane = self.load_lane(languages, lane_name)
+        lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
         library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
-            "acquisition_groups", languages=languages, lane_name=lane_name, library_short_name=library_short_name,
+            "acquisition_groups", lane_identifier=lane_identifier, library_short_name=library_short_name,
         )
 
         title = lane.display_name
@@ -610,15 +590,15 @@ class OPDSFeedController(CirculationManagerController):
         feed = AcquisitionFeed.groups(self._db, title, url, lane, annotator)
         return feed_response(feed.content)
 
-    def feed(self, languages, lane_name):
+    def feed(self, lane_identifier):
         """Build or retrieve a paginated acquisition feed."""
 
-        lane = self.load_lane(languages, lane_name)
+        lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
         library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
-            "feed", languages=languages, lane_name=lane_name,
+            "feed", lane_identifier=lane_identifier,
             library_short_name=library_short_name,
         )
 
@@ -638,15 +618,15 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(feed.content)
 
-    def search(self, languages, lane_name):
+    def search(self, lane_identifier):
 
-        lane = self.load_lane(languages, lane_name)
+        lane = self.load_lane(lane_identifier)
         if isinstance(lane, ProblemDetail):
             return lane
         query = flask.request.args.get('q')
         library_short_name = flask.request.library.short_name
         this_url = self.url_for(
-            'lane_search', languages=languages, lane_name=lane_name,
+            'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,
         )
         if not query:
@@ -1153,7 +1133,7 @@ class WorkController(CirculationManagerController):
         languages, audiences = self._lane_details(languages, audiences)
 
         lane = ContributorLane(
-            self._db, library, contributor_name, languages=languages, audiences=audiences
+            library, contributor_name, languages=languages, audiences=audiences
         )
 
         annotator = self.manager.annotator(lane)
@@ -1210,7 +1190,7 @@ class WorkController(CirculationManagerController):
                 work.title, work.author
             )
             lane = RelatedBooksLane(
-                self._db, library, work, lane_name, novelist_api=novelist_api
+                library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # No related books were found.
@@ -1245,7 +1225,7 @@ class WorkController(CirculationManagerController):
         lane_name = "Recommendations for %s by %s" % (work.title, work.author)
         try:
             lane = RecommendationLane(
-                self._db, library, work, lane_name, novelist_api=novelist_api
+                library, work, lane_name, novelist_api=novelist_api
             )
         except ValueError, e:
             # NoveList isn't configured.
@@ -1302,7 +1282,7 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(_("No series provided"))
 
         languages, audiences = self._lane_details(languages, audiences)
-        lane = SeriesLane(self._db, library, series_name=series_name,
+        lane = SeriesLane(library, series_name=series_name,
                           languages=languages, audiences=audiences
         )
         annotator = self.manager.annotator(lane)
@@ -1401,3 +1381,24 @@ class ServiceStatusController(CirculationManagerController):
 
         doc = self.template % dict(statuses="\n".join(statuses))
         return Response(doc, 200, {"Content-Type": "text/html"})
+
+class ODLNotificationController(CirculationManagerController):
+    """Receive notifications from an ODL distributor when the
+    status of a loan changes.
+    """
+
+    def notify(self, loan_id):
+        library = flask.request.library
+        status_doc = flask.request.data
+        loan = get_one(self._db, Loan, id=loan_id)
+
+        if not loan:
+            return NO_ACTIVE_LOAN.detailed(_("No loan was found for this identifier."))
+
+        collection = loan.license_pool.collection
+        if collection.protocol != ODLWithConsolidatedCopiesAPI.NAME:
+            return INVALID_LOAN_FOR_ODL_NOTIFICATION
+
+        api = self.manager.circulation_apis[library.id].api_for_license_pool(loan.license_pool)
+        api.update_loan(loan, json.loads(status_doc))
+        return Response(_('Success'), 200)

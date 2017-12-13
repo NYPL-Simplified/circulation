@@ -1,4 +1,5 @@
 from nose.tools import (
+    assert_raises_regexp,
     set_trace,
     eq_,
 )
@@ -7,10 +8,12 @@ import contextlib
 import datetime
 import flask
 import json
+from StringIO import StringIO
 
 from api.adobe_vendor_id import (
     AdobeVendorIDModel,
     AuthdataUtility,
+    ShortClientTokenLibraryConfigurationScript,
 )
 
 from api.config import (
@@ -24,7 +27,9 @@ from core.lane import (
 )
 
 from core.model import (
+    CachedFeed,
     ConfigurationSetting,
+    create,
     Credential,
     DataSource,
     get_one,
@@ -39,6 +44,7 @@ from scripts import (
     AdobeAccountIDResetScript,
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
+    CacheOPDSGroupFeedPerLane,
     InstanceInitializationScript,
     LanguageListScript,
     LoanReaperScript,
@@ -117,15 +123,13 @@ class TestRepresentationPerLane(TestLaneScript):
         )
         eq_(['fre', 'eng'], script.languages)
 
-        english_lane = Lane(self._db, self._default_library, self._str, languages=['eng'])
+        english_lane = self._lane(languages=['eng'])
         eq_(True, script.should_process_lane(english_lane))
 
-        no_english_lane = Lane(self._db, self._default_library, self._str, exclude_languages=['eng'])
+        no_english_lane = self._lane(languages=['spa','fre'])
         eq_(True, script.should_process_lane(no_english_lane))
 
-        no_english_or_french_lane = Lane(
-            self._db, self._default_library, self._str, exclude_languages=['eng', 'fre']
-        )
+        no_english_or_french_lane = self._lane(languages=['spa'])
         eq_(False, script.should_process_lane(no_english_or_french_lane))
             
     def test_max_and_min_depth(self):
@@ -135,8 +139,9 @@ class TestRepresentationPerLane(TestLaneScript):
         )
         eq_(0, script.max_depth)
 
-        child = Lane(self._db, self._default_library, "sublane")
-        parent = Lane(self._db, self._default_library, "parent", sublanes=[child])
+        child = self._lane(display_name="sublane")
+        parent = self._lane(display_name="parent")
+        parent.sublanes=[child]
         eq_(True, script.should_process_lane(parent))
         eq_(False, script.should_process_lane(child))
 
@@ -174,8 +179,6 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         eq_(1, script.pages)
 
     def test_process_lane(self):
-        lane = Lane(self._db, self._default_library, self._str)
-
         script = CacheFacetListsPerLane(
             self._db, ["--availability=all", "--availability=always",
                        "--collection=main", "--collection=full",
@@ -184,10 +187,36 @@ class TestCacheFacetListsPerLane(TestLaneScript):
         )
         with script.app.test_request_context("/"):
             flask.request.library = self._default_library
+            lane = self._lane()
             cached_feeds = script.process_lane(lane)
             # 2 availabilities * 2 collections * 1 order * 1 page = 4 feeds
             eq_(4, len(cached_feeds))
 
+
+class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
+    
+    def test_do_run(self):
+
+        work = self._work(fiction=True, with_license_pool=True, 
+                          genre="Science Fiction")
+        work.quality = 1
+        lane = self._lane(display_name="Fantastic Fiction", fiction=True)
+        sublane = self._lane(
+            parent=lane, display_name="Science Fiction", fiction=True,
+            genres=["Science Fiction"]
+        )
+        self.add_to_materialized_view([work], true_opds=True)
+        script = CacheOPDSGroupFeedPerLane(self._db, cmd_args=[])
+        script.do_run(cmd_args=[])
+
+        # The Lane object was disconnected from its database session
+        # when the app server was initialized. Reconnect it.
+        lane = self._db.merge(lane)
+        [feed] = lane.cachedfeeds
+
+        assert "Fantastic Fiction" in feed.content
+        assert "Science Fiction" in feed.content
+        assert work.title in feed.content
 
 class TestInstanceInitializationScript(DatabaseTest):
 
@@ -329,3 +358,67 @@ class TestLanguageListScript(DatabaseTest):
         # English is ignored because all its works are open-access.
         # Tagalog shows up with the correct estimate.
         eq_(["tgl 1 (Tagalog)"], output)
+
+
+class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
+
+    def setup(self):
+        super(TestShortClientTokenLibraryConfigurationScript, self).setup()
+        self._default_library.setting(
+            Configuration.WEBSITE_URL
+        ).value = "http://foo/"
+        self.script = ShortClientTokenLibraryConfigurationScript(self._db)
+
+    def test_identify_library_by_url(self):
+        assert_raises_regexp(
+            Exception,
+            "Could not locate library with URL http://bar/. Available URLs: http://foo/",
+            self.script.set_secret,
+            self._db, "http://bar/", "vendorid", "libraryname", "secret", None
+        )
+
+    def test_set_secret(self):
+        eq_([], self._default_library.integrations)
+
+        output = StringIO()
+        self.script.set_secret(
+            self._db, "http://foo/", "vendorid", "libraryname", "secret", 
+            output
+        )
+        eq_(
+            u'Current Short Client Token configuration for http://foo/:\n Vendor ID: vendorid\n Library name: libraryname\n Shared secret: secret\n',
+            output.getvalue()
+        )
+        [integration] = self._default_library.integrations
+        eq_(
+            [('password', 'secret'), ('username', 'libraryname'),
+             ('vendor_id', 'vendorid')],
+            sorted((x.key, x.value) for x in integration.settings)
+        )
+
+        # We can modify an existing configuration.
+        output = StringIO()
+        self.script.set_secret(
+            self._db, "http://foo/", "newid", "newname", "newsecret", 
+            output
+        )
+        expect = u'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
+        eq_(expect, output.getvalue())
+        expect_settings = [
+            ('password', 'newsecret'), ('username', 'newname'),
+             ('vendor_id', 'newid')
+        ]
+        eq_(expect_settings,
+            sorted((x.key, x.value) for x in integration.settings)
+        )
+
+        # We can also just check on the existing configuration without
+        # changing anything.
+        output = StringIO()
+        self.script.set_secret(
+            self._db, "http://foo/", None, None, None, output
+        )
+        eq_(expect, output.getvalue())
+        eq_(expect_settings,
+            sorted((x.key, x.value) for x in integration.settings)
+        )

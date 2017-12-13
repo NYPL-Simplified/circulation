@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 import datetime
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from authenticator import (
     BasicAuthenticationProvider,
@@ -24,16 +24,34 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         This is useful for testing a circulation manager before connecting
         it to an ILS.""")
 
+    ADDITIONAL_TEST_IDENTIFIERS = 'additional_test_identifiers'
+
+    SETTINGS = BasicAuthenticationProvider.SETTINGS + [
+        { "key": ADDITIONAL_TEST_IDENTIFIERS,
+          "label": _("Additional test identifiers"),
+          "type": "list",
+          "optional": True,
+          "description": _("Identifiers for additional patrons to use in testing. The identifiers will all use the same test password as the first identifier."),
+        }
+    ]
+
     def __init__(self, library, integration, analytics=None):
         super(SimpleAuthenticationProvider, self).__init__(
             library, integration, analytics
         )
-        self.test_identifier = integration.setting(self.TEST_IDENTIFIER).value
+
         self.test_password = integration.setting(self.TEST_PASSWORD).value
-        if not (self.test_identifier and self.test_password):
+        test_identifier = integration.setting(self.TEST_IDENTIFIER).value
+        if not (test_identifier and self.test_password):
             raise CannotLoadConfiguration(
                 "Test identifier and password not set."
             )
+
+        self.test_identifiers = [test_identifier, test_identifier + "_username"]
+        additional_identifiers = integration.setting(self.ADDITIONAL_TEST_IDENTIFIERS).json_value
+        if additional_identifiers:
+            for identifier in additional_identifiers:
+                self.test_identifiers += [identifier, identifier + "_username"]
         
     def remote_authenticate(self, username, password):
         "Fake 'remote' authentication."
@@ -43,11 +61,17 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         if not self.valid_patron(username, password):
             return None
 
-        username = self.test_identifier
+        if username.endswith("_username"):
+            username = username
+            identifier = username[:-9]
+        else:
+            identifier = username
+            username = identifier + "_username"
+
         patrondata = PatronData(
-            authorization_identifier=username,
-            permanent_id=username + "_id",
-            username=username + "_username",
+            authorization_identifier=identifier,
+            permanent_id=identifier + "_id",
+            username=username,
             authorization_expires = None,
             fines = None,
         )
@@ -61,8 +85,7 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         the given dictionary?
         """
         return password==self.test_password and (
-            username==self.test_identifier
-            or username == self.test_identifier + '_username'
+            username in self.test_identifiers
         )
 
 AuthenticationProvider = SimpleAuthenticationProvider

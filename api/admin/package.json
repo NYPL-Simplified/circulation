@@ -9,6 +9,6 @@
   "author": "NYPL",
   "license": "Apache-2.0",
   "dependencies": {
-    "simplified-circulation-web": "0.0.48"
+    "simplified-circulation-web": "0.0.51"
   }
 }

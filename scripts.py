@@ -56,6 +56,7 @@ from core.scripts import (
     RunCoverageProvidersScript,
     RunCoverageProviderScript,
     IdentifierInputScript,
+    LaneSweeperScript,
     LibraryInputScript,
     PatronInputScript,
     RunMonitorScript,
@@ -86,7 +87,7 @@ from api.adobe_vendor_id import (
     AdobeVendorIDModel,
     AuthdataUtility,
 )
-from api.lanes import make_lanes
+from api.lanes import create_default_lanes
 from api.controller import CirculationManager
 from api.overdrive import OverdriveAPI
 from api.circulation import CirculationAPI
@@ -108,6 +109,10 @@ from api.opds_for_distributors import (
     OPDSForDistributorsImporter,
     OPDSForDistributorsImportMonitor,
     OPDSForDistributorsReaperMonitor,
+)
+from api.odl import (
+    ODLBibliographicImporter,
+    ODLBibliographicImportMonitor,
 )
 from core.scripts import OPDSImportScript
 
@@ -292,44 +297,6 @@ class UpdateStaffPicksScript(Script):
         return StringIO(representation.content)
 
 
-class LaneSweeperScript(LibraryInputScript):
-    """Do something to each lane in a library."""
-
-    def __init__(self, _db=None, testing=False):
-        _db = _db or self._db
-        super(LaneSweeperScript, self).__init__(_db)
-        from api.app import app
-        app.manager = CirculationManager(_db, testing=testing)
-        self.app = app
-        self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
-
-    def process_library(self, library):
-        begin = time.time()
-        client = self.app.test_client()
-        ctx = self.app.test_request_context(base_url=self.base_url)
-        ctx.push()
-        queue = [self.app.manager.top_level_lanes[library.id]]
-        while queue:
-            new_queue = []
-            self.log.debug("Beginning of loop: %d lanes to process", len(queue))
-            for l in queue:
-                if self.should_process_lane(l):
-                    self.process_lane(l)
-                    self._db.commit()
-                for sublane in l.sublanes:
-                    new_queue.append(sublane)
-            queue = new_queue
-        ctx.pop()
-        end = time.time()
-        self.log.info("Entire process took %.2fsec", (end-begin))
-
-    def should_process_lane(self, lane):
-        return True
-
-    def process_lane(self, lane):
-        pass
-
-
 class CacheRepresentationPerLane(LaneSweeperScript):
 
     name = "Cache one representation per lane"
@@ -356,9 +323,13 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         )
         return parser
 
-    def __init__(self, _db=None, cmd_args=None, *args, **kwargs):
+    def __init__(self, _db=None, cmd_args=None, testing=False, *args, **kwargs):
         super(CacheRepresentationPerLane, self).__init__(_db, *args, **kwargs)
         self.parse_args(cmd_args)
+        from api.app import app
+        app.manager = CirculationManager(_db, testing=testing)
+        self.app = app
+        self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
         
     def parse_args(self, cmd_args=None):
         parser = self.arg_parser(self._db)
@@ -379,10 +350,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         return parsed
     
     def should_process_lane(self, lane):
-        if lane.name is None:
-            return False
-            
-        if lane.parent is None and not isinstance(lane, Lane):
+        if not isinstance(lane, Lane):
             return False
 
         language_ok = False
@@ -390,12 +358,12 @@ class CacheRepresentationPerLane(LaneSweeperScript):
             # We are considering lanes for every single language.
             language_ok = True
         
-        if not lane.languages and not lane.exclude_languages:
+        if not lane.languages:
             # The lane has no language restrictions.
             language_ok = True
         
         for language in self.languages:
-            if lane.includes_language(language):
+            if language in lane.languages:
                 language_ok = True
                 break
         if not language_ok:
@@ -420,19 +388,28 @@ class CacheRepresentationPerLane(LaneSweeperScript):
 
     cache_url_method = None
 
+    def process_library(self, library):
+        begin = time.time()
+        client = self.app.test_client()
+        ctx = self.app.test_request_context(base_url=self.base_url)
+        ctx.push()
+        super(CacheRepresentationPerLane, self).process_library(library)
+        ctx.pop()
+        end = time.time()
+        self.log.info(
+            "Processed library %s in %.2fsec", library.short_name, end-begin
+        )
+
     def process_lane(self, lane):
         annotator = self.app.manager.annotator(lane)
         a = time.time()
-        lane_key = "%s/%s" % (lane.language_key, lane.name)
-        self.log.info(
-            "Generating feed(s) for %s", lane_key
-        )
+        self.log.info("Generating feed(s) for %s", lane.full_identifier)
         cached_feeds = list(self.do_generate(lane))
         b = time.time()
         total_size = sum(len(x.content) for x in cached_feeds if x)
         self.log.info(
             "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
-            len(cached_feeds), lane_key, (b-a), total_size
+            len(cached_feeds), lane.full_identifier, (b-a), total_size
         )
         return cached_feeds
         
@@ -1016,3 +993,73 @@ class OPDSForDistributorsReaperScript(OPDSImportScript):
     IMPORTER_CLASS = OPDSForDistributorsImporter
     MONITOR_CLASS = OPDSForDistributorsReaperMonitor
     PROTOCOL = OPDSForDistributorsImporter.NAME
+
+class LaneResetScript(LibraryInputScript):
+    """Reset a library's lanes based on language configuration or estimates
+    of the library's current collection."""
+
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = LibraryInputScript.arg_parser(_db)
+        parser.add_argument(
+            '--reset',
+            help="Actually reset the lanes as opposed to showing what would happen.",
+            action='store_true'
+        )
+        return parser
+
+    def do_run(self, output=sys.stdout, **kwargs):
+        parsed = self.parse_command_line(self._db, **kwargs)
+        libraries = parsed.libraries
+        self.reset = parsed.reset
+        if not self.reset:
+            self.log.info(
+                "This is a dry run. Nothing will actually change in the database."
+            )
+            self.log.info(
+                "Run with --reset to change the database."
+            )
+
+        if libraries and self.reset:
+            self.log.warn(
+                """This is not a drill.
+Running this script will permanently reset the lanes for %d libraries. Any lanes created from
+custom lists will be deleted (though the lists themselves will be preserved).
+Sleeping for five seconds to give you a chance to back out.
+You'll get another chance to back out before the database session is committed.""",
+                len(libraries)
+            )
+            time.sleep(5)
+        self.process_libraries(libraries)
+
+        new_lane_output = "New Lane Configuration:"
+        for library in libraries:
+            new_lane_output += "\n\nLibrary '%s':\n" % library.name
+
+            def print_lanes_for_parent(parent):
+                lanes = self._db.query(Lane).filter(Lane.library==library).filter(Lane.parent==parent).order_by(Lane.priority)
+                lane_output = ""
+                for lane in lanes:
+                    lane_output += "  " + ("  " * len(list(lane.parentage)))  + lane.display_name + "\n"
+                    lane_output += print_lanes_for_parent(lane)
+                return lane_output
+
+            new_lane_output += print_lanes_for_parent(None)
+
+        output.write(new_lane_output)
+
+        if self.reset:
+            self.log.warn("All done. Sleeping for five seconds before committing.")
+            time.sleep(5)
+            self._db.commit()
+
+    def process_library(self, library):
+        create_default_lanes(self._db, library)
+
+class ODLBibliographicImportScript(OPDSImportScript):
+    """Import bibliographic information from the feed associated
+    with an ODL collection."""
+
+    IMPORTER_CLASS = ODLBibliographicImporter
+    MONITOR_CLASS = ODLBibliographicImportMonitor
+    PROTOCOL = ODLBibliographicImporter.NAME

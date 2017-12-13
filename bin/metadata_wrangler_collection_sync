@@ -1,13 +1,1 @@
-#!/usr/bin/env python
-"""Sync licensed items with a remote Collection on the metadata wrangler"""
-import os
-import sys
-bin_dir = os.path.split(__file__)[0]
-package_dir = os.path.join(bin_dir, "..")
-sys.path.append(os.path.abspath(package_dir))
-from api.coverage import MetadataWranglerCollectionSync
-from core.scripts import RunCollectionCoverageProviderScript
-
-RunCollectionCoverageProviderScript(
-    MetadataWranglerCollectionSync
-).run()
+metadata_wrangler_collection_registrar

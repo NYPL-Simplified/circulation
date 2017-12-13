@@ -25,7 +25,7 @@ from opds import (
 )
 from controller import CirculationManager
 from problem_details import REMOTE_INTEGRATION_FAILED
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 # TODO: Without the monkeypatch below, Flask continues to process
 # requests while before_first_request is running. Those requests will
@@ -207,32 +207,29 @@ def authentication_document():
 def public_key_document():
     return app.manager.index_controller.public_key_document()
 
-@library_dir_route('/groups', defaults=dict(lane_name=None, languages=None))
-@library_dir_route('/groups/<languages>', defaults=dict(lane_name=None))
-@library_route('/groups/<languages>/<lane_name>')
+@library_dir_route('/groups', defaults=dict(lane_identifier=None))
+@library_route('/groups/<lane_identifier>')
 @has_library
 @allows_patron_web
 @returns_problem_detail
-def acquisition_groups(languages, lane_name):
-    return app.manager.opds_feeds.groups(languages, lane_name)
+def acquisition_groups(lane_identifier):
+    return app.manager.opds_feeds.groups(lane_identifier)
 
-@library_dir_route('/feed', defaults=dict(lane_name=None, languages=None))
-@library_dir_route('/feed/<languages>', defaults=dict(lane_name=None))
-@library_route('/feed/<languages>/<lane_name>')
+@library_dir_route('/feed', defaults=dict(lane_identifier=None))
+@library_route('/feed/<lane_identifier>')
 @has_library
 @allows_patron_web
 @returns_problem_detail
-def feed(languages, lane_name):
-    return app.manager.opds_feeds.feed(languages, lane_name)
+def feed(lane_identifier):
+    return app.manager.opds_feeds.feed(lane_identifier)
 
-@library_dir_route('/search', defaults=dict(lane_name=None, languages=None))
-@library_dir_route('/search/<languages>', defaults=dict(lane_name=None))
-@library_route('/search/<languages>/<lane_name>')
+@library_dir_route('/search', defaults=dict(lane_identifier=None))
+@library_route('/search/<lane_identifier>')
 @has_library
 @allows_patron_web
 @returns_problem_detail
-def lane_search(languages, lane_name):
-    return app.manager.opds_feeds.search(languages, lane_name)
+def lane_search(lane_identifier):
+    return app.manager.opds_feeds.search(lane_identifier)
 
 @library_dir_route('/patrons/me', methods=['GET', 'PUT'])
 @has_library
@@ -426,6 +423,13 @@ def oauth_authenticate():
 @returns_problem_detail
 def oauth_callback():
     return app.manager.oauth_controller.oauth_authentication_callback(app.manager._db, flask.request.args)
+
+# Loan notifications for ODL distributors, eg. Feedbooks
+@library_route('/odl_notify/<loan_id>', methods=['GET', 'POST'])
+@has_library
+@returns_problem_detail
+def odl_notify(loan_id):
+    return app.manager.odl_notification_controller.notify(loan_id)
 
 # Controllers used for operations purposes
 @app.route('/heartbeat')

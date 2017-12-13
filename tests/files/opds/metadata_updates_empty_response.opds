@@ -1,0 +1,7 @@
+<feed xmlns:app="http://www.w3.org/2007/app" xmlns:bibframe="http://bibframe.org/vocab/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns:simplified="http://librarysimplified.org/terms/" xmlns="http://www.w3.org/2005/Atom">
+  <id>http://metadata.alpha.librarysimplified.org/lookup?urn=urn%3Aisbn%3A9781594632556</id>
+  <title>Lookup results</title>
+  <updated>2016-09-20T19:37:10Z</updated>
+  <link href="http://metadata.alpha.librarysimplified.org/updates?" rel="self"/>
+  <link href="http://another-next-link/" rel="next"/>
+</feed>

@@ -35,8 +35,9 @@ from core.model import (
 )
 from core.lane import (
     Lane,
-    QueryGeneratedLane,
+    WorkList,
 )
+from api.lanes import DynamicLane
 from core.app_server import cdn_url_for
 
 from adobe_vendor_id import AuthdataUtility
@@ -76,7 +77,7 @@ class CirculationManagerAnnotator(Annotator):
                  top_level_title="All Books"
     ):
         if lane:
-            logger_name = "Circulation Manager Annotator for %s" % lane.name
+            logger_name = "Circulation Manager Annotator for %s" % lane.display_name
         else:
             logger_name = "Circulation Manager Annotator"
         self.log = logging.getLogger(logger_name)
@@ -130,14 +131,10 @@ class CirculationManagerAnnotator(Annotator):
             connector = '&'
         return url
 
-    def _lane_name_and_languages(self, lane):
-        lane_name = None
-        languages = None
-
-        if isinstance(lane, Lane) and lane.parent:
-            lane_name = lane.url_name
-            languages = lane.language_key
-        return (lane_name, languages)
+    def _lane_identifier(self, lane):
+        if isinstance(lane, Lane):
+            return lane.id
+        return None
 
     def facet_url(self, facets):
         return self.feed_url(self.lane, facets=facets, default_route=self.facet_view)
@@ -152,11 +149,10 @@ class CirculationManagerAnnotator(Annotator):
         )
 
     def groups_url(self, lane):
-        lane_name, languages = self._lane_name_and_languages(lane)
+        lane_identifier = self._lane_identifier(lane)
         return self.cdn_url_for(
             "acquisition_groups",
-            lane_name=lane_name, 
-            languages=languages,
+            lane_identifier=lane_identifier,
             library_short_name=self.library.short_name,
             _external=True)
 
@@ -164,13 +160,13 @@ class CirculationManagerAnnotator(Annotator):
         return self.groups_url(None)
 
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
-        if (isinstance(lane, QueryGeneratedLane) and
+        if (isinstance(lane, WorkList) and
             hasattr(lane, 'url_arguments')):
             route, kwargs = lane.url_arguments
         else:
             route = default_route
-            lane_name, languages = self._lane_name_and_languages(lane)
-            kwargs = dict(lane_name=lane_name, languages=languages)
+            lane_identifier = self._lane_identifier(lane)
+            kwargs = dict(lane_identifier=lane_identifier)
         kwargs['library_short_name'] = self.library.short_name
         if facets != None:
             kwargs.update(dict(facets.items()))
@@ -179,11 +175,11 @@ class CirculationManagerAnnotator(Annotator):
         return self.cdn_url_for(route, _external=True, **kwargs)
 
     def search_url(self, lane, query, pagination):
-        lane_name, languages = self._lane_name_and_languages(lane)
+        lane_identifier = self._lane_identifier(lane)
         kwargs = dict(q=query)
         kwargs.update(dict(pagination.items()))
         return self.url_for(
-            "lane_search", lane_name=lane_name, languages=languages,
+            "lane_search", lane_identifier=lane_identifier,
             library_short_name=self.library.short_name,
             _external=True, **kwargs)
 
@@ -209,7 +205,7 @@ class CirculationManagerAnnotator(Annotator):
         if not lanes:
             # I don't think this should ever happen?
             lane_name = None
-            url = self.cdn_url_for('acquisition_groups', languages=None, lane_name=None,
+            url = self.cdn_url_for('acquisition_groups', lane_identifier=None,
                                    library_short_name=self.library.short_name, _external=True)
             title = "All Books"
             return url, title
@@ -241,17 +237,18 @@ class CirculationManagerAnnotator(Annotator):
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
 
-        if not lane.sublanes and not lane.parent:
+        if lane and isinstance(lane, Lane) and lane.sublanes:
+            url = self.groups_url(lane)
+        elif lane and (
+            isinstance(lane, Lane)
+            or isinstance(lane, DynamicLane)
+            ):
+            url = self.feed_url(lane)
+        else:
             # This lane isn't part of our lane hierarchy. It's probably
-            # an ad hoc lane created to represent the top-level when we needed
-            # a Lane instance, since we use the CirculationManager as the 
-            # top-level lane and it's not actually a Lane. Use the top-level
+            # a WorkList created to represent the top-level. Use the top-level
             # url for it.
             url = self.default_lane_url()
-        elif lane.sublanes:
-            url = self.groups_url(lane)
-        else:
-            url = self.feed_url(lane)
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
@@ -453,19 +450,20 @@ class CirculationManagerAnnotator(Annotator):
             # authenticate.
             self.add_authentication_document_link(feed)
         
-        # Add a 'search' link.
-        lane_name, languages = self._lane_name_and_languages(lane)
-        search_url = self.url_for(
-            'lane_search', languages=languages, lane_name=lane_name,
-            library_short_name=self.library.short_name,
-            _external=True
-        )
-        search_link = dict(
-            rel="search",
-            type="application/opensearchdescription+xml",
-            href=search_url
-        )
-        feed.add_link_to_feed(feed.feed, **search_link)
+        # Add a 'search' link if the lane is searchable.
+        if lane and lane.search_target:
+            lane_identifier = self._lane_identifier(lane)
+            search_url = self.url_for(
+                'lane_search', lane_identifier=lane_identifier,
+                library_short_name=self.library.short_name,
+                _external=True
+            )
+            search_link = dict(
+                rel="search",
+                type="application/opensearchdescription+xml",
+                href=search_url
+            )
+            feed.add_link_to_feed(feed.feed, **search_link)
 
         shelf_link = dict(
             rel="http://opds-spec.org/shelf",

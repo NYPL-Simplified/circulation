@@ -1,6 +1,6 @@
 from datetime import datetime
 from nose.tools import set_trace
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 from api.authenticator import (
     BasicAuthenticationProvider,
     PatronData,
@@ -132,6 +132,11 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
         SIPClient.patron_information() to an abstract,
         authenticator-independent PatronData object.
         """
+        if info.get('valid_patron', 'N') == 'N':
+            # The patron could not be identified as a patron of this
+            # library. Don't return any data.
+            return None
+
         if info.get('valid_patron_password') == 'N':
             # The patron did not authenticate correctly. Don't
             # return any data.

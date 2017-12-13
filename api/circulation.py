@@ -6,7 +6,7 @@ from threading import Thread
 import logging
 import re
 import time
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from core.config import CannotLoadConfiguration
 from core.cdn import cdnify
@@ -112,7 +112,7 @@ class LoanInfo(CirculationInfo):
 
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier, start_date, end_date,
-                 fulfillment_info=None):
+                 fulfillment_info=None, external_identifier=None):
         """Constructor.
 
         :param start_date: A datetime reflecting when the patron borrowed the book.
@@ -125,6 +125,7 @@ class LoanInfo(CirculationInfo):
         self.start_date = start_date
         self.end_date = end_date
         self.fulfillment_info = fulfillment_info
+        self.external_identifier = external_identifier
 
     def __repr__(self):
         if self.fulfillment_info:
@@ -243,6 +244,7 @@ class CirculationAPI(object):
         from oneclick import OneClickAPI
         from enki import EnkiAPI
         from opds_for_distributors import OPDSForDistributorsAPI
+        from odl import ODLWithConsolidatedCopiesAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.ODILO : OdiloAPI,
@@ -251,6 +253,7 @@ class CirculationAPI(object):
             ExternalIntegration.ONE_CLICK : OneClickAPI,
             EnkiAPI.ENKI_EXTERNAL : EnkiAPI,
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
+            ODLWithConsolidatedCopiesAPI.NAME: ODLWithConsolidatedCopiesAPI,
         }
 
     def api_for_license_pool(self, licensepool):
@@ -365,6 +368,8 @@ class CirculationAPI(object):
                 start_date=None,
                 end_date=now + datetime.timedelta(hours=1)
             )
+            if existing_loan:
+                loan_info.external_identifier=existing_loan.external_identifier
         except AlreadyOnHold:
             # We're trying to check out a book that we already have on hold.
             hold_info = HoldInfo(
@@ -400,7 +405,8 @@ class CirculationAPI(object):
             __transaction = self._db.begin_nested()
             loan, new_loan_record = licensepool.loan_to(
                 patron, start=loan_info.start_date or now,
-                end=loan_info.end_date)
+                end=loan_info.end_date,
+                external_identifier=loan_info.external_identifier)
 
             if must_set_delivery_mechanism:
                 loan.fulfillment = delivery_mechanism
@@ -587,6 +593,15 @@ class CirculationAPI(object):
             on_multiple='interchangeable'
         )
         if loan:
+            if not licensepool.open_access:
+                api = self.api_for_license_pool(licensepool)
+                try:
+                    api.checkin(patron, pin, licensepool)
+                except NotCheckedOut, e:
+                    # The book wasn't checked out in the first
+                    # place. Everything's fine.
+                    pass
+
             __transaction = self._db.begin_nested()
             logging.info("In revoke_loan(), deleting loan #%d" % loan.id)
             self._db.delete(loan)
@@ -601,14 +616,6 @@ class CirculationAPI(object):
                     CirculationEvent.CM_CHECKIN,
                 )
 
-        if not licensepool.open_access:
-            api = self.api_for_license_pool(licensepool)
-            try:
-                api.checkin(patron, pin, licensepool)
-            except NotCheckedOut, e:
-                # The book wasn't checked out in the first
-                # place. Everything's fine.
-                pass
         # Any other CannotReturn exception will be propagated upwards
         # at this point.
         return True
@@ -860,13 +867,46 @@ class CirculationAPI(object):
 class BaseCirculationAPI(object):
     """Encapsulates logic common to all circulation APIs."""
 
-    DEFAULT_LOAN_PERIOD = "default_loan_period"
-    DEFAULT_RESERVATION_PERIOD = "default_reservation_period"
+    # Add to LIBRARY_SETTINGS if your circulation API is for a
+    # distributor which includes ebooks and allows clients to specify
+    # their own loan lengths.
+    EBOOK_LOAN_DURATION_SETTING = {
+        "key" : Collection.EBOOK_LOAN_DURATION_KEY, 
+        "label": _("Ebook Loan Duration (in Days)"),
+        "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
+        "description": _("When a patron uses SimplyE to borrow an ebook from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
+    }
 
-    SETTINGS = [
-        { "key": DEFAULT_LOAN_PERIOD, "label": _("Default Loan Period (in Days)"), "optional": True, "type": "number" },
-        { "key": DEFAULT_RESERVATION_PERIOD, "label": _("Default Reservation Period (in Days)"), "optional": True, "type": "number" },
-    ]
+    # Add to LIBRARY_SETTINGS if your circulation API is for a
+    # distributor which includes audiobooks and allows clients to
+    # specify their own loan lengths.
+    AUDIOBOOK_LOAN_DURATION_SETTING = { 
+        "key" : Collection.AUDIOBOOK_LOAN_DURATION_KEY,
+        "label": _("Audiobook Loan Duration (in Days)"),
+        "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
+        "description": _("When a patron uses SimplyE to borrow an audiobook from this collection, SimplyE will ask for a loan that lasts this number of days. This must be equal to or less than the maximum loan duration negotiated with the distributor.")
+    }
+
+    # Add to LIBRARY_SETTINGS if your circulation API is for a
+    # distributor with a default loan period negotiated out-of-band,
+    # such that the circulation manager cannot _specify_ the length of
+    # a loan.
+    DEFAULT_LOAN_DURATION_SETTING = { 
+        "key": Collection.EBOOK_LOAN_DURATION_KEY, 
+        "label": _("Default Loan Period (in Days)"),
+        "optional": True, 
+        "type": "number",
+        "default": Collection.STANDARD_DEFAULT_LOAN_PERIOD,
+        "description": _("Until it hears otherwise from the distributor, this server will assume that any given loan for this library from this collection will last this number of days. This number is usually a negotiated value between the library and the distributor. This only affects estimates&mdash;it cannot affect the actual length of loans.")
+    }
+
+    # These collection-specific settings should be inherited by all
+    # distributors.
+    SETTINGS = []
+
+    # These library- and collection-specific settings should be
+    # inherited by all distributors.
+    LIBRARY_SETTINGS = []
 
     BORROW_STEP = 'borrow'
     FULFILL_STEP = 'fulfill'
@@ -969,4 +1009,7 @@ class BaseCirculationAPI(object):
         """
         raise NotImplementedError()
 
-
+    def update_availability(self, licensepool):
+        """Update availability information for a book.
+        """
+        pass
