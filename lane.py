@@ -1534,7 +1534,9 @@ class Lane(Base, WorkList):
         lane_clauses = []
         for sublane in single_query_lanes:
             # Build a match clause for each relevant lane.
-            qu, clause = sublane._lane_match_clause(_db, qu, work_model)
+            qu, clause, ignore = sublane.bibliographic_filter_clause(
+                _db, qu, work_model, featured=True, outer_join=True
+            )
             clause = sublane._restrict_clause_to_window(
                 clause, work_model, target_size
             )
@@ -1558,15 +1560,6 @@ class Lane(Base, WorkList):
         qu = qu.limit(target_size * len(relevant_lanes) * 5)
 
         return qu
-
-    def _lane_match_clause(self, _db, qu, work_model):
-        """Create a SQLAlchemy clause that matches only works that belong to
-        this lane.
-        """
-        qu, bibliographic_filter_clause, distinct = self.bibliographic_filter_clause(
-            _db, qu, work_model, featured=True, outer_join=True
-        )
-        return qu, bibliographic_filter_clause
 
     def _restrict_clause_to_window(self, clause, work_model, target_size):
         """Restrict the given SQLAlchemy clause so that it matches
