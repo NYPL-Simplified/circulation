@@ -1926,11 +1926,14 @@ class TestLaneGroups(DatabaseTest):
         a = Mock("a")
         b = Mock("b")
         c = Mock("c")
+        d = Mock("d")
+        e = Mock("e")
+        f = Mock("e")
 
-        def f(lane, additional_needed, unused_by_tier, used_by_tier, 
-              used_ids=None):
+        def fill(lane, additional_needed, unused_by_tier, used_by_tier, 
+              used_works=[]):
             mws = []
-            used_ids = used_ids or set()
+            used_ids = set([x.works_id for x in used_works])
             for yielded_lane, mw in lane._fill_parent_lane(
                     additional_needed, unused_by_tier, used_by_tier,
                     used_ids
@@ -1946,19 +1949,26 @@ class TestLaneGroups(DatabaseTest):
         lane = self._lane()
 
         # If we don't ask for any works, we don't get any.
-        eq_([], f(lane, 0, unused, used))
+        eq_([], fill(lane, 0, unused, used))
 
         # If we ask for three or more, we get all three, with unused
         # prioritized over used and high-quality prioritized over
         # low-quality.
-        eq_([a,b,c], f(lane, 3, unused, used))
-        eq_([a,b,c], f(lane, 100, unused, used))
+        eq_([a,b,c], fill(lane, 3, unused, used))
+        eq_([a,b,c], fill(lane, 100, unused, used))
 
         # If one of the items in 'unused' is actually used,
-        # it will be ignored.
-        eq_([b,c], f(lane, 3, unused, used, set([a, c])))
+        # it will be ignored. (TODO: it would make more sense
+        # to treat it like the other 'used' items, but it doesn't
+        # matter much in real usage.)
+        eq_([b,c], fill(lane, 3, unused, used, set([a, c])))
 
         # TODO: If a work shows up multiple times in the 'used'
         # dictionary it can be reused multiple times -- basically once
         # we go into the 'used' dictionary we don't care how often we
         # reuse things. I don't think this matters in real usage.
+
+        # Within a quality tier, works are given up in random order.
+        random.seed(42)
+        unused = { 10 : [a, b, c], 1 : [d, e, f]}
+        eq_([c,a,b, e,d,f], fill(lane, 6, unused, used))
