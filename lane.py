@@ -1418,28 +1418,81 @@ class Lane(Base, WorkList):
         start = min(random.random(), maximum_offset)
         return start, start+maximum_offset
 
-    def groups(self, _db, include_sublanes=True):
-        """Return a list of (Lane, MaterializedWork) 2-tuples
-        describing a sequence of featured items for this lane and
-        (optionally) its children.
-        """
+    def groups_query(self, _db, relevant_lanes, single_query_lanes):
         from model import MaterializedWorkWithGenre
         work_model = MaterializedWorkWithGenre
 
-        clauses = []
         library = self.get_library(_db)
         target_size = library.featured_lane_size
-
-        # We want to get `target_size` high-quality works. To do this
-        # without having a separate query for each lane we will be
 
         facets = FeaturedFacets(
             library.minimum_featured_quality,
             self.uses_customlists
         )
         qu = self.works(_db, facets=facets)
-        if not qu:
-            return
+
+        # Include a field in the query that assigns a work to one of
+        # the sublanes, or to the parent lane if it doesn't match any
+        # of the sublanes.
+        lane_clauses = []
+        for sublane in single_query_lanes:
+            # Build a match clause for each relevant lane.
+            qu, clause = sublane._lane_match_clause(_db, qu, work_model)
+            clause = sublane._restrict_clause_to_window(
+                clause, work_model, target_size
+            )
+            if clause is not None:
+                lane_clauses.append((clause, sublane.id))
+        # Convert the match clauses to a CASE statement.
+        lane_id_field = case(lane_clauses, else_=None).label("lane_id")
+        qu = qu.add_columns(lane_id_field)
+
+        # We order by quality tier, then by lane, then randomly.  This
+        # ensures that if we have to apply a LIMIT, we are still
+        # likely to get high-quality results for each lane.
+        qu = qu.order_by("quality_tier desc", "lane_id", work_model.random)
+
+        # Setting a limit ensures that improperly distributed values
+        # for Work.random can't cause the query to return more than
+        # five times the number of records we need. If this happens,
+        # it's still bad -- we might not get records for the later
+        # lanes -- but at least the query won't run forever.
+        qu = qu.limit(target_size * len(relevant_lanes) * 5)
+
+        return qu
+
+    def _lane_match_clause(self, _db, qu, work_model):
+        """Create a SQLAlchemy clause that matches only works that belong to
+        this lane.
+        """
+        qu, bibliographic_filter_clause, distinct = self.bibliographic_filter_clause(
+            _db, qu, work_model, featured=True, outer_join=True
+        )
+        return qu, bibliographic_filter_clause
+
+    def _restrict_clause_to_window(self, clause, work_model, target_size):
+        """Restrict the given SQLAlchemy clause so that it matches
+        approximately `target_size` items.
+        """
+        if clause is None:
+            return clause
+        window_start, window_end = self.featured_window(target_size)
+        if window_start > 0 and window_start < 1:
+            clause = and_(
+                clause, 
+                work_model.random <= window_end,
+                work_model.random >= window_start
+            )
+        return clause
+
+    def groups(self, _db, include_sublanes=True):
+        """Return a list of (Lane, MaterializedWork) 2-tuples
+        describing a sequence of featured items for this lane and
+        (optionally) its children.
+        """
+        clauses = []
+        library = self.get_library(_db)
+        target_size = library.featured_lane_size
 
         relevant_lanes = [self]
         if include_sublanes:
@@ -1447,47 +1500,16 @@ class Lane(Base, WorkList):
             relevant_lanes = list(self.visible_children) + relevant_lanes
 
         # We can use a single query to build the featured feeds for
-        # this lane, as well as all of its sublanes, so long as their
-        # inherit this lane's restrictions. Lanes that don't inherit
-        # this lane's restrictions will need to be handled in 
-        # a separate call to groups().
+        # this lane, as well as any of its sublanes that inherit this
+        # lane's restrictions. Lanes that don't inherit this lane's
+        # restrictions will need to be handled in a separate call to
+        # groups().
         single_query_lanes = [x for x in relevant_lanes 
                               if x == self or x.inherit_parent_restrictions]
 
-        # Create a field that assigns a work to one of the sublanes,
-        # or to the parent lane if it doesn't match any of the
-        # sublanes.
-        for sublane in single_query_lanes:
-            qu, bibliographic_filter_clause, distinct = sublane.bibliographic_filter_clause(
-                _db, qu, work_model, True, outer_join=True
-            )
-            clause = bibliographic_filter_clause
-            if clause is not None:
-                # Additionally restrict the query to pick up items
-                # within a randomly chosen 'window' of an appropriate
-                # size.
-                window_start, window_end = sublane.featured_window(target_size)
-                if window_start > 0 and window_start < 1:
-                    clause = and_(
-                        clause, 
-                        work_model.random <= window_end,
-                        work_model.random >= window_start
-                    )
-            if clause is not None:
-                clauses.append((clause, sublane.id))
-        lane_id_field = case(clauses, else_=None).label("lane_id")
-
-        qu = qu.add_columns(lane_id_field)
-
-        qu = qu.order_by("quality_tier desc", "lane_id", work_model.random)
-
-        # Set a limit so that improperly distributed values for
-        # Work.random can't cause the query to return more than five
-        # times the number of records we need. If this happens, it's
-        # still bad -- we might not get records for the later lanes --
-        # but at least the query won't run forever.
-        qu = qu.limit(target_size * len(relevant_lanes) * 5)
-
+        qu = self.groups_query(_db, relevant_lanes, single_query_lanes)
+        if not qu:
+            return
         items = qu.all()
 
         # `items` is ordered with highest-quality items at the front.
