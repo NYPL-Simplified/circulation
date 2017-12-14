@@ -5,6 +5,7 @@
 
 from nose.tools import set_trace
 import json
+from . import LanguageCodes
 
 class JSONable(object):
     """An object whose Unicode representation is a JSON dump
@@ -75,6 +76,34 @@ class Manifest(JSONable):
 
     def add_resource(self, href, type, **kwargs):
         self._append(self.resources, href=href, type=type, **kwargs)
+
+    def update_bibliographic_metadata(self, license_pool):
+        """Update this Manifest with basic bibliographic metadata
+        taken from a LicensePool object.
+
+        Currently this assumes that there is no other source of
+        bibliographic metadata, so it will overwrite any metadata that is
+        already present and add a cover link even if the manifest
+        already has one.
+        """
+        self.metadata['identifier'] = license_pool.identifier.urn
+
+        edition = license_pool.presentation_edition
+        if not edition:
+            return
+        self.metadata['title'] = edition.title
+
+        self.metadata['language'] = LanguageCodes.three_to_two.get(
+            edition.language, edition.language
+        )
+        authors = [author.display_name or author.sort_name
+                   for author in edition.author_contributors
+                   if author.display_name or author.sort_name]
+        if authors:
+            self.metadata['authors'] = authors
+
+        if edition.cover_thumbnail_url:
+            self.add_link(edition.cover_thumbnail_url, 'cover')
 
 
 class TimelinePart(JSONable):
