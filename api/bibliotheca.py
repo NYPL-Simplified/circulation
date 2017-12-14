@@ -387,12 +387,10 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
             kwargs = {}
 
             sequence = part.get('sequence')
-            if sequence is not None:
-                kwargs["findaway:sequence"] = sequence 
+            kwargs["findaway:sequence"] = sequence 
 
             part_number = part.get('part')
-            if part_number is not None:
-                kwargs["findaway:part"] = part_number
+            kwargs["findaway:part"] = part_number
 
             manifest.add_spine(
                 href=None, type=None, title=title, duration=duration,
