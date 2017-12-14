@@ -1443,7 +1443,6 @@ class Lane(Base, WorkList):
         qu = self._groups_query(_db, relevant_lanes, single_query_lanes)
         if not qu:
             return
-        items = qu.all()
 
         # `items` is ordered with highest-quality items at the front.
         # Go down the list of results, filling in the featured items
@@ -1456,7 +1455,7 @@ class Lane(Base, WorkList):
         total_size = 0
         total_parent_lane_size = 0
         maximum_size = target_size * single_query_lanes
-        for mw, quality_tier, lane_id in items:
+        for mw, quality_tier, lane_id in qu:
             if len(by_lane_id[lane_id]) >= target_size:
                 if lane_id != self.id:
                     if mw.works_id not in used:
