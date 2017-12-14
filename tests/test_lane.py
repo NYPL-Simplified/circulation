@@ -1831,7 +1831,8 @@ class TestLaneGroups(DatabaseTest):
             [
                 # The lanes based on lists feature every title on the
                 # list.  This isn't enough to pad out the lane to
-                # FEATURED_LANE_SIZE, but nothing else fits.
+                # FEATURED_LANE_SIZE, but nothing else belongs in the
+                # lane.
                 (best_sellers, mq_sf),
 
                 # In fact, both lanes feature the same title -- this
@@ -1887,7 +1888,6 @@ class TestLaneGroups(DatabaseTest):
                 [(discredited_nonfiction, nonfiction)]
             )
         
-
         # If we make the lanes thirstier for content, we see slightly
         # different behavior.
         library.setting(library.FEATURED_LANE_SIZE).value = "3"
@@ -1932,9 +1932,11 @@ class TestLaneGroups(DatabaseTest):
         )
 
     def test_groups_query(self):
-        # Most of the _groups_query code is tested on a lower level,
-        # with tests of its helper methods, or at a higher level, with
-        # test_groups. This
+        # Most of the _groups_query() code is tested on a lower level,
+        # with tests of its helper methods, or at a higher level, in
+        # test_groups(). This test verifies some features of the query
+        # returned by _groups_query() that are installed by the
+        # _groups_query() method itself.
         lane = self._lane(fiction=True)
         sublane = self._lane(parent=lane, fiction=False)
 
@@ -1948,24 +1950,61 @@ class TestLaneGroups(DatabaseTest):
         # A 'lane_id' field was added to the query
         [lane_id] = [x for x in qu.column_descriptions if x['name'] == 'lane_id']
         # The lane field is a CASE statement with one clause for each lane.
+        # The details of this are tested in test_add_lane_id_field.
         element = lane_id['expr'].element
         isinstance(element, Case)
-        [(parent_when, parent_value), 
-         (sublane_when, sublane_value)] = element.whens
-
-        # Each clause maps the bibliographic restrictions on a given
-        # lane to the ID of that lane.
-        assert str(parent_when.element).endswith('.fiction = 1')
-        eq_(lane.id, parent_value.value)
-
-        assert str(sublane_when.element).endswith('.fiction = 0')
-        eq_(sublane.id, sublane_value.value)
+        eq_(2, len(element.whens))
 
         # The LIMIT is set to get enough entries to supply every lane
         # five times over.
         eq_(qu._limit,
             self._default_library.featured_lane_size * len(relevant_lanes) * 5)
 
+    def test_add_lane_id_field(self):
+
+        list_lane = self._lane()
+        list_lane.list_datasource = DataSource.lookup(
+            self._db, DataSource.GUTENBERG
+        )
+        fiction = self._lane(fiction=True)
+        everything = self._lane()
+
+        from model import MaterializedWorkWithGenre as mw
+        original_qu = self._db.query(mw)
+        qu = Lane._add_lane_id_field(
+            self._db, original_qu, mw, [list_lane, fiction, everything],
+            10
+        )
+
+        # An outer join against customlists was added to the query so
+        # that it could find titles that belong in list_lane without
+        # excluding titles that don't belong there.
+        assert 'LEFT OUTER JOIN customlists AS customlists_1' in str(qu)
+
+        # A 'lane_id' field was added to the query
+        [lane_id] = [x for x in qu.column_descriptions if x['name'] == 'lane_id']
+        # The lane field is a CASE statement with one clause for each lane.
+        element = lane_id['expr'].element
+        isinstance(element, Case)
+        [(list_when, list_value), 
+         (fiction_when, fiction_value),
+         (everything_when, everything_value)
+        ] = element.whens
+
+        # Each clause maps the bibliographic restrictions on a given
+        # lane to that lane's database ID.
+        assert str(list_when.element).endswith('= customlists_1.data_source_id')
+        eq_(list_lane.id, list_value.value)
+
+        assert str(fiction_when.element).endswith('.fiction = 1')
+        eq_(fiction.id, fiction_value.value)
+
+        # The CASE clause for the lane that matches everything
+        # is set to a tautology.
+        name = mw.__table__.name
+        eq_("%s.works_id = %s.works_id" % (name, name),
+            str(everything_when.element))
+        eq_(everything.id, everything_value.value)
 
     def test_featured_window(self):
         lane = self._lane()

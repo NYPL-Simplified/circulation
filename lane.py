@@ -1441,7 +1441,7 @@ class Lane(Base, WorkList):
                               if x == self or x.inherit_parent_restrictions]
 
         qu = self._groups_query(_db, relevant_lanes, single_query_lanes)
-        if not qu:
+        if qu is None:
             return
 
         # `items` is ordered with highest-quality items at the front.
@@ -1488,8 +1488,9 @@ class Lane(Base, WorkList):
         for lane in relevant_lanes:
             if not lane in single_query_lanes:
                 # We didn't try to use the main query to find results
-                # for this lane because we knew it might not work. Do
-                # a whole separate query and plug it in at this point.
+                # for this lane because we knew the results, if there
+                # were any, wouldn't be representative. Do a whole
+                # separate query and plug it in at this point.
                 for x in lane.groups(_db, include_sublanes=False):
                     yield x
                 
@@ -1505,11 +1506,10 @@ class Lane(Base, WorkList):
         # that have already been featured in sublanes. But we'll never
         # stoop so low as to reuse an item twice in the same lane.
         additional_needed = target_size - len(by_lane_id[self.id])
-        for mw in self._fill_parent_lane(
-                additional_needed, unused_by_tier, used_by_tier,
-                used
+        for x in self._fill_parent_lane(
+            additional_needed, unused_by_tier, used_by_tier, used
         ):
-                yield mw
+                yield x
 
     def _groups_query(self, _db, relevant_lanes, single_query_lanes):
         """Create a query that pulls MaterializedWorkWithGenre
@@ -1548,14 +1548,12 @@ class Lane(Base, WorkList):
         # lanes -- but at least the query won't run forever.
         qu = qu.limit(target_size * len(relevant_lanes) * 5)
 
-        qu.all()
-
         return qu
 
     @classmethod
     def _add_lane_id_field(cls, _db, qu, work_model, lanes, target_size):
-        """Add a CASE statement to the given query that explains
-        which lane a given book should be classified under.
+        """Add a CASE statement to the given query that explains which lane a
+        given book should be classified under.
 
         :return: A modified query that includes a 'lane_id' field and
         may also include new joins against the 'customlistentries'
