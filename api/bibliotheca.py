@@ -347,8 +347,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         # of the LicensePool and its Work.
         manifest.update_bibliographic_metadata(license_pool)
 
-        # Add Findaway-specific information as extra metadata. TODO:
-        # Make this more linked-data-y.
+        # Add Findaway-specific information as extra metadata.
         for findaway_extension in [
                 'accountId', 'checkoutId', 'fulfillmentId', 'licenseId',
                 'sessionKey'
@@ -357,7 +356,7 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
             output_key = 'findaway:' + findaway_extension
             manifest.metadata[output_key] = value
 
-        # Add the timeline parts. All of them are in the same format.
+        # Add the spine items. All of them are in the same format.
         # None of them will have working 'href' fields -- it's just to
         # give the client a picture of the structure of the timeline.
         audio_format = findaway_license.get('format')
@@ -395,8 +394,8 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
             if part_number is not None:
                 kwargs["findaway:part"] = part_number
 
-            manifest.add_timeline(
-                href=None, title=title, duration=duration,
+            manifest.add_spine(
+                href=None, type=None, title=title, duration=duration,
                 **kwargs
             )
             total_duration += duration

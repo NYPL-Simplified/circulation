@@ -288,7 +288,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # that the manifest contains information from the 'Findaway'
         # document as well as information from the Work.
         metadata = manifest['metadata']
-        eq_('abcdef01234789abcdef0123', metadata['findaway.checkoutId'])
+        eq_('abcdef01234789abcdef0123', metadata['findaway:checkoutId'])
         eq_(work.title, metadata['title'])
 
         # Now let's see what happens to fulfillment when 'Findaway' or
@@ -345,22 +345,23 @@ class TestBibliothecaAPI(BibliothecaAPITest):
             metadata[u'findaway:sessionKey'])
 
         # Every entry in the license document's 'items' list has
-        # become an entry in the manifest's 'timeline' list.
-        timeline = manifest['timeline']
-        eq_(79, len(timeline))
+        # become a spine item in the manifest.
+        spine = manifest['spine']
+        eq_(79, len(spine))
 
-        # The duration of each timeline item has been converted to
+        # The duration of each spine item has been converted to
         # seconds.
-        first = timeline[0]
+        first = spine[0]
         eq_(16.201, first['duration'])
         eq_("Track 1", first['title'])
         eq_(1, first['findaway:sequence'])
 
-        # There is no 'href' value for the timeline items because the
-        # files must be obtained through the Findaway SDK rather than
-        # through regular HTTP requests.
-        for i in timeline:
+        # There is no 'href' or 'type' value for the spine items
+        # because the files must be obtained through the Findaway SDK
+        # rather than through regular HTTP requests.
+        for i in spine:
             eq_(None, i['href'])
+            eq_(None, i['type'])
             eq_(0, i['findaway:part'])
 
         # The total duration, in seconds, has been added to metadata.
