@@ -1567,7 +1567,7 @@ class Lane(Base, WorkList):
         for sublane in lanes:
             # Build a match clause for each relevant lane.
             qu, clause, ignore = sublane.bibliographic_filter_clause(
-                _db, qu, work_model, featured=True, outer_join=True
+                _db, qu, work_model, featured=False, outer_join=True
             )
             if clause is None:
                 # This lane doesn't put any restrictions whatsoever
