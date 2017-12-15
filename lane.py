@@ -641,11 +641,6 @@ class WorkList(object):
 
         Used when building a grouped OPDS feed for this WorkList's parent.
 
-        While it's semi-okay for this method to be slow for the Lanes
-        that make up the bulk of a circulation manager's offerings,
-        other WorkList implementations may need to do something
-        simpler for performance reasons.
-
         :return: A list of MaterializedWork or MaterializedWorkWithGenre
         objects.
         """
@@ -1441,10 +1436,11 @@ class Lane(Base, WorkList):
         # lane's restrictions. Lanes that don't inherit this lane's
         # restrictions will need to be handled in a separate call to
         # groups().
-        single_query_lanes = [x for x in relevant_lanes 
-                              if x == self or x.inherit_parent_restrictions]
+        inherited_lanes = [x for x in relevant_lanes
+                           if x == self or x.inherit_parent_restrictions]
+        inherited_lanes_set = set(inherited_lanes)
 
-        qu = self._groups_query(_db, relevant_lanes, single_query_lanes)
+        qu = self._groups_query(_db, inherited_lanes)
         if qu is None:
             return
 
@@ -1458,21 +1454,25 @@ class Lane(Base, WorkList):
         by_lane_id = defaultdict(list)
         total_size = 0
         total_parent_lane_size = 0
-        maximum_size = target_size * single_query_lanes
+
+        # Establish the maximum number of works we might need to pull
+        # from this query's results. If we ever have this many, we're
+        # done with that part of the work.
+        maximum_size = target_size * inherited_lanes
         for mw, quality_tier, lane_id in qu:
             if len(by_lane_id[lane_id]) >= target_size:
                 if lane_id != self.id:
                     if mw.works_id not in used:
                         # We already have enough featured items for
                         # this lane, and this MaterializedWork hasn't
-                        # already been used in someo ther lane. Add
+                        # already been used in some other lane. Add
                         # this to the 'unused' dictionary in case we
                         # need to fill in the main lane later.
                         #
-                        # NOTE: Checking `used` isn't totally reliable
-                        # because this work might show up again
-                        # in another lane and get used then,
-                        # but it doesn't hurt.
+                        # NOTE: Checking `used`, as we did above,
+                        # isn't totally reliable because this work
+                        # might show up again in another lane and get
+                        # used then, but it doesn't hurt.
                         unused_by_tier[quality_tier].append(mw)
                 continue
             by_lane_id[lane_id].append(mw)
@@ -1490,7 +1490,7 @@ class Lane(Base, WorkList):
 
         used_in_parent = set()
         for lane in relevant_lanes:
-            if not lane in single_query_lanes:
+            if not lane in inherited_lanes_set:
                 # We didn't try to use the main query to find results
                 # for this lane because we knew the results, if there
                 # were any, wouldn't be representative. Do a whole
@@ -1515,9 +1515,12 @@ class Lane(Base, WorkList):
         ):
                 yield x
 
-    def _groups_query(self, _db, relevant_lanes, single_query_lanes):
+    def _groups_query(self, _db, lanes):
         """Create a query that pulls MaterializedWorkWithGenre
         objects, plus additional lane classification information.
+
+        :param lanes: Classify MaterializedWorkWithGenre objects
+        as belonging to one of these lanes.
         """
         from model import MaterializedWorkWithGenre
         work_model = MaterializedWorkWithGenre
@@ -1536,7 +1539,7 @@ class Lane(Base, WorkList):
         # or to the parent lane if it doesn't match any of the
         # sublanes.
         qu = self._add_lane_id_field(
-            _db, qu, work_model, single_query_lanes, target_size
+            _db, qu, work_model, lanes, target_size
         )
 
         # We order by quality tier, then by lane, then randomly.  This
@@ -1550,7 +1553,7 @@ class Lane(Base, WorkList):
         # five times the number of records we need. If this happens,
         # it's still bad -- we might not get records for the later
         # lanes -- but at least the query won't run forever.
-        qu = qu.limit(target_size * len(relevant_lanes) * 5)
+        qu = qu.limit(target_size * len(lanes) * 5)
 
         return qu
 

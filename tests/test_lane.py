@@ -1838,7 +1838,12 @@ class TestLaneGroups(DatabaseTest):
             actual = [
                 (x[0].display_name, x[1].sort_title) for x in results
             ]
-            eq_(expect, actual)
+            for i, expect_item in enumerate(expect):
+                eq_(
+                    expect_item, actual[i],
+                    "Mismatch in position %d: Expected %r, got %r.\nOverall, expected:\n%r\nGot:\n%r:" %
+                    (i, expect_item, actual[i], expect, actual)
+                )
 
         assert_contents(
             fiction.groups(self._db),
@@ -1940,8 +1945,8 @@ class TestLaneGroups(DatabaseTest):
                 # we have to reuse titles, we'll reuse the
                 # high-quality ones.
                 (fiction, litfic),
-                (fiction, hq_sf),
                 (fiction, hq_ro),
+                (fiction, hq_sf),
             ]
         )
 
@@ -1954,12 +1959,10 @@ class TestLaneGroups(DatabaseTest):
         lane = self._lane(fiction=True)
         sublane = self._lane(parent=lane, fiction=False)
 
-        # This parameter is only used to calculate the LIMIT, so
-        # only its size matters.
-        relevant_lanes = [object()] * 3
+        relevant_lanes = [lane, sublane]
 
         # Generate the query.
-        qu = lane._groups_query(self._db, relevant_lanes, [lane, sublane])
+        qu = lane._groups_query(self._db, relevant_lanes)
 
         # A 'lane_id' field was added to the query
         [lane_id] = [x for x in qu.column_descriptions if x['name'] == 'lane_id']
