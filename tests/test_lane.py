@@ -431,17 +431,17 @@ class TestFeaturedFacets(DatabaseTest):
 
     def test_apply(self):
         """apply() orders a query randomly within quality tiers."""
-        high_quality_1 = self._work(
-            title="High quality, high random", with_license_pool=True
-        )
-        high_quality_1.quality = 1
-        high_quality_1.random = 1
-
-        high_quality_2 = self._work(
+        high_quality_low_random = self._work(
             title="High quality, low random", with_license_pool=True
         )
-        high_quality_2.quality = 0.7
-        high_quality_2.random = 0
+        high_quality_low_random.quality = 1
+        high_quality_low_random.random = 0
+
+        high_quality_high_random = self._work(
+            title="High quality, high random", with_license_pool=True
+        )
+        high_quality_high_random.quality = 0.7
+        high_quality_high_random.random = 1
         
         low_quality = self._work(
             title="Low quality, high random", with_license_pool=True
@@ -459,14 +459,18 @@ class TestFeaturedFacets(DatabaseTest):
         # doesn't matter (high_quality_2 is slightly lower quality
         # than high_quality_1), only the quality tier.
         featured = facets.apply(self._db, base_query, Work, False)
-        eq_([high_quality_2, high_quality_1, low_quality], featured.all())
+        eq_(
+            [high_quality_high_random, high_quality_low_random, low_quality],
+            featured.all()
+        )
 
         # Switch the random numbers, and the order of high-quality
         # works is switched, but the high-quality works still show up
         # first.
-        high_quality_1.random = 0
-        high_quality_2.random = 1
-        eq_([high_quality_1, high_quality_2, low_quality], featured.all())
+        high_quality_high_random.random = 0
+        high_quality_low_random.random = 1
+        eq_([high_quality_low_random, high_quality_high_random, low_quality], 
+            featured.all())
 
         # Passing in distinct=True makes the query distinct.
         eq_(False, base_query._distinct)

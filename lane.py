@@ -347,15 +347,19 @@ class FeaturedFacets(object):
         self.uses_customlists = uses_customlists
 
     def apply(self, _db, qu, work_model, distinct):
-        return qu
+        """Order a query by quality tier, and then randomly.
 
-    #def apply(self, _db, qu, work_model, distinct):
-    #    qu = qu.order_by(
-    #        self.quality_tier_field(work_model).desc(), work_model.random
-    #    )
-    #    if distinct:
-    #        qu = qu.distinct()
-    #    return qu
+        This isn't usually necessary because _groups_query orders
+        items by quality tier, then lane ID, then randomly, but
+        if you want to call apply() on a query to get a featured
+        subset of that query, this will work.
+        """
+        qu = qu.order_by(
+            self.quality_tier_field(work_model).desc(), work_model.random.desc()
+        )
+        if distinct:
+            qu = qu.distinct()
+        return qu
 
     def quality_tier_field(self, mv):
         """A selectable field that summarizes the overall quality of a work
@@ -1539,7 +1543,7 @@ class Lane(Base, WorkList):
         # ensures that if we have to apply a LIMIT, the LIMIT is more
         # likely to cut off low-quality results for an early lane than
         # high-quality results for a late lane.
-        qu = qu.order_by("quality_tier desc", "lane_id", work_model.random)
+        qu = qu.order_by("quality_tier desc", "lane_id", work_model.random.desc())
 
         # Setting a limit ensures that improperly distributed values
         # for Work.random can't cause the query to return more than
