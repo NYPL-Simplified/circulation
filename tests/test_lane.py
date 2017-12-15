@@ -1885,11 +1885,11 @@ class TestLaneGroups(DatabaseTest):
         # then the high-quality works show up as featured within
         # because there were no sublanes to claim them.
         #
-        # hq_sf shows up before hq_ro because its .random is a smaller
+        # hq_ro shows up before hq_sf because its .random is a larger
         # number.
         assert_contents(
             fiction.groups(self._db, include_sublanes=False),
-            [(fiction, hq_sf), (fiction, hq_ro)]
+            [(fiction, hq_ro), (fiction, hq_sf)]
         )
 
         # When a lane has no sublanes, its behavior is the same whether
