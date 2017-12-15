@@ -1797,6 +1797,9 @@ class Lane(Base, WorkList):
                 self.list_seen_in_previous_days
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)
+
+        if must_be_featured:
+            clauses.append(a_entry.featured==True)
             
         # Now that a custom list is involved, we must eventually set
         # DISTINCT to True on the query.

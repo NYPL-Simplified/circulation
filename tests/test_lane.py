@@ -1464,7 +1464,8 @@ class TestLane(DatabaseTest):
         childrens_fiction.target_age = tuple_to_numericrange((8,8))
         self.add_to_materialized_view([childrens_fiction, nonfiction])
 
-        def match_works(lane, works, featured=False):
+        def match_works(lane, works, featured=False, 
+                        expect_bibliographic_filter=True):
             """Verify that calling apply_bibliographic_filters to the given
             lane yields the given list of works.
             """
@@ -1488,7 +1489,14 @@ class TestLane(DatabaseTest):
                 eq_(base_query, new_query)
                 eq_(False, distinct)
 
-            final_query = new_query.filter(bibliographic_clause)
+            if expect_bibliographic_filter:
+                # There must be some kind of bibliographic filter.
+                assert bibliographic_clause is not None
+                final_query = new_query.filter(bibliographic_clause)
+            else:
+                # There must *not* be some kind of bibliographic filter.
+                assert bibliographic_clause is None
+                final_query = new_query
             results = final_query.all()
             works = sorted([(x.id, x.sort_title) for x in works])
             materialized_works = sorted(
@@ -1515,7 +1523,8 @@ class TestLane(DatabaseTest):
 
         both_lane = self._lane()
         both_lane.fiction = None
-        match_works(both_lane, [childrens_fiction, nonfiction])
+        match_works(both_lane, [childrens_fiction, nonfiction], 
+                    expect_bibliographic_filter=False)
 
         # A lane may include a target age range.
         children_lane = self._lane()
@@ -1553,6 +1562,7 @@ class TestLane(DatabaseTest):
         # of a lane that takes its entries from a second list.
         best_selling_classics = self._lane(parent=best_sellers_lane)
         best_selling_classics.customlists.append(all_time_classics)
+        best_selling_classics.inherit_parent_restrictions = False
         match_works(best_selling_classics, [childrens_fiction, nonfiction])
 
         # When it inherits its parent's restrictions, only the
