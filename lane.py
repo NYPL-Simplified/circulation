@@ -1414,7 +1414,7 @@ class Lane(Base, WorkList):
         width = target_size / (self.size * 0.2)
         
         maximum_offset = 1-width
-        start = min(random.random(), maximum_offset)
+        start = random.random() * maximum_offset
         return start, start+width
 
     def groups(self, _db, include_sublanes=True):
