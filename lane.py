@@ -1418,7 +1418,7 @@ class Lane(Base, WorkList):
         return start, start+width
 
     def groups(self, _db, include_sublanes=True):
-        """Return a list of (Lane, MaterializedWork) 2-tuples
+        """Return a list of (MaterializedWork, Lane) 2-tuples
         describing a sequence of featured items for this lane and
         (optionally) its children.
         """
@@ -1501,7 +1501,7 @@ class Lane(Base, WorkList):
             # We found results for this lane through the main query.
             # Yield those results.
             for mw in by_lane_id.get(lane.id, []):
-                yield (lane, mw)
+                yield (mw, lane)
 
         # To fill up the parent lane, we may need to use some of the
         # items that were gathered for sublanes but not featured.
@@ -1641,7 +1641,7 @@ class Lane(Base, WorkList):
                         # was used, but it was used at least
                         # once. Don't use it again.
                         continue
-                    yield (self, mw)
+                    yield (mw, self)
                     previously_used.add(mw.works_id)
                     additional_found += 1
                     if additional_found >= additional_needed:

@@ -1829,14 +1829,17 @@ class TestLaneGroups(DatabaseTest):
 
         def assert_contents(g, expect):
             """Assert that a generator yields the expected
-            (lane, MaterializedWork) 2-tuples.
+            (MaterializedWork, lane) 2-tuples.
             """
             results = list(g)
             expect = [
-                (x[0].display_name, x[1].sort_title) for x in expect
+                (x[0].sort_title, x[1].display_name) for x in expect
             ]
+            for x in results:
+                if isinstance(x[0], Lane):
+                    set_trace()
             actual = [
-                (x[0].display_name, x[1].sort_title) for x in results
+                (x[0].sort_title, x[1].display_name) for x in results
             ]
             for i, expect_item in enumerate(expect):
                 eq_(
@@ -1852,27 +1855,27 @@ class TestLaneGroups(DatabaseTest):
                 # list.  This isn't enough to pad out the lane to
                 # FEATURED_LANE_SIZE, but nothing else belongs in the
                 # lane.
-                (best_sellers, mq_sf),
+                (mq_sf, best_sellers),
 
                 # In fact, both lanes feature the same title -- this
                 # generally won't happen but it can happen when
                 # multiple lanes are based on lists that feature the
                 # same title.
-                (staff_picks, mq_sf),
+                (mq_sf, staff_picks),
 
                 # The genre-based lanes contain FEATURED_LANE_SIZE
                 # (two) titles each. The 'Science Fiction' lane
                 # features a low-quality work because the middle-quality
                 # work was already featured above in a list.
-                (sf_lane, hq_sf),
-                (sf_lane, lq_sf),
-                (romance_lane, hq_ro),
-                (romance_lane, mq_ro),
+                (hq_sf, sf_lane),
+                (lq_sf, sf_lane),
+                (hq_ro, romance_lane),
+                (mq_ro, romance_lane),
 
                 # The 'Discredited Nonfiction' lane contains a single
                 # book. There just weren't enough matching books to fill
                 # out the lane to FEATURED_LANE_SIZE.
-                (discredited_nonfiction, nonfiction),
+                (nonfiction, discredited_nonfiction),
 
                 # The 'Fiction' lane contains the only title that fits
                 # in the fiction lane but was not classified under any
@@ -1881,8 +1884,8 @@ class TestLaneGroups(DatabaseTest):
                 # already had enough titles to fill the 'Romance'
                 # lane. It does not include any titles that were
                 # featured earlier.
-                (fiction, litfic),
-                (fiction, lq_ro),
+                (litfic, fiction),
+                (lq_ro, fiction),
             ]
         )
 
@@ -1894,7 +1897,7 @@ class TestLaneGroups(DatabaseTest):
         # number.
         assert_contents(
             fiction.groups(self._db, include_sublanes=False),
-            [(fiction, hq_ro), (fiction, hq_sf)]
+            [(hq_ro, fiction), (hq_sf, fiction)]
         )
 
         # When a lane has no sublanes, its behavior is the same whether
@@ -1904,7 +1907,7 @@ class TestLaneGroups(DatabaseTest):
                 discredited_nonfiction.groups(
                     self._db, include_sublanes=include_sublanes
                 ),
-                [(discredited_nonfiction, nonfiction)]
+                [(nonfiction, discredited_nonfiction)]
             )
         
         # If we make the lanes thirstier for content, we see slightly
@@ -1914,8 +1917,8 @@ class TestLaneGroups(DatabaseTest):
             fiction.groups(self._db),
             [
                 # The list-based lanes are the same as before.
-                (best_sellers, mq_sf),
-                (staff_picks, mq_sf),
+                (mq_sf, best_sellers),
+                (mq_sf, staff_picks),
 
                 # After using every single science fiction work that
                 # wasn't previously used, we reuse mq_sf to pad the
@@ -1923,19 +1926,19 @@ class TestLaneGroups(DatabaseTest):
                 # better to have lq_sf show up before mq_sf, even
                 # though it's lower quality, because lq_sf hasn't been
                 # used before.
-                (sf_lane, hq_sf),
-                (sf_lane, lq_sf),
-                (sf_lane, mq_sf),
+                (hq_sf, sf_lane),
+                (lq_sf, sf_lane),
+                (mq_sf, sf_lane),
 
                 # The 'Romance' lane now contains all three Romance
                 # titles, with the higher-quality titles first.
-                (romance_lane, hq_ro),
-                (romance_lane, mq_ro),
-                (romance_lane, lq_ro),
+                (hq_ro, romance_lane),
+                (mq_ro, romance_lane),
+                (lq_ro, romance_lane),
 
                 # The 'Discredited Nonfiction' lane is the same as
                 # before.
-                (discredited_nonfiction, nonfiction),
+                (nonfiction, discredited_nonfiction),
 
                 # After using every single fiction work that wasn't
                 # previously used, we reuse high-quality works to pad
@@ -1944,9 +1947,9 @@ class TestLaneGroups(DatabaseTest):
                 # anymore, because the 'Romance' lane claimed it. If
                 # we have to reuse titles, we'll reuse the
                 # high-quality ones.
-                (fiction, litfic),
-                (fiction, hq_ro),
-                (fiction, hq_sf),
+                (litfic, fiction),
+                (hq_ro, fiction),
+                (hq_sf, fiction),
             ]
         )
 
