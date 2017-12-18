@@ -402,29 +402,6 @@ class SessionManager(object):
                 primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
                 foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
-        class MaterializedWork(Base, BaseMaterializedWork):
-            """NOTE: This class is deprecated and should no longer
-            be necessary.
-            """
-            __table__ = Table(
-                cls.MATERIALIZED_VIEW_WORKS,
-                Base.metadata,
-                Column('works_id', Integer, primary_key=True),
-                Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
-              autoload=True,
-                autoload_with=engine
-            )
-            license_pool = relationship(
-                LicensePool,
-                primaryjoin="LicensePool.id==MaterializedWork.license_pool_id",
-                foreign_keys=LicensePool.id, lazy='joined', uselist=False)
-
-            def __repr__(self):
-                return (u'%s "%s" (%s) %s' % (
-                    self.works_id, self.sort_title, self.sort_author, self.language,
-                    )).encode("utf8")
-
-        globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine
         return engine, engine.connect()
