@@ -352,7 +352,7 @@ class TestOPDS(DatabaseTest):
 
         self.fiction = self._lane("Fiction")
         self.fiction.fiction = True
-        self.fiction.audiences = Classifier.AUDIENCE_ADULT
+        self.fiction.audiences = [Classifier.AUDIENCE_ADULT]
 
         self.fantasy = self._lane(
             "Fantasy", parent=self.fiction, genres="Fantasy"
@@ -362,7 +362,7 @@ class TestOPDS(DatabaseTest):
         )
         self.ya = self._lane("Young Adult")
         self.ya.history = None
-        self.ya.audiences = Classifier.AUDIENCE_YOUNG_ADULT
+        self.ya.audiences = [Classifier.AUDIENCE_YOUNG_ADULT]
         self.romance = self._lane("Romance", genres="Romance")
         self.romance.fiction = True
         self.contemporary_romance = self._lane(

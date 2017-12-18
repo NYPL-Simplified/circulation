@@ -1122,6 +1122,14 @@ class TestLane(DatabaseTest):
         lane = self._lane()
         eq_(self._default_library, lane.get_library(self._db))
 
+    def test_set_audience(self):
+        """Setting a lane's audience to a single value will
+        auto-convert it into a list of values.
+        """
+        lane = self._lane()
+        lane.audience = Classifier.AUDIENCE_ADULT
+        eq_([Classifier.AUDIENCE_ADULT], lane.audience)
+
     def test_visibility(self):
         parent = self._lane()
         visible_child = self._lane(parent=parent)

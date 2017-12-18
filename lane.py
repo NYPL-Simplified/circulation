@@ -1194,6 +1194,8 @@ class Lane(Base, WorkList):
         """
         if self._audiences and self._target_age and value != self._audiences:
             raise ValueError("Cannot modify Lane.audiences when Lane.target_age is set!")
+        if isinstance(value, basestring):
+            value = [value]
         self._audiences = value
 
     @hybrid_property
@@ -1635,11 +1637,12 @@ class Lane(Base, WorkList):
                 mws = by_tier[tier]
                 random.shuffle(mws)
                 for mw in mws:
-                    if (by_tier in unused_by_tier 
+                    if (by_tier is unused_by_tier 
                         and mw.works_id in previously_used):
-                        # This title showed up more often than it
-                        # was used, but it was used at least
-                        # once. Don't use it again.
+                        # We initially thought this work was unused,
+                        # and put it in the 'unused' bucket, but then
+                        # the work was used after that happened.
+                        # Treat it as used and don't use it again.
                         continue
                     yield (mw, self)
                     previously_used.add(mw.works_id)
