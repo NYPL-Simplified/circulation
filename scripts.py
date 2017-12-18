@@ -1646,13 +1646,8 @@ class RefreshMaterializedViewsScript(Script):
         else:
             concurrently = 'CONCURRENTLY'
         # Initialize database
-        from model import (
-            MaterializedWork,
-            MaterializedWorkWithGenre,
-        )
         db = self._db
-        for i in (MaterializedWork, MaterializedWorkWithGenre):
-            view_name = i.__table__.name
+        for view_name in self.MATERIALIZED_VIEWS.keys():
             a = time.time()
             db.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
             b = time.time()
@@ -2584,11 +2579,11 @@ class FixInvisibleWorksScript(CollectionInputScript):
             return
 
         # See how many works are in the materialized view.
-        from model import MaterializedWork
-        mv_works = self._db.query(MaterializedWork)
+        from model import MaterializedWorkWithGenre as work_model
+        mv_works = self._db.query(work_model)
 
         if collections:
-            mv_works = mv_works.filter(MaterializedWork.collection_id.in_(collection_ids))
+            mv_works = mv_works.filter(work_model.collection_id.in_(collection_ids))
 
         mv_works_count = mv_works.count()
         self.output.write(
@@ -2615,8 +2610,8 @@ class FixInvisibleWorksScript(CollectionInputScript):
         LPDM = LicensePoolDeliveryMechanism
         mv_works = mv_works.filter(
             exists().where(
-                and_(MaterializedWork.data_source_id==LPDM.data_source_id,
-                     MaterializedWork.identifier_id==LPDM.identifier_id)
+                and_(work_model.data_source_id==LPDM.data_source_id,
+                     work_model.identifier_id==LPDM.identifier_id)
             )
         )
         if mv_works.count() == 0:
