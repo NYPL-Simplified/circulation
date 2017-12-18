@@ -1874,9 +1874,6 @@ class TestLaneGroups(DatabaseTest):
             expect = [
                 (x[0].sort_title, x[1].display_name) for x in expect
             ]
-            for x in results:
-                if isinstance(x[0], Lane):
-                    set_trace()
             actual = [
                 (x[0].sort_title, x[1].display_name) for x in results
             ]
@@ -1884,10 +1881,8 @@ class TestLaneGroups(DatabaseTest):
                 actual_item = actual[i]
                 eq_(
                     expect_item, actual_item,
-                    "Mismatch in position %d: Expected %r, got %r. Quality: %s vs. %s, random: %s vs. %s.\nOverall, expected:\n%r\nGot:\n%r:" %
+                    "Mismatch in position %d: Expected %r, got %r.\nOverall, expected:\n%r\nGot:\n%r:" %
                     (i, expect_item, actual_item, 
-                     expect_item.quality, actual_item.quality,
-                     expect_item.random, actual_item.random,
                      expect, actual)
                 )
 
