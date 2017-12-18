@@ -1274,7 +1274,10 @@ class Lane(Base, WorkList):
 
     def update_size(self, _db):
         """Update the stored estimate of the number of Works in this Lane."""
-        self.size = fast_query_count(self.works(_db).limit(None))
+        query = self.works(_db).limit(None)
+        from model import MaterializedWorkWithGenre as mw
+        query = query.distinct(mw.works_id)
+        self.size = fast_query_count(query)
 
     @property
     def genre_ids(self):

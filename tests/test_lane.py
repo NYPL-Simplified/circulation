@@ -1130,6 +1130,25 @@ class TestLane(DatabaseTest):
         lane.audiences = Classifier.AUDIENCE_ADULT
         eq_([Classifier.AUDIENCE_ADULT], lane.audiences)
 
+    def test_update_size(self):
+        # One work in two subgenres of fiction.
+        work = self._work(fiction=True, with_license_pool=True, 
+                          genre="Science Fiction")
+        romance, ignore = Genre.lookup(self._db, "Romance")
+        work.genres.append(romance)
+
+        # The 'Fiction' lane has one book.
+        fiction = self._lane(display_name="Fiction", fiction=True)
+
+        # But the materialized view contains the book twice -- once under
+        # Science Fiction and once under Romance.
+        self.add_to_materialized_view([work])
+
+        # update_size() sets the Lane's size to the correct number.
+        fiction.size = 100
+        fiction.update_size(self._db)
+        eq_(1, fiction.size)
+
     def test_visibility(self):
         parent = self._lane()
         visible_child = self._lane(parent=parent)
