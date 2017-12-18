@@ -2079,7 +2079,7 @@ class TestLaneGroups(DatabaseTest):
               used_works=[]):
             mws = []
             used_ids = set([x.works_id for x in used_works])
-            for yielded_lane, mw in lane._fill_parent_lane(
+            for mw, yielded_lane in lane._fill_parent_lane(
                     additional_needed, unused_by_tier, used_by_tier,
                     used_ids
             ):
