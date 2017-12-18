@@ -1881,10 +1881,14 @@ class TestLaneGroups(DatabaseTest):
                 (x[0].sort_title, x[1].display_name) for x in results
             ]
             for i, expect_item in enumerate(expect):
+                actual_item = actual[i]
                 eq_(
-                    expect_item, actual[i],
-                    "Mismatch in position %d: Expected %r, got %r.\nOverall, expected:\n%r\nGot:\n%r:" %
-                    (i, expect_item, actual[i], expect, actual)
+                    expect_item, actual_item,
+                    "Mismatch in position %d: Expected %r, got %r. Quality: %s vs. %s, random: %s vs. %s.\nOverall, expected:\n%r\nGot:\n%r:" %
+                    (i, expect_item, actual_item, 
+                     expect_item.quality, actual_item.quality,
+                     expect_item.random, actual_item.random,
+                     expect, actual)
                 )
 
         assert_contents(
