@@ -7689,7 +7689,7 @@ class TestMaterializedViews(DatabaseTest):
         # Make sure the Work shows up in the materialized view.
         SessionManager.refresh_materialized_views(self._db)
 
-        from model import MaterializedWorkWithGenre as mwgc,
+        from model import MaterializedWorkWithGenre as mwgc
         [mwg] = self._db.query(mwgc).all()
 
         eq_(pool1.id, mwg.license_pool_id)
