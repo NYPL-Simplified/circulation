@@ -835,7 +835,7 @@ class TestWorkList(DatabaseTest):
         # no Facets object to do the job.
         called = dict()
         distinct_qu = wl.apply_filters(self._db, original_qu, None, None)
-        eq_(str(original_qu.distinct()), str(distinct_qu))
+        eq_(str(original_qu.distinct(work_model.works_id)), str(distinct_qu))
         assert 'facets.apply' not in called
         assert 'pagination.apply' not in called
 
