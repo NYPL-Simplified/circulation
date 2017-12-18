@@ -2016,7 +2016,7 @@ class TestLaneGroups(DatabaseTest):
         assert str(list_when.element).endswith('= customlists_1.data_source_id')
         eq_(list_lane.id, list_value.value)
 
-        assert str(fiction_when.element).endswith('.fiction = 1')
+        assert '.fiction =' in str(fiction_when.element)
         eq_(fiction.id, fiction_value.value)
 
         # The CASE clause for the lane that matches everything
