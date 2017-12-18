@@ -1635,7 +1635,7 @@ class Lane(Base, WorkList):
                 mws = by_tier[tier]
                 random.shuffle(mws)
                 for mw in mws:
-                    if (by_tier is unused_by_tier 
+                    if (by_tier in unused_by_tier 
                         and mw.works_id in previously_used):
                         # This title showed up more often than it
                         # was used, but it was used at least
