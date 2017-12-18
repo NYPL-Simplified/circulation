@@ -121,13 +121,9 @@ class TestSessionManager(DatabaseTest):
         fiction = self._lane(display_name="Fiction", fiction=True)
         nonfiction = self._lane(display_name="Nonfiction", fiction=False)
 
-        from model import (
-            MaterializedWork as mwc,
-            MaterializedWorkWithGenre as mwg,
-        )
+        from model import MaterializedWorkWithGenre as mwg
 
         # There are no items in the materialized views.
-        eq_([], self._db.query(mwc).all())
         eq_([], self._db.query(mwg).all())
 
         # The lane sizes are wrong.
@@ -7693,21 +7689,15 @@ class TestMaterializedViews(DatabaseTest):
         # Make sure the Work shows up in the materialized view.
         SessionManager.refresh_materialized_views(self._db)
 
-        from model import (
-            MaterializedWork as mwc,
-            MaterializedWorkWithGenre as mwgc,
-        )
-        [mw] = self._db.query(mwc).all()
+        from model import MaterializedWorkWithGenre as mwgc,
         [mwg] = self._db.query(mwgc).all()
 
-        eq_(pool1.id, mw.license_pool_id)
         eq_(pool1.id, mwg.license_pool_id)
 
         # If we change the Work's preferred edition, we change the
         # license_pool_id that gets stored in the materialized views.
         work.set_presentation_edition(edition2)
         SessionManager.refresh_materialized_views(self._db)
-        [mw] = self._db.query(mwc).all()
         [mwg] = self._db.query(mwgc).all()
 
         eq_(pool2.id, mw.license_pool_id)
@@ -7755,11 +7745,7 @@ class TestMaterializedViews(DatabaseTest):
 
         SessionManager.refresh_materialized_views(self._db)
 
-        from model import (
-            MaterializedWork as mwc,
-            MaterializedWorkWithGenre as mwgc,
-        )
-        [mw] = self._db.query(mwc).all()
+        from model import MaterializedWorkWithGenre as mwgc
         [mwg] = self._db.query(mwgc).all()
 
         # We would expect the data source to be Gutenberg, since
