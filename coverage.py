@@ -542,6 +542,9 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         `registered_only` flag to process items. It's currently only in use
         on the Metadata Wrangler.
 
+        :param force: Set to True to reset an existing CoverageRecord's status
+        "registered", regardless of its current status.
+
         TODO: Take identifier eligibility into account when registering.
         """
         name = cls.SERVICE_NAME or cls.__name__
@@ -1099,6 +1102,15 @@ class WorkCoverageProvider(BaseCoverageProvider):
 
     @classmethod
     def register(cls, work, force=False):
+        """Registers a work for future coverage.
+
+        This method is primarily for use with CoverageProviders that use the
+        `registered_only` flag to process items. It's currently only in use
+        on the Metadata Wrangler.
+
+        :param force: Set to True to reset an existing CoverageRecord's status
+        "registered", regardless of its current status.
+        """
         was_registered = True
         if not force:
             record = WorkCoverageRecord.lookup(work, cls.OPERATION)
