@@ -229,8 +229,7 @@ class Facets(FacetConstants):
         """Turn the name of an order facet into a materialized-view field
         for use in an ORDER BY clause.
 
-        :param work_model: Either MaterializedWork or
-        MaterializedWorkWithGenre.
+        :param work_model: Should always be MaterializedWorkWithGenre.
         """
         order_facet_to_database_field = {
             cls.ORDER_ADDED_TO_COLLECTION: work_model.availability_time,
@@ -247,12 +246,11 @@ class Facets(FacetConstants):
         """Restrict a query so that it only matches works that fit
         the given facets, and the query is ordered appropriately.
 
-        :param work_model: Either MaterializedWork or
-        MaterializedWorkWithGenre.
+        :param work_model: Should always be MaterializedWorkWithGenre.
         """
         if work_model is None:
-            from model import MaterializedWork
-            work_model = MaterializedWork
+            from model import MaterializedWorkWithGenre
+            work_model = MaterializedWorkWithGenre
         if self.availability == self.AVAILABLE_NOW:
             availability_clause = or_(
                 LicensePool.open_access==True,
@@ -294,8 +292,7 @@ class Facets(FacetConstants):
     def order_by(self, work_model):
         """Establish a complete ORDER BY clause for works.
 
-        :param work_model: Either MaterializedWork or
-        MaterializedWorkWithGenre.
+        :param work_model: Should always be MaterializedWorkWithGenre.
         """
         if work_model == Work:
             work_id = Work.id
@@ -380,8 +377,8 @@ class FeaturedFacets(object):
         eliminating the need to find lower-quality works with a second
         query.
 
-        :param mv: Either MaterializedWork, MaterializedWorkWithGenre,
-        or Work is acceptable here.
+        :param mv: Either MaterializedWorkWithGenre or Work is
+        acceptable here.
         """
         featurable_quality = self.minimum_featured_quality
 
@@ -476,9 +473,8 @@ class Pagination(object):
 
 
 class WorkList(object):
-    """An object that can obtain a list of
-    Work/MaterializedWork/MaterializedWorkWithGenre objects
-    for use in generating an OPDS feed.
+    """An object that can obtain a list of Work/MaterializedWorkWithGenre
+    objects for use in generating an OPDS feed.
     """
 
     # Unless a sitewide setting intervenes, the set of Works in a
@@ -641,8 +637,7 @@ class WorkList(object):
 
         Used when building a grouped OPDS feed for this WorkList's parent.
 
-        :return: A list of MaterializedWork or MaterializedWorkWithGenre
-        objects.
+        :return: A list of MaterializedWorkWithGenre objects.
         """
         books = []
         book_ids = set()
@@ -688,15 +683,11 @@ class WorkList(object):
            bad idea in the first place.
         """
         from model import (
-            MaterializedWork,
             MaterializedWorkWithGenre,
         )
-        if self.genre_ids or True:
-            mw = MaterializedWorkWithGenre
-            # apply_filters() will apply the genre
-            # restrictions.
-        else:
-            mw = MaterializedWork
+        mw = MaterializedWorkWithGenre
+        # apply_filters() will apply the genre
+        # restrictions.
 
         if isinstance(facets, FeaturedFacets):
             field = facets.quality_tier_field(mw)
@@ -720,15 +711,17 @@ class WorkList(object):
                 LicensePool.collection_id.in_(self.collection_ids)
             )
 
-        return self.apply_filters(_db, qu, mw, facets, pagination)
+        qu = self.apply_filters(_db, qu, mw, facets, pagination)
+        return qu
 
     def works_for_specific_ids(self, _db, work_ids):
         """Create the appearance of having called works(),
         but return the specific MaterializedWorks identified by `work_ids`.
         """
 
-        # Get a list of MaterializedWorks as though we had called works().
-        from model import MaterializedWork as mw
+        # Get a list of MaterializedWorkWithGenre objects as though we
+        # had called works().
+        from model import MaterializedWorkWithGenre as mw
         qu = _db.query(mw).join(
             LicensePool, mw.license_pool_id==LicensePool.id
         ).filter(
@@ -737,6 +730,7 @@ class WorkList(object):
         qu = self._lazy_load(qu, mw)
         qu = self._defer_unused_fields(qu, mw)
         qu = self.only_show_ready_deliverable_works(_db, qu, mw)
+        qu = qu.distinct(mw.works_id)
         work_by_id = dict()
         a = time.time()
         works = qu.all()
@@ -1423,7 +1417,7 @@ class Lane(Base, WorkList):
         return start, start+width
 
     def groups(self, _db, include_sublanes=True):
-        """Return a list of (MaterializedWork, Lane) 2-tuples
+        """Return a list of (MaterializedWorkWithGenre, Lane) 2-tuples
         describing a sequence of featured items for this lane and
         (optionally) its children.
         """
@@ -1469,10 +1463,11 @@ class Lane(Base, WorkList):
                 if lane_id != self.id:
                     if mw.works_id not in used:
                         # We already have enough featured items for
-                        # this lane, and this MaterializedWork hasn't
-                        # already been used in some other lane. Add
-                        # this to the 'unused' dictionary in case we
-                        # need to fill in the main lane later.
+                        # this lane, and this
+                        # MaterializedWorkWithGenre hasn't already
+                        # been used in some other lane. Add this to
+                        # the 'unused' dictionary in case we need to
+                        # fill in the main lane later.
                         #
                         # NOTE: Checking `used`, as we did above,
                         # isn't totally reliable because this work
@@ -1617,19 +1612,20 @@ class Lane(Base, WorkList):
         `unused_by_tier`, falling back to `used_by_tier` if necessary.
 
         :param unused_by_tier: A dictionary mapping quality tiers to
-        lists of unused MaterializedWork items. Because the same book
-        may have shown up as multiple MaterializedWork items, it may
-        show up as 'unused' here even if another occurance of it has
-        been used.
+        lists of unused MaterializedWorkWithGenre items. Because the
+        same book may have shown up as multiple
+        MaterializedWorkWithGenre items, it may show up as 'unused'
+        here even if another occurance of it has been used.
 
         :param used_by_tier: A dictionary mapping quality tiers to lists
-        of previously used MaterializedWork items. These will only
+        of previously used MaterializedWorkWithGenre items. These will only
         be chosen once every item in unused_by_tier has been chosen.
 
         :param previously_used: A set of work IDs corresponding to
-        previously selected MaterializedWork items. A work in
+        previously selected MaterializedWorkWithGenre items. A work in
         `unused_by_tier` will be treated as actually having been used
         if its ID is in this set.
+
         """
         if not additional_needed:
             return

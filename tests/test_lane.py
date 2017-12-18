@@ -122,43 +122,41 @@ class TestFacets(DatabaseTest):
 
     def test_order_facet_to_database_field(self):
         from model import (
-            MaterializedWork as mw,
             MaterializedWorkWithGenre as mwg,
         )
 
         def fields(facet):
             return [
                 Facets.order_facet_to_database_field(facet, w)
-                for w in (mw, mwg)
+                for w in (mwg,)
             ]
 
         # You can sort by title...
-        eq_([mw.sort_title, mwg.sort_title],
+        eq_([mwg.sort_title],
             fields(Facets.ORDER_TITLE))
 
         # ...by author...
-        eq_([mw.sort_author, mwg.sort_author],
+        eq_([mwg.sort_author],
             fields(Facets.ORDER_AUTHOR))
 
         # ...by work ID...
-        eq_([mw.works_id, mwg.works_id],
+        eq_([mwg.works_id],
             fields(Facets.ORDER_WORK_ID))
 
         # ...by last update time...
-        eq_([mw.last_update_time, mwg.last_update_time],
+        eq_([mwg.last_update_time],
             fields(Facets.ORDER_LAST_UPDATE))
 
         # ...by most recently added...
-        eq_([mw.availability_time, mwg.availability_time],
+        eq_([mwg.availability_time],
             fields(Facets.ORDER_ADDED_TO_COLLECTION))
 
         # ...or randomly.
-        eq_([mw.random, mwg.random],
+        eq_([mwg.random],
             fields(Facets.ORDER_RANDOM))
 
     def test_order_by(self):
         from model import (
-            MaterializedWork as mw,
             MaterializedWorkWithGenre as mwg,
         )
 
@@ -177,7 +175,7 @@ class TestFacets(DatabaseTest):
             for i in range(0, len(a)):
                 assert(a[i].compare(b[i]))
 
-        for m in mw, mwg:
+        for m in [mwg]:
             expect = [m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
             actual = order(Facets.ORDER_AUTHOR, m, True)  
             compare(expect, actual)
@@ -246,9 +244,9 @@ class TestFacetsApply(DatabaseTest):
         self.add_to_materialized_view([open_access_high, open_access_low,
                                        licensed_high, licensed_low])
 
-        from model import MaterializedWork as mw
-        qu = self._db.query(mw).join(
-            LicensePool, mw.license_pool_id==LicensePool.id
+        from model import MaterializedWorkWithGenre as mwg
+        qu = self._db.query(mwg).join(
+            LicensePool, mwg.license_pool_id==LicensePool.id
         )
         def facetify(collection=Facets.COLLECTION_FULL, 
                      available=Facets.AVAILABLE_ALL,
@@ -366,18 +364,17 @@ class TestFeaturedFacets(DatabaseTest):
         facets = FeaturedFacets(minimum_featured_quality, True)
 
         # This custom database query field will perform the calculation.
-        from model import MaterializedWork
-        quality_field = facets.quality_tier_field(
-            MaterializedWork).label("tier")
+        from model import MaterializedWorkWithGenre as mwg
+        quality_field = facets.quality_tier_field(mwg).label("tier")
 
         # Test it out by using it in a SELECT statement.
         qu = self._db.query(
-            MaterializedWork, quality_field
+            mwg, quality_field
         ).join(
             LicensePool, 
-            LicensePool.id==MaterializedWork.license_pool_id
+            LicensePool.id==mwg.license_pool_id
         ).outerjoin(
-            CustomListEntry, CustomListEntry.work_id==MaterializedWork.works_id
+            CustomListEntry, CustomListEntry.work_id==mwg.works_id
         )
         from model import dump_query
 
@@ -410,10 +407,10 @@ class TestFeaturedFacets(DatabaseTest):
         # If custom lists are not being considered, the "awful but
         # featured on a list" work loses its cachet.
         no_list_facets = FeaturedFacets(minimum_featured_quality, False)
-        quality_field = no_list_facets.quality_tier_field(MaterializedWork).label("tier")
-        no_list_qu = self._db.query(MaterializedWork, quality_field).join(
+        quality_field = no_list_facets.quality_tier_field(mwg).label("tier")
+        no_list_qu = self._db.query(mwg, quality_field).join(
             LicensePool, 
-            LicensePool.id==MaterializedWork.license_pool_id
+            LicensePool.id==mwg.license_pool_id
         )
 
         # 1 is the expected score for a work that has nothing going
@@ -531,7 +528,7 @@ class MockFeaturedWorks(object):
             return []
 
 class MockWork(object):
-    """Acts as a Work or a MaterializedWork interchangeably."""
+    """Acts as a Work or a MaterializedWorkWithGenre interchangeably."""
     def __init__(self, id):
         self.id = id
         self.works_id = id
@@ -811,11 +808,11 @@ class TestWorkList(DatabaseTest):
                 called['pagination.apply'] = True
                 return query
 
-        from model import MaterializedWork
-        original_qu = self._db.query(MaterializedWork)
+        from model import MaterializedWorkWithGenre as mwg
+        original_qu = self._db.query(mwg)
         wl = MockWorkList()
         final_qu = wl.apply_filters(
-            self._db, original_qu, MaterializedWork, MockFacets(), 
+            self._db, original_qu, mwg, MockFacets(), 
             MockPagination()
         )
         
@@ -836,7 +833,7 @@ class TestWorkList(DatabaseTest):
         # no Facets object to do the job.
         called = dict()
         distinct_qu = wl.apply_filters(
-            self._db, original_qu, MaterializedWork, None, None
+            self._db, original_qu, mwg, None, None
         )
         eq_(str(original_qu.distinct()), str(distinct_qu))
         assert 'facets.apply' not in called
@@ -856,9 +853,9 @@ class TestWorkList(DatabaseTest):
 
         wl = MockWorkList()
         wl.initialize(self._default_library)
-        from model import MaterializedWork
-        qu = self._db.query(MaterializedWork)
-        eq_(None, wl.apply_filters(self._db, qu, MaterializedWork, None, None))
+        from model import MaterializedWorkWithGenre as mwg
+        qu = self._db.query(mwg)
+        eq_(None, wl.apply_filters(self._db, qu, mwg, None, None))
 
     def test_bibliographic_filter_clause(self):
         called = dict()
@@ -1109,10 +1106,10 @@ class TestWorkList(DatabaseTest):
         eq_(1, kw['size'])
         eq_(0, kw['offset'])
         
-        # The single search result was converted to a MaterializedWork.
+        # The single search result was converted to a MaterializedWorkWithGenre.
         [result] = results
-        from model import MaterializedWork
-        assert isinstance(result, MaterializedWork)
+        from model import MaterializedWorkWithGenre as mwg
+        assert isinstance(result, mwg)
         eq_(work.id, result.works_id)
 
 
@@ -1463,10 +1460,10 @@ class TestLane(DatabaseTest):
         )
         eq_(results, target_results)
 
-        # The single search result was converted to a MaterializedWork.
+        # The single search result was converted to a MaterializedWorkWithGenre.
         [result] = results
-        from model import MaterializedWork
-        assert isinstance(result, MaterializedWork)
+        from model import MaterializedWorkWithGenre as mwg
+        assert isinstance(result, mwg)
         eq_(work.id, result.works_id)
 
         # This still works if the lane is its own search_target.
@@ -1496,12 +1493,12 @@ class TestLane(DatabaseTest):
             """Verify that calling apply_bibliographic_filters to the given
             lane yields the given list of works.
             """
-            from model import MaterializedWork
-            base_query = self._db.query(MaterializedWork).join(
-                LicensePool, MaterializedWork.license_pool_id==LicensePool.id
+            from model import MaterializedWorkWithGenre as mwg
+            base_query = self._db.query(mwg).join(
+                LicensePool, mwg.license_pool_id==LicensePool.id
             )
             new_query, bibliographic_clause, distinct = lane.bibliographic_filter_clause(
-                self._db, base_query, MaterializedWork, featured
+                self._db, base_query, mwg, featured
             )
             
             if lane.uses_customlists:
@@ -1856,7 +1853,7 @@ class TestLaneGroups(DatabaseTest):
 
         def assert_contents(g, expect):
             """Assert that a generator yields the expected
-            (MaterializedWork, lane) 2-tuples.
+            (MaterializedWorkWithGenre, lane) 2-tuples.
             """
             results = list(g)
             expect = [
@@ -2016,10 +2013,10 @@ class TestLaneGroups(DatabaseTest):
         fiction = self._lane(fiction=True)
         everything = self._lane()
 
-        from model import MaterializedWorkWithGenre as mw
-        original_qu = self._db.query(mw)
+        from model import MaterializedWorkWithGenre as mwg
+        original_qu = self._db.query(mwg)
         qu = Lane._add_lane_id_field(
-            self._db, original_qu, mw, [list_lane, fiction, everything],
+            self._db, original_qu, mwg, [list_lane, fiction, everything],
             10
         )
 
@@ -2048,7 +2045,7 @@ class TestLaneGroups(DatabaseTest):
 
         # The CASE clause for the lane that matches everything
         # is set to a tautology.
-        name = mw.__table__.name
+        name = mwg.__table__.name
         eq_("%s.works_id = %s.works_id" % (name, name),
             str(everything_when.element))
         eq_(everything.id, everything_value.value)
