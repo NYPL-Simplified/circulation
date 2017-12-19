@@ -933,14 +933,30 @@ class TestGenre(DatabaseTest):
         
 class TestSubject(DatabaseTest):
 
+    def test_lookup_errors(self):
+        """Subject.lookup will complain if you don't give it
+        enough information to find a Subject.
+        """
+        assert_raises_regexp(
+            ValueError, "Cannot look up Subject with no type.",
+            Subject.lookup, self._db, None, "identifier", "name"
+        )
+        assert_raises_regexp(
+            ValueError,
+            "Cannot look up Subject when neither identifier nor name is provided.",
+            Subject.lookup, self._db, Subject.TAG, None, None
+        )
+
     def test_lookup_autocreate(self):
         # By default, Subject.lookup creates a Subject that doesn't exist.
         identifier = self._str
+        name = self._str
         subject, was_new = Subject.lookup(
-            self._db, Subject.TAG, identifier, None
+            self._db, Subject.TAG, identifier, name
         )
         eq_(True, was_new)
         eq_(identifier, subject.identifier)
+        eq_(name, subject.name)
 
         # But you can tell it not to autocreate.
         identifier2 = self._str
@@ -949,6 +965,22 @@ class TestSubject(DatabaseTest):
         )
         eq_(False, was_new)
         eq_(None, subject)
+
+    def test_lookup_by_name(self):
+        """We can look up a subject by its name, without providing an
+        identifier."""
+        s1 = self._subject(Subject.TAG, "i1")
+        s1.name = "A tag"
+        eq_((s1, False), Subject.lookup(self._db, Subject.TAG, None, "A tag"))
+
+        # If we somehow get into a state where there are two Subjects
+        # with the same name, Subject.lookup treats them as interchangeable.
+        s2 = self._subject(Subject.TAG, "i2")
+        s2.name = "A tag"
+
+        subject, is_new = Subject.lookup(self._db, Subject.TAG, None, "A tag")
+        assert subject in [s1, s2]
+        eq_(False, is_new)
         
     def test_assign_to_genre_can_remove_genre(self):
         # Here's a Subject that identifies children's books.
