@@ -937,7 +937,6 @@ class TestSubject(DatabaseTest):
         """Subject.lookup will complain if you don't give it
         enough information to find a Subject.
         """
-        m = Subject._lookup
         assert_raises_regexp(
             ValueError, "Cannot look up Subject with no type.",
             Subject.lookup, self._db, None, "identifier", "name"
