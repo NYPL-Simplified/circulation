@@ -260,6 +260,21 @@ class TestWorkBasedLane(DatabaseTest):
         adults_only_lane = WorkBasedLane(self._default_library, work, '')
         eq_(sorted(Classifier.AUDIENCES), sorted(adults_only_lane.audiences))
 
+    def test_default_children_list_not_reused(self):
+        work = self._work()
+
+        # By default, a WorkBasedLane has no children.
+        lane1 = WorkBasedLane(self._default_library, work)
+        eq_([], lane1.children)
+
+        # Add a child...
+        lane1.children.append(object)
+
+        # Another lane for the same work gets a different, empty list
+        # of children. It doesn't reuse the first lane's list.
+        lane2 = WorkBasedLane(self._default_library, work)
+        eq_([], lane2.children)
+
 
 class TestRelatedBooksLane(DatabaseTest):
 
