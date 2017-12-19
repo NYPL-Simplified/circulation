@@ -1417,7 +1417,8 @@ class Lane(Base, WorkList):
             # choose randomly from the entire lane.
             return 0,1
         width = target_size / (self.size * 0.2)
-        
+        width = min(1, width)
+
         maximum_offset = 1-width
         start = random.random() * maximum_offset
         return start, start+width
