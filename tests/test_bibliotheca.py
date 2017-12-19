@@ -144,7 +144,9 @@ class TestItemListParser(BaseBibliothecaTest):
             )
         )
         for narrator in narrators:
-            eq_(Contributor.NARRATOR_ROLE, narrator.role)
+            eq_([Contributor.NARRATOR_ROLE], narrator.roles)
+        eq_(["Callow, Simon", "Mann, Bruce", "Hagon, Garrick"],
+            [narrator.sort_name for narrator in narrators])
 
     def test_parse_genre_string(self):
         def f(genre_string):
