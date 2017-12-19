@@ -939,12 +939,12 @@ class TestSubject(DatabaseTest):
         """
         m = Subject._lookup
         assert_raises_regexp(
-            ValueError, "Cannot look up Subject with no type."
+            ValueError, "Cannot look up Subject with no type.",
             Subject.lookup, self._db, None, "identifier", "name"
         )
         assert_raises_regexp(
             ValueError,
-            "Cannot look up Subject when neither identifier nor name is provided."
+            "Cannot look up Subject when neither identifier nor name is provided.",
             Subject.lookup, self._db, Subject.TAG, None, None
         )
 
