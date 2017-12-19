@@ -132,10 +132,8 @@ class TestSessionManager(DatabaseTest):
 
         SessionManager.refresh_materialized_views(self._db)
 
-        # The work has been added to the materialized views.
-        # (It was added twice to MaterializedWorkWithGenre
-        # because it's filed under two genres.)
-        eq_([work.id], [x.works_id for x in self._db.query(mwc)])
+        # The work has been added to the materialized view. (It was
+        # added twice because it's filed under two genres.)
         eq_([work.id, work.id], [x.works_id for x in self._db.query(mwg)])
 
         # Both lanes have had .size set to the correct value.
@@ -7700,11 +7698,10 @@ class TestMaterializedViews(DatabaseTest):
         SessionManager.refresh_materialized_views(self._db)
         [mwg] = self._db.query(mwgc).all()
 
-        eq_(pool2.id, mw.license_pool_id)
         eq_(pool2.id, mwg.license_pool_id)
 
     def test_license_data_source_is_stored_in_views(self):
-        """Verify that the data_source_name stored in the materialized views
+        """Verify that the data_source_name stored in the materialized view
         is the DataSource associated with the LicensePool, not the
         DataSource associated with the presentation Edition.
         """
@@ -7751,17 +7748,15 @@ class TestMaterializedViews(DatabaseTest):
         # We would expect the data source to be Gutenberg, since
         # that's the edition associated with the LicensePool, and not
         # the data source of the Work's presentation edition.
-        eq_(pool.data_source.name, mw.name)
         eq_(pool.data_source.name, mwg.name)
 
         # However, we would expect the title of the work to come from
         # the presentation edition.
-        eq_("staff chose this title", mw.sort_title)
+        eq_("staff chose this title", mwg.sort_title)
 
         # And since the data_source_id is the ID of the data source
         # associated with the license pool, we would expect it to be
         # the data source ID of the license pool.
-        eq_(pool.data_source.id, mw.data_source_id)
         eq_(pool.data_source.id, mwg.data_source_id)
 
 
