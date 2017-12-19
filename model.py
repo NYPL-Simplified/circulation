@@ -10792,6 +10792,30 @@ class Collection(Base, HasFullTableCache):
         _db.bulk_insert_mappings(CollectionIdentifier, new_catalog_entries)
         _db.commit()
 
+    def unresolved_catalog(self, _db, data_source_name, operation):
+        """Returns a query with all identifiers in a Collection's catalog that
+        have unsuccessfully attempted resolution. This method is used on the
+        metadata wrangler.
+
+        :return: a sqlalchemy.Query
+        """
+        coverage_source = DataSource.lookup(_db, data_source_name)
+        is_not_resolved = and_(
+            CoverageRecord.operation==operation,
+            CoverageRecord.data_source_id==coverage_source.id,
+            CoverageRecord.status!=CoverageRecord.SUCCESS,
+        )
+
+        query = _db.query(Identifier)\
+            .outerjoin(Identifier.licensed_through)\
+            .outerjoin(Identifier.coverage_records)\
+            .outerjoin(LicensePool.work).outerjoin(Identifier.collections)\
+            .filter(
+                Collection.id==self.id, is_not_resolved, Work.id==None
+            ).order_by(Identifier.id)
+
+        return query
+
     def works_updated_since(self, _db, timestamp):
         """Finds all works in a collection's catalog that have been updated
            since the timestamp. Used in the metadata wrangler.
