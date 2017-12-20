@@ -581,7 +581,7 @@ class WorkList(object):
         captures its position within the heirarchy.
         """
         lane_parentage = list(self.parentage) + [self]
-        full_parentage = [x.display_name for x in lane_parentage]
+        full_parentage = [unicode(x.display_name) for x in lane_parentage]
         if getattr(self, 'library', None):
             # This WorkList is associated with a specific library.
             # incorporate the library's name to distinguish between it
@@ -660,6 +660,8 @@ class WorkList(object):
             return []
 
         works = []
+        import time
+        a = time.time()
         for work in self.random_sample(query, target_size)[:target_size]:
             if isinstance(work, tuple):
                 # This is a (work, score) 2-tuple.
@@ -667,6 +669,8 @@ class WorkList(object):
             else:
                 # This is a regular work.
                 works.append(work)
+        b = time.time()
+        logging.warn("Got featured for %s in %.2f" % (self.display_name, b-a))
         return works
 
     def works(self, _db, facets=None, pagination=None):
@@ -1131,6 +1135,10 @@ class Lane(Base, WorkList):
     @property
     def collection_ids(self):
         return [x.id for x in self.library.collections]
+
+    @property
+    def children(self):
+        return self.sublanes
 
     @property
     def visible_children(self):
