@@ -1658,6 +1658,10 @@ class RefreshMaterializedViewsScript(Script):
             b = time.time()
             print "%s refreshed in %.2f sec." % (view_name, b-a)
 
+        # Recalculate the sizes of lanes.
+        for lane in db.query(Lane):
+            lane.update_size(db)
+
         # Close out this session because we're about to create another one.
         db.commit()
         db.close()
