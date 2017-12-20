@@ -612,6 +612,8 @@ class LaneSweeperScript(LibraryInputScript):
         while queue:
             new_queue = []
             for l in queue:
+                if isinstance(l, Lane):
+                    l = self._db.merge(l)
                 if self.should_process_lane(l):
                     self.process_lane(l)
                     self._db.commit()
