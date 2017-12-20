@@ -467,10 +467,11 @@ class TestFeaturedFacets(DatabaseTest):
         high_quality_2.random = 1
         eq_([high_quality_1, high_quality_2, low_quality], featured.all())
 
-        # Passing in distinct=True makes the query distinct.
+        # Passing in distinct=True makes the query distinct on
+        # three different fields.
         eq_(False, base_query._distinct)
         distinct_query = facets.apply(self._db, base_query, Work, True)
-        eq_(True, distinct_query._distinct)
+        eq_(3, len(distinct_query._distinct))
 
 
 
@@ -1739,11 +1740,11 @@ class TestLane(DatabaseTest):
         # It's possible to restrict a lane so that only works that are
         # _featured_ on a list show up. The work isn't featured, so it
         # doesn't show up.
-        eq_([], results(must_be_featured=True))
+        eq_([], results(must_be_featured=True, expect_distinct=True))
 
         # Now it's featured, and it shows up.
         gutenberg_list_entry.featured = True
-        eq_([work], results(must_be_featured=True))
+        eq_([work], results(must_be_featured=True, expect_distinct=True))
 
         # It's possible to restrict a lane to works that were seen on
         # a certain list in a given timeframe.
@@ -1754,8 +1755,8 @@ class TestLane(DatabaseTest):
         # The lane will only show works that were seen within the last
         # day. There are no such works.
         gutenberg_lists_lane.list_seen_in_previous_days = 1
-        eq_([], results())
+        eq_([], results(expect_distinct=True))
 
         # Now it's been loosened to three days, and the work shows up.
         gutenberg_lists_lane.list_seen_in_previous_days = 3
-        eq_([work], results())
+        eq_([work], results(expect_distinct=True))
