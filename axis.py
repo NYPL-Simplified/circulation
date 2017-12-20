@@ -28,6 +28,7 @@ from model import (
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
+    Hyperlink,
     LicensePool,
     Edition,
     Identifier,
@@ -42,6 +43,7 @@ from metadata_layer import (
     FormatData,
     IdentifierData,
     CirculationData,
+    LinkData,
     Metadata,
 )
 
@@ -487,7 +489,6 @@ class BibliographicParser(Axis360Parser):
         # audiobooks) so I don't know what they do and/or what format
         # they're in.
         #
-        # annotation
         # edition
         # runtime
 
@@ -516,6 +517,20 @@ class BibliographicParser(Axis360Parser):
                     n, force_role=Contributor.NARRATOR_ROLE
                 )
                 contributors.append(contributor)
+
+        links = []
+        description = self.text_of_optional_subtag(
+            element, 'axis:annotation', ns
+        )
+        if description:
+            print description
+            links.append(
+                LinkData(
+                    rel=Hyperlink.DESCRIPTION,
+                    content=description,
+                    media_type="text/plain",
+                )
+            )
 
         subject = self.text_of_optional_subtag(element, 'axis:subject', ns)
         subjects = []
@@ -597,6 +612,7 @@ class BibliographicParser(Axis360Parser):
             identifiers=identifiers,
             subjects=subjects,
             contributors=contributors,
+            links=links,
         )
 
         circulationdata = CirculationData(
