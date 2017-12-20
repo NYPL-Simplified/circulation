@@ -15,6 +15,7 @@ from model import (
     Identifier,
     Subject,
     Contributor,
+    Hyperlink,
     LicensePool,
     Representation,
     DeliveryMechanism,
@@ -140,6 +141,14 @@ class TestParsers(AxisTest):
         # TODO: Would be nicer if we could test getting a real value
         # for this.
         eq_(None, bib2.series)
+
+        # Book #1 has a description.
+        [description] = bib1.links
+        eq_(Hyperlink.DESCRIPTION, description.rel)
+        eq_(Representation.TEXT_PLAIN, description.media_type)
+        assert description.content.startswith(
+            "John McCain's deeply moving memoir"
+        )
 
         # Book #1 has a primary author, another author and a narrator.
         #

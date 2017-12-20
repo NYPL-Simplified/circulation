@@ -612,6 +612,8 @@ class LaneSweeperScript(LibraryInputScript):
         while queue:
             new_queue = []
             for l in queue:
+                if isinstance(l, Lane):
+                    l = self._db.merge(l)
                 if self.should_process_lane(l):
                     self.process_lane(l)
                     self._db.commit()
@@ -1657,6 +1659,10 @@ class RefreshMaterializedViewsScript(Script):
             db.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
             b = time.time()
             print "%s refreshed in %.2f sec." % (view_name, b-a)
+
+        # Recalculate the sizes of lanes.
+        for lane in db.query(Lane):
+            lane.update_size(db)
 
         # Close out this session because we're about to create another one.
         db.commit()

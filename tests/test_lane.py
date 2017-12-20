@@ -467,10 +467,11 @@ class TestFeaturedFacets(DatabaseTest):
         high_quality_2.random = 1
         eq_([high_quality_1, high_quality_2, low_quality], featured.all())
 
-        # Passing in distinct=True makes the query distinct.
+        # Passing in distinct=True makes the query distinct on
+        # three different fields.
         eq_(False, base_query._distinct)
         distinct_query = facets.apply(self._db, base_query, Work, True)
-        eq_(True, distinct_query._distinct)
+        eq_(3, len(distinct_query._distinct))
 
 
 
@@ -1504,11 +1505,18 @@ class TestLane(DatabaseTest):
             )
             
             if lane.uses_customlists:
-                # This query needs to be distinct, and
                 # bibliographic_filter_clause modifies the query (by
                 # calling customlist_filter_clauses).
                 assert base_query != new_query
-                eq_(True, distinct)
+                if not lane.list_datasource and len(lane.customlists) < 2:
+                    # This query does not need to be distinct -- either
+                    # there are no custom lists involved, or there
+                    # is known to be only a single list.
+                    eq_(False, distinct)
+                else:
+                    # This query needs to be distinct, because a 
+                    # single book might show up more than once.
+                    eq_(True, distinct)
             else:
                 # The input query is the same as the output query, and
                 # it does not need to be distinct.
@@ -1694,7 +1702,8 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane = self._lane()
         gutenberg_lists_lane.list_datasource = gutenberg
 
-        def results(lane=gutenberg_lists_lane, must_be_featured=False):
+        def results(lane=gutenberg_lists_lane, must_be_featured=False,
+                    expect_distinct=False):
             qu = self._db.query(Work)
             new_qu, clauses, distinct = lane.customlist_filter_clauses(
                 qu, Work, must_be_featured=must_be_featured
@@ -1704,33 +1713,38 @@ class TestLane(DatabaseTest):
             # new join against CustomList.
             assert new_qu != qu
 
-            # Whenever a CustomList is in play, the query needs to be made
-            # distinct.
-            eq_(distinct, True)
+            eq_(expect_distinct, distinct)
 
             # Run the query and see what it matches.
             modified = new_qu.filter(and_(*clauses)).distinct()
             return modified.all()
 
         # Both lanes contain the work.
-        eq_([work], results(gutenberg_list_lane))
-        eq_([work], results(gutenberg_lists_lane))
+        eq_([work], results(gutenberg_list_lane, expect_distinct=False))
+        eq_([work], results(gutenberg_lists_lane, expect_distinct=True))
+
+        # If we add another list to the gutenberg_list_lane,
+        # it becomes distinct, because there's now a possibility
+        # that a single book might show up more than once.
+        gutenberg_list_2, ignore = self._customlist(num_entries=0)
+        gutenberg_list_lane.customlists.append(gutenberg_list)
+        eq_([work], results(gutenberg_list_lane, expect_distinct=True))
 
         # This lane gets every work on a list associated with Overdrive.
         # There are no such lists, so the lane is empty.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         overdrive_lists_lane = self._lane()
         overdrive_lists_lane.list_datasource = overdrive
-        eq_([], results(overdrive_lists_lane))
+        eq_([], results(overdrive_lists_lane, expect_distinct=True))
 
         # It's possible to restrict a lane so that only works that are
         # _featured_ on a list show up. The work isn't featured, so it
         # doesn't show up.
-        eq_([], results(must_be_featured=True))
+        eq_([], results(must_be_featured=True, expect_distinct=True))
 
         # Now it's featured, and it shows up.
         gutenberg_list_entry.featured = True
-        eq_([work], results(must_be_featured=True))
+        eq_([work], results(must_be_featured=True, expect_distinct=True))
 
         # It's possible to restrict a lane to works that were seen on
         # a certain list in a given timeframe.
@@ -1741,8 +1755,8 @@ class TestLane(DatabaseTest):
         # The lane will only show works that were seen within the last
         # day. There are no such works.
         gutenberg_lists_lane.list_seen_in_previous_days = 1
-        eq_([], results())
+        eq_([], results(expect_distinct=True))
 
         # Now it's been loosened to three days, and the work shows up.
         gutenberg_lists_lane.list_seen_in_previous_days = 3
-        eq_([work], results())
+        eq_([work], results(expect_distinct=True))
