@@ -349,15 +349,14 @@ class FeaturedFacets(object):
     def apply(self, _db, qu, work_model, distinct):
 
         quality = self.quality_tier_field(work_model)
+        # qu = qu.order_by(quality.desc(), work_model.random)
+        qu = qu.order_by(work_model.random)
         if distinct:
-            qu = qu.order_by(quality.desc(), work_model.random)
             if work_model is Work:
                 id_field = work_model.id
             else:
                 id_field = work_model.works_id
             qu = qu.distinct(quality, work_model.random, id_field)
-        else:
-            qu = qu.order_by(quality.desc(), work_model.random)
         return qu
 
     def quality_tier_field(self, mv):
@@ -710,7 +709,7 @@ class WorkList(object):
             mw = MaterializedWork
 
         if isinstance(facets, FeaturedFacets):
-            qu = _db.query(mw, facets.quality_tier_field(mw))
+            qu = _db.query(mw)#, facets.quality_tier_field(mw))
         else:
             qu = _db.query(mw)
 
