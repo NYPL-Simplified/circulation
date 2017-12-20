@@ -328,9 +328,9 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         super(CacheRepresentationPerLane, self).__init__(_db, *args, **kwargs)
         self.parse_args(cmd_args)
         from api.app import app
-        app.manager = CirculationManager(_db, testing=testing)
+        app.manager = CirculationManager(self._db, testing=testing)
         self.app = app
-        self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
+        self.base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
         
     def parse_args(self, cmd_args=None):
         parser = self.arg_parser(self._db)
