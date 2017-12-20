@@ -528,7 +528,7 @@ class BibliographicParser(Axis360Parser):
                 LinkData(
                     rel=Hyperlink.DESCRIPTION,
                     content=description,
-                    media_type="text/plain",
+                    media_type=Representation.TEXT_PLAIN,
                 )
             )
 
