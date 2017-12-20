@@ -28,6 +28,7 @@ from core import log
 from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
+    Base,
     CirculationEvent,
     ConfigurationSetting,
     Contribution,
@@ -481,7 +482,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             languages = None
             lane_name = None
 
-        library = lane.library
+        library = lane.get_library(self._db)
         url = self.app.manager.cdn_url_for(
             "feed", languages=languages, lane_name=lane_name, library_short_name=library.short_name
         )
@@ -540,7 +541,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
 
     def should_process_lane(self, lane):
         # OPDS group feeds are only generated for lanes that have sublanes.
-        if not lane.sublanes:
+        if not lane.children:
             return False
         if self.max_depth and lane.depth > self.max_depth:
             return False
@@ -556,7 +557,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         else:
             languages = None
             lane_name = None
-        library = lane.library
+        library = lane.get_library(self._db)
         url = self.app.manager.cdn_url_for(
             "acquisition_groups", languages=languages, lane_name=lane_name, library_short_name=library.short_name
         )
