@@ -347,11 +347,13 @@ class FeaturedFacets(object):
         self.uses_customlists = uses_customlists
 
     def apply(self, _db, qu, work_model, distinct):
-        qu = qu.order_by(
-            self.quality_tier_field(work_model).desc(), work_model.random
-        )
+
+        quality = self.quality_tier_field(work_model)
         if distinct:
-            qu = qu.distinct()
+            qu = qu.order_by(quality.desc(), work_model.random)
+            qu = qu.distinct(quality, work_model.random, work_model.works_id)
+        else:
+            qu = qu.order_by(quality.desc(), work_model.random)
         return qu
 
     def quality_tier_field(self, mv):
@@ -376,6 +378,8 @@ class FeaturedFacets(object):
         :param mv: Either MaterializedWork, MaterializedWorkWithGenre,
         or Work is acceptable here.
         """
+        if hasattr(self, '_quality_tier_field'):
+            return self._quality_tier_field
         featurable_quality = self.minimum_featured_quality
 
         # Being of featureable quality is great.
@@ -407,7 +411,8 @@ class FeaturedFacets(object):
                 [(CustomListEntry.featured, 11)], else_=0
             )
             tier = tier + featured_on_list
-        return tier
+        self._quality_tier_field = tier
+        return self._quality_tier_field
 
 
 class Pagination(object):
@@ -1566,8 +1571,16 @@ class Lane(Base, WorkList):
         if self.list_datasource:
             clauses.append(a_list.data_source==self.list_datasource)
         customlist_ids = [x.id for x in self.customlists]
+
+        # Now that custom list(s) are involved, we must (probably)
+        # eventually set DISTINCT to True on the query.
+        distinct = True
         if customlist_ids:
             clauses.append(a_list.id.in_(customlist_ids))
+            if len(customlist_ids) == 1:
+                # There's only one list, so no risk that a book
+                # might show up more than once.
+                distinct = False
         if must_be_featured:
             clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
@@ -1576,9 +1589,7 @@ class Lane(Base, WorkList):
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)
             
-        # Now that a custom list is involved, we must eventually set
-        # DISTINCT to True on the query.
-        return qu, clauses, True
+        return qu, clauses, distinct
 
 Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id, cascade='all, delete-orphan')
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)

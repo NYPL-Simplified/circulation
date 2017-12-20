@@ -1504,11 +1504,18 @@ class TestLane(DatabaseTest):
             )
             
             if lane.uses_customlists:
-                # This query needs to be distinct, and
                 # bibliographic_filter_clause modifies the query (by
                 # calling customlist_filter_clauses).
                 assert base_query != new_query
-                eq_(True, distinct)
+                if not lane.list_datasource and len(list.customlists) < 2:
+                    # This query does not need to be distinct -- either
+                    # there are no custom lists involved, or there
+                    # is known to be only a single list.
+                    eq_(False, distinct)
+                else:
+                    # This query needs to be distinct, because a 
+                    # single book might show up more than once.
+                    eq_(True, distinct)
             else:
                 # The input query is the same as the output query, and
                 # it does not need to be distinct.
@@ -1694,7 +1701,8 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane = self._lane()
         gutenberg_lists_lane.list_datasource = gutenberg
 
-        def results(lane=gutenberg_lists_lane, must_be_featured=False):
+        def results(lane=gutenberg_lists_lane, must_be_featured=False,
+                    expect_distinct=False):
             qu = self._db.query(Work)
             new_qu, clauses, distinct = lane.customlist_filter_clauses(
                 qu, Work, must_be_featured=must_be_featured
@@ -1704,17 +1712,22 @@ class TestLane(DatabaseTest):
             # new join against CustomList.
             assert new_qu != qu
 
-            # Whenever a CustomList is in play, the query needs to be made
-            # distinct.
-            eq_(distinct, True)
+            eq_(expect_distinct, distinct)
 
             # Run the query and see what it matches.
             modified = new_qu.filter(and_(*clauses)).distinct()
             return modified.all()
 
         # Both lanes contain the work.
-        eq_([work], results(gutenberg_list_lane))
-        eq_([work], results(gutenberg_lists_lane))
+        eq_([work], results(gutenberg_list_lane, expect_distinct=False))
+        eq_([work], results(gutenberg_lists_lane, expect_distinct=True))
+
+        # If we add another list to the gutenberg_list_lane,
+        # it becomes distinct, because there's now a possibility
+        # that a single book might show up more than once.
+        gutenberg_list_2, ignore = self._customlist(num_entries=0)
+        gutenberg_list_lane.customlists.append(gutenberg_list)
+        eq_([work], results(gutenberg_list_lane, expect_distinct=True))
 
         # This lane gets every work on a list associated with Overdrive.
         # There are no such lists, so the lane is empty.
