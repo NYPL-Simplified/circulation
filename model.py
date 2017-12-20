@@ -5965,15 +5965,35 @@ class Subject(Base):
     def lookup(cls, _db, type, identifier, name, autocreate=True):
         """Turn a subject type and identifier into a Subject."""
         classifier = Classifier.lookup(type)
+        if not type:
+            raise ValueError("Cannot look up Subject with no type.")
+        if not identifier and not name:
+            raise ValueError(
+                "Cannot look up Subject when neither identifier nor name is provided."
+            )
+
+        # An identifier is more reliable than a name, so we would rather
+        # search based on identifier. But if we only have a name, we'll
+        # search based on name.
+        if identifier:
+            find_with = dict(identifier=identifier)
+            create_with = dict(name=name)
+        else:
+            # Type + identifier is unique, but type + name is not
+            # (though maybe it should be). So we need to provide
+            # on_multiple.
+            find_with = dict(name=name, on_multiple='interchangeable')
+            create_with = dict()
+
         if autocreate:
             subject, new = get_one_or_create(
                 _db, Subject, type=type,
-                identifier=identifier,
-                create_method_kwargs=dict(name=name)
+                create_method_kwargs=create_with,
+                **find_with
             )
         else:
+            subject = get_one(_db, Subject, type=type, **find_with)
             new = False
-            subject = get_one(_db, Subject, type=type, identifier=identifier)
         if name and not subject.name:
             # We just discovered the name of a subject that previously
             # had only an ID.

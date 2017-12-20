@@ -30,7 +30,7 @@ from util.http import BadResponseException
 class BaseBibliothecaTest(object):
 
     base_path = os.path.split(__file__)[0]
-    resource_path = os.path.join(base_path, "files", "3m")
+    resource_path = os.path.join(base_path, "files", "bibliotheca")
 
     @classmethod
     def get_data(cls, filename):
@@ -121,7 +121,7 @@ class TestBibliothecaAPI(DatabaseTest, BaseBibliothecaTest):
 
 class TestItemListParser(BaseBibliothecaTest):
 
-    def test_parse_author_string(cls):
+    def test_contributors_for_string(cls):
         authors = list(ItemListParser.contributors_from_string(
             "Walsh, Jill Paton; Sayers, Dorothy L."))
         eq_([x.sort_name for x in authors], 
@@ -131,9 +131,22 @@ class TestItemListParser(BaseBibliothecaTest):
             [[Contributor.AUTHOR_ROLE], [Contributor.AUTHOR_ROLE]]
         )
 
+        # Parentheticals are stripped.
         [author] = ItemListParser.contributors_from_string(
             "Baum, Frank L. (Frank Lyell)")
         eq_("Baum, Frank L.", author.sort_name)
+
+        # It's possible to specify some role other than AUTHOR_ROLE.
+        narrators = list(
+            ItemListParser.contributors_from_string(
+                "Callow, Simon; Mann, Bruce; Hagon, Garrick",
+                Contributor.NARRATOR_ROLE
+            )
+        )
+        for narrator in narrators:
+            eq_([Contributor.NARRATOR_ROLE], narrator.roles)
+        eq_(["Callow, Simon", "Mann, Bruce", "Hagon, Garrick"],
+            [narrator.sort_name for narrator in narrators])
 
     def test_parse_genre_string(self):
         def f(genre_string):
@@ -147,7 +160,6 @@ class TestItemListParser(BaseBibliothecaTest):
         eq_(["Action & Adventure", "Science Fiction", "Fantasy", "Magic",
              "Renaissance"], 
             f("Action &amp;amp; Adventure,Science Fiction, Fantasy, Magic,Renaissance,"))
-
 
     def test_item_list(cls):
         data = cls.get_data("item_metadata_list_mini.xml")        
@@ -198,6 +210,22 @@ class TestItemListParser(BaseBibliothecaTest):
         eq_(Hyperlink.DESCRIPTION, description.rel)
         assert description.content.startswith("<b>Winner")
 
+    def test_multiple_contributor_roles(self):
+        data = self.get_data("item_metadata_audio.xml")
+        [data] = list(ItemListParser().parse(data))
+        names_and_roles = []
+        for c in data.contributors:
+            [role] = c.roles
+            names_and_roles.append((c.sort_name, role))
+
+        # We found one author and three narrators.
+        eq_(
+            sorted([(u'Riggs, Ransom', u'Author'),
+                    (u'Callow, Simon', u'Narrator'),
+                    (u'Mann, Bruce', u'Narrator'),
+                    (u'Hagon, Garrick', u'Narrator')]),
+            sorted(names_and_roles)
+        )
 
 class TestBibliographicCoverageProvider(TestBibliothecaAPI):
 

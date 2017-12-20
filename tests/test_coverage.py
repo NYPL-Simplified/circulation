@@ -505,6 +505,52 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         eq_(CoverageRecord.SUCCESS, record.status)
         eq_(None, record.exception)
 
+    def test_register_can_overwrite_existing_record_status(self):
+        provider = AlwaysSuccessfulCoverageProvider
+
+        # Create an existing record, and give it a SUCCESS status.
+        provider.register(self.identifier)
+        [existing] = self.identifier.coverage_records
+        existing.status = CoverageRecord.SUCCESS
+
+        # If registration is forced, an existing record is updated.
+        provider.register(self.identifier, force=True)
+        [record] = self.identifier.coverage_records
+        eq_(existing, record)
+        eq_(CoverageRecord.REGISTERED, record.status)
+
+    def test_register_with_collection(self):
+        provider = AlwaysSuccessfulCoverageProvider
+        provider_data_source = provider.DATA_SOURCE_NAME
+        provider.DATA_SOURCE_NAME = None
+        collection = self._collection(data_source_name=DataSource.AXIS_360)
+
+        try:
+            # If the provider has not set a DATA_SOURCE_NAME and a collection
+            # is given, a record is created with the collection's data_source.
+            provider.register(self.identifier, collection=collection)
+            [record] = self.identifier.coverage_records
+
+            record_data_source = record.data_source.name
+            assert provider.DATA_SOURCE_NAME != record_data_source
+            eq_(collection.data_source.name, record_data_source)
+
+            # The record's collection has not been set, though.
+            eq_(None, record.collection)
+
+            # However, when coverage is collection-specific the
+            # CoverageRecord is related to the given collection.
+            provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+
+            provider.register(self.identifier, collection=collection)
+            records = self.identifier.coverage_records
+            eq_(2, len(records))
+            assert [r for r in records if r.collection==collection]
+        finally:
+            # Return the mock class to its original state for other tests.
+            provider.DATA_SOURCE_NAME = provider_data_source
+            provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = True
+
     def test_ensure_coverage(self):
         """Verify that ensure_coverage creates a CoverageRecord for an
         Identifier, assuming that the CoverageProvider succeeds.
@@ -704,7 +750,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
     def test_items_that_need_coverage_respects_registration_reqs(self):
         provider = AlwaysSuccessfulCoverageProvider(
-            self._db, preregistered_only=True
+            self._db, registered_only=True
         )
 
         items = provider.items_that_need_coverage()
