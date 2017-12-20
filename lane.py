@@ -667,8 +667,6 @@ class WorkList(object):
             return []
 
         works = []
-        import time
-        a = time.time()
         for work in self.random_sample(query, target_size)[:target_size]:
             if isinstance(work, tuple):
                 # This is a (work, score) 2-tuple.
@@ -676,8 +674,6 @@ class WorkList(object):
             else:
                 # This is a regular work.
                 works.append(work)
-        b = time.time()
-        logging.warn("Got featured for %s in %.2f" % (self.display_name, b-a))
         return works
 
     def works(self, _db, facets=None, pagination=None):
