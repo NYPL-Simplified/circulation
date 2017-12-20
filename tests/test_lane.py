@@ -1507,7 +1507,7 @@ class TestLane(DatabaseTest):
                 # bibliographic_filter_clause modifies the query (by
                 # calling customlist_filter_clauses).
                 assert base_query != new_query
-                if not lane.list_datasource and len(list.customlists) < 2:
+                if not lane.list_datasource and len(lane.customlists) < 2:
                     # This query does not need to be distinct -- either
                     # there are no custom lists involved, or there
                     # is known to be only a single list.
@@ -1734,7 +1734,7 @@ class TestLane(DatabaseTest):
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         overdrive_lists_lane = self._lane()
         overdrive_lists_lane.list_datasource = overdrive
-        eq_([], results(overdrive_lists_lane))
+        eq_([], results(overdrive_lists_lane, expect_distinct=True))
 
         # It's possible to restrict a lane so that only works that are
         # _featured_ on a list show up. The work isn't featured, so it
