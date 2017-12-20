@@ -7556,6 +7556,43 @@ class TestCollection(DatabaseTest):
         # Now all three identifiers are in the catalog.
         assert sorted([i1, i2, i3]) == sorted(self.collection.catalog)
 
+    def test_unresolved_catalog(self):
+        # A regular schmegular identifier: untouched, pure.
+        pure_id = self._identifier()
+
+        # A 'resolved' identifier that doesn't have a work yet.
+        # (This isn't supposed to happen, but jic.)
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        operation = 'test-thyself'
+        resolved_id = self._identifier()
+        self._coverage_record(
+            resolved_id, source, operation=operation,
+            status=CoverageRecord.SUCCESS
+        )
+
+        # An unresolved identifier--we tried to resolve it, but
+        # it all fell apart.
+        unresolved_id = self._identifier()
+        self._coverage_record(
+            unresolved_id, source, operation=operation,
+            status=CoverageRecord.TRANSIENT_FAILURE
+        )
+
+        # An identifier with a Work already.
+        id_with_work = self._work().presentation_edition.primary_identifier
+
+
+        self.collection.catalog_identifiers([
+            pure_id, resolved_id, unresolved_id, id_with_work
+        ])
+
+        result = self.collection.unresolved_catalog(
+            self._db, source.name, operation
+        )
+
+        # Only the failing identifier is in the query.
+        eq_([unresolved_id], result.all())
+
     def test_works_updated_since(self):
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
