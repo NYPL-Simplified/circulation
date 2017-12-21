@@ -1793,18 +1793,18 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_seen_in_previous_days = 3
         eq_([work.id], results(expect_distinct=True))
 
-class TestLaneGroups(DatabaseTest):
-    """Tests of Lane.groups() and the helper methods."""
+class TestWorkListGroups(DatabaseTest):
+    """Tests of WorkList.groups() and the helper methods."""
 
     def setup(self):
-        super(TestLaneGroups, self).setup()
+        super(TestWorkListGroups, self).setup()
 
         # Make sure random selections and range generations go the
         # same way every time.
         random.seed(42)
 
     def test_groups(self):
-        """A comprehensive test of Lane.groups()"""
+        """A comprehensive test of WorkList.groups()"""
         def _w(**kwargs):
             """Helper method to create a work with license pool."""
             return self._work(with_license_pool=True, **kwargs)
@@ -2004,6 +2004,38 @@ class TestLaneGroups(DatabaseTest):
                 (litfic, fiction),
                 (hq_ro, fiction),
                 (hq_sf, fiction),
+            ]
+        )
+
+        # Now instead of relying on the 'Fiction' lane, make a
+        # WorkList containing two different lanes, and call groups() on
+        # the WorkList.
+
+        class MockWorkList(object):
+
+            display_name = "Mock"
+            visible = True
+            priority = 2
+
+            def groups(self, _db, include_sublanes):
+                yield litfic, self
+
+        mock = MockWorkList()
+
+        wl = WorkList()
+        wl.initialize(
+            self._default_library, children=[best_sellers, staff_picks, mock]
+        )
+
+        # We get results from the two lanes and from the MockWorkList.
+        # Since the MockWorkList wasn't a lane, its results were obtained
+        # by calling groups() recursively.
+        assert_contents(
+            wl.groups(self._db),
+            [
+                (mq_sf, best_sellers),
+                (mq_sf, staff_picks),
+                (litfic, mock),
             ]
         )
 
