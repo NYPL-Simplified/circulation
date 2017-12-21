@@ -2046,11 +2046,11 @@ class TestWorkListGroups(DatabaseTest):
         )
 
     def test_groups_query(self):
-        # Most of the _groups_query() code is tested on a lower level,
-        # with tests of its helper methods, or at a higher level, in
-        # test_groups(). This test verifies some features of the query
-        # returned by _groups_query() that are installed by the
-        # _groups_query() method itself.
+        """_groups_query used to return a complex query -- now it
+        runs some queries and aggregates the results into a list.
+
+        TODO: This needs work before landing.
+        """
         lane = self._lane(fiction=True)
         sublane = self._lane(parent=lane, fiction=False)
 
@@ -2058,19 +2058,8 @@ class TestWorkListGroups(DatabaseTest):
 
         # Generate the query.
         qu = lane._groups_query(self._db, relevant_lanes)
-
-        # A 'lane_id' field was added to the query
-        [lane_id] = [x for x in qu.column_descriptions if x['name'] == 'lane_id']
-        # The lane field is a CASE statement with one clause for each lane.
-        # The details of this are tested in test_add_lane_id_field.
-        element = lane_id['expr'].element
-        isinstance(element, Case)
-        eq_(2, len(element.whens))
-
-        # The LIMIT is set to get enough entries to supply every lane
-        # five times over.
-        eq_(qu._limit,
-            self._default_library.featured_lane_size * len(relevant_lanes) * 5)
+        
+        assert isinstance(qu, list)
 
     def test_add_lane_id_field(self):
 
