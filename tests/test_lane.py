@@ -447,8 +447,8 @@ class TestFeaturedFacets(DatabaseTest):
         base_query = self._db.query(work_model).join(work_model.license_pool)
 
         def expect(works, qu):
-            expect_ids = [x.works_id for x in qu]
-            actual_ids = [x.id for x in works]
+            expect_ids = [x.id for x in works]
+            actual_ids = [x.works_id for x in qu]
             eq_(expect_ids, actual_ids)
 
         # Higher-tier works show up before lower-tier works.
@@ -476,12 +476,6 @@ class TestFeaturedFacets(DatabaseTest):
         eq_(False, base_query._distinct)
         distinct_query = facets.apply(self._db, base_query, True)
         eq_([work_model.works_id], distinct_query._distinct)
-
-#        # Passing in distinct=True makes the query distinct on
-#        # three different fields.
-#        eq_(False, base_query._distinct)
-#        distinct_query = facets.apply(self._db, base_query, Work, True)
-#        eq_(3, len(distinct_query._distinct))
 
 
 class TestPagination(DatabaseTest):
@@ -529,11 +523,12 @@ class MockFeaturedWorks(object):
         """Set the next return value for featured_works()."""
         self._featured_works.append(works)
 
-    def featured_works(self, *args, **kwargs):
+    def groups(self, *args, **kwargs):
         try:
-            return self._featured_works.pop(0)
+            for work in self._featured_works.pop(0):
+                yield work, self
         except IndexError:
-            return []
+            return
 
 class MockWork(object):
     """Acts as a Work or a MaterializedWorkWithGenre interchangeably."""
@@ -1798,18 +1793,18 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_seen_in_previous_days = 3
         eq_([work.id], results(expect_distinct=True))
 
-class TestLaneGroups(DatabaseTest):
-    """Tests of Lane.groups() and the helper methods."""
+class TestWorkListGroups(DatabaseTest):
+    """Tests of WorkList.groups() and the helper methods."""
 
     def setup(self):
-        super(TestLaneGroups, self).setup()
+        super(TestWorkListGroups, self).setup()
 
         # Make sure random selections and range generations go the
         # same way every time.
         random.seed(42)
 
     def test_groups(self):
-        """A comprehensive test of Lane.groups()"""
+        """A comprehensive test of WorkList.groups()"""
         def _w(**kwargs):
             """Helper method to create a work with license pool."""
             return self._work(with_license_pool=True, **kwargs)
@@ -1896,7 +1891,10 @@ class TestLaneGroups(DatabaseTest):
                 (x[0].sort_title, x[1].display_name) for x in results
             ]
             for i, expect_item in enumerate(expect):
-                actual_item = actual[i]
+                if i >= len(actual):
+                    actual_item = None
+                else:
+                    actual_item = actual[i]
                 eq_(
                     expect_item, actual_item,
                     "Mismatch in position %d: Expected %r, got %r.\nOverall, expected:\n%r\nGot:\n%r:" %
@@ -2009,6 +2007,38 @@ class TestLaneGroups(DatabaseTest):
             ]
         )
 
+        # Now instead of relying on the 'Fiction' lane, make a
+        # WorkList containing two different lanes, and call groups() on
+        # the WorkList.
+
+        class MockWorkList(object):
+
+            display_name = "Mock"
+            visible = True
+            priority = 2
+
+            def groups(self, _db, include_sublanes):
+                yield litfic, self
+
+        mock = MockWorkList()
+
+        wl = WorkList()
+        wl.initialize(
+            self._default_library, children=[best_sellers, staff_picks, mock]
+        )
+
+        # We get results from the two lanes and from the MockWorkList.
+        # Since the MockWorkList wasn't a lane, its results were obtained
+        # by calling groups() recursively.
+        assert_contents(
+            wl.groups(self._db),
+            [
+                (mq_sf, best_sellers),
+                (mq_sf, staff_picks),
+                (litfic, mock),
+            ]
+        )
+
     def test_groups_query(self):
         # Most of the _groups_query() code is tested on a lower level,
         # with tests of its helper methods, or at a higher level, in
@@ -2085,18 +2115,18 @@ class TestLaneGroups(DatabaseTest):
     def test_featured_window(self):
         lane = self._lane()
 
-        # If the lane has fewer than 100 items, the 'window'
-        # spans the entire range from zero to one.
+        # Unless the lane has more items than we are asking for, the
+        # 'window' spans the entire range from zero to one.
         eq_((0,1), lane.featured_window(1))
         lane.size = 99
-        eq_((0,1), lane.featured_window(1))
+        eq_((0,1), lane.featured_window(99))
 
         # Otherwise, the 'window' is a smaller, randomly selected range
         # between zero and one.
         lane.size = 6094
         start, end = lane.featured_window(17)
-        start = 0.63050798
-        eq_(start, round(start, 8))
+        expect_start = 0.0246619
+        eq_(expect_start, round(start, 8))
         eq_(round(start+0.013948146,8), round(end, 8))
 
         # Given a lane with 6094 works, selecting works with .random

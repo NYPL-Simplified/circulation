@@ -609,23 +609,40 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def groups(self, _db):
+    def groups(self, _db, include_sublanes=True):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped acquisition feed for the WorkList.
 
-        :return: A list of (Work, WorkList) 2-tuples, with each WorkList
-        representing the child WorkList in which the Work is found.
+        :yield: A sequence of (Work, WorkList) 2-tuples, with each
+        WorkList representing the child WorkList in which the Work is
+        found.
         """
+        if not include_sublanes:
+            for work in self.featured_works(_db):
+                yield work, self
+            return
+
         # This is a list rather than a dict because we want to
         # preserve the ordering of the children.
-        works_and_worklists = []
+        relevant_lanes = []
+        relevant_children = []
         for child in self.visible_children:
             if isinstance(child, Lane):
                 child = _db.merge(child)
-            works = child.featured_works(_db)
-            for work in works:
-                works_and_worklists.append((work, child))
-        return works_and_worklists
+                # Children that turn out to be Lanes go into relevant_lanes.
+                # Their Works will all be filled in with a single query.
+                relevant_lanes.append(child)
+            # Both Lanes and WorkLists go into relevant_children.
+            # This controls the yield order for Works.
+            relevant_children.append(child)
+
+        # _groups_for_lanes will run a query to pull featured works
+        # for any children that are Lanes, and call groups()
+        # recursively for any children that are not.
+        for work, worklist in self._groups_for_lanes(
+                _db, relevant_children, relevant_lanes
+        ):
+            yield work, worklist
 
     def featured_works(self, _db):
         """Find a random sample of featured books.
@@ -961,6 +978,244 @@ class WorkList(object):
                     results = self.works_for_specific_ids(_db, doc_ids)
 
         return results
+
+    def _groups_for_lanes(self, _db, relevant_lanes, queryable_lanes):
+
+        library = self.get_library(_db)
+        target_size = library.featured_lane_size
+
+        if isinstance(self, Lane):
+            parent_lane = self
+        else:
+            parent_lane = None
+
+        queryable_lane_set = set(queryable_lanes)
+
+        qu = self._groups_query(_db, queryable_lanes)
+        if qu is None:
+            # We won't be running the query, but we still need to
+            # run this code because we may be making calls to groups()
+            # for WorkLists not handled by the query.
+            qu = []
+
+        # `items` is ordered with highest-quality items at the front.
+        # Go down the list of results, filling in the featured items
+        # for each lane until we have `target_size` items for each
+        # lane.
+        used_by_tier = defaultdict(list)
+        unused_by_tier = defaultdict(list)
+        used = set()
+        by_lane_id = defaultdict(list)
+        total_size = 0
+        total_parent_lane_size = 0
+
+        # Establish the maximum number of works we might need to pull
+        # from this query's results. If we ever have this many, we're
+        # done with that part of the work.
+        maximum_size = target_size * len(queryable_lane_set)
+        used_by_lane = defaultdict(set)
+        for mw, quality_tier, lane_id in qu:
+            if len(by_lane_id[lane_id]) >= target_size:
+                # We already have enough works to fill the lane for
+                # which this work was selected.
+                if parent_lane and lane_id != parent_lane.id:
+                    if mw.works_id not in used:
+                        # But this MaterializedWorkWithGenre hasn't
+                        # already been used in some other lane. Add
+                        # this to the 'unused' dictionary in case we
+                        # need to use it to fill in the parent lane.
+                        #
+                        # NOTE: Checking `used`, as we did above,
+                        # isn't totally reliable because this work
+                        # might show up again in another lane and get
+                        # used then, but it doesn't hurt.
+                        unused_by_tier[quality_tier].append(mw)
+                    continue
+            else:
+                # We need this work to fill the lane for which it was
+                # selected. But no matter what, we will never feature
+                # the same work twice in a given lane.
+                if mw.works_id not in used_by_lane[lane_id]:
+                    used_by_lane[lane_id].add(mw.works_id)
+                    by_lane_id[lane_id].append(mw)
+                    if parent_lane and lane_id != parent_lane.id:
+                        # If we get really desperate, we may need to feature
+                        # this title again in the default lane.
+                        used_by_tier[quality_tier].append(mw)
+                used.add(mw.works_id)
+                total_size += 1
+                if total_size >= maximum_size:
+                    # Every lane we wanted to fill from these results is
+                    # full of recommended items. We can stop going through
+                    # the results.
+                    break
+        used_in_parent = set()
+        for lane in relevant_lanes:
+            if lane in queryable_lane_set:
+                # We found results for this lane through the main query.
+                # Yield those results.
+                for mw in by_lane_id.get(lane.id, []):
+                    yield (mw, lane)
+            else:
+                # We didn't try to use the main query to find results
+                # for this lane because we knew the results, if there
+                # were any, wouldn't be representative. Do a whole
+                # separate query and plug it in at this point.
+                for x in lane.groups(_db, include_sublanes=False):
+                    yield x
+
+        if parent_lane:
+            # To fill up the parent lane, we may need to use some of the
+            # items that were gathered for sublanes but not featured.
+            #
+            # If things get really bad, we might need to reuse some items
+            # that have already been featured in sublanes. But we'll never
+            # stoop so low as to reuse an item twice in the same lane.
+            additional_needed = target_size - len(by_lane_id[parent_lane.id])
+            for x in self._fill_parent_lane(
+                    additional_needed, unused_by_tier, used_by_tier, used
+            ):
+                yield x
+
+    def _groups_query(self, _db, lanes):
+        """Create a query that pulls MaterializedWorkWithGenre
+        objects, plus additional lane classification information.
+
+        :param lanes: Classify MaterializedWorkWithGenre objects
+        as belonging to one of these lanes.
+        """
+        if not lanes:
+            # We can't run this query at all.
+            return None
+
+        from model import MaterializedWorkWithGenre
+        work_model = MaterializedWorkWithGenre
+
+        library = self.get_library(_db)
+        target_size = library.featured_lane_size
+
+        # Start with a basic works query.
+        facets = FeaturedFacets(
+            library.minimum_featured_quality,
+            self.uses_customlists
+        )
+        qu = self.works(_db, facets=facets)
+
+        # Include a field that assigns a work to one of the sublanes,
+        # or to the parent lane if it doesn't match any of the
+        # sublanes.
+        qu = self._add_lane_id_field(_db, qu, lanes, target_size)
+
+        # We order by quality tier, then by lane, then randomly.  This
+        # ensures that if we have to apply a LIMIT, the LIMIT is more
+        # likely to cut off low-quality results for an early lane than
+        # high-quality results for a late lane.
+        qu = qu.order_by(
+            "quality_tier desc", "lane_id", work_model.random.desc()
+        )
+
+        # Setting a limit ensures that improperly distributed values
+        # for Work.random can't cause the query to return more than
+        # five times the number of records we need. If this happens,
+        # it's still bad -- we might not get records for the later
+        # lanes -- but at least the query won't run forever.
+        qu = qu.limit(target_size * len(lanes) * 5)
+
+        return qu
+
+    @classmethod
+    def _add_lane_id_field(cls, _db, qu, lanes, target_size):
+        """Add a CASE statement to the given query that explains which lane a
+        given book should be classified under.
+
+        :return: A modified query that includes a 'lane_id' field and
+        may also include new joins against the 'customlistentries'
+        table.
+        """
+        from model import MaterializedWorkWithGenre as work_model
+        lane_clauses = []
+        for sublane in lanes:
+            # Build a match clause for each relevant lane.
+            qu, clause, ignore = sublane.bibliographic_filter_clause(
+                _db, qu, featured=False, outer_join=True
+            )
+            if clause is None:
+                # This lane doesn't put any restrictions whatsoever
+                # on its contents, but we need something for the CASE
+                # statement, so create a tautology.
+                clause = work_model.works_id==work_model.works_id
+
+            clause = sublane._restrict_clause_to_window(clause, target_size)
+            if clause is not None:
+                lane_clauses.append((clause, sublane.id))
+        # Convert the clauses to a CASE statement.
+        if lane_clauses:
+            lane_id_field = case(lane_clauses, else_=None).label("lane_id")
+
+            # Add it to the query.
+            qu = qu.add_columns(lane_id_field)
+        return qu
+
+    def _restrict_clause_to_window(self, clause, target_size):
+        """Restrict the given SQLAlchemy clause so that it matches
+        approximately `target_size` items.
+        """
+        from model import MaterializedWorkWithGenre as work_model
+        if clause is None:
+            return clause
+        window_start, window_end = self.featured_window(target_size)
+        if window_start > 0 and window_start < 1:
+            clause = and_(
+                clause, 
+                work_model.random <= window_end,
+                work_model.random >= window_start
+            )
+        return clause
+
+    def _fill_parent_lane(self, additional_needed, unused_by_tier,
+                          used_by_tier, previously_used):
+        """Yield up to `additional_needed` randomly selected items from
+        `unused_by_tier`, falling back to `used_by_tier` if necessary.
+
+        :param unused_by_tier: A dictionary mapping quality tiers to
+        lists of unused MaterializedWorkWithGenre items. Because the
+        same book may have shown up as multiple
+        MaterializedWorkWithGenre items, it may show up as 'unused'
+        here even if another occurance of it has been used.
+
+        :param used_by_tier: A dictionary mapping quality tiers to lists
+        of previously used MaterializedWorkWithGenre items. These will only
+        be chosen once every item in unused_by_tier has been chosen.
+
+        :param previously_used: A set of work IDs corresponding to
+        previously selected MaterializedWorkWithGenre items. A work in
+        `unused_by_tier` will be treated as actually having been used
+        if its ID is in this set.
+
+        """
+        if not additional_needed:
+            return
+        additional_found = 0
+        for by_tier in unused_by_tier, used_by_tier:
+            # Go through each tier in decreasing quality order.
+            for tier in sorted(by_tier.keys(), key=lambda x: -x):
+                mws = by_tier[tier]
+                random.shuffle(mws)
+                for mw in mws:
+                    if (by_tier is unused_by_tier 
+                        and mw.works_id in previously_used):
+                        # We initially thought this work was unused,
+                        # and put it in the 'unused' bucket, but then
+                        # the work was used after that happened.
+                        # Treat it as used and don't use it again.
+                        continue
+                    yield (mw, self)
+                    previously_used.add(mw.works_id)
+                    additional_found += 1
+                    if additional_found >= additional_needed:
+                        # We're all done.
+                        return
+
 
 
 class LaneGenre(Base):
@@ -1409,10 +1664,8 @@ class Lane(Base, WorkList):
         :param: A 2-tuple (low value, high value), or None if the
         entire span should be considered.
         """
-        if self.size < 100:
-            # This lane is so small that there's a significant risk
-            # that the interval might not contain enough works. Just
-            # choose randomly from the entire lane.
+        if self.size < target_size:
+            # Don't bother -- we're returning the whole lane.
             return 0,1
         width = target_size / (self.size * 0.2)
         width = min(1, width)
@@ -1440,220 +1693,9 @@ class Lane(Base, WorkList):
         # lane's restrictions. Lanes that don't inherit this lane's
         # restrictions will need to be handled in a separate call to
         # groups().
-        inherited_lanes = [x for x in relevant_lanes
+        queryable_lanes = [x for x in relevant_lanes
                            if x == self or x.inherit_parent_restrictions]
-        inherited_lanes_set = set(inherited_lanes)
-
-        qu = self._groups_query(_db, inherited_lanes)
-        if qu is None:
-            return
-
-        # `items` is ordered with highest-quality items at the front.
-        # Go down the list of results, filling in the featured items
-        # for each lane until we have `target_size` items for each
-        # lane.
-        used_by_tier = defaultdict(list)
-        unused_by_tier = defaultdict(list)
-        used = set()
-        by_lane_id = defaultdict(list)
-        total_size = 0
-        total_parent_lane_size = 0
-
-        # Establish the maximum number of works we might need to pull
-        # from this query's results. If we ever have this many, we're
-        # done with that part of the work.
-        maximum_size = target_size * inherited_lanes
-        for mw, quality_tier, lane_id in qu:
-            if len(by_lane_id[lane_id]) >= target_size:
-                if lane_id != self.id:
-                    if mw.works_id not in used:
-                        # We already have enough featured items for
-                        # this lane, and this
-                        # MaterializedWorkWithGenre hasn't already
-                        # been used in some other lane. Add this to
-                        # the 'unused' dictionary in case we need to
-                        # fill in the main lane later.
-                        #
-                        # NOTE: Checking `used`, as we did above,
-                        # isn't totally reliable because this work
-                        # might show up again in another lane and get
-                        # used then, but it doesn't hurt.
-                        unused_by_tier[quality_tier].append(mw)
-                continue
-            by_lane_id[lane_id].append(mw)
-            if lane_id != self.id:
-                # If we get really desperate, we may need to feature
-                # this title again in the parent lane.
-                used_by_tier[quality_tier].append(mw)
-            used.add(mw.works_id)
-            total_size += 1
-            if total_size >= maximum_size:
-                # Every lane we wanted to fill from these results is
-                # full of recommended items. We can stop going through
-                # the results.
-                break
-
-        used_in_parent = set()
-        for lane in relevant_lanes:
-            if not lane in inherited_lanes_set:
-                # We didn't try to use the main query to find results
-                # for this lane because we knew the results, if there
-                # were any, wouldn't be representative. Do a whole
-                # separate query and plug it in at this point.
-                for x in lane.groups(_db, include_sublanes=False):
-                    yield x
-                
-            # We found results for this lane through the main query.
-            # Yield those results.
-            for mw in by_lane_id.get(lane.id, []):
-                yield (mw, lane)
-
-        # To fill up the parent lane, we may need to use some of the
-        # items that were gathered for sublanes but not featured.
-        #
-        # If things get really bad, we might need to reuse some items
-        # that have already been featured in sublanes. But we'll never
-        # stoop so low as to reuse an item twice in the same lane.
-        additional_needed = target_size - len(by_lane_id[self.id])
-        for x in self._fill_parent_lane(
-            additional_needed, unused_by_tier, used_by_tier, used
-        ):
-                yield x
-
-    def _groups_query(self, _db, lanes):
-        """Create a query that pulls MaterializedWorkWithGenre
-        objects, plus additional lane classification information.
-
-        :param lanes: Classify MaterializedWorkWithGenre objects
-        as belonging to one of these lanes.
-        """
-        from model import MaterializedWorkWithGenre
-        work_model = MaterializedWorkWithGenre
-
-        library = self.get_library(_db)
-        target_size = library.featured_lane_size
-
-        # Start with a basic works query.
-        facets = FeaturedFacets(
-            library.minimum_featured_quality,
-            self.uses_customlists
-        )
-        qu = self.works(_db, facets=facets)
-
-        # Include a field that assigns a work to one of the sublanes,
-        # or to the parent lane if it doesn't match any of the
-        # sublanes.
-        qu = self._add_lane_id_field(_db, qu, lanes, target_size)
-
-        # We order by quality tier, then by lane, then randomly.  This
-        # ensures that if we have to apply a LIMIT, the LIMIT is more
-        # likely to cut off low-quality results for an early lane than
-        # high-quality results for a late lane.
-        qu = qu.order_by(
-            "quality_tier desc", "lane_id", work_model.random.desc()
-        )
-
-        # Setting a limit ensures that improperly distributed values
-        # for Work.random can't cause the query to return more than
-        # five times the number of records we need. If this happens,
-        # it's still bad -- we might not get records for the later
-        # lanes -- but at least the query won't run forever.
-        qu = qu.limit(target_size * len(lanes) * 5)
-
-        return qu
-
-    @classmethod
-    def _add_lane_id_field(cls, _db, qu, lanes, target_size):
-        """Add a CASE statement to the given query that explains which lane a
-        given book should be classified under.
-
-        :return: A modified query that includes a 'lane_id' field and
-        may also include new joins against the 'customlistentries'
-        table.
-        """
-        from model import MaterializedWorkWithGenre as work_model
-        lane_clauses = []
-        for sublane in lanes:
-            # Build a match clause for each relevant lane.
-            qu, clause, ignore = sublane.bibliographic_filter_clause(
-                _db, qu, featured=False, outer_join=True
-            )
-            if clause is None:
-                # This lane doesn't put any restrictions whatsoever
-                # on its contents, but we need something for the CASE
-                # statement, so create a tautology.
-                clause = work_model.works_id==work_model.works_id
-
-            clause = sublane._restrict_clause_to_window(clause, target_size)
-            if clause is not None:
-                lane_clauses.append((clause, sublane.id))
-        # Convert the clauses to a CASE statement.
-        if lane_clauses:
-            lane_id_field = case(lane_clauses, else_=None).label("lane_id")
-
-            # Add it to the query.
-            qu = qu.add_columns(lane_id_field)
-        return qu
-
-    def _restrict_clause_to_window(self, clause, target_size):
-        """Restrict the given SQLAlchemy clause so that it matches
-        approximately `target_size` items.
-        """
-        from model import MaterializedWorkWithGenre as work_model
-        if clause is None:
-            return clause
-        window_start, window_end = self.featured_window(target_size)
-        if window_start > 0 and window_start < 1:
-            clause = and_(
-                clause, 
-                work_model.random <= window_end,
-                work_model.random >= window_start
-            )
-        return clause
-
-    def _fill_parent_lane(self, additional_needed, unused_by_tier,
-                          used_by_tier, previously_used):
-        """Yield up to `additional_needed` randomly selected items from
-        `unused_by_tier`, falling back to `used_by_tier` if necessary.
-
-        :param unused_by_tier: A dictionary mapping quality tiers to
-        lists of unused MaterializedWorkWithGenre items. Because the
-        same book may have shown up as multiple
-        MaterializedWorkWithGenre items, it may show up as 'unused'
-        here even if another occurance of it has been used.
-
-        :param used_by_tier: A dictionary mapping quality tiers to lists
-        of previously used MaterializedWorkWithGenre items. These will only
-        be chosen once every item in unused_by_tier has been chosen.
-
-        :param previously_used: A set of work IDs corresponding to
-        previously selected MaterializedWorkWithGenre items. A work in
-        `unused_by_tier` will be treated as actually having been used
-        if its ID is in this set.
-
-        """
-        if not additional_needed:
-            return
-        additional_found = 0
-        for by_tier in unused_by_tier, used_by_tier:
-            # Go through each tier in decreasing quality order.
-            for tier in sorted(by_tier.keys(), key=lambda x: -x):
-                mws = by_tier[tier]
-                random.shuffle(mws)
-                for mw in mws:
-                    if (by_tier is unused_by_tier 
-                        and mw.works_id in previously_used):
-                        # We initially thought this work was unused,
-                        # and put it in the 'unused' bucket, but then
-                        # the work was used after that happened.
-                        # Treat it as used and don't use it again.
-                        continue
-                    yield (mw, self)
-                    previously_used.add(mw.works_id)
-                    additional_found += 1
-                    if additional_found >= additional_needed:
-                        # We're all done.
-                        return
+        return self._groups_for_lanes(_db, relevant_lanes, queryable_lanes)
 
     def search(self, _db, query, search_client, pagination=None):
         """Find works in this lane that also match a search query.
