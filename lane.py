@@ -346,9 +346,9 @@ class FeaturedFacets(object):
         """
         from model import MaterializedWorkWithGenre as work_model
         quality = self.quality_tier_field()
-        #qu = qu.order_by(
-        #    quality.desc(), work_model.random.desc()
-        #)
+        qu = qu.order_by(
+            quality.desc(), work_model.random.desc()
+        )
         if distinct:
             qu = qu.distinct(work_model.works_id)
         return qu
