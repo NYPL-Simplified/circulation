@@ -1100,7 +1100,7 @@ class WorkList(object):
             lane_query = lane._restrict_query_to_window(lane_query, target_size)
 
             lane_query = lane_query.order_by(
-                "quality_tier", "lane_id", work_model.random.desc()
+                "quality_tier desc", "lane_id", work_model.random.desc()
             )
 
             # Get slightly more items than we need, to reduce the risk
