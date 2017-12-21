@@ -447,8 +447,8 @@ class TestFeaturedFacets(DatabaseTest):
         base_query = self._db.query(work_model).join(work_model.license_pool)
 
         def expect(works, qu):
-            expect_ids = [x.works_id for x in qu]
-            actual_ids = [x.id for x in works]
+            expect_ids = [x.id for x in works]
+            actual_ids = [x.works_id for x in qu]
             eq_(expect_ids, actual_ids)
 
         # Higher-tier works show up before lower-tier works.
@@ -476,12 +476,6 @@ class TestFeaturedFacets(DatabaseTest):
         eq_(False, base_query._distinct)
         distinct_query = facets.apply(self._db, base_query, True)
         eq_([work_model.works_id], distinct_query._distinct)
-
-#        # Passing in distinct=True makes the query distinct on
-#        # three different fields.
-#        eq_(False, base_query._distinct)
-#        distinct_query = facets.apply(self._db, base_query, Work, True)
-#        eq_(3, len(distinct_query._distinct))
 
 
 class TestPagination(DatabaseTest):
