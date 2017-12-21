@@ -24,6 +24,7 @@ from sqlalchemy import (
     not_,
     Integer,
     Table,
+    Unicode,
 )
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
@@ -77,7 +78,6 @@ from sqlalchemy import (
     Column,
     ForeignKey,
     Integer,
-    Unicode,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import (
@@ -1000,6 +1000,20 @@ class WorkList(object):
             # for WorkLists not handled by the query.
             qu = []
 
+        def _done_with_lane(lane_id):
+            """Called when we're done with a lane, either because
+            the lane chances or we've reached the end of the list.
+            """
+            # Did we get enough items?
+            num_missing = target_size-len(by_lane_id[lane_id])
+            if num_missing > 0 and might_need_to_reuse:
+                # No, we need to use some works we used in a
+                # previous lane to fill out this lane. Stick
+                # them at the end.
+                by_lane_id[lane_id].extend(
+                    might_need_to_reuse.values()[:num_missing]
+                )
+
         used_works = set()
         by_lane_id = defaultdict(list)
         working_lane_id = None
@@ -1009,16 +1023,7 @@ class WorkList(object):
                 # Either we're done with the old lane, or we're just
                 # starting and there was no old lane.
                 if lane_id:
-                    # We're done with a lane. Did we get enough
-                    # items?
-                    num_missing = target_size-len(by_lane_id[lane_id])
-                    if num_missing > 0 and might_need_to_reuse:
-                        # No, we need to use some works we used in a
-                        # previous lane to fill out this lane. Stick
-                        # them at the end.
-                        by_lane_id[lane_id].extend(
-                            might_need_to_reuse.values()[:num_missing]
-                        )
+                    _done_with_lane(lane_id)
                 working_lane_id = lane_id
                 used_works_this_lane = set()
                 might_need_to_reuse = dict()
@@ -1036,7 +1041,10 @@ class WorkList(object):
                 titles = [x.sort_title for x in by_lane_id[lane_id]]
                 used_works.add(mw.works_id)
                 used_works_this_lane.add(mw.works_id)
-        
+
+        # Close out the last lane encountered.
+        _done_with_lane(lane_id)
+
         for lane in relevant_lanes:
             if lane in queryable_lane_set:
                 # We found results for this lane through the main query.
