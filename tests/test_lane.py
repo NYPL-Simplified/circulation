@@ -531,9 +531,10 @@ class MockFeaturedWorks(object):
 
     def groups(self, *args, **kwargs):
         try:
-            return self._featured_works.pop(0)
+            for work in self._featured_works.pop(0):
+                yield work, self
         except IndexError:
-            return []
+            return
 
 class MockWork(object):
     """Acts as a Work or a MaterializedWorkWithGenre interchangeably."""
