@@ -2115,18 +2115,18 @@ class TestWorkListGroups(DatabaseTest):
     def test_featured_window(self):
         lane = self._lane()
 
-        # If the lane has fewer than 100 items, the 'window'
-        # spans the entire range from zero to one.
+        # Unless the lane has more items than we are asking for, the
+        # 'window' spans the entire range from zero to one.
         eq_((0,1), lane.featured_window(1))
         lane.size = 99
-        eq_((0,1), lane.featured_window(1))
+        eq_((0,1), lane.featured_window(99))
 
         # Otherwise, the 'window' is a smaller, randomly selected range
         # between zero and one.
         lane.size = 6094
         start, end = lane.featured_window(17)
-        start = 0.63050798
-        eq_(start, round(start, 8))
+        expect_start = 0.0246619
+        eq_(expect_start, round(start, 8))
         eq_(round(start+0.013948146,8), round(end, 8))
 
         # Given a lane with 6094 works, selecting works with .random
