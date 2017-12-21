@@ -1103,6 +1103,7 @@ class WorkList(object):
         )
         first_query = None
         other_queries = []
+        items = []
         for lane in lanes:
             # Get the basic query for finding works in this lane.
             lane_query = self.works(_db, facets=facets)
@@ -1115,31 +1116,18 @@ class WorkList(object):
             # Make sure this query finds a number of works proportinal
             # to the expected size of the lane.
             lane_query = lane._restrict_query_to_window(lane_query, target_size)
-            if not first_query:
-                first_query = lane_query
-            else:
-                other_queries.append(lane_query)
 
-        # Our basic query is the UNION of the query for each lane.
-        qu = first_query.union(*other_queries)
-        set_trace()
+            # We order by quality tier, then by lane, then randomly.  This
+            # ensures that the LIMIT is more likely to cut off low-quality
+            # results for an early lane than high-quality results for a
+            # late lane.
+            lane_query = lane_query.order_by(
+                "quality_tier", "lane_id", work_model.random.desc()
+            )
 
-        # We order by quality tier, then by lane, then randomly.  This
-        # ensures that the LIMIT is more likely to cut off low-quality
-        # results for an early lane than high-quality results for a
-        # late lane.
-        qu = qu.order_by(
-            "quality_tier", "lane_id", work_model.random.desc()
-        )
-
-        # Setting a limit ensures that improperly distributed values
-        # for Work.random can't cause the query to return more than
-        # five times the number of records we need. If this happens,
-        # it's still bad -- we might not get records for the later
-        # lanes -- but at least the query won't run forever.
-        qu = qu.limit(target_size * len(lanes) * 5)
-
-        return qu
+            lane_query = lane_query.limit(target_size)
+            items.extend(lane_query.all())
+        return items
 
     @classmethod
     def _add_lane_id_field(cls, _db, qu, lanes, target_size):

@@ -53,7 +53,15 @@ create unique index mv_works_for_lanes_work_id_genre_id on mv_works_for_lanes (w
 
 create index mv_works_for_lanes_by_availability on mv_works_for_lanes (availability_time DESC, sort_author, sort_title, works_id);
 
-create index mv_works_for_lanes_by_random_and_genre on mv_works_for_lanes (random, genre_id);
+-- Create indexes that are helpful in running the query to find featured works.
+
+create index mv_works_for_lanes_by_random_and_genre on mv_works_for_lanes (random, language, genre_id);
+
+-- Not sure we need these two.
+
+-- create index mv_works_for_lanes_by_random_and_audience on mv_works_for_lanes (random, language, audience, target_age);
+
+-- create index mv_works_for_lanes_by_random_and_fiction on mv_works_for_lanes (random, language, fiction);
 
 -- Similarly, an index on everything, sorted by descending update time.
 
