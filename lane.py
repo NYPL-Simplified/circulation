@@ -1047,18 +1047,18 @@ class WorkList(object):
                     break
         used_in_parent = set()
         for lane in relevant_lanes:
-            if not lane in queryable_lane_set:
+            if lane in queryable_lane_set:
+                # We found results for this lane through the main query.
+                # Yield those results.
+                for mw in by_lane_id.get(lane.id, []):
+                    yield (mw, lane)
+            else:
                 # We didn't try to use the main query to find results
                 # for this lane because we knew the results, if there
                 # were any, wouldn't be representative. Do a whole
                 # separate query and plug it in at this point.
                 for x in lane.groups(_db, include_sublanes=False):
                     yield x
-                
-            # We found results for this lane through the main query.
-            # Yield those results.
-            for mw in by_lane_id.get(lane.id, []):
-                yield (mw, lane)
 
         if parent_lane:
             # To fill up the parent lane, we may need to use some of the
