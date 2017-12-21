@@ -529,7 +529,7 @@ class MockFeaturedWorks(object):
         """Set the next return value for featured_works()."""
         self._featured_works.append(works)
 
-    def featured_works(self, *args, **kwargs):
+    def groups(self, *args, **kwargs):
         try:
             return self._featured_works.pop(0)
         except IndexError:
@@ -1896,7 +1896,10 @@ class TestLaneGroups(DatabaseTest):
                 (x[0].sort_title, x[1].display_name) for x in results
             ]
             for i, expect_item in enumerate(expect):
-                actual_item = actual[i]
+                if i >= len(actual):
+                    actual_item = None
+                else:
+                    actual_item = actual[i]
                 eq_(
                     expect_item, actual_item,
                     "Mismatch in position %d: Expected %r, got %r.\nOverall, expected:\n%r\nGot:\n%r:" %
