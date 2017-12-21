@@ -53,6 +53,8 @@ create unique index mv_works_for_lanes_work_id_genre_id on mv_works_for_lanes (w
 
 create index mv_works_for_lanes_by_availability on mv_works_for_lanes (availability_time DESC, sort_author, sort_title, works_id);
 
+create index mv_works_for_lanes_by_random_and_genre on mv_works_for_lanes (random, genre_id);
+
 -- Similarly, an index on everything, sorted by descending update time.
 
 create index mv_works_for_lanes_by_modification on mv_works_for_lanes (last_update_time DESC, sort_author, sort_title, works_id);

@@ -22,6 +22,7 @@ from sqlalchemy import (
     case,
     or_,
     not_,
+    Integer,
     Table,
 )
 from sqlalchemy.ext.associationproxy import (
@@ -39,6 +40,7 @@ from sqlalchemy.orm import (
     lazyload,
     relationship,
 )
+from sqlalchemy.sql.expression import literal
 
 from model import (
     get_one_or_create,
@@ -344,9 +346,9 @@ class FeaturedFacets(object):
         """
         from model import MaterializedWorkWithGenre as work_model
         quality = self.quality_tier_field()
-        qu = qu.order_by(
-            quality.desc(), work_model.random.desc()
-        )
+        #qu = qu.order_by(
+        #    quality.desc(), work_model.random.desc()
+        #)
         if distinct:
             qu = qu.distinct(work_model.works_id)
         return qu
@@ -1099,19 +1101,35 @@ class WorkList(object):
             library.minimum_featured_quality,
             self.uses_customlists
         )
-        qu = self.works(_db, facets=facets)
+        first_query = None
+        other_queries = []
+        for lane in lanes:
+            # Get the basic query for finding works in this lane.
+            lane_query = self.works(_db, facets=facets)
 
-        # Include a field that assigns a work to one of the sublanes,
-        # or to the parent lane if it doesn't match any of the
-        # sublanes.
-        qu = self._add_lane_id_field(_db, qu, lanes, target_size)
+            # Add a field that explains to the larger query why this
+            # work showed up.
+            lane_id_field = literal(lane.id, type_=Integer).label("lane_id")
+            lane_query = lane_query.add_columns(lane_id_field)
+
+            # Make sure this query finds a number of works proportinal
+            # to the expected size of the lane.
+            lane_query = lane._restrict_query_to_window(lane_query, target_size)
+            if not first_query:
+                first_query = lane_query
+            else:
+                other_queries.append(lane_query)
+
+        # Our basic query is the UNION of the query for each lane.
+        qu = first_query.union(*other_queries)
+        set_trace()
 
         # We order by quality tier, then by lane, then randomly.  This
-        # ensures that if we have to apply a LIMIT, the LIMIT is more
-        # likely to cut off low-quality results for an early lane than
-        # high-quality results for a late lane.
+        # ensures that the LIMIT is more likely to cut off low-quality
+        # results for an early lane than high-quality results for a
+        # late lane.
         qu = qu.order_by(
-            "quality_tier desc", "lane_id", work_model.random.desc()
+            "quality_tier", "lane_id", work_model.random.desc()
         )
 
         # Setting a limit ensures that improperly distributed values
@@ -1155,6 +1173,21 @@ class WorkList(object):
             # Add it to the query.
             qu = qu.add_columns(lane_id_field)
         return qu
+
+    def _restrict_query_to_window(self, query, target_size):
+        """Restrict the given SQLAlchemy query so that it matches
+        approximately `target_size` items.
+        """
+        from model import MaterializedWorkWithGenre as work_model
+        if query is None:
+            return query
+        window_start, window_end = self.featured_window(target_size)
+        if window_start > 0 and window_start < 1:
+            query = query.filter(
+                work_model.random <= window_end,
+                work_model.random >= window_start
+            )
+        return query
 
     def _restrict_clause_to_window(self, clause, target_size):
         """Restrict the given SQLAlchemy clause so that it matches
