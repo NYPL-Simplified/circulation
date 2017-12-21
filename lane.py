@@ -1023,7 +1023,7 @@ class WorkList(object):
                 # Either we're done with the old lane, or we're just
                 # starting and there was no old lane.
                 if lane_id:
-                    _done_with_lane(lane_id)
+                    _done_with_lane(working_lane_id)
                 working_lane_id = lane_id
                 used_works_this_lane = set()
                 might_need_to_reuse = dict()
@@ -1043,7 +1043,7 @@ class WorkList(object):
                 used_works_this_lane.add(mw.works_id)
 
         # Close out the last lane encountered.
-        _done_with_lane(lane_id)
+        _done_with_lane(working_lane_id)
 
         for lane in relevant_lanes:
             if lane in queryable_lane_set:
@@ -1099,17 +1099,14 @@ class WorkList(object):
             # to the expected size of the lane.
             lane_query = lane._restrict_query_to_window(lane_query, target_size)
 
-            # We order by quality tier, then by lane, then randomly.  This
-            # ensures that the LIMIT is more likely to cut off low-quality
-            # results for an early lane than high-quality results for a
-            # late lane.
             lane_query = lane_query.order_by(
                 "quality_tier", "lane_id", work_model.random.desc()
             )
 
             # Get slightly more items than we need, to reduce the risk
             # that we'll have to use a given book more than once in
-            # the overall feed.
+            # the overall feed. But don't let a weird random distribution
+            # retrieve far more items than we need.
             lane_query = lane_query.limit(target_size*1.3)
             items.extend(lane_query.all())
         return items
