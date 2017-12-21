@@ -1,5 +1,6 @@
 from nose.tools import (
     eq_,
+    set_trace,
 )
 from util.web_publication_manifest import (
     JSONable,
@@ -7,6 +8,8 @@ from util.web_publication_manifest import (
     TimelinePart,
     AudiobookManifest,
 )
+
+from . import DatabaseTest
 
 class TestJSONable(object):
 
@@ -72,6 +75,48 @@ class TestManifest(object):
             dict['resources']
         )
 
+
+class TestUpdateBibliographicMetadata(DatabaseTest):
+
+    def test_update(self):
+        edition, pool = self._edition(with_license_pool=True)
+        edition.cover_thumbnail_url = self._url
+        [author] = edition.contributors
+        manifest = Manifest()
+        manifest.update_bibliographic_metadata(pool)
+
+        metadata = manifest.metadata
+        eq_(edition.title, metadata['title'])
+        eq_(pool.identifier.urn, metadata['identifier'])
+
+        # The author's sort name is used because they have no display
+        # name.
+        eq_([author.sort_name], metadata['authors'])
+
+        # The language has been converted from ISO-3166-1-alpha-3 to
+        # ISO-3166-1-alpha-2.
+        eq_("en", metadata['language'])
+
+        [cover_link] = manifest.links
+        eq_('cover', cover_link['rel'])
+        eq_(edition.cover_thumbnail_url, cover_link['href'])
+
+        # Add an author's display name, and it is used in preference
+        # to the sort name.
+        author.display_name = "a display name"
+        manifest = Manifest()
+        manifest.update_bibliographic_metadata(pool)
+        eq_(["a display name"], manifest.metadata['authors'])
+
+        # If the pool has no presentation edition, the only information
+        # we get is the identifier.
+        pool.presentation_edition = None
+        manifest = Manifest()
+        manifest.update_bibliographic_metadata(pool)
+        eq_(pool.identifier.urn, metadata['identifier'])
+        for missing in ['title', 'language', 'authors']:
+            assert missing not in manifest.metadata
+        eq_([], manifest.links)
 
 class TestTimelinePart(object):
 

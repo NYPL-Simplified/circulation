@@ -830,7 +830,7 @@ class AcquisitionFeed(OPDSFeed):
         if group_uri:
             self.add_link_to_entry(
                 xml, rel=OPDSFeed.GROUP_REL, href=group_uri,
-                title=group_title)
+                title=unicode(group_title))
 
         return xml
 

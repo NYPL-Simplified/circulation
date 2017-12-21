@@ -343,8 +343,9 @@ class FeaturedFacets(object):
         subset of that query, this will work.
         """
         from model import MaterializedWorkWithGenre as work_model
+        quality = self.quality_tier_field()
         qu = qu.order_by(
-            self.quality_tier_field().desc(), work_model.random.desc()
+            quality.desc(), work_model.random.desc()
         )
         if distinct:
             qu = qu.distinct(work_model.works_id)
@@ -369,6 +370,8 @@ class FeaturedFacets(object):
         eliminating the need to find lower-quality works with a second
         query.
         """
+        if hasattr(self, '_quality_tier_field'):
+            return self._quality_tier_field
         from model import MaterializedWorkWithGenre as mwg
         featurable_quality = self.minimum_featured_quality
 
@@ -401,7 +404,9 @@ class FeaturedFacets(object):
                 [(CustomListEntry.featured, 11)], else_=0
             )
             tier = tier + featured_on_list
-        return tier.label("quality_tier")
+        tier = tier.label("quality_tier")
+        self._quality_tier_field = tier
+        return self._quality_tier_field
 
 
 class Pagination(object):
@@ -574,7 +579,7 @@ class WorkList(object):
         captures its position within the heirarchy.
         """
         lane_parentage = list(self.parentage) + [self]
-        full_parentage = [x.display_name for x in lane_parentage]
+        full_parentage = [unicode(x.display_name) for x in lane_parentage]
         if getattr(self, 'library', None):
             # This WorkList is associated with a specific library.
             # incorporate the library's name to distinguish between it
@@ -1127,6 +1132,10 @@ class Lane(Base, WorkList):
         return [x.id for x in self.library.collections]
 
     @property
+    def children(self):
+        return self.sublanes
+
+    @property
     def visible_children(self):
         children = [lane for lane in self.sublanes if lane.visible]
         return sorted(children, key=lambda x: (x.priority, x.display_name))
@@ -1406,7 +1415,8 @@ class Lane(Base, WorkList):
             # choose randomly from the entire lane.
             return 0,1
         width = target_size / (self.size * 0.2)
-        
+        width = min(1, width)
+
         maximum_offset = 1-width
         start = random.random() * maximum_offset
         return start, start+width
@@ -1789,8 +1799,18 @@ class Lane(Base, WorkList):
         if self.list_datasource:
             clauses.append(a_list.data_source==self.list_datasource)
         customlist_ids = [x.id for x in self.customlists]
+
+        # Now that custom list(s) are involved, we must (probably)
+        # eventually set DISTINCT to True on the query.
+        distinct = True
         if customlist_ids:
             clauses.append(a_list.id.in_(customlist_ids))
+            if len(customlist_ids) == 1:
+                # There's only one list, so no risk that a book
+                # might show up more than once.
+                distinct = False
+        if must_be_featured:
+            clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
             cutoff = datetime.datetime.utcnow() - datetime.timedelta(
                 self.list_seen_in_previous_days
@@ -1800,9 +1820,7 @@ class Lane(Base, WorkList):
         if must_be_featured:
             clauses.append(a_entry.featured==True)
             
-        # Now that a custom list is involved, we must eventually set
-        # DISTINCT to True on the query.
-        return qu, clauses, True
+        return qu, clauses, distinct
 
 Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id, cascade='all, delete-orphan')
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
