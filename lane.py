@@ -1013,6 +1013,7 @@ class WorkList(object):
         # from this query's results. If we ever have this many, we're
         # done with that part of the work.
         maximum_size = target_size * len(queryable_lane_set)
+        used_by_lane = defaultdict(set)
         for mw, quality_tier, lane_id in qu:
             if len(by_lane_id[lane_id]) >= target_size:
                 # We already have enough works to fill the lane for
@@ -1032,12 +1033,15 @@ class WorkList(object):
                     continue
             else:
                 # We need this work to fill the lane for which it was
-                # selected.
-                by_lane_id[lane_id].append(mw)
-                if parent_lane and lane_id != parent_lane.id:
-                    # If we get really desperate, we may need to feature
-                    # this title again in the default lane.
-                    used_by_tier[quality_tier].append(mw)
+                # selected. But no matter what, we will never feature
+                # the same work twice in a given lane.
+                if mw.works_id not in used_by_lane[lane_id]:
+                    used_by_lane[lane_id].add(mw.works_id)
+                    by_lane_id[lane_id].append(mw)
+                    if parent_lane and lane_id != parent_lane.id:
+                        # If we get really desperate, we may need to feature
+                        # this title again in the default lane.
+                        used_by_tier[quality_tier].append(mw)
                 used.add(mw.works_id)
                 total_size += 1
                 if total_size >= maximum_size:
@@ -1660,10 +1664,8 @@ class Lane(Base, WorkList):
         :param: A 2-tuple (low value, high value), or None if the
         entire span should be considered.
         """
-        if self.size < 100:
-            # This lane is so small that there's a significant risk
-            # that the interval might not contain enough works. Just
-            # choose randomly from the entire lane.
+        if self.size < target_size:
+            # Don't bother -- we're returning the whole lane.
             return 0,1
         width = target_size / (self.size * 0.2)
         width = min(1, width)

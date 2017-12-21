@@ -1649,7 +1649,7 @@ class RefreshMaterializedViewsScript(Script):
             concurrently = 'CONCURRENTLY'
         # Initialize database
         db = self._db
-        for view_name in self.MATERIALIZED_VIEWS.keys():
+        for view_name in SessionManager.MATERIALIZED_VIEWS.keys():
             a = time.time()
             db.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
             b = time.time()
@@ -1658,6 +1658,7 @@ class RefreshMaterializedViewsScript(Script):
         # Recalculate the sizes of lanes.
         for lane in db.query(Lane):
             lane.update_size(db)
+            print "Size of %s: %s" % (lane.full_identifier, lane.size)
 
         # Close out this session because we're about to create another one.
         db.commit()
