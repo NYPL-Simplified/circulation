@@ -113,15 +113,22 @@ class BaseCoverageProvider(object):
     # `batch_size` in the constructor, but generally nobody bothers
     # doing this.
     DEFAULT_BATCH_SIZE = 100
-    
-    def __init__(self, _db, batch_size=None, cutoff_time=None):
+
+    def __init__(self, _db, batch_size=None, cutoff_time=None,
+        registered_only=False,
+    ):
         """Constructor.
 
-        :batch_size: The maximum number of objects that will be processed
+        :param batch_size: The maximum number of objects that will be processed
         at once.
 
         :param cutoff_time: Coverage records created before this time
         will be treated as though they did not exist.
+
+        :param registered_only: Optional. Determines whether this
+        CoverageProvider will only cover items that already have been
+        "preregistered" with a CoverageRecord with a registered or failing
+        status. This option is only used on the Metadata Wrangler.
         """
         self._db = _db
         if not self.__class__.SERVICE_NAME:
@@ -138,6 +145,7 @@ class BaseCoverageProvider(object):
             batch_size = self.DEFAULT_BATCH_SIZE
         self.batch_size = batch_size
         self.cutoff_time = cutoff_time
+        self.registered_only = registered_only
         self.collection_id = None
         
     @property
@@ -441,7 +449,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
     COVERAGE_COUNTS_FOR_EVERY_COLLECTION = True
     
     def __init__(self, _db, collection=None, input_identifiers=None,
-                 replacement_policy=None, preregistered_only=False, **kwargs
+                 replacement_policy=None, **kwargs
     ):
         """Constructor.
 
@@ -458,10 +466,6 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
            Identifiers.
         :param replacement_policy: Optional. A ReplacementPolicy to use
            when updating local data with data from the third party.
-        :param preregistered_only: Optional. Determines whether this
-           CoverageProvider will only cover Identifiers that have been
-           "preregistered" with a failing CoverageRecord. This option is
-           only used on the Metadata Wrangler.
         """
         super(IdentifierCoverageProvider, self).__init__(_db, **kwargs)
 
@@ -475,7 +479,6 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         self.replacement_policy = (
             replacement_policy or self._default_replacement_policy(_db)
         )
-        self.preregistered_only = preregistered_only
 
         if not self.DATA_SOURCE_NAME:
             raise ValueError(
@@ -532,12 +535,15 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             return value
 
     @classmethod
-    def register(cls, identifier, collection=None):
-        """Registers an identifier for future coverage
+    def register(cls, identifier, collection=None, force=False):
+        """Registers an identifier for future coverage.
 
         This method is primarily for use with CoverageProviders that use the
-        `preregistered_only` flag to process items. It's currently only in use
+        `registered_only` flag to process items. It's currently only in use
         on the Metadata Wrangler.
+
+        :param force: Set to True to reset an existing CoverageRecord's status
+        "registered", regardless of its current status.
 
         TODO: Take identifier eligibility into account when registering.
         """
@@ -562,6 +568,13 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             identifier, source, operation, collection=collection
         )
         if existing_record:
+            if force:
+                # Set the record to "registered" despite its current status.
+                was_registered = True
+                existing_record.status = CoverageRecord.REGISTERED
+                existing_record.exception = None
+                return existing_record, was_registered
+
             log.info('FOUND %r' % existing_record)
             return existing_record, was_registered
 
@@ -747,8 +760,8 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
 
-        if self.preregistered_only:
-            # Return Identifiers that have been "preregistered" for coverage
+        if self.registered_only:
+            # Return Identifiers that have been "registered" for coverage
             # or already have a failure from previous coverage attempts.
             qu = qu.filter(CoverageRecord.id != None)
 
@@ -1086,7 +1099,32 @@ class BibliographicCoverageProvider(CollectionCoverageProvider):
 class WorkCoverageProvider(BaseCoverageProvider):
 
     """Perform coverage operations on Works rather than Identifiers."""
-    
+
+    @classmethod
+    def register(cls, work, force=False):
+        """Registers a work for future coverage.
+
+        This method is primarily for use with CoverageProviders that use the
+        `registered_only` flag to process items. It's currently only in use
+        on the Metadata Wrangler.
+
+        :param force: Set to True to reset an existing CoverageRecord's status
+        "registered", regardless of its current status.
+        """
+        was_registered = True
+        if not force:
+            record = WorkCoverageRecord.lookup(work, cls.OPERATION)
+            if record:
+                was_registered = False
+                return record, was_registered
+
+        # WorkCoverageRecord.add_for overwrites the status already,
+        # so it can be used to create and to force-register records.
+        record, is_new = WorkCoverageRecord.add_for(
+            work, cls.OPERATION, status=CoverageRecord.REGISTERED
+        )
+        return record, was_registered
+
     #
     # Implementation of BaseCoverageProvider virtual methods.
     #
@@ -1110,6 +1148,12 @@ class WorkCoverageProvider(BaseCoverageProvider):
             qu = qu.join(Work.license_pools).filter(
                 LicensePool.identifier_id.in_(ids)
             )
+
+        if self.registered_only:
+            # Return Identifiers that have been "registered" for coverage
+            # or already have a failure from previous coverage attempts.
+            qu = qu.filter(WorkCoverageRecord.id != None)
+
         return qu
 
     def failure(self, work, error, transient=True):

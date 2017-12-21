@@ -15,6 +15,7 @@ from model import (
     Identifier,
     Subject,
     Contributor,
+    Hyperlink,
     LicensePool,
     Representation,
     DeliveryMechanism,
@@ -141,13 +142,28 @@ class TestParsers(AxisTest):
         # for this.
         eq_(None, bib2.series)
 
-        # Book #1 has a primary author and another author.
-        [cont1, cont2] = bib1.contributors
+        # Book #1 has a description.
+        [description] = bib1.links
+        eq_(Hyperlink.DESCRIPTION, description.rel)
+        eq_(Representation.TEXT_PLAIN, description.media_type)
+        assert description.content.startswith(
+            "John McCain's deeply moving memoir"
+        )
+
+        # Book #1 has a primary author, another author and a narrator.
+        #
+        # TODO: The narrator data is simulated. we haven't actually
+        # verified that Axis 360 sends narrator information in the
+        # same format as author information.
+        [cont1, cont2, narrator] = bib1.contributors
         eq_("McCain, John", cont1.sort_name)
         eq_([Contributor.PRIMARY_AUTHOR_ROLE], cont1.roles)
 
         eq_("Salter, Mark", cont2.sort_name)
         eq_([Contributor.AUTHOR_ROLE], cont2.roles)
+
+        eq_("McCain, John S. III", narrator.sort_name)
+        eq_([Contributor.NARRATOR_ROLE], narrator.roles)
 
         # Book #2 only has a primary author.
         [cont] = bib2.contributors
@@ -207,6 +223,13 @@ class TestParsers(AxisTest):
         c = parse(author, primary_author_found=False)
         eq_("Eve, Mallory", c.sort_name)
         eq_([Contributor.UNKNOWN_ROLE], c.roles)
+
+        # force_role overwrites whatever other role might be
+        # assigned.
+        author = "Bob, Inc. (COR)"
+        c = parse(author, primary_author_found=False, 
+                  force_role=Contributor.NARRATOR_ROLE)
+        eq_([Contributor.NARRATOR_ROLE], c.roles)
 
 
     def test_availability_parser(self):

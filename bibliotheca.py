@@ -292,7 +292,7 @@ class ItemListParser(XMLParser):
     }
 
     @classmethod
-    def contributors_from_string(cls, string):
+    def contributors_from_string(cls, string, role=Contributor.AUTHOR_ROLE):
         contributors = []
         if not string:
             return contributors
@@ -302,7 +302,7 @@ class ItemListParser(XMLParser):
             contributors.append(
                 ContributorData(
                     sort_name=sort_name.strip(),
-                    roles=[Contributor.AUTHOR_ROLE]
+                    roles=[role]
                 )
             )
         return contributors
@@ -351,7 +351,12 @@ class ItemListParser(XMLParser):
         publisher = value("Publisher")
         language = value("Language")
 
-        contributors = list(self.contributors_from_string(value('Authors')))
+        authors = list(self.contributors_from_string(value('Authors')))
+        narrators = list(
+            self.contributors_from_string(
+                value('Narrator'), Contributor.NARRATOR_ROLE
+            )
+        )
 
         published_date = None
         published = value("PubDate")
@@ -403,7 +408,7 @@ class ItemListParser(XMLParser):
             primary_identifier=primary_identifier,
             identifiers=identifiers,
             subjects=subjects,
-            contributors=contributors,
+            contributors=authors+narrators,
             measurements=measurements,
             links=links,
         )
