@@ -1815,6 +1815,10 @@ class TestWorkListGroups(DatabaseTest):
         library.setting(library.FEATURED_LANE_SIZE).value = "2"
 
         # Create eight works.
+        hq_litfic = _w(title="HQ LitFic", fiction=True, genre='Literary Fiction')
+        hq_litfic.quality = 0.8
+        lq_litfic = _w(title="LQ LitFic", fiction=True, genre='Literary Fiction')
+        lq_litfic.quality = 0
         hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
         hq_sf.random = 0.25
         hq_sf.quality = 0.8
@@ -1829,11 +1833,10 @@ class TestWorkListGroups(DatabaseTest):
         mq_ro.quality = 0.6
         lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
         lq_ro.quality = 0.1
-        litfic = _w(title="LQ LitFic", fiction=True, genre='Literary Fiction')
-        litfic.quality = 0
         nonfiction = _w(title="Nonfiction", fiction=False)
         self.add_to_materialized_view(
-            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, litfic, nonfiction]
+            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
+             nonfiction]
         )
 
         # One of these works (mq_sf) is a best-seller and also a staff
@@ -1919,10 +1922,13 @@ class TestWorkListGroups(DatabaseTest):
 
                 # The genre-based lanes contain FEATURED_LANE_SIZE
                 # (two) titles each. The 'Science Fiction' lane
-                # features a low-quality work because the middle-quality
-                # work was already featured above in a list.
+                # features a middle-quality work that was already
+                # featured above in a list, even though there's a
+                # low-quality work that could have been used
+                # instead. Each lane query has its own LIMIT applied,
+                # so we didn't even see the low-quality work.
                 (hq_sf, sf_lane),
-                (lq_sf, sf_lane),
+                (mq_sf, sf_lane),
                 (hq_ro, romance_lane),
                 (mq_ro, romance_lane),
 
@@ -1931,27 +1937,27 @@ class TestWorkListGroups(DatabaseTest):
                 # out the lane to FEATURED_LANE_SIZE.
                 (nonfiction, discredited_nonfiction),
 
-                # The 'Fiction' lane contains the only title that fits
-                # in the fiction lane but was not classified under any
-                # other lane. It also contains a leftover title that
-                # would have been classified under 'Romance' but we
-                # already had enough titles to fill the 'Romance'
-                # lane. It does not include any titles that were
-                # featured earlier.
-                (litfic, fiction),
-                (lq_ro, fiction),
+                # The 'Fiction' lane contains a title that fits in the
+                # fiction lane but was not classified under any other
+                # lane. It also contains a title that was previously
+                # featured earlier. There's a low-quality litfic title
+                # in the database, but we didn't see it because the
+                # 'Fiction' query had a LIMIT applied to it.
+                (hq_litfic, fiction),
+                (hq_ro, fiction),
             ]
         )
 
         # If we ask only about 'Fiction', not including its sublanes,
-        # then the high-quality works show up as featured within
-        # because there were no sublanes to claim them.
+        # we get the same results.
         #
-        # hq_ro shows up before hq_sf because its .random is a larger
-        # number.
+        # hq_ro shows up before hq_litfic because its .random is a
+        # larger number. In the previous example, hq_ro showed up
+        # after hq_litfic because we knew we'd already shown hq_ro in
+        # a previous lane.
         assert_contents(
             fiction.groups(self._db, include_sublanes=False),
-            [(hq_ro, fiction), (hq_sf, fiction)]
+            [(hq_ro, fiction), (hq_litfic, fiction)]
         )
 
         # When a lane has no sublanes, its behavior is the same whether
@@ -2001,9 +2007,9 @@ class TestWorkListGroups(DatabaseTest):
                 # anymore, because the 'Romance' lane claimed it. If
                 # we have to reuse titles, we'll reuse the
                 # high-quality ones.
-                (litfic, fiction),
-                (hq_ro, fiction),
+                (hq_litfic, fiction),
                 (hq_sf, fiction),
+                (hq_ro, fiction),
             ]
         )
 
@@ -2018,7 +2024,7 @@ class TestWorkListGroups(DatabaseTest):
             priority = 2
 
             def groups(self, _db, include_sublanes):
-                yield litfic, self
+                yield lq_litfic, self
 
         mock = MockWorkList()
 
@@ -2035,7 +2041,7 @@ class TestWorkListGroups(DatabaseTest):
             [
                 (mq_sf, best_sellers),
                 (mq_sf, staff_picks),
-                (litfic, mock),
+                (lq_litfic, mock),
             ]
         )
 
