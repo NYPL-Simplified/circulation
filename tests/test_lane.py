@@ -30,6 +30,8 @@ from lane import (
 )
 
 from model import (
+    dump_query,
+    get_one_or_create,
     tuple_to_numericrange,
     CustomListEntry,
     DataSource,
@@ -40,6 +42,7 @@ from model import (
     LicensePool,
     SessionManager,
     Work,
+    WorkGenre,
 )
 
 class TestFacets(DatabaseTest):
@@ -1815,8 +1818,20 @@ class TestWorkListGroups(DatabaseTest):
         library.setting(library.FEATURED_LANE_SIZE).value = "2"
 
         # Create eight works.
+        hq_litfic = _w(title="HQ LitFic", fiction=True, genre='Literary Fiction')
+        hq_litfic.quality = 0.8
+        lq_litfic = _w(title="LQ LitFic", fiction=True, genre='Literary Fiction')
+        lq_litfic.quality = 0
         hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
         hq_sf.random = 0.25
+
+        # Add a lot of irrelevant genres to one of the works. This
+        # will clutter up the materialized view, but it won't affect
+        # the results.
+        for genre in ['Westerns', 'Horror', 'Erotica']:
+            genre_obj, is_new = Genre.lookup(self._db, genre)
+            get_one_or_create(self._db, WorkGenre, work=hq_sf, genre=genre_obj)
+
         hq_sf.quality = 0.8
         mq_sf = _w(title="MQ SF", genre="Science Fiction", fiction=True)
         mq_sf.quality = 0.6
@@ -1829,11 +1844,10 @@ class TestWorkListGroups(DatabaseTest):
         mq_ro.quality = 0.6
         lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
         lq_ro.quality = 0.1
-        litfic = _w(title="LQ LitFic", fiction=True, genre='Literary Fiction')
-        litfic.quality = 0
         nonfiction = _w(title="Nonfiction", fiction=False)
         self.add_to_materialized_view(
-            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, litfic, nonfiction]
+            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
+             nonfiction]
         )
 
         # One of these works (mq_sf) is a best-seller and also a staff
@@ -1902,6 +1916,7 @@ class TestWorkListGroups(DatabaseTest):
                      expect, actual)
                 )
 
+        fiction.groups(self._db)
         assert_contents(
             fiction.groups(self._db),
             [
@@ -1919,10 +1934,13 @@ class TestWorkListGroups(DatabaseTest):
 
                 # The genre-based lanes contain FEATURED_LANE_SIZE
                 # (two) titles each. The 'Science Fiction' lane
-                # features a low-quality work because the middle-quality
-                # work was already featured above in a list.
+                # features a middle-quality work that was already
+                # featured above in a list, even though there's a
+                # low-quality work that could have been used
+                # instead. Each lane query has its own LIMIT applied,
+                # so we didn't even see the low-quality work.
                 (hq_sf, sf_lane),
-                (lq_sf, sf_lane),
+                (mq_sf, sf_lane),
                 (hq_ro, romance_lane),
                 (mq_ro, romance_lane),
 
@@ -1931,27 +1949,27 @@ class TestWorkListGroups(DatabaseTest):
                 # out the lane to FEATURED_LANE_SIZE.
                 (nonfiction, discredited_nonfiction),
 
-                # The 'Fiction' lane contains the only title that fits
-                # in the fiction lane but was not classified under any
-                # other lane. It also contains a leftover title that
-                # would have been classified under 'Romance' but we
-                # already had enough titles to fill the 'Romance'
-                # lane. It does not include any titles that were
-                # featured earlier.
-                (litfic, fiction),
-                (lq_ro, fiction),
+                # The 'Fiction' lane contains a title that fits in the
+                # fiction lane but was not classified under any other
+                # lane. It also contains a title that was previously
+                # featured earlier. There's a low-quality litfic title
+                # in the database, but we didn't see it because the
+                # 'Fiction' query had a LIMIT applied to it.
+                (hq_litfic, fiction),
+                (hq_ro, fiction),
             ]
         )
 
         # If we ask only about 'Fiction', not including its sublanes,
-        # then the high-quality works show up as featured within
-        # because there were no sublanes to claim them.
+        # we get the same results.
         #
-        # hq_ro shows up before hq_sf because its .random is a larger
-        # number.
+        # hq_ro shows up before hq_litfic because its .random is a
+        # larger number. In the previous example, hq_ro showed up
+        # after hq_litfic because we knew we'd already shown hq_ro in
+        # a previous lane.
         assert_contents(
             fiction.groups(self._db, include_sublanes=False),
-            [(hq_ro, fiction), (hq_sf, fiction)]
+            [(hq_ro, fiction), (hq_litfic, fiction)]
         )
 
         # When a lane has no sublanes, its behavior is the same whether
@@ -2001,9 +2019,9 @@ class TestWorkListGroups(DatabaseTest):
                 # anymore, because the 'Romance' lane claimed it. If
                 # we have to reuse titles, we'll reuse the
                 # high-quality ones.
-                (litfic, fiction),
-                (hq_ro, fiction),
+                (hq_litfic, fiction),
                 (hq_sf, fiction),
+                (hq_ro, fiction),
             ]
         )
 
@@ -2018,7 +2036,7 @@ class TestWorkListGroups(DatabaseTest):
             priority = 2
 
             def groups(self, _db, include_sublanes):
-                yield litfic, self
+                yield lq_litfic, self
 
         mock = MockWorkList()
 
@@ -2035,82 +2053,46 @@ class TestWorkListGroups(DatabaseTest):
             [
                 (mq_sf, best_sellers),
                 (mq_sf, staff_picks),
-                (litfic, mock),
+                (lq_litfic, mock),
             ]
         )
 
-    def test_groups_query(self):
-        # Most of the _groups_query() code is tested on a lower level,
-        # with tests of its helper methods, or at a higher level, in
-        # test_groups(). This test verifies some features of the query
-        # returned by _groups_query() that are installed by the
-        # _groups_query() method itself.
-        lane = self._lane(fiction=True)
-        sublane = self._lane(parent=lane, fiction=False)
+    def test_featured_works_with_lanes(self):
+        """_featured_works_with_lanes calls works_in_window on every lane
+        pass in to it.
+        """
+        class Mock(object):
+            """A Mock of Lane.works_in_window."""
 
-        relevant_lanes = [lane, sublane]
+            def __init__(self, mock_works):
+                self.mock_works = mock_works
 
-        # Generate the query.
-        qu = lane._groups_query(self._db, relevant_lanes)
+            def works_in_window(self, _db, facets, target_size):
+                self.called_with = [_db, facets, target_size]
+                return [self.mock_works]
 
-        # A 'lane_id' field was added to the query
-        [lane_id] = [x for x in qu.column_descriptions if x['name'] == 'lane_id']
-        # The lane field is a CASE statement with one clause for each lane.
-        # The details of this are tested in test_add_lane_id_field.
-        element = lane_id['expr'].element
-        isinstance(element, Case)
-        eq_(2, len(element.whens))
+        mock1 = Mock(("mw1","quality1"))
+        mock2 = Mock(("mw2","quality2"))
 
-        # The LIMIT is set to get enough entries to supply every lane
-        # five times over.
-        eq_(qu._limit,
-            self._default_library.featured_lane_size * len(relevant_lanes) * 5)
+        lane = self._lane()
+        results = lane._featured_works_with_lanes(self._db, [mock1, mock2])
 
-    def test_add_lane_id_field(self):
+        # The results of works_in_window were annotated with the
+        # 'lane' that produced the result.
+        eq_([('mw1', 'quality1', mock1), ('mw2', 'quality2', mock2)],
+            list(results))
 
-        list_lane = self._lane()
-        list_lane.list_datasource = DataSource.lookup(
-            self._db, DataSource.GUTENBERG
-        )
-        fiction = self._lane(fiction=True)
-        everything = self._lane()
+        # Each Mock's works_in_window was called with the same
+        # arguments.
+        eq_(mock1.called_with, mock2.called_with)
+        _db, facets, target_size = mock1.called_with
 
-        from model import MaterializedWorkWithGenre as mwg
-        original_qu = self._db.query(mwg)
-        qu = Lane._add_lane_id_field(
-            self._db, original_qu, [list_lane, fiction, everything],
-            10
-        )
-
-        # An outer join against customlists was added to the query so
-        # that it could find titles that belong in list_lane without
-        # excluding titles that don't belong there.
-        assert 'LEFT OUTER JOIN customlists AS customlists_1' in str(qu)
-
-        # A 'lane_id' field was added to the query
-        [lane_id] = [x for x in qu.column_descriptions if x['name'] == 'lane_id']
-        # The lane field is a CASE statement with one clause for each lane.
-        element = lane_id['expr'].element
-        isinstance(element, Case)
-        [(list_when, list_value), 
-         (fiction_when, fiction_value),
-         (everything_when, everything_value)
-        ] = element.whens
-
-        # Each clause maps the bibliographic restrictions on a given
-        # lane to that lane's database ID.
-        assert str(list_when.element).endswith('= customlists_1.data_source_id')
-        eq_(list_lane.id, list_value.value)
-
-        assert '.fiction =' in str(fiction_when.element)
-        eq_(fiction.id, fiction_value.value)
-
-        # The CASE clause for the lane that matches everything
-        # is set to a tautology.
-        name = mwg.__table__.name
-        eq_("%s.works_id = %s.works_id" % (name, name),
-            str(everything_when.element))
-        eq_(everything.id, everything_value.value)
+        # Those arguments came from the configuration of the Library
+        # associated with the (non-mock) Lane on which _groups_query
+        # was originally called.
+        eq_(self._db, _db)
+        eq_(lane.library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(lane.library.featured_lane_size, target_size)
 
     def test_featured_window(self):
         lane = self._lane()
@@ -2195,42 +2177,45 @@ class TestWorkListGroups(DatabaseTest):
         unused = { 10 : [a, b, c], 1 : [d, e, f]}
         eq_([c,a,b, e,f,d], fill(lane, 6, unused, used))
 
-    def test_restrict_clause_to_window(self):
+    def test_restrict_query_to_window(self):
         lane = self._lane()
         
         from model import MaterializedWorkWithGenre as work_model
-        clause = (work_model.fiction==True)
+        query = self._db.query(work_model).filter(work_model.fiction==True)
         target_size = 10
 
         # If the lane is so small that windowing is not safe,
-        # _restrict_clause_to_window does nothing.
+        # _restrict_query_to_window does nothing.
         lane.size = 1
         eq_(
-            clause, 
-            lane._restrict_clause_to_window(clause, target_size)
+            query, 
+            lane._restrict_query_to_window(query, target_size)
         )
 
         # If the lane size is small enough to window, then
-        # _restrict_clause_to_window adds restrictions on the .random
+        # _restrict_query_to_window adds restrictions on the .random
         # field.
         lane.size = 960
-        modified = lane._restrict_clause_to_window(clause, target_size)
+        modified = lane._restrict_query_to_window(query, target_size)
 
         # Check the SQL.
-        sql = str(modified)
-        args = dict(mv=work_model.__table__.name) 
-        assert '%(mv)s.fiction =' % args in sql
-        assert '%(mv)s.random <= :random_1 AND %(mv)s.random >= :random_2' % args in sql
+        sql = dump_query(modified)
 
-        # Check the numeric values of :random_1 and :random_2
-        upper, lower = [x.right.value for x in modified.clauses[1:]]
-        eq_(0.606, round(lower, 3))
-        eq_(0.658, round(upper, 3))
+        expect_lower = 0.606
+        expect_upper = 0.658
+        args = dict(mv=work_model.__table__.name, lower=expect_lower,
+                    upper=expect_upper) 
+
+        assert '%(mv)s.fiction =' % args in sql
+        expect_upper_range = '%(mv)s.random <= %(upper)s' % args
+        assert expect_upper_range in sql
+
+        expect_lower_range = '%(mv)s.random >= %(lower)s' % args
+        assert expect_lower_range in sql
 
         # Those values came from featured_window(). If we call that
         # method ourselves we will get a different window of
         # approximately the same width.
-        width = upper-lower
+        width = expect_upper-expect_lower
         new_lower, new_upper = lane.featured_window(target_size)
-        eq_(round(width, 10), round(new_upper-new_lower, 10))
-        
+        eq_(round(width, 3), round(new_upper-new_lower, 3))
