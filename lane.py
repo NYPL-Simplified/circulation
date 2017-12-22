@@ -1076,13 +1076,11 @@ class WorkList(object):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
-        # Start with a basic works query.
         facets = FeaturedFacets(
             library.minimum_featured_quality,
             self.uses_customlists
         )
-        first_query = None
-        other_queries = []
+        # Pull a window of works for every lane we were given.
         for lane in lanes:
             for mw, quality_tier in lane.works_in_window(
                     _db, facets, target_size
