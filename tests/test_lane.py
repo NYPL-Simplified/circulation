@@ -2056,8 +2056,8 @@ class TestWorkListGroups(DatabaseTest):
             ]
         )
 
-    def test_groups_query(self):
-        """_groups_query calls works_in_window on every lane
+    def test_featured_works_with_lanes(self):
+        """_featured_works_with_lanes calls works_in_window on every lane
         pass in to it.
         """
         class Mock(object):
@@ -2074,7 +2074,7 @@ class TestWorkListGroups(DatabaseTest):
         mock2 = Mock(("mw2","quality2"))
 
         lane = self._lane()
-        results = lane._groups_query(self._db, [mock1, mock2])
+        results = lane._featured_works_with_lanes(self._db, [mock1, mock2])
 
         # The results of works_in_window were annotated with the
         # 'lane' that produced the result.

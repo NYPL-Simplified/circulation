@@ -339,10 +339,10 @@ class FeaturedFacets(object):
     def apply(self, _db, qu, distinct):
         """Order a query by quality tier, and then randomly.
 
-        This isn't usually necessary because _groups_query orders
-        items by quality tier, then lane ID, then randomly, but
-        if you want to call apply() on a query to get a featured
-        subset of that query, this will work.
+        This isn't usually necessary because works_in_window orders
+        items by quality tier, then randomly, but if you want to call
+        apply() on a query to get a featured subset of that query,
+        this will work.
         """
         from model import MaterializedWorkWithGenre as work_model
         quality = self.quality_tier_field()
@@ -995,7 +995,9 @@ class WorkList(object):
 
         queryable_lane_set = set(queryable_lanes)
 
-        work_quality_tier_lane = list(self._groups_query(_db, queryable_lanes))
+        work_quality_tier_lane = list(
+            self._featured_works_with_lanes(_db, queryable_lanes)
+        )
 
         def _done_with_lane(lane):
             """Called when we're done with a Lane, either because
@@ -1056,12 +1058,13 @@ class WorkList(object):
                 for x in lane.groups(_db, include_sublanes=False):
                     yield x
 
-    def _groups_query(self, _db, lanes):
-        """Create a query that pulls MaterializedWorkWithGenre
-        objects, plus additional lane classification information.
+    def _featured_works_with_lanes(self, _db, lanes):
+        """Find a sequence of works that can be used to 
+        populate this lane's grouped acquisition feed.
 
         :param lanes: Classify MaterializedWorkWithGenre objects
-        as belonging to one of these lanes.
+        as belonging to one of these lanes (presumably sublanes
+        of `self`).
 
         :yield: A sequence of (MaterializedWorkWithGenre,
         quality_tier, Lane) 3-tuples.
