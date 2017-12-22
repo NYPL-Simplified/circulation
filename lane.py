@@ -1002,7 +1002,7 @@ class WorkList(object):
 
         def _done_with_lane(lane_id):
             """Called when we're done with a lane, either because
-            the lane chances or we've reached the end of the list.
+            the lane changes or we've reached the end of the list.
             """
             # Did we get enough items?
             num_missing = target_size-len(by_lane_id[lane_id])
@@ -1072,9 +1072,6 @@ class WorkList(object):
             # We can't run this query at all.
             return None
 
-        from model import MaterializedWorkWithGenre
-        work_model = MaterializedWorkWithGenre
-
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
@@ -1087,32 +1084,47 @@ class WorkList(object):
         other_queries = []
         items = []
         for lane in lanes:
-            # Get the basic query for finding works in this lane.
-            lane_query = lane.works(_db, facets=facets)
-
-            # Add a field that explains to the larger query why this
-            # work showed up.
-            lane_id_field = literal(lane.id, type_=Integer).label("lane_id")
-            lane_query = lane_query.add_columns(lane_id_field)
-
-            # Make sure this query finds a number of works proportinal
-            # to the expected size of the lane.
-            lane_query = lane._restrict_query_to_window(lane_query, target_size)
-
-            lane_query = lane_query.order_by(
-                "quality_tier desc", "lane_id", work_model.random.desc()
-            )
-
-            # Get slightly more items than we need, to reduce the risk
-            # that we'll have to use a given book more than once in
-            # the overall feed. But don't let a weird random distribution
-            # retrieve far more items than we need.
-            lane_query = lane_query.limit(target_size*1.3)
-            items.extend(lane_query.all())
+            items.extend(lane.works_in_window(_db, facets, target_size))
         return items
+
+    def works_in_window(self, _db, facets, target_size):
+        """Find all Works within a randomly selected window of values for the
+        `random` field.
+
+        :param facets: A `FeaturedFacets` object.
+
+        :param target_size: Try to get approximately this many
+        items. There may be more or less; this controls the size of
+        the window and the LIMIT on the query.
+        """
+        from model import MaterializedWorkWithGenre
+        work_model = MaterializedWorkWithGenre
+
+        lane_query = self.works(_db, facets=facets)
+
+        # Add a field that explains to the larger query why this
+        # work showed up.
+        lane_id_field = literal(self.id, type_=Integer).label("lane_id")
+        lane_query = lane_query.add_columns(lane_id_field)
+
+        # Make sure this query finds a number of works proportinal
+        # to the expected size of the lane.
+        lane_query = self._restrict_query_to_window(lane_query, target_size)
+
+        lane_query = lane_query.order_by(
+            "quality_tier desc", "lane_id", work_model.random.desc()
+        )
+
+        # Allow some overage to reduce the risk that we'll have to
+        # use a given book more than once in the overall feed. But
+        # set an upper limit so that a weird random distribution
+        # doesn't retrieve far more items than we need.
+        lane_query = lane_query.limit(target_size*1.3)
+        return lane_query.all()
 
     @classmethod
     def _add_lane_id_field(cls, _db, qu, lanes, target_size):
+
         """Add a CASE statement to the given query that explains which lane a
         given book should be classified under.
 

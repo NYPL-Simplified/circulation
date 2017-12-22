@@ -30,6 +30,7 @@ from lane import (
 )
 
 from model import (
+    get_one_or_create,
     tuple_to_numericrange,
     CustomListEntry,
     DataSource,
@@ -40,6 +41,7 @@ from model import (
     LicensePool,
     SessionManager,
     Work,
+    WorkGenre,
 )
 
 class TestFacets(DatabaseTest):
@@ -1821,6 +1823,14 @@ class TestWorkListGroups(DatabaseTest):
         lq_litfic.quality = 0
         hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
         hq_sf.random = 0.25
+
+        # Add a lot of irrelevant genres to one of the works. This
+        # will clutter up the materialized view, but it won't affect
+        # the results.
+        for genre in ['Westerns', 'Horror', 'Erotica']:
+            genre_obj, is_new = Genre.lookup(self._db, genre)
+            get_one_or_create(self._db, WorkGenre, work=hq_sf, genre=genre_obj)
+
         hq_sf.quality = 0.8
         mq_sf = _w(title="MQ SF", genre="Science Fiction", fiction=True)
         mq_sf.quality = 0.6
