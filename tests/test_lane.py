@@ -1915,6 +1915,7 @@ class TestWorkListGroups(DatabaseTest):
                      expect, actual)
                 )
 
+        fiction.groups(self._db)
         assert_contents(
             fiction.groups(self._db),
             [
@@ -2056,20 +2057,42 @@ class TestWorkListGroups(DatabaseTest):
         )
 
     def test_groups_query(self):
-        """_groups_query used to return a complex query -- now it
-        runs some queries and aggregates the results into a list.
-
-        TODO: This needs work before landing.
+        """_groups_query calls works_in_window on every lane
+        pass in to it.
         """
-        lane = self._lane(fiction=True)
-        sublane = self._lane(parent=lane, fiction=False)
+        class Mock(object):
+            """A Mock of Lane.works_in_window."""
 
-        relevant_lanes = [lane, sublane]
+            def __init__(self, mock_works):
+                self.mock_works = mock_works
 
-        # Generate the query.
-        qu = lane._groups_query(self._db, relevant_lanes)
-        
-        assert isinstance(qu, list)
+            def works_in_window(self, _db, facets, target_size):
+                self.called_with = [_db, facets, target_size]
+                return [self.mock_works]
+
+        mock1 = Mock(("mw1","quality1"))
+        mock2 = Mock(("mw2","quality2"))
+
+        lane = self._lane()
+        results = lane._groups_query(self._db, [mock1, mock2])
+
+        # The results of works_in_window were annotated with the
+        # 'lane' that produced the result.
+        eq_([('mw1', 'quality1', mock1), ('mw2', 'quality2', mock2)],
+            list(results))
+
+        # Each Mock's works_in_window was called with the same
+        # arguments.
+        eq_(mock1.called_with, mock2.called_with)
+        _db, facets, target_size = mock1.called_with
+
+        # Those arguments came from the configuration of the Library
+        # associated with the (non-mock) Lane on which _groups_query
+        # was originally called.
+        eq_(self._db, _db)
+        eq_(lane.library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(lane.library.featured_lane_size, target_size)
+
 
     def test_add_lane_id_field(self):
 

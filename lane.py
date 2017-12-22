@@ -620,6 +620,8 @@ class WorkList(object):
         found.
         """
         if not include_sublanes:
+            # We only need to find featured works for this lane,
+            # not this lane plus its sublanes.
             for work in self.featured_works(_db):
                 yield work, self
             return
@@ -993,41 +995,36 @@ class WorkList(object):
 
         queryable_lane_set = set(queryable_lanes)
 
-        qu = self._groups_query(_db, queryable_lanes)
-        if qu is None:
-            # We won't be running the query, but we still need to
-            # run this code because we may be making calls to groups()
-            # for WorkLists not handled by the query.
-            qu = []
+        work_quality_tier_lane = list(self._groups_query(_db, queryable_lanes))
 
-        def _done_with_lane(lane_id):
-            """Called when we're done with a lane, either because
+        def _done_with_lane(lane):
+            """Called when we're done with a Lane, either because
             the lane changes or we've reached the end of the list.
             """
             # Did we get enough items?
-            num_missing = target_size-len(by_lane_id[lane_id])
+            num_missing = target_size-len(by_lane[lane])
             if num_missing > 0 and might_need_to_reuse:
                 # No, we need to use some works we used in a
                 # previous lane to fill out this lane. Stick
                 # them at the end.
-                by_lane_id[lane_id].extend(
+                by_lane[lane].extend(
                     might_need_to_reuse.values()[:num_missing]
                 )
 
         used_works = set()
-        by_lane_id = defaultdict(list)
-        working_lane_id = None
+        by_lane = defaultdict(list)
+        working_lane = None
         might_need_to_reuse = dict()
-        for mw, quality_tier, lane_id in qu:
-            if lane_id != working_lane_id:
+        for mw, quality_tier, lane in work_quality_tier_lane:
+            if lane != working_lane:
                 # Either we're done with the old lane, or we're just
                 # starting and there was no old lane.
-                if lane_id:
-                    _done_with_lane(working_lane_id)
-                working_lane_id = lane_id
+                if working_lane:
+                    _done_with_lane(working_lane)
+                working_lane = lane
                 used_works_this_lane = set()
                 might_need_to_reuse = dict()
-            if len(by_lane_id[lane_id]) >= target_size:
+            if len(by_lane[lane]) >= target_size:
                 # We've already filled this lane.
                 continue
 
@@ -1037,19 +1034,17 @@ class WorkList(object):
                     # might need to use it again to fill out this lane.
                     might_need_to_reuse[mw.works_id] = mw
             else:
-                by_lane_id[lane_id].append(mw)
-                titles = [x.sort_title for x in by_lane_id[lane_id]]
+                by_lane[lane].append(mw)
                 used_works.add(mw.works_id)
                 used_works_this_lane.add(mw.works_id)
 
         # Close out the last lane encountered.
-        _done_with_lane(working_lane_id)
-
+        _done_with_lane(working_lane)
         for lane in relevant_lanes:
             if lane in queryable_lane_set:
                 # We found results for this lane through the main query.
                 # Yield those results.
-                for mw in by_lane_id.get(lane.id, []):
+                for mw in by_lane.get(lane, []):
                     yield (mw, lane)
             else:
                 # We didn't try to use the main query to find results
@@ -1067,10 +1062,13 @@ class WorkList(object):
 
         :param lanes: Classify MaterializedWorkWithGenre objects
         as belonging to one of these lanes.
+
+        :yield: A sequence of (MaterializedWorkWithGenre,
+        quality_tier, Lane) 3-tuples.
         """
         if not lanes:
             # We can't run this query at all.
-            return None
+            return
 
         library = self.get_library(_db)
         target_size = library.featured_lane_size
@@ -1082,14 +1080,15 @@ class WorkList(object):
         )
         first_query = None
         other_queries = []
-        items = []
         for lane in lanes:
-            items.extend(lane.works_in_window(_db, facets, target_size))
-        return items
+            for mw, quality_tier in lane.works_in_window(
+                    _db, facets, target_size
+            ):
+                yield mw, quality_tier, lane
 
     def works_in_window(self, _db, facets, target_size):
-        """Find all Works within a randomly selected window of values for the
-        `random` field.
+        """Find all MaterializedWorkWithGenre objects within a randomly
+        selected window of values for the `random` field.
 
         :param facets: A `FeaturedFacets` object.
 
@@ -1102,17 +1101,12 @@ class WorkList(object):
 
         lane_query = self.works(_db, facets=facets)
 
-        # Add a field that explains to the larger query why this
-        # work showed up.
-        lane_id_field = literal(self.id, type_=Integer).label("lane_id")
-        lane_query = lane_query.add_columns(lane_id_field)
-
         # Make sure this query finds a number of works proportinal
         # to the expected size of the lane.
         lane_query = self._restrict_query_to_window(lane_query, target_size)
 
         lane_query = lane_query.order_by(
-            "quality_tier desc", "lane_id", work_model.random.desc()
+            "quality_tier desc", work_model.random.desc()
         )
 
         # Allow some overage to reduce the risk that we'll have to
@@ -1120,7 +1114,7 @@ class WorkList(object):
         # set an upper limit so that a weird random distribution
         # doesn't retrieve far more items than we need.
         lane_query = lane_query.limit(target_size*1.3)
-        return lane_query.all()
+        return lane_query
 
     @classmethod
     def _add_lane_id_field(cls, _db, qu, lanes, target_size):
