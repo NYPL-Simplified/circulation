@@ -30,6 +30,7 @@ from lane import (
 )
 
 from model import (
+    dump_query,
     get_one_or_create,
     tuple_to_numericrange,
     CustomListEntry,
@@ -2222,6 +2223,49 @@ class TestWorkListGroups(DatabaseTest):
         # Within a quality tier, works are given up in random order.
         unused = { 10 : [a, b, c], 1 : [d, e, f]}
         eq_([c,a,b, e,f,d], fill(lane, 6, unused, used))
+
+    def test_restrict_query_to_window(self):
+        lane = self._lane()
+        
+        from model import MaterializedWorkWithGenre as work_model
+        query = self._db.query(work_model).filter(work_model.fiction==True)
+        target_size = 10
+
+        # If the lane is so small that windowing is not safe,
+        # _restrict_clause_to_window does nothing.
+        lane.size = 1
+        eq_(
+            query, 
+            lane._restrict_query_to_window(query, target_size)
+        )
+
+        # If the lane size is small enough to window, then
+        # _restrict_clause_to_window adds restrictions on the .random
+        # field.
+        lane.size = 960
+        modified = lane._restrict_query_to_window(query, target_size)
+
+        # Check the SQL.
+        sql = dump_query(modified)
+
+        expect_lower = 0.606
+        expect_upper = 0.658
+        args = dict(mv=work_model.__table__.name, lower=expect_lower,
+                    upper=expect_upper) 
+
+        assert '%(mv)s.fiction =' % args in sql
+        expect_upper_range = '%(mv)s.random <= %(upper)s' % args
+        assert expect_upper_range in sql
+
+        expect_lower_range = '%(mv)s.random >= %(lower)s' % args
+        assert expect_lower_range in sql
+
+        # Those values came from featured_window(). If we call that
+        # method ourselves we will get a different window of
+        # approximately the same width.
+        width = expect_upper-expect_lower
+        new_lower, new_upper = lane.featured_window(target_size)
+        eq_(round(width, 3), round(new_upper-new_lower, 3))
 
     def test_restrict_clause_to_window(self):
         lane = self._lane()
