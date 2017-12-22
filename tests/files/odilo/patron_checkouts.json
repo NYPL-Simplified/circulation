@@ -1,0 +1,22 @@
+[
+  {
+    "id": "4306",
+    "recordId": "00010982",
+    "downloadUrl": "http://localhost:8080/api/v2/checkouts/4306/download?token=1f11af41ec385092951070cb3768e19&patronId=001000265",
+    "startTime": "1507716876495",
+    "endTime": "1516356876495",
+    "renewable": false,
+    "returnable": true,
+    "format": "ACSM"
+  },
+  {
+    "id": "4318",
+    "recordId": "00011055",
+    "downloadUrl": "http://localhost:8080/api/v2/checkouts/4318/download?token=6f8534f69c4663fed4491d59fe29b2c&patronId=001000265",
+    "startTime": "1510152832297",
+    "endTime": "1511448832297",
+    "renewable": false,
+    "returnable": true,
+    "format": "EBOOK_STREAMING"
+  }
+]

@@ -5,6 +5,7 @@ from nose.tools import (
     assert_raises,
 )
 import datetime
+import json
 import os
 import pkgutil
 
@@ -34,6 +35,7 @@ from core.model import (
 from core.util.http import (
     BadResponseException,
 )
+from core.util.web_publication_manifest import AudiobookManifest
 
 from api.circulation import (
     CirculationAPI,
@@ -244,9 +246,10 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
         # This miracle book is available either as an audiobook or as
         # an EPUB.
-        edition, pool = self._edition(
+        work = self._work(
             data_source_name=DataSource.BIBLIOTHECA, with_license_pool=True
         )
+        [pool] = work.license_pools
 
         # Let's fulfill the EPUB first.
         self.api.queue_response(
@@ -264,18 +267,105 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_("presumably/an-acsm", fulfillment.content_type)
 
         # Now let's try the audio version.
+        license = self.sample_data("sample_findaway_audiobook_license.json")
         self.api.queue_response(
             200, headers={"Content-Type": "application/json"},
-            content="this is a Findaway license"
+            content=license
         )
         fulfillment = self.api.fulfill(patron, 'password', pool, 'MP3')
         assert isinstance(fulfillment, FulfillmentInfo)
-        eq_("this is a Findaway license", fulfillment.content)
 
-        # The only difference here is that the media type reported by
-        # the server is _not_ passed through; it's replaced by a more
-        # specific media type
+        # Here, the media type reported by the server is not passed
+        # through; it's replaced by a more specific media type
         eq_(DeliveryMechanism.FINDAWAY_DRM, fulfillment.content_type)
+
+        # The document sent by the 'Findaway' server has been
+        # converted into a web publication manifest.
+        manifest = json.loads(fulfillment.content)
+
+        # The conversion process is tested more fully in
+        # test_findaway_license_to_webpub_manifest. This just verifies
+        # that the manifest contains information from the 'Findaway'
+        # document as well as information from the Work.
+        metadata = manifest['metadata']
+        eq_('abcdef01234789abcdef0123', metadata['findaway:checkoutId'])
+        eq_(work.title, metadata['title'])
+
+        # Now let's see what happens to fulfillment when 'Findaway' or
+        # 'Bibliotheca' sends bad information.
+        bad_media_type = "application/error+json"
+        bad_content = "This is not my beautiful license document!"
+        self.api.queue_response(
+            200, headers={"Content-Type": bad_media_type},
+            content=bad_content
+        )
+        fulfillment = self.api.fulfill(patron, 'password', pool, 'MP3')
+        assert isinstance(fulfillment, FulfillmentInfo)
+
+        # The (apparently) bad document is just passed on to the
+        # client as part of the FulfillmentInfo, in the hopes that the
+        # client will know what to do with it.
+        eq_(bad_media_type, fulfillment.content_type)
+        eq_(bad_content, fulfillment.content)
+
+    def test_findaway_license_to_webpub_manifest(self):
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        document = self.sample_data("sample_findaway_audiobook_license.json")
+        m = BibliothecaAPI.findaway_license_to_webpub_manifest
+        media_type, manifest = m(pool, document)
+        eq_(DeliveryMechanism.FINDAWAY_DRM, media_type)
+        manifest = json.loads(manifest)
+
+        # We use the default context for Web Publication Manifest
+        # files, but we also define an extension context called
+        # 'findaway', which lets us include terms coined by Findaway
+        # in a normal Web Publication Manifest document.
+        context = manifest['@context']
+        default, findaway = context
+        eq_(AudiobookManifest.DEFAULT_CONTEXT, default)
+        eq_({"findaway" : BibliothecaAPI.FINDAWAY_EXTENSION_CONTEXT},
+           findaway)
+
+        metadata = manifest['metadata']
+
+        # Information about the book has been added to metadata.
+        # (This is tested more fully in
+        # core/tests/util/test_util_web_publication_manifest.py.)
+        eq_(work.title, metadata['title'])
+        eq_(pool.identifier.urn, metadata['identifier'])
+        eq_('en', metadata['language'])
+
+        # Information about the license has been added to metadata.
+        eq_(u'abcdef01234789abcdef0123', metadata[u'findaway:checkoutId'])
+        eq_(u'1234567890987654321ababa', metadata[u'findaway:licenseId'])
+        eq_(u'3M', metadata[u'findaway:accountId'])
+        eq_(u'123456', metadata[u'findaway:fulfillmentId'])
+        eq_(u'aaaaaaaa-4444-cccc-dddd-666666666666', 
+            metadata[u'findaway:sessionKey'])
+
+        # Every entry in the license document's 'items' list has
+        # become a spine item in the manifest.
+        spine = manifest['spine']
+        eq_(79, len(spine))
+
+        # The duration of each spine item has been converted to
+        # seconds.
+        first = spine[0]
+        eq_(16.201, first['duration'])
+        eq_("Track 1", first['title'])
+        eq_(1, first['findaway:sequence'])
+
+        # There is no 'href' or 'type' value for the spine items
+        # because the files must be obtained through the Findaway SDK
+        # rather than through regular HTTP requests.
+        for i in spine:
+            eq_(None, i['href'])
+            eq_(None, i['type'])
+            eq_(0, i['findaway:part'])
+
+        # The total duration, in seconds, has been added to metadata.
+        eq_(28371, int(metadata['duration']))
 
 
 class TestBibliothecaCirculationSweep(BibliothecaAPITest):

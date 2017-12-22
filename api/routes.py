@@ -25,7 +25,7 @@ from opds import (
 )
 from controller import CirculationManager
 from problem_details import REMOTE_INTEGRATION_FAILED
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 # TODO: Without the monkeypatch below, Flask continues to process
 # requests while before_first_request is running. Those requests will

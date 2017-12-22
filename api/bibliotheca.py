@@ -1,3 +1,4 @@
+import json
 from lxml import etree
 
 from cStringIO import StringIO
@@ -6,7 +7,7 @@ import datetime
 import os
 import re
 import logging
-from flask.ext.babel import lazy_gettext as _
+from flask_babel import lazy_gettext as _
 
 from nose.tools import set_trace
 
@@ -40,6 +41,7 @@ from core.monitor import (
     CollectionMonitor,
     IdentifierSweepMonitor,
 )
+from core.util.web_publication_manifest import AudiobookManifest
 from core.util.xmlparser import XMLParser
 from core.util.http import (
     BadResponseException
@@ -195,23 +197,32 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         )
         if drm_scheme == DeliveryMechanism.FINDAWAY_DRM:
             fulfill_method = self.get_audio_fulfillment_file
-            # The provided media type is application/json, which
-            # is too vague for us.
-            force_content_type = DeliveryMechanism.FINDAWAY_DRM
+            content_transformation = self.findaway_license_to_webpub_manifest
         else:
             fulfill_method = self.get_fulfillment_file
-            force_content_type = None
+            content_transformation = None
         response = fulfill_method(
             patron.authorization_identifier, pool.identifier.identifier
         )
+        content = response.content
+        content_type = None
+        if content_transformation:
+            try:
+                content_type, content = (
+                    content_transformation(pool, content)
+                )
+            except Exception, e:
+                self.log.error(
+                    "Error transforming fulfillment document: %s",
+                    response.content, exc_info=e
+                )
         return FulfillmentInfo(
             pool.collection, DataSource.BIBLIOTHECA,
             pool.identifier.type,
             pool.identifier.identifier,
             content_link=None,
-            content_type=(force_content_type
-                          or response.headers.get('Content-Type')),
-            content=response.content,
+            content_type=content_type or response.headers.get('Content-Type'),
+            content=content,
             content_expires=None,
         )
 
@@ -302,6 +313,92 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
             circ.get(LicensePool.patrons_in_hold_queue, 0),
             analytics,
         )
+
+    # This URI prefix makes it clear when we are using a term coined
+    # by Findaway in a JSON-LD document.
+    FINDAWAY_EXTENSION_CONTEXT = "http://librarysimplified.org/terms/third-parties/findaway.com/"
+
+    @classmethod
+    def findaway_license_to_webpub_manifest(
+            cls, license_pool, findaway_license
+    ):
+        """Convert a Findaway license document to a standard Web Publication
+        Manifest (audiobook flavor).
+
+        :param license_pool: A LicensePool for the title in question.
+        This will be used to fill in basic bibliographic information.
+
+        :param findaway_license: A string containing a Findaway
+           license document, or a dictionary representing such a
+           document loaded into JSON form.
+        """
+        if isinstance(findaway_license, basestring):
+            findaway_license = json.loads(findaway_license)
+
+        context_with_extension = [
+            "http://readium.org/webpub/default.jsonld",
+            {"findaway" : cls.FINDAWAY_EXTENSION_CONTEXT},
+        ]
+
+        manifest = AudiobookManifest(context=context_with_extension)
+
+        # Add basic bibliographic information (identifier, title,
+        # cover link) to the manifest based on our existing knowledge
+        # of the LicensePool and its Work.
+        manifest.update_bibliographic_metadata(license_pool)
+
+        # Add Findaway-specific information as extra metadata.
+        for findaway_extension in [
+                'accountId', 'checkoutId', 'fulfillmentId', 'licenseId',
+                'sessionKey'
+        ]:
+            value = findaway_license.get(findaway_extension, None)
+            output_key = 'findaway:' + findaway_extension
+            manifest.metadata[output_key] = value
+
+        # Add the spine items. All of them are in the same format.
+        # None of them will have working 'href' fields -- it's just to
+        # give the client a picture of the structure of the timeline.
+        audio_format = findaway_license.get('format')
+        if audio_format == 'MP3':
+            part_media_type = Representation.MP3_MEDIA_TYPE
+        else:
+            logging.error("Unknown Findaway audio format encountered: %s",
+                          audio_format)
+
+        # TODO: The items are in an ordered list, but each one also
+        # has an explicit 'sequence'. For now we'll pass it on but
+        # assume that it is redundant and the ordered list is always
+        # correct.
+        #
+        # TODO: Each item has a 'part' which always seems to be zero.
+        # Its purpose is unknown. For now, we simply pass it on.
+        total_duration = 0
+        for part in findaway_license.get('items'):
+            title = part.get('title')
+
+            # TODO: Incoming duration appears to be measured in
+            # milliseconds. This assumption makes our example
+            # audiobook take about 7.9 hours, and no other reasonable
+            # assumption is in the right order of magnitude. But this
+            # needs to be explicitly verified.
+            duration = part.get('duration', 0) / 1000.0
+
+            kwargs = {}
+
+            sequence = part.get('sequence')
+            kwargs["findaway:sequence"] = sequence 
+
+            part_number = part.get('part')
+            kwargs["findaway:part"] = part_number
+
+            manifest.add_spine(
+                href=None, type=None, title=title, duration=duration,
+                **kwargs
+            )
+            total_duration += duration
+        manifest.metadata['duration'] = total_duration
+        return DeliveryMechanism.FINDAWAY_DRM, unicode(manifest)
 
 
 class DummyBibliothecaAPIResponse(object):

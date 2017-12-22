@@ -1,61 +1,46 @@
-appdirs==1.4.3
-asn1crypto==0.22.0
-Babel==2.4.0
-cairocffi==0.8.0
-CairoSVG==1.0.22
-cffi==1.10.0
-click==6.7
-cryptography==1.8.1
+# Core requirements
 elasticsearch==2.1.0
-enum34==1.1.6
-feedparser==5.2.1
-Flask==0.12.2
-Flask-Babel==0.11.2
-Flask-Cors==3.0.2
-Flask-SQLAlchemy-Session==1.1
-funcsigs==1.0.2
-futures==3.1.1
-fuzzywuzzy==0.15.0
-httplib2==0.10.3
-idna==2.5
-ipaddress==1.0.18
-isbnlib==3.7.1
-itsdangerous==0.24
-Jinja2==2.9.6
-loggly-python-handler==1.0.0
-lxml==3.7.3
-MarkupSafe==1.0
-mock==2.0.0
-money==1.3.0
-nameparser==0.5.2
-ndg-httpsclient==0.4.2
-newrelic==2.86.2.68
-nltk==3.2.4
-nose==1.3.7
-oauth2client==4.1.0
-olefile==0.44
-packaging==16.8
-pbr==3.0.1
-Pillow==4.1.1
-psycopg2==2.7.1
-py-bcrypt==0.4
-pyasn1==0.2.3
-pyasn1-modules==0.0.8
-pycparser==2.17
-pycryptodome==3.4.7
-PyJWT==1.4.2
-PyLD==0.7.2
-pyOpenSSL==17.0.0
-pyparsing==2.2.0
-python-dateutil==2.6.0
-pytz==2017.2
-requests==2.14.2
-requests-futures==0.9.7
-rsa==3.4.2
-six==1.10.0
-SQLAlchemy==1.0.6
-textblob==0.12.0
+pillow
+psycopg2
+requests==2.18.4
+sqlalchemy==1.1.15
+flask-sqlalchemy-session
+lxml
+flask
+isbnlib
 tinys3==0.1.12
-urllib3==1.21.1
-uWSGI==2.0.15
-Werkzeug==0.12.2
+nose
+python-dateutil
+uwsgi
+loggly-python-handler
+mock
+cairosvg==1.0.22
+py-bcrypt
+Flask-Babel
+money
+
+# Ensure that we support SNI-based SSL
+ndg-httpsclient
+
+# In circ, feedparser is only used in tests.
+feedparser
+
+# TODO: This is only used for summary evaluation, which I think should
+# only happen in the metadata wrangler, so it should be possible to move
+# it out of core.
+textblob
+
+# Used only by circulation
+oauth2client
+pyjwt==1.4.2
+flask-cors
+PyLD==0.7.3
+pycryptodome
+
+# A NYPL-specific requirement
+newrelic
+
+# for author name manipulations
+nameparser
+fuzzywuzzy
+python-Levenshtein

@@ -1,0 +1,29 @@
+<fulfillmentToken fulfillmentType="loan" auth="user" xmlns="http://ns.adobe.com/adept">
+    <distributor>urn:uuid:176c679c-1d79-4fc8-9db4-572a6125a69e</distributor>
+    <operatorURL>http://test.odilotk.es:80/fulfillment</operatorURL>
+    <transaction>I3K:001000265:A-725:X:4306</transaction>
+    <purchase>2017-11-09T12:53:27+00:00</purchase>
+    <expiration>2017-11-09T12:58:27+00:00</expiration>
+    <resourceItemInfo>
+        <resource>urn:uuid:72787032-26ae-4db4-8ac0-65d02f18ef20</resource>
+        <resourceItem>0</resourceItem>
+        <metadata>
+            <dc:title xmlns:dc="http://purl.org/dc/elements/1.1/">Busy Brownies</dc:title>
+            <dc:creator xmlns:dc="http://purl.org/dc/elements/1.1/">E. Veale</dc:creator>
+            <dc:publisher xmlns:dc="http://purl.org/dc/elements/1.1/"> </dc:publisher>
+            <dc:identifier xmlns:dc="http://purl.org/dc/elements/1.1/">http://www.gutenberg.org/ebooks/54159</dc:identifier>
+            <dc:format xmlns:dc="http://purl.org/dc/elements/1.1/">application/pdf</dc:format>
+            <dc:language xmlns:dc="http://purl.org/dc/elements/1.1/">es</dc:language>
+        </metadata>
+        <licenseToken>
+            <resource>urn:uuid:72787032-26ae-4db4-8ac0-65d02f18ef20</resource>
+            <permissions>
+                <display/>
+                <excerpt/>
+                <print/>
+                <play/>
+            </permissions>
+        </licenseToken>
+    </resourceItemInfo>
+    <hmac>umQylLEg0dv3o5mS9iu5XLFC72A=</hmac>
+</fulfillmentToken>
