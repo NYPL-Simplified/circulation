@@ -1119,40 +1119,6 @@ class WorkList(object):
         lane_query = lane_query.limit(target_size*1.3)
         return lane_query
 
-    @classmethod
-    def _add_lane_id_field(cls, _db, qu, lanes, target_size):
-
-        """Add a CASE statement to the given query that explains which lane a
-        given book should be classified under.
-
-        :return: A modified query that includes a 'lane_id' field and
-        may also include new joins against the 'customlistentries'
-        table.
-        """
-        from model import MaterializedWorkWithGenre as work_model
-        lane_clauses = []
-        for sublane in lanes:
-            # Build a match clause for each relevant lane.
-            qu, clause, ignore = sublane.bibliographic_filter_clause(
-                _db, qu, featured=False, outer_join=True
-            )
-            if clause is None:
-                # This lane doesn't put any restrictions whatsoever
-                # on its contents, but we need something for the CASE
-                # statement, so create a tautology.
-                clause = work_model.works_id==work_model.works_id
-
-            clause = sublane._restrict_clause_to_window(clause, target_size)
-            if clause is not None:
-                lane_clauses.append((clause, sublane.id))
-        # Convert the clauses to a CASE statement.
-        if lane_clauses:
-            lane_id_field = case(lane_clauses, else_=None).label("lane_id")
-
-            # Add it to the query.
-            qu = qu.add_columns(lane_id_field)
-        return qu
-
     def _restrict_query_to_window(self, query, target_size):
         """Restrict the given SQLAlchemy query so that it matches
         approximately `target_size` items.
@@ -1167,22 +1133,6 @@ class WorkList(object):
                 work_model.random >= window_start
             )
         return query
-
-    def _restrict_clause_to_window(self, clause, target_size):
-        """Restrict the given SQLAlchemy clause so that it matches
-        approximately `target_size` items.
-        """
-        from model import MaterializedWorkWithGenre as work_model
-        if clause is None:
-            return clause
-        window_start, window_end = self.featured_window(target_size)
-        if window_start > 0 and window_start < 1:
-            clause = and_(
-                clause, 
-                work_model.random <= window_end,
-                work_model.random >= window_start
-            )
-        return clause
 
     def _fill_parent_lane(self, additional_needed, unused_by_tier,
                           used_by_tier, previously_used):

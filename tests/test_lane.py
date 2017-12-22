@@ -2094,53 +2094,6 @@ class TestWorkListGroups(DatabaseTest):
         eq_(lane.library.minimum_featured_quality, facets.minimum_featured_quality)
         eq_(lane.library.featured_lane_size, target_size)
 
-
-    def test_add_lane_id_field(self):
-
-        list_lane = self._lane()
-        list_lane.list_datasource = DataSource.lookup(
-            self._db, DataSource.GUTENBERG
-        )
-        fiction = self._lane(fiction=True)
-        everything = self._lane()
-
-        from model import MaterializedWorkWithGenre as mwg
-        original_qu = self._db.query(mwg)
-        qu = Lane._add_lane_id_field(
-            self._db, original_qu, [list_lane, fiction, everything],
-            10
-        )
-
-        # An outer join against customlists was added to the query so
-        # that it could find titles that belong in list_lane without
-        # excluding titles that don't belong there.
-        assert 'LEFT OUTER JOIN customlists AS customlists_1' in str(qu)
-
-        # A 'lane_id' field was added to the query
-        [lane_id] = [x for x in qu.column_descriptions if x['name'] == 'lane_id']
-        # The lane field is a CASE statement with one clause for each lane.
-        element = lane_id['expr'].element
-        isinstance(element, Case)
-        [(list_when, list_value), 
-         (fiction_when, fiction_value),
-         (everything_when, everything_value)
-        ] = element.whens
-
-        # Each clause maps the bibliographic restrictions on a given
-        # lane to that lane's database ID.
-        assert str(list_when.element).endswith('= customlists_1.data_source_id')
-        eq_(list_lane.id, list_value.value)
-
-        assert '.fiction =' in str(fiction_when.element)
-        eq_(fiction.id, fiction_value.value)
-
-        # The CASE clause for the lane that matches everything
-        # is set to a tautology.
-        name = mwg.__table__.name
-        eq_("%s.works_id = %s.works_id" % (name, name),
-            str(everything_when.element))
-        eq_(everything.id, everything_value.value)
-
     def test_featured_window(self):
         lane = self._lane()
 
@@ -2232,7 +2185,7 @@ class TestWorkListGroups(DatabaseTest):
         target_size = 10
 
         # If the lane is so small that windowing is not safe,
-        # _restrict_clause_to_window does nothing.
+        # _restrict_query_to_window does nothing.
         lane.size = 1
         eq_(
             query, 
@@ -2240,7 +2193,7 @@ class TestWorkListGroups(DatabaseTest):
         )
 
         # If the lane size is small enough to window, then
-        # _restrict_clause_to_window adds restrictions on the .random
+        # _restrict_query_to_window adds restrictions on the .random
         # field.
         lane.size = 960
         modified = lane._restrict_query_to_window(query, target_size)
@@ -2266,43 +2219,3 @@ class TestWorkListGroups(DatabaseTest):
         width = expect_upper-expect_lower
         new_lower, new_upper = lane.featured_window(target_size)
         eq_(round(width, 3), round(new_upper-new_lower, 3))
-
-    def test_restrict_clause_to_window(self):
-        lane = self._lane()
-        
-        from model import MaterializedWorkWithGenre as work_model
-        clause = (work_model.fiction==True)
-        target_size = 10
-
-        # If the lane is so small that windowing is not safe,
-        # _restrict_clause_to_window does nothing.
-        lane.size = 1
-        eq_(
-            clause, 
-            lane._restrict_clause_to_window(clause, target_size)
-        )
-
-        # If the lane size is small enough to window, then
-        # _restrict_clause_to_window adds restrictions on the .random
-        # field.
-        lane.size = 960
-        modified = lane._restrict_clause_to_window(clause, target_size)
-
-        # Check the SQL.
-        sql = str(modified)
-        args = dict(mv=work_model.__table__.name) 
-        assert '%(mv)s.fiction =' % args in sql
-        assert '%(mv)s.random <= :random_1 AND %(mv)s.random >= :random_2' % args in sql
-
-        # Check the numeric values of :random_1 and :random_2
-        upper, lower = [x.right.value for x in modified.clauses[1:]]
-        eq_(0.606, round(lower, 3))
-        eq_(0.658, round(upper, 3))
-
-        # Those values came from featured_window(). If we call that
-        # method ourselves we will get a different window of
-        # approximately the same width.
-        width = upper-lower
-        new_lower, new_upper = lane.featured_window(target_size)
-        eq_(round(width, 10), round(new_upper-new_lower, 10))
-        
