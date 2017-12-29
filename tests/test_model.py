@@ -5979,6 +5979,125 @@ class TestCoverageRecord(DatabaseTest):
         eq_(record5, record)
         eq_(CoverageRecord.PERSISTENT_FAILURE, record.status)
 
+    def test_bulk_add(self):
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        operation = u'testing'
+
+        # An untouched identifier.
+        i1 = self._identifier()
+
+        # An identifier that already has failing coverage.
+        covered = self._identifier()
+        existing = self._coverage_record(
+            covered, source, operation=operation,
+            status=CoverageRecord.TRANSIENT_FAILURE,
+            exception=u'Uh oh'
+        )
+        original_timestamp = existing.timestamp
+
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [i1, covered], source, operation=operation
+        )
+
+        # A new coverage record is created for the uncovered identifier.
+        eq_(i1.coverage_records, resulting_records)
+        [new_record] = resulting_records
+        eq_(source, new_record.data_source)
+        eq_(operation, new_record.operation)
+        eq_(CoverageRecord.SUCCESS, new_record.status)
+        eq_(None, new_record.exception)
+
+        # The existing coverage record is untouched.
+        eq_([covered], ignored_identifiers)
+        eq_([existing], covered.coverage_records)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, existing.status)
+        eq_(original_timestamp, existing.timestamp)
+        eq_('Uh oh', existing.exception)
+
+        # Newly untouched identifier.
+        i2 = self._identifier()
+
+        # Force bulk add.
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [i2, covered], source, operation=operation, force=True
+        )
+
+        # The new identifier has the expected coverage.
+        [new_record] = i2.coverage_records
+        assert new_record in resulting_records
+
+        # The existing record has been updated.
+        assert existing in resulting_records
+        assert covered not in ignored_identifiers
+        eq_(CoverageRecord.SUCCESS, existing.status)
+        assert existing.timestamp > original_timestamp
+        eq_(None, existing.exception)
+
+        # If no records are created or updated, no records are returned.
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [i2, covered], source, operation=operation
+        )
+
+        eq_([], resulting_records)
+        eq_(sorted([i2, covered]), sorted(ignored_identifiers))
+
+    def test_bulk_add_with_collection(self):
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        operation = u'testing'
+
+        c1 = self._collection()
+        c2 = self._collection()
+
+        # An untouched identifier.
+        i1 = self._identifier()
+
+        # An identifier with coverage for a different collection.
+        covered = self._identifier()
+        existing = self._coverage_record(
+            covered, source, operation=operation,
+            status=CoverageRecord.TRANSIENT_FAILURE, collection=c1,
+            exception=u'Danger, Will Robinson'
+        )
+        original_timestamp = existing.timestamp
+
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [i1, covered], source, operation=operation, collection=c1,
+            force=True
+        )
+
+        eq_(2, len(resulting_records))
+        eq_([], ignored_identifiers)
+
+        # A new record is created for the new identifier.
+        [new_record] = i1.coverage_records
+        assert new_record in resulting_records
+        eq_(source, new_record.data_source)
+        eq_(operation, new_record.operation)
+        eq_(CoverageRecord.SUCCESS, new_record.status)
+        eq_(c1, new_record.collection)
+
+        # The existing record has been updated.
+        assert existing in resulting_records
+        eq_(CoverageRecord.SUCCESS, existing.status)
+        assert existing.timestamp > original_timestamp
+        eq_(None, existing.exception)
+
+        # Bulk add for a different collection.
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [covered], source, operation=operation, collection=c2,
+            status=CoverageRecord.TRANSIENT_FAILURE, exception=u'Oh no',
+        )
+
+        # A new record has been added to the identifier.
+        assert existing not in resulting_records
+        [new_record] = resulting_records
+        eq_(covered, new_record.identifier)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, new_record.status)
+        eq_(source, new_record.data_source)
+        eq_(operation, new_record.operation)
+        eq_(u'Oh no', new_record.exception)
+
+
 class TestWorkCoverageRecord(DatabaseTest):
 
     def test_lookup(self):

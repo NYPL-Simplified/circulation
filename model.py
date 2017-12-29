@@ -1426,6 +1426,105 @@ class CoverageRecord(Base, BaseCoverageRecord):
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
 
+    @classmethod
+    def bulk_add(cls, identifiers, data_source, operation=None, timestamp=None,
+        status=BaseCoverageRecord.SUCCESS, exception=None, collection=None,
+        force=False,
+    ):
+        """Create and update CoverageRecords so that every Identifier in
+        `identifiers` has an identical record.
+        """
+        if not identifiers:
+            # Nothing to do.
+            return
+
+        _db = Session.object_session(identifiers[0])
+        timestamp = timestamp or datetime.datetime.utcnow()
+        identifier_ids = [i.id for i in identifiers]
+
+        equivalent_record = and_(
+            cls.operation==operation,
+            cls.data_source==data_source,
+            cls.collection==collection,
+        )
+
+        updated_or_created_results = list()
+        if force:
+            # Make sure that works that previously had a
+            # CoverageRecord for this operation have their timestamp
+            # and status updated.
+            update = cls.__table__.update().where(and_(
+                cls.identifier_id.in_(identifier_ids),
+                equivalent_record,
+            )).values(
+                dict(timestamp=timestamp, status=status, exception=exception)
+            ).returning(cls.id, cls.identifier_id)
+            updated_or_created_results = _db.execute(update).fetchall()
+
+        already_covered = _db.query(cls.id, cls.identifier_id).filter(
+            equivalent_record,
+            cls.identifier_id.in_(identifier_ids),
+        ).subquery()
+
+        # Make sure that any identifiers that need a CoverageRecord get one.
+        # The SELECT part of the INSERT...SELECT query.
+        data_source_id = data_source.id
+        collection_id = None
+        if collection:
+            collection_id = collection.id
+
+        new_records = _db.query(
+            Identifier.id.label('identifier_id'),
+            literal(operation, type_=String(255)).label('operation'),
+            literal(timestamp, type_=DateTime).label('timestamp'),
+            literal(status, type_=BaseCoverageRecord.status_enum).label('status'),
+            literal(exception, type_=Unicode).label('exception'),
+            literal(data_source_id, type_=Integer).label('data_source_id'),
+            literal(collection_id, type_=Integer).label('collection_id'),
+        ).select_from(Identifier).outerjoin(
+            already_covered, Identifier.id==already_covered.c.identifier_id,
+        ).filter(already_covered.c.id==None)
+
+        new_records = new_records.filter(Identifier.id.in_(identifier_ids))
+
+        # The INSERT part.
+        insert = cls.__table__.insert().from_select(
+            [
+                literal_column('identifier_id'),
+                literal_column('operation'),
+                literal_column('timestamp'),
+                literal_column('status'),
+                literal_column('exception'),
+                literal_column('data_source_id'),
+                literal_column('collection_id'),
+            ],
+            new_records
+        ).returning(cls.id, cls.identifier_id)
+
+        inserts = _db.execute(insert).fetchall()
+
+        updated_or_created_results.extend(inserts)
+        _db.commit()
+
+        # Default return for the case when all of the identifiers were
+        # ignored.
+        new_records = list()
+        ignored_identifiers = identifiers
+
+        new_and_updated_record_ids = [r[0] for r in updated_or_created_results]
+        impacted_identifier_ids = [r[1] for r in updated_or_created_results]
+
+        if new_and_updated_record_ids:
+            new_records = _db.query(cls).filter(cls.id.in_(
+                new_and_updated_record_ids
+            )).all()
+
+        ignored_identifiers = filter(
+            lambda i: i.id not in impacted_identifier_ids, identifiers
+        )
+
+        return new_records, ignored_identifiers
+
 Index("ix_coveragerecords_data_source_id_operation_identifier_id", CoverageRecord.data_source_id, CoverageRecord.operation, CoverageRecord.identifier_id)
 
 class WorkCoverageRecord(Base, BaseCoverageRecord):
