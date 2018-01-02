@@ -711,7 +711,7 @@ class Patron(Base):
         return self._synchronize_annotations
 
     @synchronize_annotations.setter
-    def _set_synchronize_annotations(self, value):
+    def synchronize_annotations(self, value):
         """When a patron says they don't want their annotations to be stored
         on a library server, delete all their annotations.
         """
@@ -9516,7 +9516,7 @@ class Library(Base, HasFullTableCache):
         return self._library_registry_short_name
 
     @library_registry_short_name.setter
-    def _set_library_registry_short_name(self, value):
+    def library_registry_short_name(self, value):
         """Uppercase the library registry short name on the way in."""
         if value:
             value = value.upper()
@@ -10050,7 +10050,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         return self.setting(self.URL).value
 
     @url.setter
-    def set_url(self, new_url):
+    def url(self, new_url):
         self.set_setting(self.URL, new_url)
 
     @hybrid_property
@@ -10058,7 +10058,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         return self.setting(self.USERNAME).value
 
     @username.setter
-    def set_username(self, new_username):
+    def username(self, new_username):
         self.set_setting(self.USERNAME, new_username)
 
     @hybrid_property
@@ -10066,7 +10066,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         return self.setting(self.PASSWORD).value
 
     @password.setter
-    def set_password(self, new_password):
+    def password(self, new_password):
         return self.set_setting(self.PASSWORD, new_password)
 
     def explain(self, library=None, include_secrets=False):
@@ -10271,7 +10271,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         return self._value
 
     @value.setter
-    def set_value(self, new_value):
+    def value(self, new_value):
         if new_value is not None:
             new_value = unicode(new_value)
         self._value = new_value
@@ -10521,7 +10521,7 @@ class Collection(Base, HasFullTableCache):
         return self.external_integration.protocol
 
     @protocol.setter
-    def set_protocol(self, new_protocol):
+    def protocol(self, new_protocol):
         """Modify the protocol in use by this Collection."""
         if self.parent and self.parent.protocol != new_protocol:
             raise ValueError(
@@ -10584,7 +10584,7 @@ class Collection(Base, HasFullTableCache):
         )
 
     @default_reservation_period.setter
-    def set_default_reservation_period(self, new_value):
+    def default_reservation_period(self, new_value):
         new_value = int(new_value)
         self.external_integration.setting(
             self.DEFAULT_RESERVATION_PERIOD_KEY).value = str(new_value)
