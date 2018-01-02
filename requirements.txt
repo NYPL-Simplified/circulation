@@ -3,7 +3,7 @@ feedparser
 pillow
 psycopg2
 requests>=2.18.4
-sqlalchemy>=1.1.15
+sqlalchemy>=1.2.0
 nose
 lxml
 flask
