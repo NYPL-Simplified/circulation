@@ -460,7 +460,7 @@ class TestFeaturedFacets(DatabaseTest):
         # before works with a low random number. The exact quality
         # doesn't matter (high_quality_2 is slightly lower quality
         # than high_quality_1), only the quality tier.
-        featured = facets.apply(self._db, base_query, False)
+        featured = facets.apply(self._db, base_query)
         expect(
             [high_quality_high_random, high_quality_low_random, low_quality],
             featured
@@ -475,10 +475,14 @@ class TestFeaturedFacets(DatabaseTest):
         SessionManager.refresh_materialized_views(self._db)
         expect([high_quality_low_random, high_quality_high_random, low_quality], featured)
 
-        # Passing in distinct=True makes the query distinct by work ID.
+        # The query is distinct on works_id. (It's also distinct on the
+        # fields used in the ORDER BY clause, but that's just to get the
+        # query to work.)
         eq_(False, base_query._distinct)
-        distinct_query = facets.apply(self._db, base_query, True)
-        eq_([work_model.works_id], distinct_query._distinct)
+        distinct_query = facets.apply(self._db, base_query)
+        eq_(
+            work_model.works_id, distinct_query._distinct[-1]
+        )
 
 
 class TestPagination(DatabaseTest):
@@ -683,11 +687,21 @@ class TestWorkList(DatabaseTest):
 
     def test_featured_works(self):
         wl = MockWorks()
+        self._default_library.setting(Library.FEATURED_LANE_SIZE).value = "10"
         wl.initialize(library=self._default_library)
 
         w1 = MockWork(1)
 
-        wl.queue_works([w1])
+        # Set the underlying 'query' to return the same work twice.
+        # This can happen in real life. For instance, if a lane is
+        # based on a number of CustomLists, and a single work is
+        # featured on one CustomList but not featured on another, the
+        # query will find the same work with two different quality
+        # scores.
+        wl.queue_works([w1, w1])
+
+        # We asked for 10 works, the query returned two, but there was
+        # a duplicate, so we ended up with one.
         featured = wl.featured_works(self._db)
         eq_([w1], featured)
 
@@ -699,7 +713,7 @@ class TestWorkList(DatabaseTest):
 
         # We then called random_sample() on the results.
         [(query, target_size)] = wl.random_sample_calls
-        eq_([w1], query)
+        eq_([w1, w1], query)
         eq_(self._default_library.featured_lane_size, target_size)
 
     def test_works(self):
@@ -787,9 +801,6 @@ class TestWorkList(DatabaseTest):
             calls various hook methods.
             """
 
-            def __init__(self, distinct=True):
-                self.distinct = distinct
-            
             def only_show_ready_deliverable_works(
                     self, _db, query, *args, **kwargs
             ):
@@ -801,12 +812,11 @@ class TestWorkList(DatabaseTest):
             ):
                 called['apply_bibliographic_filters'] = True
                 called['apply_bibliographic_filters.featured'] = featured
-                return query, None, self.distinct
+                return query, None
 
         class MockFacets(object):
-            def apply(self, _db, query, distinct):
+            def apply(self, _db, query):
                 called['facets.apply'] = True
-                called['facets.apply.distinct'] = distinct
                 return query
 
         class MockPagination(object):
@@ -829,7 +839,6 @@ class TestWorkList(DatabaseTest):
         eq_(called['pagination.apply'], True)
 
         eq_(called['apply_bibliographic_filters.featured'], False)
-        eq_(called['facets.apply.distinct'], True)
 
         # We mocked everything that might have changed the final query,
         # and the end result was the query wasn't modified.
@@ -853,7 +862,7 @@ class TestWorkList(DatabaseTest):
             def bibliographic_filter_clause(
                     self, _db, query, featured
             ):
-                return None, None, False
+                return None, None
 
         wl = MockWorkList()
         wl.initialize(self._default_library)
@@ -886,7 +895,7 @@ class TestWorkList(DatabaseTest):
         # methods do nothing, then bibliographic_filter_clause() has
         # no effect.
         featured_object = object()
-        final_qu, bibliographic_filter, distinct = wl.bibliographic_filter_clause(
+        final_qu, bibliographic_filter = wl.bibliographic_filter_clause(
             self._db, original_qu, featured_object
         )
         eq_(original_qu, final_qu)
@@ -915,12 +924,10 @@ class TestWorkList(DatabaseTest):
             that it finds only the given books.
             """
             worklist = MockWorkList(**worklist_constructor_args)
-            qu, clause, distinct = worklist.bibliographic_filter_clause(
+            qu, clause = worklist.bibliographic_filter_clause(
                 self._db, original_qu, False
             )
             qu = qu.filter(clause)
-            if distinct:
-                qu = qu.distinct()
             expect_titles = sorted([x.sort_title for x in expect_books])
             actual_titles = sorted([x.sort_title for x in qu])
             eq_(expect_titles, actual_titles)
@@ -1506,7 +1513,7 @@ class TestLane(DatabaseTest):
             base_query = self._db.query(mwg).join(
                 LicensePool, mwg.license_pool_id==LicensePool.id
             )
-            new_query, bibliographic_clause, distinct = lane.bibliographic_filter_clause(
+            new_query, bibliographic_clause = lane.bibliographic_filter_clause(
                 self._db, base_query, featured
             )
             
@@ -1514,20 +1521,9 @@ class TestLane(DatabaseTest):
                 # bibliographic_filter_clause modifies the query (by
                 # calling customlist_filter_clauses).
                 assert base_query != new_query
-                if not lane.list_datasource and len(lane.customlists) < 2:
-                    # This query does not need to be distinct -- either
-                    # there are no custom lists involved, or there
-                    # is known to be only a single list.
-                    eq_(False, distinct)
-                else:
-                    # This query needs to be distinct, because a 
-                    # single book might show up more than once.
-                    eq_(True, distinct)
             else:
-                # The input query is the same as the output query, and
-                # it does not need to be distinct.
+                # The query was not modified.
                 eq_(base_query, new_query)
-                eq_(False, distinct)
 
             if expect_bibliographic_filter:
                 # There must be some kind of bibliographic filter.
@@ -1627,7 +1623,7 @@ class TestLane(DatabaseTest):
         from model import MaterializedWorkWithGenre as work_model
         qu = self._db.query(work_model)
         eq_(
-            (qu, None, False), 
+            (qu, None), 
             lane.bibliographic_filter_clause(self._db, qu, False, False)
         )
 
@@ -1640,11 +1636,10 @@ class TestLane(DatabaseTest):
         from model import MaterializedWorkWithGenre as work_model
         def matches(lane):
             qu = self._db.query(work_model)
-            new_qu, bib_filter, distinct = lane.bibliographic_filter_clause(
+            new_qu, bib_filter = lane.bibliographic_filter_clause(
                 self._db, qu, False
             )
             eq_(new_qu, qu)
-            eq_(False, distinct)
             return [x.works_id for x in new_qu.filter(bib_filter)]
 
         # This lane only includes ebooks, and it has one item.
@@ -1711,10 +1706,9 @@ class TestLane(DatabaseTest):
         # apply_customlist_filter does nothing.
         no_lists = self._lane()
         qu = self._db.query(Work)
-        new_qu, clauses, distinct = no_lists.customlist_filter_clauses(qu)
+        new_qu, clauses = no_lists.customlist_filter_clauses(qu)
         eq_(qu, new_qu)
         eq_([], clauses)
-        eq_(False, distinct)
 
         # Now set up a Work and a CustomList that contains the work.
         work = self._work(with_license_pool=True)
@@ -1734,19 +1728,16 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_datasource = gutenberg
         self.add_to_materialized_view([work])
 
-        def results(lane=gutenberg_lists_lane, must_be_featured=False,
-                    expect_distinct=False):
+        def results(lane=gutenberg_lists_lane, must_be_featured=False):
             from model import MaterializedWorkWithGenre as work_model
             qu = self._db.query(work_model)
-            new_qu, clauses, distinct = lane.customlist_filter_clauses(
+            new_qu, clauses = lane.customlist_filter_clauses(
                 qu, must_be_featured=must_be_featured
             )
 
             # The query comes out different than it goes in -- there's a
             # new join against CustomList.
             assert new_qu != qu
-
-            eq_(expect_distinct, distinct)
 
             # Run the query and see what it matches.
             modified = new_qu.filter(and_(*clauses)).distinct(
@@ -1755,31 +1746,31 @@ class TestLane(DatabaseTest):
             return [x.works_id for x in modified]
 
         # Both lanes contain the work.
-        eq_([work.id], results(gutenberg_list_lane, expect_distinct=False))
-        eq_([work.id], results(gutenberg_lists_lane, expect_distinct=True))
+        eq_([work.id], results(gutenberg_list_lane))
+        eq_([work.id], results(gutenberg_lists_lane))
 
-        # If we add another list to the gutenberg_list_lane,
-        # it becomes distinct, because there's now a possibility
-        # that a single book might show up more than once.
+        # If there's another list with the same work on it, the
+        # work only shows up once.
         gutenberg_list_2, ignore = self._customlist(num_entries=0)
+        gutenberg_list_2_entry, ignore = gutenberg_list_2.add_entry(work)
         gutenberg_list_lane.customlists.append(gutenberg_list)
-        eq_([work.id], results(gutenberg_list_lane, expect_distinct=True))
+        eq_([work.id], results(gutenberg_list_lane))
 
         # This lane gets every work on a list associated with Overdrive.
         # There are no such lists, so the lane is empty.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         overdrive_lists_lane = self._lane()
         overdrive_lists_lane.list_datasource = overdrive
-        eq_([], results(overdrive_lists_lane, expect_distinct=True))
+        eq_([], results(overdrive_lists_lane))
 
         # It's possible to restrict a lane so that only works that are
         # _featured_ on a list show up. The work isn't featured, so it
         # doesn't show up.
-        eq_([], results(must_be_featured=True, expect_distinct=True))
+        eq_([], results(must_be_featured=True))
 
         # Now it's featured, and it shows up.
         gutenberg_list_entry.featured = True
-        eq_([work.id], results(must_be_featured=True, expect_distinct=True))
+        eq_([work.id], results(must_be_featured=True))
 
         # It's possible to restrict a lane to works that were seen on
         # a certain list in a given timeframe.
@@ -1790,11 +1781,11 @@ class TestLane(DatabaseTest):
         # The lane will only show works that were seen within the last
         # day. There are no such works.
         gutenberg_lists_lane.list_seen_in_previous_days = 1
-        eq_([], results(expect_distinct=True))
+        eq_([], results())
 
         # Now it's been loosened to three days, and the work shows up.
         gutenberg_lists_lane.list_seen_in_previous_days = 3
-        eq_([work.id], results(expect_distinct=True))
+        eq_([work.id], results())
 
 class TestWorkListGroups(DatabaseTest):
     """Tests of WorkList.groups() and the helper methods."""
