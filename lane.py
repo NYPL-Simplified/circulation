@@ -243,7 +243,7 @@ class Facets(FacetConstants):
         }
         return order_facet_to_database_field[order_facet]
 
-    def apply(self, _db, qu, distinct=False):
+    def apply(self, _db, qu):
         """Restrict a query against MaterializedWorkWithGenre so that it only
         matches works that fit the given facets, and the query is
         ordered appropriately.
@@ -282,8 +282,10 @@ class Facets(FacetConstants):
         # Set the ORDER BY clause.
         order_by, order_distinct = self.order_by()
         qu = qu.order_by(*order_by)
-        if distinct:
-            qu = qu.distinct(*order_distinct)
+
+        # We always mark the query as distinct because the materialized
+        # view can contain the same title many times.
+        qu = qu.distinct(*order_distinct)
 
         return qu
 
@@ -336,7 +338,7 @@ class FeaturedFacets(object):
         self.minimum_featured_quality = minimum_featured_quality
         self.uses_customlists = uses_customlists
 
-    def apply(self, _db, qu, distinct):
+    def apply(self, _db, qu):
         """Order a query by quality tier, and then randomly.
 
         This isn't usually necessary because works_in_window orders
@@ -347,10 +349,9 @@ class FeaturedFacets(object):
         from model import MaterializedWorkWithGenre as work_model
         quality = self.quality_tier_field()
         qu = qu.order_by(
-            quality.desc(), work_model.random.desc()
+            quality.desc(), work_model.random.desc(), work_model.works_id
         )
-        if distinct:
-            qu = qu.distinct(work_model.works_id)
+        qu = qu.distinct(quality, work_model.random, work_model.works_id)
         return qu
 
     def quality_tier_field(self):
@@ -653,7 +654,10 @@ class WorkList(object):
 
         Used when building a grouped OPDS feed for this WorkList's parent.
 
-        :return: A list of MaterializedWorkWithGenre objects.
+        :return: A list of MaterializedWorkWithGenre objects.  Under
+        no circumstances will a single work show up multiple times in
+        this list, even if that means the list contains fewer works
+        than anticipated.
         """
         books = []
         book_ids = set()
@@ -672,14 +676,15 @@ class WorkList(object):
             # run.
             return []
 
+        work_ids = set()
         works = []
         for work in self.random_sample(query, target_size)[:target_size]:
             if isinstance(work, tuple):
                 # This is a (work, score) 2-tuple.
-                works.append(work[0])
-            else:
-                # This is a regular work.
+                work = work[0]
+            if work.works_id not in work_ids:
                 works.append(work)
+                work_ids.add(work.works_id)
         return works
 
     def works(self, _db, facets=None, pagination=None, include_quality_tier=False):
@@ -776,7 +781,7 @@ class WorkList(object):
 
         # This method applies whatever filters are necessary to implement
         # the rules of this particular WorkList.
-        qu, bibliographic_clause, distinct = self.bibliographic_filter_clause(
+        qu, bibliographic_clause = self.bibliographic_filter_clause(
             _db, qu, featured
         )
         if not qu:
@@ -787,11 +792,12 @@ class WorkList(object):
             qu = qu.filter(bibliographic_clause)
 
         if facets:
-            qu = facets.apply(_db, qu, distinct=distinct)
-        elif distinct:
-            # Something about the query makes it possible that the same
-            # book might show up twice. We set the query as DISTINCT
-            # to avoid this possibility.
+            qu = facets.apply(_db, qu)
+        else:
+            # Ordinarily facets.apply() would take care of ordering
+            # the query and making it distinct. In the absence
+            # of any ordering information, we will make the query distinct
+            # based on work ID.
             qu = qu.distinct(work_model.works_id)
 
         if pagination:
@@ -802,7 +808,7 @@ class WorkList(object):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
         metadata doesn't match what we're looking for.
 
-        :return: A 3-tuple (query, clause, distinct).
+        :return: A 2-tuple (query, clause).
 
         - query is either `qu`, or a new query that has been modified to
         join against additional tables.
@@ -823,7 +829,7 @@ class WorkList(object):
             clause = None
         else:
             clause = and_(*clauses)
-        return qu, clause, False
+        return qu, clause
 
     def audience_filter_clauses(self, _db, qu):
         """Create a SQLAlchemy filter that excludes books whose intended
@@ -1137,6 +1143,8 @@ class WorkList(object):
         """Yield up to `additional_needed` randomly selected items from
         `unused_by_tier`, falling back to `used_by_tier` if necessary.
 
+        NOTE: This method is currently unused.
+
         :param unused_by_tier: A dictionary mapping quality tiers to
         lists of unused MaterializedWorkWithGenre items. Because the
         same book may have shown up as multiple
@@ -1175,7 +1183,6 @@ class WorkList(object):
                     if additional_found >= additional_needed:
                         # We're all done.
                         return
-
 
 
 class LaneGenre(Base):
@@ -1384,7 +1391,7 @@ class Lane(Base, WorkList):
         return self._visible and (not self.parent or self.parent.visible)
 
     @visible.setter
-    def set_visible(self, value):
+    def visible(self, value):
         self._visible = value
 
     @property
@@ -1401,7 +1408,7 @@ class Lane(Base, WorkList):
         return self._audiences or []
 
     @audiences.setter
-    def set_audiences(self, value):
+    def audiences(self, value):
         """The `audiences` field cannot be set to a value that
         contradicts the current value to the `target_age` field.
         """
@@ -1416,7 +1423,7 @@ class Lane(Base, WorkList):
         return self._target_age
 
     @target_age.setter
-    def set_target_age(self, value):
+    def target_age(self, value):
         """Setting .target_age will lock .audiences to appropriate values.
 
         If you set target_age to 16-18, you're saying that the audiences
@@ -1464,7 +1471,7 @@ class Lane(Base, WorkList):
         return self._list_datasource
 
     @list_datasource.setter
-    def set_list_datasource(self, value):
+    def list_datasource(self, value):
         """Setting .list_datasource to a non-null value wipes out any specific
         CustomLists previously associated with this Lane.
         """
@@ -1674,19 +1681,16 @@ class Lane(Base, WorkList):
         :param qu: A Query object. The filter will not be applied to this
         Query, but the query may be extended with additional table joins.
 
-        :return: A 3-tuple (query, statement, distinct).
+        :return: A 2-tuple (query, statement).
 
         `query` is the same query as `qu`, possibly extended with
         additional table joins.
 
         `statement` is a SQLAlchemy statement suitable for passing
         into filter() or case().
-
-        `distinct` is whether or not the query needs to be set as
-        DISTINCT.
         """
         from model import MaterializedWorkWithGenre as work_model
-        qu, superclass_clause, superclass_distinct = super(
+        qu, superclass_clause = super(
             Lane, self
         ).bibliographic_filter_clause(
             _db, qu, featured
@@ -1698,13 +1702,11 @@ class Lane(Base, WorkList):
             # In addition to the other restrictions imposed by this
             # Lane, books will show up here only if they would
             # also show up in the parent Lane.
-            qu, clause, parent_distinct = self.parent.bibliographic_filter_clause(
+            qu, clause = self.parent.bibliographic_filter_clause(
                 _db, qu, featured
             )
             if clause is not None:
                 clauses.append(clause)
-        else:
-            parent_distinct = False
 
         # If a license source is specified, only show books from that
         # source.
@@ -1718,7 +1720,7 @@ class Lane(Base, WorkList):
             clauses.append(work_model.medium.in_(self.media))
 
         clauses.extend(self.age_range_filter_clauses())
-        qu, customlist_clauses, customlist_distinct = self.customlist_filter_clauses(
+        qu, customlist_clauses = self.customlist_filter_clauses(
             qu, featured, outer_join
         )
         clauses.extend(customlist_clauses)
@@ -1727,9 +1729,7 @@ class Lane(Base, WorkList):
             clause = and_(*clauses)
         else:
             clause = None
-        return qu, clause, (
-            superclass_distinct or parent_distinct or customlist_distinct
-        )
+        return qu, clause
 
     def age_range_filter_clauses(self):
         """Create a clause that filters out all books not classified as
@@ -1766,22 +1766,19 @@ class Lane(Base, WorkList):
         :param must_be_featured: It's not enough for the book to be on
         an appropriate list; it must be _featured_ on an appropriate list.
 
-        :return: A 3-tuple (query, clauses, distinct).
+        :return: A 3-tuple (query, clauses).
 
         `query` is the same query as `qu`, possibly extended with
         additional table joins.
 
         `clauses` is a list of SQLAlchemy statements for use in a
         filter() or case() statement.
-
-        `distinct` is whether or not the query needs to be set as
-        DISTINCT.
         """
         from model import MaterializedWorkWithGenre as work_model
         if not self.customlists and not self.list_datasource:
             # This lane does not require that books be on any particular
             # CustomList.
-            return qu, [], False
+            return qu, []
 
         # There may already be a join against CustomListEntry, in the case 
         # of a Lane that inherits its parent's restrictions. To avoid
@@ -1802,15 +1799,8 @@ class Lane(Base, WorkList):
             clauses.append(a_list.data_source==self.list_datasource)
         customlist_ids = [x.id for x in self.customlists]
 
-        # Now that custom list(s) are involved, we must (probably)
-        # eventually set DISTINCT to True on the query.
-        distinct = True
         if customlist_ids:
             clauses.append(a_list.id.in_(customlist_ids))
-            if len(customlist_ids) == 1:
-                # There's only one list, so no risk that a book
-                # might show up more than once.
-                distinct = False
         if must_be_featured:
             clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
@@ -1822,7 +1812,7 @@ class Lane(Base, WorkList):
         if must_be_featured:
             clauses.append(a_entry.featured==True)
             
-        return qu, clauses, distinct
+        return qu, clauses
 
 Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id, cascade='all, delete-orphan')
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)

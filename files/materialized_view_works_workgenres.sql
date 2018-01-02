@@ -40,7 +40,7 @@ as
      JOIN licensepools ON editions.id = licensepools.presentation_edition_id
      JOIN datasources ON licensepools.data_source_id = datasources.id
      JOIN identifiers on licensepools.identifier_id = identifiers.id
-     LEFT JOIN workgenres ON works.id = workgenres.work_id
+     JOIN workgenres ON works.id = workgenres.work_id
   WHERE works.presentation_ready = true
     AND works.simple_opds_entry IS NOT NULL
 
