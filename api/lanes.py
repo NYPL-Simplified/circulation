@@ -859,17 +859,17 @@ class RecommendationLane(WorkBasedLane):
             return metadata.recommendations
         return []
 
-    def apply_filters(self, _db, qu, work_model, facets, pagination, featured=False):
+    def apply_filters(self, _db, qu, facets, pagination, featured=False):
         if not self.recommendations:
             return None
 
-        if work_model != Work:
-            qu = qu.join(LicensePool.identifier)
+        qu = qu.join(LicensePool.identifier)
         qu = Work.from_identifiers(
             _db, self.recommendations, base_query=qu
         )
         return super(RecommendationLane, self).apply_filters(
-            _db, qu, work_model, facets, pagination, featured=featured)
+            _db, qu, facets, pagination, featured=featured
+        )
 
 class SeriesLane(DynamicLane):
     """A lane of Works in a particular series"""
@@ -916,16 +916,16 @@ class SeriesLane(DynamicLane):
         qu = qu.limit(target_size)
         return qu.all()
 
-    def apply_filters(self, _db, qu, work_model, facets, pagination, featured=False):
+    def apply_filters(self, _db, qu, facets, pagination, featured=False):
         if not self.series:
             return None
 
         # Aliasing Edition here allows this query to function
-        # regardless of work_model and existing joins.
+        # regardless of existing joins.
         work_edition = aliased(Edition)
         qu = qu.join(work_edition).filter(work_edition.series==self.series)
         return super(SeriesLane, self).apply_filters(
-            _db, qu, work_model, facets, pagination, featured)
+            _db, qu, facets, pagination, featured)
 
 
 class ContributorLane(DynamicLane):
@@ -967,7 +967,7 @@ class ContributorLane(DynamicLane):
             Contributor.sort_name==self.contributor_name
         ]
 
-    def apply_filters(self, _db, qu, work_model, facets, pagination, featured=False):
+    def apply_filters(self, _db, qu, facets, pagination, featured=False):
         if not self.contributor_name:
             return None
 
@@ -990,4 +990,4 @@ class ContributorLane(DynamicLane):
         qu = qu.filter(or_clause)
 
         return super(ContributorLane, self).apply_filters(
-            _db, qu, work_model, facets, pagination, featured=featured)
+            _db, qu, facets, pagination, featured=featured)
