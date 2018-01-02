@@ -191,7 +191,7 @@ class PatronData(object):
         return self._fines
 
     @fines.setter
-    def _set_fines(self, value):
+    def fines(self, value):
         """When setting patron fines, only store the numeric portion of 
         a Money object.
         """
