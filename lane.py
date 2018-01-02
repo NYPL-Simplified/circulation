@@ -1177,7 +1177,7 @@ class Lane(Base, WorkList):
         return self._visible and (not self.parent or self.parent.visible)
 
     @visible.setter
-    def set_visible(self, value):
+    def visible(self, value):
         self._visible = value
 
     @property
@@ -1194,7 +1194,7 @@ class Lane(Base, WorkList):
         return self._audiences or []
 
     @audiences.setter
-    def set_audiences(self, value):
+    def audiences(self, value):
         """The `audiences` field cannot be set to a value that
         contradicts the current value to the `target_age` field.
         """
@@ -1207,7 +1207,7 @@ class Lane(Base, WorkList):
         return self._target_age
 
     @target_age.setter
-    def set_target_age(self, value):
+    def target_age(self, value):
         """Setting .target_age will lock .audiences to appropriate values.
 
         If you set target_age to 16-18, you're saying that the audiences
@@ -1255,7 +1255,7 @@ class Lane(Base, WorkList):
         return self._list_datasource
 
     @list_datasource.setter
-    def set_list_datasource(self, value):
+    def list_datasource(self, value):
         """Setting .list_datasource to a non-null value wipes out any specific
         CustomLists previously associated with this Lane.
         """
