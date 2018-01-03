@@ -520,6 +520,10 @@ class TestSeriesLane(LaneTest):
         eq_('Alrighty Then', lane.series)
 
     def test_works_query(self):
+        # If there is no series name, no works are returned.
+        lane = SeriesLane(self._default_library, None)
+        self.assert_works_queries(lane, [])
+
         # If there are no works with the series name, no works are returned.
         series_name = "Like As If Whatever Mysteries"
         lane = SeriesLane(self._default_library, series_name)

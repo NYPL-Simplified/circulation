@@ -872,20 +872,20 @@ class RecommendationLane(WorkBasedLane):
         )
 
 
-class SeriesFacets(Facets):
+class FeaturedSeriesFacets(Facets):
     """A custom Facets object for ordering a lane based on series."""
 
     def __init__(self, *args, **kwargs):
-        """Create an alias for the Edition table to use later."""
-        super(SeriesFacets, self).__init__(*args, **kwargs)
+        """Create an alias for the Edition table, to be used later."""
+        super(FeaturedSeriesFacets, self).__init__(*args, **kwargs)
         self.edition_model = aliased(Edition)
 
     def apply(self, _db, qu):
-        """Join the given query against an alias for the Edition table
+        """Join the given query against our aliased Edition table,
         so that fields of that table can be used in the ORDER BY clause.
         """
         qu = qu.join(self.edition_model)
-        return super(SeriesFacets, self).apply(_db, qu)
+        return super(FeaturedSeriesFacets, self).apply(_db, qu)
 
     def order_by(self):
         """Order the query results by series position."""
@@ -896,12 +896,7 @@ class SeriesFacets(Facets):
 
 
 class SeriesLane(DynamicLane):
-    """A lane of Works in a particular series.
-
-    TODO: We should support proper pagination. An unnumbered 'series'
-    like "Star Wars" or "For Dummies" may contain hundreds of titles
-    which the user may want to browse.
-    """
+    """A lane of Works in a particular series."""
 
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
@@ -946,7 +941,7 @@ class SeriesLane(DynamicLane):
             availability=SeriesFacets.AVAILABLE_ALL,
             order=None
         )
-        pagination = Pagination()
+        pagination = Pagination(size=library.featured_lane_size)
         qu = self.works(_db, facets=facets, pagination=pagination)
         return qu.all()
 
@@ -954,10 +949,13 @@ class SeriesLane(DynamicLane):
         if not self.series:
             return None
 
-        # Aliasing Edition here allows this query to function
-        # regardless of existing joins.
-        work_edition = aliased(Edition)
-        qu = qu.join(work_edition).filter(work_edition.series==self.series)
+        if isinstance(facets, FeaturedSeriesFacets):
+            # This query has already joined against Edition.
+            work_edition = facets.work_edition
+        else:
+            work_edition = aliased(Edition)
+            qu = qu.join(work_edition)
+        qu = qu.filter(work_edition.series==self.series)
         return super(SeriesLane, self).apply_filters(
             _db, qu, facets, pagination, featured)
 
