@@ -871,8 +871,37 @@ class RecommendationLane(WorkBasedLane):
             _db, qu, facets, pagination, featured=featured
         )
 
+
+class SeriesFacets(Facets):
+    """A custom Facets object for ordering a lane based on series."""
+
+    def __init__(self, *args, **kwargs):
+        """Create an alias for the Edition table to use later."""
+        super(SeriesFacets, self).__init__(*args, **kwargs)
+        self.edition_model = aliased(Edition)
+
+    def apply(self, _db, qu):
+        """Join the given query against an alias for the Edition table
+        so that fields of that table can be used in the ORDER BY clause.
+        """
+        qu = qu.join(self.edition_model)
+        return super(SeriesFacets, self).apply(_db, qu)
+
+    def order_by(self):
+        """Order the query results by series position."""
+        fields = (
+            self.edition_model.series_position, self.edition_model.title
+        )
+        return [x.asc() for x in fields], fields
+
+
 class SeriesLane(DynamicLane):
-    """A lane of Works in a particular series"""
+    """A lane of Works in a particular series.
+
+    TODO: We should support proper pagination. An unnumbered 'series'
+    like "Star Wars" or "For Dummies" may contain hundreds of titles
+    which the user may want to browse.
+    """
 
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
@@ -906,14 +935,19 @@ class SeriesLane(DynamicLane):
         return self.ROUTE, kwargs
 
     def featured_works(self, _db):
-        qu = self.works(_db)
-
         # Aliasing Edition here allows this query to function
         # regardless of work_model and existing joins.
-        work_edition = aliased(Edition)
-        qu = qu.join(work_edition).order_by(work_edition.series_position, work_edition.title)
-        target_size = self.get_library(_db).featured_lane_size
-        qu = qu.limit(target_size)
+        library = self.get_library(_db)
+        facets = SeriesFacets(
+            library,
+            # If a work is in the right series we don't care about its
+            # quality.
+            collection=SeriesFacets.COLLECTION_FULL,
+            availability=SeriesFacets.AVAILABLE_ALL,
+            order=None
+        )
+        pagination = Pagination()
+        qu = self.works(_db, facets=facets, pagination=pagination)
         return qu.all()
 
     def apply_filters(self, _db, qu, facets, pagination, featured=False):
