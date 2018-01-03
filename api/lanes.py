@@ -917,8 +917,6 @@ class SeriesLane(DynamicLane):
         return self.ROUTE, kwargs
 
     def featured_works(self, _db):
-        # Aliasing Edition here allows this query to function
-        # regardless of work_model and existing joins.
         library = self.get_library(_db)
         facets = FeaturedSeriesFacets(
             library,
