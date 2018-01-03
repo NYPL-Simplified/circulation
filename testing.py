@@ -417,8 +417,7 @@ class DatabaseTest(object):
         )
 
     def _coverage_record(self, edition, coverage_source, operation=None,
-                         status=CoverageRecord.SUCCESS, collection=None,
-                         exception=None,
+        status=CoverageRecord.SUCCESS, collection=None, exception=None,
     ):
         if isinstance(edition, Identifier):
             identifier = edition
