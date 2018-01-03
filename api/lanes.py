@@ -875,23 +875,10 @@ class RecommendationLane(WorkBasedLane):
 class FeaturedSeriesFacets(Facets):
     """A custom Facets object for ordering a lane based on series."""
 
-    def __init__(self, *args, **kwargs):
-        """Create an alias for the Edition table, to be used later."""
-        super(FeaturedSeriesFacets, self).__init__(*args, **kwargs)
-        self.edition_model = aliased(Edition)
-
-    def apply(self, _db, qu):
-        """Join the given query against our aliased Edition table,
-        so that fields of that table can be used in the ORDER BY clause.
-        """
-        qu = qu.join(self.edition_model)
-        return super(FeaturedSeriesFacets, self).apply(_db, qu)
-
     def order_by(self):
         """Order the query results by series position."""
-        fields = (
-            self.edition_model.series_position, self.edition_model.title
-        )
+        from core.model import MaterializedWorkWithGenre as mw
+        fields = (mw.series_position, mw.sort_title)
         return [x.asc() for x in fields], fields
 
 
@@ -948,14 +935,8 @@ class SeriesLane(DynamicLane):
     def apply_filters(self, _db, qu, facets, pagination, featured=False):
         if not self.series:
             return None
-
-        if isinstance(facets, FeaturedSeriesFacets):
-            # This query has already joined against Edition.
-            work_edition = facets.work_edition
-        else:
-            work_edition = aliased(Edition)
-            qu = qu.join(work_edition)
-        qu = qu.filter(work_edition.series==self.series)
+        from core.model import MaterializedWorkWithGenre as mw
+        qu = qu.filter(mw.series==self.series)
         return super(SeriesLane, self).apply_filters(
             _db, qu, facets, pagination, featured)
 
