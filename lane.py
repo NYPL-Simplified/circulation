@@ -1088,10 +1088,13 @@ class WorkList(object):
         )
         # Pull a window of works for every lane we were given.
         for lane in lanes:
+            a = time.time()
             for mw, quality_tier in lane.works_in_window(
                     _db, facets, target_size
             ):
                 yield mw, quality_tier, lane
+            b = time.time()
+            logging.error("Populated %s in %.2f" % (lane.display_name, b-a))
 
     def works_in_window(self, _db, facets, target_size):
         """Find all MaterializedWorkWithGenre objects within a randomly
