@@ -933,12 +933,12 @@ class SeriesLane(DynamicLane):
         # Aliasing Edition here allows this query to function
         # regardless of work_model and existing joins.
         library = self.get_library(_db)
-        facets = SeriesFacets(
+        facets = FeaturedSeriesFacets(
             library,
             # If a work is in the right series we don't care about its
             # quality.
-            collection=SeriesFacets.COLLECTION_FULL,
-            availability=SeriesFacets.AVAILABLE_ALL,
+            collection=FeaturedSeriesFacets.COLLECTION_FULL,
+            availability=FeaturedSeriesFacets.AVAILABLE_ALL,
             order=None
         )
         pagination = Pagination(size=library.featured_lane_size)
