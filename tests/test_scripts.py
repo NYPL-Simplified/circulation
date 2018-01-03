@@ -474,8 +474,15 @@ class TestLaneSweeperScript(DatabaseTest):
         script = Mock(self._db)
         script.do_run(cmd_args=[])
 
-        # Every lane was considered for processing, with top-level
-        # lanes considered first.
+        # The first item considered for processing was an ad hoc
+        # WorkList representing the library's entire collection.
+        worklist = script.considered.pop(0)
+        eq_(self._default_library, worklist.get_library(self._db))
+        eq_(self._default_library.name, worklist.display_name)
+        eq_([good, bad], worklist.children)
+
+        # After that, every lane was considered for processing, with
+        # top-level lanes considered first.
         eq_([good, bad, good_child], script.considered)
 
         # But a lane was processed only if should_process_lane
