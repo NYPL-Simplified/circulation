@@ -8868,7 +8868,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     license_pool_delivery_mechanisms = relationship(
         "LicensePoolDeliveryMechanism",
-        backref="delivery_mechanism"
+        backref="delivery_mechanism",
     )
 
     _cache = HasFullTableCache.RESET

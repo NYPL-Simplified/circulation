@@ -733,6 +733,7 @@ class WorkList(object):
         qu = self.apply_filters(_db, qu, facets, pagination)
         qu = qu.options(
             contains_eager(mw.license_pool),
+            joinedload("license_pool", "delivery_mechanisms"),
             joinedload("license_pool", "delivery_mechanisms", "delivery_mechanism"),
             joinedload("license_pool", "delivery_mechanisms", "resource", "representation"),
         )
