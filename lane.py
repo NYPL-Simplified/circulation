@@ -725,14 +725,17 @@ class WorkList(object):
         # apply_filters() requires that the query include a join
         # against LicensePool. If nothing else, the `facets` may
         # restrict the query to currently available items.
-        qu = qu.join(LicensePool, LicensePool.id==mw.license_pool_id)
-        qu = qu.options(contains_eager(mw.license_pool))
+        qu = qu.join(mw.license_pool)
         if self.collection_ids is not None:
             qu = qu.filter(
                 LicensePool.collection_id.in_(self.collection_ids)
             )
-
         qu = self.apply_filters(_db, qu, facets, pagination)
+        qu = qu.options(
+            contains_eager(mw.license_pool),
+            joinedload("license_pool", "delivery_mechanisms", "delivery_mechanism"),
+            joinedload("license_pool", "delivery_mechanisms", "resource", "representation"),
+        )
         return qu
 
     def works_for_specific_ids(self, _db, work_ids):

@@ -6463,15 +6463,12 @@ class LicensePool(Base):
         UniqueConstraint('identifier_id', 'data_source_id', 'collection_id'),
     )
 
-    @property
-    def delivery_mechanisms(self):
-        """Find all LicensePoolDeliveryMechanisms for this LicensePool.
-        """
-        _db = Session.object_session(self)
-        LPDM = LicensePoolDeliveryMechanism
-        return _db.query(LPDM).filter(
-            LPDM.data_source==self.data_source).filter(
-                LPDM.identifier==self.identifier)
+    delivery_mechanisms = relationship(
+        "LicensePoolDeliveryMechanism", 
+        primaryjoin="and_(LicensePool.data_source_id==LicensePoolDeliveryMechanism.data_source_id, LicensePool.identifier_id==LicensePoolDeliveryMechanism.identifier_id)",
+        foreign_keys=(data_source_id, identifier_id),
+        uselist=True,
+    )
 
     def __repr__(self):
         if self.identifier:
