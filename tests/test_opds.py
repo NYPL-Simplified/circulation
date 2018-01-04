@@ -88,6 +88,10 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         import time
         self.add_to_materialized_view([self.work])
         from core.model import MaterializedWorkWithGenre as mw
+        from api.novelist import NoveListAPI
+        # Before starting the clock, pay the one-time cost of checking
+        # whether NoveList is configured for this library.
+        NoveListAPI.is_configured(self._default_library)
         lane = self._lane()
 
         a = time.time()

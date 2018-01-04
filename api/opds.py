@@ -391,16 +391,11 @@ class CirculationManagerAnnotator(Annotator):
         """:return: bool asserting whether related books might exist for
         a particular Work
         """
-        if isinstance(work, Work):
-            edition = work.presentation_edition
-        else:
-            # This is a MaterializedWork*, so we're gonna grab the
-            # edition where we can.
-            edition = work.license_pool.presentation_edition
+        contributions = work.sort_author and work.sort_author != Edition.UNKNOWN_AUTHOR
 
-        contributions = edition.contributions
-        series = edition.series
-        return contributions or series or NoveListAPI.is_configured(library)
+        return (contributions 
+                or work.series
+                or NoveListAPI.is_configured(library))
 
     def language_and_audience_key_from_work(self, work):
         language_key = work.language
