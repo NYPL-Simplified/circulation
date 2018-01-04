@@ -191,7 +191,6 @@ class CirculationManagerAnnotator(Annotator):
             # the loan/hold.
             return loan.license_pool
         else:
-
             # There is no active loan. Use the default logic for
             # determining the active license pool.
             return super(
@@ -252,9 +251,16 @@ class CirculationManagerAnnotator(Annotator):
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
+        import time
+        a = time.time()
         Annotator.annotate_work_entry(
             work, active_license_pool, edition, identifier, feed, entry
         )
+        b = time.time()
+        # logging.info("Superclass annotation of %s took %.4f" % (
+        #     work.sort_title, b-a
+        # ))
+        a = time.time()
         active_loan = self.active_loans_by_work.get(work)
         active_hold = self.active_holds_by_work.get(work)
         active_fulfillment = self.active_fulfillments_by_work.get(work)
@@ -281,23 +287,44 @@ class CirculationManagerAnnotator(Annotator):
                 _external=True
             )
         )
+        b = time.time()
+        logging.info("Permalink and reporting link of %s took %.4f" % (
+            work.sort_title, b-a
+        ))        
 
         # Now we need to generate a <link> tag for every delivery mechanism
         # that has well-defined media types.
+        a = time.time()
         link_tags = self.acquisition_links(
             active_license_pool, active_loan, active_hold, active_fulfillment,
             feed, identifier
         )
         for tag in link_tags:
             entry.append(tag)
+        b = time.time()
+        logging.info("Acquisition links of %s took %.4f" % (
+            work.sort_title, b-a
+        ))
 
         # Add a link for each author.
+        a = time.time()
         self.add_author_links(work, feed, entry)
+        b = time.time()
+        logging.info("Author links of %s took %.4f" % (
+            work.sort_title, b-a
+        ))
 
         # And a series, if there is one.
         if work.series:
+            a = time.time()
             self.add_series_link(work, feed, entry)
+            b = time.time()
+            logging.info("Series link of %s took %.4f" % (
+                work.sort_title, b-a
+            ))
 
+
+        a = time.time()
         if NoveListAPI.is_configured(self.library):
             # If NoveList Select is configured, there might be
             # recommendations, too.
@@ -314,8 +341,13 @@ class CirculationManagerAnnotator(Annotator):
                     _external=True
                 )
             )
+        b = time.time()
+        logging.info("Novelist Select link of %s took %.4f" % (
+            work.sort_title, b-a
+        ))
 
         # Add a link for related books if available.
+        a = time.time()
         if self.related_books_available(work, self.library):
             feed.add_link_to_entry(
                 entry,
@@ -330,8 +362,13 @@ class CirculationManagerAnnotator(Annotator):
                     _external=True
                 )
             )
+        b = time.time()
+        logging.info("Related books link of %s took %.4f" % (
+            work.sort_title, b-a
+        ))
 
         # Add a link to get a patron's annotations for this book.
+        a = time.time()
         feed.add_link_to_entry(
             entry,
             rel="http://www.w3.org/ns/oa#annotationService",
@@ -344,6 +381,10 @@ class CirculationManagerAnnotator(Annotator):
                 _external=True
             )
         )
+        b = time.time()
+        logging.info("Annotation link of %s took %.4f" % (
+            work.sort_title, b-a
+        ))
 
     @classmethod
     def related_books_available(cls, work, library):

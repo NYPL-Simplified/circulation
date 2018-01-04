@@ -83,6 +83,22 @@ class TestCirculationManagerAnnotator(VendorIDTest):
         self.annotator = CirculationManagerAnnotator(
             None, lane, self._default_library, test_mode=True, top_level_title="Test Top Level Title"
         )
+
+    def test_performance(self):
+        import time
+        self.add_to_materialized_view([self.work])
+        from core.model import MaterializedWorkWithGenre as mw
+        lane = self._lane()
+
+        a = time.time()
+        feed = AcquisitionFeed(
+            self._db, "test", "url", lane.works(self._db),
+            self.annotator
+        )
+        unicode(feed)
+        b = time.time()
+        import logging
+        logging.warn("Generated test feed in %.4f" % (b-a))
             
     def test_add_configuration_links(self):
         mock_feed = []
