@@ -505,7 +505,7 @@ class AcquisitionFeed(OPDSFeed):
         all_works = annotator.sort_works_for_groups_feed(all_works)
         feed = AcquisitionFeed(_db, title, url, all_works, annotator)
 
-        cls.add_breadcrumb_links(feed, lane, annotator)        
+        cls.add_breadcrumb_links(feed, lane, annotator)
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)

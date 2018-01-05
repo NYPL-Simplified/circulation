@@ -733,8 +733,17 @@ class WorkList(object):
         qu = self.apply_filters(_db, qu, facets, pagination)
         qu = qu.options(
             contains_eager(mw.license_pool),
+            # TODO: Strictly speaking, these joinedload calls are 
+            # only needed by the circulation manager. This code could
+            # be moved to circulation and everyone else who uses this
+            # would be a little faster.
+
+            # These speed up the process of generating acquisition links.
             joinedload("license_pool", "delivery_mechanisms"),
             joinedload("license_pool", "delivery_mechanisms", "delivery_mechanism"),
+            # These speed up the process of generating the open-access link
+            # for open-access works.
+            joinedload("license_pool", "delivery_mechanisms", "resource"),
             joinedload("license_pool", "delivery_mechanisms", "resource", "representation"),
         )
         return qu

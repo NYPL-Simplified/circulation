@@ -336,7 +336,7 @@ class SessionManager(object):
         return sessionmaker(bind=engine)
 
     @classmethod
-    def initialize(cls, url):
+    def initialize(cls, url, create_materialized_views=True):
         if url in cls.engine_for_url:
             engine = cls.engine_for_url[url]
             return engine, engine.connect()
@@ -387,22 +387,23 @@ class SessionManager(object):
         if connection:
             connection.close()
 
-        class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
-            __table__ = Table(
-                cls.MATERIALIZED_VIEW_LANES,
-                Base.metadata,
-                Column('works_id', Integer, primary_key=True),
-                Column('workgenres_id', Integer, primary_key=True),
-                Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
-                autoload=True,
-                autoload_with=engine
-            )
-            license_pool = relationship(
-                LicensePool,
-                primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
-                foreign_keys=LicensePool.id, lazy='joined', uselist=False)
+        if create_materialized_views:
+            class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
+                __table__ = Table(
+                    cls.MATERIALIZED_VIEW_LANES,
+                    Base.metadata,
+                    Column('works_id', Integer, primary_key=True),
+                    Column('workgenres_id', Integer, primary_key=True),
+                    Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
+                    autoload=True,
+                    autoload_with=engine
+                )
+                license_pool = relationship(
+                    LicensePool,
+                    primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
+                    foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
-        globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
+            globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine
         return engine, engine.connect()
 
@@ -422,7 +423,9 @@ class SessionManager(object):
         engine = connection = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=sa_exc.SAWarning)
-            engine, connection = cls.initialize(url)
+            engine, connection = cls.initialize(
+                url, create_materialized_views=initialize_data
+            )
         session = Session(connection)
         if initialize_data:
             session = cls.initialize_data(session)
