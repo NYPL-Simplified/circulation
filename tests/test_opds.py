@@ -78,7 +78,7 @@ class TestCirculationManagerAnnotator(VendorIDTest):
 
     def setup(self):
         super(TestCirculationManagerAnnotator, self).setup()
-        self.work = self._work(with_open_access_download=True)
+        self.work = self._work(title="Open 1", with_open_access_download=True)
         lane = self._lane(display_name="Fantasy")
         self.annotator = CirculationManagerAnnotator(
             None, lane, self._default_library, test_mode=True, top_level_title="Test Top Level Title"
@@ -86,7 +86,9 @@ class TestCirculationManagerAnnotator(VendorIDTest):
 
     def test_performance(self):
         import time
-        self.add_to_materialized_view([self.work])
+        work2 = self._work(title="Commercial 1", with_license_pool=True)
+        work3 = self._work(title="Open 2", with_open_access_download=True)
+        self.add_to_materialized_view([self.work, work2])
         from core.model import MaterializedWorkWithGenre as mw
         from api.novelist import NoveListAPI
         # Before starting the clock, pay the one-time cost of checking
