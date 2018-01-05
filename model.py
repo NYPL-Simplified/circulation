@@ -6486,8 +6486,6 @@ class LicensePool(Base):
         primaryjoin="and_(LicensePool.data_source_id==LicensePoolDeliveryMechanism.data_source_id, LicensePool.identifier_id==LicensePoolDeliveryMechanism.identifier_id)",
         foreign_keys=(data_source_id, identifier_id),
         uselist=True,
-        cascade='all',
-        cascade_backrefs=True,
     )
 
     def __repr__(self):
