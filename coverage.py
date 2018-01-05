@@ -536,7 +536,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
 
     @classmethod
     def register(cls, identifier, data_source=None, collection=None,
-        force=False
+        force=False, autocreate=False
     ):
         """Registers an identifier for future coverage.
 
@@ -548,7 +548,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
 
         new_records, ignored_identifiers = cls.bulk_register(
             [identifier], data_source=data_source, collection=collection,
-            force=force
+            force=force, autocreate=autocreate
         )
         was_registered = identifier not in ignored_identifiers
 
@@ -561,7 +561,9 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             return new_record, was_registered
 
         _db = Session.object_session(identifier)
-        data_source = cls._data_source_for_registration(_db, data_source)
+        data_source = cls._data_source_for_registration(
+            _db, data_source, autocreate=autocreate
+        )
 
         if collection and cls.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
             # There's no need for a collection when registering this
@@ -576,7 +578,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
 
     @classmethod
     def bulk_register(cls, identifiers, data_source=None, collection=None,
-        force=False
+        force=False, autocreate=False
     ):
         """Registers identifiers for future coverage.
 
@@ -585,12 +587,13 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         on the Metadata Wrangler.
 
         :param data_source: DataSource object or basestring representing a
-            DataSource name. If a basestring is given, the DataSource will be
-            autocreated.
+            DataSource name.
         :param collection: Collection object to be associated with the
             CoverageRecords.
         :param force: When True, even existing CoverageRecords will have
             their status reset to CoverageRecord.REGISTERED.
+        :param autocreate: When True, a basestring provided by data_source will
+            be autocreated in the database if it didn't previously exist.
 
         :return: A tuple of two lists: the first has fresh new REGISTERED
             CoverageRecords and the second list already has Identifiers that
@@ -602,7 +605,9 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             return list(), list()
 
         _db = Session.object_session(identifiers[0])
-        data_source = cls._data_source_for_registration(_db, data_source)
+        data_source = cls._data_source_for_registration(
+            _db, data_source, autocreate=autocreate
+        )
 
         if collection and cls.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
             # There's no need for a collection on this CoverageRecord.
@@ -617,7 +622,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         return new_records, ignored_identifiers
 
     @classmethod
-    def _data_source_for_registration(cls, _db, data_source):
+    def _data_source_for_registration(cls, _db, data_source, autocreate=False):
         """Finds or creates a DataSource for the registration methods
         `cls.register` and `cls.bulk_register`.
         """
@@ -626,11 +631,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         if isinstance(data_source, DataSource):
             return data_source
         if isinstance(data_source, basestring):
-            # If a string is passed, we assume it's meant to be a
-            # DataSource. Because on the metadata wrangler new Collection
-            # names may be passed, this ensures there will always be a
-            # DataSource.
-            return DataSource.lookup(_db, data_source, autocreate=True)
+            return DataSource.lookup(_db, data_source, autocreate=autocreate)
 
     @property
     def data_source(self):

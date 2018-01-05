@@ -546,11 +546,11 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         collection = self._collection(data_source_name=DataSource.AXIS_360)
 
         try:
-            # If a DataSource or data source name is provided, the record is
-            # created with that source.
+            # If a DataSource or data source name is provided and
+            # autocreate is set True, the record is created with that source.
             provider.bulk_register(
                 [self.identifier], data_source=collection.name,
-                collection=collection
+                collection=collection, autocreate=True
             )
             [record] = self.identifier.coverage_records
 
