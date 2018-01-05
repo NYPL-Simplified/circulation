@@ -482,7 +482,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
 
         library = lane.get_library(self._db)
         url = self.app.manager.cdn_url_for(
-            "feed", lane_identifier=lane_id, 
+            "feed", lane_identifier=lane_id,
             library_short_name=library.short_name
         )
 
