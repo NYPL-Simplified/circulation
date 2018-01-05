@@ -251,8 +251,6 @@ class CirculationManagerAnnotator(Annotator):
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
-        import time
-        a = time.time()
         Annotator.annotate_work_entry(
             work, active_license_pool, edition, identifier, feed, entry
         )
@@ -345,8 +343,6 @@ class CirculationManagerAnnotator(Annotator):
                 _external=True
             )
         )
-        b = time.time()
-        logging.warn("Annotated %s in %.4f", work.sort_title, b-a)
 
     @classmethod
     def related_books_available(cls, work, library):
