@@ -507,7 +507,7 @@ class TestODLBibliographicImporter(DatabaseTest, BaseODLTest):
         [midnight_pool] = [p for p in imported_pools if p.identifier == midnight.primary_identifier]
         eq_(False, midnight_pool.open_access)
         lpdms = midnight_pool.delivery_mechanisms
-        eq_(2, lpdms.count())
+        eq_(2, len(lpdms))
         eq_(set([Representation.EPUB_MEDIA_TYPE, Representation.PDF_MEDIA_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in lpdms]))
         eq_([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.ADOBE_DRM],
