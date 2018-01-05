@@ -5273,6 +5273,13 @@ class LicensePoolDeliveryMechanism(Base):
         )
         lpdm.rights_status = rights_status
 
+        # TODO: We need to explicitly commit here so that
+        # LicensePool.delivery_mechanisms gets updated. It would be
+        # better if we didn't have to do this, but I haven't been able
+        # to get LicensePool.delivery_mechanisms to notice that it's
+        # out of date.
+        _db.commit()
+
         # Creating or modifying a LPDM might change the open-access status
         # of all LicensePools for that DataSource/Identifier.
         for pool in lpdm.license_pools:
@@ -5290,6 +5297,14 @@ class LicensePoolDeliveryMechanism(Base):
         _db = Session.object_session(self)
         pools = list(self.license_pools)
         _db.delete(self)
+        
+        # TODO: We need to explicitly commit here so that
+        # LicensePool.delivery_mechanisms gets updated. It would be
+        # better if we didn't have to do this, but I haven't been able
+        # to get LicensePool.delivery_mechanisms to notice that it's
+        # out of date.
+        _db.commit()
+
         # The deletion of a LicensePoolDeliveryMechanism might affect
         # the open-access status of its associated LicensePools.
         for pool in pools:
