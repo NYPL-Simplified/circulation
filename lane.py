@@ -736,7 +736,8 @@ class WorkList(object):
             # TODO: Strictly speaking, these joinedload calls are 
             # only needed by the circulation manager. This code could
             # be moved to circulation and everyone else who uses this
-            # would be a little faster.
+            # would be a little faster. (But right now there is no one
+            # else who uses this.)
 
             # These speed up the process of generating acquisition links.
             joinedload("license_pool", "delivery_mechanisms"),
