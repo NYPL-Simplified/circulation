@@ -40,7 +40,8 @@ as
   WHERE works.presentation_ready = true
     AND works.simple_opds_entry IS NOT NULL
   
-  ORDER BY editions.sort_title, editions.sort_author, licensepools.availability_time;
+  ORDER BY editions.sort_title, editions.sort_author, licensepools.availability_time
+  WITH NO DATA;
 
 -- Create a unique index so that searches can look up books by work ID.
 
@@ -108,3 +109,5 @@ create index mv_works_editions_ya_nonfiction_by_author on mv_works_editions_data
 create index mv_works_editions_ya_nonfiction_by_title on mv_works_editions_datasources_identifiers (sort_title, sort_author, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
 
 create index mv_works_editions_ya_nonfiction_by_availability on mv_works_editions_datasources_identifiers (availability_time DESC, sort_author, sort_title, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
+
+-- The materialized view will be refreshed as part of initialization.
