@@ -78,7 +78,7 @@ class TestCirculationManagerAnnotator(VendorIDTest):
 
     def setup(self):
         super(TestCirculationManagerAnnotator, self).setup()
-        self.work = self._work(title="Open 1", with_open_access_download=True)
+        self.work = self._work(with_open_access_download=True)
         lane = self._lane(display_name="Fantasy")
         self.annotator = CirculationManagerAnnotator(
             None, lane, self._default_library, test_mode=True, top_level_title="Test Top Level Title"

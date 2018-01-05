@@ -474,15 +474,15 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     def do_generate(self, lane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
-        if isinstance(lane, lane):
-            lane_id=lane.id
+        if isinstance(lane, Lane):
+            lane_id = lane.id
         else:
             # Presumably this is the top-level WorkList.
             lane_id = None
 
         library = lane.get_library(self._db)
         url = self.app.manager.cdn_url_for(
-            "feed", lane_identifier=lane_identifier, 
+            "feed", lane_identifier=lane_id, 
             library_short_name=library.short_name
         )
 
