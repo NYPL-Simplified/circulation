@@ -322,10 +322,13 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
 
         # We have successfully borrowed this book.
         if not hold:
-            licensepool.licenses_available -= 1
+            if licensepool.licenses_available > 0:
+                licensepool.licenses_available -= 1
         else:
-            licensepool.licenses_reserved -= 1
-            licensepool.patrons_in_hold_queue -= 1
+            if licensepool.licenses_reserved > 0:
+                licensepool.licenses_reserved -= 1
+            if licensepool.patrons_in_hold_queue > 0:
+                licensepool.patrons_in_hold_queue -= 1
             _db.delete(hold)
 
         external_identifier = doc.get("links", {}).get("self", {}).get("href")
@@ -483,7 +486,10 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             # There are fewer people waiting for this book than copies available.
             # Make some licenses available instead of reserving them.
             difference = licenses_changed - len(next_holds)
-            licensepool.licenses_reserved -= difference
+            if licensepool.licenses_reserved >= difference:
+                licensepool.licenses_reserved -= difference
+            else:
+                licensepool.licenses_reserved = 0
             licensepool.licenses_available += difference
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
@@ -539,7 +545,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         else:
             _db.delete(hold)
 
-        licensepool.patrons_in_hold_queue -= 1
+        if licensepool.patrons_in_hold_queue > 0:
+            licensepool.patrons_in_hold_queue -= 1
         return True
 
     def patron_activity(self, patron, pin):
@@ -617,7 +624,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         # Update licenses reserved if there are holds.
         if pool.patrons_in_hold_queue > 0 and pool.licenses_available > 0:
             pool.licenses_reserved = min(pool.patrons_in_hold_queue, pool.licenses_available)
-            pool.licenses_available -= pool.licenses_reserved
+            if pool.licenses_available >= pool.licenses_reserved:
+                pool.licenses_available -= pool.licenses_reserved
 
     def update_loan(self, loan, status_doc=None):
         """Check a loan's status, and if it is no longer active, delete the loan
