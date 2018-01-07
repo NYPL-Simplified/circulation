@@ -635,6 +635,34 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(1, self.pool.licenses_available)
         eq_(2, self.pool.licenses_reserved)
 
+        # We can also make multiple licenses reserved at once.
+        holds = []
+        for i in range(2):
+            self.pool.loan_to(self._patron(), end=datetime.datetime.utcnow() + datetime.timedelta(days=1))
+        for i in range(3):
+            hold, ignore = self.pool.on_hold_to(self._patron(), start=datetime.datetime.utcnow() - datetime.timedelta(days=3-i), position=i+1)
+            holds.append(hold)
+        self.pool.licenses_owned = 5
+        self.pool.licenses_available = 0
+        self.pool.licenses_reserved = 2
+        self.api.update_hold_queue(self.pool, licenses_changed=2)
+        eq_(2, self.pool.licenses_reserved)
+        eq_(0, self.pool.licenses_available)
+        eq_(0, holds[0].position)
+        eq_(0, holds[1].position)
+        eq_(3, holds[2].position)
+        assert holds[0].end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+        assert holds[1].end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+
+        # If there are more licenses that change than holds, some of them become available.
+        self.pool.licenses_reserved = 4
+        self.api.update_hold_queue(self.pool, licenses_changed=2)
+        eq_(3, self.pool.licenses_reserved)
+        eq_(1, self.pool.licenses_available)
+        for hold in holds:
+            eq_(0, hold.position)
+            assert hold.end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+
     def test_place_hold_success(self):
         tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
         self.pool.licenses_available = 0
@@ -1044,15 +1072,18 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
         yesterday = now - datetime.timedelta(days=1)
 
         pool = self._licensepool(None, collection=collection)
-        pool.licenses_owned = 1
+        pool.licenses_owned = 2
         pool.licenses_available = 0
-        pool.licenses_reserved = 1
-        expired_hold, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=0)
-        current_hold, ignore = pool.on_hold_to(self._patron(), position=2)
+        pool.licenses_reserved = 2
+        expired_hold1, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=0)
+        expired_hold2, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=0)
+        current_hold, ignore = pool.on_hold_to(self._patron(), position=3)
 
         reaper.run_once(None, None)
 
-        # The expired hold has been deleted and the other hold has been updated.
+        # The expired holds have been deleted and the other hold has been updated.
         eq_(1, self._db.query(Hold).count())
         eq_([current_hold], self._db.query(Hold).all())
         eq_(0, current_hold.position)
+        eq_(1, pool.licenses_available)
+        eq_(1, pool.licenses_reserved)

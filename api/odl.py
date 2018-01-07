@@ -6,6 +6,7 @@ import uuid
 import datetime
 from flask_babel import lazy_gettext as _
 import urlparse
+from collections import defaultdict
 
 from sqlalchemy.sql.expression import or_
 
@@ -465,24 +466,25 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             # Add 1 since position 0 indicates the hold is ready.
             hold.position = holds_count + 1
 
-    def update_hold_queue(self, licensepool):
+    def update_hold_queue(self, licensepool, licenses_changed=1):
         # Update the next hold in the queue when a license is reserved.
         _db = Session.object_session(licensepool)
 
-        next_hold = _db.query(Hold).filter(
+        next_holds = _db.query(Hold).filter(
             Hold.license_pool_id==licensepool.id
         ).filter(
             Hold.position > 0
         ).order_by(
             Hold.start
-        ).limit(1).all()
-        if next_hold:
-            self._update_hold_end_date(next_hold[0])
-        else:
-            # There's no one waiting for this book. Make another
-            # license available instead of reserving it for the next hold.
-            licensepool.licenses_reserved -= 1
-            licensepool.licenses_available += 1
+        ).limit(licenses_changed).all()
+        for hold in next_holds:
+            self._update_hold_end_date(hold)
+        if len(next_holds) < licenses_changed:
+            # There are fewer people waiting for this book than copies available.
+            # Make some licenses available instead of reserving them.
+            difference = licenses_changed - len(next_holds)
+            licensepool.licenses_reserved -= difference
+            licensepool.licenses_available += difference
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Create a new hold."""
@@ -803,10 +805,14 @@ class ODLHoldReaper(CollectionMonitor):
             Hold.end<datetime.datetime.utcnow()
         )
 
+        licenses_changed_per_pool = defaultdict(int)
         for hold in expired_holds:
             pool = hold.license_pool
+            licenses_changed_per_pool[pool] += 1
             self._db.delete(hold)
-            self.api.update_hold_queue(pool)
+
+        for pool, licenses_changed in licenses_changed_per_pool.iteritems():
+            self.api.update_hold_queue(pool, licenses_changed=licenses_changed)
 
 
 class MockODLWithConsolidatedCopiesAPI(ODLWithConsolidatedCopiesAPI):
