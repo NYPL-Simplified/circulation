@@ -293,21 +293,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(0, self.pool.licenses_reserved)
         eq_(0, self._db.query(Hold).count())
 
-    def test_checkout_loan_limit_reached(self):
-        self.collection.external_integration.set_setting(
-            self.api.LOAN_LIMIT,
-            1
-        )
-        self.api = MockODLWithConsolidatedCopiesAPI(self._db, self.collection)
-
-        other_pool = self._licensepool(None, collection=self.collection)
-        other_pool.loan_to(self.patron)
-
-        assert_raises(
-            PatronLoanLimitReached, self.api.checkout,
-            self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
-        )
-
     def test_checkout_already_checked_out(self):
         existing_loan, ignore = self.pool.loan_to(self.patron)
         existing_loan.external_identifier = self._str
@@ -671,21 +656,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(tomorrow, hold.end_date)
         eq_(1, hold.hold_position)
         eq_(1, self._db.query(Hold).count())
-
-    def test_place_hold_hold_limit_reached(self):
-        self.collection.external_integration.set_setting(
-            self.api.HOLD_LIMIT,
-            1
-        )
-        self.api = MockODLWithConsolidatedCopiesAPI(self._db, self.collection)
-
-        other_pool = self._licensepool(None, collection=self.collection)
-        other_pool.on_hold_to(self.patron)
-
-        assert_raises(
-            PatronHoldLimitReached, self.api.place_hold,
-            self.patron, "pin", self.pool, "notifications@librarysimplified.org",
-        )
 
     def test_place_hold_already_on_hold(self):
         self.pool.on_hold_to(self.patron)

@@ -79,8 +79,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
     DESCRIPTION = _("Import books from a distributor that uses ODL (Open Distribution to Libraries) and has a consolidated copies API.")
     CONSOLIDATED_COPIES_URL_KEY = "consolidated_copies_url"
     CONSOLIDATED_LOAN_URL_KEY = "consolidated_loan_url"
-    LOAN_LIMIT = "loan_limit"
-    HOLD_LIMIT = "hold_limit"
 
     SETTINGS = [
         {
@@ -106,18 +104,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         {
             "key": Collection.DATA_SOURCE_NAME_SETTING,
             "label": _("Data source name"),
-        },
-        {
-            "key": LOAN_LIMIT,
-            "label": _("Maximum number of books a patron can have on loan at once"),
-            "optional": True,
-            "type": "number",
-        },
-        {
-            "key": HOLD_LIMIT,
-            "label": _("Maximum number of books a patron can have on hold at once"),
-            "optional": True,
-            "type": "number",
         },
         {
             "key": Collection.DEFAULT_RESERVATION_PERIOD_KEY,
@@ -179,9 +165,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.consolidated_loan_url = collection.external_integration.setting(self.CONSOLIDATED_LOAN_URL_KEY).value
-
-        self.loan_limit = collection.external_integration.setting(self.LOAN_LIMIT).int_value
-        self.hold_limit = collection.external_integration.setting(self.HOLD_LIMIT).int_value
         self.reservation_period = collection.external_integration.setting(Collection.DEFAULT_RESERVATION_PERIOD_KEY).int_value
 
     def internal_format(self, delivery_mechanism):
@@ -323,11 +306,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         )
         if loan.count() > 0:
             raise AlreadyCheckedOut()
-
-        # TODO: Should this look at all loans instead of only loans from the ODL distributor?
-        total_loans = [l for l in patron.loans if l.license_pool.collection_id == self.collection_id]
-        if self.loan_limit and len(total_loans) >= self.loan_limit:
-            raise PatronLoanLimitReached()
 
         # Create a local loan so it's database id can be used to
         # receive notifications from the distributor.
@@ -529,11 +507,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         raise an exception.
         """
         _db = Session.object_session(patron)
-
-        # TODO: Should this look at all holds instead of only holds from the ODL distributor?
-        total_holds = [h for h in patron.holds if h.license_pool.collection_id == self.collection_id]
-        if self.hold_limit and len(total_holds) >= self.hold_limit:
-            raise PatronHoldLimitReached()
 
         # Create local hold.
         hold, is_new = get_one_or_create(
