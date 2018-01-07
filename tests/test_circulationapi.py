@@ -387,6 +387,80 @@ class TestCirculationAPI(DatabaseTest):
         # so that we don't keep offering the book.
         eq_([self.pool], self.remote.availability_updated_for)
 
+    def test_borrow_loan_limit_reached(self):
+        # The loan limit is 1, and the patron has a previous loan.
+        self.patron.library.setting(Configuration.LOAN_LIMIT).value = 1
+        previous_loan_pool = self._licensepool(None)
+        previous_loan_pool.open_access = False
+        previous_loan_pool.loan_to(self.patron)
+
+        now = datetime.now()
+        loaninfo = LoanInfo(
+            self.pool.collection, self.pool.data_source,
+            self.pool.identifier.type,
+            self.pool.identifier.identifier,
+            now, now + timedelta(seconds=3600),
+        )
+        self.remote.queue_checkout(loaninfo)
+
+        assert_raises(PatronLoanLimitReached, self.borrow)
+
+        # If we increase the limit, borrow succeeds.
+        self.patron.library.setting(Configuration.LOAN_LIMIT).value = 2
+        loan, hold, is_new = self.borrow()
+        assert loan != None
+
+        # An open access book can be borrowed even if the patron's at the limit.
+        open_access_pool = self._licensepool(None, with_open_access_download=True)
+
+        loan, hold, is_new = self.circulation.borrow(
+            self.patron, '1234', open_access_pool, self.delivery_mechanism
+        )
+        assert loan != None
+
+        # And that loan doesn't count towards the limit.
+        self.patron.library.setting(Configuration.LOAN_LIMIT).value = 3
+
+        pool2 = self._licensepool(None,
+            data_source_name=DataSource.BIBLIOTHECA,
+            collection=self.collection)
+        loaninfo = LoanInfo(
+            pool2.collection, pool2.data_source,
+            pool2.identifier.type,
+            pool2.identifier.identifier,
+            now, now + timedelta(seconds=3600),
+        )
+        self.remote.queue_checkout(loaninfo)
+        loan, hold, is_new = self.circulation.borrow(
+            self.patron, '1234', pool2, self.delivery_mechanism
+        )
+        assert loan != None
+
+    def test_borrow_hold_limit_reached(self):
+        # The hold limit is 1, and the patron has a previous hold.
+        self.patron.library.setting(Configuration.HOLD_LIMIT).value = 1
+        other_pool = self._licensepool(None)
+        other_pool.open_access = False
+        other_pool.on_hold_to(self.patron)
+
+        now = datetime.now()
+        holdinfo = HoldInfo(
+            self.pool.collection, self.pool.data_source,
+            self.pool.identifier.type,
+            self.pool.identifier.identifier,
+            now, now + timedelta(seconds=3600), 10
+        )
+        self.remote.queue_checkout(NoAvailableCopies())
+        self.remote.queue_hold(holdinfo)
+
+        assert_raises(PatronHoldLimitReached, self.borrow)
+
+        # If we increase the limit, borrow succeeds.
+        self.patron.library.setting(Configuration.HOLD_LIMIT).value = 2
+        self.remote.queue_checkout(NoAvailableCopies())
+        loan, hold, is_new = self.borrow()
+        assert hold != None
+
     def test_fulfill_open_access(self):
         # Here's an open-access title.
         self.pool.open_access = True

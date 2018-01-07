@@ -37,6 +37,15 @@ class Configuration(CoreConfiguration):
     # of fines a patron can have before losing lending privileges.
     MAX_OUTSTANDING_FINES = u"max_outstanding_fines"
 
+    # The name of the per-library settings that set the maximum amounts
+    # of books a patron can have on loan or on hold at once.
+    # (Note: depending on distributor settings, a patron may be able
+    # to exceed the limits by checking out books directly from a distributor's
+    # app. They may also get a limit exceeded error before they reach these
+    # limits if a distributor has a smaller limit.)
+    LOAN_LIMIT = u"loan_limit"
+    HOLD_LIMIT = u"hold_limit"
+
     # The name of the per-library setting that sets the default email
     # address to use when notifying patrons of changes.
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = u"default_notification_email_address"
@@ -151,6 +160,18 @@ class Configuration(CoreConfiguration):
         {
             "key": MAX_OUTSTANDING_FINES,
             "label": _("Maximum amount of fines a patron can have before losing lending privileges"),
+            "optional": True,
+        },
+        {
+            "key": LOAN_LIMIT,
+            "label": _("Maximum number of books a patron can have on loan at once."),
+            "type": "number",
+            "optional": True,
+        },
+        {
+            "key": HOLD_LIMIT,
+            "label": _("Maximum number of books a patron can have on hold at once."),
+            "type": "number",
             "optional": True,
         },
         {
