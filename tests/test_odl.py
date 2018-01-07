@@ -105,11 +105,13 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         )
 
     def test_checkin_success(self):
+        # A patron has a copy of this book checked out.
         self.pool.licenses_available = 6
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = "http://loan/" + self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
+        # The patron returns the book successfully.
         lsd = json.dumps({
             "status": "ready",
             "links": {
@@ -137,15 +139,18 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(0, self._db.query(Loan).count())
 
     def test_checkin_success_with_holds_queue(self):
+        # A patron has the only copy of this book checked out.
         self.pool.licenses_available = 0
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = "http://loan/" + self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
+        # Another patron has the book on hold.
         patron_with_hold = self._patron()
         self.pool.patrons_in_hold_queue = 1
         hold, ignore = self.pool.on_hold_to(patron_with_hold, start=datetime.datetime.utcnow(), end=None, position=1)
 
+        # The first patron returns the book successfully.
         lsd = json.dumps({
             "status": "ready",
             "links": {
@@ -167,7 +172,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_("http://return", self.api.requests[1][0])
         assert "http://loan" in self.api.requests[2][0]
 
-        # The license is reserved for the next patron.
+        # Now the license is reserved for the next patron.
         eq_(0, self.pool.licenses_available)
         eq_(1, self.pool.licenses_reserved)
         eq_(1, self.pool.patrons_in_hold_queue)
@@ -231,7 +236,10 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         )
 
     def test_checkout_success(self):
+        # This book is available to check out.
         self.pool.licenses_available = 6
+
+        # A patron checks out the book successfully.
         loan_url = self._str
         lsd = json.dumps({
             "status": "ready",
@@ -255,6 +263,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(loan_url, loan.external_identifier)
         eq_(1, self._db.query(Loan).count())
 
+        # Now the patron has a loan in the database that matches the LoanInfo
+        # returned by the API.
         db_loan = self._db.query(Loan).one()
         eq_(self.pool, db_loan.license_pool)
         eq_(loan.start_date, db_loan.start)
@@ -264,9 +274,11 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(5, self.pool.licenses_available)
 
     def test_checkout_success_with_hold(self):
+        # A patron has this book on hold, and the book just became available to check out.
         self.pool.licenses_reserved = 1
         self.pool.on_hold_to(self.patron, start=datetime.datetime.utcnow() - datetime.timedelta(days=1), position=0)
 
+        # The patron checks out the book.
         loan_url = self._str
         lsd = json.dumps({
             "status": "ready",
@@ -279,6 +291,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         })
 
         self.api.queue_response(200, content=lsd)
+
+        # The patron gets a loan successfully.
         loan = self.api.checkout(self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE)
         eq_(self.collection, loan.collection(self._db))
         eq_(self.pool.data_source.name, loan.data_source_name)
@@ -290,6 +304,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(loan_url, loan.external_identifier)
         eq_(1, self._db.query(Loan).count())
 
+        # The book is no longer reserved for the patron, and the hold has been deleted.
         eq_(0, self.pool.licenses_reserved)
         eq_(0, self._db.query(Hold).count())
 
