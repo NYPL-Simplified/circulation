@@ -485,9 +485,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             licensepool.licenses_available += 1
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
-        """Holds aren't supported yet, so attempting to place one will
-        raise an exception.
-        """
+        """Create a new hold."""
         _db = Session.object_session(patron)
 
         # Create local hold.
@@ -515,9 +513,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         )
 
     def release_hold(self, patron, pin, licensepool):
-        """Holds aren't supported yet, so attempting to release one will
-        raise an exception.
-        """
+        """Cancel a hold."""
         _db = Session.object_session(patron)
 
         hold = get_one(
