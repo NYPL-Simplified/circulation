@@ -424,9 +424,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
         self.pool.licenses_reserved = 1
 
-        # When there's no reservation period, the end date of a reserved hold is None.
         hold, ignore = self.pool.on_hold_to(self.patron, start=now, position=0)
-        eq_(None, hold.end)
 
         # Set the reservation period and loan period.
         self.collection.external_integration.set_setting(
@@ -435,7 +433,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.collection.external_integration.set_setting(
             Collection.EBOOK_LOAN_DURATION_KEY, 6
         )
-        self.api = MockODLWithConsolidatedCopiesAPI(self._db, self.collection)
 
         # A hold that's already reserved and has an end date doesn't change.
         hold.end = tomorrow
@@ -590,7 +587,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.collection.external_integration.set_setting(
             Collection.DEFAULT_RESERVATION_PERIOD_KEY, 3
         )
-        self.api = MockODLWithConsolidatedCopiesAPI(self._db, self.collection)
 
         # If there's no holds queue when we try to update the queue, it
         # will remove a reserved license and make it available instead.

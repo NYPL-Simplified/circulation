@@ -108,7 +108,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         {
             "key": Collection.DEFAULT_RESERVATION_PERIOD_KEY,
             "label": _("Default Reservation Period (in Days)"),
-            "optional": True,
             "type": "number",
             "default": Collection.STANDARD_DEFAULT_RESERVATION_PERIOD,
         },
@@ -165,7 +164,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.consolidated_loan_url = collection.external_integration.setting(self.CONSOLIDATED_LOAN_URL_KEY).value
-        self.reservation_period = collection.external_integration.setting(Collection.DEFAULT_RESERVATION_PERIOD_KEY).int_value
 
     def internal_format(self, delivery_mechanism):
         """Each consolidated copy is only available in one format, so we don't need
@@ -432,30 +430,14 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
                 next_cycle_start = current_loans[copy_index].end
             else:
                 reservation = current_reservations[copy_index - len(current_loans)]
-                if reservation.end:
-                    next_cycle_start = reservation.end + datetime.timedelta(days=default_loan_period)
-                else:
-                    # TODO: If there's no reservation period and someone has a reserved hold, 
-                    # the maximum wait time is infinite.
-                    # Maybe reservation period should be required so this won't happen?
-                    hold.end = None
-                    return
-
-            if not default_reservation_period:
-                hold.end = None
-                return
+                next_cycle_start = reservation.end + datetime.timedelta(days=default_loan_period)
 
             # Assume all cycles after the first cycle take the maximum time.
             cycle_period = default_loan_period + default_reservation_period
             hold.end = next_cycle_start + datetime.timedelta(days=(cycle_period * cycles))
 
-        # If the hold is ready to check out but there's no reservation period, it
-        # will never expire.
-        elif not self.reservation_period:
-            hold.end = None
-
-        # If there is a reservation period but the end date isn't set yet, the hold
-        # just became available. The patron's reservation period starts now.
+        # If the end date isn't set yet, the hold just became available.
+        # The patron's reservation period starts now.
         else:
             hold.end = datetime.datetime.utcnow() + datetime.timedelta(days=default_reservation_period)
 
