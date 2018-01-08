@@ -211,7 +211,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         )
 
         # The delivery mechanisms have been updated.
-        eq_(3, pool.delivery_mechanisms.count())
+        eq_(3, len(pool.delivery_mechanisms))
         eq_(set([Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
         eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
@@ -257,7 +257,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         self.api.update_formats(pool)
 
         # The delivery mechanisms have been updated.
-        eq_(3, pool.delivery_mechanisms.count())
+        eq_(3, len(pool.delivery_mechanisms))
         eq_(set([Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.KINDLE_CONTENT_TYPE, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
         eq_(set([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.KINDLE_DRM, DeliveryMechanism.OVERDRIVE_DRM]),
