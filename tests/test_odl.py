@@ -550,6 +550,14 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         assert hold.end < next_week
         assert hold.end > now
 
+        # Updating a hold that has an end date but just became reserved starts
+        # the reservation period.
+        hold.end = yesterday
+        hold.position = 1
+        self.api._update_hold_end_date(hold)
+        assert hold.end < next_week
+        assert hold.end > now
+
         # When there's a holds queue, the end date is the maximum time it could take for
         # a license to become available.
         
@@ -1184,18 +1192,25 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
         yesterday = now - datetime.timedelta(days=1)
 
         pool = self._licensepool(None, collection=collection)
-        pool.licenses_owned = 2
+        pool.licenses_owned = 3
         pool.licenses_available = 0
-        pool.licenses_reserved = 2
+        pool.licenses_reserved = 3
         expired_hold1, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=0)
         expired_hold2, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=0)
+        expired_hold3, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=0)
         current_hold, ignore = pool.on_hold_to(self._patron(), position=3)
+        # This hold has an end date in the past, but its position is greater than 0
+        # so the end date is not reliable.
+        bad_end_date, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=4)
 
         reaper.run_once(None, None)
 
-        # The expired holds have been deleted and the other hold has been updated.
-        eq_(1, self._db.query(Hold).count())
-        eq_([current_hold], self._db.query(Hold).all())
+        # The expired holds have been deleted and the other holds have been updated.
+        eq_(2, self._db.query(Hold).count())
+        eq_([current_hold, bad_end_date], self._db.query(Hold).order_by(Hold.start).all())
         eq_(0, current_hold.position)
+        eq_(0, bad_end_date.position)
+        assert current_hold.end > now
+        assert bad_end_date.end > now
         eq_(1, pool.licenses_available)
-        eq_(1, pool.licenses_reserved)
+        eq_(2, pool.licenses_reserved)

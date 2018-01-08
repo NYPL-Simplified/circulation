@@ -404,6 +404,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             or_(
                 Hold.end==None,
                 Hold.end>datetime.datetime.utcnow(),
+                Hold.position>0,
             )
         ).count()
 
@@ -413,6 +414,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
 
         # First make sure the hold position is up-to-date, since we'll
         # need it to calculate the end date.
+        original_position = hold.position
         self._update_hold_position(hold)
 
         default_loan_period = self.collection(_db).default_loan_period(
@@ -420,9 +422,9 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         )
         default_reservation_period = self.collection(_db).default_reservation_period
 
-        # If the hold is ready to check out and already has an end date,
+        # If the hold was already to check out and already has an end date,
         # it doesn't need an update.
-        if hold.position == 0 and hold.end:
+        if hold.position == 0 and original_position == 0 and hold.end:
             return
 
         # If the patron is in the queue, we need to estimate when the book
@@ -444,7 +446,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             ).filter(
                 or_(
                     Hold.end==None,
-                    Hold.end>datetime.datetime.utcnow()
+                    Hold.end>datetime.datetime.utcnow(),
+                    Hold.position>0,
                 )
             ).order_by(Hold.start).all()
             licenses_reserved = min(pool.licenses_owned - len(current_loans), len(current_holds))
@@ -472,8 +475,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             cycle_period = default_loan_period + default_reservation_period
             hold.end = next_cycle_start + datetime.timedelta(days=(cycle_period * cycles))
 
-        # If the end date isn't set yet, the hold just became available.
-        # The patron's reservation period starts now.
+        # If the end date isn't set yet or the position just became 0, the
+        # hold just became available. The patron's reservation period starts now.
         else:
             hold.end = datetime.datetime.utcnow() + datetime.timedelta(days=default_reservation_period)
 
@@ -519,7 +522,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         ).filter(
             or_(
                 Hold.end==None,
-                Hold.end>datetime.datetime.utcnow()
+                Hold.end>datetime.datetime.utcnow(),
+                Hold.position>0,
             )
         ).order_by(
             Hold.start
@@ -609,7 +613,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         )
         remaining_holds = []
         for hold in holds:
-            if hold.end < datetime.datetime.utcnow():
+            if hold.end and hold.end < datetime.datetime.utcnow():
                 _db.delete(hold)
                 self.update_hold_queue(hold.license_pool)
             else:
@@ -839,6 +843,8 @@ class ODLHoldReaper(CollectionMonitor):
             LicensePool.collection_id==self.api.collection_id
         ).filter(
             Hold.end<datetime.datetime.utcnow()
+        ).filter(
+            Hold.position==0
         )
 
         changed_pools = set()
