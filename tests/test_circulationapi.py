@@ -392,9 +392,9 @@ class TestCirculationAPI(DatabaseTest):
         self.patron.library.setting(Configuration.LOAN_LIMIT).value = 1
         previous_loan_pool = self._licensepool(None)
         previous_loan_pool.open_access = False
-        previous_loan_pool.loan_to(self.patron)
-
         now = datetime.now()
+        previous_loan, ignore = previous_loan_pool.loan_to(self.patron, end=now + timedelta(days=2))
+
         loaninfo = LoanInfo(
             self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
@@ -428,6 +428,23 @@ class TestCirculationAPI(DatabaseTest):
             pool2.collection, pool2.data_source,
             pool2.identifier.type,
             pool2.identifier.identifier,
+            now, now + timedelta(seconds=3600),
+        )
+        self.remote.queue_checkout(loaninfo)
+        loan, hold, is_new = self.circulation.borrow(
+            self.patron, '1234', pool2, self.delivery_mechanism
+        )
+        assert loan != None
+
+        # A loan with no end date also doesn't count toward the limit.
+        previous_loan.end = None
+        pool3 = self._licensepool(None,
+            data_source_name=DataSource.BIBLIOTHECA,
+            collection=self.collection)
+        loaninfo = LoanInfo(
+            pool3.collection, pool3.data_source,
+            pool3.identifier.type,
+            pool3.identifier.identifier,
             now, now + timedelta(seconds=3600),
         )
         self.remote.queue_checkout(loaninfo)
