@@ -395,6 +395,13 @@ class TestCirculationAPI(DatabaseTest):
         now = datetime.now()
         previous_loan, ignore = previous_loan_pool.loan_to(self.patron, end=now + timedelta(days=2))
 
+        # If the patron tried to check out when they're at the loan limit,
+        # the API will try to place a hold instead, and catch the error.
+        self.remote.queue_hold(CurrentlyAvailable())
+        assert_raises(PatronLoanLimitReached, self.borrow)
+
+        # If we increase the limit, borrow succeeds.
+        self.patron.library.setting(Configuration.LOAN_LIMIT).value = 2
         loaninfo = LoanInfo(
             self.pool.collection, self.pool.data_source,
             self.pool.identifier.type,
@@ -402,11 +409,6 @@ class TestCirculationAPI(DatabaseTest):
             now, now + timedelta(seconds=3600),
         )
         self.remote.queue_checkout(loaninfo)
-
-        assert_raises(PatronLoanLimitReached, self.borrow)
-
-        # If we increase the limit, borrow succeeds.
-        self.patron.library.setting(Configuration.LOAN_LIMIT).value = 2
         loan, hold, is_new = self.borrow()
         assert loan != None
 

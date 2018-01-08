@@ -809,6 +809,13 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             self.patron, "pin", self.pool, "notifications@librarysimplified.org",
         )
 
+    def test_place_hold_currently_available(self):
+        self.pool.licenses_owned = 1
+        assert_raises(
+            CurrentlyAvailable, self.api.place_hold,
+            self.patron, "pin", self.pool, "notifications@librarysimplified.org",
+        )
+
     def test_release_hold_success(self):
         self.pool.licenses_owned = 1
         loan, ignore = self.pool.loan_to(self._patron())

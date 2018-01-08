@@ -548,6 +548,12 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         """Create a new hold."""
         _db = Session.object_session(patron)
 
+        # Make sure pool info is updated.
+        self.update_hold_queue(licensepool)
+
+        if licensepool.licenses_available > 0:
+            raise CurrentlyAvailable()
+
         # Create local hold.
         hold, is_new = get_one_or_create(
             _db, Hold,

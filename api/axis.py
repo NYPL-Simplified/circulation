@@ -372,7 +372,7 @@ class ResponseParser(Axis360Parser):
         3108 : InvalidInputException, # DRM Credentials Required
         3109 : InvalidInputException, # Hold already exists or hold does not exist, depending.
         3110 : AlreadyCheckedOut,
-        3111 : CouldCheckOut,
+        3111 : CurrentlyAvailable,
         3112 : CannotFulfill,
         3113 : CannotLoan,
         (3113, "Title ID is not available for checkout") : NoAvailableCopies,
