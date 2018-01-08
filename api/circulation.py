@@ -344,8 +344,7 @@ class CirculationAPI(object):
         new_loan = False
 
         # TODO: If the book isn't available and the patron is putting it on hold,
-        # we shouldn't check the loan limit. Or should there be one limit for loans
-        # and holds?
+        # we shouldn't check the loan limit.
         loan_limit = patron.library.setting(Configuration.LOAN_LIMIT).int_value
         non_open_access_loans = [loan for loan in patron.loans if loan.license_pool.open_access == False]
         if loan_limit and len(non_open_access_loans) >= loan_limit:
