@@ -4498,7 +4498,7 @@ class TestHold(DatabaseTest):
         hold, is_new = pool.on_hold_to(patron, now, later, 4)
         eq_(True, is_new)
         eq_(now, hold.start)
-        eq_(None, hold.end)
+        eq_(later, hold.end)
         eq_(4, hold.position)
 
         # Now update the position to 0. It's the patron's turn

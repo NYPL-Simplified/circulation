@@ -915,10 +915,8 @@ class Hold(Base, LoanAndHoldMixin):
         """
         if start is not None:
             self.start = start
-        if position == 0 and end is not None:
+        if end is not None:
             self.end = end
-        else:
-            self.end = None
         if position is not None:
             self.position = position
 
