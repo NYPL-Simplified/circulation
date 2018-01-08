@@ -312,9 +312,11 @@ class SessionManager(object):
 
     MATERIALIZED_VIEW_WORKS = 'mv_works_editions_datasources_identifiers'
     MATERIALIZED_VIEW_WORKS_WORKGENRES = 'mv_works_editions_workgenres_datasources_identifiers'
+    MATERIALIZED_VIEW_LANES = 'mv_works_for_lanes'
     MATERIALIZED_VIEWS = {
         MATERIALIZED_VIEW_WORKS : 'materialized_view_works.sql',
         MATERIALIZED_VIEW_WORKS_WORKGENRES : 'materialized_view_works_workgenres.sql',
+        MATERIALIZED_VIEW_LANES : 'materialized_view_for_lanes.sql',
     }
 
     # A function that calculates recursively equivalent identifiers
@@ -360,6 +362,14 @@ class SessionManager(object):
             sql = open(resource_file).read()
             connection.execute(sql)
 
+            # NOTE: This is apparently necessary for the creation of
+            # the materialized view to be finalized in all cases. As
+            # such, materialized views should be created WITH NO DATA,
+            # since they will be refreshed immediately after creation.
+            result = connection.execute(
+                "REFRESH MATERIALIZED VIEW %s;" % view_name
+            )
+
         if not connection:
             connection = engine.connect()
 
@@ -387,7 +397,7 @@ class SessionManager(object):
 
         class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
             __table__ = Table(
-                cls.MATERIALIZED_VIEW_WORKS_WORKGENRES,
+                cls.MATERIALIZED_VIEW_LANES,
                 Base.metadata,
                 Column('works_id', Integer, primary_key=True),
                 Column('workgenres_id', Integer, primary_key=True),
@@ -400,26 +410,6 @@ class SessionManager(object):
                 primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
                 foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
-        class MaterializedWork(Base, BaseMaterializedWork):
-            __table__ = Table(
-                cls.MATERIALIZED_VIEW_WORKS,
-                Base.metadata,
-                Column('works_id', Integer, primary_key=True),
-                Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
-              autoload=True,
-                autoload_with=engine
-            )
-            license_pool = relationship(
-                LicensePool,
-                primaryjoin="LicensePool.id==MaterializedWork.license_pool_id",
-                foreign_keys=LicensePool.id, lazy='joined', uselist=False)
-
-            def __repr__(self):
-                return (u'%s "%s" (%s) %s' % (
-                    self.works_id, self.sort_title, self.sort_author, self.language,
-                    )).encode("utf8")
-
-        globals()['MaterializedWork'] = MaterializedWork
         globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine
         return engine, engine.connect()
@@ -5385,6 +5375,13 @@ class LicensePoolDeliveryMechanism(Base):
         )
         lpdm.rights_status = rights_status
 
+        # TODO: We need to explicitly commit here so that
+        # LicensePool.delivery_mechanisms gets updated. It would be
+        # better if we didn't have to do this, but I haven't been able
+        # to get LicensePool.delivery_mechanisms to notice that it's
+        # out of date.
+        _db.commit()
+
         # Creating or modifying a LPDM might change the open-access status
         # of all LicensePools for that DataSource/Identifier.
         for pool in lpdm.license_pools:
@@ -5402,6 +5399,14 @@ class LicensePoolDeliveryMechanism(Base):
         _db = Session.object_session(self)
         pools = list(self.license_pools)
         _db.delete(self)
+        
+        # TODO: We need to explicitly commit here so that
+        # LicensePool.delivery_mechanisms gets updated. It would be
+        # better if we didn't have to do this, but I haven't been able
+        # to get LicensePool.delivery_mechanisms to notice that it's
+        # out of date.
+        _db.commit()
+
         # The deletion of a LicensePoolDeliveryMechanism might affect
         # the open-access status of its associated LicensePools.
         for pool in pools:
@@ -6578,15 +6583,12 @@ class LicensePool(Base):
         UniqueConstraint('identifier_id', 'data_source_id', 'collection_id'),
     )
 
-    @property
-    def delivery_mechanisms(self):
-        """Find all LicensePoolDeliveryMechanisms for this LicensePool.
-        """
-        _db = Session.object_session(self)
-        LPDM = LicensePoolDeliveryMechanism
-        return _db.query(LPDM).filter(
-            LPDM.data_source==self.data_source).filter(
-                LPDM.identifier==self.identifier)
+    delivery_mechanisms = relationship(
+        "LicensePoolDeliveryMechanism", 
+        primaryjoin="and_(LicensePool.data_source_id==LicensePoolDeliveryMechanism.data_source_id, LicensePool.identifier_id==LicensePoolDeliveryMechanism.identifier_id)",
+        foreign_keys=(data_source_id, identifier_id),
+        uselist=True,
+    )
 
     def __repr__(self):
         if self.identifier:
@@ -8986,7 +8988,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     license_pool_delivery_mechanisms = relationship(
         "LicensePoolDeliveryMechanism",
-        backref="delivery_mechanism"
+        backref="delivery_mechanism",
     )
 
     _cache = HasFullTableCache.RESET

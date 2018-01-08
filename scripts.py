@@ -606,9 +606,15 @@ class LaneSweeperScript(LibraryInputScript):
     """Do something to each lane in a library."""
 
     def process_library(self, library):
-        queue = self._db.query(Lane).filter(
+        from lane import WorkList
+        top_level_lanes = self._db.query(Lane).filter(
             Lane.library==library).filter(
                 Lane.parent==None).all()
+        top_level = WorkList()
+        top_level.initialize(
+            library, library.name, children=list(top_level_lanes)
+        )
+        queue = [top_level]
         while queue:
             new_queue = []
             for l in queue:
@@ -617,7 +623,7 @@ class LaneSweeperScript(LibraryInputScript):
                 if self.should_process_lane(l):
                     self.process_lane(l)
                     self._db.commit()
-                for sublane in l.sublanes:
+                for sublane in l.children:
                     new_queue.append(sublane)
             queue = new_queue
 
@@ -1648,13 +1654,8 @@ class RefreshMaterializedViewsScript(Script):
         else:
             concurrently = 'CONCURRENTLY'
         # Initialize database
-        from model import (
-            MaterializedWork,
-            MaterializedWorkWithGenre,
-        )
         db = self._db
-        for i in (MaterializedWork, MaterializedWorkWithGenre):
-            view_name = i.__table__.name
+        for view_name in SessionManager.MATERIALIZED_VIEWS.keys():
             a = time.time()
             db.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
             b = time.time()
@@ -1663,6 +1664,7 @@ class RefreshMaterializedViewsScript(Script):
         # Recalculate the sizes of lanes.
         for lane in db.query(Lane):
             lane.update_size(db)
+            print "Size of %s: %s" % (lane.full_identifier, lane.size)
 
         # Close out this session because we're about to create another one.
         db.commit()
@@ -2590,11 +2592,11 @@ class FixInvisibleWorksScript(CollectionInputScript):
             return
 
         # See how many works are in the materialized view.
-        from model import MaterializedWork
-        mv_works = self._db.query(MaterializedWork)
+        from model import MaterializedWorkWithGenre as work_model
+        mv_works = self._db.query(work_model)
 
         if collections:
-            mv_works = mv_works.filter(MaterializedWork.collection_id.in_(collection_ids))
+            mv_works = mv_works.filter(work_model.collection_id.in_(collection_ids))
 
         mv_works_count = mv_works.count()
         self.output.write(
@@ -2621,8 +2623,8 @@ class FixInvisibleWorksScript(CollectionInputScript):
         LPDM = LicensePoolDeliveryMechanism
         mv_works = mv_works.filter(
             exists().where(
-                and_(MaterializedWork.data_source_id==LPDM.data_source_id,
-                     MaterializedWork.identifier_id==LPDM.identifier_id)
+                and_(work_model.data_source_id==LPDM.data_source_id,
+                     work_model.identifier_id==LPDM.identifier_id)
             )
         )
         if mv_works.count() == 0:

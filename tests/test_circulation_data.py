@@ -202,7 +202,7 @@ class TestCirculationData(DatabaseTest):
         replacement_policy = ReplacementPolicy(formats=False)
         circulation_data.apply(self._db, pool.collection, replacement_policy)
         
-        eq_(2, pool.delivery_mechanisms.count())
+        eq_(2, len(pool.delivery_mechanisms))
         eq_(set([Representation.PDF_MEDIA_TYPE, Representation.EPUB_MEDIA_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
         eq_(old_lpdm, loan.fulfillment)
@@ -212,7 +212,7 @@ class TestCirculationData(DatabaseTest):
         replacement_policy = ReplacementPolicy(formats=True)
         circulation_data.apply(self._db, pool.collection, replacement_policy)
 
-        eq_(1, pool.delivery_mechanisms.count())
+        eq_(1, len(pool.delivery_mechanisms))
         eq_(Representation.EPUB_MEDIA_TYPE, pool.delivery_mechanisms[0].delivery_mechanism.content_type)
         eq_(None, loan.fulfillment)
         
@@ -294,7 +294,7 @@ class TestCirculationData(DatabaseTest):
         circulation_data.apply(self._db, pool.collection, replace)
 
         # Now we have no formats at all.
-        eq_(0, pool.delivery_mechanisms.count())
+        eq_(0, len(pool.delivery_mechanisms))
 
     def test_rights_status_default_rights_passed_in(self):
         identifier = IdentifierData(
@@ -323,7 +323,7 @@ class TestCirculationData(DatabaseTest):
         )
         circulation_data.apply(self._db, pool.collection, replace)
         eq_(True, pool.open_access)
-        eq_(1, pool.delivery_mechanisms.count())
+        eq_(1, len(pool.delivery_mechanisms))
         # The rights status is the one that was passed in to CirculationData.
         eq_(RightsStatus.CC_BY, pool.delivery_mechanisms[0].rights_status.uri)
 
@@ -359,7 +359,7 @@ class TestCirculationData(DatabaseTest):
         # The pool became open-access because it was given a
         # link that came from the OS content server.
         eq_(True, pool.open_access)
-        eq_(1, pool.delivery_mechanisms.count())
+        eq_(1, len(pool.delivery_mechanisms))
         # The rights status is the default for the OA content server.
         eq_(RightsStatus.GENERIC_OPEN_ACCESS, pool.delivery_mechanisms[0].rights_status.uri)
 
@@ -394,7 +394,7 @@ class TestCirculationData(DatabaseTest):
         # open-access.
         circulation_data.apply(self._db, pool.collection, replace_formats)
         eq_(True, pool.open_access)
-        eq_(1, pool.delivery_mechanisms.count())
+        eq_(1, len(pool.delivery_mechanisms))
 
         # The delivery mechanism's rights status is the default for
         # the data source.
@@ -456,7 +456,7 @@ class TestCirculationData(DatabaseTest):
         )
         circulation_data.apply(self._db, pool.collection, replace)
         eq_(True, pool.open_access)
-        eq_(1, pool.delivery_mechanisms.count())
+        eq_(1, len(pool.delivery_mechanisms))
         eq_(RightsStatus.CC_BY_ND, pool.delivery_mechanisms[0].rights_status.uri)
 
     def test_rights_status_commercial_link_with_rights(self):
@@ -493,7 +493,7 @@ class TestCirculationData(DatabaseTest):
         )
         circulation_data.apply(self._db, pool.collection, replace)
         eq_(False, pool.open_access)
-        eq_(1, pool.delivery_mechanisms.count())
+        eq_(1, len(pool.delivery_mechanisms))
         eq_(RightsStatus.IN_COPYRIGHT, pool.delivery_mechanisms[0].rights_status.uri)
 
     def test_format_change_may_change_open_access_status(self):
@@ -542,7 +542,7 @@ class TestCirculationData(DatabaseTest):
 
         # The original LPDM has been removed and only the new one remains.
         eq_(False, pool.open_access)
-        eq_(1, pool.delivery_mechanisms.count())
+        eq_(1, len(pool.delivery_mechanisms))
 
 
 class TestMetaToModelUtility(DatabaseTest):

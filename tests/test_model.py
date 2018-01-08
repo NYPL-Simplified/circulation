@@ -121,13 +121,9 @@ class TestSessionManager(DatabaseTest):
         fiction = self._lane(display_name="Fiction", fiction=True)
         nonfiction = self._lane(display_name="Nonfiction", fiction=False)
 
-        from model import (
-            MaterializedWork as mwc,
-            MaterializedWorkWithGenre as mwg,
-        )
+        from model import MaterializedWorkWithGenre as mwg
 
         # There are no items in the materialized views.
-        eq_([], self._db.query(mwc).all())
         eq_([], self._db.query(mwg).all())
 
         # The lane sizes are wrong.
@@ -136,10 +132,8 @@ class TestSessionManager(DatabaseTest):
 
         SessionManager.refresh_materialized_views(self._db)
 
-        # The work has been added to the materialized views.
-        # (It was added twice to MaterializedWorkWithGenre
-        # because it's filed under two genres.)
-        eq_([work.id], [x.works_id for x in self._db.query(mwc)])
+        # The work has been added to the materialized view. (It was
+        # added twice because it's filed under two genres.)
         eq_([work.id, work.id], [x.works_id for x in self._db.query(mwg)])
 
         # Both lanes have had .size set to the correct value.
@@ -2400,8 +2394,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         lpdm2 = pool.set_delivery_mechanism(
             Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             RightsStatus.CC_BY, None)
-        
-        eq_(2, pool.delivery_mechanisms.count())
+        eq_(2, len(pool.delivery_mechanisms))
 
         # Now the pool is open access again
         eq_(True, pool.open_access)
@@ -2424,13 +2417,12 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
             Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
             pool.data_source, "text/html"
         )
-        pool.set_delivery_mechanism(
+        lpdm2 = pool.set_delivery_mechanism(
             lpdm.delivery_mechanism.content_type,
             lpdm.delivery_mechanism.drm_scheme,
             lpdm.rights_status.uri,
             link.resource,
         )
-        [lpdm2] = [x for x in pool.delivery_mechanisms if x != lpdm]
         eq_(lpdm2.delivery_mechanism, lpdm.delivery_mechanism)
         assert lpdm2.resource != lpdm.resource
 
@@ -7881,28 +7873,21 @@ class TestMaterializedViews(DatabaseTest):
         # Make sure the Work shows up in the materialized view.
         SessionManager.refresh_materialized_views(self._db)
 
-        from model import (
-            MaterializedWork as mwc,
-            MaterializedWorkWithGenre as mwgc,
-        )
-        [mw] = self._db.query(mwc).all()
+        from model import MaterializedWorkWithGenre as mwgc
         [mwg] = self._db.query(mwgc).all()
 
-        eq_(pool1.id, mw.license_pool_id)
         eq_(pool1.id, mwg.license_pool_id)
 
         # If we change the Work's preferred edition, we change the
         # license_pool_id that gets stored in the materialized views.
         work.set_presentation_edition(edition2)
         SessionManager.refresh_materialized_views(self._db)
-        [mw] = self._db.query(mwc).all()
         [mwg] = self._db.query(mwgc).all()
 
-        eq_(pool2.id, mw.license_pool_id)
         eq_(pool2.id, mwg.license_pool_id)
 
     def test_license_data_source_is_stored_in_views(self):
-        """Verify that the data_source_name stored in the materialized views
+        """Verify that the data_source_name stored in the materialized view
         is the DataSource associated with the LicensePool, not the
         DataSource associated with the presentation Edition.
         """
@@ -7943,27 +7928,21 @@ class TestMaterializedViews(DatabaseTest):
 
         SessionManager.refresh_materialized_views(self._db)
 
-        from model import (
-            MaterializedWork as mwc,
-            MaterializedWorkWithGenre as mwgc,
-        )
-        [mw] = self._db.query(mwc).all()
+        from model import MaterializedWorkWithGenre as mwgc
         [mwg] = self._db.query(mwgc).all()
 
         # We would expect the data source to be Gutenberg, since
         # that's the edition associated with the LicensePool, and not
         # the data source of the Work's presentation edition.
-        eq_(pool.data_source.name, mw.name)
         eq_(pool.data_source.name, mwg.name)
 
         # However, we would expect the title of the work to come from
         # the presentation edition.
-        eq_("staff chose this title", mw.sort_title)
+        eq_("staff chose this title", mwg.sort_title)
 
         # And since the data_source_id is the ID of the data source
         # associated with the license pool, we would expect it to be
         # the data source ID of the license pool.
-        eq_(pool.data_source.id, mw.data_source_id)
         eq_(pool.data_source.id, mwg.data_source_id)
 
 

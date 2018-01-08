@@ -126,7 +126,7 @@ class AtomFeed(object):
     def __init__(self, title, url):
         self.feed = self.E.feed(
             self.E.id(url),
-            self.E.title(str(title)),
+            self.E.title(unicode(title)),
             self.E.updated(self._strftime(datetime.datetime.utcnow())),
             self.E.link(href=url, rel="self"),
         )
