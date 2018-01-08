@@ -287,7 +287,21 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             raise NoLicenses()
 
         _db = Session.object_session(patron)
+
+        loan = _db.query(Loan).filter(
+            Loan.patron==patron
+        ).filter(
+            Loan.license_pool_id==licensepool.id
+        )
+        if loan.count() > 0:
+            raise AlreadyCheckedOut()
+
+        # Make sure pool info is updated.
+        self.update_hold_queue(licensepool)
+
         hold = get_one(_db, Hold, patron=patron, license_pool_id=licensepool.id)
+        if hold:
+            self._update_hold_end_date(hold)
 
         # If there's a holds queue, the patron must be at position 0 and have a
         # non-expired hold to check out the book.
@@ -297,14 +311,6 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             licensepool.licenses_available < 1
             ):
             raise NoAvailableCopies()
-
-        loan = _db.query(Loan).filter(
-            Loan.patron==patron
-        ).filter(
-            Loan.license_pool_id==licensepool.id
-        )
-        if loan.count() > 0:
-            raise AlreadyCheckedOut()
 
         # Create a local loan so it's database id can be used to
         # receive notifications from the distributor.
@@ -320,21 +326,11 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             _db.delete(loan)
             raise CannotLoan()
 
-        # We have successfully borrowed this book.
-        if not hold:
-            if licensepool.licenses_available > 0:
-                licensepool.licenses_available -= 1
-        else:
-            if licensepool.licenses_reserved > 0:
-                licensepool.licenses_reserved -= 1
-            if licensepool.patrons_in_hold_queue > 0:
-                licensepool.patrons_in_hold_queue -= 1
-            _db.delete(hold)
-
         external_identifier = doc.get("links", {}).get("self", {}).get("href")
         if not external_identifier:
             _db.delete(loan)
             raise CannotLoan()
+
         start = datetime.datetime.utcnow()
         expires = doc.get("potential_rights", {}).get("end")
         if expires:
@@ -344,6 +340,11 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         # the code that calls this only sets them when a new loan is created.
         loan.start = start
         loan.end = expires
+
+        # We have successfully borrowed this book.
+        if hold:
+            _db.delete(hold)
+        self.update_hold_queue(licensepool)
 
         return LoanInfo(
             licensepool.collection,
@@ -391,6 +392,21 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             expires,
         )
 
+    def _count_holds_before(self, hold):
+        # Count holds on the license pool that started before this hold and
+        # aren't expired.
+        _db = Session.object_session(hold)
+        return _db.query(Hold).filter(
+            Hold.license_pool_id==hold.license_pool_id
+        ).filter(
+            Hold.start<hold.start
+        ).filter(
+            or_(
+                Hold.end==None,
+                Hold.end>datetime.datetime.utcnow(),
+            )
+        ).count()
+
     def _update_hold_end_date(self, hold):
         _db = Session.object_session(hold)
         pool = hold.license_pool
@@ -414,19 +430,35 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         # default calculation since we know when all current loans will expire,
         # but we're still calculating the worst case.
         elif hold.position > 0:
+            # Find the current loans and reserved holds for the licenses.
+            current_loans = _db.query(Loan).filter(
+                Loan.license_pool_id==pool.id
+            ).filter(
+                or_(
+                    Loan.end==None,
+                    Loan.end>datetime.datetime.utcnow()
+                )
+            ).order_by(Loan.start).all()
+            current_holds = _db.query(Hold).filter(
+                Hold.license_pool_id==pool.id
+            ).filter(
+                or_(
+                    Hold.end==None,
+                    Hold.end>datetime.datetime.utcnow()
+                )
+            ).order_by(Hold.start).all()
+            licenses_reserved = min(pool.licenses_owned - len(current_loans), len(current_holds))
+            current_reservations = current_holds[:licenses_reserved]
+
             # The licenses will have to go through some number of cycles
             # before one of them gets to this hold. This leavs out the first cycle -
             # it's already started so we'll handle it separately.
-            cycles = (hold.position - pool.licenses_reserved - 1) / pool.licenses_owned
+            cycles = (hold.position - licenses_reserved - 1) / pool.licenses_owned
 
             # Each of the owned licenses is currently either on loan or reserved.
             # Figure out which license this hold will eventually get if every
             # patron keeps their loans and holds for the maximum time.
-            copy_index = (hold.position - pool.licenses_reserved - 1)  % pool.licenses_owned
-
-            # Find the current loans and reserved holds for the licenses.
-            current_loans = _db.query(Loan).filter(Loan.license_pool_id==pool.id).order_by(Loan.start).all()
-            current_reservations = _db.query(Hold).filter(Hold.license_pool_id==pool.id).order_by(Hold.start).limit(pool.licenses_reserved).all()
+            copy_index = (hold.position - licenses_reserved - 1)  % pool.licenses_owned
 
             # In the worse case, the first cycle ends when a current loan expires, or
             # after a current reservation is checked out and then expires.
@@ -446,22 +478,21 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             hold.end = datetime.datetime.utcnow() + datetime.timedelta(days=default_reservation_period)
 
     def _update_hold_position(self, hold):
-        # Count holds on the license pool that started before this hold and
-        # aren't expired.
         _db = Session.object_session(hold)
-        holds_count = _db.query(Hold).filter(
-            Hold.license_pool_id==hold.license_pool_id
-        ).filter(
-            Hold.start<hold.start
+        pool = hold.license_pool
+        loans_count = _db.query(Loan).filter(
+            Loan.license_pool_id==pool.id,
         ).filter(
             or_(
-                Hold.end==None,
-                Hold.end>datetime.datetime.utcnow(),
+                Loan.end==None,
+                Loan.end > datetime.datetime.utcnow()
             )
         ).count()
+        holds_count = self._count_holds_before(hold)
 
-        licenses_reserved = hold.license_pool.licenses_reserved
-        if licenses_reserved > holds_count:
+        remaining_licenses = pool.licenses_owned - loans_count
+
+        if remaining_licenses > holds_count:
             # The hold is ready to check out.
             hold.position = 0
 
@@ -469,28 +500,44 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             # Add 1 since position 0 indicates the hold is ready.
             hold.position = holds_count + 1
 
-    def update_hold_queue(self, licensepool, licenses_changed=1):
-        # Update the next hold in the queue when a license is reserved.
+    def update_hold_queue(self, licensepool):
+        # Update the pool and the next holds in the queue when a license is reserved.
         _db = Session.object_session(licensepool)
 
-        next_holds = _db.query(Hold).filter(
+        loans_count = _db.query(Loan).filter(
+            Loan.license_pool_id==licensepool.id
+        ).filter(
+            or_(
+                Loan.end==None,
+                Loan.end>datetime.datetime.utcnow()
+            )
+        ).count()
+        remaining_licenses = licensepool.licenses_owned - loans_count
+
+        holds = _db.query(Hold).filter(
             Hold.license_pool_id==licensepool.id
         ).filter(
-            Hold.position > 0
+            or_(
+                Hold.end==None,
+                Hold.end>datetime.datetime.utcnow()
+            )
         ).order_by(
             Hold.start
-        ).limit(licenses_changed).all()
-        for hold in next_holds:
-            self._update_hold_end_date(hold)
-        if len(next_holds) < licenses_changed:
-            # There are fewer people waiting for this book than copies available.
-            # Make some licenses available instead of reserving them.
-            difference = licenses_changed - len(next_holds)
-            if licensepool.licenses_reserved >= difference:
-                licensepool.licenses_reserved -= difference
-            else:
-                licensepool.licenses_reserved = 0
-            licensepool.licenses_available += difference
+        ).all()
+
+        if len(holds) > remaining_licenses:
+            licensepool.licenses_available = 0
+            licensepool.licenses_reserved = remaining_licenses
+            licensepool.patrons_in_hold_queue = len(holds)
+        else:
+            licensepool.licenses_available = remaining_licenses - len(holds)
+            licensepool.licenses_reserved = len(holds)
+            licensepool.patrons_in_hold_queue = len(holds)
+
+        for hold in holds[:licensepool.licenses_reserved]:
+            if hold.position != 0:
+                # This hold just got a reserved license.
+                self._update_hold_end_date(hold)
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
         """Create a new hold."""
@@ -538,15 +585,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         # had a hold, the license is now reserved for the next patron.
         # If someone else had a hold, the license is now reserved for the
         # next patron, and we need to update that hold.
-        if hold.position == 0:
-            _db.delete(hold)
-            self.update_hold_queue(licensepool)
-
-        else:
-            _db.delete(hold)
-
-        if licensepool.patrons_in_hold_queue > 0:
-            licensepool.patrons_in_hold_queue -= 1
+        _db.delete(hold)
+        self.update_hold_queue(licensepool)
         return True
 
     def patron_activity(self, patron, pin):
@@ -570,12 +610,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         remaining_holds = []
         for hold in holds:
             if hold.end < datetime.datetime.utcnow():
-                if hold.position == 0:
-                    # This hold was available to check out but expired.
-                    # The book is now reserved for the next patron.
-                    self.update_hold_queue(hold.license_pool)
-
                 _db.delete(hold)
+                self.update_hold_queue(hold.license_pool)
             else:
                 self._update_hold_end_date(hold)
                 remaining_holds.append(hold)
@@ -622,10 +658,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
         pool, ignore = circulation_data.apply(_db, self.collection(_db), replacement_policy)
 
         # Update licenses reserved if there are holds.
-        if pool.patrons_in_hold_queue > 0 and pool.licenses_available > 0:
-            pool.licenses_reserved = min(pool.patrons_in_hold_queue, pool.licenses_available)
-            if pool.licenses_available >= pool.licenses_reserved:
-                pool.licenses_available -= pool.licenses_reserved
+        if len(pool.holds) > 0 and pool.licenses_available > 0:
+            self.update_hold_queue(pool)
 
     def update_loan(self, loan, status_doc=None):
         """Check a loan's status, and if it is no longer active, delete the loan
@@ -647,14 +681,8 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI):
             # and delete the loan.
 
             # If there are holds, the license is reserved for the next patron.
-            if loan.license_pool.patrons_in_hold_queue > loan.license_pool.licenses_reserved:
-                loan.license_pool.licenses_reserved += 1
-                self.update_hold_queue(loan.license_pool)
-            else:
-                loan.license_pool.licenses_available += 1
-
             _db.delete(loan)
-        
+            self.update_hold_queue(loan.license_pool)
 
 class ODLXMLParser(OPDSXMLParser):
     NAMESPACES = dict(OPDSXMLParser.NAMESPACES,
@@ -813,14 +841,13 @@ class ODLHoldReaper(CollectionMonitor):
             Hold.end<datetime.datetime.utcnow()
         )
 
-        licenses_changed_per_pool = defaultdict(int)
+        changed_pools = set()
         for hold in expired_holds:
-            pool = hold.license_pool
-            licenses_changed_per_pool[pool] += 1
+            changed_pools.add(hold.license_pool)
             self._db.delete(hold)
 
-        for pool, licenses_changed in licenses_changed_per_pool.iteritems():
-            self.api.update_hold_queue(pool, licenses_changed=licenses_changed)
+        for pool in changed_pools:
+            self.api.update_hold_queue(pool)
 
 
 class MockODLWithConsolidatedCopiesAPI(ODLWithConsolidatedCopiesAPI):
