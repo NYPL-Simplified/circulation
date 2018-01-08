@@ -161,12 +161,6 @@ class AlreadyOnHold(CannotHold):
     """
     status_code = 400
 
-class CouldCheckOut(CannotHold):
-    """The patron can't put this book on hold because they could
-    just check it out.
-    """
-    status_code = 400
-
 class NotCheckedOut(CannotReturn):
     """The patron can't return this book because they don't
     have it checked out in the first place.
