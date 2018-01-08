@@ -327,9 +327,9 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         super(CacheRepresentationPerLane, self).__init__(_db, *args, **kwargs)
         self.parse_args(cmd_args)
         from api.app import app
-        app.manager = CirculationManager(_db, testing=testing)
+        app.manager = CirculationManager(self._db, testing=testing)
         self.app = app
-        self.base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY).value
+        self.base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
         
     def parse_args(self, cmd_args=None):
         parser = self.arg_parser(self._db)
@@ -474,16 +474,16 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
     def do_generate(self, lane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
-        if isinstance(lane, Lane) and lane.parent:
-            languages = lane.language_key
-            lane_name = lane.name
+        if isinstance(lane, Lane):
+            lane_id = lane.id
         else:
-            languages = None
-            lane_name = None
+            # Presumably this is the top-level WorkList.
+            lane_id = None
 
         library = lane.get_library(self._db)
         url = self.app.manager.cdn_url_for(
-            "feed", languages=languages, lane_name=lane_name, library_short_name=library.short_name
+            "feed", lane_identifier=lane_id,
+            library_short_name=library.short_name
         )
 
         default_order = library.default_facet(Facets.ORDER_FACET_GROUP_NAME)
@@ -550,15 +550,16 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
         title = lane.display_name
-        if isinstance(lane, Lane) and lane.parent:
-            languages = lane.language_key
-            lane_name = lane.name
+        
+        if isinstance(lane, Lane):
+            lane_id = lane.id
         else:
-            languages = None
-            lane_name = None
+            # Presumably this is the top-level WorkList.
+            lane_id = None
         library = lane.get_library(self._db)
         url = self.app.manager.cdn_url_for(
-            "acquisition_groups", languages=languages, lane_name=lane_name, library_short_name=library.short_name
+            "acquisition_groups", lane_identifier=lane_id, 
+            library_short_name=library.short_name
         )
         yield AcquisitionFeed.groups(
             self._db, title, url, lane, annotator,

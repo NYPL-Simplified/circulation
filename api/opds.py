@@ -191,7 +191,6 @@ class CirculationManagerAnnotator(Annotator):
             # the loan/hold.
             return loan.license_pool
         else:
-
             # There is no active loan. Use the default logic for
             # determining the active license pool.
             return super(
@@ -350,16 +349,11 @@ class CirculationManagerAnnotator(Annotator):
         """:return: bool asserting whether related books might exist for
         a particular Work
         """
-        if isinstance(work, Work):
-            edition = work.presentation_edition
-        else:
-            # This is a MaterializedWork*, so we're gonna grab the
-            # edition where we can.
-            edition = work.license_pool.presentation_edition
+        contributions = work.sort_author and work.sort_author != Edition.UNKNOWN_AUTHOR
 
-        contributions = edition.contributions
-        series = edition.series
-        return contributions or series or NoveListAPI.is_configured(library)
+        return (contributions 
+                or work.series
+                or NoveListAPI.is_configured(library))
 
     def language_and_audience_key_from_work(self, work):
         language_key = work.language
@@ -636,7 +630,7 @@ class CirculationManagerAnnotator(Annotator):
                             lpdm.delivery_mechanism
                         )
                     )
-                                               
+
         # If this is an open-access book, add an open-access link for
         # every delivery mechanism with an associated resource.
         open_access_links = []

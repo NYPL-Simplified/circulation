@@ -832,10 +832,11 @@ class CustomListsController(CirculationManagerController):
             for list in library.custom_lists:
                 entries = []
                 for entry in list.entries:
-                    entries.append(dict(pwid=entry.edition.permanent_work_id,
-                                        title=entry.edition.title,
-                                        authors=[author.display_name for author in entry.edition.author_contributors],
-                                        ))
+                    if entry.edition:
+                        entries.append(dict(pwid=entry.edition.permanent_work_id,
+                                            title=entry.edition.title,
+                                            authors=[author.display_name for author in entry.edition.author_contributors],
+                        ))
                 custom_lists.append(dict(id=list.id, name=list.name, entries=entries))
             return dict(custom_lists=custom_lists)
 
@@ -870,7 +871,7 @@ class CustomListsController(CirculationManagerController):
             else:
                 entries = []
 
-            old_entries = list.entries
+            old_entries = [x for x in list.entries if x.edition]
             membership_change = False
             for entry in entries:
                 pwid = entry.get("pwid")

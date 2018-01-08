@@ -515,6 +515,9 @@ class TestSeriesLane(LaneTest):
         assert_raises(
             ValueError, SeriesLane, self._default_library, ''
         )
+        assert_raises(
+            ValueError, SeriesLane, self._default_library, None
+        )
 
         lane = SeriesLane(self._default_library, 'Alrighty Then')
         eq_('Alrighty Then', lane.series)
@@ -528,6 +531,7 @@ class TestSeriesLane(LaneTest):
         # Works in the series are returned as expected.
         w1 = self._work(with_license_pool=True)
         w1.presentation_edition.series = series_name
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
         self.assert_works_queries(lane, [w1])
 
@@ -537,12 +541,14 @@ class TestSeriesLane(LaneTest):
         w2 = self._work(with_license_pool=True)
         w2.presentation_edition.title = "Anthropology"
         w2.presentation_edition.series = series_name
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
         self.assert_works_queries(lane, [w2, w1])
 
         # If a series_position is added, they're ordered in numerical order.
         w1.presentation_edition.series_position = 6
         w2.presentation_edition.series_position = 13
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
         self.assert_works_queries(lane, [w1, w2])
 
@@ -552,6 +558,7 @@ class TestSeriesLane(LaneTest):
         spa = self._work(with_license_pool=True, language='spa')
         for work in [fre, spa]:
             work.presentation_edition.series = series_name
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
         lane.languages = ['fre', 'spa']
@@ -565,6 +572,7 @@ class TestSeriesLane(LaneTest):
         series_name = "Monkey Business"
         for work in [children, adult, adults_only]:
             work.presentation_edition.series = series_name
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
         # SeriesLane only returns works that match a given audience.
@@ -608,6 +616,7 @@ class TestContributorLane(LaneTest):
         w2 = self._work(title="X is for Xylophone", with_license_pool=True)
         same_name = w2.presentation_edition.contributions[0].contributor
         same_name.display_name = 'Lois Lane'
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
         # The work with a matching name is found in the contributor lane.
@@ -623,6 +632,7 @@ class TestContributorLane(LaneTest):
         w4 = self._work(title="D is for Dinosaur", with_license_pool=True)
         same_viaf, i = self._contributor('Lane, L', **dict(viaf='7'))
         w4.presentation_edition.add_contributor(same_viaf, [Contributor.EDITOR_ROLE])
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
         # Those works are also included in the lane, in alphabetical order.
@@ -635,6 +645,7 @@ class TestContributorLane(LaneTest):
         for work in [fre, spa]:
             main_contribution = work.presentation_edition.contributions[0]
             main_contribution.contributor = self.contributor
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
         lane = ContributorLane(self._default_library, 'Lois Lane', languages=['eng'])
@@ -650,6 +661,7 @@ class TestContributorLane(LaneTest):
         # Give them all the same contributor.
         for work in works:
             work.presentation_edition.contributions[0].contributor = self.contributor
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
         # Only childrens works are available in a ContributorLane with a
