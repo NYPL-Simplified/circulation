@@ -165,12 +165,14 @@ class Configuration(CoreConfiguration):
         {
             "key": LOAN_LIMIT,
             "label": _("Maximum number of books a patron can have on loan at once."),
+            "description": _("(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)"),
             "type": "number",
             "optional": True,
         },
         {
             "key": HOLD_LIMIT,
             "label": _("Maximum number of books a patron can have on hold at once."),
+            "description": _("(Note: depending on distributor settings, a patron may be able to exceed the limit by checking out books directly from a distributor's app. They may also get a limit exceeded error before they reach these limits if a distributor has a smaller limit.)"),
             "type": "number",
             "optional": True,
         },
