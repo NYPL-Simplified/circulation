@@ -535,57 +535,103 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             return value
 
     @classmethod
-    def register(cls, identifier, collection=None, force=False):
+    def register(cls, identifier, data_source=None, collection=None,
+        force=False, autocreate=False
+    ):
         """Registers an identifier for future coverage.
+
+        See `CoverageProvider.bulk_register` for more information about using
+        this method.
+        """
+        name = cls.SERVICE_NAME or cls.__name__
+        log = logging.getLogger(name)
+
+        new_records, ignored_identifiers = cls.bulk_register(
+            [identifier], data_source=data_source, collection=collection,
+            force=force, autocreate=autocreate
+        )
+        was_registered = identifier not in ignored_identifiers
+
+        new_record = None
+        if new_records:
+            [new_record] = new_records
+
+        if was_registered and new_record:
+            log.info('CREATED %r' % new_record)
+            return new_record, was_registered
+
+        _db = Session.object_session(identifier)
+        data_source = cls._data_source_for_registration(
+            _db, data_source, autocreate=autocreate
+        )
+
+        if collection and cls.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
+            # There's no need for a collection when registering this
+            # Identifier, even if it provided the DataSource.
+            collection = None
+
+        existing_record = CoverageRecord.lookup(
+            identifier, data_source, cls.OPERATION, collection=collection
+        )
+        log.info('FOUND %r' % existing_record)
+        return existing_record, was_registered
+
+    @classmethod
+    def bulk_register(cls, identifiers, data_source=None, collection=None,
+        force=False, autocreate=False
+    ):
+        """Registers identifiers for future coverage.
 
         This method is primarily for use with CoverageProviders that use the
         `registered_only` flag to process items. It's currently only in use
         on the Metadata Wrangler.
 
-        :param force: Set to True to reset an existing CoverageRecord's status
-        "registered", regardless of its current status.
+        :param data_source: DataSource object or basestring representing a
+            DataSource name.
+        :param collection: Collection object to be associated with the
+            CoverageRecords.
+        :param force: When True, even existing CoverageRecords will have
+            their status reset to CoverageRecord.REGISTERED.
+        :param autocreate: When True, a basestring provided by data_source will
+            be autocreated in the database if it didn't previously exist.
+
+        :return: A tuple of two lists: the first has fresh new REGISTERED
+            CoverageRecords and the second list already has Identifiers that
+            were ignored because they already had coverage.
 
         TODO: Take identifier eligibility into account when registering.
         """
-        name = cls.SERVICE_NAME or cls.__name__
-        log = logging.getLogger(name)
-        _db = Session.object_session(identifier)
+        if not identifiers:
+            return list(), list()
 
-        source = DataSource.lookup(_db, cls.DATA_SOURCE_NAME)
-        if collection and not source:
-            # The registration DataSource is based on a given Collection
-            # instead of the class. This happens on the Metadata Wrangler.
-            source = collection.data_source
-        operation = cls.OPERATION
+        _db = Session.object_session(identifiers[0])
+        data_source = cls._data_source_for_registration(
+            _db, data_source, autocreate=autocreate
+        )
 
-        if cls.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
-            # There's no need for a collection when registering this
-            # Identifier, even if it provided the DataSource.
+        if collection and cls.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
+            # There's no need for a collection on this CoverageRecord.
             collection = None
 
-        was_registered = False
-        existing_record = CoverageRecord.lookup(
-            identifier, source, operation, collection=collection
+        new_records, ignored_identifiers = CoverageRecord.bulk_add(
+            identifiers, data_source, operation=cls.OPERATION,
+            status=CoverageRecord.REGISTERED, collection=collection,
+            force=force,
         )
-        if existing_record:
-            if force:
-                # Set the record to "registered" despite its current status.
-                was_registered = True
-                existing_record.status = CoverageRecord.REGISTERED
-                existing_record.exception = None
-                return existing_record, was_registered
 
-            log.info('FOUND %r' % existing_record)
-            return existing_record, was_registered
+        return new_records, ignored_identifiers
 
-        was_registered = True
-        new_record, is_new = CoverageRecord.add_for(
-            identifier, source, operation=operation,
-            status=CoverageRecord.REGISTERED,
-            collection=collection
-        )
-        log.info('CREATED %r' % new_record)
-        return new_record, was_registered
+    @classmethod
+    def _data_source_for_registration(cls, _db, data_source, autocreate=False):
+        """Finds or creates a DataSource for the registration methods
+        `cls.register` and `cls.bulk_register`.
+        """
+        if not data_source:
+            return DataSource.lookup(_db, cls.DATA_SOURCE_NAME)
+        if isinstance(data_source, DataSource):
+            return data_source
+        if isinstance(data_source, basestring):
+            return DataSource.lookup(_db, data_source, autocreate=autocreate)
 
     @property
     def data_source(self):

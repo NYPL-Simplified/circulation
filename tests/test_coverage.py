@@ -487,68 +487,95 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         
         # If a CoverageRecord doesn't exist for the provider,
         # a 'registered' record is created.
-        provider.register(self.identifier)
+        new_record, was_registered = provider.register(self.identifier)
 
-        [record] = self.identifier.coverage_records
-        eq_(provider.DATA_SOURCE_NAME, record.data_source.name)
-        eq_(CoverageRecord.REGISTERED, record.status)
-        eq_(None, record.exception)
+        eq_(self.identifier.coverage_records, [new_record])
+        eq_(provider.DATA_SOURCE_NAME, new_record.data_source.name)
+        eq_(CoverageRecord.REGISTERED, new_record.status)
+        eq_(None, new_record.exception)
 
         # If a CoverageRecord exists already, it's returned.
-        existing = record
+        existing = new_record
         existing.status = CoverageRecord.SUCCESS
 
-        provider.register(self.identifier)
-        [record] = self.identifier.coverage_records
-        eq_(existing, record)
+        new_record, was_registered = provider.register(self.identifier)
+        eq_(existing, new_record)
+        eq_(False, was_registered)
         # Its details haven't been changed in any way.
-        eq_(CoverageRecord.SUCCESS, record.status)
-        eq_(None, record.exception)
+        eq_(CoverageRecord.SUCCESS, new_record.status)
+        eq_(None, new_record.exception)
 
-    def test_register_can_overwrite_existing_record_status(self):
+    def test_bulk_register(self):
+        provider = AlwaysSuccessfulCoverageProvider
+        source = DataSource.lookup(self._db, provider.DATA_SOURCE_NAME)
+
+        i1 = self._identifier()
+        covered = self._identifier()
+        existing = self._coverage_record(
+            covered, source, operation=provider.OPERATION
+        )
+
+        new_records, ignored_identifiers = provider.bulk_register([i1, covered])
+
+        eq_(i1.coverage_records, new_records)
+        [new_record] = new_records
+        eq_(provider.DATA_SOURCE_NAME, new_record.data_source.name)
+        eq_(provider.OPERATION, new_record.operation)
+        eq_(CoverageRecord.REGISTERED, new_record.status)
+
+        eq_([covered], ignored_identifiers)
+        # The existing CoverageRecord hasn't been changed.
+        eq_(CoverageRecord.SUCCESS, existing.status)
+
+    def test_bulk_register_can_overwrite_existing_record_status(self):
         provider = AlwaysSuccessfulCoverageProvider
 
         # Create an existing record, and give it a SUCCESS status.
-        provider.register(self.identifier)
+        provider.bulk_register([self.identifier])
         [existing] = self.identifier.coverage_records
         existing.status = CoverageRecord.SUCCESS
+        self._db.commit()
 
         # If registration is forced, an existing record is updated.
-        provider.register(self.identifier, force=True)
-        [record] = self.identifier.coverage_records
-        eq_(existing, record)
-        eq_(CoverageRecord.REGISTERED, record.status)
+        records, ignored = provider.bulk_register([self.identifier], force=True)
+        eq_([existing], records)
+        eq_(CoverageRecord.REGISTERED, existing.status)
 
-    def test_register_with_collection(self):
+    def test_bulk_register_with_collection(self):
         provider = AlwaysSuccessfulCoverageProvider
-        provider_data_source = provider.DATA_SOURCE_NAME
-        provider.DATA_SOURCE_NAME = None
         collection = self._collection(data_source_name=DataSource.AXIS_360)
 
         try:
-            # If the provider has not set a DATA_SOURCE_NAME and a collection
-            # is given, a record is created with the collection's data_source.
-            provider.register(self.identifier, collection=collection)
+            # If a DataSource or data source name is provided and
+            # autocreate is set True, the record is created with that source.
+            provider.bulk_register(
+                [self.identifier], data_source=collection.name,
+                collection=collection, autocreate=True
+            )
             [record] = self.identifier.coverage_records
 
-            record_data_source = record.data_source.name
-            assert provider.DATA_SOURCE_NAME != record_data_source
-            eq_(collection.data_source.name, record_data_source)
+            # A DataSource with the given name has been created.
+            collection_source = DataSource.lookup(self._db, collection.name)
+            assert collection_source
+            assert provider.DATA_SOURCE_NAME != record.data_source.name
+            eq_(collection_source, record.data_source)
 
-            # The record's collection has not been set, though.
+            # Even though a collection was given, the record's collection isn't
+            # set.
             eq_(None, record.collection)
 
             # However, when coverage is collection-specific the
             # CoverageRecord is related to the given collection.
             provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
 
-            provider.register(self.identifier, collection=collection)
+            provider.bulk_register(
+                [self.identifier], collection_source, collection=collection
+            )
             records = self.identifier.coverage_records
             eq_(2, len(records))
             assert [r for r in records if r.collection==collection]
         finally:
             # Return the mock class to its original state for other tests.
-            provider.DATA_SOURCE_NAME = provider_data_source
             provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = True
 
     def test_ensure_coverage(self):
