@@ -2394,8 +2394,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         lpdm2 = pool.set_delivery_mechanism(
             Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             RightsStatus.CC_BY, None)
-        
-        eq_(2, pool.delivery_mechanisms.count())
+        eq_(2, len(pool.delivery_mechanisms))
 
         # Now the pool is open access again
         eq_(True, pool.open_access)
@@ -2418,13 +2417,12 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
             Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
             pool.data_source, "text/html"
         )
-        pool.set_delivery_mechanism(
+        lpdm2 = pool.set_delivery_mechanism(
             lpdm.delivery_mechanism.content_type,
             lpdm.delivery_mechanism.drm_scheme,
             lpdm.rights_status.uri,
             link.resource,
         )
-        [lpdm2] = [x for x in pool.delivery_mechanisms if x != lpdm]
         eq_(lpdm2.delivery_mechanism, lpdm.delivery_mechanism)
         assert lpdm2.resource != lpdm.resource
 

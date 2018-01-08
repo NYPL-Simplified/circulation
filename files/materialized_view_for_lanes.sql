@@ -1,3 +1,4 @@
+-- Create the materialized view with no data.
 create materialized view mv_works_for_lanes
 as
  SELECT 
@@ -44,7 +45,8 @@ as
   WHERE works.presentation_ready = true
     AND works.simple_opds_entry IS NOT NULL
 
-  ORDER BY (editions.sort_title, editions.sort_author, licensepools.availability_time);
+  ORDER BY (editions.sort_title, editions.sort_author, licensepools.availability_time)
+  WITH NO DATA;
 
 -- Create a work/genre lookup.
 create unique index mv_works_for_lanes_work_id_genre_id on mv_works_for_lanes (works_id, genre_id);
@@ -57,11 +59,9 @@ create index mv_works_for_lanes_by_availability on mv_works_for_lanes (availabil
 
 create index mv_works_for_lanes_by_random_and_genre on mv_works_for_lanes (random, language, genre_id);
 
--- Not sure we need these two.
+create index mv_works_for_lanes_by_random_audience_target_age on mv_works_for_lanes (random, language, audience, target_age);
 
--- create index mv_works_for_lanes_by_random_and_audience on mv_works_for_lanes (random, language, audience, target_age);
-
--- create index mv_works_for_lanes_by_random_and_fiction on mv_works_for_lanes (random, language, fiction);
+create index mv_works_for_lanes_by_random_fiction_audience_target_age on mv_works_for_lanes (random, language, fiction, audience, target_age);
 
 -- Similarly, an index on everything, sorted by descending update time.
 
@@ -121,3 +121,6 @@ create index mv_works_for_lanes_ya_nonfiction_by_author on mv_works_for_lanes (s
 create index mv_works_for_lanes_ya_nonfiction_by_title on mv_works_for_lanes (sort_title, sort_author, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
 
 create index mv_works_for_lanes_ya_nonfiction_by_availability on mv_works_for_lanes (availability_time DESC, sort_author, sort_title, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
+
+-- The materialized view will be refreshed as part of initialization.
+

@@ -362,6 +362,14 @@ class SessionManager(object):
             sql = open(resource_file).read()
             connection.execute(sql)
 
+            # NOTE: This is apparently necessary for the creation of
+            # the materialized view to be finalized in all cases. As
+            # such, materialized views should be created WITH NO DATA,
+            # since they will be refreshed immediately after creation.
+            result = connection.execute(
+                "REFRESH MATERIALIZED VIEW %s;" % view_name
+            )
+
         if not connection:
             connection = engine.connect()
 
@@ -5270,6 +5278,13 @@ class LicensePoolDeliveryMechanism(Base):
         )
         lpdm.rights_status = rights_status
 
+        # TODO: We need to explicitly commit here so that
+        # LicensePool.delivery_mechanisms gets updated. It would be
+        # better if we didn't have to do this, but I haven't been able
+        # to get LicensePool.delivery_mechanisms to notice that it's
+        # out of date.
+        _db.commit()
+
         # Creating or modifying a LPDM might change the open-access status
         # of all LicensePools for that DataSource/Identifier.
         for pool in lpdm.license_pools:
@@ -5287,6 +5302,14 @@ class LicensePoolDeliveryMechanism(Base):
         _db = Session.object_session(self)
         pools = list(self.license_pools)
         _db.delete(self)
+        
+        # TODO: We need to explicitly commit here so that
+        # LicensePool.delivery_mechanisms gets updated. It would be
+        # better if we didn't have to do this, but I haven't been able
+        # to get LicensePool.delivery_mechanisms to notice that it's
+        # out of date.
+        _db.commit()
+
         # The deletion of a LicensePoolDeliveryMechanism might affect
         # the open-access status of its associated LicensePools.
         for pool in pools:
@@ -6463,15 +6486,12 @@ class LicensePool(Base):
         UniqueConstraint('identifier_id', 'data_source_id', 'collection_id'),
     )
 
-    @property
-    def delivery_mechanisms(self):
-        """Find all LicensePoolDeliveryMechanisms for this LicensePool.
-        """
-        _db = Session.object_session(self)
-        LPDM = LicensePoolDeliveryMechanism
-        return _db.query(LPDM).filter(
-            LPDM.data_source==self.data_source).filter(
-                LPDM.identifier==self.identifier)
+    delivery_mechanisms = relationship(
+        "LicensePoolDeliveryMechanism", 
+        primaryjoin="and_(LicensePool.data_source_id==LicensePoolDeliveryMechanism.data_source_id, LicensePool.identifier_id==LicensePoolDeliveryMechanism.identifier_id)",
+        foreign_keys=(data_source_id, identifier_id),
+        uselist=True,
+    )
 
     def __repr__(self):
         if self.identifier:
@@ -8871,7 +8891,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     license_pool_delivery_mechanisms = relationship(
         "LicensePoolDeliveryMechanism",
-        backref="delivery_mechanism"
+        backref="delivery_mechanism",
     )
 
     _cache = HasFullTableCache.RESET
