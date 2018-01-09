@@ -635,7 +635,6 @@ class TestWorkList(DatabaseTest):
         # The other library only has one top-level lane, so we use that lane.
         l = WorkList.top_level_for_library(self._db, other_library)
         eq_(other_library_lane, l)
-        eq_(Edition.FULFILLABLE_MEDIA, wl.media)
 
         # This library has no lanes configured at all.
         no_config_library = self._library(
