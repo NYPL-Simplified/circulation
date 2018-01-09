@@ -49,7 +49,7 @@ as
   WITH NO DATA;
 
 -- Create a work/genre lookup.
-create unique index mv_works_for_lanes_work_id_genre_id on mv_works_for_lanes (works_id, genre_id);
+create index mv_works_for_lanes_work_id_genre_id on mv_works_for_lanes (works_id, genre_id);
 
 -- Create an index on everything, sorted by descending availability time, so that sync feeds are fast.
 
