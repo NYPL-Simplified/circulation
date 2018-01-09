@@ -230,7 +230,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
 
     common_args = dict(
         languages=languages,
-        media=Edition.BOOK_MEDIUM
+        media=[Edition.BOOK_MEDIUM]
     )
     adult_common_args = dict(common_args)
     adult_common_args['audiences'] = ADULT
@@ -611,7 +611,7 @@ def create_lane_for_small_collection(_db, library, languages, priority=0):
 
     common_args = dict(
         languages=languages,
-        media=Edition.BOOK_MEDIUM,
+        media=[Edition.BOOK_MEDIUM],
         genres=[],
     )
     language_identifier = LanguageCodes.name_for_languageset(languages)
@@ -667,6 +667,7 @@ def create_lane_for_tiny_collections(_db, library, languages, priority=0):
         languages = [languages]
 
     sublane_priority = 0
+    common_args = dict(media=[Edition.BOOK_MEDIUM])
     for language_set in languages:
         name = LanguageCodes.name_for_languageset(language_set)
         language_lane, ignore = create(
@@ -676,6 +677,7 @@ def create_lane_for_tiny_collections(_db, library, languages, priority=0):
             fiction=None,
             priority=sublane_priority,
             languages=[language_set],
+            **common_args
         )
         sublane_priority += 1
         language_lanes.append(language_lane)
@@ -688,6 +690,7 @@ def create_lane_for_tiny_collections(_db, library, languages, priority=0):
         fiction=None,
         languages=languages,
         priority=priority,
+        **common_args
     )
     priority += 1
     return priority
