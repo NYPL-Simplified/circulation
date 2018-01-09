@@ -14,6 +14,7 @@ from core.model import (
     Credential,
     DataSource,
     DeliveryMechanism,
+    Hold,
     Identifier,
     Loan,
     Representation,
@@ -23,6 +24,7 @@ from core.model import (
 from api.odl import (
     ODLBibliographicImporter,
     ODLConsolidatedCopiesMonitor,
+    ODLHoldReaper,
     MockODLWithConsolidatedCopiesAPI,
 )
 from api.circulation_exceptions import *
@@ -103,11 +105,14 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         )
 
     def test_checkin_success(self):
+        # A patron has a copy of this book checked out.
+        self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = "http://loan/" + self._str
         loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
 
+        # The patron returns the book successfully.
         lsd = json.dumps({
             "status": "ready",
             "links": {
@@ -134,9 +139,52 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(7, self.pool.licenses_available)
         eq_(0, self._db.query(Loan).count())
 
+    def test_checkin_success_with_holds_queue(self):
+        # A patron has the only copy of this book checked out.
+        self.pool.licenses_owned = 1
+        self.pool.licenses_available = 0
+        loan, ignore = self.pool.loan_to(self.patron)
+        loan.external_identifier = "http://loan/" + self._str
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
+
+        # Another patron has the book on hold.
+        patron_with_hold = self._patron()
+        self.pool.patrons_in_hold_queue = 1
+        hold, ignore = self.pool.on_hold_to(patron_with_hold, start=datetime.datetime.utcnow(), end=None, position=1)
+
+        # The first patron returns the book successfully.
+        lsd = json.dumps({
+            "status": "ready",
+            "links": {
+                "return": {
+                    "href": "http://return",
+                },
+            },
+        })
+        returned_lsd = json.dumps({
+            "status": "returned",
+        })
+
+        self.api.queue_response(200, content=lsd)
+        self.api.queue_response(200)
+        self.api.queue_response(200, content=returned_lsd)
+        self.api.checkin(self.patron, "pin", self.pool)
+        eq_(3, len(self.api.requests))
+        assert "http://loan" in self.api.requests[0][0]
+        eq_("http://return", self.api.requests[1][0])
+        assert "http://loan" in self.api.requests[2][0]
+
+        # Now the license is reserved for the next patron.
+        eq_(0, self.pool.licenses_available)
+        eq_(1, self.pool.licenses_reserved)
+        eq_(1, self.pool.patrons_in_hold_queue)
+        eq_(0, self._db.query(Loan).count())
+        eq_(0, hold.position)
+
     def test_checkin_already_fulfilled(self):
         # The loan is already fulfilled. Attempting to check in
         # won't do anything, but won't raise an exception.
+        self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = self._str
@@ -191,12 +239,16 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         )
 
     def test_checkout_success(self):
+        # This book is available to check out.
+        self.pool.licenses_owned = 6
         self.pool.licenses_available = 6
+
+        # A patron checks out the book successfully.
         loan_url = self._str
         lsd = json.dumps({
             "status": "ready",
             "potential_rights": {
-                "end": "2017-10-21T11:12:13Z"
+                "end": "3017-10-21T11:12:13Z"
             },
             "links": {
                 "self": { "href": loan_url }
@@ -211,14 +263,63 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(self.pool.identifier.identifier, loan.identifier)
         assert loan.start_date > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
         assert loan.start_date < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
-        eq_(datetime.datetime(2017, 10, 21, 11, 12, 13), loan.end_date)
+        eq_(datetime.datetime(3017, 10, 21, 11, 12, 13), loan.end_date)
         eq_(loan_url, loan.external_identifier)
         eq_(1, self._db.query(Loan).count())
+
+        # Now the patron has a loan in the database that matches the LoanInfo
+        # returned by the API.
+        db_loan = self._db.query(Loan).one()
+        eq_(self.pool, db_loan.license_pool)
+        eq_(loan.start_date, db_loan.start)
+        eq_(loan.end_date, db_loan.end)
 
         # The pool's availability has decreased.
         eq_(5, self.pool.licenses_available)
 
+    def test_checkout_success_with_hold(self):
+        # A patron has this book on hold, and the book just became available to check out.
+        self.pool.licenses_owned = 1
+        self.pool.licenses_available = 0
+        self.pool.licenses_reserved = 1
+        self.pool.patrons_in_hold_queue = 1
+        self.pool.on_hold_to(self.patron, start=datetime.datetime.utcnow() - datetime.timedelta(days=1), position=0)
+
+        # The patron checks out the book.
+        loan_url = self._str
+        lsd = json.dumps({
+            "status": "ready",
+            "potential_rights": {
+                "end": "3017-10-21T11:12:13Z"
+            },
+            "links": {
+                "self": { "href": loan_url }
+            },
+        })
+
+        self.api.queue_response(200, content=lsd)
+
+        # The patron gets a loan successfully.
+        loan = self.api.checkout(self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE)
+        eq_(self.collection, loan.collection(self._db))
+        eq_(self.pool.data_source.name, loan.data_source_name)
+        eq_(self.pool.identifier.type, loan.identifier_type)
+        eq_(self.pool.identifier.identifier, loan.identifier)
+        assert loan.start_date > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert loan.start_date < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        eq_(datetime.datetime(3017, 10, 21, 11, 12, 13), loan.end_date)
+        eq_(loan_url, loan.external_identifier)
+        eq_(1, self._db.query(Loan).count())
+
+        # The book is no longer reserved for the patron, and the hold has been deleted.
+        eq_(0, self.pool.licenses_reserved)
+        eq_(0, self.pool.licenses_available)
+        eq_(0, self.pool.patrons_in_hold_queue)
+        eq_(0, self._db.query(Hold).count())
+
     def test_checkout_already_checked_out(self):
+        self.pool.licenses_owned = 2
+        self.pool.licenses_available = 1
         existing_loan, ignore = self.pool.loan_to(self.patron)
         existing_loan.external_identifier = self._str
         existing_loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
@@ -230,8 +331,39 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
 
         eq_(1, self._db.query(Loan).count())
 
+    def test_checkout_expired_hold(self):
+        # The patron was at the beginning of the hold queue, but the hold already expired.
+        self.pool.licenses_owned = 1
+        yesterday = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        hold, ignore = self.pool.on_hold_to(self.patron, start=yesterday, end=yesterday, position=0)
+        other_hold, ignore = self.pool.on_hold_to(self._patron(), start=datetime.datetime.utcnow())
+
+        assert_raises(
+            NoAvailableCopies, self.api.checkout,
+            self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
+        )
+
     def test_checkout_no_available_copies(self):
+        # A different patron has the only copy checked out.
+        self.pool.licenses_owned = 1
         self.pool.licenses_available = 0
+        existing_loan, ignore = self.pool.loan_to(self._patron())
+
+        assert_raises(
+            NoAvailableCopies, self.api.checkout,
+            self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
+        )
+
+        eq_(1, self._db.query(Loan).count())
+
+        self._db.delete(existing_loan)
+
+        now = datetime.datetime.utcnow()
+        yesterday = now - datetime.timedelta(days=1)
+        last_week = now - datetime.timedelta(weeks=1)
+
+        # A different patron has the only copy reserved.
+        other_patron_hold, ignore = self.pool.on_hold_to(self._patron(), position=0, start=last_week)
 
         assert_raises(
             NoAvailableCopies, self.api.checkout,
@@ -239,6 +371,28 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         )
 
         eq_(0, self._db.query(Loan).count())
+
+        # The patron has a hold, but another patron is ahead in the holds queue.
+        hold, ignore = self.pool.on_hold_to(self._patron(), position=1, start=yesterday)
+
+        assert_raises(
+            NoAvailableCopies, self.api.checkout,
+            self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
+        )
+
+        eq_(0, self._db.query(Loan).count())
+
+        # The patron has the first hold, but it's expired.
+        hold.start = last_week - datetime.timedelta(days=1)
+        hold.end = yesterday
+
+        assert_raises(
+            NoAvailableCopies, self.api.checkout,
+            self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE,
+        )
+
+        eq_(0, self._db.query(Loan).count())
+
 
     def test_checkout_no_licenses(self):
         self.pool.licenses_owned = 0
@@ -308,6 +462,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
 
     def test_fulfill_cannot_fulfill(self):
+        self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = self._str
@@ -329,15 +484,371 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(7, self.pool.licenses_available)
         eq_(0, self._db.query(Loan).count())
 
-    def test_place_hold_raises_exception(self):
-        assert_raises(
-            CannotHold, self.api.place_hold,
-            self.patron, "pin", self.pool, "test@example.com",
+    def test_count_holds_before(self):
+        now = datetime.datetime.utcnow()
+        yesterday = now - datetime.timedelta(days=1)
+        tomorrow = now + datetime.timedelta(days=1)
+        last_week = now - datetime.timedelta(weeks=1)
+
+        hold, ignore = self.pool.on_hold_to(self.patron, start=now)
+
+        eq_(0, self.api._count_holds_before(hold))
+
+        # A previous hold.
+        self.pool.on_hold_to(self._patron(), start=yesterday)
+        eq_(1, self.api._count_holds_before(hold))
+
+        # Expired holds don't count.
+        self.pool.on_hold_to(self._patron(), start=last_week, end=yesterday, position=0)
+        eq_(1, self.api._count_holds_before(hold))
+
+        # Later holds don't count.
+        self.pool.on_hold_to(self._patron(), start=tomorrow)
+        eq_(1, self.api._count_holds_before(hold))
+
+        # Holds on another pool don't count.
+        other_pool = self._licensepool(None)
+        other_pool.on_hold_to(self.patron, start=yesterday)
+        eq_(1, self.api._count_holds_before(hold))
+
+        for i in range(3):
+            self.pool.on_hold_to(self._patron(), start=yesterday, end=tomorrow, position=1)
+        eq_(4, self.api._count_holds_before(hold))
+
+    def test_update_hold_end_date(self):
+        now = datetime.datetime.utcnow()
+        tomorrow = now + datetime.timedelta(days=1)
+        yesterday = now - datetime.timedelta(days=1)
+        next_week = now + datetime.timedelta(days=7)
+        last_week = now - datetime.timedelta(days=7)
+
+        self.pool.licenses_owned = 1
+        self.pool.licenses_reserved = 1
+
+        hold, ignore = self.pool.on_hold_to(self.patron, start=now, position=0)
+
+        # Set the reservation period and loan period.
+        self.collection.external_integration.set_setting(
+            Collection.DEFAULT_RESERVATION_PERIOD_KEY, 3
+        )
+        self.collection.external_integration.set_setting(
+            Collection.EBOOK_LOAN_DURATION_KEY, 6
         )
 
-    def test_release_hold_raises_exception(self):
+        # A hold that's already reserved and has an end date doesn't change.
+        hold.end = tomorrow
+        self.api._update_hold_end_date(hold)
+        eq_(tomorrow, hold.end)
+        hold.end = yesterday
+        self.api._update_hold_end_date(hold)
+        eq_(yesterday, hold.end)
+
+        # Updating a hold that's reserved but doesn't have an end date starts the
+        # reservation period.
+        hold.end = None
+        self.api._update_hold_end_date(hold)
+        assert hold.end < next_week
+        assert hold.end > now
+
+        # Updating a hold that has an end date but just became reserved starts
+        # the reservation period.
+        hold.end = yesterday
+        hold.position = 1
+        self.api._update_hold_end_date(hold)
+        assert hold.end < next_week
+        assert hold.end > now
+
+        # When there's a holds queue, the end date is the maximum time it could take for
+        # a license to become available.
+        
+        # One copy, one loan, hold position 1.
+        # The hold will be available as soon as the loan expires.
+        self.pool.licenses_available = 0
+        self.pool.licenses_reserved = 0
+        self.pool.licenses_owned = 1
+        loan, ignore = self.pool.loan_to(self._patron(), end=tomorrow)
+        self.api._update_hold_end_date(hold)
+        eq_(tomorrow, hold.end)
+
+        # One copy, one loan, hold position 2.
+        # The hold will be available after the loan expires + 1 cycle.
+        first_hold, ignore = self.pool.on_hold_to(self._patron(), start=last_week)
+        self.api._update_hold_end_date(hold)
+        eq_(tomorrow + datetime.timedelta(days=9), hold.end)
+
+        # Two copies, one loan, one reserved hold, hold position 2. 
+        # The hold will be available after the loan expires.
+        self.pool.licenses_reserved = 1
+        self.pool.licenses_owned = 2
+        self.api._update_hold_end_date(hold)
+        eq_(tomorrow, hold.end)
+
+        # Two copies, one loan, one reserved hold, hold position 3.
+        # The hold will be available after the reserved hold is checked out
+        # at the latest possible time and that loan expires.
+        second_hold, ignore = self.pool.on_hold_to(self._patron(), start=yesterday)
+        first_hold.end = next_week
+        self.api._update_hold_end_date(hold)
+        eq_(next_week + datetime.timedelta(days=6), hold.end)
+
+        # One copy, no loans, one reserved hold, hold position 3.
+        # The hold will be available after the reserved hold is checked out
+        # at the latest possible time and that loan expires + 1 cycle.
+        self._db.delete(loan)
+        self.pool.licenses_owned = 1
+        self.api._update_hold_end_date(hold)
+        eq_(next_week + datetime.timedelta(days=15), hold.end)
+
+        # One copy, no loans, one reserved hold, hold position 2.
+        # The hold will be available after the reserved hold is checked out
+        # at the latest possible time and that loan expires.
+        self._db.delete(second_hold)
+        self.pool.licenses_owned = 1
+        self.api._update_hold_end_date(hold)
+        eq_(next_week + datetime.timedelta(days=6), hold.end)
+
+        self._db.delete(first_hold)
+
+        # Ten copies, seven loans, three reserved holds, hold position 9.
+        # The hold will be available after the sixth loan expires.
+        self.pool.licenses_owned = 10
+        for i in range(5):
+            self.pool.loan_to(self._patron(), end=next_week)
+        self.pool.loan_to(self._patron(), end=next_week + datetime.timedelta(days=1))
+        self.pool.loan_to(self._patron(), end=next_week + datetime.timedelta(days=2))
+        self.pool.licenses_reserved = 3
+        for i in range(3):
+            self.pool.on_hold_to(self._patron(), start=last_week + datetime.timedelta(days=i), end=next_week + datetime.timedelta(days=i), position=0)
+        for i in range(5):
+            self.pool.on_hold_to(self._patron(), start=yesterday)
+        self.api._update_hold_end_date(hold)
+        eq_(next_week + datetime.timedelta(days=1), hold.end)
+
+        # Ten copies, seven loans, three reserved holds, hold position 12.
+        # The hold will be available after the second reserved hold is checked
+        # out and that loan expires.
+        for i in range(3):
+            self.pool.on_hold_to(self._patron(), start=yesterday)
+        self.api._update_hold_end_date(hold)
+        eq_(next_week + datetime.timedelta(days=7), hold.end)
+
+        # Ten copies, seven loans, three reserved holds, hold position 29.
+        # The hold will be available after the sixth loan expires + 2 cycles.
+        for i in range(17):
+            self.pool.on_hold_to(self._patron(), start=yesterday)
+        self.api._update_hold_end_date(hold)
+        eq_(next_week + datetime.timedelta(days=19), hold.end)
+
+        # Ten copies, seven loans, three reserved holds, hold position 32.
+        # The hold will be available after the second reserved hold is checked
+        # out and that loan expires + 2 cycles.
+        for i in range(3):
+            self.pool.on_hold_to(self._patron(), start=yesterday)
+        self.api._update_hold_end_date(hold)
+        eq_(next_week + datetime.timedelta(days=25), hold.end)
+
+    def test_update_hold_position(self):
+        now = datetime.datetime.utcnow()
+        yesterday = now - datetime.timedelta(days=1)
+        tomorrow = now + datetime.timedelta(days=1)
+
+        hold, ignore = self.pool.on_hold_to(self.patron, start=now)
+
+        self.pool.licenses_owned = 1
+
+        # When there are no other holds and no licenses reserved,
+        # hold position is 1.
+        loan, ignore = self.pool.loan_to(self._patron())
+        self.api._update_hold_position(hold)
+        eq_(1, hold.position)
+
+        # When a license is reserved, position is 0.
+        self._db.delete(loan)
+        self.api._update_hold_position(hold)
+        eq_(0, hold.position)
+
+        # If another hold has the reserved licenses, position is 2.
+        self.pool.on_hold_to(self._patron(), start=yesterday)
+        self.api._update_hold_position(hold)
+        eq_(2, hold.position)
+
+        # If another license is reserved, position goes back to 0.
+        self.pool.licenses_owned = 2
+        self.api._update_hold_position(hold)
+        eq_(0, hold.position)
+
+        # If there's an earlier hold but it expired, it doesn't
+        # affect the position.
+        self.pool.on_hold_to(self._patron(), start=yesterday, end=yesterday, position=0)
+        self.api._update_hold_position(hold)
+        eq_(0, hold.position)
+
+        # Hold position is after all earlier non-expired holds...
+        for i in range(3):
+            self.pool.on_hold_to(self._patron(), start=yesterday)
+        self.api._update_hold_position(hold)
+        eq_(5, hold.position)
+
+        # and before any later holds.
+        for i in range(2):
+            self.pool.on_hold_to(self._patron(), start=tomorrow)
+        self.api._update_hold_position(hold)
+        eq_(5, hold.position)
+
+    def test_update_hold_queue(self):
+        self.collection.external_integration.set_setting(
+            Collection.DEFAULT_RESERVATION_PERIOD_KEY, 3
+        )
+
+        # If there's no holds queue when we try to update the queue, it
+        # will remove a reserved license and make it available instead.
+        self.pool.licenses_owned = 1
+        self.pool.licenses_available = 0
+        self.pool.licenses_reserved = 1
+        self.pool.patrons_in_hold_queue = 0
+        self.api.update_hold_queue(self.pool)
+        eq_(1, self.pool.licenses_available)
+        eq_(0, self.pool.licenses_reserved)
+        eq_(0, self.pool.patrons_in_hold_queue)
+
+        # If there are holds, a license will get reserved for the next hold
+        # and its end date will be set.
+        hold, ignore = self.pool.on_hold_to(self.patron, start=datetime.datetime.utcnow(), position=1)
+        later_hold, ignore = self.pool.on_hold_to(self._patron(), start=datetime.datetime.utcnow() + datetime.timedelta(days=1), position=2)
+        self.api.update_hold_queue(self.pool)
+
+        # The pool's licenses were updated.
+        eq_(0, self.pool.licenses_available)
+        eq_(1, self.pool.licenses_reserved)
+        eq_(2, self.pool.patrons_in_hold_queue)
+
+        # And the first hold changed.
+        eq_(0, hold.position)
+        assert hold.end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+
+        # The later hold is the same.
+        eq_(2, later_hold.position)
+
+        # Now there's a reserved hold. If we add another license, it's reserved and,
+        # the later hold is also updated.
+        self.pool.licenses_owned = 2
+        self.api.update_hold_queue(self.pool)
+
+        eq_(0, self.pool.licenses_available)
+        eq_(2, self.pool.licenses_reserved)
+        eq_(2, self.pool.patrons_in_hold_queue)
+        eq_(0, later_hold.position)
+        assert later_hold.end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+
+        # Now there are no more holds. If we add another license,
+        # it ends up being available.
+        self.pool.licenses_owned = 3
+        self.api.update_hold_queue(self.pool)
+        eq_(1, self.pool.licenses_available)
+        eq_(2, self.pool.licenses_reserved)
+        eq_(2, self.pool.patrons_in_hold_queue)
+
+        self._db.delete(hold)
+        self._db.delete(later_hold)
+
+        # We can also make multiple licenses reserved at once.
+        loans = []
+        holds = []
+        for i in range(3):
+            loan, ignore = self.pool.loan_to(self._patron(), end=datetime.datetime.utcnow() + datetime.timedelta(days=1))
+            loans.append(loan)
+        for i in range(3):
+            hold, ignore = self.pool.on_hold_to(self._patron(), start=datetime.datetime.utcnow() - datetime.timedelta(days=3-i), position=i+1)
+            holds.append(hold)
+        self.pool.licenses_owned = 5
+        self.pool.licenses_available = 0
+        self.pool.licenses_reserved = 2
+        self.api.update_hold_queue(self.pool)
+        eq_(2, self.pool.licenses_reserved)
+        eq_(0, self.pool.licenses_available)
+        eq_(3, self.pool.patrons_in_hold_queue)
+        eq_(0, holds[0].position)
+        eq_(0, holds[1].position)
+        eq_(3, holds[2].position)
+        assert holds[0].end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+        assert holds[1].end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+
+        # If there are more licenses that change than holds, some of them become available.
+        loans[0].end = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        loans[1].end = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        self.api.update_hold_queue(self.pool)
+        eq_(3, self.pool.licenses_reserved)
+        eq_(1, self.pool.licenses_available)
+        eq_(3, self.pool.patrons_in_hold_queue)
+        for hold in holds:
+            eq_(0, hold.position)
+            assert hold.end - datetime.datetime.utcnow() - datetime.timedelta(days=3) < datetime.timedelta(hours=1)
+
+    def test_place_hold_success(self):
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        self.pool.licenses_owned = 1
+        self.pool.loan_to(self._patron(), end=tomorrow)
+
+        hold = self.api.place_hold(self.patron, "pin", self.pool, "notifications@librarysimplified.org")
+
+        eq_(1, self.pool.patrons_in_hold_queue)
+        eq_(self.collection, hold.collection(self._db))
+        eq_(self.pool.data_source.name, hold.data_source_name)
+        eq_(self.pool.identifier.type, hold.identifier_type)
+        eq_(self.pool.identifier.identifier, hold.identifier)
+        assert hold.start_date > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert hold.start_date < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        eq_(tomorrow, hold.end_date)
+        eq_(1, hold.hold_position)
+        eq_(1, self._db.query(Hold).count())
+
+    def test_place_hold_already_on_hold(self):
+        self.pool.on_hold_to(self.patron)
         assert_raises(
-            CannotReleaseHold, self.api.release_hold,
+            AlreadyOnHold, self.api.place_hold,
+            self.patron, "pin", self.pool, "notifications@librarysimplified.org",
+        )
+
+    def test_place_hold_currently_available(self):
+        self.pool.licenses_owned = 1
+        assert_raises(
+            CurrentlyAvailable, self.api.place_hold,
+            self.patron, "pin", self.pool, "notifications@librarysimplified.org",
+        )
+
+    def test_release_hold_success(self):
+        self.pool.licenses_owned = 1
+        loan, ignore = self.pool.loan_to(self._patron())
+        self.pool.on_hold_to(self.patron, position=1)
+
+        eq_(True, self.api.release_hold(self.patron, "pin", self.pool))
+        eq_(0, self.pool.licenses_available)
+        eq_(0, self.pool.licenses_reserved)
+        eq_(0, self.pool.patrons_in_hold_queue)
+        eq_(0, self._db.query(Hold).count())
+
+        self._db.delete(loan)
+        self.pool.on_hold_to(self.patron, position=0)
+
+        eq_(True, self.api.release_hold(self.patron, "pin", self.pool))
+        eq_(1, self.pool.licenses_available)
+        eq_(0, self.pool.licenses_reserved)
+        eq_(0, self.pool.patrons_in_hold_queue)
+        eq_(0, self._db.query(Hold).count())
+
+        self.pool.on_hold_to(self.patron, position=0)
+        other_hold, ignore = self.pool.on_hold_to(self._patron(), position=2)
+
+        eq_(True, self.api.release_hold(self.patron, "pin", self.pool))
+        eq_(0, self.pool.licenses_available)
+        eq_(1, self.pool.licenses_reserved)
+        eq_(1, self.pool.patrons_in_hold_queue)
+        eq_(1, self._db.query(Hold).count())
+        eq_(0, other_hold.position)
+
+    def test_release_hold_not_on_hold(self):
+        assert_raises(
+            NotOnHold, self.api.release_hold,
             self.patron, "pin", self.pool,
         )
 
@@ -394,6 +905,40 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(1, len(activity))
         eq_(self.pool.identifier.identifier, activity[0].identifier)
 
+        # One hold.
+        pool2.licenses_owned = 1
+        other_patron_loan, ignore = pool2.loan_to(self._patron(), end=datetime.datetime.utcnow() + datetime.timedelta(days=1))
+        hold, ignore = pool2.on_hold_to(self.patron)
+        hold.start = datetime.datetime.utcnow() - datetime.timedelta(days=2)
+        hold.end = hold.start + datetime.timedelta(days=3)
+        hold.position = 3
+        activity = self.api.patron_activity(self.patron, "pin")
+        eq_(2, len(activity))
+        [h1, l1] = sorted(activity, key=lambda x: x.start_date)
+
+        eq_(self.collection, h1.collection(self._db))
+        eq_(pool2.data_source.name, h1.data_source_name)
+        eq_(pool2.identifier.type, h1.identifier_type)
+        eq_(pool2.identifier.identifier, h1.identifier)
+        eq_(hold.start, h1.start_date)
+        eq_(hold.end, h1.end_date)
+        # Hold position was updated.
+        eq_(1, h1.hold_position)
+        eq_(1, hold.position)
+
+        # If the hold is expired, it's deleted right away and the license
+        # is made available again.
+        self._db.delete(other_patron_loan)
+        pool2.licenses_available = 0
+        pool2.licenses_reserved = 1
+        hold.end = datetime.datetime.utcnow() - datetime.timedelta(days=1)
+        hold.position = 0
+        activity = self.api.patron_activity(self.patron, "pin")
+        eq_(1, len(activity))
+        eq_(0, self._db.query(Hold).count())
+        eq_(1, pool2.licenses_available)
+        eq_(0, pool2.licenses_reserved)
+
     def test_update_consolidated_copy(self):
         edition, pool = self._edition(
             with_license_pool=True,
@@ -427,6 +972,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(1, self._db.query(Loan).count())
 
     def test_update_loan_removes_loan(self):
+        self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
         loan, ignore = self.pool.loan_to(self.patron)
         loan.external_identifier = self._str
@@ -437,6 +983,25 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.api.update_loan(loan, status_doc)
         # Availability has increased, and the loan is gone.
         eq_(7, self.pool.licenses_available)
+        eq_(0, self._db.query(Loan).count())
+
+    def test_update_loan_removes_loan_with_hold_queue(self):
+        self.pool.licenses_owned = 1
+        self.pool.licenses_available = 0
+        self.pool.licenses_reserved = 0
+        self.pool.patrons_in_hold_queue = 1
+        loan, ignore = self.pool.loan_to(self.patron)
+        loan.external_identifier = self._str
+        hold, ignore = self.pool.on_hold_to(self._patron(), position=1)
+        status_doc = {
+            "status": "cancelled",
+        }
+
+        self.api.update_loan(loan, status_doc)
+        # The license is reserved for the next patron, and the loan is gone.
+        eq_(0, self.pool.licenses_available)
+        eq_(1, self.pool.licenses_reserved)
+        eq_(0, hold.position)
         eq_(0, self._db.query(Loan).count())
         
 
@@ -507,7 +1072,7 @@ class TestODLBibliographicImporter(DatabaseTest, BaseODLTest):
         [midnight_pool] = [p for p in imported_pools if p.identifier == midnight.primary_identifier]
         eq_(False, midnight_pool.open_access)
         lpdms = midnight_pool.delivery_mechanisms
-        eq_(2, lpdms.count())
+        eq_(2, len(lpdms))
         eq_(set([Representation.EPUB_MEDIA_TYPE, Representation.PDF_MEDIA_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in lpdms]))
         eq_([DeliveryMechanism.ADOBE_DRM, DeliveryMechanism.ADOBE_DRM],
@@ -617,3 +1182,42 @@ class TestODLConsolidatedCopiesMonitor(DatabaseTest, BaseODLTest):
         expected_time = yesterday - datetime.timedelta(minutes=5)
         expected_url = "http://copies?since=%sZ" % expected_time.isoformat()
         eq_(expected_url, api.requests[2][0])
+
+class TestODLHoldReaper(DatabaseTest, BaseODLTest):
+
+    def test_run_once(self):
+        data_source = DataSource.lookup(self._db, "Feedbooks", autocreate=True)
+        collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+        collection.external_integration.set_setting(
+            Collection.DATA_SOURCE_NAME_SETTING,
+            data_source.name
+        )
+        api = MockODLWithConsolidatedCopiesAPI(self._db, collection)
+        reaper = ODLHoldReaper(self._db, collection, api=api)
+
+        now = datetime.datetime.utcnow()
+        yesterday = now - datetime.timedelta(days=1)
+
+        pool = self._licensepool(None, collection=collection)
+        pool.licenses_owned = 3
+        pool.licenses_available = 0
+        pool.licenses_reserved = 3
+        expired_hold1, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=0)
+        expired_hold2, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=0)
+        expired_hold3, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=0)
+        current_hold, ignore = pool.on_hold_to(self._patron(), position=3)
+        # This hold has an end date in the past, but its position is greater than 0
+        # so the end date is not reliable.
+        bad_end_date, ignore = pool.on_hold_to(self._patron(), end=yesterday, position=4)
+
+        reaper.run_once(None, None)
+
+        # The expired holds have been deleted and the other holds have been updated.
+        eq_(2, self._db.query(Hold).count())
+        eq_([current_hold, bad_end_date], self._db.query(Hold).order_by(Hold.start).all())
+        eq_(0, current_hold.position)
+        eq_(0, bad_end_date.position)
+        assert current_hold.end > now
+        assert bad_end_date.end > now
+        eq_(1, pool.licenses_available)
+        eq_(2, pool.licenses_reserved)
