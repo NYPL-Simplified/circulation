@@ -1272,7 +1272,7 @@ class TestLanesController(AdminControllerTest):
             eq_(english.visible, english_info.get("visible"))
             eq_(2, english_info.get("count"))
             eq_([], english_info.get("custom_list_ids"))
-            eq_(False, english_info.get("inherit_parent_restrictions"))
+            eq_(True, english_info.get("inherit_parent_restrictions"))
 
             [fiction_info] = english_info.get("sublanes")
             eq_(english_fiction.id, fiction_info.get("id"))
@@ -1280,7 +1280,7 @@ class TestLanesController(AdminControllerTest):
             eq_(english_fiction.visible, fiction_info.get("visible"))
             eq_(1, fiction_info.get("count"))
             eq_([], fiction_info.get("custom_list_ids"))
-            eq_(False, fiction_info.get("inherit_parent_restrictions"))
+            eq_(True, fiction_info.get("inherit_parent_restrictions"))
 
             [sf_info] = fiction_info.get("sublanes")
             eq_(english_sf.id, sf_info.get("id"))
@@ -1295,14 +1295,14 @@ class TestLanesController(AdminControllerTest):
             eq_(spanish.visible, spanish_info.get("visible"))
             eq_(0, spanish_info.get("count"))
             eq_([], spanish_info.get("custom_list_ids"))
-            eq_(False, spanish_info.get("inherit_parent_restrictions"))
+            eq_(True, spanish_info.get("inherit_parent_restrictions"))
 
             eq_(lane_for_list.id, list_info.get("id"))
             eq_(lane_for_list.display_name, list_info.get("display_name"))
             eq_(lane_for_list.visible, list_info.get("visible"))
             eq_(0, list_info.get("count"))
             eq_([list.id], list_info.get("custom_list_ids"))
-            eq_(False, list_info.get("inherit_parent_restrictions"))
+            eq_(True, list_info.get("inherit_parent_restrictions"))
 
     def test_lanes_post_errors(self):
         with self.request_context_with_library("/", method='POST'):
@@ -1392,7 +1392,7 @@ class TestLanesController(AdminControllerTest):
                 ("parent_id", parent.id),
                 ("display_name", "lane"),
                 ("custom_list_ids", json.dumps([list.id])),
-                ("inherit_parent_restrictions", True),
+                ("inherit_parent_restrictions", False),
             ])
             response = self.manager.admin_lanes_controller.lanes()
             eq_(201, response.status_code)
@@ -1404,7 +1404,7 @@ class TestLanesController(AdminControllerTest):
             eq_(parent, lane.parent)
             eq_(1, len(lane.customlists))
             eq_(list, lane.customlists[0])
-            eq_(True, lane.inherit_parent_restrictions)
+            eq_(False, lane.inherit_parent_restrictions)
             eq_(0, lane.priority)
 
             # The sibling's priority has been shifted down to put the new lane at the top.

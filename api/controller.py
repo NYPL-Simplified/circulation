@@ -1294,7 +1294,10 @@ class WorkController(CirculationManagerController):
         facet_config.set_default_facet(
             Facets.ORDER_FACET_GROUP_NAME, Facets.ORDER_SERIES_POSITION
         )
-        
+
+        # TODO: It would be nice to be able to adapt
+        # FeaturedSeriesFacets so that it can also be used as the
+        # Facets object for the full series lane.
         facets = load_facets_from_request(facet_config=facet_config)
         if isinstance(facets, ProblemDetail):
             return facets

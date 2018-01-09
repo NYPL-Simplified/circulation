@@ -859,20 +859,31 @@ class RecommendationLane(WorkBasedLane):
             return metadata.recommendations
         return []
 
-    def apply_filters(self, _db, qu, work_model, facets, pagination, featured=False):
+    def apply_filters(self, _db, qu, facets, pagination, featured=False):
         if not self.recommendations:
             return None
 
-        if work_model != Work:
-            qu = qu.join(LicensePool.identifier)
+        qu = qu.join(LicensePool.identifier)
         qu = Work.from_identifiers(
             _db, self.recommendations, base_query=qu
         )
         return super(RecommendationLane, self).apply_filters(
-            _db, qu, work_model, facets, pagination, featured=featured)
+            _db, qu, facets, pagination, featured=featured
+        )
+
+
+class FeaturedSeriesFacets(Facets):
+    """A custom Facets object for ordering a lane based on series."""
+
+    def order_by(self):
+        """Order the query results by series position."""
+        from core.model import MaterializedWorkWithGenre as mw
+        fields = (mw.series_position, mw.sort_title)
+        return [x.asc() for x in fields], fields
+
 
 class SeriesLane(DynamicLane):
-    """A lane of Works in a particular series"""
+    """A lane of Works in a particular series."""
 
     ROUTE = 'series'
     MAX_CACHE_AGE = 48*60*60    # 48 hours
@@ -906,26 +917,26 @@ class SeriesLane(DynamicLane):
         return self.ROUTE, kwargs
 
     def featured_works(self, _db):
-        qu = self.works(_db)
-
-        # Aliasing Edition here allows this query to function
-        # regardless of work_model and existing joins.
-        work_edition = aliased(Edition)
-        qu = qu.join(work_edition).order_by(work_edition.series_position, work_edition.title)
-        target_size = self.get_library(_db).featured_lane_size
-        qu = qu.limit(target_size)
+        library = self.get_library(_db)
+        facets = FeaturedSeriesFacets(
+            library,
+            # If a work is in the right series we don't care about its
+            # quality.
+            collection=FeaturedSeriesFacets.COLLECTION_FULL,
+            availability=FeaturedSeriesFacets.AVAILABLE_ALL,
+            order=None
+        )
+        pagination = Pagination(size=library.featured_lane_size)
+        qu = self.works(_db, facets=facets, pagination=pagination)
         return qu.all()
 
-    def apply_filters(self, _db, qu, work_model, facets, pagination, featured=False):
+    def apply_filters(self, _db, qu, facets, pagination, featured=False):
         if not self.series:
             return None
-
-        # Aliasing Edition here allows this query to function
-        # regardless of work_model and existing joins.
-        work_edition = aliased(Edition)
-        qu = qu.join(work_edition).filter(work_edition.series==self.series)
+        from core.model import MaterializedWorkWithGenre as mw
+        qu = qu.filter(mw.series==self.series)
         return super(SeriesLane, self).apply_filters(
-            _db, qu, work_model, facets, pagination, featured)
+            _db, qu, facets, pagination, featured)
 
 
 class ContributorLane(DynamicLane):
@@ -967,7 +978,7 @@ class ContributorLane(DynamicLane):
             Contributor.sort_name==self.contributor_name
         ]
 
-    def apply_filters(self, _db, qu, work_model, facets, pagination, featured=False):
+    def apply_filters(self, _db, qu, facets, pagination, featured=False):
         if not self.contributor_name:
             return None
 
@@ -990,4 +1001,4 @@ class ContributorLane(DynamicLane):
         qu = qu.filter(or_clause)
 
         return super(ContributorLane, self).apply_filters(
-            _db, qu, work_model, facets, pagination, featured=featured)
+            _db, qu, facets, pagination, featured=featured)

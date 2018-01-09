@@ -199,10 +199,10 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(datetime.datetime(2015, 3, 13, 13, 38, 19), l2.start)
         eq_(datetime.datetime(2015, 4, 3, 13, 38, 19), l2.end)
 
-        # This hold has no end date because there's no decision to be
-        # made. The patron is fourth in line.
+        # The patron is fourth in line. The end date is an estimate
+        # of when the hold will be available to check out.
         eq_(datetime.datetime(2015, 3, 24, 15, 6, 56), h1.start)
-        eq_(None, h1.end)
+        eq_(datetime.datetime(2015, 3, 24, 15, 7, 51), h1.end)
         eq_(4, h1.position)
 
         # The hold has an end date. It's time for the patron to decide
