@@ -51,25 +51,18 @@ def load_lanes(_db, library):
     Otherwise, a WorkList containing the visible top-level lanes is
     returned.
     """
+    top_level = WorkList.top_level_for_library(_db, library)
+    to_expunge = None
 
-    # Load all Lane objects from the database.
-    lanes = _db.query(Lane).filter(Lane.library==library).order_by(Lane.priority)
+    # It's likely this WorkList will be used across sessions, so
+    # expunge any data model objects from the database.
+    if isinstance(top_level, Lane):
+        to_expunge = [top_level]
+    else:
+        to_expunge = [x for x in top_level.children if isinstance(x, Lane)]
 
-    # But only the visible top-level Lanes go into the WorkList.
-    top_level_lanes = [x for x in lanes if not x.parent and x.visible]
+    map(_db.expunge, to_expunge)
 
-    # Expunge the Lanes from the database before they go into the WorkList,
-    # since it will be used across sessions.
-    map(_db.expunge, top_level_lanes)
-
-    if len(top_level_lanes) == 1:
-        return top_level_lanes[0]
-
-    wl = WorkList()
-    wl.initialize(
-        library, display_name=_("Collection"), children=top_level_lanes
-    )
-    return wl
 
 def create_default_lanes(_db, library):
     """Reset the lanes for the given library to the default.
@@ -235,6 +228,13 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
     YA = [Classifier.AUDIENCE_YOUNG_ADULT]
     CHILDREN = [Classifier.AUDIENCE_CHILDREN]
 
+    common_args = dict(
+        languages=languages,
+        media=Edition.BOOK_MEDIUM
+    )
+    adult_common_args = dict(common_args)
+    adult_common_args['audiences'] = ADULT
+
     include_best_sellers = False
     nyt_data_source = DataSource.lookup(_db, DataSource.NYT)
     nyt_integration = get_one(
@@ -253,16 +253,12 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
             _db, Lane, library=library,
             display_name="Best Sellers",
             priority=priority,
-            languages=languages
+            **common_args
         )
         priority += 1
         best_sellers.list_datasource = nyt_data_source
         sublanes.append(best_sellers)
 
-    adult_common_args = dict(
-        languages=languages,
-        audiences=ADULT,
-    )
 
     adult_fiction_sublanes = []
     adult_fiction_priority = 0
@@ -343,10 +339,8 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
     priority += 1
     sublanes.append(adult_nonfiction)
 
-    ya_common_args = dict(
-        audiences=YA,
-        languages=languages,
-    )
+    ya_common_args = dict(common_args)
+    ya_common_args['audiences'] = YA
 
     ya_fiction, ignore = create(
         _db, Lane, library=library,
@@ -456,10 +450,8 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
     ya_nonfiction_priority += 1
 
 
-    children_common_args = dict(
-        audiences=CHILDREN,
-        languages=languages,
-    )
+    children_common_args = dict(common_args)
+    children_common_args['audiences'] = CHILDREN
 
     children, ignore = create(
         _db, Lane, library=library,
@@ -619,6 +611,7 @@ def create_lane_for_small_collection(_db, library, languages, priority=0):
 
     common_args = dict(
         languages=languages,
+        media=Edition.BOOK_MEDIUM,
         genres=[],
     )
     language_identifier = LanguageCodes.name_for_languageset(languages)
