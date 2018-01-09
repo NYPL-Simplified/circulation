@@ -603,6 +603,49 @@ class TestWorkList(DatabaseTest):
         # The WorkList's child is the WorkList passed in to the constructor.
         eq_([child], wl.visible_children)
 
+    def test_top_level_for_library(self):
+        """Test the ability to generate a top-level WorkList."""
+        # These two top-level lanes should be children of the WorkList.
+        lane1 = self._lane(display_name="Top-level Lane 1")
+        lane1.priority = 0
+        lane2 = self._lane(display_name="Top-level Lane 2")
+        lane2.priority = 1
+
+        # This lane is invisible and will be filtered out.
+        invisible_lane = self._lane(display_name="Invisible Lane")
+        invisible_lane.visible = False
+
+        # This lane has a parent and will be filtered out.
+        sublane = self._lane(display_name="Sublane")
+        lane1.sublanes.append(sublane)
+
+        # This lane belongs to a different library.
+        other_library = self._library(
+            name="Other Library", short_name="Other"
+        )
+        other_library_lane = self._lane(
+            display_name="Other Library Lane", library=other_library
+        )
+
+        # The default library gets a WorkList with the two top-level lanes as children.
+        wl = WorkList.top_level_for_library(self._db, self._default_library)
+        eq_([lane1, lane2], wl.children)
+        eq_(Edition.FULFILLABLE_MEDIA, wl.media)
+
+        # The other library only has one top-level lane, so we use that lane.
+        l = WorkList.top_level_for_library(self._db, other_library)
+        eq_(other_library_lane, l)
+        eq_(Edition.FULFILLABLE_MEDIA, wl.media)
+
+        # This library has no lanes configured at all.
+        no_config_library = self._library(
+            name="No configuration Library", short_name="No config"
+        )
+        wl = WorkList.top_level_for_library(self._db, no_config_library)
+        eq_([], wl.children)
+        eq_(Edition.FULFILLABLE_MEDIA, wl.media)
+
+
     def test_audience_key(self):
         wl = WorkList()
         wl.initialize(library=self._default_library)

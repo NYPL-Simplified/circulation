@@ -2920,6 +2920,10 @@ class Edition(Base):
     ELECTRONIC_FORMAT = u"Electronic"
     CODEX_FORMAT = u"Codex"
 
+    # These are the media types currently fulfillable by the default
+    # client.
+    FULFILLABLE_MEDIA = [BOOK_MEDIUM]
+
     medium_to_additional_type = {
         BOOK_MEDIUM : u"http://schema.org/Book",
         AUDIO_MEDIUM : u"http://schema.org/AudioObject",

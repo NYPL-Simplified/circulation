@@ -456,7 +456,7 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached
 
-        works_and_lanes = lane.groups(_db)
+        works_and_lanes = list(lane.groups(_db))
         if not works_and_lanes:
             # We did not find enough works for a groups feed.
             # Instead we need to display a flat feed--the
@@ -473,6 +473,7 @@ class AcquisitionFeed(OPDSFeed):
             return cached
 
         all_works = []
+        works_and_lanes = list(works_and_lanes)
         for work, sublane in works_and_lanes:
             if sublane==lane:
                 # We are looking at the groups feed for (e.g.)

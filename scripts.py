@@ -607,13 +607,7 @@ class LaneSweeperScript(LibraryInputScript):
 
     def process_library(self, library):
         from lane import WorkList
-        top_level_lanes = self._db.query(Lane).filter(
-            Lane.library==library).filter(
-                Lane.parent==None).all()
-        top_level = WorkList()
-        top_level.initialize(
-            library, library.name, children=list(top_level_lanes)
-        )
+        top_level = WorkList.top_level_for_library(self._db, library)
         queue = [top_level]
         while queue:
             new_queue = []

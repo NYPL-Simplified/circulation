@@ -485,6 +485,46 @@ class WorkList(object):
     # By default, a WorkList does not draw from CustomLists
     uses_customlists = False
 
+    @classmethod
+    def top_level_for_library(self, _db, library):
+        """Create a WorkList representing this library's collection
+        as a whole.
+
+        If no top-level visible lanes are configured, the WorkList
+        will be configured to show every book in the collection.
+
+        If a single top-level Lane is configured, it will returned as
+        the WorkList.
+
+        Otherwise, a WorkList containing the visible top-level lanes
+        is returned.
+        """
+        # Load all of this Library's visible top-level Lane objects
+        # from the database.
+        top_level_lanes = _db.query(Lane).filter(
+            Lane.library==library
+        ).filter(
+            Lane.parent==None
+        ).filter(
+            Lane._visible==True
+        ).order_by(
+            Lane.priority
+        ).all()
+
+        if len(top_level_lanes) == 1:
+            # The site configuration includes a single top-level lane;
+            # this can stand in for the library on its own.
+            return top_level_lanes[0]
+
+        # This WorkList contains every title available to this library
+        # in one of the media supported by the default client.
+        wl = WorkList()
+        wl.initialize(
+            library, display_name=library.name, children=top_level_lanes,
+            media=Edition.FULFILLABLE_MEDIA
+        )
+        return wl
+
     def initialize(self, library, display_name=None, genres=None, 
                    audiences=None, languages=None, media=None,
                    children=None, priority=None):
