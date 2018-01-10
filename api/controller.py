@@ -406,8 +406,16 @@ class CirculationManagerController(BaseCirculationManagerController):
         library_id = flask.request.library.id
         top_level_lane = self.manager.top_level_lanes[library_id]
 
+        def merge_lane(lane):
+            """If `lane` is a Lane, merge it with the current database
+            session. Otherwise, do nothing.
+            """
+            if isinstance(lane, Lane):
+                return self._db.merge(lane)
+            return lane
+
         if lane_identifier is None:
-            return top_level_lane
+            return merge_lane(top_level_lane)
 
         lane = get_one(self._db, Lane, id=lane_identifier, library_id=library_id)
 
@@ -417,7 +425,7 @@ class CirculationManagerController(BaseCirculationManagerController):
                   lane_identifier=lane_identifier, library_id=library_id
                 )
             )
-        return lane
+        return merge_lane(lane)
 
     def load_work(self, library, identifier_type, identifier):
         pools = self.load_licensepools(library, identifier_type, identifier)

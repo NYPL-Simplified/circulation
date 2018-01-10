@@ -52,17 +52,16 @@ def load_lanes(_db, library):
     returned.
     """
     top_level = WorkList.top_level_for_library(_db, library)
-    to_expunge = None
 
     # It's likely this WorkList will be used across sessions, so
-    # expunge any data model objects from the database.
+    # expunge any data model objects from the database session.
     if isinstance(top_level, Lane):
         to_expunge = [top_level]
     else:
         to_expunge = [x for x in top_level.children if isinstance(x, Lane)]
 
     map(_db.expunge, to_expunge)
-
+    return top_level
 
 def create_default_lanes(_db, library):
     """Reset the lanes for the given library to the default.
