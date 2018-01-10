@@ -473,7 +473,6 @@ class AcquisitionFeed(OPDSFeed):
             return cached
 
         all_works = []
-
         for work, sublane in works_and_lanes:
             if sublane==lane:
                 # We are looking at the groups feed for (e.g.)
