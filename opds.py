@@ -34,6 +34,7 @@ from model import (
     BaseMaterializedWork,
     CachedFeed,
     ConfigurationSetting,
+    Contributor,
     CustomList,
     CustomListEntry,
     DataSource,
@@ -210,17 +211,34 @@ class Annotator(object):
 
     @classmethod
     def authors(cls, work, license_pool, edition, identifier):
-        """Create one or more <author> tags for the given work."""
+        """Create one or more <author> and <contributor> tags for the given
+        work."""
         authors = list()
-        listed = set()
-        for author in edition.author_contributors:
-            name = author.display_name or author.sort_name
+        listed_by_role = defaultdict(set)
+        for contribution in edition.contributions:
+            contributor = contribution.contributor
+            name = contributor.display_name or contributor.sort_name
+            if contribution.role in Contributor.AUTHOR_ROLES:
+                tag_f = AtomFeed.author
+                role = None
+            else:
+                tag_f = AtomFeed.contributor
+                role = Contributor.MARC_ROLE_CODES.get(contribution.role)
+                if not role:
+                    # This contribution is not one that we publish as
+                    # a <atom:contributor> tag. Skip it.
+                    continue
+
             name_key = name.lower()
-            if name_key in listed:
+            if name_key in listed_by_role[role]:
                 continue
 
-            authors.append(AtomFeed.author(AtomFeed.name(name)))
-            listed.add(name_key)
+            properties = dict()
+            if role:
+                properties['{%s}role' % AtomFeed.OPF_NS] = role
+            tag = tag_f(AtomFeed.name(name), **properties)
+            authors.append(tag)
+            listed_by_role[role].add(name_key)
 
         if authors:
             return authors
