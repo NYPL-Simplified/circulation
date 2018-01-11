@@ -139,9 +139,9 @@ class TestBaseAnnotator(DatabaseTest):
 
     def test_authors(self):
         # Create an Edition with an author and a narrator.
-        edition = self._edition(authors=["King, Steven"])
+        edition = self._edition(authors=["Steven King"])
         edition.add_contributor(
-            "Frakes, Jonathan", Contributor.NARRATOR_ROLE
+            "Jonathan Frakes", Contributor.NARRATOR_ROLE
         )
         author, contributor = Annotator.authors(None, None, edition, None)
 
@@ -150,7 +150,7 @@ class TestBaseAnnotator(DatabaseTest):
         eq_('author', author.tag)
         [name] = author.getchildren()
         eq_("name", name.tag)
-        eq_("Steven King", name.text)
+        eq_("King, Steven", name.text)
         eq_({}, author.attrib)
 
         # The <contributor> tag includes an explicitly specified role
@@ -158,10 +158,10 @@ class TestBaseAnnotator(DatabaseTest):
         eq_('contributor', contributor.tag)
         [name] = contributor.getchildren()
         eq_("name", name.tag)
-        eq_("Jonathan Frakes", name.text)
-        prop_name = '{%s}role' % AtomFeed.OPF_NS
+        eq_("Frakes, Jonathan", name.text)
+        role_attrib = '{%s}role' % AtomFeed.OPF_NS
         eq_(Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE],
-            contributor.attrib[prop_name])
+            contributor.attrib[role_attrib])
 
 
 class TestAnnotators(DatabaseTest):
@@ -264,20 +264,45 @@ class TestAnnotators(DatabaseTest):
             work, work.license_pools[0], edition, edition.primary_identifier
         )))
 
-    def test_all_annotators_mention_every_author(self):
+    def test_all_annotators_mention_every_relevant_author(self):
         work = self._work(authors=[], with_license_pool=True)
-        work.presentation_edition.add_contributor(
-            self._contributor()[0], Contributor.PRIMARY_AUTHOR_ROLE)
-        work.presentation_edition.add_contributor(
-            self._contributor()[0], Contributor.AUTHOR_ROLE)
-        work.presentation_edition.add_contributor(
-            self._contributor()[0], "Illustrator")
-        eq_(2, len(Annotator.authors(
-            work, work.license_pools[0], work.presentation_edition,
-            work.presentation_edition.primary_identifier)))
-        eq_(2, len(VerboseAnnotator.authors(
-            work, work.license_pools[0], work.presentation_edition,
-            work.presentation_edition.primary_identifier)))
+        edition = work.presentation_edition
+
+        primary_author, ignore = self._contributor()
+        author, ignore = self._contributor()
+        illustrator, ignore = self._contributor()
+        barrel_washer, ignore = self._contributor()
+
+        edition.add_contributor(
+            primary_author, Contributor.PRIMARY_AUTHOR_ROLE
+        )
+        edition.add_contributor(author, Contributor.AUTHOR_ROLE)
+
+        # This contributor is relevant because we have a MARC Role Code
+        # for the role.
+        edition.add_contributor(illustrator, Contributor.ILLUSTRATOR_ROLE)
+
+        # This contributor is not relevant because we have no MARC
+        # Role Code for the role.
+        edition.add_contributor(barrel_washer, "Barrel Washer")
+
+        role_attrib = '{%s}role' % AtomFeed.OPF_NS
+        illustrator_code = Contributor.MARC_ROLE_CODES[
+            Contributor.ILLUSTRATOR_ROLE
+        ]
+
+        for annotator in Annotator, VerboseAnnotator:
+            tags = Annotator.authors(
+                work, work.license_pools[0], edition, 
+                edition.primary_identifier
+            )
+            # We made two <author> tags and one <contributor>
+            # tag, for the illustrator.
+            eq_(['author', 'author', 'contributor'],
+                [x.tag for x in tags])
+            eq_([None, None, illustrator_code],
+                [x.attrib.get(role_attrib) for x in tags]
+            )
 
     def test_ratings(self):
         work = self._work(

@@ -997,6 +997,17 @@ class TestSubject(DatabaseTest):
 
 class TestContributor(DatabaseTest):
 
+    def test_marc_code_for_every_role_constant(self):
+        """We have determined the MARC Role Code for every role
+        that's important enough we gave it a constant in the Contributor
+        class.
+        """
+        for constant, value in Contributor.__dict__.items():
+            if not constant.endswith('_ROLE'):
+                # Not a constant.
+                continue
+            assert value in Contributor.MARC_ROLE_CODES
+
     def test_lookup_by_viaf(self):
 
         # Two contributors named Bob.
