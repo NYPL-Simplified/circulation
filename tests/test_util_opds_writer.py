@@ -52,3 +52,10 @@ class TestAtomFeed(object):
         link_child = AtomFeed.E.link_child()
         AtomFeed.add_link_to_entry(entry, [link_child], **kwargs)
         assert '<link extra="extra info" href="url" title="1"><link_child/></link>' in etree.tostring(entry)
+
+    def test_contributor(self):
+        kwargs = { '{%s}role' % AtomFeed.OPF_NS : 'ctb' }
+        tag = etree.tostring(AtomFeed.author(**kwargs))
+        assert tag.startswith('<author')
+        assert 'xmlns:opf="http://www.idpf.org/2007/opf"' in tag
+        assert tag.endswith('opf:role="ctb"/>')

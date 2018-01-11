@@ -137,6 +137,32 @@ class TestBaseAnnotator(DatabaseTest):
         pool2.presentation_edition.title = None
         eq_(pool1, Annotator.active_licensepool_for(work))
 
+    def test_authors(self):
+        # Create an Edition with an author and a narrator.
+        edition = self._edition(authors=["King, Steven"])
+        edition.add_contributor(
+            "Frakes, Jonathan", Contributor.NARRATOR_ROLE
+        )
+        author, contributor = Annotator.authors(None, None, edition, None)
+
+        # The <author> tag indicates a role of 'author', so there's no
+        # need for an explicitly specified role property.
+        eq_('author', author.tag)
+        [name] = author.getchildren()
+        eq_("name", name.tag)
+        eq_("Steven King", name.text)
+        eq_({}, author.attrib)
+
+        # The <contributor> tag includes an explicitly specified role
+        # property to explain the nature of the contribution.
+        eq_('contributor', contributor.tag)
+        [name] = contributor.getchildren()
+        eq_("name", name.tag)
+        eq_("Jonathan Frakes", name.text)
+        prop_name = '{%s}role' % AtomFeed.OPF_NS
+        eq_(Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE],
+            contributor.attrib[prop_name])
+
 
 class TestAnnotators(DatabaseTest):
 
