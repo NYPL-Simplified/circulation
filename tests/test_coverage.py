@@ -58,6 +58,8 @@ from coverage import (
     CollectionCoverageProvider,
     CoverageFailure,
     IdentifierCoverageProvider,
+    OPDSEntryWorkCoverageProvider,
+    PresentationReadyWorkCoverageProvider,
 )
 
 class TestCoverageFailure(DatabaseTest):
@@ -1754,3 +1756,46 @@ class TestWorkCoverageProvider(DatabaseTest):
         """TODO: We have coverage of code that calls this method,
         but not the method itself.
         """
+
+
+class TestPresentationReadyWorkCoverageProvider(DatabaseTest):
+
+    def test_items_that_need_coverage(self):
+
+        class Mock(PresentationReadyWorkCoverageProvider):
+            SERVICE_NAME = 'mock'
+
+        provider = Mock(self._db)
+        work = self._work()
+
+        # The work is not presentation ready and so is not ready for
+        # coverage.
+        eq_(False, work.presentation_ready)
+        eq_([], provider.items_that_need_coverage().all())
+
+        # Make it presentation ready, and it needs coverage.
+        work.presentation_ready = True
+        eq_([work], provider.items_that_need_coverage().all())
+
+
+class TestOPDSEntryWorkCoverageProvider(DatabaseTest):
+
+    def test_run(self):
+
+        provider = OPDSEntryWorkCoverageProvider(self._db)
+        work = self._work()
+        work.simple_opds_entry = 'old junk'
+        work.verbose_opds_entry = 'old long junk'
+
+        # The work is not presentation-ready, so nothing happens.
+        provider.run()
+        eq_('old junk', work.simple_opds_entry)
+        eq_('old long junk', work.verbose_opds_entry)
+
+        # The work is presentation-ready, so its OPDS entries are
+        # generated.
+        work.presentation_ready = True
+        provider.run()
+        assert work.simple_opds_entry.startswith('<entry')
+        assert work.verbose_opds_entry.startswith('<entry')
+

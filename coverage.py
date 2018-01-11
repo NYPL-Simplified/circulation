@@ -1236,3 +1236,35 @@ class WorkCoverageProvider(BaseCoverageProvider):
     def record_failure_as_coverage_record(self, failure):
         """Turn a CoverageFailure into a WorkCoverageRecord object."""
         return failure.to_work_coverage_record(operation=self.operation)
+
+
+class PresentationReadyWorkCoverageProvider(WorkCoverageProvider):
+    """A WorkCoverageProvider that only covers presentation-ready works.
+    """
+    def items_that_need_coverage(self, identifiers=None, **kwargs):
+        qu = super(PresentationReadyWorkCoverageProvider, self).items_that_need_coverage(
+            identifiers, **kwargs
+)
+        qu = qu.filter(Work.presentation_ready==True)
+        return qu
+
+
+class OPDSEntryWorkCoverageProvider(PresentationReadyWorkCoverageProvider):
+    """Make sure all presentation-ready works have an up-to-date OPDS
+    entry.
+
+    Normally this coverage is provided by the process of making a work
+    presentation-ready, but a migration script may strip that coverage
+    if it knows a work will need to have its OPDS entry recalculated.
+
+    This is different from the OPDSEntryCacheMonitor, which sweeps
+    over all presentation-ready works, even ones which are already
+    covered.
+    """
+
+    SERVICE_NAME = "OPDS Entry Work Coverage Provider"
+    OPERATION = WorkCoverageRecord.GENERATE_OPDS_OPERATION
+
+    def process_item(self, work):
+        work.calculate_opds_entries()
+        return work
