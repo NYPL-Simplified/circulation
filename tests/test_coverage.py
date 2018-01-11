@@ -1793,7 +1793,7 @@ class TestOPDSEntryWorkCoverageProvider(DatabaseTest):
         eq_('old long junk', work.verbose_opds_entry)
 
         # The work is presentation-ready, so its OPDS entries are
-        # generated.
+        # regenerated.
         work.presentation_ready = True
         provider.run()
         assert work.simple_opds_entry.startswith('<entry')
