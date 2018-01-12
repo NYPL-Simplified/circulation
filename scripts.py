@@ -737,11 +737,11 @@ class BibliographicRefreshScript(RunCollectionCoverageProviderScript, Identifier
     )
 
     def __init__(self, _db=None, **metadata_replacement_args):
-        replacement_policy = ReplacementPolicy.from_metadata_source(
+        self.replacement_policy = ReplacementPolicy.from_metadata_source(
             **metadata_replacement_args
         )
-        kwargs = dict(replacement_policy=replacement_policy)
 
+        kwargs = dict(replacement_policy=self.replacement_policy)
         providers = list()
         _db = _db or self._db
         for provider_class in self.PROVIDER_CLASSES:
