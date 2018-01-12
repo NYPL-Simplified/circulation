@@ -7,17 +7,24 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
 
+from core.model import (
+    Collection,
+    ExternalIntegration,
+)
 from core.scripts import IdentifierInputScript
 from api.overdrive import OverdriveAPI
 
 class OverdriveRawBibliographicScript(IdentifierInputScript):
     def run(self):
-        overdrive = OverdriveAPI(self._db)
         args = self.parse_command_line(self._db)
-        for identifier in args.identifiers:
-            data = overdrive.metadata_lookup(identifier)
-            print json.dumps(data, sort_keys=True, indent=4,
-                             separators=(',', ': '))
-            print
+        for collection in Collection.by_protocol(
+            self._db, ExternalIntegration.OVERDRIVE
+        ): 
+            overdrive = OverdriveAPI(self._db, collection)
+            for identifier in args.identifiers:
+                data = overdrive.metadata_lookup(identifier)
+                print json.dumps(data, sort_keys=True, indent=4,
+                                 separators=(',', ': '))
+                print
 
 OverdriveRawBibliographicScript().run()
