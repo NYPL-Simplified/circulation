@@ -1402,6 +1402,7 @@ class TestLanesController(AdminControllerTest):
             eq_(self._default_library, lane.library)
             eq_("lane", lane.display_name)
             eq_(parent, lane.parent)
+            eq_([Edition.BOOK_MEDIUM], lane.media)
             eq_(1, len(lane.customlists))
             eq_(list, lane.customlists[0])
             eq_(False, lane.inherit_parent_restrictions)
