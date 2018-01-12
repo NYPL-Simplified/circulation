@@ -2466,7 +2466,6 @@ class Contributor(Base):
     # Types of roles
     AUTHOR_ROLE = u"Author"
     PRIMARY_AUTHOR_ROLE = u"Primary Author"
-    PERFORMER_ROLE = u"Performer"
     EDITOR_ROLE = u"Editor"
     ARTIST_ROLE = u"Artist"
     PHOTOGRAPHER_ROLE = u"Photographer"
@@ -2497,12 +2496,49 @@ class Contributor(Base):
     DESIGNER_ROLE = u'Designer'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
 
+    # Map our recognized roles to MARC relators.
+    # https://www.loc.gov/marc/relators/relaterm.html
+    #
+    # This is used when crediting contributors in OPDS feeds.
+    MARC_ROLE_CODES = {
+        ACTOR_ROLE : 'act',
+        ADAPTER_ROLE : 'adp',
+        AFTERWORD_ROLE : 'aft',
+        ARTIST_ROLE : 'art',
+        ASSOCIATED_ROLE : 'asn',
+        AUTHOR_ROLE : 'aut',            # Joint author: USE Author
+        COLLABORATOR_ROLE : 'ctb',      # USE Contributor
+        COLOPHON_ROLE : 'aft',          # Author of afterword, colophon, etc.
+        COMPILER_ROLE : 'com',
+        COMPOSER_ROLE : 'cmp',
+        CONTRIBUTOR_ROLE : 'ctb',
+        COPYRIGHT_HOLDER_ROLE : 'cph',
+        DESIGNER_ROLE : 'dsr',
+        DIRECTOR_ROLE : 'drt',
+        EDITOR_ROLE : 'edt',
+        ENGINEER_ROLE : 'eng',
+        EXECUTIVE_PRODUCER_ROLE : 'pro',
+        FOREWORD_ROLE : 'wpr',          # Writer of preface
+        ILLUSTRATOR_ROLE : 'ill',
+        INTRODUCTION_ROLE : 'win',
+        LYRICIST_ROLE : 'lyr',
+        MUSICIAN_ROLE : 'mus',
+        NARRATOR_ROLE : 'nrt',
+        PERFORMER_ROLE : 'prf',
+        PHOTOGRAPHER_ROLE : 'pht',
+        PRIMARY_AUTHOR_ROLE : 'aut',
+        PRODUCER_ROLE : 'pro',
+        TRANSCRIBER_ROLE : 'trc',
+        TRANSLATOR_ROLE : 'trl',
+        UNKNOWN_ROLE : 'asn',
+    }
+
     # People from these roles can be put into the 'author' slot if no
     # author proper is given.
     AUTHOR_SUBSTITUTE_ROLES = [
         EDITOR_ROLE, COMPILER_ROLE, COMPOSER_ROLE, DIRECTOR_ROLE,
-         CONTRIBUTOR_ROLE, TRANSLATOR_ROLE, ADAPTER_ROLE, PHOTOGRAPHER_ROLE,
-         ARTIST_ROLE, LYRICIST_ROLE, COPYRIGHT_HOLDER_ROLE
+        CONTRIBUTOR_ROLE, TRANSLATOR_ROLE, ADAPTER_ROLE, PHOTOGRAPHER_ROLE,
+        ARTIST_ROLE, LYRICIST_ROLE, COPYRIGHT_HOLDER_ROLE
     ]
 
     PERFORMER_ROLES = [ACTOR_ROLE, PERFORMER_ROLE, NARRATOR_ROLE, MUSICIAN_ROLE]

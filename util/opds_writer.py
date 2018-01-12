@@ -17,6 +17,7 @@ class AtomFeed(object):
     OPDS_NS = 'http://opds-spec.org/2010/catalog'
     SCHEMA_NS = 'http://schema.org/'
     DRM_NS = 'http://librarysimplified.org/terms/drm'
+    OPF_NS = 'http://www.idpf.org/2007/opf'
     
     SIMPLIFIED_NS = "http://librarysimplified.org/terms/"
     BIBFRAME_NS = "http://bibframe.org/vocab/"
@@ -26,6 +27,7 @@ class AtomFeed(object):
         'app': APP_NS,
         'dcterms' : DCTERMS_NS,
         'opds' : OPDS_NS,
+        'opf' : OPF_NS,
         'drm' : DRM_NS,
         'schema' : SCHEMA_NS,
         'simplified' : SIMPLIFIED_NS,
@@ -68,6 +70,9 @@ class AtomFeed(object):
     def author(cls, *args, **kwargs):
         return cls.E.author(*args, **kwargs)
 
+    @classmethod
+    def contributor(cls, *args, **kwargs):
+        return cls.E.contributor(*args, **kwargs)
 
     @classmethod
     def category(cls, *args, **kwargs):
