@@ -16,6 +16,7 @@ from core.model import (
     create,
     Contribution,
     Contributor,
+    Edition,
     SessionManager,
     DataSource,
     ExternalIntegration,
@@ -60,12 +61,15 @@ class TestLaneCreation(DatabaseTest):
             # They all are restricted to English and Spanish.
             eq_(x.languages, languages)
 
+            # They only contain books.
+            eq_([Edition.BOOK_MEDIUM], x.media)
+
         eq_(
             ['Fiction', 'Nonfiction', 'Young Adult Fiction',
              'Young Adult Nonfiction', 'Children and Middle Grade'],
             [x.display_name for x in lanes]
         )
-
+        
 
         # The Adult Fiction and Adult Nonfiction lanes reproduce the
         # genre structure found in the genre definitions.
@@ -140,6 +144,8 @@ class TestLaneCreation(DatabaseTest):
         )
         for x in sublanes:
             eq_(languages, x.languages)
+            eq_([Edition.BOOK_MEDIUM], x.media)
+
         eq_(
             [set(['Adults Only', 'Adult']), 
              set(['Adults Only', 'Adult']), 
@@ -159,6 +165,7 @@ class TestLaneCreation(DatabaseTest):
 
         create_lane_for_tiny_collections(self._db, self._default_library, ['ger', 'fre', 'ita'])
         [lane] = self._db.query(Lane).filter(Lane.parent_id==None).all()
+        eq_([Edition.BOOK_MEDIUM], lane.media)
         eq_(['ger', 'fre', 'ita'], lane.languages)
         eq_("Other Languages", lane.display_name)
         eq_(
@@ -168,7 +175,8 @@ class TestLaneCreation(DatabaseTest):
         eq_([['ger'], ['fre'], ['ita']],
             [x.languages for x in lane.visible_children]
         )
-
+        for child in lane.visible_children:
+            eq_([Edition.BOOK_MEDIUM], child.media)
 
     def test_create_default_lanes(self):
         library = self._default_library
@@ -208,36 +216,6 @@ class TestLaneCreation(DatabaseTest):
         [other_lane] = [x for x in lanes if x.display_name == 'Other Languages']
         eq_(7, other_lane.priority)
 
-    def test_load_lanes(self):
-        # These two top-level lanes should be children of the WorkList.
-        lane1 = self._lane(display_name="Top-level Lane 1")
-        lane1.priority = 0
-        lane2 = self._lane(display_name="Top-level Lane 2")
-        lane2.priority = 1
-
-        # This lane is invisible and will be filtered out.
-        invisible_lane = self._lane(display_name="Invisible Lane")
-        invisible_lane.visible = False
-
-        # This lane has a parent and will be filtered out.
-        sublane = self._lane(display_name="Sublane")
-        lane1.sublanes.append(sublane)
-
-        # This lane belongs to a different library.
-        other_library = self._library(
-            name="Other Library", short_name="Other"
-        )
-        other_library_lane = self._lane(
-            display_name="Other Library Lane", library=other_library
-        )
-
-        # The default library gets a WorkList with the two top-level lanes as children.
-        wl = load_lanes(self._db, self._default_library)
-        eq_([lane1, lane2], wl.children)
-
-        # The other library only has one top-level lane, so we use that lane.
-        l = load_lanes(self._db, other_library)
-        eq_(other_library_lane, l)
 
 class TestWorkBasedLane(DatabaseTest):
 

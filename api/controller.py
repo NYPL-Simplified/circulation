@@ -404,12 +404,14 @@ class CirculationManagerController(BaseCirculationManagerController):
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
-        top_level_lane = self.manager.top_level_lanes[library_id]
-
+        
         if lane_identifier is None:
-            return top_level_lane
-
-        lane = get_one(self._db, Lane, id=lane_identifier, library_id=library_id)
+            # Return the top-level lane.
+            lane = self.manager.top_level_lanes[library_id]
+        else:
+            lane = get_one(
+                self._db, Lane, id=lane_identifier, library_id=library_id
+            )
 
         if not lane:
             return NO_SUCH_LANE.detailed(
@@ -417,6 +419,7 @@ class CirculationManagerController(BaseCirculationManagerController):
                   lane_identifier=lane_identifier, library_id=library_id
                 )
             )
+
         return lane
 
     def load_work(self, library, identifier_type, identifier):
