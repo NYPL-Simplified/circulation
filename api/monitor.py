@@ -128,3 +128,46 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
             )
             self.keep_timestamp = False
             return None
+
+
+class MetadataWranglerAuxiliaryMetadataMonitor(CollectionMonitor):
+
+    """Retrieves and processes requests for needed third-party metadata
+    from the Metadata Wrangler.
+
+    The Wrangler will only request metadata if it can't process an
+    identifier from its own third-party resources. In these cases (e.g. ISBNs
+    from Axis 360 or Bibliotheca), the wrangler will put out a call for metadata
+    that it needs to process the identifier. This monitor answers that call.
+
+    TODO:
+      - get feed from metadata wrangler
+      - find identifiers in the feed
+      - get their equivalents / work here
+      - build a feed and send it to add_with_metadata
+      - get the next page.
+    """
+
+    SERVICE_NAME = "Metadata Wrangler Collection Updates"
+    DEFAULT_START_TIME = CollectionMonitor.NEVER
+
+    def __init__(self, _db, collection, lookup=None):
+        super(MetadataWranglerCollectionUpdateMonitor, self).__init__(
+            _db, collection
+        )
+        self.lookup = lookup or MetadataWranglerOPDSLookup.from_config(
+            self._db, collection=collection
+        )
+        self.importer = OPDSImporter(
+            self._db, self.collection,
+            data_source_name=DataSource.METADATA_WRANGLER,
+            metadata_client=self.lookup, map_from_collection=True,
+        )
+
+    def run_once(self, start, cutoff):
+        if not self.lookup.authenticated:
+            self.keep_timestamp = False
+            return
+
+    def get_identifiers(self):
+        response = self.lookup.metadata_needed()

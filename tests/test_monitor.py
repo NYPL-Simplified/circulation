@@ -243,3 +243,11 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         eq_(200, response.status_code)
         eq_(None, lookup.last_timestamp)
         eq_(['http://now used/'], lookup.urls)
+
+
+class TestMetadataWranglerAuxiliaryMetadataMonitor(DatabaseTest):
+
+    def test_get_identifiers(self):
+        ignored = self._identifier()
+
+        pass
