@@ -1,6 +1,7 @@
 from nose.tools import set_trace
 
 from api.opds import CirculationManagerAnnotator
+from core.opds import VerboseAnnotator
 from core.lane import Facets, Pagination
 from core.model import (
     BaseMaterializedWork,
@@ -8,8 +9,9 @@ from core.model import (
     Session,
 )
 from core.opds import AcquisitionFeed
+from core.util.opds_writer import AtomFeed
 
-class AdminAnnotator(CirculationManagerAnnotator):
+class AdminAnnotator(VerboseAnnotator, CirculationManagerAnnotator):
 
     def __init__(self, circulation, library, test_mode=False):
         super(AdminAnnotator, self).__init__(circulation, None, library, test_mode=test_mode)
@@ -18,6 +20,12 @@ class AdminAnnotator(CirculationManagerAnnotator):
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
 
         super(AdminAnnotator, self).annotate_work_entry(work, active_license_pool, edition, identifier, feed, entry)
+
+        if edition.imprint:
+            # TODO: Is there a better tag to use for this, and should it be in core?
+            imprint_tag = AtomFeed.makeelement("{%s}imprint" % AtomFeed.SIMPLIFIED_NS)
+            imprint_tag.text = edition.imprint
+            entry.append(imprint_tag)
 
         feed.add_link_to_entry(
             entry,
