@@ -130,6 +130,10 @@ class TestOPDS(DatabaseTest):
         parsed = feedparser.parse(unicode(first_page))
         eq_(1, len(parsed['entries']))
         eq_(work1.title, parsed['entries'][0]['title'])
+        # Verify that the entry has acquisition links.
+        links = parsed['entries'][0]['links']
+        open_access_links = [l for l in links if l['rel'] == "http://opds-spec.org/acquisition/open-access"]
+        eq_(1, len(open_access_links))
 
         # Make sure the links are in place.
         [start] = self.links(parsed, 'start')
