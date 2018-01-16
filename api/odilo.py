@@ -130,7 +130,14 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         record_id = licensepool.identifier.identifier
 
         # Data just as 'x-www-form-urlencoded', no JSON
-        payload = dict(patronId=patron, format=internal_format)
+
+        # TODO: Create a single-purpose patron identifier, the way we
+        # do with RBdigital, and send it instead of
+        # Patron.authorization_identifier, to avoid sending patron
+        # barcodes to the ebook provider.
+        payload = dict(
+            patronId=patron.authorization_identifier
+        )
 
         response = self.patron_request(
             patron, pin, self.CHECKOUT_ENDPOINT.format(recordId=record_id),
