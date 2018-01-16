@@ -1,6 +1,7 @@
 # coding=utf-8
 import datetime
 import json
+from nose.tools import set_trace
 from flask.ext.babel import lazy_gettext as _
 
 from circulation import (
@@ -40,7 +41,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                    {"key": ExternalIntegration.PASSWORD, "label": _("Client Secret")},
                ] + BaseCirculationAPI.SETTINGS
 
-    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
+    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
     # maps a 2-tuple (media_type, drm_mechanism) to the internal string used in Odilo API to describe that setup.
     delivery_mechanism_to_internal_format = {
@@ -136,7 +137,8 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         # Patron.authorization_identifier, to avoid sending patron
         # barcodes to the ebook provider.
         payload = dict(
-            patronId=patron.authorization_identifier
+            patronId=patron.authorization_identifier,
+            format=internal_format,
         )
 
         response = self.patron_request(
