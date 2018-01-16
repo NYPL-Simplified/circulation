@@ -195,8 +195,12 @@ class OdiloAPI(object):
     def _update_credential(credential, odilo_data):
         """Copy Odilo OAuth data into a Credential object."""
         credential.credential = odilo_data['token']
-        expires_in = (odilo_data['expiresIn'] * 0.9)
-        credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
+        if odilo_data['expiresIn'] == -1:
+            # This token never expires.
+            credential.expires = None
+        else:
+            expires_in = (odilo_data['expiresIn'] * 0.9)
+            credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
 
     def get_metadata(self, record_id):
         identifier = record_id
