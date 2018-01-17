@@ -541,7 +541,7 @@ class WorkController(CirculationManagerController):
             changed = True
 
         new_series_position = flask.request.form.get("series_position")
-        if new_series_position:
+        if new_series_position != None and new_series_position != '':
             try:
                 new_series_position = int(new_series_position)
             except ValueError:
@@ -550,7 +550,7 @@ class WorkController(CirculationManagerController):
         else:
             new_series_position = None
         if work.series_position != new_series_position:
-            if work.series_position and not new_series_position:
+            if work.series_position and new_series_position == None:
                 new_series_position = NO_NUMBER
             staff_edition.series_position = new_series_position
             changed = True
@@ -566,11 +566,13 @@ class WorkController(CirculationManagerController):
             changed = True
 
         new_language = flask.request.form.get("language")
-        if new_language:
+        if new_language != None and new_language != '':
             new_language = LanguageCodes.string_to_alpha_3(new_language)
             if not new_language:
                 self._db.rollback()
                 return UNKNOWN_LANGUAGE
+        else:
+            new_language = None
         if new_language != staff_edition.language:
             staff_edition.language = new_language
             changed = True
@@ -590,12 +592,14 @@ class WorkController(CirculationManagerController):
             changed = True
 
         new_issued = flask.request.form.get("issued")
-        if new_issued:
+        if new_issued != None and new_issued != '':
             try:
                 new_issued = datetime.strptime(new_issued, '%Y-%m-%d')
             except ValueError:
                 self._db.rollback()
                 return INVALID_DATE_FORMAT
+        else:
+            new_issued = None
         if new_issued != staff_edition.issued:
             staff_edition.issued = new_issued
             changed = True
@@ -607,7 +611,7 @@ class WorkController(CirculationManagerController):
         # confusing. It might also be useful to make it more clear how this
         # relates to the quality threshold in the library settings.
         new_rating = flask.request.form.get("rating")
-        if new_rating != None:
+        if new_rating != None and new_rating != '':
             try:
                 new_rating = float(new_rating)
             except ValueError:
