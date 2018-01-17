@@ -4648,14 +4648,13 @@ class Work(Base):
             VerboseAnnotator,
         )
         _db = Session.object_session(self)
-        simple = AcquisitionFeed.single_entry(_db, self, Annotator,
-                                              force_create=True)
-        if simple is not None:
-            self.simple_opds_entry = unicode(etree.tostring(simple))
-        verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator,
-                                               force_create=True)
+        simple = AcquisitionFeed.single_entry(
+            _db, self, Annotator, force_create=True
+        )
         if verbose is not None:
-            self.verbose_opds_entry = unicode(etree.tostring(verbose))
+            verbose = AcquisitionFeed.single_entry(
+                _db, self, VerboseAnnotator, force_create=True
+            )
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
