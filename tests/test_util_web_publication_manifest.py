@@ -31,7 +31,7 @@ class TestJSONable(object):
 class TestManifest(object):
 
     def test_defaults(self):
-        eq_("http://schema.org/EBook", Manifest.DEFAULT_TYPE)
+        eq_("http://schema.org/Book", Manifest.DEFAULT_TYPE)
         eq_("http://readium.org/webpub/default.jsonld",
             Manifest.DEFAULT_CONTEXT)
 
