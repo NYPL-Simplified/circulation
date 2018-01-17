@@ -7,7 +7,12 @@ import feedparser
 
 from api.admin.opds import AdminAnnotator, AdminFeed
 from api.opds import AcquisitionFeed
-from core.model import Complaint, Library
+from core.model import (
+    Complaint,
+    DataSource,
+    Library,
+    Measurement,
+)
 from core.lane import Facets, Pagination
 from core.opds import Annotator
 
@@ -25,6 +30,18 @@ class TestOPDS(DatabaseTest):
                 (isinstance(rel, list) and l['rel'] in rel)):
                 r.append(l)
         return r
+
+    def test_feed_includes_staff_rating(self):
+        work = self._work(with_open_access_download=True)
+        lp = work.license_pools[0]
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        lp.identifier.add_measurement(staff_data_source, Measurement.RATING, 3, weight=1000)
+
+        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
+        [entry] = feedparser.parse(unicode(feed))['entries']
+        rating = entry['schema_rating']
+        eq_(3, float(rating['schema:ratingvalue']))
+        eq_(Measurement.RATING, rating['additionaltype'])
 
     def test_feed_includes_suppress_link(self):
         work = self._work(with_open_access_download=True)

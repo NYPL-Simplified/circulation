@@ -378,7 +378,7 @@ class SignInController(AdminController):
 
 class WorkController(CirculationManagerController):
 
-    STAFF_WEIGHT = 1
+    STAFF_WEIGHT = 1000
 
     def details(self, identifier_type, identifier):
         """Return an OPDS entry with detailed information for admins.
@@ -625,7 +625,7 @@ class WorkController(CirculationManagerController):
                     _("The rating must be a number between %(low)s and %(high)s.",
                       low=scale[0], high=scale[1]))
             if (new_rating - scale[0]) / (scale[1] - scale[0]) != work.quality:
-                primary_identifier.add_measurement(staff_data_source, Measurement.RATING, new_rating)
+                primary_identifier.add_measurement(staff_data_source, Measurement.RATING, new_rating, weight=WorkController.STAFF_WEIGHT)
                 changed = True
                 changed_rating = True
 
