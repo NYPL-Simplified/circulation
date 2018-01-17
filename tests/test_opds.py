@@ -374,6 +374,21 @@ class TestAnnotators(DatabaseTest):
         eq_(work.presentation_edition.series, schema_entry['name'])
         eq_(str(work.presentation_edition.series_position), schema_entry['schema:position'])
 
+        # The series position can be 0, for a prequel for example.
+        work.presentation_edition.series_position = 0
+        work.calculate_opds_entries()
+
+        raw_feed = unicode(AcquisitionFeed(
+            self._db, self._str, self._url, [work], Annotator
+        ))
+        assert "schema:Series" in raw_feed
+        assert work.presentation_edition.series in raw_feed
+
+        feed = feedparser.parse(unicode(raw_feed))
+        schema_entry = feed['entries'][0]['schema_series']
+        eq_(work.presentation_edition.series, schema_entry['name'])
+        eq_(str(work.presentation_edition.series_position), schema_entry['schema:position'])
+
         # If there's no series title, the series tag isn't included.
         work.presentation_edition.series = None
         work.calculate_opds_entries()

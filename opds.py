@@ -251,7 +251,7 @@ class Annotator(object):
             return None
         series_details = dict()
         series_details['name'] = series_name
-        if series_position:
+        if series_position != None:
             series_details[AtomFeed.schema_('position')] = unicode(series_position)
         series_tag = AtomFeed.makeelement(AtomFeed.schema_("Series"), **series_details)
         return series_tag

@@ -741,6 +741,11 @@ class TestMetadata(DatabaseTest):
         eq_(e_link.rel, m_link.rel)
         eq_(e_link.resource.url, m_link.href)
 
+        # The series position can also be 0.
+        edition.series_position = 0
+        metadata = Metadata.from_edition(edition)
+        eq_(edition.series_position, metadata.series_position)
+
     def test_update(self):
         # Tests that Metadata.update correctly prefers new fields to old, unless 
         # new fields aren't defined.
@@ -748,18 +753,24 @@ class TestMetadata(DatabaseTest):
         edition_old, pool = self._edition(with_license_pool=True)
         edition_old.publisher = "test_old_publisher"
         edition_old.subtitle = "old_subtitile"
+        edition_old.series = "old_series"
+        edition_old.series_position = 5
         metadata_old = Metadata.from_edition(edition_old)
 
         edition_new, pool = self._edition(with_license_pool=True)
         # set more fields on metadatas
         edition_new.publisher = None
         edition_new.subtitle = "new_updated_subtitile"
+        edition_new.series = "new_series"
+        edition_new.series_position = 0
         metadata_new = Metadata.from_edition(edition_new)
 
         metadata_old.update(metadata_new)
 
         eq_(metadata_old.publisher, "test_old_publisher")
         eq_(metadata_old.subtitle, metadata_new.subtitle)
+        eq_(metadata_old.series, edition_new.series)
+        eq_(metadata_old.series_position, edition_new.series_position)
 
     def test_apply(self):
         edition_old, pool = self._edition(with_license_pool=True)
@@ -796,6 +807,12 @@ class TestMetadata(DatabaseTest):
 
         edition_new, changed = metadata.apply(edition_new, pool.collection)
         eq_(changed, False)
+
+        # The series position can also be 0.
+        metadata.series_position = 0
+        edition_new, changed = metadata.apply(edition_new, pool.collection)
+        eq_(changed, True)
+        eq_(edition_new.series_position, 0)
 
     def test_apply_identifier_equivalency(self):
 
