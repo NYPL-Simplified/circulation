@@ -610,6 +610,7 @@ class WorkController(CirculationManagerController):
         # the calculated quality rather than the staff rating, which will be
         # confusing. It might also be useful to make it more clear how this
         # relates to the quality threshold in the library settings.
+        changed_rating = False
         new_rating = flask.request.form.get("rating")
         if new_rating != None and new_rating != '':
             try:
@@ -626,7 +627,9 @@ class WorkController(CirculationManagerController):
             if (new_rating - scale[0]) / (scale[1] - scale[0]) != work.quality:
                 primary_identifier.add_measurement(staff_data_source, Measurement.RATING, new_rating)
                 changed = True
+                changed_rating = True
 
+        changed_summary = False
         new_summary = flask.request.form.get("summary") or ""
         if new_summary != work.summary_text:
             old_summary = None
@@ -644,6 +647,7 @@ class WorkController(CirculationManagerController):
                 self._db.delete(old_summary)
 
             changed = True
+            changed_summary = True
 
         if changed:
             # Even if the presentation doesn't visibly change, we want
@@ -654,8 +658,8 @@ class WorkController(CirculationManagerController):
                 classify=True,
                 regenerate_opds_entries=True,
                 update_search_index=True,
-                calculate_quality=True,
-                choose_summary=True,
+                calculate_quality=changed_rating,
+                choose_summary=changed_summary,
             )
             work.calculate_presentation(policy=policy)
 
