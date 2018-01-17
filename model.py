@@ -9005,7 +9005,7 @@ class CustomList(Base):
     library_id = Column(Integer, ForeignKey('libraries.id'), index=True, nullable=True)
 
     entries = relationship(
-        "CustomListEntry", backref="customlist", lazy="joined")
+        "CustomListEntry", backref="customlist")
 
     __table_args__ = (
         UniqueConstraint('data_source_id', 'foreign_identifier'),
