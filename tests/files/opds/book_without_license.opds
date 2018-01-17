@@ -3,7 +3,7 @@
   <title>Lookup results</title>
   <updated>2016-06-29T16:04:36Z</updated>
   <link href="http://content/lookup?urn=https%3A%2F%2Funglue.it%2Fapi%2Fid%2Fwork%2F98398%2F" rel="self"/>
-  <entry schema:additionalType="http://schema.org/Book">
+  <entry schema:additionalType="http://schema.org/EBook">
     <id>https://unglue.it/api/id/work/98398/</id>
     <title>Howards End</title>
     <bibframe:distribution bibframe:ProviderName="unglue.it"/>

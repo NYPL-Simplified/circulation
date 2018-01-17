@@ -2965,13 +2965,13 @@ class Edition(Base):
     FULFILLABLE_MEDIA = [BOOK_MEDIUM]
 
     medium_to_additional_type = {
-        BOOK_MEDIUM : u"http://schema.org/Book",
-        AUDIO_MEDIUM : u"http://schema.org/AudioObject",
-        PERIODICAL_MEDIUM : u"http://schema.org/PublicationIssue",
-        MUSIC_MEDIUM :  u"http://schema.org/MusicRecording",
-        VIDEO_MEDIUM :  u"http://schema.org/VideoObject",
-        IMAGE_MEDIUM: u"http://schema.org/ImageObject",
-        COURSEWARE_MEDIUM: u"http://schema.org/Course"
+        BOOK_MEDIUM : u"https://schema.org/EBook",
+        AUDIO_MEDIUM : u"https://bib.schema.org/AudioBook",
+        PERIODICAL_MEDIUM : u"https://schema.org/PublicationIssue",
+        MUSIC_MEDIUM :  u"https://schema.org/MusicRecording",
+        VIDEO_MEDIUM :  u"https://schema.org/VideoObject",
+        IMAGE_MEDIUM: u"https://schema.org/ImageObject",
+        COURSEWARE_MEDIUM: u"https://schema.org/Course"
     }
 
     additional_type_to_medium = {}
