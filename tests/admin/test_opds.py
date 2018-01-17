@@ -26,14 +26,6 @@ class TestOPDS(DatabaseTest):
                 r.append(l)
         return r
 
-    def test_feed_includes_imprint(self):
-        work = self._work(with_open_access_download=True)
-        work.presentation_edition.imprint = self._str
-
-        feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
-        [entry] = feedparser.parse(unicode(feed))['entries']
-        eq_(work.presentation_edition.imprint, entry["simplified_imprint"])
-
     def test_feed_includes_suppress_link(self):
         work = self._work(with_open_access_download=True)
         lp = work.license_pools[0]
