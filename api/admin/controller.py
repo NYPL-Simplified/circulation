@@ -501,6 +501,12 @@ class WorkController(CirculationManagerController):
         # The form data includes roles and names for contributors in the same order.
         new_contributor_roles = flask.request.form.getlist("contributor-role")
         new_contributor_names = [unicode(n) for n in flask.request.form.getlist("contributor-name")]
+        # The first author in the form is considered the primary author, even
+        # though there's no separate MARC code for that.
+        for i, role in enumerate(new_contributor_roles):
+            if role == Contributor.AUTHOR_ROLE:
+                new_contributor_roles[i] = Contributor.PRIMARY_AUTHOR_ROLE
+                break
         roles_and_names = zip(new_contributor_roles, new_contributor_names)
 
         # Remove any contributions that weren't in the form, and remove contributions

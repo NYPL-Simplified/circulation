@@ -352,7 +352,7 @@ class TestWorkController(AdminControllerTest):
                 key=lambda x: x.contributor.display_name)
             eq_("New Author", author.contributor.display_name)
             eq_("Author, New", author.contributor.sort_name)
-            eq_("Author", author.role)
+            eq_("Primary Author", author.role)
             eq_("New Narrator", narrator.contributor.display_name)
             eq_("Narrator, New", narrator.contributor.sort_name)
             eq_("Narrator", narrator.role)
@@ -371,7 +371,7 @@ class TestWorkController(AdminControllerTest):
             eq_(1, staff_edition_count())
 
         with self.request_context_with_library("/"):
-            # Change the summary again
+            # Change the summary again and add an author.
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("subtitle", "New subtitle"),
@@ -379,6 +379,8 @@ class TestWorkController(AdminControllerTest):
                 ("contributor-name", "New Author"),
                 ("contributor-role", "Narrator"),
                 ("contributor-name", "New Narrator"),
+                ("contributor-role", "Author"),
+                ("contributor-name", "Second Author"),
                 ("series", "New series"),
                 ("series_position", "144"),
                 ("medium", "Audio"),
@@ -395,6 +397,17 @@ class TestWorkController(AdminControllerTest):
             eq_(200, response.status_code)
             eq_("abcd", self.english_1.summary_text)
             assert 'New summary' not in self.english_1.simple_opds_entry
+            [author, narrator, author2] = sorted(
+                self.english_1.presentation_edition.contributions,
+                key=lambda x: x.contributor.display_name)
+            eq_("New Author", author.contributor.display_name)
+            eq_("Author, New", author.contributor.sort_name)
+            eq_("Primary Author", author.role)
+            eq_("New Narrator", narrator.contributor.display_name)
+            eq_("Narrator, New", narrator.contributor.sort_name)
+            eq_("Narrator", narrator.role)
+            eq_("Second Author", author2.contributor.display_name)
+            eq_("Author", author2.role)
             eq_(1, staff_edition_count())
 
         with self.request_context_with_library("/"):
