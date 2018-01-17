@@ -291,7 +291,7 @@ class TestWorkController(AdminControllerTest):
 
     def test_edit_invalid_rating_not_number(self):
         response = self._make_test_edit_request(
-            [('rating', self._str)])
+            [('rating', 'abc')])
         eq_(400, response.status_code)
         eq_(INVALID_RATING.uri, response.uri)
 
