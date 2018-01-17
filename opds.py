@@ -949,6 +949,11 @@ class AcquisitionFeed(OPDSFeed):
             publisher_tag.text = edition.publisher
             entry.extend([publisher_tag])
 
+        if edition.imprint:
+            imprint_tag = AtomFeed.makeelement("{%s}publisherImprint" % AtomFeed.BIB_SCHEMA_NS)
+            imprint_tag.text = edition.imprint
+            entry.extend([imprint_tag])
+
         # We use Atom 'published' for the date the book first became
         # available to people using this application.
         now = datetime.datetime.utcnow()

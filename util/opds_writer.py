@@ -21,6 +21,7 @@ class AtomFeed(object):
     
     SIMPLIFIED_NS = "http://librarysimplified.org/terms/"
     BIBFRAME_NS = "http://bibframe.org/vocab/"
+    BIB_SCHEMA_NS = "http://bib.schema.org/"
 
     nsmap = {
         None: ATOM_NS,
@@ -32,6 +33,7 @@ class AtomFeed(object):
         'schema' : SCHEMA_NS,
         'simplified' : SIMPLIFIED_NS,
         'bibframe' : BIBFRAME_NS,
+        'bib': BIB_SCHEMA_NS
     }
 
     default_typemap = {datetime: lambda e, v: _strftime(v)}

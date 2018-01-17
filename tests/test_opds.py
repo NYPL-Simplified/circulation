@@ -626,9 +626,10 @@ class TestOPDS(DatabaseTest):
         eq_(None, e4['issued'])
         eq_(None, e4['published'])
 
-    def test_acquisition_feed_includes_language_tag(self):
+    def test_acquisition_feed_includes_publisher_and_imprint_tag(self):
         work = self._work(with_open_access_download=True)
         work.presentation_edition.publisher = "The Publisher"
+        work.presentation_edition.imprint = "The Imprint"
         work2 = self._work(with_open_access_download=True)
         work2.presentation_edition.publisher = None
 
@@ -642,6 +643,7 @@ class TestOPDS(DatabaseTest):
         with_publisher = feedparser.parse(unicode(with_publisher))
         entries = sorted(with_publisher['entries'], key = lambda x: x['title'])
         eq_('The Publisher', entries[0]['dcterms_publisher'])
+        eq_('The Imprint', entries[0]['bib_publisherimprint'])
         assert 'publisher' not in entries[1]
 
     def test_acquisition_feed_includes_audience_as_category(self):
