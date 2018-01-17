@@ -4651,7 +4651,7 @@ class Work(Base):
         simple = AcquisitionFeed.single_entry(
             _db, self, Annotator, force_create=True
         )
-        if verbose is not None:
+        if verbose is True:
             verbose = AcquisitionFeed.single_entry(
                 _db, self, VerboseAnnotator, force_create=True
             )
