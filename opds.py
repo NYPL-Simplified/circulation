@@ -251,7 +251,7 @@ class Annotator(object):
             return None
         series_details = dict()
         series_details['name'] = series_name
-        if series_position:
+        if series_position != None:
             series_details[AtomFeed.schema_('position')] = unicode(series_position)
         series_tag = AtomFeed.makeelement(AtomFeed.schema_("Series"), **series_details)
         return series_tag
@@ -949,6 +949,11 @@ class AcquisitionFeed(OPDSFeed):
             publisher_tag.text = edition.publisher
             entry.extend([publisher_tag])
 
+        if edition.imprint:
+            imprint_tag = AtomFeed.makeelement("{%s}publisherImprint" % AtomFeed.BIB_SCHEMA_NS)
+            imprint_tag.text = edition.imprint
+            entry.extend([imprint_tag])
+
         # We use Atom 'published' for the date the book first became
         # available to people using this application.
         now = datetime.datetime.utcnow()
@@ -967,16 +972,17 @@ class AcquisitionFeed(OPDSFeed):
         # from Entry.published (which may refer to the print edition
         # or some original edition way back when).
         #
-        # For Dublin Core 'created' we use Entry.issued if we have it
+        # For Dublin Core 'issued' we use Entry.issued if we have it
         # and Entry.published if not. In general this means we use
         # issued date for Gutenberg and published date for other
         # sources.
         #
-        # We use dc:created instead of dc:issued because dc:issued is
-        # commonly conflated with atom:published.
-        #
         # For the date the book was added to our collection we use
         # atom:published.
+        #
+        # Note: feedparser conflates dc:issued and atom:published, so
+        # it can't be used to extract this information. However, these
+        # tags are consistent with the OPDS spec.
         issued = edition.issued or edition.published
         if (isinstance(issued, datetime.datetime) 
             or isinstance(issued, datetime.date)):
@@ -986,7 +992,7 @@ class AcquisitionFeed(OPDSFeed):
             elif isinstance(issued, datetime.date):
                 issued_already = (issued <= today)
             if issued_already:
-                issued_tag = AtomFeed.makeelement("{%s}created" % AtomFeed.DCTERMS_NS)
+                issued_tag = AtomFeed.makeelement("{%s}issued" % AtomFeed.DCTERMS_NS)
                 # Use datetime.isoformat instead of datetime.strftime because
                 # strftime only works on dates after 1890, and we have works
                 # that were issued much earlier than that.

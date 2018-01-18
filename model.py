@@ -5208,7 +5208,8 @@ class Measurement(Base):
         DataSource.OVERDRIVE : [1, 5],
         DataSource.AMAZON : [1, 5],
         DataSource.UNGLUE_IT: [1, 5],
-        DataSource.NOVELIST: [0, 5]
+        DataSource.NOVELIST: [0, 5],
+        DataSource.LIBRARY_STAFF: [1, 5],
     }
 
     id = Column(Integer, primary_key=True)

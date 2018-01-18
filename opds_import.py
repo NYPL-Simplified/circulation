@@ -929,7 +929,6 @@ class OPDSImporter(object):
                         )
                     )
         last_opds_update = cls._datetime(entry, 'updated_parsed')
-        added_to_collection_time = cls._datetime(entry, 'published_parsed')
             
         publisher = entry.get('publisher', None)
         if not publisher:

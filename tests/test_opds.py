@@ -2,6 +2,7 @@ from collections import defaultdict
 import feedparser
 import datetime
 from lxml import etree
+from StringIO import StringIO
 from nose.tools import (
     eq_,
     set_trace,
@@ -56,6 +57,7 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
+from opds_import import OPDSXMLParser
 
 from classifier import (
     Classifier,
@@ -372,6 +374,21 @@ class TestAnnotators(DatabaseTest):
         eq_(work.presentation_edition.series, schema_entry['name'])
         eq_(str(work.presentation_edition.series_position), schema_entry['schema:position'])
 
+        # The series position can be 0, for a prequel for example.
+        work.presentation_edition.series_position = 0
+        work.calculate_opds_entries()
+
+        raw_feed = unicode(AcquisitionFeed(
+            self._db, self._str, self._url, [work], Annotator
+        ))
+        assert "schema:Series" in raw_feed
+        assert work.presentation_edition.series in raw_feed
+
+        feed = feedparser.parse(unicode(raw_feed))
+        schema_entry = feed['entries'][0]['schema_series']
+        eq_(work.presentation_edition.series, schema_entry['name'])
+        eq_(str(work.presentation_edition.series_position), schema_entry['schema:position'])
+
         # If there's no series title, the series tag isn't included.
         work.presentation_edition.series = None
         work.calculate_opds_entries()
@@ -563,14 +580,14 @@ class TestOPDS(DatabaseTest):
         the_future = today + datetime.timedelta(days=2)
 
         # This work has both issued and published. issued will be used
-        # for the dc:created tag.
+        # for the dc:issued tag.
         work1 = self._work(with_open_access_download=True)
         work1.presentation_edition.issued = today
         work1.presentation_edition.published = the_past
         work1.license_pools[0].availability_time = the_distant_past
 
         # This work only has published. published will be used for the
-        # dc:created tag.
+        # dc:issued tag.
         work2 = self._work(with_open_access_download=True)
         work2.presentation_edition.published = the_past
         work2.license_pools[0].availability_time = the_distant_past
@@ -595,25 +612,45 @@ class TestOPDS(DatabaseTest):
         with_times = AcquisitionFeed(
             self._db, "test", "url", works, TestAnnotator)
         u = unicode(with_times)
-        assert 'dcterms:created' in u
-        with_times = feedparser.parse(u)
+        assert 'dcterms:issued' in u
+
+        with_times = etree.parse(StringIO(u))
+        entries = OPDSXMLParser._xpath(with_times, '/atom:feed/atom:entry')
+        parsed = []
+        for entry in entries:
+            title = OPDSXMLParser._xpath1(entry, 'atom:title').text
+            issued = OPDSXMLParser._xpath1(entry, 'dcterms:issued')
+            if issued != None:
+                issued = issued.text
+            published = OPDSXMLParser._xpath1(entry, 'atom:published')
+            if published != None:
+                published = published.text
+            parsed.append(
+                dict(
+                    title=title,
+                    issued=issued,
+                    published=published,
+                )
+            )
         e1, e2, e3, e4 = sorted(
-            with_times['entries'], key = lambda x: int(x['title']))
-        eq_(today_s, e1['created'])
+            parsed, key = lambda x: x['title']
+        )
+        eq_(today_s, e1['issued'])
         eq_(the_distant_past_s, e1['published'])
 
-        eq_(the_past_s, e2['created'])
+        eq_(the_past_s, e2['issued'])
         eq_(the_distant_past_s, e2['published'])
 
-        assert not 'created' in e3
-        assert not 'published' in e3
+        eq_(None, e3['issued'])
+        eq_(None, e3['published'])
 
-        assert not 'created' in e4
-        assert not 'published' in e4
+        eq_(None, e4['issued'])
+        eq_(None, e4['published'])
 
-    def test_acquisition_feed_includes_language_tag(self):
+    def test_acquisition_feed_includes_publisher_and_imprint_tag(self):
         work = self._work(with_open_access_download=True)
         work.presentation_edition.publisher = "The Publisher"
+        work.presentation_edition.imprint = "The Imprint"
         work2 = self._work(with_open_access_download=True)
         work2.presentation_edition.publisher = None
 
@@ -627,6 +664,7 @@ class TestOPDS(DatabaseTest):
         with_publisher = feedparser.parse(unicode(with_publisher))
         entries = sorted(with_publisher['entries'], key = lambda x: x['title'])
         eq_('The Publisher', entries[0]['dcterms_publisher'])
+        eq_('The Imprint', entries[0]['bib_publisherimprint'])
         assert 'publisher' not in entries[1]
 
     def test_acquisition_feed_includes_audience_as_category(self):
