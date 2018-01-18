@@ -34,7 +34,7 @@
     <link href="http://www.gutenberg.org/ebooks/10441.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   
-  <entry schema:additionalType="http://schema.org/Book">
+  <entry schema:additionalType="http://schema.org/EBook">
     <id>urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557</id>
     <title>Johnny Crow's Party</title>
     <author>

@@ -1208,7 +1208,7 @@ class Metadata(MetaToModelUtility):
         fields = self.BASIC_EDITION_FIELDS
         for field in fields:
             new_value = getattr(metadata, field)
-            if new_value:
+            if new_value != None and new_value != '':
                 setattr(self, field, new_value)
 
         new_value = getattr(metadata, 'contributors')
@@ -1442,7 +1442,7 @@ class Metadata(MetaToModelUtility):
         for field in fields:
             old_edition_value = getattr(edition, field)
             new_metadata_value = getattr(self, field)
-            if new_metadata_value and (new_metadata_value != old_edition_value):
+            if new_metadata_value != None and new_metadata_value != '' and (new_metadata_value != old_edition_value):
                 if new_metadata_value in [NO_VALUE, NO_NUMBER]:
                     new_metadata_value = None
                 setattr(edition, field, new_metadata_value)

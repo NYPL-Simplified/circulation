@@ -3421,6 +3421,29 @@ class TestWork(DatabaseTest):
         classification2.subject.checked = True
         eq_([], qu.all())
 
+    def test_calculate_opds_entries(self):
+        """Verify that calculate_opds_entries sets both simple and verbose
+        entries.
+        """
+        work = self._work()
+        work.simple_opds_entry = None
+        work.verbose_opds_entry = None
+
+        work.calculate_opds_entries(verbose=False)
+        simple_entry = work.simple_opds_entry
+        assert simple_entry.startswith('<entry')
+        eq_(None, work.verbose_opds_entry)
+
+        work.calculate_opds_entries(verbose=True)
+        # The simple OPDS entry is the same length as before.
+        # It's not necessarily _exactly_ the same because the
+        # <updated> timestamp may be different.
+        eq_(len(simple_entry), len(work.simple_opds_entry))
+
+        # The verbose OPDS entry is longer than the simple one.
+        assert work.verbose_opds_entry.startswith('<entry')
+        assert len(work.verbose_opds_entry) > len(simple_entry)
+
 
 class TestCirculationEvent(DatabaseTest):
 

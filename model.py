@@ -314,8 +314,8 @@ class SessionManager(object):
     MATERIALIZED_VIEW_WORKS_WORKGENRES = 'mv_works_editions_workgenres_datasources_identifiers'
     MATERIALIZED_VIEW_LANES = 'mv_works_for_lanes'
     MATERIALIZED_VIEWS = {
-        MATERIALIZED_VIEW_WORKS : 'materialized_view_works.sql',
-        MATERIALIZED_VIEW_WORKS_WORKGENRES : 'materialized_view_works_workgenres.sql',
+        #MATERIALIZED_VIEW_WORKS : 'materialized_view_works.sql',
+        #MATERIALIZED_VIEW_WORKS_WORKGENRES : 'materialized_view_works_workgenres.sql',
         MATERIALIZED_VIEW_LANES : 'materialized_view_for_lanes.sql',
     }
 
@@ -2965,8 +2965,8 @@ class Edition(Base):
     FULFILLABLE_MEDIA = [BOOK_MEDIUM]
 
     medium_to_additional_type = {
-        BOOK_MEDIUM : u"http://schema.org/Book",
-        AUDIO_MEDIUM : u"http://schema.org/AudioObject",
+        BOOK_MEDIUM : u"http://schema.org/EBook",
+        AUDIO_MEDIUM : u"http://bib.schema.org/Audiobook",
         PERIODICAL_MEDIUM : u"http://schema.org/PublicationIssue",
         MUSIC_MEDIUM :  u"http://schema.org/MusicRecording",
         VIDEO_MEDIUM :  u"http://schema.org/VideoObject",
@@ -4648,14 +4648,13 @@ class Work(Base):
             VerboseAnnotator,
         )
         _db = Session.object_session(self)
-        simple = AcquisitionFeed.single_entry(_db, self, Annotator,
-                                              force_create=True)
-        if simple is not None:
-            self.simple_opds_entry = unicode(etree.tostring(simple))
-        verbose = AcquisitionFeed.single_entry(_db, self, VerboseAnnotator,
-                                               force_create=True)
-        if verbose is not None:
-            self.verbose_opds_entry = unicode(etree.tostring(verbose))
+        simple = AcquisitionFeed.single_entry(
+            _db, self, Annotator, force_create=True
+        )
+        if verbose is True:
+            verbose = AcquisitionFeed.single_entry(
+                _db, self, VerboseAnnotator, force_create=True
+            )
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION
         )
@@ -5209,7 +5208,8 @@ class Measurement(Base):
         DataSource.OVERDRIVE : [1, 5],
         DataSource.AMAZON : [1, 5],
         DataSource.UNGLUE_IT: [1, 5],
-        DataSource.NOVELIST: [0, 5]
+        DataSource.NOVELIST: [0, 5],
+        DataSource.LIBRARY_STAFF: [1, 5],
     }
 
     id = Column(Integer, primary_key=True)
@@ -9148,7 +9148,7 @@ class CustomList(Base):
     library_id = Column(Integer, ForeignKey('libraries.id'), index=True, nullable=True)
 
     entries = relationship(
-        "CustomListEntry", backref="customlist", lazy="joined")
+        "CustomListEntry", backref="customlist")
 
     __table_args__ = (
         UniqueConstraint('data_source_id', 'foreign_identifier'),
