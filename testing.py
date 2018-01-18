@@ -381,6 +381,8 @@ class DatabaseTest(object):
             parent=parent, display_name=display_name,
             create_method_kwargs=dict(fiction=fiction)
         )
+        if is_new and parent:
+            lane.priority = len(parent.sublanes)-1
         if genres:
             if not isinstance(genres, list):
                 genres = [genres]
@@ -417,7 +419,8 @@ class DatabaseTest(object):
         )
 
     def _coverage_record(self, edition, coverage_source, operation=None,
-                         status=CoverageRecord.SUCCESS, collection=None):
+        status=CoverageRecord.SUCCESS, collection=None, exception=None,
+    ):
         if isinstance(edition, Identifier):
             identifier = edition
         else:
@@ -431,6 +434,7 @@ class DatabaseTest(object):
             create_method_kwargs = dict(
                 timestamp=datetime.utcnow(),
                 status=status,
+                exception=exception,
             )
         )
         return record

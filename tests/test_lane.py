@@ -9,6 +9,7 @@ from nose.tools import (
 )
 
 from . import DatabaseTest
+from sqlalchemy.sql.elements import Case
 from sqlalchemy import (
     and_,
     func,
@@ -29,6 +30,8 @@ from lane import (
 )
 
 from model import (
+    dump_query,
+    get_one_or_create,
     tuple_to_numericrange,
     CustomListEntry,
     DataSource,
@@ -39,6 +42,7 @@ from model import (
     LicensePool,
     SessionManager,
     Work,
+    WorkGenre,
 )
 
 class TestFacets(DatabaseTest):
@@ -120,48 +124,40 @@ class TestFacets(DatabaseTest):
         eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
     def test_order_facet_to_database_field(self):
-        from model import (
-            MaterializedWork as mw,
-            MaterializedWorkWithGenre as mwg,
-        )
-
+        from model import MaterializedWorkWithGenre as mwg
         def fields(facet):
             return [
-                Facets.order_facet_to_database_field(facet, w)
-                for w in (mw, mwg)
+                Facets.order_facet_to_database_field(facet)
             ]
 
         # You can sort by title...
-        eq_([mw.sort_title, mwg.sort_title],
+        eq_([mwg.sort_title],
             fields(Facets.ORDER_TITLE))
 
         # ...by author...
-        eq_([mw.sort_author, mwg.sort_author],
+        eq_([mwg.sort_author],
             fields(Facets.ORDER_AUTHOR))
 
         # ...by work ID...
-        eq_([mw.works_id, mwg.works_id],
+        eq_([mwg.works_id],
             fields(Facets.ORDER_WORK_ID))
 
         # ...by last update time...
-        eq_([mw.last_update_time, mwg.last_update_time],
+        eq_([mwg.last_update_time],
             fields(Facets.ORDER_LAST_UPDATE))
 
         # ...by most recently added...
-        eq_([mw.availability_time, mwg.availability_time],
+        eq_([mwg.availability_time],
             fields(Facets.ORDER_ADDED_TO_COLLECTION))
 
         # ...or randomly.
-        eq_([mw.random, mwg.random],
+        eq_([mwg.random],
             fields(Facets.ORDER_RANDOM))
 
     def test_order_by(self):
-        from model import (
-            MaterializedWork as mw,
-            MaterializedWorkWithGenre as mwg,
-        )
+        from model import MaterializedWorkWithGenre as m
 
-        def order(facet, work, ascending=None):
+        def order(facet, ascending=None):
             f = Facets(
                 self._default_library,
                 collection=Facets.COLLECTION_FULL, 
@@ -169,39 +165,37 @@ class TestFacets(DatabaseTest):
                 order=facet,
                 order_ascending=ascending,
             )
-            return f.order_by(work)[0]
+            return f.order_by()[0]
 
         def compare(a, b):
             assert(len(a) == len(b))
             for i in range(0, len(a)):
                 assert(a[i].compare(b[i]))
 
-        for m in mw, mwg:
-            expect = [m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-            actual = order(Facets.ORDER_AUTHOR, m, True)  
-            compare(expect, actual)
+        expect = [m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_AUTHOR, True)  
+        compare(expect, actual)
 
-            expect = [m.sort_author.desc(), m.sort_title.asc(), m.works_id.asc()]
-            actual = order(Facets.ORDER_AUTHOR, m, False)  
-            compare(expect, actual)
+        expect = [m.sort_author.desc(), m.sort_title.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_AUTHOR, False)  
+        compare(expect, actual)
 
-            expect = [m.sort_title.asc(), m.sort_author.asc(), m.works_id.asc()]
-            actual = order(Facets.ORDER_TITLE, m, True)
-            compare(expect, actual)
+        expect = [m.sort_title.asc(), m.sort_author.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_TITLE, True)
+        compare(expect, actual)
 
-            expect = [m.last_update_time.asc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-            actual = order(Facets.ORDER_LAST_UPDATE, m, True)
-            compare(expect, actual)
+        expect = [m.last_update_time.asc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_LAST_UPDATE, True)
+        compare(expect, actual)
 
-            expect = [m.random.asc(), m.sort_author.asc(), m.sort_title.asc(),
-                      m.works_id.asc()]
-            actual = order(Facets.ORDER_RANDOM, m, True)
-            compare(expect, actual)
+        expect = [m.random.asc(), m.sort_author.asc(), m.sort_title.asc(),
+                  m.works_id.asc()]
+        actual = order(Facets.ORDER_RANDOM, True)
+        compare(expect, actual)
 
-            expect = [m.availability_time.desc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-            actual = order(Facets.ORDER_ADDED_TO_COLLECTION, m, None)  
-            compare(expect, actual)
-
+        expect = [m.availability_time.desc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
+        actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)  
+        compare(expect, actual)
 
 class TestFacetsApply(DatabaseTest):
 
@@ -245,9 +239,9 @@ class TestFacetsApply(DatabaseTest):
         self.add_to_materialized_view([open_access_high, open_access_low,
                                        licensed_high, licensed_low])
 
-        from model import MaterializedWork as mw
-        qu = self._db.query(mw).join(
-            LicensePool, mw.license_pool_id==LicensePool.id
+        from model import MaterializedWorkWithGenre as mwg
+        qu = self._db.query(mwg).join(
+            LicensePool, mwg.license_pool_id==LicensePool.id
         )
         def facetify(collection=Facets.COLLECTION_FULL, 
                      available=Facets.AVAILABLE_ALL,
@@ -365,20 +359,18 @@ class TestFeaturedFacets(DatabaseTest):
         facets = FeaturedFacets(minimum_featured_quality, True)
 
         # This custom database query field will perform the calculation.
-        from model import MaterializedWork
-        quality_field = facets.quality_tier_field(
-            MaterializedWork).label("tier")
+        quality_field = facets.quality_tier_field().label("tier")
 
         # Test it out by using it in a SELECT statement.
+        from model import MaterializedWorkWithGenre as work_model
         qu = self._db.query(
-            MaterializedWork, quality_field
+            work_model, quality_field
         ).join(
             LicensePool, 
-            LicensePool.id==MaterializedWork.license_pool_id
+            LicensePool.id==work_model.license_pool_id
         ).outerjoin(
-            CustomListEntry, CustomListEntry.work_id==MaterializedWork.works_id
+            CustomListEntry, CustomListEntry.work_id==work_model.works_id
         )
-        from model import dump_query
 
         expect_scores = {
             # featured on list (11) + available (1)
@@ -409,10 +401,10 @@ class TestFeaturedFacets(DatabaseTest):
         # If custom lists are not being considered, the "awful but
         # featured on a list" work loses its cachet.
         no_list_facets = FeaturedFacets(minimum_featured_quality, False)
-        quality_field = no_list_facets.quality_tier_field(MaterializedWork).label("tier")
-        no_list_qu = self._db.query(MaterializedWork, quality_field).join(
+        quality_field = no_list_facets.quality_tier_field().label("tier")
+        no_list_qu = self._db.query(work_model, quality_field).join(
             LicensePool, 
-            LicensePool.id==MaterializedWork.license_pool_id
+            LicensePool.id==work_model.license_pool_id
         )
 
         # 1 is the expected score for a work that has nothing going
@@ -430,17 +422,17 @@ class TestFeaturedFacets(DatabaseTest):
 
     def test_apply(self):
         """apply() orders a query randomly within quality tiers."""
-        high_quality_1 = self._work(
-            title="High quality, high random", with_license_pool=True
-        )
-        high_quality_1.quality = 1
-        high_quality_1.random = 1
-
-        high_quality_2 = self._work(
+        high_quality_low_random = self._work(
             title="High quality, low random", with_license_pool=True
         )
-        high_quality_2.quality = 0.7
-        high_quality_2.random = 0
+        high_quality_low_random.quality = 1
+        high_quality_low_random.random = 0
+
+        high_quality_high_random = self._work(
+            title="High quality, high random", with_license_pool=True
+        )
+        high_quality_high_random.quality = 0.7
+        high_quality_high_random.random = 1
         
         low_quality = self._work(
             title="Low quality, high random", with_license_pool=True
@@ -448,8 +440,19 @@ class TestFeaturedFacets(DatabaseTest):
         low_quality.quality = 0
         low_quality.random = 1
 
+        self.add_to_materialized_view(
+            [high_quality_low_random, high_quality_high_random,
+             low_quality]
+        )
+
         facets = FeaturedFacets(0.5, False)
-        base_query = self._db.query(Work).join(Work.license_pools)
+        from model import MaterializedWorkWithGenre as work_model
+        base_query = self._db.query(work_model).join(work_model.license_pool)
+
+        def expect(works, qu):
+            expect_ids = [x.id for x in works]
+            actual_ids = [x.works_id for x in qu]
+            eq_(expect_ids, actual_ids)
 
         # Higher-tier works show up before lower-tier works.
         #
@@ -457,22 +460,29 @@ class TestFeaturedFacets(DatabaseTest):
         # before works with a low random number. The exact quality
         # doesn't matter (high_quality_2 is slightly lower quality
         # than high_quality_1), only the quality tier.
-        featured = facets.apply(self._db, base_query, Work, False)
-        eq_([high_quality_2, high_quality_1, low_quality], featured.all())
+        featured = facets.apply(self._db, base_query)
+        expect(
+            [high_quality_high_random, high_quality_low_random, low_quality],
+            featured
+        )
 
         # Switch the random numbers, and the order of high-quality
         # works is switched, but the high-quality works still show up
         # first.
-        high_quality_1.random = 0
-        high_quality_2.random = 1
-        eq_([high_quality_1, high_quality_2, low_quality], featured.all())
+        high_quality_high_random.random = 0.12
+        high_quality_low_random.random = 0.98
+        self._db.commit()
+        SessionManager.refresh_materialized_views(self._db)
+        expect([high_quality_low_random, high_quality_high_random, low_quality], featured)
 
-        # Passing in distinct=True makes the query distinct on
-        # three different fields.
+        # The query is distinct on works_id. (It's also distinct on the
+        # fields used in the ORDER BY clause, but that's just to get the
+        # query to work.)
         eq_(False, base_query._distinct)
-        distinct_query = facets.apply(self._db, base_query, Work, True)
-        eq_(3, len(distinct_query._distinct))
-
+        distinct_query = facets.apply(self._db, base_query)
+        eq_(
+            work_model.works_id, distinct_query._distinct[-1]
+        )
 
 
 class TestPagination(DatabaseTest):
@@ -520,14 +530,15 @@ class MockFeaturedWorks(object):
         """Set the next return value for featured_works()."""
         self._featured_works.append(works)
 
-    def featured_works(self, *args, **kwargs):
+    def groups(self, *args, **kwargs):
         try:
-            return self._featured_works.pop(0)
+            for work in self._featured_works.pop(0):
+                yield work, self
         except IndexError:
-            return []
+            return
 
 class MockWork(object):
-    """Acts as a Work or a MaterializedWork interchangeably."""
+    """Acts as a Work or a MaterializedWorkWithGenre interchangeably."""
     def __init__(self, id):
         self.id = id
         self.works_id = id
@@ -591,6 +602,48 @@ class TestWorkList(DatabaseTest):
 
         # The WorkList's child is the WorkList passed in to the constructor.
         eq_([child], wl.visible_children)
+
+    def test_top_level_for_library(self):
+        """Test the ability to generate a top-level WorkList."""
+        # These two top-level lanes should be children of the WorkList.
+        lane1 = self._lane(display_name="Top-level Lane 1")
+        lane1.priority = 0
+        lane2 = self._lane(display_name="Top-level Lane 2")
+        lane2.priority = 1
+
+        # This lane is invisible and will be filtered out.
+        invisible_lane = self._lane(display_name="Invisible Lane")
+        invisible_lane.visible = False
+
+        # This lane has a parent and will be filtered out.
+        sublane = self._lane(display_name="Sublane")
+        lane1.sublanes.append(sublane)
+
+        # This lane belongs to a different library.
+        other_library = self._library(
+            name="Other Library", short_name="Other"
+        )
+        other_library_lane = self._lane(
+            display_name="Other Library Lane", library=other_library
+        )
+
+        # The default library gets a WorkList with the two top-level lanes as children.
+        wl = WorkList.top_level_for_library(self._db, self._default_library)
+        eq_([lane1, lane2], wl.children)
+        eq_(Edition.FULFILLABLE_MEDIA, wl.media)
+
+        # The other library only has one top-level lane, so we use that lane.
+        l = WorkList.top_level_for_library(self._db, other_library)
+        eq_(other_library_lane, l)
+
+        # This library has no lanes configured at all.
+        no_config_library = self._library(
+            name="No configuration Library", short_name="No config"
+        )
+        wl = WorkList.top_level_for_library(self._db, no_config_library)
+        eq_([], wl.children)
+        eq_(Edition.FULFILLABLE_MEDIA, wl.media)
+
 
     def test_audience_key(self):
         wl = WorkList()
@@ -676,11 +729,21 @@ class TestWorkList(DatabaseTest):
 
     def test_featured_works(self):
         wl = MockWorks()
+        self._default_library.setting(Library.FEATURED_LANE_SIZE).value = "10"
         wl.initialize(library=self._default_library)
 
         w1 = MockWork(1)
 
-        wl.queue_works([w1])
+        # Set the underlying 'query' to return the same work twice.
+        # This can happen in real life. For instance, if a lane is
+        # based on a number of CustomLists, and a single work is
+        # featured on one CustomList but not featured on another, the
+        # query will find the same work with two different quality
+        # scores.
+        wl.queue_works([w1, w1])
+
+        # We asked for 10 works, the query returned two, but there was
+        # a duplicate, so we ended up with one.
         featured = wl.featured_works(self._db)
         eq_([w1], featured)
 
@@ -692,7 +755,7 @@ class TestWorkList(DatabaseTest):
 
         # We then called random_sample() on the results.
         [(query, target_size)] = wl.random_sample_calls
-        eq_([w1], query)
+        eq_([w1, w1], query)
         eq_(self._default_library.featured_lane_size, target_size)
 
     def test_works(self):
@@ -711,9 +774,9 @@ class TestWorkList(DatabaseTest):
             """Mock WorkList that overrides apply_filters() so that it
             only finds copies of 'Oliver Twist'.
             """
-
-            def apply_filters(self, _db, qu, work_model, *args, **kwargs):
-                return qu.filter(work_model.sort_title=='Oliver Twist')
+            def apply_filters(self, _db, qu, *args, **kwargs):
+                from model import MaterializedWorkWithGenre as mwg
+                return qu.filter(mwg.sort_title=='Oliver Twist')
 
         # A normal WorkList will use the default apply_filters()
         # implementation and find both books.
@@ -780,9 +843,6 @@ class TestWorkList(DatabaseTest):
             calls various hook methods.
             """
 
-            def __init__(self, distinct=True):
-                self.distinct = distinct
-            
             def only_show_ready_deliverable_works(
                     self, _db, query, *args, **kwargs
             ):
@@ -790,16 +850,15 @@ class TestWorkList(DatabaseTest):
                 return query
 
             def bibliographic_filter_clause(
-                    self, _db, query, work_model, featured
+                    self, _db, query, featured
             ):
                 called['apply_bibliographic_filters'] = True
                 called['apply_bibliographic_filters.featured'] = featured
-                return query, None, self.distinct
+                return query, None
 
         class MockFacets(object):
-            def apply(self, _db, query, work_model, distinct):
+            def apply(self, _db, query):
                 called['facets.apply'] = True
-                called['facets.apply.distinct'] = distinct
                 return query
 
         class MockPagination(object):
@@ -807,11 +866,11 @@ class TestWorkList(DatabaseTest):
                 called['pagination.apply'] = True
                 return query
 
-        from model import MaterializedWork
-        original_qu = self._db.query(MaterializedWork)
+        from model import MaterializedWorkWithGenre as work_model
+        original_qu = self._db.query(work_model)
         wl = MockWorkList()
         final_qu = wl.apply_filters(
-            self._db, original_qu, MaterializedWork, MockFacets(), 
+            self._db, original_qu, MockFacets(), 
             MockPagination()
         )
         
@@ -822,7 +881,6 @@ class TestWorkList(DatabaseTest):
         eq_(called['pagination.apply'], True)
 
         eq_(called['apply_bibliographic_filters.featured'], False)
-        eq_(called['facets.apply.distinct'], True)
 
         # We mocked everything that might have changed the final query,
         # and the end result was the query wasn't modified.
@@ -831,10 +889,8 @@ class TestWorkList(DatabaseTest):
         # Test that apply_filters() makes a query distinct if there is
         # no Facets object to do the job.
         called = dict()
-        distinct_qu = wl.apply_filters(
-            self._db, original_qu, MaterializedWork, None, None
-        )
-        eq_(str(original_qu.distinct()), str(distinct_qu))
+        distinct_qu = wl.apply_filters(self._db, original_qu, None, None)
+        eq_(str(original_qu.distinct(work_model.works_id)), str(distinct_qu))
         assert 'facets.apply' not in called
         assert 'pagination.apply' not in called
 
@@ -846,15 +902,15 @@ class TestWorkList(DatabaseTest):
             """
 
             def bibliographic_filter_clause(
-                    self, _db, query, work_model, featured
+                    self, _db, query, featured
             ):
-                return None, None, False
+                return None, None
 
         wl = MockWorkList()
         wl.initialize(self._default_library)
-        from model import MaterializedWork
-        qu = self._db.query(MaterializedWork)
-        eq_(None, wl.apply_filters(self._db, qu, MaterializedWork, None, None))
+        from model import MaterializedWorkWithGenre as mwg
+        qu = self._db.query(mwg)
+        eq_(None, wl.apply_filters(self._db, qu, None, None))
 
     def test_bibliographic_filter_clause(self):
         called = dict()
@@ -869,7 +925,7 @@ class TestWorkList(DatabaseTest):
                 self.genre_ids = genre_ids
                 self.media = media
 
-            def audience_filter_clauses(self, _db, qu, work_model):
+            def audience_filter_clauses(self, _db, qu):
                 called['apply_audience_filter'] = True
                 return []
 
@@ -881,8 +937,8 @@ class TestWorkList(DatabaseTest):
         # methods do nothing, then bibliographic_filter_clause() has
         # no effect.
         featured_object = object()
-        final_qu, bibliographic_filter, distinct = wl.bibliographic_filter_clause(
-            self._db, original_qu, wg, featured_object
+        final_qu, bibliographic_filter = wl.bibliographic_filter_clause(
+            self._db, original_qu, featured_object
         )
         eq_(original_qu, final_qu)
         eq_(None, bibliographic_filter)
@@ -910,12 +966,10 @@ class TestWorkList(DatabaseTest):
             that it finds only the given books.
             """
             worklist = MockWorkList(**worklist_constructor_args)
-            qu, clause, distinct = worklist.bibliographic_filter_clause(
-                self._db, original_qu, wg, False
+            qu, clause = worklist.bibliographic_filter_clause(
+                self._db, original_qu, False
             )
             qu = qu.filter(clause)
-            if distinct:
-                qu = qu.distinct()
             expect_titles = sorted([x.sort_title for x in expect_books])
             actual_titles = sorted([x.sort_title for x in qu])
             eq_(expect_titles, actual_titles)
@@ -966,6 +1020,9 @@ class TestWorkList(DatabaseTest):
         non_gutenberg_children = self._work(
             presentation_edition=edition, audience=Classifier.AUDIENCE_CHILDREN
         )
+        self.add_to_materialized_view(
+            [gutenberg_children, non_gutenberg_children, gutenberg_adult]
+        )
 
         def for_audiences(*audiences):
             """Invoke WorkList.apply_audience_clauses using the given 
@@ -973,27 +1030,29 @@ class TestWorkList(DatabaseTest):
             """
             wl = WorkList()
             wl.audiences = audiences
-            qu = self._db.query(Work).join(Work.license_pools)
-            clauses = wl.audience_filter_clauses(self._db, qu, Work)
+            from model import MaterializedWorkWithGenre as work_model
+            qu = self._db.query(work_model).join(work_model.license_pool)
+            clauses = wl.audience_filter_clauses(self._db, qu)
             if clauses:
                 qu = qu.filter(and_(*clauses))
-            return qu.all()
+            return [x.works_id for x in qu.all()]
 
-        eq_([gutenberg_adult], for_audiences(Classifier.AUDIENCE_ADULT))
+        eq_([gutenberg_adult.id], for_audiences(Classifier.AUDIENCE_ADULT))
 
         # The Gutenberg "children's" book is filtered out because it we have
         # no guarantee it is actually suitable for children.
-        eq_([non_gutenberg_children], 
+        eq_([non_gutenberg_children.id], 
             for_audiences(Classifier.AUDIENCE_CHILDREN))
 
         # This can sometimes lead to unexpected results, but the whole
         # thing is a hack and needs to be improved anyway.
-        eq_([non_gutenberg_children], 
+        eq_([non_gutenberg_children.id], 
             for_audiences(Classifier.AUDIENCE_ADULT, 
                           Classifier.AUDIENCE_CHILDREN))
 
         # If no particular audiences are specified, no books are filtered.
-        eq_(set([gutenberg_adult, gutenberg_children, non_gutenberg_children]), 
+        eq_(set([gutenberg_adult.id, gutenberg_children.id, 
+                 non_gutenberg_children.id]), 
             set(for_audiences()))
 
     def test_random_sample(self):
@@ -1105,10 +1164,10 @@ class TestWorkList(DatabaseTest):
         eq_(1, kw['size'])
         eq_(0, kw['offset'])
         
-        # The single search result was converted to a MaterializedWork.
+        # The single search result was converted to a MaterializedWorkWithGenre.
         [result] = results
-        from model import MaterializedWork
-        assert isinstance(result, MaterializedWork)
+        from model import MaterializedWorkWithGenre as mwg
+        assert isinstance(result, mwg)
         eq_(work.id, result.works_id)
 
 
@@ -1117,6 +1176,33 @@ class TestLane(DatabaseTest):
     def test_get_library(self):
         lane = self._lane()
         eq_(self._default_library, lane.get_library(self._db))
+
+    def test_set_audiences(self):
+        """Setting Lane.audiences to a single value will
+        auto-convert it into a list containing one value.
+        """
+        lane = self._lane()
+        lane.audiences = Classifier.AUDIENCE_ADULT
+        eq_([Classifier.AUDIENCE_ADULT], lane.audiences)
+
+    def test_update_size(self):
+        # One work in two subgenres of fiction.
+        work = self._work(fiction=True, with_license_pool=True, 
+                          genre="Science Fiction")
+        romance, ignore = Genre.lookup(self._db, "Romance")
+        work.genres.append(romance)
+
+        # The 'Fiction' lane has one book.
+        fiction = self._lane(display_name="Fiction", fiction=True)
+
+        # But the materialized view contains the book twice -- once under
+        # Science Fiction and once under Romance.
+        self.add_to_materialized_view([work])
+
+        # update_size() sets the Lane's size to the correct number.
+        fiction.size = 100
+        fiction.update_size(self._db)
+        eq_(1, fiction.size)
 
     def test_visibility(self):
         parent = self._lane()
@@ -1328,38 +1414,6 @@ class TestLane(DatabaseTest):
         assert len(no_inclusive_genres.genre_ids) > 10
         assert science_fiction.id not in no_inclusive_genres.genre_ids
 
-    def test_groups(self):
-        w1 = MockWork(1)
-        w2 = MockWork(2)
-        w3 = MockWork(3)
-
-        parent = self._lane()
-        def mock_parent_featured_works(_db):
-            return [w1, w2]
-        parent.featured_works = mock_parent_featured_works
-
-        child = self._lane()
-        parent.sublanes = [child]
-        def mock_child_featured_works(_db):
-            return [w2]
-        child.featured_works = mock_child_featured_works
-
-        # Calling groups() on the parent Lane returns three
-        # 2-tuples; one for a work featured in the sublane,
-        # and then two for a work featured in the parent lane.
-        [wwl1, wwl2, wwl3] = parent.groups(self._db)
-        eq_((w2, child), wwl1)
-        eq_((w1, parent), wwl2)
-        eq_((w2, parent), wwl3)
-
-        # If a lane's sublanes don't contribute any books, then
-        # groups() returns an entirely empty list, indicating that no
-        # groups feed should be displayed.
-        def mock_child_featured_works(_db):
-            return []
-        child.featured_works = mock_child_featured_works
-        eq_([], parent.groups(self._db))
-
     def test_search_target(self):
 
         # A Lane that is the root for a patron type can be
@@ -1464,10 +1518,10 @@ class TestLane(DatabaseTest):
         )
         eq_(results, target_results)
 
-        # The single search result was converted to a MaterializedWork.
+        # The single search result was converted to a MaterializedWorkWithGenre.
         [result] = results
-        from model import MaterializedWork
-        assert isinstance(result, MaterializedWork)
+        from model import MaterializedWorkWithGenre as mwg
+        assert isinstance(result, mwg)
         eq_(work.id, result.works_id)
 
         # This still works if the lane is its own search_target.
@@ -1492,38 +1546,35 @@ class TestLane(DatabaseTest):
         childrens_fiction.target_age = tuple_to_numericrange((8,8))
         self.add_to_materialized_view([childrens_fiction, nonfiction])
 
-        def match_works(lane, works, featured=False):
+        def match_works(lane, works, featured=False, 
+                        expect_bibliographic_filter=True):
             """Verify that calling apply_bibliographic_filters to the given
             lane yields the given list of works.
             """
-            from model import MaterializedWork
-            base_query = self._db.query(MaterializedWork).join(
-                LicensePool, MaterializedWork.license_pool_id==LicensePool.id
+            from model import MaterializedWorkWithGenre as mwg
+            base_query = self._db.query(mwg).join(
+                LicensePool, mwg.license_pool_id==LicensePool.id
             )
-            new_query, bibliographic_clause, distinct = lane.bibliographic_filter_clause(
-                self._db, base_query, MaterializedWork, featured
+            new_query, bibliographic_clause = lane.bibliographic_filter_clause(
+                self._db, base_query, featured
             )
             
             if lane.uses_customlists:
                 # bibliographic_filter_clause modifies the query (by
                 # calling customlist_filter_clauses).
                 assert base_query != new_query
-                if not lane.list_datasource and len(lane.customlists) < 2:
-                    # This query does not need to be distinct -- either
-                    # there are no custom lists involved, or there
-                    # is known to be only a single list.
-                    eq_(False, distinct)
-                else:
-                    # This query needs to be distinct, because a 
-                    # single book might show up more than once.
-                    eq_(True, distinct)
             else:
-                # The input query is the same as the output query, and
-                # it does not need to be distinct.
+                # The query was not modified.
                 eq_(base_query, new_query)
-                eq_(False, distinct)
 
-            final_query = new_query.filter(bibliographic_clause)
+            if expect_bibliographic_filter:
+                # There must be some kind of bibliographic filter.
+                assert bibliographic_clause is not None
+                final_query = new_query.filter(bibliographic_clause)
+            else:
+                # There must *not* be some kind of bibliographic filter.
+                assert bibliographic_clause is None
+                final_query = new_query
             results = final_query.all()
             works = sorted([(x.id, x.sort_title) for x in works])
             materialized_works = sorted(
@@ -1550,7 +1601,8 @@ class TestLane(DatabaseTest):
 
         both_lane = self._lane()
         both_lane.fiction = None
-        match_works(both_lane, [childrens_fiction, nonfiction])
+        match_works(both_lane, [childrens_fiction, nonfiction], 
+                    expect_bibliographic_filter=False)
 
         # A lane may include a target age range.
         children_lane = self._lane()
@@ -1588,6 +1640,7 @@ class TestLane(DatabaseTest):
         # of a lane that takes its entries from a second list.
         best_selling_classics = self._lane(parent=best_sellers_lane)
         best_selling_classics.customlists.append(all_time_classics)
+        best_selling_classics.inherit_parent_restrictions = False
         match_works(best_selling_classics, [childrens_fiction, nonfiction])
 
         # When it inherits its parent's restrictions, only the
@@ -1604,32 +1657,40 @@ class TestLane(DatabaseTest):
         best_sellers_lane.fiction = True
         match_works(best_selling_classics, [childrens_fiction])       
 
-    def test_bibliographic_filter_clause_medium_restriction(self):
-        """We have to test the medium query specially in a kind of hacky way,
-        since currently the materialized view only includes ebooks.
+    def test_bibliographic_filter_clause_no_restrictions(self):
+        """A lane that matches every single book has no bibliographic
+        filter clause.
         """
-        audiobook = self._work(
-            title="Audiobook", fiction=False, with_license_pool=True
-        )
-        audiobook.presentation_edition.medium = Edition.AUDIO_MEDIUM
         lane = self._lane()
+        from model import MaterializedWorkWithGenre as work_model
+        qu = self._db.query(work_model)
+        eq_(
+            (qu, None), 
+            lane.bibliographic_filter_clause(self._db, qu, False, False)
+        )
 
+    def test_bibliographic_filter_clause_medium_restriction(self):
+        book = self._work(fiction=False, with_license_pool=True)
+        eq_(Edition.BOOK_MEDIUM, book.presentation_edition.medium)
+        lane = self._lane()
+        self.add_to_materialized_view([book])
+
+        from model import MaterializedWorkWithGenre as work_model
         def matches(lane):
-            qu = self._db.query(Work).join(Work.license_pools).join(Work.presentation_edition)
-            new_qu, bib_filter, distinct = lane.bibliographic_filter_clause(
-                self._db, qu, Edition, False
+            qu = self._db.query(work_model)
+            new_qu, bib_filter = lane.bibliographic_filter_clause(
+                self._db, qu, False
             )
             eq_(new_qu, qu)
-            eq_(False, distinct)
-            return new_qu.filter(bib_filter).all()
+            return [x.works_id for x in new_qu.filter(bib_filter)]
 
-        # This lane only includes ebooks, and it's empty.
+        # This lane only includes ebooks, and it has one item.
         lane.media = [Edition.BOOK_MEDIUM]
-        eq_([], matches(lane))
+        eq_([book.id], matches(lane))
 
-        # This lane only includes audiobooks, and it contains one book.
+        # This lane only includes audiobooks, and it's empty
         lane.media = [Edition.AUDIO_MEDIUM]
-        eq_([audiobook], matches(lane))
+        eq_([], matches(lane))
 
     def test_age_range_filter_clauses(self):
         """Standalone test of age_range_filter_clauses().
@@ -1638,18 +1699,23 @@ class TestLane(DatabaseTest):
             """Build a query that applies the given lane's age filter to the 
             works table.
             """
-            qu = self._db.query(Work)
-            clauses = lane.age_range_filter_clauses(Work)
+            from model import MaterializedWorkWithGenre as work_model
+            qu = self._db.query(work_model)
+            clauses = lane.age_range_filter_clauses()
             if clauses:
                 qu = qu.filter(and_(*clauses))
-            return qu.all()
+            return [x.works_id for x in qu]
 
-        adult = self._work(title="For adults", 
-                           audience=Classifier.AUDIENCE_ADULT)
+        adult = self._work(
+            title="For adults", 
+            audience=Classifier.AUDIENCE_ADULT,
+            with_license_pool=True,
+        )
         eq_(None, adult.target_age)
         fourteen_or_fifteen = self._work(
             title="For teens",
-            audience=Classifier.AUDIENCE_YOUNG_ADULT
+            audience=Classifier.AUDIENCE_YOUNG_ADULT,
+            with_license_pool=True,
         )
         fourteen_or_fifteen.target_age = tuple_to_numericrange((14,15))
 
@@ -1657,18 +1723,20 @@ class TestLane(DatabaseTest):
         # the age range of the book.
         younger_ya = self._lane()
         younger_ya.target_age = (12,14)
-        eq_([fourteen_or_fifteen], filtered(younger_ya))
+        self.add_to_materialized_view([adult, younger_ya])
+        eq_([fourteen_or_fifteen.id], filtered(younger_ya))
 
         # This lane contains no books because it skews too old for the YA
         # book, but books for adults are not allowed.
         older_ya = self._lane()
         older_ya.target_age = (16,17)
+        self.add_to_materialized_view([older_ya])
         eq_([], filtered(older_ya))
 
         # Expand it to include books for adults, and the adult book
         # shows up despite having no target age at all.
         older_ya.target_age = (16,18)
-        eq_([adult], filtered(older_ya))
+        eq_([adult.id], filtered(older_ya))
 
     def test_customlist_filter_clauses(self):
         """Standalone test of apply_customlist_filter.
@@ -1680,10 +1748,9 @@ class TestLane(DatabaseTest):
         # apply_customlist_filter does nothing.
         no_lists = self._lane()
         qu = self._db.query(Work)
-        new_qu, clauses, distinct = no_lists.customlist_filter_clauses(qu, Work)
+        new_qu, clauses = no_lists.customlist_filter_clauses(qu)
         eq_(qu, new_qu)
         eq_([], clauses)
-        eq_(False, distinct)
 
         # Now set up a Work and a CustomList that contains the work.
         work = self._work(with_license_pool=True)
@@ -1701,50 +1768,51 @@ class TestLane(DatabaseTest):
         # Gutenberg.
         gutenberg_lists_lane = self._lane()
         gutenberg_lists_lane.list_datasource = gutenberg
+        self.add_to_materialized_view([work])
 
-        def results(lane=gutenberg_lists_lane, must_be_featured=False,
-                    expect_distinct=False):
-            qu = self._db.query(Work)
-            new_qu, clauses, distinct = lane.customlist_filter_clauses(
-                qu, Work, must_be_featured=must_be_featured
+        def results(lane=gutenberg_lists_lane, must_be_featured=False):
+            from model import MaterializedWorkWithGenre as work_model
+            qu = self._db.query(work_model)
+            new_qu, clauses = lane.customlist_filter_clauses(
+                qu, must_be_featured=must_be_featured
             )
 
             # The query comes out different than it goes in -- there's a
             # new join against CustomList.
             assert new_qu != qu
 
-            eq_(expect_distinct, distinct)
-
             # Run the query and see what it matches.
-            modified = new_qu.filter(and_(*clauses)).distinct()
-            return modified.all()
+            modified = new_qu.filter(and_(*clauses)).distinct(
+                work_model.works_id
+            )
+            return [x.works_id for x in modified]
 
         # Both lanes contain the work.
-        eq_([work], results(gutenberg_list_lane, expect_distinct=False))
-        eq_([work], results(gutenberg_lists_lane, expect_distinct=True))
+        eq_([work.id], results(gutenberg_list_lane))
+        eq_([work.id], results(gutenberg_lists_lane))
 
-        # If we add another list to the gutenberg_list_lane,
-        # it becomes distinct, because there's now a possibility
-        # that a single book might show up more than once.
+        # If there's another list with the same work on it, the
+        # work only shows up once.
         gutenberg_list_2, ignore = self._customlist(num_entries=0)
+        gutenberg_list_2_entry, ignore = gutenberg_list_2.add_entry(work)
         gutenberg_list_lane.customlists.append(gutenberg_list)
-        eq_([work], results(gutenberg_list_lane, expect_distinct=True))
+        eq_([work.id], results(gutenberg_list_lane))
 
         # This lane gets every work on a list associated with Overdrive.
         # There are no such lists, so the lane is empty.
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         overdrive_lists_lane = self._lane()
         overdrive_lists_lane.list_datasource = overdrive
-        eq_([], results(overdrive_lists_lane, expect_distinct=True))
+        eq_([], results(overdrive_lists_lane))
 
         # It's possible to restrict a lane so that only works that are
         # _featured_ on a list show up. The work isn't featured, so it
         # doesn't show up.
-        eq_([], results(must_be_featured=True, expect_distinct=True))
+        eq_([], results(must_be_featured=True))
 
         # Now it's featured, and it shows up.
         gutenberg_list_entry.featured = True
-        eq_([work], results(must_be_featured=True, expect_distinct=True))
+        eq_([work.id], results(must_be_featured=True))
 
         # It's possible to restrict a lane to works that were seen on
         # a certain list in a given timeframe.
@@ -1755,8 +1823,432 @@ class TestLane(DatabaseTest):
         # The lane will only show works that were seen within the last
         # day. There are no such works.
         gutenberg_lists_lane.list_seen_in_previous_days = 1
-        eq_([], results(expect_distinct=True))
+        eq_([], results())
 
         # Now it's been loosened to three days, and the work shows up.
         gutenberg_lists_lane.list_seen_in_previous_days = 3
-        eq_([work], results(expect_distinct=True))
+        eq_([work.id], results())
+
+class TestWorkListGroups(DatabaseTest):
+    """Tests of WorkList.groups() and the helper methods."""
+
+    def setup(self):
+        super(TestWorkListGroups, self).setup()
+
+        # Make sure random selections and range generations go the
+        # same way every time.
+        random.seed(42)
+
+    def test_groups(self):
+        """A comprehensive test of WorkList.groups()"""
+        def _w(**kwargs):
+            """Helper method to create a work with license pool."""
+            return self._work(with_license_pool=True, **kwargs)
+
+        # In this library, the groups feed includes at most two books
+        # for each lane.
+        library = self._default_library
+        library.setting(library.FEATURED_LANE_SIZE).value = "2"
+
+        # Create eight works.
+        hq_litfic = _w(title="HQ LitFic", fiction=True, genre='Literary Fiction')
+        hq_litfic.quality = 0.8
+        lq_litfic = _w(title="LQ LitFic", fiction=True, genre='Literary Fiction')
+        lq_litfic.quality = 0
+        hq_sf = _w(title="HQ SF", genre="Science Fiction", fiction=True)
+        hq_sf.random = 0.25
+
+        # Add a lot of irrelevant genres to one of the works. This
+        # will clutter up the materialized view, but it won't affect
+        # the results.
+        for genre in ['Westerns', 'Horror', 'Erotica']:
+            genre_obj, is_new = Genre.lookup(self._db, genre)
+            get_one_or_create(self._db, WorkGenre, work=hq_sf, genre=genre_obj)
+
+        hq_sf.quality = 0.8
+        mq_sf = _w(title="MQ SF", genre="Science Fiction", fiction=True)
+        mq_sf.quality = 0.6
+        lq_sf = _w(title="LQ SF", genre="Science Fiction", fiction=True)
+        lq_sf.quality = 0.1
+        hq_ro = _w(title="HQ Romance", genre="Romance", fiction=True)
+        hq_ro.quality = 0.8
+        hq_ro.random = 0.75
+        mq_ro = _w(title="MQ Romance", genre="Romance", fiction=True)
+        mq_ro.quality = 0.6
+        lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
+        lq_ro.quality = 0.1
+        nonfiction = _w(title="Nonfiction", fiction=False)
+        self.add_to_materialized_view(
+            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
+             nonfiction]
+        )
+
+        # One of these works (mq_sf) is a best-seller and also a staff
+        # pick.
+        best_seller_list, ignore = self._customlist(num_entries=0)
+        best_seller_list.add_entry(mq_sf)
+
+        staff_picks_list, ignore = self._customlist(num_entries=0)
+        staff_picks_list.add_entry(mq_sf)
+
+        # Create a 'Fiction' lane with five sublanes.
+        fiction = self._lane("Fiction")
+        fiction.fiction = True
+
+        # "Best Sellers", which will contain one book.
+        best_sellers = self._lane(
+            "Best Sellers", parent=fiction
+        )
+        best_sellers.customlists.append(best_seller_list)
+
+        # "Staff Picks", which will contain the same book.
+        staff_picks = self._lane(
+            "Staff Picks", parent=fiction
+        )
+        staff_picks.customlists.append(staff_picks_list)
+
+        # "Science Fiction", which will contain two books (but
+        # will not contain the best-seller).
+        sf_lane = self._lane(
+            "Science Fiction", parent=fiction, genres=["Science Fiction"]
+        )
+
+        # "Romance", which will contain two books.
+        romance_lane = self._lane(
+            "Romance", parent=fiction, genres=["Romance"]
+        )
+
+        # "Discredited Nonfiction", which contains a book that would
+        # not normally appear in 'Fiction'.
+        discredited_nonfiction = self._lane(
+            "Discredited Nonfiction", fiction=False,
+            parent=fiction
+        )
+        discredited_nonfiction.inherit_parent_restrictions = False
+
+        def assert_contents(g, expect):
+            """Assert that a generator yields the expected
+            (MaterializedWorkWithGenre, lane) 2-tuples.
+            """
+            results = list(g)
+            expect = [
+                (x[0].sort_title, x[1].display_name) for x in expect
+            ]
+            actual = [
+                (x[0].sort_title, x[1].display_name) for x in results
+            ]
+            for i, expect_item in enumerate(expect):
+                if i >= len(actual):
+                    actual_item = None
+                else:
+                    actual_item = actual[i]
+                eq_(
+                    expect_item, actual_item,
+                    "Mismatch in position %d: Expected %r, got %r.\nOverall, expected:\n%r\nGot:\n%r:" %
+                    (i, expect_item, actual_item, 
+                     expect, actual)
+                )
+
+        fiction.groups(self._db)
+        assert_contents(
+            fiction.groups(self._db),
+            [
+                # The lanes based on lists feature every title on the
+                # list.  This isn't enough to pad out the lane to
+                # FEATURED_LANE_SIZE, but nothing else belongs in the
+                # lane.
+                (mq_sf, best_sellers),
+
+                # In fact, both lanes feature the same title -- this
+                # generally won't happen but it can happen when
+                # multiple lanes are based on lists that feature the
+                # same title.
+                (mq_sf, staff_picks),
+
+                # The genre-based lanes contain FEATURED_LANE_SIZE
+                # (two) titles each. The 'Science Fiction' lane
+                # features a middle-quality work that was already
+                # featured above in a list, even though there's a
+                # low-quality work that could have been used
+                # instead. Each lane query has its own LIMIT applied,
+                # so we didn't even see the low-quality work.
+                (hq_sf, sf_lane),
+                (mq_sf, sf_lane),
+                (hq_ro, romance_lane),
+                (mq_ro, romance_lane),
+
+                # The 'Discredited Nonfiction' lane contains a single
+                # book. There just weren't enough matching books to fill
+                # out the lane to FEATURED_LANE_SIZE.
+                (nonfiction, discredited_nonfiction),
+
+                # The 'Fiction' lane contains a title that fits in the
+                # fiction lane but was not classified under any other
+                # lane. It also contains a title that was previously
+                # featured earlier. There's a low-quality litfic title
+                # in the database, but we didn't see it because the
+                # 'Fiction' query had a LIMIT applied to it.
+                (hq_litfic, fiction),
+                (hq_ro, fiction),
+            ]
+        )
+
+        # If we ask only about 'Fiction', not including its sublanes,
+        # we get the same results.
+        #
+        # hq_ro shows up before hq_litfic because its .random is a
+        # larger number. In the previous example, hq_ro showed up
+        # after hq_litfic because we knew we'd already shown hq_ro in
+        # a previous lane.
+        assert_contents(
+            fiction.groups(self._db, include_sublanes=False),
+            [(hq_ro, fiction), (hq_litfic, fiction)]
+        )
+
+        # When a lane has no sublanes, its behavior is the same whether
+        # it is called with include_sublanes true or false.
+        for include_sublanes in (True, False):
+            assert_contents(
+                discredited_nonfiction.groups(
+                    self._db, include_sublanes=include_sublanes
+                ),
+                [(nonfiction, discredited_nonfiction)]
+            )
+        
+        # If we make the lanes thirstier for content, we see slightly
+        # different behavior.
+        library.setting(library.FEATURED_LANE_SIZE).value = "3"
+        assert_contents(
+            fiction.groups(self._db),
+            [
+                # The list-based lanes are the same as before.
+                (mq_sf, best_sellers),
+                (mq_sf, staff_picks),
+
+                # After using every single science fiction work that
+                # wasn't previously used, we reuse mq_sf to pad the
+                # "Science Fiction" lane up to three items. It's
+                # better to have lq_sf show up before mq_sf, even
+                # though it's lower quality, because lq_sf hasn't been
+                # used before.
+                (hq_sf, sf_lane),
+                (lq_sf, sf_lane),
+                (mq_sf, sf_lane),
+
+                # The 'Romance' lane now contains all three Romance
+                # titles, with the higher-quality titles first.
+                (hq_ro, romance_lane),
+                (mq_ro, romance_lane),
+                (lq_ro, romance_lane),
+
+                # The 'Discredited Nonfiction' lane is the same as
+                # before.
+                (nonfiction, discredited_nonfiction),
+
+                # After using every single fiction work that wasn't
+                # previously used, we reuse high-quality works to pad
+                # the "Fiction" lane to three items. The
+                # lowest-quality Romance title doesn't show up here
+                # anymore, because the 'Romance' lane claimed it. If
+                # we have to reuse titles, we'll reuse the
+                # high-quality ones.
+                (hq_litfic, fiction),
+                (hq_sf, fiction),
+                (hq_ro, fiction),
+            ]
+        )
+
+        # Now instead of relying on the 'Fiction' lane, make a
+        # WorkList containing two different lanes, and call groups() on
+        # the WorkList.
+
+        class MockWorkList(object):
+
+            display_name = "Mock"
+            visible = True
+            priority = 2
+
+            def groups(self, _db, include_sublanes):
+                yield lq_litfic, self
+
+        mock = MockWorkList()
+
+        wl = WorkList()
+        wl.initialize(
+            self._default_library, children=[best_sellers, staff_picks, mock]
+        )
+
+        # We get results from the two lanes and from the MockWorkList.
+        # Since the MockWorkList wasn't a lane, its results were obtained
+        # by calling groups() recursively.
+        assert_contents(
+            wl.groups(self._db),
+            [
+                (mq_sf, best_sellers),
+                (mq_sf, staff_picks),
+                (lq_litfic, mock),
+            ]
+        )
+
+    def test_featured_works_with_lanes(self):
+        """_featured_works_with_lanes calls works_in_window on every lane
+        pass in to it.
+        """
+        class Mock(object):
+            """A Mock of Lane.works_in_window."""
+
+            def __init__(self, mock_works):
+                self.mock_works = mock_works
+
+            def works_in_window(self, _db, facets, target_size):
+                self.called_with = [_db, facets, target_size]
+                return [self.mock_works]
+
+        mock1 = Mock(("mw1","quality1"))
+        mock2 = Mock(("mw2","quality2"))
+
+        lane = self._lane()
+        results = lane._featured_works_with_lanes(self._db, [mock1, mock2])
+
+        # The results of works_in_window were annotated with the
+        # 'lane' that produced the result.
+        eq_([('mw1', 'quality1', mock1), ('mw2', 'quality2', mock2)],
+            list(results))
+
+        # Each Mock's works_in_window was called with the same
+        # arguments.
+        eq_(mock1.called_with, mock2.called_with)
+        _db, facets, target_size = mock1.called_with
+
+        # Those arguments came from the configuration of the Library
+        # associated with the (non-mock) Lane on which _groups_query
+        # was originally called.
+        eq_(self._db, _db)
+        eq_(lane.library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(lane.library.featured_lane_size, target_size)
+
+    def test_featured_window(self):
+        lane = self._lane()
+
+        # Unless the lane has more items than we are asking for, the
+        # 'window' spans the entire range from zero to one.
+        eq_((0,1), lane.featured_window(1))
+        lane.size = 99
+        eq_((0,1), lane.featured_window(99))
+
+        # Otherwise, the 'window' is a smaller, randomly selected range
+        # between zero and one.
+        lane.size = 6094
+        start, end = lane.featured_window(17)
+        expect_start = 0.0246619
+        eq_(expect_start, round(start, 8))
+        eq_(round(start+0.013948146,8), round(end, 8))
+
+        # Given a lane with 6094 works, selecting works with .random
+        # between 0.630 and 0.644 should give us about 85 items, which
+        # is what we need to make it likely that we get 17 items of
+        # featurable quality.
+        width = (end-start)
+        estimated_items = lane.size * width
+        eq_(85, round(estimated_items,1))
+
+    def test_fill_parent_lane(self):
+
+        class Mock(object):
+            def __init__(self, works_id):
+                self.works_id = works_id
+
+            def __repr__(self):
+                return self.works_id
+
+        a = Mock("a")
+        b = Mock("b")
+        c = Mock("c")
+        d = Mock("d")
+        e = Mock("e")
+        f = Mock("f")
+
+        def fill(lane, additional_needed, unused_by_tier, used_by_tier, 
+              used_works=[]):
+            mws = []
+            used_ids = set([x.works_id for x in used_works])
+            for mw, yielded_lane in lane._fill_parent_lane(
+                    additional_needed, unused_by_tier, used_by_tier,
+                    used_ids
+            ):
+                # The lane should always be the lane on which
+                # _fill_parent_lane was called.
+                eq_(yielded_lane, lane)
+                mws.append(mw)
+            return mws
+
+        unused = { 10 : [a], 1 : [b]}
+        used = { 10 : [c] }
+        lane = self._lane()
+
+        # If we don't ask for any works, we don't get any.
+        eq_([], fill(lane, 0, unused, used))
+
+        # If we ask for three or more, we get all three, with unused
+        # prioritized over used and high-quality prioritized over
+        # low-quality.
+        eq_([a,b,c], fill(lane, 3, unused, used))
+        eq_([a,b,c], fill(lane, 100, unused, used))
+
+        # If one of the items in 'unused' is actually used,
+        # it will be ignored. (TODO: it would make more sense
+        # to treat it like the other 'used' items, but it doesn't
+        # matter much in real usage.)
+        eq_([b,c], fill(lane, 3, unused, used, set([a, c])))
+
+        # TODO: If a work shows up multiple times in the 'used'
+        # dictionary it can be reused multiple times -- basically once
+        # we go into the 'used' dictionary we don't care how often we
+        # reuse things. I don't think this matters in real usage.
+
+        # Within a quality tier, works are given up in random order.
+        unused = { 10 : [a, b, c], 1 : [d, e, f]}
+        eq_([c,a,b, e,f,d], fill(lane, 6, unused, used))
+
+    def test_restrict_query_to_window(self):
+        lane = self._lane()
+        
+        from model import MaterializedWorkWithGenre as work_model
+        query = self._db.query(work_model).filter(work_model.fiction==True)
+        target_size = 10
+
+        # If the lane is so small that windowing is not safe,
+        # _restrict_query_to_window does nothing.
+        lane.size = 1
+        eq_(
+            query, 
+            lane._restrict_query_to_window(query, target_size)
+        )
+
+        # If the lane size is small enough to window, then
+        # _restrict_query_to_window adds restrictions on the .random
+        # field.
+        lane.size = 960
+        modified = lane._restrict_query_to_window(query, target_size)
+
+        # Check the SQL.
+        sql = dump_query(modified)
+
+        expect_lower = 0.606
+        expect_upper = 0.658
+        args = dict(mv=work_model.__table__.name, lower=expect_lower,
+                    upper=expect_upper) 
+
+        assert '%(mv)s.fiction =' % args in sql
+        expect_upper_range = '%(mv)s.random <= %(upper)s' % args
+        assert expect_upper_range in sql
+
+        expect_lower_range = '%(mv)s.random >= %(lower)s' % args
+        assert expect_lower_range in sql
+
+        # Those values came from featured_window(). If we call that
+        # method ourselves we will get a different window of
+        # approximately the same width.
+        width = expect_upper-expect_lower
+        new_lower, new_upper = lane.featured_window(target_size)
+        eq_(round(width, 3), round(new_upper-new_lower, 3))

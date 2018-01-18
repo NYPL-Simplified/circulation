@@ -312,9 +312,11 @@ class SessionManager(object):
 
     MATERIALIZED_VIEW_WORKS = 'mv_works_editions_datasources_identifiers'
     MATERIALIZED_VIEW_WORKS_WORKGENRES = 'mv_works_editions_workgenres_datasources_identifiers'
+    MATERIALIZED_VIEW_LANES = 'mv_works_for_lanes'
     MATERIALIZED_VIEWS = {
         MATERIALIZED_VIEW_WORKS : 'materialized_view_works.sql',
         MATERIALIZED_VIEW_WORKS_WORKGENRES : 'materialized_view_works_workgenres.sql',
+        MATERIALIZED_VIEW_LANES : 'materialized_view_for_lanes.sql',
     }
 
     # A function that calculates recursively equivalent identifiers
@@ -334,7 +336,7 @@ class SessionManager(object):
         return sessionmaker(bind=engine)
 
     @classmethod
-    def initialize(cls, url):
+    def initialize(cls, url, create_materialized_work_class=True):
         if url in cls.engine_for_url:
             engine = cls.engine_for_url[url]
             return engine, engine.connect()
@@ -359,6 +361,14 @@ class SessionManager(object):
                 view_name, resource_file)
             sql = open(resource_file).read()
             connection.execute(sql)
+
+            # NOTE: This is apparently necessary for the creation of
+            # the materialized view to be finalized in all cases. As
+            # such, materialized views should be created WITH NO DATA,
+            # since they will be refreshed immediately after creation.
+            result = connection.execute(
+                "REFRESH MATERIALIZED VIEW %s;" % view_name
+            )
 
         if not connection:
             connection = engine.connect()
@@ -385,42 +395,24 @@ class SessionManager(object):
         if connection:
             connection.close()
 
-        class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
-            __table__ = Table(
-                cls.MATERIALIZED_VIEW_WORKS_WORKGENRES,
-                Base.metadata,
-                Column('works_id', Integer, primary_key=True),
-                Column('workgenres_id', Integer, primary_key=True),
-                Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
-                autoload=True,
-                autoload_with=engine
-            )
-            license_pool = relationship(
-                LicensePool,
-                primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
-                foreign_keys=LicensePool.id, lazy='joined', uselist=False)
+        if create_materialized_work_class:
+            class MaterializedWorkWithGenre(Base, BaseMaterializedWork):
+                __table__ = Table(
+                    cls.MATERIALIZED_VIEW_LANES,
+                    Base.metadata,
+                    Column('works_id', Integer, primary_key=True),
+                    Column('workgenres_id', Integer, primary_key=True),
+                    Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
+                    autoload=True,
+                    autoload_with=engine
+                )
+                license_pool = relationship(
+                    LicensePool,
+                    primaryjoin="LicensePool.id==MaterializedWorkWithGenre.license_pool_id",
+                    foreign_keys=LicensePool.id, lazy='joined', uselist=False)
 
-        class MaterializedWork(Base, BaseMaterializedWork):
-            __table__ = Table(
-                cls.MATERIALIZED_VIEW_WORKS,
-                Base.metadata,
-                Column('works_id', Integer, primary_key=True),
-                Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
-              autoload=True,
-                autoload_with=engine
-            )
-            license_pool = relationship(
-                LicensePool,
-                primaryjoin="LicensePool.id==MaterializedWork.license_pool_id",
-                foreign_keys=LicensePool.id, lazy='joined', uselist=False)
+            globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
 
-            def __repr__(self):
-                return (u'%s "%s" (%s) %s' % (
-                    self.works_id, self.sort_title, self.sort_author, self.language,
-                    )).encode("utf8")
-
-        globals()['MaterializedWork'] = MaterializedWork
-        globals()['MaterializedWorkWithGenre'] = MaterializedWorkWithGenre
         cls.engine_for_url[url] = engine
         return engine, engine.connect()
 
@@ -440,7 +432,9 @@ class SessionManager(object):
         engine = connection = 0
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=sa_exc.SAWarning)
-            engine, connection = cls.initialize(url)
+            engine, connection = cls.initialize(
+                url, create_materialized_work_class=initialize_data
+            )
         session = Session(connection)
         if initialize_data:
             session = cls.initialize_data(session)
@@ -711,7 +705,7 @@ class Patron(Base):
         return self._synchronize_annotations
 
     @synchronize_annotations.setter
-    def _set_synchronize_annotations(self, value):
+    def synchronize_annotations(self, value):
         """When a patron says they don't want their annotations to be stored
         on a library server, delete all their annotations.
         """
@@ -915,10 +909,8 @@ class Hold(Base, LoanAndHoldMixin):
         """
         if start is not None:
             self.start = start
-        if position == 0 and end is not None:
+        if end is not None:
             self.end = end
-        else:
-            self.end = None
         if position is not None:
             self.position = position
 
@@ -1425,6 +1417,105 @@ class CoverageRecord(Base, BaseCoverageRecord):
         coverage_record.status = status
         coverage_record.timestamp = timestamp
         return coverage_record, is_new
+
+    @classmethod
+    def bulk_add(cls, identifiers, data_source, operation=None, timestamp=None,
+        status=BaseCoverageRecord.SUCCESS, exception=None, collection=None,
+        force=False,
+    ):
+        """Create and update CoverageRecords so that every Identifier in
+        `identifiers` has an identical record.
+        """
+        if not identifiers:
+            # Nothing to do.
+            return
+
+        _db = Session.object_session(identifiers[0])
+        timestamp = timestamp or datetime.datetime.utcnow()
+        identifier_ids = [i.id for i in identifiers]
+
+        equivalent_record = and_(
+            cls.operation==operation,
+            cls.data_source==data_source,
+            cls.collection==collection,
+        )
+
+        updated_or_created_results = list()
+        if force:
+            # Make sure that works that previously had a
+            # CoverageRecord for this operation have their timestamp
+            # and status updated.
+            update = cls.__table__.update().where(and_(
+                cls.identifier_id.in_(identifier_ids),
+                equivalent_record,
+            )).values(
+                dict(timestamp=timestamp, status=status, exception=exception)
+            ).returning(cls.id, cls.identifier_id)
+            updated_or_created_results = _db.execute(update).fetchall()
+
+        already_covered = _db.query(cls.id, cls.identifier_id).filter(
+            equivalent_record,
+            cls.identifier_id.in_(identifier_ids),
+        ).subquery()
+
+        # Make sure that any identifiers that need a CoverageRecord get one.
+        # The SELECT part of the INSERT...SELECT query.
+        data_source_id = data_source.id
+        collection_id = None
+        if collection:
+            collection_id = collection.id
+
+        new_records = _db.query(
+            Identifier.id.label('identifier_id'),
+            literal(operation, type_=String(255)).label('operation'),
+            literal(timestamp, type_=DateTime).label('timestamp'),
+            literal(status, type_=BaseCoverageRecord.status_enum).label('status'),
+            literal(exception, type_=Unicode).label('exception'),
+            literal(data_source_id, type_=Integer).label('data_source_id'),
+            literal(collection_id, type_=Integer).label('collection_id'),
+        ).select_from(Identifier).outerjoin(
+            already_covered, Identifier.id==already_covered.c.identifier_id,
+        ).filter(already_covered.c.id==None)
+
+        new_records = new_records.filter(Identifier.id.in_(identifier_ids))
+
+        # The INSERT part.
+        insert = cls.__table__.insert().from_select(
+            [
+                literal_column('identifier_id'),
+                literal_column('operation'),
+                literal_column('timestamp'),
+                literal_column('status'),
+                literal_column('exception'),
+                literal_column('data_source_id'),
+                literal_column('collection_id'),
+            ],
+            new_records
+        ).returning(cls.id, cls.identifier_id)
+
+        inserts = _db.execute(insert).fetchall()
+
+        updated_or_created_results.extend(inserts)
+        _db.commit()
+
+        # Default return for the case when all of the identifiers were
+        # ignored.
+        new_records = list()
+        ignored_identifiers = identifiers
+
+        new_and_updated_record_ids = [r[0] for r in updated_or_created_results]
+        impacted_identifier_ids = [r[1] for r in updated_or_created_results]
+
+        if new_and_updated_record_ids:
+            new_records = _db.query(cls).filter(cls.id.in_(
+                new_and_updated_record_ids
+            )).all()
+
+        ignored_identifiers = filter(
+            lambda i: i.id not in impacted_identifier_ids, identifiers
+        )
+
+        return new_records, ignored_identifiers
 
 Index("ix_coveragerecords_data_source_id_operation_identifier_id", CoverageRecord.data_source_id, CoverageRecord.operation, CoverageRecord.identifier_id)
 
@@ -2379,7 +2470,6 @@ class Contributor(Base):
     # Types of roles
     AUTHOR_ROLE = u"Author"
     PRIMARY_AUTHOR_ROLE = u"Primary Author"
-    PERFORMER_ROLE = u"Performer"
     EDITOR_ROLE = u"Editor"
     ARTIST_ROLE = u"Artist"
     PHOTOGRAPHER_ROLE = u"Photographer"
@@ -2410,12 +2500,49 @@ class Contributor(Base):
     DESIGNER_ROLE = u'Designer'
     AUTHOR_ROLES = set([PRIMARY_AUTHOR_ROLE, AUTHOR_ROLE])
 
+    # Map our recognized roles to MARC relators.
+    # https://www.loc.gov/marc/relators/relaterm.html
+    #
+    # This is used when crediting contributors in OPDS feeds.
+    MARC_ROLE_CODES = {
+        ACTOR_ROLE : 'act',
+        ADAPTER_ROLE : 'adp',
+        AFTERWORD_ROLE : 'aft',
+        ARTIST_ROLE : 'art',
+        ASSOCIATED_ROLE : 'asn',
+        AUTHOR_ROLE : 'aut',            # Joint author: USE Author
+        COLLABORATOR_ROLE : 'ctb',      # USE Contributor
+        COLOPHON_ROLE : 'aft',          # Author of afterword, colophon, etc.
+        COMPILER_ROLE : 'com',
+        COMPOSER_ROLE : 'cmp',
+        CONTRIBUTOR_ROLE : 'ctb',
+        COPYRIGHT_HOLDER_ROLE : 'cph',
+        DESIGNER_ROLE : 'dsr',
+        DIRECTOR_ROLE : 'drt',
+        EDITOR_ROLE : 'edt',
+        ENGINEER_ROLE : 'eng',
+        EXECUTIVE_PRODUCER_ROLE : 'pro',
+        FOREWORD_ROLE : 'wpr',          # Writer of preface
+        ILLUSTRATOR_ROLE : 'ill',
+        INTRODUCTION_ROLE : 'win',
+        LYRICIST_ROLE : 'lyr',
+        MUSICIAN_ROLE : 'mus',
+        NARRATOR_ROLE : 'nrt',
+        PERFORMER_ROLE : 'prf',
+        PHOTOGRAPHER_ROLE : 'pht',
+        PRIMARY_AUTHOR_ROLE : 'aut',
+        PRODUCER_ROLE : 'pro',
+        TRANSCRIBER_ROLE : 'trc',
+        TRANSLATOR_ROLE : 'trl',
+        UNKNOWN_ROLE : 'asn',
+    }
+
     # People from these roles can be put into the 'author' slot if no
     # author proper is given.
     AUTHOR_SUBSTITUTE_ROLES = [
         EDITOR_ROLE, COMPILER_ROLE, COMPOSER_ROLE, DIRECTOR_ROLE,
-         CONTRIBUTOR_ROLE, TRANSLATOR_ROLE, ADAPTER_ROLE, PHOTOGRAPHER_ROLE,
-         ARTIST_ROLE, LYRICIST_ROLE, COPYRIGHT_HOLDER_ROLE
+        CONTRIBUTOR_ROLE, TRANSLATOR_ROLE, ADAPTER_ROLE, PHOTOGRAPHER_ROLE,
+        ARTIST_ROLE, LYRICIST_ROLE, COPYRIGHT_HOLDER_ROLE
     ]
 
     PERFORMER_ROLES = [ACTOR_ROLE, PERFORMER_ROLE, NARRATOR_ROLE, MUSICIAN_ROLE]
@@ -2832,6 +2959,10 @@ class Edition(Base):
 
     ELECTRONIC_FORMAT = u"Electronic"
     CODEX_FORMAT = u"Codex"
+
+    # These are the media types currently fulfillable by the default
+    # client.
+    FULFILLABLE_MEDIA = [BOOK_MEDIUM]
 
     medium_to_additional_type = {
         BOOK_MEDIUM : u"http://schema.org/Book",
@@ -5288,6 +5419,13 @@ class LicensePoolDeliveryMechanism(Base):
         )
         lpdm.rights_status = rights_status
 
+        # TODO: We need to explicitly commit here so that
+        # LicensePool.delivery_mechanisms gets updated. It would be
+        # better if we didn't have to do this, but I haven't been able
+        # to get LicensePool.delivery_mechanisms to notice that it's
+        # out of date.
+        _db.commit()
+
         # Creating or modifying a LPDM might change the open-access status
         # of all LicensePools for that DataSource/Identifier.
         for pool in lpdm.license_pools:
@@ -5305,6 +5443,14 @@ class LicensePoolDeliveryMechanism(Base):
         _db = Session.object_session(self)
         pools = list(self.license_pools)
         _db.delete(self)
+        
+        # TODO: We need to explicitly commit here so that
+        # LicensePool.delivery_mechanisms gets updated. It would be
+        # better if we didn't have to do this, but I haven't been able
+        # to get LicensePool.delivery_mechanisms to notice that it's
+        # out of date.
+        _db.commit()
+
         # The deletion of a LicensePoolDeliveryMechanism might affect
         # the open-access status of its associated LicensePools.
         for pool in pools:
@@ -6481,15 +6627,12 @@ class LicensePool(Base):
         UniqueConstraint('identifier_id', 'data_source_id', 'collection_id'),
     )
 
-    @property
-    def delivery_mechanisms(self):
-        """Find all LicensePoolDeliveryMechanisms for this LicensePool.
-        """
-        _db = Session.object_session(self)
-        LPDM = LicensePoolDeliveryMechanism
-        return _db.query(LPDM).filter(
-            LPDM.data_source==self.data_source).filter(
-                LPDM.identifier==self.identifier)
+    delivery_mechanisms = relationship(
+        "LicensePoolDeliveryMechanism", 
+        primaryjoin="and_(LicensePool.data_source_id==LicensePoolDeliveryMechanism.data_source_id, LicensePool.identifier_id==LicensePoolDeliveryMechanism.identifier_id)",
+        foreign_keys=(data_source_id, identifier_id),
+        uselist=True,
+    )
 
     def __repr__(self):
         if self.identifier:
@@ -8889,7 +9032,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
     license_pool_delivery_mechanisms = relationship(
         "LicensePoolDeliveryMechanism",
-        backref="delivery_mechanism"
+        backref="delivery_mechanism",
     )
 
     _cache = HasFullTableCache.RESET
@@ -9516,7 +9659,7 @@ class Library(Base, HasFullTableCache):
         return self._library_registry_short_name
 
     @library_registry_short_name.setter
-    def _set_library_registry_short_name(self, value):
+    def library_registry_short_name(self, value):
         """Uppercase the library registry short name on the way in."""
         if value:
             value = value.upper()
@@ -10050,7 +10193,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         return self.setting(self.URL).value
 
     @url.setter
-    def set_url(self, new_url):
+    def url(self, new_url):
         self.set_setting(self.URL, new_url)
 
     @hybrid_property
@@ -10058,7 +10201,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         return self.setting(self.USERNAME).value
 
     @username.setter
-    def set_username(self, new_username):
+    def username(self, new_username):
         self.set_setting(self.USERNAME, new_username)
 
     @hybrid_property
@@ -10066,7 +10209,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         return self.setting(self.PASSWORD).value
 
     @password.setter
-    def set_password(self, new_password):
+    def password(self, new_password):
         return self.set_setting(self.PASSWORD, new_password)
 
     def explain(self, library=None, include_secrets=False):
@@ -10271,7 +10414,7 @@ class ConfigurationSetting(Base, HasFullTableCache):
         return self._value
 
     @value.setter
-    def set_value(self, new_value):
+    def value(self, new_value):
         if new_value is not None:
             new_value = unicode(new_value)
         self._value = new_value
@@ -10521,7 +10664,7 @@ class Collection(Base, HasFullTableCache):
         return self.external_integration.protocol
 
     @protocol.setter
-    def set_protocol(self, new_protocol):
+    def protocol(self, new_protocol):
         """Modify the protocol in use by this Collection."""
         if self.parent and self.parent.protocol != new_protocol:
             raise ValueError(
@@ -10584,7 +10727,7 @@ class Collection(Base, HasFullTableCache):
         )
 
     @default_reservation_period.setter
-    def set_default_reservation_period(self, new_value):
+    def default_reservation_period(self, new_value):
         new_value = int(new_value)
         self.external_integration.setting(
             self.DEFAULT_RESERVATION_PERIOD_KEY).value = str(new_value)
@@ -10811,6 +10954,30 @@ class Collection(Base, HasFullTableCache):
         ]
         _db.bulk_insert_mappings(CollectionIdentifier, new_catalog_entries)
         _db.commit()
+
+    def unresolved_catalog(self, _db, data_source_name, operation):
+        """Returns a query with all identifiers in a Collection's catalog that
+        have unsuccessfully attempted resolution. This method is used on the
+        metadata wrangler.
+
+        :return: a sqlalchemy.Query
+        """
+        coverage_source = DataSource.lookup(_db, data_source_name)
+        is_not_resolved = and_(
+            CoverageRecord.operation==operation,
+            CoverageRecord.data_source_id==coverage_source.id,
+            CoverageRecord.status!=CoverageRecord.SUCCESS,
+        )
+
+        query = _db.query(Identifier)\
+            .outerjoin(Identifier.licensed_through)\
+            .outerjoin(Identifier.coverage_records)\
+            .outerjoin(LicensePool.work).outerjoin(Identifier.collections)\
+            .filter(
+                Collection.id==self.id, is_not_resolved, Work.id==None
+            ).order_by(Identifier.id)
+
+        return query
 
     def works_updated_since(self, _db, timestamp):
         """Finds all works in a collection's catalog that have been updated

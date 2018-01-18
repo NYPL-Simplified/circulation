@@ -22,7 +22,9 @@ from sqlalchemy import (
     case,
     or_,
     not_,
+    Integer,
     Table,
+    Unicode,
 )
 from sqlalchemy.ext.associationproxy import (
     association_proxy,
@@ -39,6 +41,7 @@ from sqlalchemy.orm import (
     lazyload,
     relationship,
 )
+from sqlalchemy.sql.expression import literal
 
 from model import (
     get_one_or_create,
@@ -75,7 +78,6 @@ from sqlalchemy import (
     Column,
     ForeignKey,
     Integer,
-    Unicode,
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import (
@@ -225,13 +227,11 @@ class Facets(FacetConstants):
                 yield dy(facet)
 
     @classmethod
-    def order_facet_to_database_field(cls, order_facet, work_model):
+    def order_facet_to_database_field(cls, order_facet):
         """Turn the name of an order facet into a materialized-view field
         for use in an ORDER BY clause.
-
-        :param work_model: Either MaterializedWork or
-        MaterializedWorkWithGenre.
         """
+        from model import MaterializedWorkWithGenre as work_model
         order_facet_to_database_field = {
             cls.ORDER_ADDED_TO_COLLECTION: work_model.availability_time,
             cls.ORDER_WORK_ID : work_model.works_id,
@@ -243,16 +243,12 @@ class Facets(FacetConstants):
         }
         return order_facet_to_database_field[order_facet]
 
-    def apply(self, _db, qu, work_model=None, distinct=False):
-        """Restrict a query so that it only matches works that fit
-        the given facets, and the query is ordered appropriately.
-
-        :param work_model: Either MaterializedWork or
-        MaterializedWorkWithGenre.
+    def apply(self, _db, qu):
+        """Restrict a query against MaterializedWorkWithGenre so that it only
+        matches works that fit the given facets, and the query is
+        ordered appropriately.
         """
-        if work_model is None:
-            from model import MaterializedWork
-            work_model = MaterializedWork
+        from model import MaterializedWorkWithGenre as work_model
         if self.availability == self.AVAILABLE_NOW:
             availability_clause = or_(
                 LicensePool.open_access==True,
@@ -284,30 +280,26 @@ class Facets(FacetConstants):
             )
 
         # Set the ORDER BY clause.
-        order_by, order_distinct = self.order_by(work_model)
+        order_by, order_distinct = self.order_by()
         qu = qu.order_by(*order_by)
-        if distinct:
-            qu = qu.distinct(*order_distinct)
+
+        # We always mark the query as distinct because the materialized
+        # view can contain the same title many times.
+        qu = qu.distinct(*order_distinct)
 
         return qu
 
-    def order_by(self, work_model):
-        """Establish a complete ORDER BY clause for works.
-
-        :param work_model: Either MaterializedWork or
-        MaterializedWorkWithGenre.
+    def order_by(self):
+        """Given these Facets, create a complete ORDER BY clause for queries
+        against WorkModelWithGenre.
         """
-        if work_model == Work:
-            work_id = Work.id
-        else:
-            work_id = work_model.works_id
+        from model import MaterializedWorkWithGenre as work_model
+        work_id = work_model.works_id
         default_sort_order = [
             work_model.sort_author, work_model.sort_title, work_id
         ]
     
-        primary_order_by = self.order_facet_to_database_field(
-            self.order, work_model
-        )
+        primary_order_by = self.order_facet_to_database_field(self.order)
         if primary_order_by:
             # Promote the field designated by the sort facet to the top of
             # the order-by list.
@@ -346,20 +338,23 @@ class FeaturedFacets(object):
         self.minimum_featured_quality = minimum_featured_quality
         self.uses_customlists = uses_customlists
 
-    def apply(self, _db, qu, work_model, distinct):
+    def apply(self, _db, qu):
+        """Order a query by quality tier, and then randomly.
 
-        quality = self.quality_tier_field(work_model)
-        # qu = qu.order_by(quality.desc(), work_model.random)
-        qu = qu.order_by(work_model.random)
-        if distinct:
-            if work_model is Work:
-                id_field = work_model.id
-            else:
-                id_field = work_model.works_id
-            qu = qu.distinct(quality, work_model.random, id_field)
+        This isn't usually necessary because works_in_window orders
+        items by quality tier, then randomly, but if you want to call
+        apply() on a query to get a featured subset of that query,
+        this will work.
+        """
+        from model import MaterializedWorkWithGenre as work_model
+        quality = self.quality_tier_field()
+        qu = qu.order_by(
+            quality.desc(), work_model.random.desc(), work_model.works_id
+        )
+        qu = qu.distinct(quality, work_model.random, work_model.works_id)
         return qu
 
-    def quality_tier_field(self, mv):
+    def quality_tier_field(self):
         """A selectable field that summarizes the overall quality of a work
         from a materialized view as a single numeric value.
 
@@ -377,24 +372,22 @@ class FeaturedFacets(object):
         lower-quality works will show up later on in the results,
         eliminating the need to find lower-quality works with a second
         query.
-
-        :param mv: Either MaterializedWork, MaterializedWorkWithGenre,
-        or Work is acceptable here.
         """
         if hasattr(self, '_quality_tier_field'):
             return self._quality_tier_field
+        from model import MaterializedWorkWithGenre as mwg
         featurable_quality = self.minimum_featured_quality
 
         # Being of featureable quality is great.
         featurable_quality = case(
-            [(mv.quality >= featurable_quality, 5)],
+            [(mwg.quality >= featurable_quality, 5)],
             else_=0
         )
 
         # Being a licensed work or an open-access work of decent quality
         # is good.
         regular_collection = case(
-            [(or_(LicensePool.open_access==False, mv.quality >= 0.3), 2)],
+            [(or_(LicensePool.open_access==False, mwg.quality >= 0.3), 2)],
             else_=0
         )
 
@@ -414,6 +407,7 @@ class FeaturedFacets(object):
                 [(CustomListEntry.featured, 11)], else_=0
             )
             tier = tier + featured_on_list
+        tier = tier.label("quality_tier")
         self._quality_tier_field = tier
         return self._quality_tier_field
 
@@ -477,9 +471,8 @@ class Pagination(object):
 
 
 class WorkList(object):
-    """An object that can obtain a list of
-    Work/MaterializedWork/MaterializedWorkWithGenre objects
-    for use in generating an OPDS feed.
+    """An object that can obtain a list of Work/MaterializedWorkWithGenre
+    objects for use in generating an OPDS feed.
     """
 
     # Unless a sitewide setting intervenes, the set of Works in a
@@ -491,6 +484,46 @@ class WorkList(object):
 
     # By default, a WorkList does not draw from CustomLists
     uses_customlists = False
+
+    @classmethod
+    def top_level_for_library(self, _db, library):
+        """Create a WorkList representing this library's collection
+        as a whole.
+
+        If no top-level visible lanes are configured, the WorkList
+        will be configured to show every book in the collection.
+
+        If a single top-level Lane is configured, it will returned as
+        the WorkList.
+
+        Otherwise, a WorkList containing the visible top-level lanes
+        is returned.
+        """
+        # Load all of this Library's visible top-level Lane objects
+        # from the database.
+        top_level_lanes = _db.query(Lane).filter(
+            Lane.library==library
+        ).filter(
+            Lane.parent==None
+        ).filter(
+            Lane._visible==True
+        ).order_by(
+            Lane.priority
+        ).all()
+
+        if len(top_level_lanes) == 1:
+            # The site configuration includes a single top-level lane;
+            # this can stand in for the library on its own.
+            return top_level_lanes[0]
+
+        # This WorkList contains every title available to this library
+        # in one of the media supported by the default client.
+        wl = WorkList()
+        wl.initialize(
+            library, display_name=library.name, children=top_level_lanes,
+            media=Edition.FULFILLABLE_MEDIA
+        )
+        return wl
 
     def initialize(self, library, display_name=None, genres=None, 
                    audiences=None, languages=None, media=None,
@@ -619,36 +652,61 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def groups(self, _db):
+    def groups(self, _db, include_sublanes=True):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped acquisition feed for the WorkList.
 
-        :return: A list of (Work, WorkList) 2-tuples, with each WorkList
-        representing the child WorkList in which the Work is found.
+        :yield: A sequence of (Work, WorkList) 2-tuples, with each
+        WorkList representing the child WorkList in which the Work is
+        found.
         """
+        if not include_sublanes:
+            # We only need to find featured works for this lane,
+            # not this lane plus its sublanes.
+            for work in self.featured_works(_db):
+                yield work, self
+            return
+
         # This is a list rather than a dict because we want to
         # preserve the ordering of the children.
-        works_and_worklists = []
-        for child in self.visible_children:
+        relevant_lanes = []
+        relevant_children = []
+
+        # We use an explicit check for Lane.visible here, instead of
+        # iterating over self.visible_children, because Lane.visible only
+        # works when the Lane is merged into a database session.
+        for child in self.children:
             if isinstance(child, Lane):
                 child = _db.merge(child)
-            works = child.featured_works(_db)
-            for work in works:
-                works_and_worklists.append((work, child))
-        return works_and_worklists
+
+            if not child.visible:
+                continue
+
+            if isinstance(child, Lane):
+                # Children that turn out to be Lanes go into relevant_lanes.
+                # Their Works will all be filled in with a single query.
+                relevant_lanes.append(child)
+            # Both Lanes and WorkLists go into relevant_children.
+            # This controls the yield order for Works.
+            relevant_children.append(child)
+
+        # _groups_for_lanes will run a query to pull featured works
+        # for any children that are Lanes, and call groups()
+        # recursively for any children that are not.
+        for work, worklist in self._groups_for_lanes(
+                _db, relevant_children, relevant_lanes
+        ):
+            yield work, worklist
 
     def featured_works(self, _db):
         """Find a random sample of featured books.
 
         Used when building a grouped OPDS feed for this WorkList's parent.
 
-        While it's semi-okay for this method to be slow for the Lanes
-        that make up the bulk of a circulation manager's offerings,
-        other WorkList implementations may need to do something
-        simpler for performance reasons.
-
-        :return: A list of MaterializedWork or MaterializedWorkWithGenre
-        objects.
+        :return: A list of MaterializedWorkWithGenre objects.  Under
+        no circumstances will a single work show up multiple times in
+        this list, even if that means the list contains fewer works
+        than anticipated.
         """
         books = []
         book_ids = set()
@@ -667,21 +725,18 @@ class WorkList(object):
             # run.
             return []
 
+        work_ids = set()
         works = []
-        import time
-        a = time.time()
         for work in self.random_sample(query, target_size)[:target_size]:
             if isinstance(work, tuple):
                 # This is a (work, score) 2-tuple.
-                works.append(work[0])
-            else:
-                # This is a regular work.
+                work = work[0]
+            if work.works_id not in work_ids:
                 works.append(work)
-        b = time.time()
-        logging.warn("Got featured for %s in %.2f" % (self.display_name, b-a))
+                work_ids.add(work.works_id)
         return works
 
-    def works(self, _db, facets=None, pagination=None):
+    def works(self, _db, facets=None, pagination=None, include_quality_tier=False):
         """Create a query against a materialized view that finds Work-like
         objects corresponding to all the Works that belong in this
         WorkList.
@@ -698,52 +753,69 @@ class WorkList(object):
            bad idea in the first place.
         """
         from model import (
-            MaterializedWork,
             MaterializedWorkWithGenre,
         )
-        if self.genre_ids:
-            mw = MaterializedWorkWithGenre
-            # apply_filters() will apply the genre
-            # restrictions.
-        else:
-            mw = MaterializedWork
+        mw = MaterializedWorkWithGenre
+        # apply_filters() will apply the genre
+        # restrictions.
 
         if isinstance(facets, FeaturedFacets):
-            qu = _db.query(mw)#, facets.quality_tier_field(mw))
+            field = facets.quality_tier_field()
+            qu = _db.query(mw, field)
+            if include_quality_tier:
+                qu = qu.add_columns(field)
         else:
             qu = _db.query(mw)
 
         # Apply some database optimizations.
-        qu = self._lazy_load(qu, mw)
-        qu = self._defer_unused_fields(qu, mw)
+        qu = self._lazy_load(qu)
+        qu = self._defer_unused_fields(qu)
 
         # apply_filters() requires that the query include a join
         # against LicensePool. If nothing else, the `facets` may
         # restrict the query to currently available items.
-        qu = qu.join(LicensePool, LicensePool.id==mw.license_pool_id)
-        qu = qu.options(contains_eager(mw.license_pool))
+        qu = qu.join(mw.license_pool)
         if self.collection_ids is not None:
             qu = qu.filter(
                 LicensePool.collection_id.in_(self.collection_ids)
             )
+        qu = self.apply_filters(_db, qu, facets, pagination)
+        if qu:
+            qu = qu.options(
+                contains_eager(mw.license_pool),
+                # TODO: Strictly speaking, these joinedload calls are 
+                # only needed by the circulation manager. This code could
+                # be moved to circulation and everyone else who uses this
+                # would be a little faster. (But right now there is no one
+                # else who uses this.)
 
-        return self.apply_filters(_db, qu, mw, facets, pagination)
+                # These speed up the process of generating acquisition links.
+                joinedload("license_pool", "delivery_mechanisms"),
+                joinedload("license_pool", "delivery_mechanisms", "delivery_mechanism"),
+                # These speed up the process of generating the open-access link
+                # for open-access works.
+                joinedload("license_pool", "delivery_mechanisms", "resource"),
+                joinedload("license_pool", "delivery_mechanisms", "resource", "representation"),
+            )
+        return qu
 
     def works_for_specific_ids(self, _db, work_ids):
         """Create the appearance of having called works(),
         but return the specific MaterializedWorks identified by `work_ids`.
         """
 
-        # Get a list of MaterializedWorks as though we had called works().
-        from model import MaterializedWork as mw
+        # Get a list of MaterializedWorkWithGenre objects as though we
+        # had called works().
+        from model import MaterializedWorkWithGenre as mw
         qu = _db.query(mw).join(
             LicensePool, mw.license_pool_id==LicensePool.id
         ).filter(
             mw.works_id.in_(work_ids)
         )
-        qu = self._lazy_load(qu, mw)
-        qu = self._defer_unused_fields(qu, mw)
-        qu = self.only_show_ready_deliverable_works(_db, qu, mw)
+        qu = self._lazy_load(qu)
+        qu = self._defer_unused_fields(qu)
+        qu = self.only_show_ready_deliverable_works(_db, qu)
+        qu = qu.distinct(mw.works_id)
         work_by_id = dict()
         a = time.time()
         works = qu.all()
@@ -761,20 +833,20 @@ class WorkList(object):
         )
         return results
 
-    def apply_filters(self, _db, qu, work_model, facets, pagination,
-                      featured=False):
+    def apply_filters(self, _db, qu, facets, pagination, featured=False):
         """Apply common WorkList filters to a query. Also apply any
         subclass-specific filters defined by
         bibliographic_filter_clause().
         """
+        from model import MaterializedWorkWithGenre as work_model
         # In general, we only show books that are ready to be delivered
         # to patrons.
-        qu = self.only_show_ready_deliverable_works(_db, qu, work_model)
+        qu = self.only_show_ready_deliverable_works(_db, qu)
 
         # This method applies whatever filters are necessary to implement
         # the rules of this particular WorkList.
-        qu, bibliographic_clause, distinct = self.bibliographic_filter_clause(
-            _db, qu, work_model, featured
+        qu, bibliographic_clause = self.bibliographic_filter_clause(
+            _db, qu, featured
         )
         if not qu:
             # bibliographic_filter_clause() may return a null query to
@@ -784,31 +856,33 @@ class WorkList(object):
             qu = qu.filter(bibliographic_clause)
 
         if facets:
-            qu = facets.apply(_db, qu, work_model, distinct=distinct)
-        elif distinct:
-            # Something about the query makes it possible that the same
-            # book might show up twice. We set the query as DISTINCT
-            # to avoid this possibility.
-            qu = qu.distinct()
+            qu = facets.apply(_db, qu)
+        else:
+            # Ordinarily facets.apply() would take care of ordering
+            # the query and making it distinct. In the absence
+            # of any ordering information, we will make the query distinct
+            # based on work ID.
+            qu = qu.distinct(work_model.works_id)
 
         if pagination:
             qu = pagination.apply(qu)
         return qu
 
-    def bibliographic_filter_clause(self, _db, qu, work_model, featured=False):
+    def bibliographic_filter_clause(self, _db, qu, featured=False):
         """Create a SQLAlchemy filter that excludes books whose bibliographic
         metadata doesn't match what we're looking for.
 
-        :return: A 3-tuple (query, clause, distinct).
+        :return: A 2-tuple (query, clause).
 
         - query is either `qu`, or a new query that has been modified to
         join against additional tables.
         """
         # Audience and language restrictions are common to all
-        # WorkLists. (So are genre and collection restrictions, but those
+        # WorkLists. (So are genre and collection restrictions, bt those
         # were applied back in works().)
 
-        clauses = self.audience_filter_clauses(_db, qu, work_model)
+        from model import MaterializedWorkWithGenre as work_model
+        clauses = self.audience_filter_clauses(_db, qu)
         if self.languages:
             clauses.append(work_model.language.in_(self.languages))
         if self.media:
@@ -819,14 +893,15 @@ class WorkList(object):
             clause = None
         else:
             clause = and_(*clauses)
-        return qu, clause, False
+        return qu, clause
 
-    def audience_filter_clauses(self, _db, qu, work_model):
+    def audience_filter_clauses(self, _db, qu):
         """Create a SQLAlchemy filter that excludes books whose intended
         audience doesn't match what we're looking for.
         """
         if not self.audiences:
             return []
+        from model import MaterializedWorkWithGenre as work_model
         clauses = [work_model.audience.in_(self.audiences)]
         if (Classifier.AUDIENCE_CHILDREN in self.audiences
             or Classifier.AUDIENCE_YOUNG_ADULT in self.audiences):
@@ -843,7 +918,7 @@ class WorkList(object):
         return clauses
 
     def only_show_ready_deliverable_works(
-            self, _db, query, work_model, show_suppressed=False
+            self, _db, query, show_suppressed=False
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -852,8 +927,9 @@ class WorkList(object):
         Note that this assumes the query has an active join against
         LicensePool.
         """
+        from model import MaterializedWorkWithGenre as mwg
         return self.get_library(_db).restrict_to_ready_deliverable_works(
-            query, work_model, show_suppressed=show_suppressed,
+            query, mwg, show_suppressed=show_suppressed,
             collection_ids=self.collection_ids
         )
 
@@ -900,10 +976,11 @@ class WorkList(object):
         return items
 
     @classmethod
-    def _lazy_load(cls, qu, work_model):
+    def _lazy_load(cls, qu):
         """Avoid eager loading of objects that are contained in the 
         materialized view.
         """
+        from model import MaterializedWorkWithGenre as work_model
         return qu.options(
             lazyload(work_model.license_pool, LicensePool.data_source),
             lazyload(work_model.license_pool, LicensePool.identifier),
@@ -911,12 +988,13 @@ class WorkList(object):
         )
 
     @classmethod
-    def _defer_unused_fields(cls, query, work_model):
+    def _defer_unused_fields(cls, query):
         """Some applications use the simple OPDS entry and some
         applications use the verbose. Whichever one we don't need,
         we can stop from even being sent over from the
         database.
         """
+        from model import MaterializedWorkWithGenre as work_model
         if Configuration.DEFAULT_OPDS_FORMAT == "simple_opds_entry":
             return query.options(defer(work_model.verbose_opds_entry))
         else:
@@ -974,6 +1052,201 @@ class WorkList(object):
                     results = self.works_for_specific_ids(_db, doc_ids)
 
         return results
+
+    def _groups_for_lanes(self, _db, relevant_lanes, queryable_lanes):
+
+        library = self.get_library(_db)
+        target_size = library.featured_lane_size
+
+        if isinstance(self, Lane):
+            parent_lane = self
+        else:
+            parent_lane = None
+
+        queryable_lane_set = set(queryable_lanes)
+
+        work_quality_tier_lane = list(
+            self._featured_works_with_lanes(_db, queryable_lanes)
+        )
+
+        def _done_with_lane(lane):
+            """Called when we're done with a Lane, either because
+            the lane changes or we've reached the end of the list.
+            """
+            # Did we get enough items?
+            num_missing = target_size-len(by_lane[lane])
+            if num_missing > 0 and might_need_to_reuse:
+                # No, we need to use some works we used in a
+                # previous lane to fill out this lane. Stick
+                # them at the end.
+                by_lane[lane].extend(
+                    might_need_to_reuse.values()[:num_missing]
+                )
+
+        used_works = set()
+        by_lane = defaultdict(list)
+        working_lane = None
+        might_need_to_reuse = dict()
+        for mw, quality_tier, lane in work_quality_tier_lane:
+            if lane != working_lane:
+                # Either we're done with the old lane, or we're just
+                # starting and there was no old lane.
+                if working_lane:
+                    _done_with_lane(working_lane)
+                working_lane = lane
+                used_works_this_lane = set()
+                might_need_to_reuse = dict()
+            if len(by_lane[lane]) >= target_size:
+                # We've already filled this lane.
+                continue
+
+            if mw.works_id in used_works:
+                if mw.works_id not in used_works_this_lane:
+                    # We already used this work in another lane, but we
+                    # might need to use it again to fill out this lane.
+                    might_need_to_reuse[mw.works_id] = mw
+            else:
+                by_lane[lane].append(mw)
+                used_works.add(mw.works_id)
+                used_works_this_lane.add(mw.works_id)
+
+        # Close out the last lane encountered.
+        _done_with_lane(working_lane)
+        for lane in relevant_lanes:
+            if lane in queryable_lane_set:
+                # We found results for this lane through the main query.
+                # Yield those results.
+                for mw in by_lane.get(lane, []):
+                    yield (mw, lane)
+            else:
+                # We didn't try to use the main query to find results
+                # for this lane because we knew the results, if there
+                # were any, wouldn't be representative. This is most
+                # likely because this 'lane' is a WorkList and not a
+                # Lane at all. Do a whole separate query and plug it
+                # in at this point.
+                for x in lane.groups(_db, include_sublanes=False):
+                    yield x
+
+    def _featured_works_with_lanes(self, _db, lanes):
+        """Find a sequence of works that can be used to 
+        populate this lane's grouped acquisition feed.
+
+        :param lanes: Classify MaterializedWorkWithGenre objects
+        as belonging to one of these lanes (presumably sublanes
+        of `self`).
+
+        :yield: A sequence of (MaterializedWorkWithGenre,
+        quality_tier, Lane) 3-tuples.
+        """
+        if not lanes:
+            # We can't run this query at all.
+            return
+
+        library = self.get_library(_db)
+        target_size = library.featured_lane_size
+
+        facets = FeaturedFacets(
+            library.minimum_featured_quality,
+            self.uses_customlists
+        )
+        # Pull a window of works for every lane we were given.
+        for lane in lanes:
+            for mw, quality_tier in lane.works_in_window(
+                    _db, facets, target_size
+            ):
+                yield mw, quality_tier, lane
+
+    def works_in_window(self, _db, facets, target_size):
+        """Find all MaterializedWorkWithGenre objects within a randomly
+        selected window of values for the `random` field.
+
+        :param facets: A `FeaturedFacets` object.
+
+        :param target_size: Try to get approximately this many
+        items. There may be more or less; this controls the size of
+        the window and the LIMIT on the query.
+        """
+        from model import MaterializedWorkWithGenre
+        work_model = MaterializedWorkWithGenre
+
+        lane_query = self.works(_db, facets=facets)
+
+        # Make sure this query finds a number of works proportinal
+        # to the expected size of the lane.
+        lane_query = self._restrict_query_to_window(lane_query, target_size)
+
+        lane_query = lane_query.order_by(
+            "quality_tier desc", work_model.random.desc()
+        )
+
+        # Allow some overage to reduce the risk that we'll have to
+        # use a given book more than once in the overall feed. But
+        # set an upper limit so that a weird random distribution
+        # doesn't retrieve far more items than we need.
+        lane_query = lane_query.limit(target_size*1.3)
+        return lane_query
+
+    def _restrict_query_to_window(self, query, target_size):
+        """Restrict the given SQLAlchemy query so that it matches
+        approximately `target_size` items.
+        """
+        from model import MaterializedWorkWithGenre as work_model
+        if query is None:
+            return query
+        window_start, window_end = self.featured_window(target_size)
+        if window_start > 0 and window_start < 1:
+            query = query.filter(
+                work_model.random <= window_end,
+                work_model.random >= window_start
+            )
+        return query
+
+    def _fill_parent_lane(self, additional_needed, unused_by_tier,
+                          used_by_tier, previously_used):
+        """Yield up to `additional_needed` randomly selected items from
+        `unused_by_tier`, falling back to `used_by_tier` if necessary.
+
+        NOTE: This method is currently unused.
+
+        :param unused_by_tier: A dictionary mapping quality tiers to
+        lists of unused MaterializedWorkWithGenre items. Because the
+        same book may have shown up as multiple
+        MaterializedWorkWithGenre items, it may show up as 'unused'
+        here even if another occurance of it has been used.
+
+        :param used_by_tier: A dictionary mapping quality tiers to lists
+        of previously used MaterializedWorkWithGenre items. These will only
+        be chosen once every item in unused_by_tier has been chosen.
+
+        :param previously_used: A set of work IDs corresponding to
+        previously selected MaterializedWorkWithGenre items. A work in
+        `unused_by_tier` will be treated as actually having been used
+        if its ID is in this set.
+
+        """
+        if not additional_needed:
+            return
+        additional_found = 0
+        for by_tier in unused_by_tier, used_by_tier:
+            # Go through each tier in decreasing quality order.
+            for tier in sorted(by_tier.keys(), key=lambda x: -x):
+                mws = by_tier[tier]
+                random.shuffle(mws)
+                for mw in mws:
+                    if (by_tier is unused_by_tier 
+                        and mw.works_id in previously_used):
+                        # We initially thought this work was unused,
+                        # and put it in the 'unused' bucket, but then
+                        # the work was used after that happened.
+                        # Treat it as used and don't use it again.
+                        continue
+                    yield (mw, self)
+                    previously_used.add(mw.works_id)
+                    additional_found += 1
+                    if additional_found >= additional_needed:
+                        # We're all done.
+                        return
 
 
 class LaneGenre(Base):
@@ -1113,7 +1386,7 @@ class Lane(Base, WorkList):
 
     # If this is set to True, then a book will show up in a lane only
     # if it would _also_ show up in its parent lane.
-    inherit_parent_restrictions = Column(Boolean, default=False, nullable=False)
+    inherit_parent_restrictions = Column(Boolean, default=True, nullable=False)
 
     # Patrons whose external type is in this list will be sent to this
     # lane when they ask for the root lane.
@@ -1182,7 +1455,7 @@ class Lane(Base, WorkList):
         return self._visible and (not self.parent or self.parent.visible)
 
     @visible.setter
-    def set_visible(self, value):
+    def visible(self, value):
         self._visible = value
 
     @property
@@ -1199,12 +1472,14 @@ class Lane(Base, WorkList):
         return self._audiences or []
 
     @audiences.setter
-    def set_audiences(self, value):
+    def audiences(self, value):
         """The `audiences` field cannot be set to a value that
         contradicts the current value to the `target_age` field.
         """
         if self._audiences and self._target_age and value != self._audiences:
             raise ValueError("Cannot modify Lane.audiences when Lane.target_age is set!")
+        if isinstance(value, basestring):
+            value = [value]
         self._audiences = value
 
     @hybrid_property
@@ -1212,7 +1487,7 @@ class Lane(Base, WorkList):
         return self._target_age
 
     @target_age.setter
-    def set_target_age(self, value):
+    def target_age(self, value):
         """Setting .target_age will lock .audiences to appropriate values.
 
         If you set target_age to 16-18, you're saying that the audiences
@@ -1260,7 +1535,7 @@ class Lane(Base, WorkList):
         return self._list_datasource
 
     @list_datasource.setter
-    def set_list_datasource(self, value):
+    def list_datasource(self, value):
         """Setting .list_datasource to a non-null value wipes out any specific
         CustomLists previously associated with this Lane.
         """
@@ -1283,7 +1558,10 @@ class Lane(Base, WorkList):
 
     def update_size(self, _db):
         """Update the stored estimate of the number of Works in this Lane."""
-        self.size = fast_query_count(self.works(_db).limit(None))
+        query = self.works(_db).limit(None)
+        from model import MaterializedWorkWithGenre as mw
+        query = query.distinct(mw.works_id)
+        self.size = fast_query_count(query)
 
     @property
     def genre_ids(self):
@@ -1409,34 +1687,47 @@ class Lane(Base, WorkList):
                       languages=languages, media=media, audiences=audiences)
         return wl
 
-    def groups(self, _db):
-        """Extract a list of samples from each child of this Lane, as well as
-        from the lane itself. This can be used to create a grouped
-        acquisition feed for the Lane.
+    def featured_window(self, target_size):
+        """Randomly select an interval over `Work.random` that ought to
+        contain approximately `target_size` high-quality works from
+        this lane.
 
-        :return: A list of (Work, Lane) 2-tuples, with each Lane
-        representing the Lane in which the Work can be found.
+        :param: A 2-tuple (low value, high value), or None if the
+        entire span should be considered.
         """
-        # This takes care of all of the children.
-        works_and_lanes = super(Lane, self).groups(_db)
+        if self.size < target_size:
+            # Don't bother -- we're returning the whole lane.
+            return 0,1
+        width = target_size / (self.size * 0.2)
+        width = min(1, width)
 
-        if not works_and_lanes:
-            # The children of this Lane did not contribute any works
-            # to the groups feed. This means there should not be
-            # a groups feed in the first place -- we should send a list
-            # feed instead.
-            return works_and_lanes
+        maximum_offset = 1-width
+        start = random.random() * maximum_offset
+        return start, start+width
 
-        # The children of this Lane contributed works to the groups
-        # feed, which means we need an additional group in the feed
-        # representing everything in the Lane (since the child lanes
-        # are almost never exhaustive).
-        lane = _db.merge(self)
-        works = lane.featured_works(_db)
-        for work in works:
-            works_and_lanes.append((work, lane))
-        return works_and_lanes
-           
+    def groups(self, _db, include_sublanes=True):
+        """Return a list of (MaterializedWorkWithGenre, Lane) 2-tuples
+        describing a sequence of featured items for this lane and
+        (optionally) its children.
+        """
+        clauses = []
+        library = self.get_library(_db)
+        target_size = library.featured_lane_size
+
+        relevant_lanes = [self]
+        if include_sublanes:
+            # The child lanes go first.
+            relevant_lanes = list(self.visible_children) + relevant_lanes
+
+        # We can use a single query to build the featured feeds for
+        # this lane, as well as any of its sublanes that inherit this
+        # lane's restrictions. Lanes that don't inherit this lane's
+        # restrictions will need to be handled in a separate call to
+        # groups().
+        queryable_lanes = [x for x in relevant_lanes
+                           if x == self or x.inherit_parent_restrictions]
+        return self._groups_for_lanes(_db, relevant_lanes, queryable_lanes)
+
     def search(self, _db, query, search_client, pagination=None):
         """Find works in this lane that also match a search query.
         """
@@ -1447,28 +1738,26 @@ class Lane(Base, WorkList):
         else:
             return target.search(_db, query, search_client, pagination)
 
-    def bibliographic_filter_clause(self, _db, qu, work_model, featured):
+    def bibliographic_filter_clause(self, _db, qu, featured, outer_join=False):
         """Create an AND clause that restricts a query to find
         only works classified in this lane.
 
         :param qu: A Query object. The filter will not be applied to this
         Query, but the query may be extended with additional table joins.
 
-        :return: A 3-tuple (query, statement, distinct).
+        :return: A 2-tuple (query, statement).
 
         `query` is the same query as `qu`, possibly extended with
         additional table joins.
 
         `statement` is a SQLAlchemy statement suitable for passing
         into filter() or case().
-
-        `distinct` is whether or not the query needs to be set as
-        DISTINCT.
         """
-        qu, superclass_clause, superclass_distinct = super(
+        from model import MaterializedWorkWithGenre as work_model
+        qu, superclass_clause = super(
             Lane, self
         ).bibliographic_filter_clause(
-            _db, qu, work_model, featured
+            _db, qu, featured
         )
         clauses = []
         if superclass_clause is not None:
@@ -1477,13 +1766,11 @@ class Lane(Base, WorkList):
             # In addition to the other restrictions imposed by this
             # Lane, books will show up here only if they would
             # also show up in the parent Lane.
-            qu, clause, parent_distinct = self.parent.bibliographic_filter_clause(
-                _db, qu, work_model, featured
+            qu, clause = self.parent.bibliographic_filter_clause(
+                _db, qu, featured
             )
             if clause is not None:
                 clauses.append(clause)
-        else:
-            parent_distinct = False
 
         # If a license source is specified, only show books from that
         # source.
@@ -1496,21 +1783,23 @@ class Lane(Base, WorkList):
         if self.media:
             clauses.append(work_model.medium.in_(self.media))
 
-        clauses.extend(self.age_range_filter_clauses(work_model))
-        qu, customlist_clauses, customlist_distinct = self.customlist_filter_clauses(
-            qu, work_model, featured
+        clauses.extend(self.age_range_filter_clauses())
+        qu, customlist_clauses = self.customlist_filter_clauses(
+            qu, featured, outer_join
         )
         clauses.extend(customlist_clauses)
-        
-        return qu, and_(*clauses), (
-            superclass_distinct or parent_distinct or customlist_distinct
-        )
 
-    def age_range_filter_clauses(self, work_model):
+        if clauses:
+            clause = and_(*clauses)
+        else:
+            clause = None
+        return qu, clause
+
+    def age_range_filter_clauses(self):
         """Create a clause that filters out all books not classified as
         suitable for this Lane's age range.
         """
-
+        from model import MaterializedWorkWithGenre as work_model
         if self.target_age == None:
             return []
             
@@ -1533,7 +1822,7 @@ class Lane(Base, WorkList):
         ]
 
     def customlist_filter_clauses(
-            self, qu, work_model, must_be_featured=False
+            self, qu, must_be_featured=False, outer_join=False
     ):
         """Create a filter clause that only books that are on one of the
         CustomLists allowed by Lane configuration.
@@ -1541,33 +1830,32 @@ class Lane(Base, WorkList):
         :param must_be_featured: It's not enough for the book to be on
         an appropriate list; it must be _featured_ on an appropriate list.
 
-        :return: A 3-tuple (query, clauses, distinct).
+        :return: A 3-tuple (query, clauses).
 
         `query` is the same query as `qu`, possibly extended with
         additional table joins.
 
         `clauses` is a list of SQLAlchemy statements for use in a
         filter() or case() statement.
-
-        `distinct` is whether or not the query needs to be set as
-        DISTINCT.
         """
+        from model import MaterializedWorkWithGenre as work_model
         if not self.customlists and not self.list_datasource:
             # This lane does not require that books be on any particular
             # CustomList.
-            return qu, [], False
+            return qu, []
 
         # There may already be a join against CustomListEntry, in the case 
         # of a Lane that inherits its parent's restrictions. To avoid
         # confusion, create a different join every time.
         a_entry = aliased(CustomListEntry)
-        if work_model == Work:
-            clause = a_entry.work_id==work_model.id
-        else:
-            clause = a_entry.work_id==work_model.works_id
-        qu = qu.join(a_entry, clause)
+        clause = a_entry.work_id==work_model.works_id
         a_list = aliased(CustomListEntry.customlist)
-        qu = qu.join(a_list, a_entry.list_id==a_list.id)
+        if outer_join:
+            qu = qu.outerjoin(a_entry, clause)
+            qu = qu.outerjoin(a_list, a_entry.list_id==a_list.id)
+        else:
+            qu = qu.join(a_entry, clause)
+            qu = qu.join(a_list, a_entry.list_id==a_list.id)
 
         # Actually build the restriction clauses.
         clauses = []
@@ -1575,15 +1863,8 @@ class Lane(Base, WorkList):
             clauses.append(a_list.data_source==self.list_datasource)
         customlist_ids = [x.id for x in self.customlists]
 
-        # Now that custom list(s) are involved, we must (probably)
-        # eventually set DISTINCT to True on the query.
-        distinct = True
         if customlist_ids:
             clauses.append(a_list.id.in_(customlist_ids))
-            if len(customlist_ids) == 1:
-                # There's only one list, so no risk that a book
-                # might show up more than once.
-                distinct = False
         if must_be_featured:
             clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
@@ -1591,8 +1872,11 @@ class Lane(Base, WorkList):
                 self.list_seen_in_previous_days
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)
+
+        if must_be_featured:
+            clauses.append(a_entry.featured==True)
             
-        return qu, clauses, distinct
+        return qu, clauses
 
 Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id, cascade='all, delete-orphan')
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)

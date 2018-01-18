@@ -121,13 +121,9 @@ class TestSessionManager(DatabaseTest):
         fiction = self._lane(display_name="Fiction", fiction=True)
         nonfiction = self._lane(display_name="Nonfiction", fiction=False)
 
-        from model import (
-            MaterializedWork as mwc,
-            MaterializedWorkWithGenre as mwg,
-        )
+        from model import MaterializedWorkWithGenre as mwg
 
         # There are no items in the materialized views.
-        eq_([], self._db.query(mwc).all())
         eq_([], self._db.query(mwg).all())
 
         # The lane sizes are wrong.
@@ -136,10 +132,8 @@ class TestSessionManager(DatabaseTest):
 
         SessionManager.refresh_materialized_views(self._db)
 
-        # The work has been added to the materialized views.
-        # (It was added twice to MaterializedWorkWithGenre
-        # because it's filed under two genres.)
-        eq_([work.id], [x.works_id for x in self._db.query(mwc)])
+        # The work has been added to the materialized view. (It was
+        # added twice because it's filed under two genres.)
         eq_([work.id, work.id], [x.works_id for x in self._db.query(mwg)])
 
         # Both lanes have had .size set to the correct value.
@@ -1002,6 +996,17 @@ class TestSubject(DatabaseTest):
 
 
 class TestContributor(DatabaseTest):
+
+    def test_marc_code_for_every_role_constant(self):
+        """We have determined the MARC Role Code for every role
+        that's important enough we gave it a constant in the Contributor
+        class.
+        """
+        for constant, value in Contributor.__dict__.items():
+            if not constant.endswith('_ROLE'):
+                # Not a constant.
+                continue
+            assert value in Contributor.MARC_ROLE_CODES
 
     def test_lookup_by_viaf(self):
 
@@ -2400,8 +2405,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         lpdm2 = pool.set_delivery_mechanism(
             Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
             RightsStatus.CC_BY, None)
-        
-        eq_(2, pool.delivery_mechanisms.count())
+        eq_(2, len(pool.delivery_mechanisms))
 
         # Now the pool is open access again
         eq_(True, pool.open_access)
@@ -2424,13 +2428,12 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
             Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
             pool.data_source, "text/html"
         )
-        pool.set_delivery_mechanism(
+        lpdm2 = pool.set_delivery_mechanism(
             lpdm.delivery_mechanism.content_type,
             lpdm.delivery_mechanism.drm_scheme,
             lpdm.rights_status.uri,
             link.resource,
         )
-        [lpdm2] = [x for x in pool.delivery_mechanisms if x != lpdm]
         eq_(lpdm2.delivery_mechanism, lpdm.delivery_mechanism)
         assert lpdm2.resource != lpdm.resource
 
@@ -4498,7 +4501,7 @@ class TestHold(DatabaseTest):
         hold, is_new = pool.on_hold_to(patron, now, later, 4)
         eq_(True, is_new)
         eq_(now, hold.start)
-        eq_(None, hold.end)
+        eq_(later, hold.end)
         eq_(4, hold.position)
 
         # Now update the position to 0. It's the patron's turn
@@ -5978,6 +5981,125 @@ class TestCoverageRecord(DatabaseTest):
         )
         eq_(record5, record)
         eq_(CoverageRecord.PERSISTENT_FAILURE, record.status)
+
+    def test_bulk_add(self):
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        operation = u'testing'
+
+        # An untouched identifier.
+        i1 = self._identifier()
+
+        # An identifier that already has failing coverage.
+        covered = self._identifier()
+        existing = self._coverage_record(
+            covered, source, operation=operation,
+            status=CoverageRecord.TRANSIENT_FAILURE,
+            exception=u'Uh oh'
+        )
+        original_timestamp = existing.timestamp
+
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [i1, covered], source, operation=operation
+        )
+
+        # A new coverage record is created for the uncovered identifier.
+        eq_(i1.coverage_records, resulting_records)
+        [new_record] = resulting_records
+        eq_(source, new_record.data_source)
+        eq_(operation, new_record.operation)
+        eq_(CoverageRecord.SUCCESS, new_record.status)
+        eq_(None, new_record.exception)
+
+        # The existing coverage record is untouched.
+        eq_([covered], ignored_identifiers)
+        eq_([existing], covered.coverage_records)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, existing.status)
+        eq_(original_timestamp, existing.timestamp)
+        eq_('Uh oh', existing.exception)
+
+        # Newly untouched identifier.
+        i2 = self._identifier()
+
+        # Force bulk add.
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [i2, covered], source, operation=operation, force=True
+        )
+
+        # The new identifier has the expected coverage.
+        [new_record] = i2.coverage_records
+        assert new_record in resulting_records
+
+        # The existing record has been updated.
+        assert existing in resulting_records
+        assert covered not in ignored_identifiers
+        eq_(CoverageRecord.SUCCESS, existing.status)
+        assert existing.timestamp > original_timestamp
+        eq_(None, existing.exception)
+
+        # If no records are created or updated, no records are returned.
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [i2, covered], source, operation=operation
+        )
+
+        eq_([], resulting_records)
+        eq_(sorted([i2, covered]), sorted(ignored_identifiers))
+
+    def test_bulk_add_with_collection(self):
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        operation = u'testing'
+
+        c1 = self._collection()
+        c2 = self._collection()
+
+        # An untouched identifier.
+        i1 = self._identifier()
+
+        # An identifier with coverage for a different collection.
+        covered = self._identifier()
+        existing = self._coverage_record(
+            covered, source, operation=operation,
+            status=CoverageRecord.TRANSIENT_FAILURE, collection=c1,
+            exception=u'Danger, Will Robinson'
+        )
+        original_timestamp = existing.timestamp
+
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [i1, covered], source, operation=operation, collection=c1,
+            force=True
+        )
+
+        eq_(2, len(resulting_records))
+        eq_([], ignored_identifiers)
+
+        # A new record is created for the new identifier.
+        [new_record] = i1.coverage_records
+        assert new_record in resulting_records
+        eq_(source, new_record.data_source)
+        eq_(operation, new_record.operation)
+        eq_(CoverageRecord.SUCCESS, new_record.status)
+        eq_(c1, new_record.collection)
+
+        # The existing record has been updated.
+        assert existing in resulting_records
+        eq_(CoverageRecord.SUCCESS, existing.status)
+        assert existing.timestamp > original_timestamp
+        eq_(None, existing.exception)
+
+        # Bulk add for a different collection.
+        resulting_records, ignored_identifiers = CoverageRecord.bulk_add(
+            [covered], source, operation=operation, collection=c2,
+            status=CoverageRecord.TRANSIENT_FAILURE, exception=u'Oh no',
+        )
+
+        # A new record has been added to the identifier.
+        assert existing not in resulting_records
+        [new_record] = resulting_records
+        eq_(covered, new_record.identifier)
+        eq_(CoverageRecord.TRANSIENT_FAILURE, new_record.status)
+        eq_(source, new_record.data_source)
+        eq_(operation, new_record.operation)
+        eq_(u'Oh no', new_record.exception)
+
 
 class TestWorkCoverageRecord(DatabaseTest):
 
@@ -7556,6 +7678,43 @@ class TestCollection(DatabaseTest):
         # Now all three identifiers are in the catalog.
         assert sorted([i1, i2, i3]) == sorted(self.collection.catalog)
 
+    def test_unresolved_catalog(self):
+        # A regular schmegular identifier: untouched, pure.
+        pure_id = self._identifier()
+
+        # A 'resolved' identifier that doesn't have a work yet.
+        # (This isn't supposed to happen, but jic.)
+        source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        operation = 'test-thyself'
+        resolved_id = self._identifier()
+        self._coverage_record(
+            resolved_id, source, operation=operation,
+            status=CoverageRecord.SUCCESS
+        )
+
+        # An unresolved identifier--we tried to resolve it, but
+        # it all fell apart.
+        unresolved_id = self._identifier()
+        self._coverage_record(
+            unresolved_id, source, operation=operation,
+            status=CoverageRecord.TRANSIENT_FAILURE
+        )
+
+        # An identifier with a Work already.
+        id_with_work = self._work().presentation_edition.primary_identifier
+
+
+        self.collection.catalog_identifiers([
+            pure_id, resolved_id, unresolved_id, id_with_work
+        ])
+
+        result = self.collection.unresolved_catalog(
+            self._db, source.name, operation
+        )
+
+        # Only the failing identifier is in the query.
+        eq_([unresolved_id], result.all())
+
     def test_works_updated_since(self):
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
@@ -7725,28 +7884,21 @@ class TestMaterializedViews(DatabaseTest):
         # Make sure the Work shows up in the materialized view.
         SessionManager.refresh_materialized_views(self._db)
 
-        from model import (
-            MaterializedWork as mwc,
-            MaterializedWorkWithGenre as mwgc,
-        )
-        [mw] = self._db.query(mwc).all()
+        from model import MaterializedWorkWithGenre as mwgc
         [mwg] = self._db.query(mwgc).all()
 
-        eq_(pool1.id, mw.license_pool_id)
         eq_(pool1.id, mwg.license_pool_id)
 
         # If we change the Work's preferred edition, we change the
         # license_pool_id that gets stored in the materialized views.
         work.set_presentation_edition(edition2)
         SessionManager.refresh_materialized_views(self._db)
-        [mw] = self._db.query(mwc).all()
         [mwg] = self._db.query(mwgc).all()
 
-        eq_(pool2.id, mw.license_pool_id)
         eq_(pool2.id, mwg.license_pool_id)
 
     def test_license_data_source_is_stored_in_views(self):
-        """Verify that the data_source_name stored in the materialized views
+        """Verify that the data_source_name stored in the materialized view
         is the DataSource associated with the LicensePool, not the
         DataSource associated with the presentation Edition.
         """
@@ -7787,27 +7939,21 @@ class TestMaterializedViews(DatabaseTest):
 
         SessionManager.refresh_materialized_views(self._db)
 
-        from model import (
-            MaterializedWork as mwc,
-            MaterializedWorkWithGenre as mwgc,
-        )
-        [mw] = self._db.query(mwc).all()
+        from model import MaterializedWorkWithGenre as mwgc
         [mwg] = self._db.query(mwgc).all()
 
         # We would expect the data source to be Gutenberg, since
         # that's the edition associated with the LicensePool, and not
         # the data source of the Work's presentation edition.
-        eq_(pool.data_source.name, mw.name)
         eq_(pool.data_source.name, mwg.name)
 
         # However, we would expect the title of the work to come from
         # the presentation edition.
-        eq_("staff chose this title", mw.sort_title)
+        eq_("staff chose this title", mwg.sort_title)
 
         # And since the data_source_id is the ID of the data source
         # associated with the license pool, we would expect it to be
         # the data source ID of the license pool.
-        eq_(pool.data_source.id, mw.data_source_id)
         eq_(pool.data_source.id, mwg.data_source_id)
 
 
