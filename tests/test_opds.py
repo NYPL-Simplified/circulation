@@ -463,7 +463,7 @@ class TestOPDS(DatabaseTest):
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [work])
         u = unicode(feed)
-        assert '<entry schema:additionalType="http://schema.org/Book">' in u
+        assert '<entry schema:additionalType="http://schema.org/EBook">' in u
         parsed = feedparser.parse(u)
         [with_author] = parsed['entries']
         eq_("Alice", with_author['authors'][0]['name'])
@@ -472,9 +472,15 @@ class TestOPDS(DatabaseTest):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
                                [work])
-        parsed = feedparser.parse(unicode(feed))
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
-        eq_(gutenberg.name, parsed.entries[0]['bibframe_distribution']['providername'])
+
+        # The <bibframe:distribution> tag containing the license
+        # source should show up once and only once. (At one point a
+        # bug caused it to be added to the generated OPDS twice.)
+        expect = '<bibframe:distribution bibframe:ProviderName="%s"/>' % (
+            gutenberg.name
+        )
+        assert (1, unicode(feed).count(expect))
 
     def test_acquisition_feed_includes_author_tag_even_when_no_author(self):
         work = self._work(with_open_access_download=True)
