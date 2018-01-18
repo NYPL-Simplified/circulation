@@ -81,8 +81,13 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
             else:
                 method = 'get'
 
-        response = HTTP.request_with_timeout(method, self.library_api_base_url + url, headers=headers, data=data,
-                                             timeout=60)
+        if not any(url.startswith(protocol)
+                   for protocol in ('http://', 'https://')):
+            url = self.library_api_base_url + url
+        response = HTTP.request_with_timeout(
+            method, url, headers=headers, data=data,
+            timeout=60
+        )
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
@@ -176,7 +181,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
     def checkin(self, patron, pin, licensepool):
         record_id = licensepool.identifier.identifier
         loan = self.get_checkout(patron, pin, record_id)
-        url = self.CHECKIN_ENDPOINT.format(checkoutId=loan['id'], patronId=patron)
+        url = self.CHECKIN_ENDPOINT.format(checkoutId=loan['id'], patronId=patron.authorization_identifier)
 
         response = self.patron_request(patron, pin, url, method='POST')
         if response.status_code == 200:
@@ -271,12 +276,12 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                             record_id, format_type)
 
     def get_patron_checkouts(self, patron, pin):
-        data = self.patron_request(patron, pin, self.PATRON_CHECKOUTS_ENDPOINT.format(patronId=patron)).json()
+        data = self.patron_request(patron, pin, self.PATRON_CHECKOUTS_ENDPOINT.format(patronId=patron.authorization_identifier)).json()
         self.raise_exception_on_error(data)
         return data
 
     def get_patron_holds(self, patron, pin):
-        data = self.patron_request(patron, pin, self.PATRON_HOLDS_ENDPOINT.format(patronId=patron)).json()
+        data = self.patron_request(patron, pin, self.PATRON_HOLDS_ENDPOINT.format(patronId=patron.authorization_identifier)).json()
         self.raise_exception_on_error(data)
         return data
 
@@ -331,7 +336,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         record_id = licensepool.identifier.identifier
 
         # Data just as 'x-www-form-urlencoded', no JSON
-        payload = dict(patronId=patron)
+        payload = dict(patronId=patron.authorization_identifier)
 
         response = self.patron_request(
             patron, pin, self.PLACE_HOLD_ENDPOINT.format(recordId=record_id),
@@ -351,7 +356,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         record_id = licensepool.identifier.identifier
         hold = self.get_hold(patron, pin, record_id)
         url = self.RELEASE_HOLD_ENDPOINT.format(holdId=hold['id'])
-        payload = json.dumps(dict(patronId=patron))
+        payload = json.dumps(dict(patronId=patron.authorization_identifier))
 
         response = self.patron_request(patron, pin, url, extra_headers={}, data=payload, method='POST')
         if response.status_code == 200:
