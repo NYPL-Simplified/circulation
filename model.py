@@ -2966,7 +2966,7 @@ class Edition(Base):
 
     medium_to_additional_type = {
         BOOK_MEDIUM : u"http://schema.org/EBook",
-        AUDIO_MEDIUM : u"http://bib.schema.org/AudioBook",
+        AUDIO_MEDIUM : u"http://bib.schema.org/Audiobook",
         PERIODICAL_MEDIUM : u"http://schema.org/PublicationIssue",
         MUSIC_MEDIUM :  u"http://schema.org/MusicRecording",
         VIDEO_MEDIUM :  u"http://schema.org/VideoObject",
