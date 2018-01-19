@@ -1,8 +1,12 @@
 # encoding: utf-8
 from nose.tools import (
-    assert_raises_regexp, eq_, ok_
+    assert_raises_regexp, 
+    eq_, 
+    ok_,
+    set_trace,
 )
 
+import datetime
 import os
 import json
 
@@ -101,12 +105,25 @@ class TestOdiloAPI(OdiloTestWithAPI):
         self.api.access_token_response = self.api.mock_access_token_response(
             "new bearer token"
         )
-
         self.api.refresh_creds(credential)
         eq_("new bearer token", credential.credential)
         eq_(self.api.token, credential.credential)
 
-        self.api.log.info('Test 401 on get refreshes bearer token ok!')
+        # By default, the access token's 'expiresIn' value is -1,
+        # indicating that the token will never expire.
+        #
+        # To reflect this fact, credential.expires is set to None.
+        eq_(None, credential.expires)
+
+        # But a token may specify a specific expiration time,
+        # which is used to set a future value for credential.expires.
+        self.api.access_token_response = self.api.mock_access_token_response(
+            "new bearer token 2", 1000
+        )
+        self.api.refresh_creds(credential)
+        eq_("new bearer token 2", credential.credential)
+        eq_(self.api.token, credential.credential)
+        assert credential.expires > datetime.datetime.now()
 
     def test_401_after_token_refresh_raises_error(self):
         eq_("bearer token", self.api.token)

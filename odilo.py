@@ -291,8 +291,8 @@ class MockOdiloAPI(OdiloAPI):
         response = self.access_token_response
         return HTTP._process_response(url, response, **kwargs)
 
-    def mock_access_token_response(self, credential):
-        token = dict(token=credential, expiresIn=3600)
+    def mock_access_token_response(self, credential, expires_in=-1):
+        token = dict(token=credential, expiresIn=expires_in)
         return MockRequestsResponse(200, {}, json.dumps(token))
 
     def queue_response(self, status_code, headers={}, content=None):
