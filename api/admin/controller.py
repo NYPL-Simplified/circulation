@@ -33,6 +33,7 @@ from core.model import (
     Collection,
     Complaint,
     ConfigurationSetting,
+    Contributor,
     CustomList,
     DataSource,
     Edition,
@@ -44,6 +45,7 @@ from core.model import (
     Library,
     LicensePool,
     Loan,
+    Measurement,
     Patron,
     PresentationCalculationPolicy,
     Representation,
@@ -58,7 +60,10 @@ from core.util.problem_detail import (
 )
 from core.util.http import HTTP
 from problem_details import *
-from core.util import fast_query_count
+from core.util import (
+    fast_query_count,
+    LanguageCodes,
+)
 
 from api.config import (
     Configuration, 
@@ -373,7 +378,7 @@ class SignInController(AdminController):
 
 class WorkController(CirculationManagerController):
 
-    STAFF_WEIGHT = 1
+    STAFF_WEIGHT = 1000
 
     def details(self, identifier_type, identifier):
         """Return an OPDS entry with detailed information for admins.
@@ -411,8 +416,60 @@ class WorkController(CirculationManagerController):
         
         return response
 
+    def roles(self):
+        """Return a mapping from MARC codes to contributor roles."""
+        # TODO: The admin interface only allows a subset of the roles
+        # listed in model.py since it uses the OPDS representation of
+        # the data, and some of the roles map to the same MARC code.
+        CODES = Contributor.MARC_ROLE_CODES
+        marc_to_role = dict()
+        for role in [
+            Contributor.ACTOR_ROLE,
+            Contributor.ADAPTER_ROLE,
+            Contributor.AFTERWORD_ROLE,
+            Contributor.ARTIST_ROLE,
+            Contributor.ASSOCIATED_ROLE,
+            Contributor.AUTHOR_ROLE,
+            Contributor.COMPILER_ROLE,
+            Contributor.COMPOSER_ROLE,
+            Contributor.CONTRIBUTOR_ROLE,
+            Contributor.COPYRIGHT_HOLDER_ROLE,
+            Contributor.DESIGNER_ROLE,
+            Contributor.DIRECTOR_ROLE,
+            Contributor.EDITOR_ROLE,
+            Contributor.ENGINEER_ROLE,
+            Contributor.FOREWORD_ROLE,
+            Contributor.ILLUSTRATOR_ROLE,
+            Contributor.INTRODUCTION_ROLE,
+            Contributor.LYRICIST_ROLE,
+            Contributor.MUSICIAN_ROLE,
+            Contributor.NARRATOR_ROLE,
+            Contributor.PERFORMER_ROLE,
+            Contributor.PHOTOGRAPHER_ROLE,
+            Contributor.PRODUCER_ROLE,
+            Contributor.TRANSCRIBER_ROLE,
+            Contributor.TRANSLATOR_ROLE,
+            ]:
+            marc_to_role[CODES[role]] = role
+        return marc_to_role
+
+    def languages(self):
+        """Return the supported language codes and their English names."""
+        return LanguageCodes.english_names
+
+    def media(self):
+        """Return the supported media types for a work and their schema.org values."""
+        return Edition.additional_type_to_medium
+
     def edit(self, identifier_type, identifier):
         """Edit a work's metadata."""
+
+        # TODO: It would be nice to use the metadata layer for this, but
+        # this code handles empty values differently than other metadata
+        # sources. When a staff member deletes a value, that indicates
+        # they think it should be empty. This needs to be indicated in the
+        # db so that it can overrule other data sources that set a value,
+        # unlike other sources which set empty fields to None.
 
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
@@ -441,6 +498,47 @@ class WorkController(CirculationManagerController):
             staff_edition.subtitle = unicode(new_subtitle)
             changed = True
 
+        # The form data includes roles and names for contributors in the same order.
+        new_contributor_roles = flask.request.form.getlist("contributor-role")
+        new_contributor_names = [unicode(n) for n in flask.request.form.getlist("contributor-name")]
+        # The first author in the form is considered the primary author, even
+        # though there's no separate MARC code for that.
+        for i, role in enumerate(new_contributor_roles):
+            if role == Contributor.AUTHOR_ROLE:
+                new_contributor_roles[i] = Contributor.PRIMARY_AUTHOR_ROLE
+                break
+        roles_and_names = zip(new_contributor_roles, new_contributor_names)
+
+        # Remove any contributions that weren't in the form, and remove contributions
+        # that already exist from the list so they won't be added again.
+        deleted_contributions = False
+        for contribution in staff_edition.contributions:
+            if (contribution.role, contribution.contributor.display_name) not in roles_and_names:
+                self._db.delete(contribution)
+                deleted_contributions = True
+                changed = True
+            else:
+                roles_and_names.remove((contribution.role, contribution.contributor.display_name))
+        if deleted_contributions:
+            # Ensure the staff edition's contributions are up-to-date when
+            # calculating the presentation edition later.
+            self._db.refresh(staff_edition)
+
+        # Any remaining roles and names are new contributions.
+        for role, name in roles_and_names:
+            # There may be one extra role at the end from the input for
+            # adding a contributor, in which case it will have no
+            # corresponding name and can be ignored.
+            if name:
+                if role not in Contributor.MARC_ROLE_CODES.keys():
+                    self._db.rollback()
+                    return UNKNOWN_ROLE.detailed(
+                        _("Role %(role)s is not one of the known contributor roles.",
+                          role=role))
+                contributor = staff_edition.add_contributor(name=name, roles=[role])
+                contributor.display_name = name
+                changed = True
+
         new_series = flask.request.form.get("series")
         if work.series != new_series:
             if work.series and not new_series:
@@ -449,19 +547,95 @@ class WorkController(CirculationManagerController):
             changed = True
 
         new_series_position = flask.request.form.get("series_position")
-        if new_series_position:
+        if new_series_position != None and new_series_position != '':
             try:
                 new_series_position = int(new_series_position)
             except ValueError:
+                self._db.rollback()
                 return INVALID_SERIES_POSITION
         else:
             new_series_position = None
         if work.series_position != new_series_position:
-            if work.series_position and not new_series_position:
+            if work.series_position and new_series_position == None:
                 new_series_position = NO_NUMBER
             staff_edition.series_position = new_series_position
             changed = True
 
+        new_medium = flask.request.form.get("medium")
+        if new_medium:
+            if new_medium not in Edition.medium_to_additional_type.keys():
+                self._db.rollback()
+                return UNKNOWN_MEDIUM.detailed(
+                    _("Medium %(medium)s is not one of the known media.",
+                      medium=new_medium))
+            staff_edition.medium = new_medium
+            changed = True
+
+        new_language = flask.request.form.get("language")
+        if new_language != None and new_language != '':
+            new_language = LanguageCodes.string_to_alpha_3(new_language)
+            if not new_language:
+                self._db.rollback()
+                return UNKNOWN_LANGUAGE
+        else:
+            new_language = None
+        if new_language != staff_edition.language:
+            staff_edition.language = new_language
+            changed = True
+
+        new_publisher = flask.request.form.get("publisher")
+        if new_publisher != staff_edition.publisher:
+            if staff_edition.publisher and not new_publisher:
+                new_publisher = NO_VALUE
+            staff_edition.publisher = unicode(new_publisher)
+            changed = True
+
+        new_imprint = flask.request.form.get("imprint")
+        if new_imprint != staff_edition.imprint:
+            if staff_edition.imprint and not new_imprint:
+                new_imprint = NO_VALUE
+            staff_edition.imprint = unicode(new_imprint)
+            changed = True
+
+        new_issued = flask.request.form.get("issued")
+        if new_issued != None and new_issued != '':
+            try:
+                new_issued = datetime.strptime(new_issued, '%Y-%m-%d')
+            except ValueError:
+                self._db.rollback()
+                return INVALID_DATE_FORMAT
+        else:
+            new_issued = None
+        if new_issued != staff_edition.issued:
+            staff_edition.issued = new_issued
+            changed = True
+
+        # TODO: This lets library staff add a 1-5 rating, which is used in the
+        # quality calculation. However, this doesn't work well if there are any
+        # other measurements that contribute to the quality. The form will show
+        # the calculated quality rather than the staff rating, which will be
+        # confusing. It might also be useful to make it more clear how this
+        # relates to the quality threshold in the library settings.
+        changed_rating = False
+        new_rating = flask.request.form.get("rating")
+        if new_rating != None and new_rating != '':
+            try:
+                new_rating = float(new_rating)
+            except ValueError:
+                self._db.rollback()
+                return INVALID_RATING
+            scale = Measurement.RATING_SCALES[DataSource.LIBRARY_STAFF]
+            if new_rating < scale[0] or new_rating > scale[1]:
+                self._db.rollback()
+                return INVALID_RATING.detailed(
+                    _("The rating must be a number between %(low)s and %(high)s.",
+                      low=scale[0], high=scale[1]))
+            if (new_rating - scale[0]) / (scale[1] - scale[0]) != work.quality:
+                primary_identifier.add_measurement(staff_data_source, Measurement.RATING, new_rating, weight=WorkController.STAFF_WEIGHT)
+                changed = True
+                changed_rating = True
+
+        changed_summary = False
         new_summary = flask.request.form.get("summary") or ""
         if new_summary != work.summary_text:
             old_summary = None
@@ -479,6 +653,7 @@ class WorkController(CirculationManagerController):
                 self._db.delete(old_summary)
 
             changed = True
+            changed_summary = True
 
         if changed:
             # Even if the presentation doesn't visibly change, we want
@@ -489,9 +664,11 @@ class WorkController(CirculationManagerController):
                 classify=True,
                 regenerate_opds_entries=True,
                 update_search_index=True,
-                choose_summary=True
+                calculate_quality=changed_rating,
+                choose_summary=changed_summary,
             )
             work.calculate_presentation(policy=policy)
+
         return Response("", 200)
 
     def suppress(self, identifier_type, identifier):
@@ -947,7 +1124,11 @@ class LanesController(CirculationManagerController):
             parent_id = flask.request.form.get("parent_id")
             display_name = flask.request.form.get("display_name")
             custom_list_ids = json.loads(flask.request.form.get("custom_list_ids", "[]"))
-            inherit_parent_restrictions = flask.request.form.get("inherit_parent_restrictions", False)
+            inherit_parent_restrictions = flask.request.form.get("inherit_parent_restrictions")
+            if inherit_parent_restrictions == "true":
+                inherit_parent_restrictions = True
+            else:
+                inherit_parent_restrictions = False
 
             if not display_name:
                 return NO_DISPLAY_NAME_FOR_LANE

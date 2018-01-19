@@ -1,13 +1,17 @@
 from nose.tools import set_trace
 
 from api.opds import CirculationManagerAnnotator
+from core.opds import VerboseAnnotator
 from core.lane import Facets, Pagination
 from core.model import (
     BaseMaterializedWork,
+    DataSource,
     LicensePool,
+    Measurement,
     Session,
 )
 from core.opds import AcquisitionFeed
+from core.util.opds_writer import AtomFeed
 
 class AdminAnnotator(CirculationManagerAnnotator):
 
@@ -18,6 +22,12 @@ class AdminAnnotator(CirculationManagerAnnotator):
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
 
         super(AdminAnnotator, self).annotate_work_entry(work, active_license_pool, edition, identifier, feed, entry)
+        VerboseAnnotator.annotate_work_entry(work, active_license_pool, edition, identifier, feed, entry)
+
+        # Find staff rating and add a tag for it.
+        for measurement in identifier.measurements:
+            if measurement.data_source.name == DataSource.LIBRARY_STAFF and measurement.is_most_recent:
+                entry.append(self.rating_tag(measurement.quantity_measured, measurement.value))
 
         feed.add_link_to_entry(
             entry,

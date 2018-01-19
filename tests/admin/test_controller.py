@@ -227,6 +227,86 @@ class TestWorkController(AdminControllerTest):
             eq_(1, len(unsuppress_links))
             assert lp.identifier.identifier in unsuppress_links[0]
 
+    def test_roles(self):
+        roles = self.manager.admin_work_controller.roles()
+        assert Contributor.ILLUSTRATOR_ROLE in roles.values()
+        assert Contributor.NARRATOR_ROLE in roles.values()
+        eq_(Contributor.ILLUSTRATOR_ROLE,
+            roles[Contributor.MARC_ROLE_CODES[Contributor.ILLUSTRATOR_ROLE]])
+        eq_(Contributor.NARRATOR_ROLE,
+            roles[Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE]])
+
+    def test_languages(self):
+        languages = self.manager.admin_work_controller.languages()
+        assert 'en' in languages.keys()
+        assert 'fre' in languages.keys()
+        names = [name for sublist in languages.values() for name in sublist]
+        assert 'English' in names
+        assert 'French' in names
+
+    def test_media(self):
+        media = self.manager.admin_work_controller.media()
+        assert Edition.BOOK_MEDIUM in media.values()
+        assert Edition.medium_to_additional_type[Edition.BOOK_MEDIUM] in media.keys()
+
+    def _make_test_edit_request(self, data):
+        [lp] = self.english_1.license_pools
+        with self.request_context_with_library("/"):
+            flask.request.form = ImmutableMultiDict(data)
+            return self.manager.admin_work_controller.edit(
+                lp.identifier.type, lp.identifier.identifier
+            )
+
+    def test_edit_unknown_role(self):
+        response = self._make_test_edit_request(
+            [('contributor-role', self._str),
+             ('contributor-name', self._str)])
+        eq_(400, response.status_code)
+        eq_(UNKNOWN_ROLE.uri, response.uri)
+
+    def test_edit_invalid_series_position(self):
+        response = self._make_test_edit_request(
+            [('series', self._str),
+             ('series_position', 'five')])
+        eq_(400, response.status_code)
+        eq_(INVALID_SERIES_POSITION.uri, response.uri)
+
+    def test_edit_unknown_medium(self):
+        response = self._make_test_edit_request(
+            [('medium', self._str)])
+        eq_(400, response.status_code)
+        eq_(UNKNOWN_MEDIUM.uri, response.uri)
+
+    def test_edit_unknown_language(self):
+        response = self._make_test_edit_request(
+            [('language', self._str)])
+        eq_(400, response.status_code)
+        eq_(UNKNOWN_LANGUAGE.uri, response.uri)
+
+    def test_edit_invalid_date_format(self):
+        response = self._make_test_edit_request(
+            [('issued', self._str)])
+        eq_(400, response.status_code)
+        eq_(INVALID_DATE_FORMAT.uri, response.uri)
+
+    def test_edit_invalid_rating_not_number(self):
+        response = self._make_test_edit_request(
+            [('rating', 'abc')])
+        eq_(400, response.status_code)
+        eq_(INVALID_RATING.uri, response.uri)
+
+    def test_edit_invalid_rating_above_scale(self):
+        response = self._make_test_edit_request(
+            [('rating', 9999)])
+        eq_(400, response.status_code)
+        eq_(INVALID_RATING.uri, response.uri)
+
+    def test_edit_invalid_rating_below_scale(self):
+        response = self._make_test_edit_request(
+            [('rating', -3)])
+        eq_(400, response.status_code)
+        eq_(INVALID_RATING.uri, response.uri)
+
     def test_edit(self):
         [lp] = self.english_1.license_pools
 
@@ -243,8 +323,18 @@ class TestWorkController(AdminControllerTest):
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("subtitle", "New subtitle"),
+                ("contributor-role", "Author"),
+                ("contributor-name", "New Author"),
+                ("contributor-role", "Narrator"),
+                ("contributor-name", "New Narrator"),
                 ("series", "New series"),
                 ("series_position", "144"),
+                ("medium", "Audio"),
+                ("language", "French"),
+                ("publisher", "New Publisher"),
+                ("imprint", "New Imprint"),
+                ("issued", "2017-11-05"),
+                ("rating", "2"),
                 ("summary", "<p>New summary</p>")
             ])
             response = self.manager.admin_work_controller.edit(
@@ -255,21 +345,50 @@ class TestWorkController(AdminControllerTest):
             assert "New title" in self.english_1.simple_opds_entry
             eq_("New subtitle", self.english_1.subtitle)
             assert "New subtitle" in self.english_1.simple_opds_entry
+            eq_("New Author", self.english_1.author)
+            assert "New Author" in self.english_1.simple_opds_entry
+            [author, narrator] = sorted(
+                self.english_1.presentation_edition.contributions,
+                key=lambda x: x.contributor.display_name)
+            eq_("New Author", author.contributor.display_name)
+            eq_("Author, New", author.contributor.sort_name)
+            eq_("Primary Author", author.role)
+            eq_("New Narrator", narrator.contributor.display_name)
+            eq_("Narrator, New", narrator.contributor.sort_name)
+            eq_("Narrator", narrator.role)
             eq_("New series", self.english_1.series)
             assert "New series" in self.english_1.simple_opds_entry
             eq_(144, self.english_1.series_position)
             assert "144" in self.english_1.simple_opds_entry
+            eq_("Audio", self.english_1.presentation_edition.medium)
+            eq_("fre", self.english_1.presentation_edition.language)
+            eq_("New Publisher", self.english_1.publisher)
+            eq_("New Imprint", self.english_1.presentation_edition.imprint)
+            eq_(datetime(2017, 11, 5), self.english_1.presentation_edition.issued)
+            eq_(0.25, self.english_1.quality)
             eq_("<p>New summary</p>", self.english_1.summary_text)
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
             eq_(1, staff_edition_count())
 
         with self.request_context_with_library("/"):
-            # Change the summary again
+            # Change the summary again and add an author.
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("subtitle", "New subtitle"),
+                ("contributor-role", "Author"),
+                ("contributor-name", "New Author"),
+                ("contributor-role", "Narrator"),
+                ("contributor-name", "New Narrator"),
+                ("contributor-role", "Author"),
+                ("contributor-name", "Second Author"),
                 ("series", "New series"),
                 ("series_position", "144"),
+                ("medium", "Audio"),
+                ("language", "French"),
+                ("publisher", "New Publisher"),
+                ("imprint", "New Imprint"),
+                ("issued", "2017-11-05"),
+                ("rating", "2"),
                 ("summary", "abcd")
             ])
             response = self.manager.admin_work_controller.edit(
@@ -278,15 +397,34 @@ class TestWorkController(AdminControllerTest):
             eq_(200, response.status_code)
             eq_("abcd", self.english_1.summary_text)
             assert 'New summary' not in self.english_1.simple_opds_entry
+            [author, narrator, author2] = sorted(
+                self.english_1.presentation_edition.contributions,
+                key=lambda x: x.contributor.display_name)
+            eq_("New Author", author.contributor.display_name)
+            eq_("Author, New", author.contributor.sort_name)
+            eq_("Primary Author", author.role)
+            eq_("New Narrator", narrator.contributor.display_name)
+            eq_("Narrator, New", narrator.contributor.sort_name)
+            eq_("Narrator", narrator.role)
+            eq_("Second Author", author2.contributor.display_name)
+            eq_("Author", author2.role)
             eq_(1, staff_edition_count())
 
         with self.request_context_with_library("/"):
-            # Now delete the subtitle and series and summary entirely
+            # Now delete the subtitle, narrator, series, and summary entirely
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
+                ("contributor-role", "Author"),
+                ("contributor-name", "New Author"),
                 ("subtitle", ""),
                 ("series", ""),
                 ("series_position", ""),
+                ("medium", "Audio"),
+                ("language", "French"),
+                ("publisher", "New Publisher"),
+                ("imprint", "New Imprint"),
+                ("issued", "2017-11-05"),
+                ("rating", "2"),
                 ("summary", "")
             ])
             response = self.manager.admin_work_controller.edit(
@@ -294,10 +432,13 @@ class TestWorkController(AdminControllerTest):
             )
             eq_(200, response.status_code)
             eq_(None, self.english_1.subtitle)
+            [author] = self.english_1.presentation_edition.contributions
+            eq_("New Author", author.contributor.display_name)
             eq_(None, self.english_1.series)
             eq_(None, self.english_1.series_position)
             eq_("", self.english_1.summary_text)
             assert 'New subtitle' not in self.english_1.simple_opds_entry
+            assert "Narrator" not in self.english_1.simple_opds_entry
             assert 'New series' not in self.english_1.simple_opds_entry
             assert '144' not in self.english_1.simple_opds_entry
             assert 'abcd' not in self.english_1.simple_opds_entry
@@ -325,21 +466,6 @@ class TestWorkController(AdminControllerTest):
             assert '169' in self.english_1.simple_opds_entry
             assert "&lt;p&gt;Final summary&lt;/p&gt;" in self.english_1.simple_opds_entry
             eq_(1, staff_edition_count())
-
-        with self.request_context_with_library("/"):
-            # Set the series position to a non-numerical value
-            flask.request.form = ImmutableMultiDict([
-                ("title", "New title"),
-                ("subtitle", "Final subtitle"),
-                ("series", "Final series"),
-                ("series_position", "abc"),
-                ("summary", "<p>Final summary</p>")
-            ])
-            response = self.manager.admin_work_controller.edit(
-                lp.identifier.type, lp.identifier.identifier
-            )
-            eq_(400, response.status_code)
-            eq_(169, self.english_1.series_position)
 
     def test_edit_classifications(self):
         # start with a couple genres based on BISAC classifications from Axis 360
@@ -1392,7 +1518,7 @@ class TestLanesController(AdminControllerTest):
                 ("parent_id", parent.id),
                 ("display_name", "lane"),
                 ("custom_list_ids", json.dumps([list.id])),
-                ("inherit_parent_restrictions", False),
+                ("inherit_parent_restrictions", "false"),
             ])
             response = self.manager.admin_lanes_controller.lanes()
             eq_(201, response.status_code)
@@ -1430,7 +1556,7 @@ class TestLanesController(AdminControllerTest):
                 ("id", str(lane.id)),
                 ("display_name", "new name"),
                 ("custom_list_ids", json.dumps([list2.id])),
-                ("inherit_parent_restrictions", True),
+                ("inherit_parent_restrictions", "true"),
             ])
 
             response = self.manager.admin_lanes_controller.lanes()

@@ -96,8 +96,43 @@ EROTICA_FOR_ADULTS_ONLY = pd(
 INVALID_SERIES_POSITION = pd(
     "http://librarysimplified.org/terms/problem/invalid-series-position",
     status_code=400,
-    title=_("Invalid series positon."),
+    title=_("Invalid series position."),
     detail=_("The series position must be a number or blank."),
+)
+
+INVALID_DATE_FORMAT = pd(
+    "http://librarysimplified.org/terms/problem/invalid-date-format",
+    status_code=400,
+    title=_("Invalid date format."),
+    detail=_("A date must be in the format YYYY-MM-DD."),
+)
+
+UNKNOWN_LANGUAGE = pd(
+    "http://librarysimplified.org/terms/problem/unknown-language",
+    status_code=400,
+    title=_("Unknown language."),
+    detail=_("The submitted language is not one of the known languages."),
+)
+
+UNKNOWN_ROLE = pd(
+    "http://librarysimplified.org/terms/problem/unknown-role",
+    status_code=400,
+    title=_("Unknown role."),
+    detail=_("One of the submitted roles is not one of the known contributor roles."),
+)
+
+UNKNOWN_MEDIUM = pd(
+    "http://librarysimplified.org/terms/problem/unknown-medium",
+    status_code=400,
+    title=_("Unknown medium."),
+    detail=_("The submitted medium is not one of the known media types."),
+)
+
+INVALID_RATING = pd(
+    "http://librarysimplified.org/terms/problem/invalid-rating",
+    status_code=400,
+    title=_("Invalid rating."),
+    detail=_("The rating must be a number in the rating scale."),
 )
 
 MISSING_LIBRARY_SHORT_NAME = pd(
