@@ -25,26 +25,26 @@ from core.util.opds_writer import OPDSFeed
 
 from api.monitor import (
     MWAuxiliaryMetadataMonitor,
-    MWUpdateMonitor,
+    MWCollectionUpdateMonitor,
 )
 
 
-class InstrumentedMWUpdateMonitor(MWUpdateMonitor):
+class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
     
     def __init__(self, *args, **kwargs):
-        super(InstrumentedMWUpdateMonitor, self).__init__(*args, **kwargs)
+        super(InstrumentedMWCollectionUpdateMonitor, self).__init__(*args, **kwargs)
         self.imports = []
 
     def import_one_feed(self, timestamp, url):
         self.imports.append((timestamp, url))
-        return super(InstrumentedMWUpdateMonitor,
+        return super(InstrumentedMWCollectionUpdateMonitor,
                      self).import_one_feed(timestamp, url)
 
 
-class TestMWUpdateMonitor(DatabaseTest):
+class TestMWCollectionUpdateMonitor(DatabaseTest):
 
     def setup(self):
-        super(TestMWUpdateMonitor, self).setup()
+        super(TestMWCollectionUpdateMonitor, self).setup()
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             ExternalIntegration.METADATA_GOAL,
@@ -59,7 +59,7 @@ class TestMWUpdateMonitor(DatabaseTest):
             self._db, self.collection
         )
 
-        self.monitor = InstrumentedMWUpdateMonitor(
+        self.monitor = InstrumentedMWCollectionUpdateMonitor(
             self._db, self.collection, self.lookup
         )
 
@@ -229,7 +229,7 @@ class TestMWUpdateMonitor(DatabaseTest):
         # If you pass in None for the URL, it passes the timestamp into
         # updates()
         lookup = Mock()
-        monitor = MWUpdateMonitor(
+        monitor = MWCollectionUpdateMonitor(
             self._db, self.collection, lookup
         )
         timestamp = object()
@@ -241,7 +241,7 @@ class TestMWUpdateMonitor(DatabaseTest):
         # If you pass in a URL, the timestamp is ignored and
         # the URL is passed into _get().
         lookup = Mock()
-        monitor = MWUpdateMonitor(
+        monitor = MWCollectionUpdateMonitor(
             self._db, self.collection, lookup
         )
         response = monitor.get_response(timestamp=None, url='http://now used/')

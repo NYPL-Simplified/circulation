@@ -245,7 +245,7 @@ class MetadataWranglerCollectionRegistrar(BaseMetadataWranglerCoverageProvider):
 
     Once it's registered, any future updates to the available metadata
     for a given Identifier will be detected by the
-    MetadataWranglerCollectionUpdateMonitor.
+    MWCollectionUpdateMonitor.
     """
 
     SERVICE_NAME = "Metadata Wrangler Collection Registrar"

@@ -66,7 +66,7 @@ class MetadataWranglerCollectionMonitor(CollectionMonitor):
         raise NotImplementedError()
 
 
-class MWUpdateMonitor(MetadataWranglerCollectionMonitor):
+class MWCollectionUpdateMonitor(MetadataWranglerCollectionMonitor):
     """Retrieves updated metadata from the Metadata Wrangler"""
 
     SERVICE_NAME = "Metadata Wrangler Collection Updates"
