@@ -360,7 +360,8 @@ class SessionManager(object):
                 "Loading materialized view %s from %s.",
                 view_name, resource_file)
             sql = open(resource_file).read()
-            connection.execute(sql)
+            connection.execution_options(isolation_level='AUTOCOMMIT')\
+                .execute(text(sql))
 
             # NOTE: This is apparently necessary for the creation of
             # the materialized view to be finalized in all cases. As
