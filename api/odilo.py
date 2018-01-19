@@ -137,10 +137,6 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
 
         # Data just as 'x-www-form-urlencoded', no JSON
 
-        # TODO: Create a single-purpose patron identifier, the way we
-        # do with RBdigital, and send it instead of
-        # Patron.authorization_identifier, to avoid sending patron
-        # barcodes to the ebook provider.
         payload = dict(
             patronId=patron.authorization_identifier,
             format=internal_format,
