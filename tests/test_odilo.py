@@ -100,6 +100,19 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         assert_raises(NotFoundOnRemote, self.api.checkout, self.patron, self.PIN, self.licensepool, 'ACSM_EPUB')
         self.api.log.info('Test resource not found on remote ok!')
 
+    def test_make_absolute_url(self):
+
+        # A relative URL is made absolute using the API's base URL.
+        relative = "/relative-url"
+        absolute = self.api._make_absolute_url(relative)
+        eq_(absolute, self.api.library_api_base_url + relative)
+
+        # An absolute URL is not modified.
+        for protocol in ('http', 'https'):
+            already_absolute = "%s://example.com/" % protocol 
+            eq_(already_absolute, self.api._make_absolute_url(already_absolute))
+
+
     #################
     # Checkout tests
     #################

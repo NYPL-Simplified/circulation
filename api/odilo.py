@@ -81,9 +81,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
             else:
                 method = 'get'
 
-        if not any(url.startswith(protocol)
-                   for protocol in ('http://', 'https://')):
-            url = self.library_api_base_url + url
+        url = self._make_absolute_url(url)
         response = HTTP.request_with_timeout(
             method, url, headers=headers, data=data,
             timeout=60
@@ -98,6 +96,15 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                 return self.patron_request(patron, pin, url, extra_headers, data, True)
         else:
             return response
+
+    def _make_absolute_url(self, url):
+        """Prepend the API base URL onto `url` unless it is already
+        an absolute HTTP URL.
+        """
+        if not any(url.startswith(protocol)
+                   for protocol in ('http://', 'https://')):
+            url = self.library_api_base_url + url
+        return url
 
     def get_patron_credential(self, patron, pin):
         """Create an OAuth token for the given patron."""
