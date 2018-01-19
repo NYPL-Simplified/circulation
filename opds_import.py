@@ -589,8 +589,10 @@ class OPDSImporter(object):
             return
 
         mapping = dict()
-        external_identifiers = [Identifier.parse_urn(self._db, urn)[0]
-                                for urn in external_urns]
+        identifiers_by_urn, failures = Identifier.parse_urns(
+            self._db, external_urns
+        )
+        external_identifiers = identifiers_by_urn.values()
 
         internal_identifier = aliased(Identifier)
         qu = self._db.query(Identifier, internal_identifier)\
