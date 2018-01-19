@@ -28,7 +28,6 @@ from core import log
 from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
-    Base,
     CirculationEvent,
     ConfigurationSetting,
     Contribution,

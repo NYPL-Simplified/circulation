@@ -9,6 +9,7 @@ from nose.tools import (
 )
 
 from api.odilo import (
+    OdiloAPI,
     MockOdiloAPI,
     RecentOdiloCollectionMonitor,
     FullOdiloCollectionMonitor
@@ -137,6 +138,10 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         checkout_data, checkout_json = self.sample_json("checkout_ebook_streaming_ok.json")
         self.api.queue_response(200, content=checkout_json)
         self.perform_and_validate_checkout('EBOOK_STREAMING')
+
+    def test_mechanism_set_on_borrow(self):
+        """The delivery mechanism for an Odilo title is set on checkout."""
+        eq_(OdiloAPI.SET_DELIVERY_MECHANISM_AT, OdiloAPI.BORROW_STEP)
 
     def perform_and_validate_checkout(self, internal_format):
         loan_info = self.api.checkout(self.patron, self.PIN, self.licensepool, internal_format)
