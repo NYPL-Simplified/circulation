@@ -14,23 +14,25 @@ from core.monitor import (
 from core.model import (
     DataSource,
     Edition,
+    Identifier,
     LicensePool,
 )
 from core.opds_import import (
     MetadataWranglerOPDSLookup,
     OPDSImporter,
+    OPDSXMLParser,
 )
 from core.util.http import RemoteIntegrationException
 
 
-class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
-    """Retrieves updated metadata from the Metadata Wrangler"""
+class MetadataWranglerCollectionMonitor(CollectionMonitor):
 
-    SERVICE_NAME = "Metadata Wrangler Collection Updates"
-    DEFAULT_START_TIME = CollectionMonitor.NEVER
+    """Abstract base CollectionMonitor with helper methods for interactions
+    with the Metadata Wrangler.
+    """
 
     def __init__(self, _db, collection, lookup=None):
-        super(MetadataWranglerCollectionUpdateMonitor, self).__init__(
+        super(MetadataWranglerCollectionMonitor, self).__init__(
             _db, collection
         )
         self.lookup = lookup or MetadataWranglerOPDSLookup.from_config(
@@ -42,12 +44,40 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
             metadata_client=self.lookup, map_from_collection=True,
         )
 
+    def get_response(self, url=None, **kwargs):
+        try:
+            if url:
+                response = self.lookup._get(url)
+            else:
+                response = self.endpoint(**kwargs)
+            self.lookup.check_content_type(response)
+            return response
+        except RemoteIntegrationException as e:
+            self.log.error(
+                "Error getting feed for %r: %s",
+                self.collection, e.debug_message
+            )
+            self.keep_timestamp = False
+            return None
+
+    def endpoint(self, *args, **kwargs):
+        raise NotImplementedError()
+
+
+class MWUpdateMonitor(MetadataWranglerCollectionMonitor):
+    """Retrieves updated metadata from the Metadata Wrangler"""
+
+    SERVICE_NAME = "Metadata Wrangler Collection Updates"
+    DEFAULT_START_TIME = CollectionMonitor.NEVER
+
+    def endpoint(self, timestamp):
+        return self.lookup.updates(timestamp)
+
     def run_once(self, start, cutoff):
         if not self.lookup.authenticated:
             self.keep_timestamp = False
             return
 
-        entries = list()
         queue = [None]
         seen_links = set()
 
@@ -85,7 +115,7 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
         return new_timestamp or self.timestamp().timestamp
 
     def import_one_feed(self, timestamp, url):
-        response = self.get_response(timestamp, url=url)
+        response = self.get_response(url=url, timestamp=timestamp)
         if not response:
             return [], [], timestamp
 
@@ -113,24 +143,8 @@ class MetadataWranglerCollectionUpdateMonitor(CollectionMonitor):
         next_links = self.importer.extract_next_links(parsed)
         return next_links, editions, timestamp
 
-    def get_response(self, timestamp, url=None):
-        try:
-            if not url:
-                response = self.lookup.updates(timestamp)
-            else:
-                response = self.lookup._get(url)
-            self.lookup.check_content_type(response)
-            return response
-        except RemoteIntegrationException as e:
-            self.log.error(
-                "Error getting updates for %r: %s",
-                self.collection, e.debug_message
-            )
-            self.keep_timestamp = False
-            return None
 
-
-class MetadataWranglerAuxiliaryMetadataMonitor(CollectionMonitor):
+class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
 
     """Retrieves and processes requests for needed third-party metadata
     from the Metadata Wrangler.
@@ -148,21 +162,20 @@ class MetadataWranglerAuxiliaryMetadataMonitor(CollectionMonitor):
       - get the next page.
     """
 
-    SERVICE_NAME = "Metadata Wrangler Collection Updates"
+    SERVICE_NAME = "Metadata Wrangler Auxiliary Metadata Delivery"
     DEFAULT_START_TIME = CollectionMonitor.NEVER
 
-    def __init__(self, _db, collection, lookup=None):
-        super(MetadataWranglerCollectionUpdateMonitor, self).__init__(
-            _db, collection
+    def __init__(self, _db, collection, lookup=None, provider=None):
+        super(MWAuxiliaryMetadataMonitor, self).__init__(
+            _db, collection, lookup=lookup
         )
-        self.lookup = lookup or MetadataWranglerOPDSLookup.from_config(
-            self._db, collection=collection
+        self.parser = OPDSXMLParser()
+        self.provider = provider or MetadataUploadCoverageProvider(
+            collection, lookup_client=lookup
         )
-        self.importer = OPDSImporter(
-            self._db, self.collection,
-            data_source_name=DataSource.METADATA_WRANGLER,
-            metadata_client=self.lookup, map_from_collection=True,
-        )
+
+    def endpoint(self):
+        return self.lookup.metadata_needed()
 
     def run_once(self, start, cutoff):
         if not self.lookup.authenticated:

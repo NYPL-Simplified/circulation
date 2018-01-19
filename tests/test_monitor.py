@@ -20,26 +20,27 @@ from core.testing import MockRequestsResponse
 from core.util.opds_writer import OPDSFeed
 
 from api.monitor import (
-    MetadataWranglerCollectionUpdateMonitor,
+    MWAuxiliaryMetadataMonitor,
+    MWUpdateMonitor,
 )
 
 
-class InstrumentedMetadataWranglerCollectionUpdateMonitor(MetadataWranglerCollectionUpdateMonitor):
+class InstrumentedMWUpdateMonitor(MWUpdateMonitor):
     
     def __init__(self, *args, **kwargs):
-        super(InstrumentedMetadataWranglerCollectionUpdateMonitor, self).__init__(*args, **kwargs)
+        super(InstrumentedMWUpdateMonitor, self).__init__(*args, **kwargs)
         self.imports = []
 
     def import_one_feed(self, timestamp, url):
         self.imports.append((timestamp, url))
-        return super(InstrumentedMetadataWranglerCollectionUpdateMonitor, 
+        return super(InstrumentedMWUpdateMonitor,
                      self).import_one_feed(timestamp, url)
 
 
-class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
+class TestMWUpdateMonitor(DatabaseTest):
 
     def setup(self):
-        super(TestMetadataWranglerCollectionUpdateMonitor, self).setup()
+        super(TestMWUpdateMonitor, self).setup()
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             ExternalIntegration.METADATA_GOAL,
@@ -54,7 +55,7 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
             self._db, self.collection
         )
 
-        self.monitor = InstrumentedMetadataWranglerCollectionUpdateMonitor(
+        self.monitor = InstrumentedMWUpdateMonitor(
             self._db, self.collection, self.lookup
         )
 
@@ -224,11 +225,11 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         # If you pass in None for the URL, it passes the timestamp into
         # updates()
         lookup = Mock()
-        monitor = MetadataWranglerCollectionUpdateMonitor(
+        monitor = MWUpdateMonitor(
             self._db, self.collection, lookup
         )
         timestamp = object()
-        response = monitor.get_response(timestamp, None)
+        response = monitor.get_response(timestamp=timestamp, url=None)
         eq_(200, response.status_code)
         eq_(timestamp, lookup.last_timestamp)
         eq_([], lookup.urls)
@@ -236,16 +237,16 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         # If you pass in a URL, the timestamp is ignored and
         # the URL is passed into _get().
         lookup = Mock()
-        monitor = MetadataWranglerCollectionUpdateMonitor(
+        monitor = MWUpdateMonitor(
             self._db, self.collection, lookup
         )
-        response = monitor.get_response(None, 'http://now used/')
+        response = monitor.get_response(timestamp=None, url='http://now used/')
         eq_(200, response.status_code)
         eq_(None, lookup.last_timestamp)
         eq_(['http://now used/'], lookup.urls)
 
 
-class TestMetadataWranglerAuxiliaryMetadataMonitor(DatabaseTest):
+class TestMWAuxiliaryMetadataMonitor(DatabaseTest):
 
     def test_get_identifiers(self):
         ignored = self._identifier()
