@@ -378,19 +378,10 @@ class MetadataUploadCoverageProvider(BaseMetadataWranglerCoverageProvider):
     SERVICE_NAME = "Metadata Upload Coverage Provider"
     OPERATION = CoverageRecord.METADATA_UPLOAD_OPERATION
     DATA_SOURCE_NAME = DataSource.INTERNAL_PROCESSING
-       
-    def items_that_need_coverage(self, identifiers=None, **kwargs):
-        """Find all identifiers lacking coverage from this CoverageProvider.
-        Only identifiers that have CoverageRecords in the 'transient
-        failure' state will be returned. Unlike with other
-        CoverageProviders, Identifiers that have no CoverageRecord at
-        all will not be processed.
-        """
-        qu = super(MetadataUploadCoverageProvider, self).items_that_need_coverage(
-            identifiers=identifiers, **kwargs
-        )
-        qu = qu.filter(CoverageRecord.id != None)
-        return qu
+
+    def __init__(self, *args, **kwargs):
+        kwargs['registered_only'] = kwargs.get('registered_only', True)
+        super(MetadataUploadCoverageProvider, self).__init__(*args, **kwargs)
 
     def process_batch(self, batch):
         """Create an OPDS feed from a batch and upload it to the metadata client."""
