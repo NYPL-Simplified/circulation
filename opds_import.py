@@ -590,7 +590,7 @@ class OPDSImporter(object):
 
         mapping = dict()
         identifiers_by_urn, failures = Identifier.parse_urns(
-            self._db, external_urns
+            self._db, external_urns, autocreate=False
         )
         external_identifiers = identifiers_by_urn.values()
 

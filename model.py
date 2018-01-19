@@ -1969,7 +1969,7 @@ class Identifier(Base):
         return (type, identifier_string)
 
     @classmethod
-    def parse_urns(cls, _db, identifier_strings, autocreate=False):
+    def parse_urns(cls, _db, identifier_strings, autocreate=True):
         """Batch processes URNs"""
         failures = list()
         identifier_details = dict()

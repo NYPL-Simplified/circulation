@@ -381,30 +381,36 @@ class TestIdentifier(DatabaseTest):
         same_new_urn = Identifier.URN_SCHEME_PREFIX + "Overdrive%20ID/NOSUCHidentifier"
         urns = [identifier.urn, fake_urn, new_urn, same_new_urn]
 
+        results = Identifier.parse_urns(self._db, urns, autocreate=False)
+        identifiers_by_urn, failures = results
+
+        # By default, no new identifiers are created. All URNs for identifiers
+        # that aren't in the db are included in the list of failures.
+        eq_(sorted([fake_urn, new_urn, same_new_urn]), sorted(failures))
+
+        # Only the existing identifier is included in the results.
+        eq_(1, len(identifiers_by_urn))
+        eq_({identifier.urn : identifier}, identifiers_by_urn)
+
+        # By default, new identifiers are created, too.
         results = Identifier.parse_urns(self._db, urns)
         identifiers_by_urn, failures = results
 
-        # The fake URN is returned in the list of failures.
-        eq_(failures, [fake_urn])
+        # Only the fake URN is returned as a failure.
+        eq_([fake_urn], failures)
 
+        # Only two additional identifiers have been created.
         eq_(2, len(identifiers_by_urn))
-        # The existing identifier is returned from its URN.
+
+        # One is the existing identifier.
         eq_(identifier, identifiers_by_urn[identifier.urn])
 
+        # And the new identifier has been created.
         new_identifier = identifiers_by_urn[new_urn]
         assert isinstance(new_identifier, Identifier)
         assert new_identifier in self._db
         eq_(Identifier.OVERDRIVE_ID, new_identifier.type)
         eq_("nosuchidentifier", new_identifier.identifier)
-
-        # It also works if we ask only for identifiers that already exist.
-        urns = [identifier.urn]
-        [results, errors] = Identifier.parse_urns(self._db, urns)
-
-        # We got no errors and one successful lookup.
-        eq_([], errors)
-        eq_(1, len(results))
-        eq_(identifier, results[identifier.urn])
 
     def test_parse_urn(self):
 
