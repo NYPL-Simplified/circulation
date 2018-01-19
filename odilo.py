@@ -195,8 +195,12 @@ class OdiloAPI(object):
     def _update_credential(credential, odilo_data):
         """Copy Odilo OAuth data into a Credential object."""
         credential.credential = odilo_data['token']
-        expires_in = (odilo_data['expiresIn'] * 0.9)
-        credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
+        if odilo_data['expiresIn'] == -1:
+            # This token never expires.
+            credential.expires = None
+        else:
+            expires_in = (odilo_data['expiresIn'] * 0.9)
+            credential.expires = datetime.datetime.utcnow() + datetime.timedelta(seconds=expires_in)
 
     def get_metadata(self, record_id):
         identifier = record_id
@@ -287,8 +291,8 @@ class MockOdiloAPI(OdiloAPI):
         response = self.access_token_response
         return HTTP._process_response(url, response, **kwargs)
 
-    def mock_access_token_response(self, credential):
-        token = dict(token=credential, expiresIn=3600)
+    def mock_access_token_response(self, credential, expires_in=-1):
+        token = dict(token=credential, expiresIn=expires_in)
         return MockRequestsResponse(200, {}, json.dumps(token))
 
     def queue_response(self, status_code, headers={}, content=None):
