@@ -1168,6 +1168,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     DEFAULT_KEYBOARD = "Default"
     EMAIL_ADDRESS_KEYBOARD = "Email address"
     NUMBER_PAD = "Number pad"
+    NULL_KEYBOARD = "No input"
 
     # The identifier and password can have a maximum
     # supported length.
@@ -1241,6 +1242,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
           "options": [
               { "key": DEFAULT_KEYBOARD, "label": _("System default") },
               { "key": NUMBER_PAD, "label": _("Number pad") },
+              { "key": NULL_KEYBOARD, "label": _("Patrons have no password and should not be prompted for one.") },
           ],
           "default": DEFAULT_KEYBOARD
         },
@@ -1292,7 +1294,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
                 identifier_regular_expression
             )
         self.identifier_re = identifier_regular_expression
-        
+
         password_regular_expression = integration.setting(
             self.PASSWORD_REGULAR_EXPRESSION
         ).value or self.DEFAULT_PASSWORD_REGULAR_EXPRESSION
@@ -1322,7 +1324,14 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             integration.setting(self.PASSWORD_LABEL).value
             or self.DEFAULT_PASSWORD_LABEL
         )
-        
+
+    @property
+    def collects_password(self):
+        """Does this BasicAuthenticationProvider expect a username
+        and a password, or just a username?
+        """
+        return self.password_keyboard is not self.NULL_KEYBOARD
+
     def testing_patron(self, _db):
         """Look up a Patron object reserved for testing purposes.
 
@@ -1458,16 +1467,21 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             valid = valid and username is not None and (
                 self.identifier_re.match(username) is not None
             )
-        if self.password_re:
-            valid = valid and password is not None and (
-                self.password_re.match(password) is not None
-            )
+
+        if not self.collects_password:
+            # The only legal password is an empty one.
+            valid = valid and password in (None, '')
+        else:
+            if self.password_re:
+                valid = valid and password is not None and (
+                    self.password_re.match(password) is not None
+                )
+            if self.password_maximum_length:
+                valid = valid and password and (len(password) <= self.password_maximum_length)
         
         if self.identifier_maximum_length:
             valid = valid and (len(username) <= self.identifier_maximum_length)
 
-        if self.password_maximum_length:
-            valid = valid and password and (len(password) <= self.password_maximum_length)
         return valid
     
     def remote_authenticate(self, username, password):
