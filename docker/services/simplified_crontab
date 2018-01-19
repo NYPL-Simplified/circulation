@@ -33,9 +33,10 @@ HOME=/var/www/circulation
 # information about books in our collection.
 */59 * * * * root core/bin/run metadata_wrangler_collection_updates >> /var/log/cron.log 2>&1
 
-# If the Metadata Wrangler needs content such as book covers that only we
-# can provide, send it over.
+# If the Metadata Wrangler needs content such as book covers or distributor
+# information that only we can provide, send it over.
 30 21 * * * root core/bin/run metadata_upload_coverage >> /var/log/cron.log 2>&1
+0 3 * * 3 root core/bin/run metadata_wrangler_auxiliary_metadata >> /var/log/cron.log 2>&1
 
 # If any works are classified under unprocessed subjects, reclassify
 # those works.
