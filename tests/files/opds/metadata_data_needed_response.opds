@@ -18,55 +18,5 @@
     <simplified:status_code>202</simplified:status_code>
     <schema:description>Metadata needed.</schema:description>
   </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9781471135422</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9781597228930</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9781592578474</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9780385495561</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9781470361181</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9785237010534</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9781780877952</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9781299056251</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9780843929997</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <simplified:message>
-    <id>urn:isbn:9789536306039</id>
-    <simplified:status_code>202</simplified:status_code>
-    <schema:description>Metadata needed.</schema:description>
-  </simplified:message>
-  <link href="http://localhost:5500/VDNabGNtUnlhWFpsOk9ETTM%3D/metadata_needed?after=25&amp;size=25" rel="next"/>
+  <link href="http://next-link" rel="next"/>
 </feed>

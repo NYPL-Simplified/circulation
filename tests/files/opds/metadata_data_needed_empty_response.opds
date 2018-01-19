@@ -1,0 +1,7 @@
+<feed xmlns:app="http://www.w3.org/2007/app" xmlns:bibframe="http://bibframe.org/vocab/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:drm="http://librarysimplified.org/terms/drm" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns:simplified="http://librarysimplified.org/terms/" xmlns="http://www.w3.org/2005/Atom">
+  <id>http://localhost:5500/VDNabGNtUnlhWFpsOk9ETTM%3D/metadata_needed</id>
+  <title>Overdrive Metadata Requests for example.org</title>
+  <updated>2018-01-09T22:49:54Z</updated>
+  <link href="http://localhost:5500/VDNabGNtUnlhWFpsOk9ETTM%3D/metadata_needed" rel="self"/>
+  <link href="http://another-next-link" rel="next"/>
+</feed>

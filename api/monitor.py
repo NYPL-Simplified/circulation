@@ -3,7 +3,9 @@ import feedparser
 import logging
 import os
 import sys
+from lxml import etree
 from nose.tools import set_trace
+from StringIO import StringIO
 
 from sqlalchemy import or_
 
@@ -153,13 +155,6 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
     identifier from its own third-party resources. In these cases (e.g. ISBNs
     from Axis 360 or Bibliotheca), the wrangler will put out a call for metadata
     that it needs to process the identifier. This monitor answers that call.
-
-    TODO:
-      - get feed from metadata wrangler
-      - find identifiers in the feed
-      - get their equivalents / work here
-      - build a feed and send it to add_with_metadata
-      - get the next page.
     """
 
     SERVICE_NAME = "Metadata Wrangler Auxiliary Metadata Delivery"
@@ -182,5 +177,54 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
             self.keep_timestamp = False
             return
 
-    def get_identifiers(self):
-        response = self.lookup.metadata_needed()
+        queue = [None]
+        seen_links = set()
+
+        while queue:
+            url = queue.pop(0)
+            if url in seen_links:
+                continue
+
+            identifiers, next_links = self.get_identifiers(url=url)
+
+            # Export metadata for the provided identifiers, but only if
+            # they have a presentation-ready work. (This prevents creating
+            # CoverageRecords for identifiers that don't actually have metadata
+            # to send.)
+            identifiers = [i for i in identifiers
+                           if i.work and i.work.simple_opds_entry]
+            self.provider.bulk_register(identifiers)
+            self.provider.run_on_specific_identifiers(identifiers)
+
+            seen_links.add(url)
+            if identifiers:
+                for link in next_links:
+                    if link not in seen_links:
+                        queue.append(link)
+
+    def get_identifiers(self, url=None):
+        """Pulls mapped identifiers from a feed of SimplifiedOPDSMessages."""
+        response = self.get_response(url=url)
+        feed = response.text
+
+        etree_feed = etree.parse(StringIO(response.text))
+        messages = self.importer.extract_messages(self.parser, etree_feed)
+
+        urns = [m.urn for m in messages]
+        identifiers_by_urn, _failures = Identifier.parse_urns(
+            self._db, urns, autocreate=False
+        )
+        urns = identifiers_by_urn.keys()
+        identifiers = identifiers_by_urn.values()
+
+        self.importer.build_identifier_mapping(urns)
+        mapped_identifiers = list()
+        for identifier in identifiers:
+            mapped_identifier = self.importer.identifier_mapping.get(
+                identifier, identifier
+            )
+            mapped_identifiers.append(mapped_identifier)
+
+        parsed_feed = feedparser.parse(feed)
+        next_links = self.importer.extract_next_links(parsed_feed)
+        return mapped_identifiers, next_links
