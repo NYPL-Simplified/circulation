@@ -2041,7 +2041,7 @@ class TestSettingsController(AdminControllerTest):
         # underneath it.
         [other_languages, german] = library.lanes
         eq_(None, other_languages.parent)
-        eq_(['ger', other_languages.languages)
+        eq_(['ger'], other_languages.languages)
         eq_(other_languages, german.parent)
         eq_(['ger'], german.languages)
 
