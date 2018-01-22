@@ -1154,51 +1154,51 @@ class BasicAuthenticationProvider(AuthenticationProvider):
     
     # Identifiers can be presumed invalid if they don't match
     # this regular expression.
-    IDENTIFIER_REGULAR_EXPRESSION = 'identifier_regular_expression'
+    IDENTIFIER_REGULAR_EXPRESSION = u'identifier_regular_expression'
 
     # Passwords can be presumed invalid if they don't match this regular
     # expression.
-    PASSWORD_REGULAR_EXPRESSION = 'password_regular_expression'
+    PASSWORD_REGULAR_EXPRESSION = u'password_regular_expression'
 
     # The client should prefer one keyboard over another.
-    IDENTIFIER_KEYBOARD = 'identifier_keyboard'
-    PASSWORD_KEYBOARD = 'password_keyboard'
+    IDENTIFIER_KEYBOARD = u'identifier_keyboard'
+    PASSWORD_KEYBOARD = u'password_keyboard'
 
     # Constants describing different types of keyboards.
-    DEFAULT_KEYBOARD = "Default"
-    EMAIL_ADDRESS_KEYBOARD = "Email address"
-    NUMBER_PAD = "Number pad"
-    NULL_KEYBOARD = "No input"
+    DEFAULT_KEYBOARD = u"Default"
+    EMAIL_ADDRESS_KEYBOARD = u"Email address"
+    NUMBER_PAD = u"Number pad"
+    NULL_KEYBOARD = u"No input"
 
     # The identifier and password can have a maximum
     # supported length.
-    IDENTIFIER_MAXIMUM_LENGTH = "identifier_maximum_length"
-    PASSWORD_MAXIMUM_LENGTH = "password_maximum_length"
+    IDENTIFIER_MAXIMUM_LENGTH = u"identifier_maximum_length"
+    PASSWORD_MAXIMUM_LENGTH = u"password_maximum_length"
     
     # The client should use a certain string when asking for a patron's
     # "identifier" and "password"
-    IDENTIFIER_LABEL = 'identifier_label'
-    PASSWORD_LABEL = 'password_label'
-    DEFAULT_IDENTIFIER_LABEL = "Barcode"
-    DEFAULT_PASSWORD_LABEL = "PIN"
+    IDENTIFIER_LABEL = u'identifier_label'
+    PASSWORD_LABEL = u'password_label'
+    DEFAULT_IDENTIFIER_LABEL = u"Barcode"
+    DEFAULT_PASSWORD_LABEL = u"PIN"
 
     # If the identifier label is one of these strings, it will be
     # automatically localized. Otherwise, the same label will be displayed
     # to everyone.
     COMMON_IDENTIFIER_LABELS = {
-        "Barcode": _("Barcode"),
-        "Email Address": _("Email Address"),
-        "Username": _("Username"),
-        "Library Card": _("Library Card"),
-        "Card Number": _("Card Number"),
+        u"Barcode": _("Barcode"),
+        u"Email Address": _("Email Address"),
+        u"Username": _("Username"),
+        u"Library Card": _("Library Card"),
+        u"Card Number": _("Card Number"),
     }
 
     # If the password label is one of these strings, it will be
     # automatically localized. Otherwise, the same label will be
     # displayed to everyone.
     COMMON_PASSWORD_LABELS = {
-        "Password": _("Password"),
-        "PIN": _("PIN"),
+        u"Password": _("Password"),
+        u"PIN": _("PIN"),
     }
     
     # These identifier and password are supposed to be valid
@@ -1330,7 +1330,7 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         """Does this BasicAuthenticationProvider expect a username
         and a password, or just a username?
         """
-        return self.password_keyboard is not self.NULL_KEYBOARD
+        return self.password_keyboard != self.NULL_KEYBOARD
 
     def testing_patron(self, _db):
         """Look up a Patron object reserved for testing purposes.
