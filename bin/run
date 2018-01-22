@@ -60,6 +60,24 @@ create_pidfile () {
 # Create a directory for Library Simplified PID files
 create_dir $piddir
 
+# Check that the script exists.
+FULL_SCRIPT_PATH=$LIBSIMPLE_DIR/bin/$SCRIPT_PATH
+if [[ ! -f $FULL_SCRIPT_PATH ]]; then
+
+  # The script isn't in the main app bin. Try core.
+  FULL_SCRIPT_PATH=$LIBSIMPLE_DIR/core/bin/$SCRIPT_PATH
+  if [[ ! -f $FULL_SCRIPT_PATH ]]; then
+    echo "$SCRIPT_NAME wasn't found in $LIBSIMPLE_DIR/bin or $LIBSIMPLE_DIR/core/bin"
+    exit 1
+  else
+    # This script is in core. Update the log- and pidfiles to reflect this.
+    core_prefix='core-'
+    new_filename="$core_prefix$SCRIPT_NAME"
+    pidfile="${pidfile/$SCRIPT_NAME/$new_filename}"
+    logfile="${logfile/$SCRIPT_NAME/$new_filename}"
+  fi
+fi
+
 # Confirm that process isn't still running && create PID file
 if [[ -f $pidfile ]]; then
   pid=$(cat $pidfile)
@@ -86,7 +104,7 @@ fi
 # Run the script and append its output to its log file.
 echo "Running $SCRIPT_NAME (PID: $$)"
 source $LIBSIMPLE_DIR/env/bin/activate && \
-  $LIBSIMPLE_DIR/bin/$SCRIPT_PATH "$@" >> $logfile 2>&1
+  $FULL_SCRIPT_PATH "$@" >> $logfile 2>&1
 
 # When it's done, remove the PID file.
 rm $pidfile
