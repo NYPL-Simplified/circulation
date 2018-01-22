@@ -55,7 +55,7 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         
     def remote_authenticate(self, username, password):
         "Fake 'remote' authentication."
-        if not username or not password:
+        if not username or (self.collects_password and not password):
             return None
 
         if not self.valid_patron(username, password):
@@ -84,8 +84,10 @@ class SimpleAuthenticationProvider(BasicAuthenticationProvider):
         """Is this patron associated with the given password in 
         the given dictionary?
         """
-        return password==self.test_password and (
-            username in self.test_identifiers
-        )
+        if self.collects_password:
+            password_match = (password==self.test_password)
+        else:
+            password_match = (password in (None, ''))
+        return password_match and username in self.test_identifiers
 
 AuthenticationProvider = SimpleAuthenticationProvider

@@ -103,6 +103,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                     location_code=location_code, separator=field_separator,
                     connect=connect
                 )
+
         except IOError, e:
             raise RemoteIntegrationException(
                 server or 'unknown server', e.message
@@ -116,6 +117,10 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             number/authorization identifier.
         :param password: The patron's password/pin/access code.
         """
+        if not self.collects_password:
+            # Even if we were somehow given a password, we won't be
+            # passing it on.
+            password = None
         try:
             info = self.client.patron_information(username, password)
         except IOError, e:
