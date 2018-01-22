@@ -61,7 +61,7 @@ For troubleshooting information and installation directions for the entire Circu
 
 ### `SIMPLIFIED_CONFIGURATION_FILE`
 
-*Optional.* The full path to configuration file in the container. Use [this documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Configuration) to create the JSON file for your particular library's configuration. If you're unfamiliar with JSON, you can use [this JSON Formatter & Validator](https://jsonformatter.curiousconcept.com/#) to validate your configuration file.
+*Optional.* The full path to a configuration file in the container. Configuration is now held in the database and accessed via an administrative interface at `/admin`, so you probably don't need this. If you do, use [this documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Configuration) to create the JSON file for your particular library's configuration. If you're unfamiliar with JSON, you can use [this JSON Formatter & Validator](https://jsonformatter.curiousconcept.com/#) to validate your configuration file.
 
 ### `SIMPLIFIED_DB_TASK`
 
