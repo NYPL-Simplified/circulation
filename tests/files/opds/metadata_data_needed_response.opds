@@ -1,0 +1,22 @@
+<feed xmlns:app="http://www.w3.org/2007/app" xmlns:bibframe="http://bibframe.org/vocab/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:drm="http://librarysimplified.org/terms/drm" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:schema="http://schema.org/" xmlns:simplified="http://librarysimplified.org/terms/" xmlns="http://www.w3.org/2005/Atom">
+  <id>http://localhost:5500/VDNabGNtUnlhWFpsOk9ETTM%3D/metadata_needed</id>
+  <title>Overdrive Metadata Requests for example.org</title>
+  <updated>2018-01-09T22:49:54Z</updated>
+  <link href="http://localhost:5500/VDNabGNtUnlhWFpsOk9ETTM%3D/metadata_needed" rel="self"/>
+  <simplified:message>
+    <id>urn:librarysimplified.org/terms/id/Overdrive%20ID/4981c34f-d518-48ff-9659-2601b2b9bdc1</id>
+    <simplified:status_code>202</simplified:status_code>
+    <schema:description>Metadata needed.</schema:description>
+  </simplified:message>
+  <simplified:message>
+    <id>urn:isbn:9781602835740</id>
+    <simplified:status_code>202</simplified:status_code>
+    <schema:description>Metadata needed.</schema:description>
+  </simplified:message>
+  <simplified:message>
+    <id>urn:isbn:9781569478295</id>
+    <simplified:status_code>202</simplified:status_code>
+    <schema:description>Metadata needed.</schema:description>
+  </simplified:message>
+  <link href="http://next-link" rel="next"/>
+</feed>

@@ -11,35 +11,40 @@ from . import (
 
 from core.model import (
     Collection,
+    CoverageRecord,
     DataSource,
     ExternalIntegration,
     Identifier,
 )
 from core.opds_import import MockMetadataWranglerOPDSLookup
-from core.testing import MockRequestsResponse
+from core.testing import (
+    MockRequestsResponse,
+    AlwaysSuccessfulCoverageProvider,
+)
 from core.util.opds_writer import OPDSFeed
 
 from api.monitor import (
-    MetadataWranglerCollectionUpdateMonitor,
+    MWAuxiliaryMetadataMonitor,
+    MWCollectionUpdateMonitor,
 )
 
 
-class InstrumentedMetadataWranglerCollectionUpdateMonitor(MetadataWranglerCollectionUpdateMonitor):
+class InstrumentedMWCollectionUpdateMonitor(MWCollectionUpdateMonitor):
     
     def __init__(self, *args, **kwargs):
-        super(InstrumentedMetadataWranglerCollectionUpdateMonitor, self).__init__(*args, **kwargs)
+        super(InstrumentedMWCollectionUpdateMonitor, self).__init__(*args, **kwargs)
         self.imports = []
 
     def import_one_feed(self, timestamp, url):
         self.imports.append((timestamp, url))
-        return super(InstrumentedMetadataWranglerCollectionUpdateMonitor, 
+        return super(InstrumentedMWCollectionUpdateMonitor,
                      self).import_one_feed(timestamp, url)
 
 
-class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
+class TestMWCollectionUpdateMonitor(DatabaseTest):
 
     def setup(self):
-        super(TestMetadataWranglerCollectionUpdateMonitor, self).setup()
+        super(TestMWCollectionUpdateMonitor, self).setup()
         self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
             ExternalIntegration.METADATA_GOAL,
@@ -54,7 +59,7 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
             self._db, self.collection
         )
 
-        self.monitor = InstrumentedMetadataWranglerCollectionUpdateMonitor(
+        self.monitor = InstrumentedMWCollectionUpdateMonitor(
             self._db, self.collection, self.lookup
         )
 
@@ -224,11 +229,11 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         # If you pass in None for the URL, it passes the timestamp into
         # updates()
         lookup = Mock()
-        monitor = MetadataWranglerCollectionUpdateMonitor(
+        monitor = MWCollectionUpdateMonitor(
             self._db, self.collection, lookup
         )
         timestamp = object()
-        response = monitor.get_response(timestamp, None)
+        response = monitor.get_response(timestamp=timestamp, url=None)
         eq_(200, response.status_code)
         eq_(timestamp, lookup.last_timestamp)
         eq_([], lookup.urls)
@@ -236,10 +241,120 @@ class TestMetadataWranglerCollectionUpdateMonitor(DatabaseTest):
         # If you pass in a URL, the timestamp is ignored and
         # the URL is passed into _get().
         lookup = Mock()
-        monitor = MetadataWranglerCollectionUpdateMonitor(
+        monitor = MWCollectionUpdateMonitor(
             self._db, self.collection, lookup
         )
-        response = monitor.get_response(None, 'http://now used/')
+        response = monitor.get_response(timestamp=None, url='http://now used/')
         eq_(200, response.status_code)
         eq_(None, lookup.last_timestamp)
         eq_(['http://now used/'], lookup.urls)
+
+
+class TestMWAuxiliaryMetadataMonitor(DatabaseTest):
+
+    def setup(self):
+        super(TestMWAuxiliaryMetadataMonitor, self).setup()
+
+        self._external_integration(
+            ExternalIntegration.METADATA_WRANGLER,
+            ExternalIntegration.METADATA_GOAL,
+            username=u'abc', password=u'def', url=self._url
+        )
+
+        self.collection = self._collection(
+            protocol=ExternalIntegration.OVERDRIVE, external_account_id=u'lib'
+        )
+
+        self.lookup = MockMetadataWranglerOPDSLookup.from_config(
+            self._db, self.collection
+        )
+
+        provider = AlwaysSuccessfulCoverageProvider(self._db)
+
+        self.monitor = MWAuxiliaryMetadataMonitor(
+            self._db, self.collection, lookup=self.lookup, provider=provider
+        )
+
+    def prep_feed_identifiers(self):
+        ignored = self._identifier()
+
+        # Create an Overdrive ID to match the one in the feed.
+        overdrive = self._identifier(
+            identifier_type=Identifier.OVERDRIVE_ID,
+            foreign_id=u'4981c34f-d518-48ff-9659-2601b2b9bdc1'
+        )
+
+        # Create an ISBN to match the one in the feed.
+        isbn = self._identifier(
+            identifier_type=Identifier.ISBN, foreign_id=u'9781602835740'
+        )
+
+        # Create a Axis 360 ID equivalent to the other ISBN in the feed.
+        axis_360 = self._identifier(
+            identifier_type=Identifier.AXIS_360_ID, foreign_id=u'fake'
+        )
+        axis_360_isbn = self._identifier(
+            identifier_type=Identifier.ISBN, foreign_id=u'9781569478295'
+        )
+        axis_source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        axis_360.equivalent_to(axis_source, axis_360_isbn, 1)
+        self._db.commit()
+
+        # Put all of the identifiers in the collection.
+        for identifier in [overdrive, isbn, axis_360]:
+            self._edition(
+                data_source_name=axis_source.name,
+                with_license_pool=True,
+                identifier_type=identifier.type,
+                identifier_id=identifier.identifier,
+                collection=self.collection,
+            )
+
+        return overdrive, isbn, axis_360
+
+    def test_get_identifiers(self):
+        overdrive, isbn, axis_360 = self.prep_feed_identifiers()
+        data = sample_data('metadata_data_needed_response.opds', 'opds')
+        self.lookup.queue_response(
+            200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, data
+        )
+        identifiers, next_links = self.monitor.get_identifiers()
+
+        # The expected identifiers are returned, including the mapped axis_360
+        # identifier.
+        eq_(sorted([overdrive, axis_360, isbn]), sorted(identifiers))
+
+        eq_(['http://next-link'], next_links)
+
+    def test_run_once(self):
+        overdrive, isbn, axis_360 = self.prep_feed_identifiers()
+
+        # Give one of the identifiers a full work.
+        self._work(presentation_edition=overdrive.primarily_identifies[0])
+        # And another identifier a work without entries.
+        w = self._work(presentation_edition=isbn.primarily_identifies[0])
+        w.simple_opds_entry = w.verbose_opds_entry = None
+
+        # Queue some response feeds.
+        feed1 = sample_data('metadata_data_needed_response.opds', 'opds')
+        feed2 = sample_data('metadata_data_needed_empty_response.opds', 'opds')
+        for feed in [feed1, feed2]:
+            self.lookup.queue_response(
+                200, {'content-type' : OPDSFeed.ACQUISITION_FEED_TYPE}, feed
+            )
+
+        self.monitor.run_once(None, None)
+
+        # Only the identifier with a work has been given coverage.
+        record = CoverageRecord.lookup(
+            overdrive, self.monitor.provider.data_source,
+            operation=self.monitor.provider.operation
+        )
+        assert record
+
+        for identifier in [axis_360, isbn]:
+            record = CoverageRecord.lookup(
+                identifier, self.monitor.provider.data_source,
+                operation=self.monitor.provider.operation
+            )
+            eq_(None, record)
