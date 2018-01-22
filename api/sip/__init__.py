@@ -104,10 +104,6 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
                     connect=connect
                 )
 
-            # We will only send passwords over SIP2 if the integration
-            # is set up to collect passwords.
-            self.send_password = integration.setting(
-                self.PASSWORD_KEYBOARD).value != self.NULL_KEYBOARD
         except IOError, e:
             raise RemoteIntegrationException(
                 server or 'unknown server', e.message
@@ -121,7 +117,7 @@ class SIP2AuthenticationProvider(BasicAuthenticationProvider):
             number/authorization identifier.
         :param password: The patron's password/pin/access code.
         """
-        if not self.send_password:
+        if not self.collects_password:
             # Even if we were somehow given a password, we won't be
             # passing it on.
             password = None

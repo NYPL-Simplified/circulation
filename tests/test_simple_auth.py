@@ -46,6 +46,27 @@ class TestSimpleAuth(DatabaseTest):
         user2 = provider.remote_authenticate("barcode_username", "pass")
         eq_("barcode", user2.authorization_identifier)
 
+    def test_no_password_authentication(self):
+        """The SimpleAuthenticationProvider can be made even
+        simpler by having it authenticate solely based on username.
+        """
+        p = SimpleAuthenticationProvider
+        integration = self._external_integration(self._str)
+        integration.setting(p.TEST_IDENTIFIER).value = "barcode"
+        integration.setting(p.TEST_PASSWORD).value = "pass"
+        integration.setting(p.PASSWORD_KEYBOARD).value = p.NULL_KEYBOARD
+        provider = p(self._default_library, integration)
+
+        # If you don't provide a password, you're in.
+        user = provider.remote_authenticate("barcode", None)
+        assert isinstance(user, PatronData)
+
+        user2 =  provider.remote_authenticate("barcode", '')
+        eq_(user2.authorization_identifier, user.authorization_identifier)
+
+        # If you provide any password, you're out.
+        eq_(None, provider.remote_authenticate("barcode", "pass"))
+
     def test_additional_identifiers(self):
         p = SimpleAuthenticationProvider
         integration = self._external_integration(self._str)
