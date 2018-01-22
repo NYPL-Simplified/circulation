@@ -2001,6 +2001,7 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "The New York Public Library"),
                 ("short_name", "nypl"),
                 (Configuration.WEBSITE_URL, "https://library.library/"),
+                (Configuration.TINY_COLLECTION_LANGUAGES, 'ger'),
                 (Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS, "email@example.com"),
                 (Configuration.FEATURED_LANE_SIZE, "5"),
                 (Configuration.DEFAULT_FACET_KEY_PREFIX + FacetConstants.ORDER_FACET_GROUP_NAME,
@@ -2032,6 +2033,17 @@ class TestSettingsController(AdminControllerTest):
                 library).value)
         eq_("data:image/png;base64,%s" % base64.b64encode(image_data),
             ConfigurationSetting.for_library(Configuration.LOGO, library).value)
+
+        # When the library was created, default lanes were also created
+        # according to its language setup. This library has one tiny
+        # collection (not a good choice for a real library), so only
+        # two lanes were created: "Other Languages" and then "German"
+        # underneath it.
+        [other_languages, german] = library.lanes
+        eq_(None, other_languages.parent)
+        eq_(['ger', other_languages.languages)
+        eq_(other_languages, german.parent)
+        eq_(['ger'], german.languages)
 
     def test_libraries_post_edit(self):
         # A library already exists.
