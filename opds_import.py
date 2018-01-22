@@ -132,6 +132,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
     ADD_ENDPOINT = 'add'
     ADD_WITH_METADATA_ENDPOINT = 'add_with_metadata'
+    METADATA_NEEDED_ENDPOINT = 'metadata_needed'
     REMOVE_ENDPOINT = 'remove'
     UPDATES_ENDPOINT = 'updates'
     CANONICALIZE_ENDPOINT = 'canonical-author-name'
@@ -231,6 +232,15 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
         """Add a feed of items with metadata to an authenticated Metadata Wrangler Collection."""
         add_with_metadata_url = self.get_collection_url(self.ADD_WITH_METADATA_ENDPOINT)
         return self._post(add_with_metadata_url, unicode(feed))
+
+    def metadata_needed(self):
+        """Get a feed of items that need additional metadata to be processed
+        by the Metadata Wrangler.
+        """
+        metadata_needed_url = self.get_collection_url(
+            self.METADATA_NEEDED_ENDPOINT
+        )
+        return self._get(metadata_needed_url)
 
     def remove(self, identifiers):
         """Remove items from an authenticated Metadata Wrangler Collection"""
@@ -579,8 +589,10 @@ class OPDSImporter(object):
             return
 
         mapping = dict()
-        external_identifiers = [Identifier.parse_urn(self._db, urn)[0]
-                                for urn in external_urns]
+        identifiers_by_urn, failures = Identifier.parse_urns(
+            self._db, external_urns, autocreate=False
+        )
+        external_identifiers = identifiers_by_urn.values()
 
         internal_identifier = aliased(Identifier)
         qu = self._db.query(Identifier, internal_identifier)\

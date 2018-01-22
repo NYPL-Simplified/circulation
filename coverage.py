@@ -803,8 +803,12 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             identifiers=self.input_identifiers, collection=self.collection_or_not,
             **kwargs
         )
+
         if identifiers:
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
+        if not identifiers and identifiers != None:
+            # An empty list was provided. The returned query should be empty.
+            qu = qu.filter(Identifier.id==None)
 
         if self.registered_only:
             # Return Identifiers that have been "registered" for coverage

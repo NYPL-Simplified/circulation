@@ -1970,7 +1970,7 @@ class Identifier(Base):
         return (type, identifier_string)
 
     @classmethod
-    def parse_urns(cls, _db, identifier_strings):
+    def parse_urns(cls, _db, identifier_strings, autocreate=True):
         """Batch processes URNs"""
         failures = list()
         identifier_details = dict()
@@ -2011,6 +2011,11 @@ class Identifier(Base):
             k: v for k, v in identifier_details.items()
             if v not in existing_details and k not in identifiers_by_urn.keys()
         }
+
+        if not autocreate:
+            # Don't make new identifiers. Send back unfound urns as failures.
+            failures.extend(identifier_details.keys())
+            return identifiers_by_urn, failures
 
         # Find any identifier details that don't correspond to an existing
         # identifier. Try to create them.
