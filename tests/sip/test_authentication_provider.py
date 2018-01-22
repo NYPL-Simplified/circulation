@@ -191,10 +191,13 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         eq_(datetime(2019, 10, 4), patrondata.authorization_expires)
         eq_("Adult", patrondata.external_type)
 
-        # If a password is specified, it is ignored.
+        # If a password is specified, it is not sent over the wire.
         client.queue_response(self.evergreen_active_user)
-        patrondata = auth.remote_authenticate("user", "some password")
+        patrondata = auth.remote_authenticate("user2", "some password")
         eq_("12345", patrondata.authorization_identifier)
+        request = client.requests[-1]
+        assert 'user2' in request
+        assert 'some password' not in request
 
     def test_ioerror_during_connect_becomes_remoteintegrationexception(self):
         """If the IP of the circulation manager has not been whitelisted,
