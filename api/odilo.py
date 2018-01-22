@@ -1,6 +1,7 @@
 # coding=utf-8
 import datetime
 import json
+from nose.tools import set_trace
 from flask.ext.babel import lazy_gettext as _
 
 from circulation import (
@@ -40,7 +41,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                    {"key": ExternalIntegration.PASSWORD, "label": _("Client Secret")},
                ] + BaseCirculationAPI.SETTINGS
 
-    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
+    SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.BORROW_STEP
 
     # maps a 2-tuple (media_type, drm_mechanism) to the internal string used in Odilo API to describe that setup.
     delivery_mechanism_to_internal_format = {
@@ -80,8 +81,11 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
             else:
                 method = 'get'
 
-        response = HTTP.request_with_timeout(method, self.library_api_base_url + url, headers=headers, data=data,
-                                             timeout=60)
+        url = self._make_absolute_url(url)
+        response = HTTP.request_with_timeout(
+            method, url, headers=headers, data=data,
+            timeout=60
+        )
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
@@ -92,6 +96,15 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                 return self.patron_request(patron, pin, url, extra_headers, data, True)
         else:
             return response
+
+    def _make_absolute_url(self, url):
+        """Prepend the API base URL onto `url` unless it is already
+        an absolute HTTP URL.
+        """
+        if not any(url.startswith(protocol)
+                   for protocol in ('http://', 'https://')):
+            url = self.library_api_base_url + url
+        return url
 
     def get_patron_credential(self, patron, pin):
         """Create an OAuth token for the given patron."""
@@ -130,7 +143,11 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         record_id = licensepool.identifier.identifier
 
         # Data just as 'x-www-form-urlencoded', no JSON
-        payload = dict(patronId=patron, format=internal_format)
+
+        payload = dict(
+            patronId=patron.authorization_identifier,
+            format=internal_format,
+        )
 
         response = self.patron_request(
             patron, pin, self.CHECKOUT_ENDPOINT.format(recordId=record_id),
@@ -167,7 +184,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
     def checkin(self, patron, pin, licensepool):
         record_id = licensepool.identifier.identifier
         loan = self.get_checkout(patron, pin, record_id)
-        url = self.CHECKIN_ENDPOINT.format(checkoutId=loan['id'], patronId=patron)
+        url = self.CHECKIN_ENDPOINT.format(checkoutId=loan['id'], patronId=patron.authorization_identifier)
 
         response = self.patron_request(patron, pin, url, method='POST')
         if response.status_code == 200:
@@ -262,12 +279,12 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                             record_id, format_type)
 
     def get_patron_checkouts(self, patron, pin):
-        data = self.patron_request(patron, pin, self.PATRON_CHECKOUTS_ENDPOINT.format(patronId=patron)).json()
+        data = self.patron_request(patron, pin, self.PATRON_CHECKOUTS_ENDPOINT.format(patronId=patron.authorization_identifier)).json()
         self.raise_exception_on_error(data)
         return data
 
     def get_patron_holds(self, patron, pin):
-        data = self.patron_request(patron, pin, self.PATRON_HOLDS_ENDPOINT.format(patronId=patron)).json()
+        data = self.patron_request(patron, pin, self.PATRON_HOLDS_ENDPOINT.format(patronId=patron.authorization_identifier)).json()
         self.raise_exception_on_error(data)
         return data
 
@@ -322,7 +339,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         record_id = licensepool.identifier.identifier
 
         # Data just as 'x-www-form-urlencoded', no JSON
-        payload = dict(patronId=patron)
+        payload = dict(patronId=patron.authorization_identifier)
 
         response = self.patron_request(
             patron, pin, self.PLACE_HOLD_ENDPOINT.format(recordId=record_id),
@@ -342,7 +359,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         record_id = licensepool.identifier.identifier
         hold = self.get_hold(patron, pin, record_id)
         url = self.RELEASE_HOLD_ENDPOINT.format(holdId=hold['id'])
-        payload = json.dumps(dict(patronId=patron))
+        payload = json.dumps(dict(patronId=patron.authorization_identifier))
 
         response = self.patron_request(patron, pin, url, extra_headers={}, data=payload, method='POST')
         if response.status_code == 200:
