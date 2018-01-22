@@ -1,20 +1,9 @@
 # circulation-docker
-These are the Docker images for Library Simplified's [Circulation Manager](https://github.com/NYPL-Simplified/circulation_manager).
-
-## Supported tags and respective `Dockerfile` links
-
-- **circ-deploy:** `2.0.5`, `2.0` [(2.0.5/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/610d709/deploy/Dockerfile)
-- **circ-scripts:** `2.0.5`, `2.0` [(2.0.5/Dockerfile)](https://github.com/NYPL-Simplified/circulation-docker/blob/610d709/scripts/Dockerfile)
-
-Older versions of the Circulation Manager are not currently supported.
-
-This image is updated via [pull requests to the `NYPL-Simplified/circulation-docker` GitHub repo](https://github.com/NYPL-Simplified/circulation-docker/pulls).
+These are the Docker images for Library Simplified's [Circulation Manager](https://github.com/NYPL-Simplified/circulation_manager). They are updated via [pull requests to the `NYPL-Simplified/circulation-docker` GitHub repo](https://github.com/NYPL-Simplified/circulation-docker/pulls).
 
 #### Contents:
 - What is the Circulation Manager?
 - Using This Image
-  - Version 2.x
-  - Version 1.1.x
 - Environment Variables
 - Notes on Earlier Version
 - Additional Configuration
@@ -34,7 +23,7 @@ To avoid database lockups, `circ-scripts` should be deployed as a single instanc
 
 ## Using This Image
 
-You will need **a PostgreSQL instance url** in the format `postgres://[username]:[password]@[host]:[port]/[database_name]`. With this URL, you can created containers for both the application deployment itself (`circ-deploy`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`).
+You will need **a PostgreSQL instance url** in the format `postgres://[username]:[password]@[host]:[port]/[database_name]`. With this URL, you can created containers for both the web application (`circ-deploy`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`). Either container can be used to initialize or migrate the database. During the first deployment against a brand new database, the first container run should be set with `SIMPLIFIED_DB_TASK='init'`. See the "Environment Variables" section below for mroe information.
 
 ### circ-deploy
 
@@ -72,9 +61,7 @@ For troubleshooting information and installation directions for the entire Circu
 
 ### `SIMPLIFIED_CONFIGURATION_FILE`
 
-*Required in v1.1 only. Optional in v2.x.* The full path to configuration file in the container. Using the volume `-v` for v1.1, it should look something like `/etc/circulation/YOUR_CONFIGURATION_FILENAME.json`. In v2.x you can volume it in wherever you'd like.
-
-Use [this documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Configuration) to create the JSON file for your particular library's configuration. If you're unfamiliar with JSON, you can use [this JSON Formatter & Validator](https://jsonformatter.curiousconcept.com/#) to validate your configuration file.
+*Optional.* The full path to a configuration file in the container. Configuration is now held in the database and accessed via an administrative interface at `/admin`, so you probably don't need this. If you do, use [this documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Configuration) to create the JSON file for your particular library's configuration. If you're unfamiliar with JSON, you can use [this JSON Formatter & Validator](https://jsonformatter.curiousconcept.com/#) to validate your configuration file.
 
 ### `SIMPLIFIED_DB_TASK`
 
@@ -83,20 +70,14 @@ Use [this documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Conf
   - `init` : Initializes the app against a brand new database. If you are running a circulation manager for the first time every, use this value to set up an Elasticsearch alias and account for the database schema for future migrations.
   - `migrate` : Migrates an existing database against a new release. Use this value when switching from one stable version to another.
 
+
 ### `SIMPLIFIED_PRODUCTION_DATABASE`
 
-*Required in v2.x only.* The URL of the production PostgreSQL database for the application.
+*Required.* The URL of the production PostgreSQL database for the application.
 
 ### `SIMPLIFIED_TEST_DATABASE`
 
-*Optional in v2.x only.* The URL of a PostgreSQL database for tests. This optional variable allows unit tests to be run in the container.
-
-## Notes on Earlier Versions
-
-Prior to version 1.1.23, The environment variable `LIBSIMPLE_DB_INIT` was used to initialize databases. In these versions, there was no option to migrate databases at all. Migrations against containers created with <=1.1.22 need to be run manually using the following command:
-```
-docker exec scripts /bin/bash -c 'source env/bin/activate && core/bin/migrate_database'
-```
+*Optional.* The URL of a PostgreSQL database for tests. This optional variable allows unit tests to be run in the container.
 
 ## Building new images
 
