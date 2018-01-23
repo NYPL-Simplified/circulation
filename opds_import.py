@@ -576,10 +576,11 @@ class OPDSImporter(object):
             parsed_feed = feedparser.parse(feed)
         else:
             parsed_feed = feed
-        return [
+        dates = [
             cls.last_update_date_for_feedparser_entry(entry)
             for entry in parsed_feed['entries']
         ]
+        return [x for x in dates if x and x[1]]
 
     def build_identifier_mapping(self, external_urns):
         """Uses the given Collection and a list of URNs to reverse
