@@ -189,6 +189,21 @@ def resolve_complaints(identifier_type, identifier):
 def edit_classifications(identifier_type, identifier):
     return app.manager.admin_work_controller.edit_classifications(identifier_type, identifier)
 
+@app.route('/admin/roles')
+@returns_json_or_response_or_problem_detail
+def roles():
+    return app.manager.admin_work_controller.roles()
+
+@app.route('/admin/languages')
+@returns_json_or_response_or_problem_detail
+def languages():
+    return app.manager.admin_work_controller.languages()
+
+@app.route('/admin/media')
+@returns_json_or_response_or_problem_detail
+def media():
+    return app.manager.admin_work_controller.media()
+
 @library_route('/admin/complaints')
 @has_library
 @returns_problem_detail

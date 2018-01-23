@@ -45,7 +45,7 @@ class MockAPI(MilleniumPatronAPI):
 
 class TestMilleniumPatronAPI(DatabaseTest):
 
-    def mock_api(self, url="http://url/", blacklist=[], auth_mode=None, verify_certificate=True, block_types=None):
+    def mock_api(self, url="http://url/", blacklist=[], auth_mode=None, verify_certificate=True, block_types=None, password_keyboard=None):
         integration = self._external_integration(self._str)
         integration.url = url
         integration.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value = json.dumps(blacklist)
@@ -55,6 +55,9 @@ class TestMilleniumPatronAPI(DatabaseTest):
 
         if auth_mode:
             integration.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value = auth_mode
+        if password_keyboard:
+            integration.setting(MilleniumPatronAPI.PASSWORD_KEYBOARD).value = password_keyboard
+
         return MockAPI(self._default_library, integration)
     
     def setup(self):
@@ -437,6 +440,27 @@ class TestMilleniumPatronAPI(DatabaseTest):
             self.mock_api,
             auth_mode = 'nosuchauthmode'
         )
+
+    def test_authorization_without_password(self):
+        """Test authorization when no password is required, only
+        patron identifier.
+        """
+        self.api = self.mock_api(
+            password_keyboard=MilleniumPatronAPI.NULL_KEYBOARD
+        )
+        eq_(False, self.api.collects_password)
+        # If the patron lookup succeeds, the user is authenticated
+        # as that patron.
+        self.api.enqueue("dump.success.html")
+        patrondata = self.api.remote_authenticate(
+            "44444444444447", None
+        )
+        eq_("44444444444447", patrondata.authorization_identifier)
+
+        # If it fails, the user is not authenticated.
+        self.api.enqueue("dump.no such barcode.html")
+        patrondata = self.api.remote_authenticate("44444444444447", None)
+        eq_(False, patrondata)
 
     def test_authorization_family_name_success(self):
         """Test authenticating against the patron's family name, given the

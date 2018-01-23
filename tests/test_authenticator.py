@@ -1505,7 +1505,18 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(True, provider.server_side_validation("foodie", "barbecue"))
         eq_(PATRON_OF_ANOTHER_LIBRARY,
             provider.server_side_validation("foo", "bar"))
-        
+
+        # If this authenticator does not look at provided passwords,
+        # then the only values that will pass validation are null
+        # and the empty string.
+        provider.password_keyboard = provider.NULL_KEYBOARD
+        eq_(False, provider.server_side_validation("food", "barbecue"))
+        eq_(False, provider.server_side_validation("food", "is good"))
+        eq_(False, provider.server_side_validation("food", " "))
+        eq_(True, provider.server_side_validation("food", None))
+        eq_(True, provider.server_side_validation("food", ""))
+        provider.password_keyboard = provider.DEFAULT_KEYBOARD
+
         # It's okay not to provide anything for server side validation.
         # The default settings will be used.
         integration.setting(b.IDENTIFIER_REGULAR_EXPRESSION).value = None
