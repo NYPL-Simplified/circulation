@@ -240,6 +240,19 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_("urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557", identifier2)
         eq_(datetime.datetime(2015, 1, 2, 16, 56, 40), updated2)
 
+    def test_extract_last_update_dates_ignores_entries_with_no_update(self):
+        importer = OPDSImporter(
+            self._db, collection=None, data_source_name=DataSource.NYT
+        )
+
+        # Rename the <updated> and <published> tags in the content
+        # server so they don't show up.
+        content = self.content_server_mini_feed.replace("updated>", "irrelevant>")
+        content = content.replace("published>", "irrelevant>")
+        last_update_dates = importer.extract_last_update_dates(content)
+
+        # No updated dates!
+        eq_([], last_update_dates)
 
     def test_extract_metadata(self):
         data_source_name = "Data source name " + self._str
