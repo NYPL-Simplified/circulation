@@ -2,10 +2,14 @@
 import json
 
 from nose.tools import (
-    eq_, ok_, assert_raises,
+    eq_, 
+    ok_, 
+    assert_raises,
+    set_trace,
 )
 
 from api.odilo import (
+    OdiloAPI,
     MockOdiloAPI,
     RecentOdiloCollectionMonitor,
     FullOdiloCollectionMonitor
@@ -32,13 +36,14 @@ from core.model import (
 
 
 class OdiloAPITest(DatabaseTest):
-    PATRON = '0001000265'
     PIN = 'c4ca4238a0b923820dcc509a6f75849b'
     RECORD_ID = '00010982'
 
     def setup(self):
         super(OdiloAPITest, self).setup()
         library = self._default_library
+        self.patron = self._patron()
+        self.patron.authorization_identifier='0001000265'
         self.collection = MockOdiloAPI.mock_collection(self._db)
         self.circulation = CirculationAPI(
             self._db, library, api_map={ExternalIntegration.ODILO: MockOdiloAPI}
@@ -82,7 +87,9 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         patron_not_found_data, patron_not_found_json = self.sample_json("error_patron_not_found.json")
         self.api.queue_response(404, content=patron_not_found_json)
 
-        assert_raises(PatronNotFoundOnRemote, self.api.checkout, '123456789', self.PIN, self.licensepool, 'ACSM_EPUB')
+        patron = self._patron()
+        patron.authorization_identifier = "no such patron"
+        assert_raises(PatronNotFoundOnRemote, self.api.checkout, patron, self.PIN, self.licensepool, 'ACSM_EPUB')
         self.api.log.info('Test patron not found ok!')
 
     # Test 404 Not Found --> record not found --> 'ERROR_DATA_NOT_FOUND'
@@ -91,8 +98,21 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(404, content=data_not_found_json)
 
         self.licensepool.identifier.identifier = '12345678'
-        assert_raises(NotFoundOnRemote, self.api.checkout, self.PATRON, self.PIN, self.licensepool, 'ACSM_EPUB')
+        assert_raises(NotFoundOnRemote, self.api.checkout, self.patron, self.PIN, self.licensepool, 'ACSM_EPUB')
         self.api.log.info('Test resource not found on remote ok!')
+
+    def test_make_absolute_url(self):
+
+        # A relative URL is made absolute using the API's base URL.
+        relative = "/relative-url"
+        absolute = self.api._make_absolute_url(relative)
+        eq_(absolute, self.api.library_api_base_url + relative)
+
+        # An absolute URL is not modified.
+        for protocol in ('http', 'https'):
+            already_absolute = "%s://example.com/" % protocol 
+            eq_(already_absolute, self.api._make_absolute_url(already_absolute))
+
 
     #################
     # Checkout tests
@@ -101,7 +121,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
     # Test 400 Bad Request --> Invalid format for that resource
     def test_11_checkout_fake_format(self):
         self.api.queue_response(400, content="")
-        assert_raises(NoAcceptableFormat, self.api.checkout, self.PATRON, self.PIN, self.licensepool, 'FAKE_FORMAT')
+        assert_raises(NoAcceptableFormat, self.api.checkout, self.patron, self.PIN, self.licensepool, 'FAKE_FORMAT')
         self.api.log.info('Test invalid format for resource ok!')
 
     def test_12_checkout_acsm_epub(self):
@@ -119,8 +139,12 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(200, content=checkout_json)
         self.perform_and_validate_checkout('EBOOK_STREAMING')
 
+    def test_mechanism_set_on_borrow(self):
+        """The delivery mechanism for an Odilo title is set on checkout."""
+        eq_(OdiloAPI.SET_DELIVERY_MECHANISM_AT, OdiloAPI.BORROW_STEP)
+
     def perform_and_validate_checkout(self, internal_format):
-        loan_info = self.api.checkout(self.PATRON, self.PIN, self.licensepool, internal_format)
+        loan_info = self.api.checkout(self.patron, self.PIN, self.licensepool, internal_format)
         ok_(loan_info, msg="LoanInfo null --> checkout failed!")
         self.api.log.info('Loan ok: %s' % loan_info.identifier)
 
@@ -160,7 +184,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         eq_(fulfillment_info.content_type[1], DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE)
 
     def fulfill(self, internal_format):
-        fulfillment_info = self.api.fulfill(self.PATRON, self.PIN, self.licensepool, internal_format)
+        fulfillment_info = self.api.fulfill(self.patron, self.PIN, self.licensepool, internal_format)
         ok_(fulfillment_info, msg='Cannot Fulfill !!')
 
         if fulfillment_info.content_link:
@@ -178,7 +202,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         already_on_hold_data, already_on_hold_json = self.sample_json("error_hold_already_in_hold.json")
         self.api.queue_response(403, content=already_on_hold_json)
 
-        assert_raises(AlreadyOnHold, self.api.place_hold, self.PATRON, self.PIN, self.licensepool,
+        assert_raises(AlreadyOnHold, self.api.place_hold, self.patron, self.PIN, self.licensepool,
                       'ejcepas@odilotid.es')
 
         self.api.log.info('Test hold already on hold ok!')
@@ -187,7 +211,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         hold_ok_data, hold_ok_json = self.sample_json("place_hold_ok.json")
         self.api.queue_response(200, content=hold_ok_json)
 
-        hold_info = self.api.place_hold(self.PATRON, self.PIN, self.licensepool, 'ejcepas@odilotid.es')
+        hold_info = self.api.place_hold(self.patron, self.PIN, self.licensepool, 'ejcepas@odilotid.es')
         ok_(hold_info, msg="HoldInfo null --> place hold failed!")
         self.api.log.info('Hold ok: %s' % hold_info.identifier)
 
@@ -199,7 +223,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         patron_not_found_data, patron_not_found_json = self.sample_json("error_patron_not_found.json")
         self.api.queue_response(404, content=patron_not_found_json)
 
-        assert_raises(PatronNotFoundOnRemote, self.api.patron_activity, self.PATRON, self.PIN)
+        assert_raises(PatronNotFoundOnRemote, self.api.patron_activity, self.patron, self.PIN)
 
         self.api.log.info('Test patron activity --> invalid patron ok!')
 
@@ -209,7 +233,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         self.api.queue_response(200, content=patron_checkouts_json)
         self.api.queue_response(200, content=patron_holds_json)
 
-        loans_and_holds = self.api.patron_activity(self.PATRON, self.PIN)
+        loans_and_holds = self.api.patron_activity(self.patron, self.PIN)
         ok_(loans_and_holds)
         eq_(12, len(loans_and_holds))
         self.api.log.info('Test patron activity ok !!')
@@ -222,7 +246,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         patron_not_found_data, patron_not_found_json = self.sample_json("error_patron_not_found.json")
         self.api.queue_response(404, content=patron_not_found_json)
 
-        assert_raises(PatronNotFoundOnRemote, self.api.checkin, self.PATRON, self.PIN, self.licensepool)
+        assert_raises(PatronNotFoundOnRemote, self.api.checkin, self.patron, self.PIN, self.licensepool)
 
         self.api.log.info('Test checkin --> invalid patron ok!')
 
@@ -230,7 +254,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         checkout_not_found_data, checkout_not_found_json = self.sample_json("error_checkout_not_found.json")
         self.api.queue_response(404, content=checkout_not_found_json)
 
-        assert_raises(NotCheckedOut, self.api.checkin, self.PATRON, self.PIN, self.licensepool)
+        assert_raises(NotCheckedOut, self.api.checkin, self.patron, self.PIN, self.licensepool)
 
         self.api.log.info('Test checkin --> invalid checkout ok!')
 
@@ -241,10 +265,10 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         checkin_data, checkin_json = self.sample_json("checkin_ok.json")
         self.api.queue_response(200, content=checkin_json)
 
-        response = self.api.checkin(self.PATRON, self.PIN, self.licensepool)
+        response = self.api.checkin(self.patron, self.PIN, self.licensepool)
         eq_(response.status_code, 200,
             msg="Response code != 200, cannot perform checkin for record: " + self.licensepool.identifier.identifier
-                + " patron: " + self.PATRON)
+                + " patron: " + self.patron.authorization_identifier)
 
         checkout_returned = response.json()
 
@@ -260,7 +284,7 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         patron_not_found_data, patron_not_found_json = self.sample_json("error_patron_not_found.json")
         self.api.queue_response(404, content=patron_not_found_json)
 
-        assert_raises(PatronNotFoundOnRemote, self.api.release_hold, self.PATRON, self.PIN, self.licensepool)
+        assert_raises(PatronNotFoundOnRemote, self.api.release_hold, self.patron, self.PIN, self.licensepool)
 
         self.api.log.info('Test release hold --> invalid patron ok!')
 
@@ -271,10 +295,10 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         checkin_data, checkin_json = self.sample_json("error_hold_not_found.json")
         self.api.queue_response(404, content=checkin_json)
 
-        response = self.api.release_hold(self.PATRON, self.PIN, self.licensepool)
+        response = self.api.release_hold(self.patron, self.PIN, self.licensepool)
         eq_(response, True,
             msg="Cannot release hold, response false " + self.licensepool.identifier.identifier + " patron: "
-                + self.PATRON)
+                + self.patron.authorization_identifier)
 
         self.api.log.info('Hold returned: %s' % self.licensepool.identifier.identifier)
 
@@ -285,10 +309,10 @@ class TestOdiloCirculationAPI(OdiloAPITest):
         release_hold_ok_data, release_hold_ok_json = self.sample_json("release_hold_ok.json")
         self.api.queue_response(200, content=release_hold_ok_json)
 
-        response = self.api.release_hold(self.PATRON, self.PIN, self.licensepool)
+        response = self.api.release_hold(self.patron, self.PIN, self.licensepool)
         eq_(response, True,
             msg="Cannot release hold, response false " + self.licensepool.identifier.identifier + " patron: "
-                + self.PATRON)
+                + self.patron.authorization_identifier)
 
         self.api.log.info('Hold returned: %s' % self.licensepool.identifier.identifier)
 

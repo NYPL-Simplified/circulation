@@ -48,7 +48,6 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         integration.username = "user1"
         integration.password = "pass1"
         integration.setting(p.FIELD_SEPARATOR).value = "\t"
-
         provider = p(self._default_library, integration, connect=False)
 
         # A SIPClient was initialized based on the integration values.
@@ -95,17 +94,6 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(PatronData.EXCESSIVE_FINES, patrondata.block_reason)
         
-        # Some examples taken from an Evergreen instance that doesn't
-        # use passwords.
-        client.queue_response(self.evergreen_active_user)
-        patrondata = auth.remote_authenticate("user", "pass")
-        eq_("12345", patrondata.authorization_identifier)
-        eq_("863715", patrondata.permanent_id)
-        eq_("Booth Active Test", patrondata.personal_name)
-        eq_(0, patrondata.fines)
-        eq_(datetime(2019, 10, 4), patrondata.authorization_expires)
-        eq_("Adult", patrondata.external_type)
-
         # A patron with an expired card.
         client.queue_response(self.evergreen_expired_card)
         patrondata = auth.remote_authenticate("user", "pass")
@@ -183,6 +171,33 @@ class TestSIP2AuthenticationProvider(DatabaseTest):
         patrondata = auth.remote_authenticate("user", "pass")
         eq_(None, patrondata)
 
+    def test_remote_authenticate_no_password(self):
+
+        integration = self._external_integration(self._str)
+        p = SIP2AuthenticationProvider
+        integration.setting(p.PASSWORD_KEYBOARD).value = p.NULL_KEYBOARD
+        client = MockSIPClient()
+        auth = SIP2AuthenticationProvider(
+            self._default_library, integration, client=client
+        )
+
+        # This Evergreen instance doesn't use passwords.
+        client.queue_response(self.evergreen_active_user)
+        patrondata = auth.remote_authenticate("user", None)
+        eq_("12345", patrondata.authorization_identifier)
+        eq_("863715", patrondata.permanent_id)
+        eq_("Booth Active Test", patrondata.personal_name)
+        eq_(0, patrondata.fines)
+        eq_(datetime(2019, 10, 4), patrondata.authorization_expires)
+        eq_("Adult", patrondata.external_type)
+
+        # If a password is specified, it is not sent over the wire.
+        client.queue_response(self.evergreen_active_user)
+        patrondata = auth.remote_authenticate("user2", "some password")
+        eq_("12345", patrondata.authorization_identifier)
+        request = client.requests[-1]
+        assert 'user2' in request
+        assert 'some password' not in request
 
     def test_ioerror_during_connect_becomes_remoteintegrationexception(self):
         """If the IP of the circulation manager has not been whitelisted,

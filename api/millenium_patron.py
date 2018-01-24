@@ -150,7 +150,16 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         valid, a PatronData that serves only to indicate which
         authorization identifier the patron prefers.
         """
+        if not self.collects_password:
+            # We don't even look at the password. If the patron exists, they
+            # are authenticated.
+            patrondata = self._remote_patron_lookup(username)
+            if not patrondata:
+                return False
+            return patrondata
+
         if self.auth_mode == self.PIN_AUTHENTICATION_MODE:
+            # Patrons are authenticated with a secret PIN.
             path = "%(barcode)s/%(pin)s/pintest" % dict(
                 barcode=username, pin=password
             )
@@ -161,7 +170,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 return PatronData(authorization_identifier=username, complete=False)
             return False
         elif self.auth_mode == self.FAMILY_NAME_AUTHENTICATION_MODE:
-
+            # Patrons are authenticated by their family name.
             patrondata = self._remote_patron_lookup(username)
             if not patrondata:
                 # The patron doesn't even exist.
