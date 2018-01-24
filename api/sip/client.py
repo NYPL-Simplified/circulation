@@ -707,9 +707,9 @@ class SIPClient(Constants):
         while not done:
             tmp = self.socket.recv(4096)
             data = data + tmp
-            if not data:
+            if not tmp:
                 raise IOError("No data read from socket.")
-            if ord(data[-1]) == 13:
+            if ord(data[-1]) == 13 or ord(data[-1]) == 10:
                 done = True
             if len(data) > max_size:
                 raise IOError("SIP2 response too large.")
