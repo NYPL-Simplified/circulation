@@ -73,7 +73,6 @@ from model import (
     site_configuration_has_changed,
 )
 from monitor import (
-    SubjectAssignmentMonitor,
     CollectionMonitor,
 )
 from opds_import import (
