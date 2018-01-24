@@ -3991,7 +3991,7 @@ class Work(Base):
             LicensePool.identifier).join(
                 Identifier.classifications).join(
                     Classification.subject)
-        return qu.filter(Subject.checked==False).distinct()
+        return qu.filter(Subject.checked==False).order_by(Subject.id)
 
     @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid, medium):
@@ -6219,33 +6219,36 @@ class Subject(Base):
             genre, was_new = Genre.lookup(_db, genredata.name, True)
         else:
             genre = None
+
+        # Create a shorthand way of referring to this Subject in log
+        # messages.
+        parts = [self.type, self.identifier, self.name]
+        shorthand = ":".join(x for x in parts if x)
+
         if genre != self.genre:
             log.info(
-                "%s:%s genre %r=>%r", self.type, self.identifier,
-                self.genre, genre
+                "%s genre %r=>%r", shorthand, self.genre, genre
             )
         self.genre = genre
 
         if audience:
             if self.audience != audience:
                 log.info(
-                    "%s:%s audience %s=>%s", self.type, self.identifier,
-                    self.audience, audience
+                    "%s audience %s=>%s", shorthand, self.audience, audience
                 )
         self.audience = audience
 
         if fiction is not None:
             if self.fiction != fiction:
                 log.info(
-                    "%s:%s fiction %s=>%s", self.type, self.identifier,
-                    self.fiction, fiction
+                    "%s fiction %s=>%s", shorthand, self.fiction, fiction
                 )
         self.fiction = fiction
 
         if (numericrange_to_tuple(self.target_age) != target_age and 
             not (not self.target_age and not target_age)):
             log.info(
-                "%s:%s target_age %r=>%r", self.type, self.identifier,
+                "%s target_age %r=>%r", shorthand,
                 self.target_age, tuple_to_numericrange(target_age)
             )
         self.target_age = tuple_to_numericrange(target_age)
