@@ -1703,7 +1703,17 @@ class Lane(Base, WorkList):
 
         maximum_offset = 1-width
         start = random.random() * maximum_offset
-        return start, start+width
+        end = start+width
+
+        # TODO: The resolution of Work.random is only three decimal
+        # places. It should be increased. Until then, we need to make
+        # sure start and end are at least 0.001 apart, or in a very
+        # large lane we'll pick up nothing.
+        start = round(start, 3)
+        end = round(end, 3)
+        if start == end:
+            end = start + 0.001
+        return start, end
 
     def groups(self, _db, include_sublanes=True):
         """Return a list of (MaterializedWorkWithGenre, Lane) 2-tuples

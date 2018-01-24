@@ -2140,9 +2140,9 @@ class TestWorkListGroups(DatabaseTest):
         # between zero and one.
         lane.size = 6094
         start, end = lane.featured_window(17)
-        expect_start = 0.0246619
-        eq_(expect_start, round(start, 8))
-        eq_(round(start+0.013948146,8), round(end, 8))
+        expect_start = 0.025
+        eq_(expect_start, start)
+        eq_(round(start+0.014,8), end)
 
         # Given a lane with 6094 works, selecting works with .random
         # between 0.630 and 0.644 should give us about 85 items, which
@@ -2150,7 +2150,16 @@ class TestWorkListGroups(DatabaseTest):
         # featurable quality.
         width = (end-start)
         estimated_items = lane.size * width
-        eq_(85, round(estimated_items,1))
+        eq_(85, int(estimated_items))
+
+        # Given a lane with one billion works, you'd expect the range
+        # to be incredibly small. But the resolution of Works.random
+        # is only three decimal places, so there's a limit on how
+        # small the range can get.
+        lane.size = 10**9
+        start, end = lane.featured_window(10)
+        assert end == start + 0.001
+
 
     def test_fill_parent_lane(self):
 
