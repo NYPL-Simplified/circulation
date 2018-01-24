@@ -2661,15 +2661,6 @@ class FixInvisibleWorksScript(CollectionInputScript):
             "I would now expect you to be able to find %d works.\n" % mv_works_count
         )
 
-class SubjectAssignmentScript(SubjectInputScript):
-
-    def do_run(self):
-        args = self.parse_command_line(self._db)
-        monitor = SubjectAssignmentMonitor(
-            self._db, args.subject_type, args.subject_filter
-        )
-        monitor.run()
-
 
 class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
     """List the metadata identifiers for Collections in the database.

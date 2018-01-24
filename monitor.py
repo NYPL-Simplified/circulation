@@ -496,14 +496,6 @@ class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
         work.calculate_opds_entries()
 
 
-class SubjectAssignmentMonitor(SubjectSweepMonitor):
-    """A Monitor that assigns or reassigns Subjects to Genres."""
-    SERVICE_NAME = "Subject assignment monitor"
-
-    def process_item(self, subject):
-        subject.assign_to_genre()
-
-
 class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
     """A monitor that calculates or recalculates the permanent work ID for
     every edition.

@@ -39,7 +39,6 @@ from monitor import (
     OPDSEntryCacheMonitor,
     PermanentWorkIDRefreshMonitor,
     PresentationReadyWorkSweepMonitor,
-    SubjectAssignmentMonitor,
     SubjectSweepMonitor,
     SweepMonitor,
     WorkRandomnessUpdateMonitor,
@@ -561,18 +560,6 @@ class TestOPDSEntryCacheMonitor(DatabaseTest):
         assert work.simple_opds_entry != None
         assert work.verbose_opds_entry != None
 
-
-class TestSubjectAssignmentMonitor(DatabaseTest):
-
-    def test_process_item(self):
-        """This Monitor assigns Subjects to Genres."""
-        class Mock(SubjectAssignmentMonitor):
-            SERVICE_NAME = "Mock"
-
-        subject = self._subject(Subject.TAG, "Science Fiction")
-        eq_(None, subject.genre)
-        Mock(self._db).process_item(subject)
-        eq_("Science Fiction", subject.genre.name)
 
 class TestPermanentWorkIDRefresh(DatabaseTest):
 
