@@ -977,6 +977,8 @@ class WorkController(CirculationManagerController):
             else:
                 lists = []
 
+            affected_lanes = set()
+
             # Remove entries for lists that were not in the submitted form.
             submitted_ids = [l.get("id") for l in lists if l.get("id")]
             for entry in work.custom_list_entries:
@@ -984,7 +986,7 @@ class WorkController(CirculationManagerController):
                     list = entry.customlist
                     list.remove_entry(work)
                     for lane in Lane.affected_by_customlist(list):
-                        lane.update_size(self._db)
+                        affected_lanes.add(lane)
 
             # Add entries for any new lists.
             for list_info in lists:
@@ -1003,7 +1005,11 @@ class WorkController(CirculationManagerController):
                 entry, was_new = list.add_entry(work)
                 if was_new:
                     for lane in Lane.affected_by_customlist(list):
-                        lane.update_size(self._db)
+                        affected_lanes.add(lane)
+
+            # If any list changes affected lanes, update their sizes.
+            for lane in affected_lanes:
+                lane.update_size(self._db)
 
             return Response(unicode(_("Success")), 200)
 
