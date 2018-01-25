@@ -1251,6 +1251,15 @@ class TestOPDS(DatabaseTest):
 
 class TestAcquisitionFeed(DatabaseTest):
 
+    def test_license_tags_no_loan_or_hold(self):
+        edition, pool = self._edition(with_license_pool=True)
+        availability, holds, copies = AcquisitionFeed.license_tags(
+            pool, None, None
+        )
+        eq_(dict(status='available'), availability.attrib)
+        eq_(dict(total='0'), holds.attrib)
+        eq_(dict(total='1', available='1'), copies.attrib)
+
     def test_license_tags_hold_position(self):
         # When a book is placed on hold, it typically takes a while
         # for the LicensePool to be updated with the new number of
