@@ -12,7 +12,7 @@ from api.config import (
     CannotLoadConfiguration,
     Configuration,
 )
-
+from core.model import ConfigurationSetting
 from api.authenticator import PatronData
 from api.millenium_patron import MilleniumPatronAPI
 from . import DatabaseTest, sample_data
@@ -45,7 +45,8 @@ class MockAPI(MilleniumPatronAPI):
 
 class TestMilleniumPatronAPI(DatabaseTest):
 
-    def mock_api(self, url="http://url/", blacklist=[], auth_mode=None, verify_certificate=True, block_types=None, password_keyboard=None):
+    def mock_api(self, url="http://url/", blacklist=[], auth_mode=None, verify_certificate=True,
+                 block_types=None, password_keyboard=None, restriction_field=None):
         integration = self._external_integration(self._str)
         integration.url = url
         integration.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value = json.dumps(blacklist)
@@ -57,6 +58,12 @@ class TestMilleniumPatronAPI(DatabaseTest):
             integration.setting(MilleniumPatronAPI.AUTHENTICATION_MODE).value = auth_mode
         if password_keyboard:
             integration.setting(MilleniumPatronAPI.PASSWORD_KEYBOARD).value = password_keyboard
+
+        if restriction_field:
+            ConfigurationSetting.for_library_and_externalintegration(
+                self._db, MilleniumPatronAPI.PATRON_RESTRICTION_FIELD,
+                self._default_library, integration
+            ).value = restriction_field
 
         return MockAPI(self._default_library, integration)
     
@@ -356,6 +363,17 @@ class TestMilleniumPatronAPI(DatabaseTest):
         patrondata = self.api.patron_dump_to_patrondata('alice', content)
         eq_("44444444444447", patrondata.authorization_identifier)
         eq_("alice", patrondata.username)
+        eq_(None, patrondata.restriction_field)
+
+    def test_patron_dump_to_patrondata_restriction_field(self):
+        api = self.mock_api(restriction_field="HOME LIBR[p53]")
+        content = api.sample_data("dump.success.html")
+        patrondata = api.patron_dump_to_patrondata('alice', content)
+        eq_("mm", patrondata.restriction_field)
+        api = self.mock_api(restriction_field="P TYPE[p47]")
+        content = api.sample_data("dump.success.html")
+        patrondata = api.patron_dump_to_patrondata('alice', content)
+        eq_("10", patrondata.restriction_field)
         
     def test_authorization_identifier_blacklist(self):
         """A patron has two authorization identifiers. Ordinarily the second
