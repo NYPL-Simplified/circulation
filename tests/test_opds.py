@@ -1271,6 +1271,15 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_('1', holds.attrib['position'])
         eq_('3', holds.attrib['total'])
 
+        # If the patron's hold position is missing, we assume they
+        # are last in the list.
+        hold.position = None
+        availability, holds, copies = AcquisitionFeed.license_tags(
+            pool, None, hold
+        )
+        eq_('3', holds.attrib['position'])
+        eq_('3', holds.attrib['total'])
+
         # If the patron's current hold position is greater than the
         # total recorded number of holds+reserves, their position will
         # be used as the value of opds:total.

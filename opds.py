@@ -1189,7 +1189,7 @@ class AcquisitionFeed(OPDSFeed):
             position = hold.position
         if hold:
             if position and position > 0:
-                holds_kw['position'] = str(hold.position)
+                holds_kw['position'] = str(position)
             if position > total:
                 # The patron's hold position appears larger than the total
                 # number of holds. This happens frequently because the
