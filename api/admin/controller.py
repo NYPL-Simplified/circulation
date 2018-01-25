@@ -955,6 +955,58 @@ class WorkController(CirculationManagerController):
         complaint_types = [complaint.type for complaint in work.complaints if not complaint.resolved]
         return Counter(complaint_types)
 
+    def custom_lists(self, identifier_type, identifier):
+        library = flask.request.library
+        work = self.load_work(library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        if flask.request.method == "GET":
+            lists = []
+            for entry in work.custom_list_entries:
+                list = entry.customlist
+                lists.append(dict(id=list.id, name=list.name))
+            return dict(custom_lists=lists)
+
+        if flask.request.method == "POST":
+            lists = flask.request.form.get("lists")
+            if lists:
+                lists = json.loads(lists)
+            else:
+                lists = []
+
+            # Remove entries for lists that were not in the submitted form.
+            submitted_ids = [l.get("id") for l in lists if l.get("id")]
+            for entry in work.custom_list_entries:
+                if entry.list_id not in submitted_ids:
+                    list = entry.customlist
+                    list.remove_entry(work)
+                    for lane in Lane.affected_by_customlist(list):
+                        lane.update_size(self._db)
+
+            # Add entries for any new lists.
+            for list_info in lists:
+                id = list_info.get("id")
+                name = list_info.get("name")
+
+                if id:
+                    is_new = False
+                    list = get_one(self._db, CustomList, id=int(id), name=name, library=library, data_source=staff_data_source)
+                    if not list:
+                        self._db.rollback()
+                        return MISSING_CUSTOM_LIST.detailed(_("Could not find list \"%(list_name)s\"", list_name=name))
+                else:
+                    list, is_new = create(self._db, CustomList, name=name, data_source=staff_data_source, library=library)
+                    list.created = datetime.now()
+                entry, was_new = list.add_entry(work)
+                if was_new:
+                    for lane in Lane.affected_by_customlist(list):
+                        lane.update_size(self._db)
+
+            return Response(unicode(_("Success")), 200)
+
     
 class FeedController(CirculationManagerController):
 

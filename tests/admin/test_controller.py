@@ -899,6 +899,77 @@ class TestWorkController(AdminControllerTest):
                 eq_(response['classifications'][i]['source'], source.name)
                 eq_(response['classifications'][i]['weight'], classification.weight)
 
+    def test_custom_lists_get(self):
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)
+        work = self._work(with_license_pool=True)
+        list.add_entry(work)
+        identifier = work.presentation_edition.primary_identifier
+
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
+            lists = response.get('custom_lists')
+            eq_(1, len(lists))
+            eq_(list.id, lists[0].get("id"))
+            eq_(list.name, lists[0].get("name"))
+
+    def test_custom_lists_edit_with_missing_list(self):
+        work = self._work(with_license_pool=True)
+        identifier = work.presentation_edition.primary_identifier
+
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("id", "4"),
+                ("name", "name"),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(MISSING_CUSTOM_LIST, response)
+
+    def test_custom_lists_edit_success(self):
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)
+        work = self._work(with_license_pool=True)
+        self.add_to_materialized_view([work])
+        identifier = work.presentation_edition.primary_identifier
+
+        # Create a Lane that depends on this CustomList for its membership.
+        lane = self._lane()
+        lane.customlists.append(list)
+        eq_(0, lane.size)
+
+        # Add the list to the work.
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("lists", json.dumps([{ "id": str(list.id), "name": list.name }]))
+            ])
+            response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
+            eq_(200, response.status_code)
+            eq_(1, len(work.custom_list_entries))
+            eq_(1, len(list.entries))
+            eq_(list, work.custom_list_entries[0].customlist)
+            eq_(1, lane.size)
+
+        # Now remove the list.
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("lists", json.dumps([])),
+            ])
+            response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
+            eq_(200, response.status_code)
+            eq_(0, len(work.custom_list_entries))
+            eq_(0, len(list.entries))
+            eq_(0, lane.size)
+
+        # Add a list that didn't exist before.
+        with self.request_context_with_library("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("lists", json.dumps([{ "name": "new list" }]))
+            ])
+            response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
+            eq_(200, response.status_code)
+            eq_(1, len(work.custom_list_entries))
+            new_list = CustomList.find(self._db, staff_data_source, "new list", self._default_library)
+            eq_(new_list, work.custom_list_entries[0].customlist)
 
 class TestSignInController(AdminControllerTest):
 

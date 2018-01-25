@@ -141,6 +141,14 @@ def work_classifications(identifier_type, identifier):
 def work_complaints(identifier_type, identifier):
     return app.manager.admin_work_controller.complaints(identifier_type, identifier)
 
+@library_route('/admin/works/<identifier_type>/<path:identifier>/lists', methods=['GET', 'POST'])
+@has_library
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def work_custom_lists(identifier_type, identifier):
+    return app.manager.admin_work_controller.custom_lists(identifier_type, identifier)
+
 @library_route('/admin/works/<identifier_type>/<path:identifier>/edit', methods=['POST'])
 @has_library
 @returns_problem_detail
