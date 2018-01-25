@@ -1179,9 +1179,26 @@ class AcquisitionFeed(OPDSFeed):
             return tags
 
 
-        holds_kw = dict(total=str(license_pool.patrons_in_hold_queue or 0))
-        if hold and hold.position:
-            holds_kw['position'] = str(hold.position)
+        holds_kw = dict()
+        total = ((license_pool.patrons_in_hold_queue or 0) + 
+                 (license_pool.licenses_reserved or 0))
+        position = hold.position or 0
+        if hold:
+            if position:
+                holds_kw['position'] = str(hold.position)
+            if position > total:
+                # The patron's hold position appears larger than the total
+                # number of holds. This happens frequently because the
+                # number of holds and a given patron's hold position are
+                # updated by different processes. Don't propagate this
+                # appearance to the client.
+                total = position
+            elif position == 0 and total == 0:
+                # The book is reserved for this patron, but they still
+                # count towards the total number of holds.
+                total = 1
+        holds_kw['total'] = str(total)
+
         holds = AtomFeed.makeelement("{%s}holds" % AtomFeed.OPDS_NS, **holds_kw)
         tags.append(holds)
 
