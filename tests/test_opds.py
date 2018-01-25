@@ -1262,8 +1262,7 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # If the patron's hold position is less than the total number
         # of holds+reserves, that total is used as opds:total.
-        pool.licenses_reserved = 1
-        pool.patrons_in_hold_queue = 2
+        pool.patrons_in_hold_queue = 3
         hold, is_new = pool.on_hold_to(patron, position=1)
 
         availability, holds, copies = AcquisitionFeed.license_tags(
@@ -1300,7 +1299,6 @@ class TestAcquisitionFeed(DatabaseTest):
         # is out of date.
         hold.position = 0
         pool.patrons_in_hold_queue = 0
-        pool.licenses_reserved = 0
         availability, holds, copies = AcquisitionFeed.license_tags(
             pool, None, hold
         )

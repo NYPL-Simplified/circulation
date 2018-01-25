@@ -1180,8 +1180,7 @@ class AcquisitionFeed(OPDSFeed):
 
 
         holds_kw = dict()
-        total = ((license_pool.patrons_in_hold_queue or 0) + 
-                 (license_pool.licenses_reserved or 0))
+        total = license_pool.patrons_in_hold_queue or 0
         position = hold.position or 0
         if hold:
             if position:
@@ -1194,8 +1193,10 @@ class AcquisitionFeed(OPDSFeed):
                 # appearance to the client.
                 total = position
             elif position == 0 and total == 0:
-                # The book is reserved for this patron, but they still
-                # count towards the total number of holds.
+                # The book is reserved for this patron but they're not
+                # counted as having it on hold. This is the only case
+                # where we know that the total number of holds is
+                # *greater* than the hold position.
                 total = 1
         holds_kw['total'] = str(total)
 
