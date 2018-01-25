@@ -1181,9 +1181,14 @@ class AcquisitionFeed(OPDSFeed):
 
         holds_kw = dict()
         total = license_pool.patrons_in_hold_queue or 0
-        position = hold.position or 0
+        if hold.position is None:
+            # This shouldn't happen, but if it does, assume we're last
+            # in the list.
+            position = total
+        else:
+            position = hold.position
         if hold:
-            if position:
+            if position and position > 0:
                 holds_kw['position'] = str(hold.position)
             if position > total:
                 # The patron's hold position appears larger than the total
