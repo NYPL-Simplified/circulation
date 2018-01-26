@@ -81,7 +81,7 @@ class MirrorUploader(object):
             # This collection's 'mirror integration' isn't intended to
             # be used to mirror anything.
             raise CannotLoadConfiguration(
-                "Cannot create an S3Uploader from an integration with goal=%s" %
+                "Cannot create an MirrorUploader from an integration with goal=%s" %
                 integration.goal
             )
 
