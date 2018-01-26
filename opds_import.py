@@ -424,7 +424,7 @@ class OPDSImporter(object):
             # If this Collection is configured to mirror the assets it
             # discovers, this will create a MirrorUploader for that
             # Collection. Otherwise, this will return None.
-            mirror = MirrorUploader.for_collection(_db, collection)
+            mirror = MirrorUploader.for_collection(collection)
         self.mirror = mirror
         self.content_modifier = content_modifier
         self.http_get = http_get

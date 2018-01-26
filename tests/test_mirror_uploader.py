@@ -65,12 +65,12 @@ class TestInitialization(DatabaseTest):
         # This collection has no mirror_integration, so
         # there is no MirrorUploader for it.
         collection = self._collection()
-        eq_(None, MirrorUploader.for_collection(self._db, collection))
+        eq_(None, MirrorUploader.for_collection(collection))
 
         # This collection has a properly configured mirror_integration,
         # so it can have an MirrorUploader.
         collection.mirror_integration = self._integration
-        uploader = MirrorUploader.for_collection(self._db, collection)
+        uploader = MirrorUploader.for_collection(collection)
         assert isinstance(uploader, MirrorUploader)
 
         # This collection has a mirror_integration but it has the
@@ -80,7 +80,7 @@ class TestInitialization(DatabaseTest):
         assert_raises_regexp(
             CannotLoadConfiguration,
             "from an integration with goal=licenses",
-            MirrorUploader.for_collection, self._db, collection
+            MirrorUploader.for_collection, collection
         )
 
     def test_constructor(self):

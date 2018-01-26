@@ -47,7 +47,7 @@ class MirrorUploader(object):
         return cls.implementation(integration)
 
     @classmethod
-    def for_collection(cls, _db, collection):
+    def for_collection(cls, collection):
         """Create a MirrorUploader for the given Collection.
 
         :param collection: Use the mirror configuration for this Collection.
