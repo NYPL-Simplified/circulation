@@ -1,4 +1,6 @@
+import os
 import json
+
 import flask
 from flask import Flask
 from flask_babel import (
@@ -26,6 +28,7 @@ from lane import (
 )
 
 from app_server import (
+    HeartbeatController,
     URNLookupController,
     ErrorHandler,
     ComplaintController,
@@ -42,6 +45,35 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
+
+
+class TestHeartbeatController(object):
+
+    def test_version(self):
+        app = Flask(__name__)
+        controller = HeartbeatController()
+
+        with app.test_request_context('/'):
+            response = controller.version()
+        eq_('', response.data)
+        eq_(200, response.status_code)
+
+        # Create a .version file.
+        root_dir = os.path.join(os.path.split(__file__)[0], "..", "..")
+        version_filename = os.path.join(root_dir, controller.VERSION_FILENAME)
+        with open(version_filename, 'w') as f:
+            f.write('ba.na.na')
+
+        try:
+            with app.test_request_context('/version'):
+                response = controller.version()
+            eq_('ba.na.na', response.data)
+            eq_(200, response.status_code)
+        except Exception as e:
+            os.remove(version_filename)
+            raise e
+        finally:
+            os.remove(version_filename)
 
 
 class TestURNLookupController(DatabaseTest):
@@ -124,7 +156,7 @@ class TestURNLookupController(DatabaseTest):
     @app.route('/work')
     def work(self, urn):
         pass
-    
+
     def test_work_lookup(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier

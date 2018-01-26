@@ -45,6 +45,11 @@ class Configuration(object):
     DATABASE_TEST_ENVIRONMENT_VARIABLE = 'SIMPLIFIED_TEST_DATABASE'
     DATABASE_PRODUCTION_ENVIRONMENT_VARIABLE = 'SIMPLIFIED_PRODUCTION_DATABASE'
 
+    # The version of the app.
+    APP_VERSION = 'app_version'
+    VERSION_FILENAME = '.version'
+    NO_APP_VERSION_FOUND = object()
+
     # Logging stuff
     LOGGING_LEVEL = "level"
     LOGGING_FORMAT = "format"
@@ -314,6 +319,40 @@ class Configuration(object):
         # Calling __to_string__ will hide the password.
         logging.info("Connecting to database: %s" % url_obj.__to_string__())
         return url
+
+    @classmethod
+    def app_version(cls):
+        """Returns the git version of the app, if a .version file exists."""
+        if cls.instance == None:
+            return
+
+        version = cls.get(cls.APP_VERSION, None)
+        if version:
+            # The version has been set in Configuration before.
+            return version
+
+        root_dir = os.path.join(os.path.split(__file__)[0], "..")
+        version_file = os.path.join(root_dir, cls.VERSION_FILENAME)
+
+        version = cls.NO_APP_VERSION_FOUND
+        if os.path.exists(version_file):
+            with open(version_file) as f:
+                version = f.readline().strip() or version
+
+        cls.instance[cls.APP_VERSION] = version
+        return version
+
+    @classmethod
+    def set_app_version(cls, _db):
+        """Puts the current app version into the database"""
+        from model import ConfigurationSetting
+        version = cls.app_version()
+        app_version_setting = ConfigurationSetting.sitewide(_db, cls.APP_VERSION)
+
+        if version and version != cls.NO_APP_VERSION_FOUND:
+            app_version_setting.value = unicode(version)
+        else:
+            app_version_setting.value = None
 
     @classmethod
     def data_directory(cls):

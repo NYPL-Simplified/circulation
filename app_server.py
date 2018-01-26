@@ -246,8 +246,22 @@ class ErrorHandler(object):
 
 class HeartbeatController(object):
 
-    def heartbeat(self):
+    VERSION_FILENAME = '.version'
+
+    def heartbeat(cls):
         return make_response("", 200, {"Content-Type": "application/json"})
+
+    def version(cls):
+        """Returns the git version of the app, if a .version file exists."""
+        root_dir = os.path.join(os.path.split(__file__)[0], "..")
+        version_file = os.path.join(root_dir, cls.VERSION_FILENAME)
+
+        data = ''
+        if os.path.exists(version_file):
+            with open(version_file) as f:
+                data = f.readline()
+
+        return make_response(data, 200, {"Content-Type": "text/plain"})
 
 
 class URNLookupController(object):
