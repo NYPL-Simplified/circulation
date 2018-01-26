@@ -35,6 +35,10 @@ git config submodule.core.url https://github.com/NYPL-Simplified/server_core.git
 git config submodule.docker.url https://github.com/NYPL-Simplified/circulation-docker.git
 git submodule update --init --recursive
 
+# Add a .version file to the directory. This file
+# supplies an endpoint to check the app's current version.
+printf "$(git describe --tags)" > .version
+
 # Use the latest version of pip to install a virtual environment for the app.
 pip install -U --no-cache-dir pip setuptools
 pip install --no-cache-dir virtualenv virtualenvwrapper
