@@ -43,7 +43,7 @@ from . import (
     DummyHTTPClient,
 )
 
-from s3 import DummyS3Uploader
+from s3 import MockS3Uploader
 from classifier import NO_VALUE, NO_NUMBER
 
 class TestIdentifierData(object):
@@ -287,7 +287,7 @@ class TestMetadataImporter(DatabaseTest):
         # However, updated tests passing does not guarantee that all code now 
         # correctly calls on CirculationData, too.  This is a risk.
 
-        mirror = DummyS3Uploader()
+        mirror = MockS3Uploader()
         edition, pool = self._edition(with_license_pool=True)
         content = open(self.sample_cover_path("test-book-cover.png")).read()
         l1 = LinkData(
@@ -342,7 +342,7 @@ class TestMetadataImporter(DatabaseTest):
 
     def test_mirror_thumbnail_only(self):
         # Make sure a thumbnail image is mirrored when there's no cover image.
-        mirror = DummyS3Uploader()
+        mirror = MockS3Uploader()
         edition, pool = self._edition(with_license_pool=True)
         thumbnail_content = open(self.sample_cover_path("tiny-image-cover.png")).read()
         l = LinkData(
@@ -368,7 +368,7 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = DummyS3Uploader()
+        mirror = MockS3Uploader()
         h = DummyHTTPClient()
 
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
@@ -406,7 +406,7 @@ class TestMetadataImporter(DatabaseTest):
         eq_(None, pool.license_exception)
 
     def test_mirror_404_error(self):
-        mirror = DummyS3Uploader()
+        mirror = MockS3Uploader()
         h = DummyHTTPClient()
         h.queue_response(404)
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
@@ -441,7 +441,7 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = DummyS3Uploader(fail=True)
+        mirror = MockS3Uploader(fail=True)
         h = DummyHTTPClient()
 
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
@@ -494,7 +494,7 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = DummyS3Uploader(fail=True)
+        mirror = MockS3Uploader(fail=True)
         h = DummyHTTPClient()
 
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
@@ -531,7 +531,7 @@ class TestMetadataImporter(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
-        mirror = DummyS3Uploader()
+        mirror = MockS3Uploader()
         def dummy_content_modifier(representation):
             representation.content = "Replaced Content"
         h = DummyHTTPClient()

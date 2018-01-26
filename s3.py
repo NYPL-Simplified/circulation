@@ -8,6 +8,7 @@ from urlparse import urlsplit
 from util.mirror import MirrorUploader
 
 from config import CannotLoadConfiguration
+from model import ExternalIntegration
 from requests.exceptions import (
     ConnectionError,
     HTTPError,
@@ -15,98 +16,46 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
-
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
 
     S3_HOSTNAME = "s3.amazonaws.com"
     S3_BASE = "http://%s/" % S3_HOSTNAME
 
-    UNINITIALIZED_BUCKETS = object()
-    __buckets__ = UNINITIALIZED_BUCKETS
+    def __init__(self, integration, pool_class=None):
+        """Instantiate an S3Uploader from an ExternalIntegration.
 
-    @classmethod
-    def from_config(cls, _db):
-        """Create an S3Uploader from site configuration.
+        :param integration: An ExternalIntegration
 
-        :return: An S3Uploader.
-        :raise: CannotLoadConfiguration if S3 is not configured.
+        :param pool_class: Mock object (or class) to use (or instantiate)
+            instead of tinys3.Pool.
         """
-        from config import CannotLoadConfiguration
-        integration = cls.integration(_db)
-        if not integration:
-            raise CannotLoadConfiguration(
-                "Required S3 integration is not configured."
-            )
-            return None
-        cls.initialize_buckets(_db)        
-        return cls(integration.username, integration.password)
-        
-    def __init__(self, access_key=None, secret_key=None, pool=None):
-        from config import CannotLoadConfiguration
-        self.pool = pool
-        if not self.pool:
+        if not pool_class:
+            pool_class = tinys3.Pool
+
+        if callable(pool_class):
+            access_key = integration.username
+            secret_key = integration.password
             if not (access_key and secret_key):
                 raise CannotLoadConfiguration(
                     'Cannot create S3Uploader without both'
                     ' access_key and secret_key.'
                 )
-            self.pool = tinys3.Pool(access_key, secret_key)
+            self.pool = pool_class(access_key, secret_key)
+        else:
+            self.pool = pool_class
 
-    @classmethod
-    def integration(cls, _db):
-        """Find the ExternalIntegration that configures this site's S3
-        uploader.
-
-        :return: None if there is no S3 configuration, otherwise an ExternalIntegration.
-        :raise: CannotLoadConfiguration if there are multiple S3 configurations.
-        """
-        from model import ExternalIntegration as EI
-        integrations = _db.query(EI).filter(
-            EI.protocol==EI.S3, EI.goal==EI.STORAGE_GOAL).all()
-
-        from config import CannotLoadConfiguration
-        if not integrations:
-            return None
-        
-        if len(integrations) > 1:
-            # Right now the S3Uploader doesn't distinguish usage between
-            # S3 accounts. If two account integrations are found, raise
-            # an error.
-            raise CannotLoadConfiguration(
-                'Multiple S3 ExternalIntegrations configured'
-            )
-
-        return integrations[0]
-
-    @classmethod
-    def initialize_buckets(cls, _db):
-        integration = cls.integration(_db)
-        if not integration:
-            # No integration means nothing to initialize.
-            return
-        cls.__buckets__ = dict()
+        # Transfer information about bucket names from the
+        # ExternalIntegration to the S3Uploader object, so we don't
+        # have to keep the ExternalIntegration around.
+        self.buckets = dict()
         for setting in integration.settings:
             if setting.key.endswith('_bucket'):
-                cls.__buckets__[setting.key] = setting.value
+                self.buckets[setting.key] = setting.value
 
-    @classmethod
-    def get_bucket(cls, bucket_key, sessioned_object=None):
+    def get_bucket(self, bucket_key):
         """Gets the bucket for a particular use based on the given key"""
-        if cls.__buckets__ == cls.UNINITIALIZED_BUCKETS:
-            if not sessioned_object:
-                raise CannotLoadConfiguration(
-                    'S3 buckets have not been initialized and no'
-                    ' database session is available')
-            _db = Session.object_session(sessioned_object)
-            cls.initialize_buckets(_db)
-
-        if not cls.__buckets__ or not cls.__buckets__.get(bucket_key):
-            raise CannotLoadConfiguration(
-                "No S3 bucket found for '%s'. Use S3Uploader.from_config"
-                " to load S3 bucket settings from database." % bucket_key)
-
-        return cls.__buckets__.get(bucket_key)
+        return self.buckets.get(bucket_key)
 
     @classmethod
     def url(cls, bucket, path):
@@ -150,12 +99,11 @@ class S3Uploader(MirrorUploader):
             raise NotImplementedError()
         return cls.url(bucket, '/')
 
-    @classmethod
-    def book_url(cls, identifier, extension='.epub', open_access=True, 
+    def book_url(self, identifier, extension='.epub', open_access=True, 
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
-        bucket = cls.get_bucket(cls.OA_CONTENT_BUCKET_KEY, identifier)
-        root = cls.content_root(bucket, open_access)
+        bucket = self.get_bucket(self.OA_CONTENT_BUCKET_KEY)
+        root = self.content_root(bucket, open_access)
 
         if not extension.startswith('.'):
             extension = '.' + extension
@@ -175,12 +123,11 @@ class S3Uploader(MirrorUploader):
 
         return root + template % tuple(args + [extension])
 
-    @classmethod
-    def cover_image_url(cls, data_source, identifier, filename=None,
+    def cover_image_url(self, data_source, identifier, filename,
                         scaled_size=None):
         """The path to the hosted cover image for the given identifier."""
-        bucket = cls.get_bucket(cls.BOOK_COVERS_BUCKET_KEY, identifier)
-        root = cls.cover_image_root(bucket, data_source, scaled_size)
+        bucket = self.get_bucket(self.BOOK_COVERS_BUCKET_KEY)
+        root = self.cover_image_root(bucket, data_source, scaled_size)
 
         args = [identifier.type, identifier.identifier, filename]
         args = [urllib.quote(x) for x in args]
@@ -263,11 +210,15 @@ class S3Uploader(MirrorUploader):
         for fh in filehandles:
             fh.close()
 
+# MirrorUploader.implementation will instantiate an S3Uploader
+# for storage integrations with protocol 'S3'.
+MirrorUploader.IMPLEMENTATION_REGISTRY[ExternalIntegration.S3] = S3Uploader
 
-class DummyS3Uploader(S3Uploader):
+
+class MockS3Uploader(S3Uploader):
     """A dummy uploader for use in tests."""
 
-    __buckets__ = {
+    buckets = {
        S3Uploader.BOOK_COVERS_BUCKET_KEY : 'test.cover.bucket',
        S3Uploader.OA_CONTENT_BUCKET_KEY : 'test.content.bucket',
     }
@@ -289,16 +240,21 @@ class DummyS3Uploader(S3Uploader):
                     representation.mirror_url = representation.url
                 representation.set_as_mirrored()
 
+
 class MockS3Response(object):
     def __init__(self, url):
         self.url = url
+        self.status_code = 200
+
 
 class MockS3Pool(object):
     """This pool lets us test the real S3Uploader class with a mocked-up S3
     pool.
     """
 
-    def __init__(self):
+    def __init__(self, access_key, secret_key):
+        self.access_key = access_key
+        self.secret_key = secret_key
         self.uploads = []
         self.in_progress = []
         self.n = 0
@@ -307,13 +263,9 @@ class MockS3Pool(object):
                **kwargs):
         self.uploads.append((remote_filename, fh.read(), bucket, content_type, 
                              kwargs))
-        # TODO: Instead of generating a fake URL we should be able to
-        # generate the same URL the s3 module would generate in this
-        # situation. Without this, we can't properly test the code at the
-        # end of mirror_batch which calls process_response.
-        response = MockS3Response("http://s3/%s" % self.n)
-        self.n += 1
-        self.in_progress = []
+        url = S3Uploader.url(bucket, remote_filename)
+        response = MockS3Response(url)
+        self.in_progress.append(response)
         return response
 
     def as_completed(self, requests):

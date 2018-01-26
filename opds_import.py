@@ -58,7 +58,7 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
-from s3 import S3Uploader
+from util.mirror import MirrorUploader
 
 
 class AccessNotAuthenticated(Exception):
@@ -419,6 +419,12 @@ class OPDSImporter(object):
             # The Metadata Wrangler isn't configured, but we can import without it.
             self.log.warn("Metadata Wrangler integration couldn't be loaded, importing without it.")
             self.metadata_client = None
+
+        if collection and not mirror:
+            # If this Collection is configured to mirror the assets it
+            # discovers, this will create a MirrorUploader for that
+            # Collection. Otherwise, this will return None.
+            mirror = MirrorUploader.for_collection(_db, collection)
         self.mirror = mirror
         self.content_modifier = content_modifier
         self.http_get = http_get
@@ -1648,15 +1654,3 @@ class OPDSImportMonitor(CollectionMonitor):
             self.log.info("Importing next feed: %s", link)
             self.import_one_feed(feed)
             self._db.commit()
-
-
-class OPDSImporterWithS3Mirror(OPDSImporter):
-    """OPDS Importer that mirrors content to S3."""
-
-    def __init__(self, _db, collection, **kwargs):
-        kwargs = dict(kwargs)
-        if 'mirror' not in kwargs:
-            kwargs['mirror'] = S3Uploader.from_config(_db)
-        super(OPDSImporterWithS3Mirror, self).__init__(
-            _db, collection, **kwargs
-        )
