@@ -10575,6 +10575,16 @@ class Collection(Base, HasFullTableCache):
         cascade="all"
     )
 
+    # A collection may be associated with one or more custom lists.
+    # When a new license pool is added to the collection, it will
+    # also be added to the list. Admins can remove items from the
+    # the list and they won't be added back, so the list doesn't
+    # necessarily match the collection.
+    customlists = relationship(
+        "CustomList", secondary=lambda: collections_customlists,
+        backref="collections"
+    )
+
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
 
@@ -11082,6 +11092,28 @@ mapper(
         collections_identifiers.columns.identifier_id
     )
 )
+
+collections_customlists = Table(
+    'collections_customlists', Base.metadata,
+    Column(
+        'collection_id', Integer, ForeignKey('collections.id'),
+        index=True, nullable=False,
+    ),
+    Column(
+        'customlist_id', Integer, ForeignKey('customlists.id'),
+        index=True, nullable=False,
+    ),
+    UniqueConstraint('collection_id', 'customlist_id'),
+)
+
+# When a pool gets a work for the first time, the work should be
+# added to any custom lists associated with the pool's collection.
+@event.listens_for(LicensePool.work_id, 'set')
+def add_pool_to_customlists_for_collection(pool, value, oldvalue, initiator):
+    if not oldvalue:
+        for list in pool.collection.customlists:
+            list.add_entry(pool.work, featured=True)
+
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.
