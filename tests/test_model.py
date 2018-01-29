@@ -7821,6 +7821,46 @@ class TestCollection(DatabaseTest):
         updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)
         assert_isbns([i1], updated_isbns)
 
+    def test_custom_lists(self):
+        # A Collection can be associated with one or more CustomLists.
+        list1, ignore = get_one_or_create(self._db, CustomList, name=self._str)
+        list2, ignore = get_one_or_create(self._db, CustomList, name=self._str)
+        self.collection.customlists = [list1, list2]
+        eq_(0, len(list1.entries))
+        eq_(0, len(list2.entries))
+
+        # When a new pool is added to the collection and its presentation edition is
+        # calculated for the first time, it's automatically added to the lists.
+        work = self._work(collection=self.collection, with_license_pool=True)
+        eq_(1, len(list1.entries))
+        eq_(1, len(list2.entries))
+        eq_(work, list1.entries[0].work)
+        eq_(work, list2.entries[0].work)
+
+        # Now remove it from one of the lists. If its presentation edition changes
+        # again or its pool changes works, it's not added back.
+        self._db.delete(list1.entries[0])
+        self._db.commit()
+        eq_(0, len(list1.entries))
+        eq_(1, len(list2.entries))
+
+        pool = work.license_pools[0]
+        identifier = pool.identifier
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        staff_edition, ignore = Edition.for_foreign_id(
+            self._db, staff_data_source,
+            identifier.type, identifier.identifier)
+
+        staff_edition.title = self._str
+        work.calculate_presentation()
+        eq_(0, len(list1.entries))
+        eq_(1, len(list2.entries))
+
+        new_work = self._work(collection=self.collection)
+        pool.work = new_work
+        eq_(0, len(list1.entries))
+        eq_(1, len(list2.entries))
+
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
 

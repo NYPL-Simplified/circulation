@@ -54,6 +54,7 @@ from sqlalchemy.orm import (
     sessionmaker,
     synonym,
 )
+from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound,
@@ -10575,6 +10576,16 @@ class Collection(Base, HasFullTableCache):
         cascade="all"
     )
 
+    # A collection may be associated with one or more custom lists.
+    # When a new license pool is added to the collection, it will
+    # also be added to the list. Admins can remove items from the
+    # the list and they won't be added back, so the list doesn't
+    # necessarily match the collection.
+    customlists = relationship(
+        "CustomList", secondary=lambda: collections_customlists,
+        backref="collections"
+    )
+
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
 
@@ -11082,6 +11093,39 @@ mapper(
         collections_identifiers.columns.identifier_id
     )
 )
+
+collections_customlists = Table(
+    'collections_customlists', Base.metadata,
+    Column(
+        'collection_id', Integer, ForeignKey('collections.id'),
+        index=True, nullable=False,
+    ),
+    Column(
+        'customlist_id', Integer, ForeignKey('customlists.id'),
+        index=True, nullable=False,
+    ),
+    UniqueConstraint('collection_id', 'customlist_id'),
+)
+
+# When a pool gets a work and a presentation edition for the first time,
+# the work should be added to any custom lists associated with the pool's
+# collection.
+# In some cases, the work may be generated before the presentation edition.
+# Then we need to add it when the work gets a presentation edition.
+@event.listens_for(LicensePool.work_id, 'set')
+@event.listens_for(Work.presentation_edition_id, 'set')
+def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initiator):
+    if isinstance(pool_or_work, LicensePool):
+        work = pool_or_work.work
+        pools = [pool_or_work]
+    else:
+        work = pool_or_work
+        pools = work.license_pools
+
+    if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
+        for pool in pools:
+            for list in pool.collection.customlists:
+                list.add_entry(work, featured=True)
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.
