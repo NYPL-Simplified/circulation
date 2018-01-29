@@ -1002,7 +1002,7 @@ class WorkController(CirculationManagerController):
                 else:
                     list, is_new = create(self._db, CustomList, name=name, data_source=staff_data_source, library=library)
                     list.created = datetime.now()
-                entry, was_new = list.add_entry(work)
+                entry, was_new = list.add_entry(work, featured=True)
                 if was_new:
                     for lane in Lane.affected_by_customlist(list):
                         affected_lanes.add(lane)
@@ -1072,13 +1072,17 @@ class CustomListsController(CirculationManagerController):
                                             title=entry.edition.title,
                                             authors=[author.display_name for author in entry.edition.author_contributors],
                         ))
-                custom_lists.append(dict(id=list.id, name=list.name, entries=entries))
+                collections = []
+                for collection in list.collections:
+                    collections.append(dict(id=collection.id, name=collection.name, protocol=collection.protocol))
+                custom_lists.append(dict(id=list.id, name=list.name, entries=entries, collections=collections))
             return dict(custom_lists=custom_lists)
 
         if flask.request.method == "POST":
             id = flask.request.form.get("id")
             name = flask.request.form.get("name")
             entries = flask.request.form.get("entries")
+            collections = flask.request.form.get("collections")
 
             old_list_with_name = CustomList.find(self._db, data_source, name, library)
 
@@ -1134,6 +1138,22 @@ class CustomListsController(CirculationManagerController):
                 # lanes need to have their counts updated.
                 for lane in Lane.affected_by_customlist(list):
                     lane.update_size(self._db)
+
+            if collections:
+                collections = json.loads(collections)
+            else:
+                collections = []
+            new_collections = []
+            for collection_id in collections:
+                collection = get_one(self._db, Collection, id=collection_id)
+                if not collection:
+                    self._db.rollback()
+                    return MISSING_COLLECTION
+                if list.library not in collection.libraries:
+                    self._db.rollback()
+                    return COLLECTION_NOT_ASSOCIATED_WITH_LIBRARY
+                new_collections.append(collection)
+            list.collections = new_collections
 
             if is_new:
                 return Response(unicode(list.id), 201)
