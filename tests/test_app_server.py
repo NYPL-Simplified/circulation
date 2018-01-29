@@ -36,6 +36,8 @@ from app_server import (
     load_pagination_from_request,
 )
 
+from config import Configuration
+
 from problem_details import (
     INVALID_INPUT,
     INVALID_URN,
@@ -49,31 +51,40 @@ from util.opds_writer import (
 
 class TestHeartbeatController(object):
 
-    def test_version(self):
+    def test_heartbeat(self):
         app = Flask(__name__)
         controller = HeartbeatController()
 
         with app.test_request_context('/'):
-            response = controller.version()
-        eq_('', response.data)
+            response = controller.heartbeat()
         eq_(200, response.status_code)
+        eq_(controller.HEALTH_CHECK_TYPE, response.headers.get('Content-Type'))
+        data = json.loads(response.data)
+        eq_('pass', data['status'])
 
         # Create a .version file.
         root_dir = os.path.join(os.path.split(__file__)[0], "..", "..")
         version_filename = os.path.join(root_dir, controller.VERSION_FILENAME)
         with open(version_filename, 'w') as f:
-            f.write('ba.na.na')
+            f.write('ba.na.na-10-ssssssssss')
 
-        try:
-            with app.test_request_context('/version'):
-                response = controller.version()
-            eq_('ba.na.na', response.data)
-            eq_(200, response.status_code)
-        except Exception as e:
+        # Create a mock configuration object to test with.
+        class MockConfiguration(Configuration):
+            instance = dict()
+
+        with app.test_request_context('/'):
+            response = controller.heartbeat(conf_class=MockConfiguration)
+        if os.path.exists(version_filename):
             os.remove(version_filename)
-            raise e
-        finally:
-            os.remove(version_filename)
+
+        eq_(200, response.status_code)
+        content_type = response.headers.get('Content-Type')
+        eq_(controller.HEALTH_CHECK_TYPE, content_type)
+
+        data = json.loads(response.data)
+        eq_('pass', data['status'])
+        eq_('ba.na.na', data['version'])
+        eq_('ba.na.na-10-ssssssssss', data['releaseID'])
 
 
 class TestURNLookupController(DatabaseTest):

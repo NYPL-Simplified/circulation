@@ -34,6 +34,7 @@ from model import (
 )
 from cdn import cdnify
 from classifier import Classifier
+from config import Configuration
 from lane import (
     Facets,
     Pagination,
@@ -246,22 +247,20 @@ class ErrorHandler(object):
 
 class HeartbeatController(object):
 
+    HEALTH_CHECK_TYPE = 'application/vnd.health+json'
     VERSION_FILENAME = '.version'
 
-    def heartbeat(cls):
-        return make_response("", 200, {"Content-Type": "application/json"})
+    def heartbeat(self, conf_class=None):
+        health_check_object = dict(status='pass')
 
-    def version(cls):
-        """Returns the git version of the app, if a .version file exists."""
-        root_dir = os.path.join(os.path.split(__file__)[0], "..")
-        version_file = os.path.join(root_dir, cls.VERSION_FILENAME)
+        Conf = conf_class or Configuration
+        app_version = Conf.app_version()
+        if app_version and app_version != Conf.NO_APP_VERSION_FOUND:
+            health_check_object['releaseID'] = app_version
+            health_check_object['version'] = app_version.split('-')[0]
 
-        data = ''
-        if os.path.exists(version_file):
-            with open(version_file) as f:
-                data = f.readline()
-
-        return make_response(data, 200, {"Content-Type": "text/plain"})
+        data = json.dumps(health_check_object)
+        return make_response(data, 200, {"Content-Type": self.HEALTH_CHECK_TYPE})
 
 
 class URNLookupController(object):
