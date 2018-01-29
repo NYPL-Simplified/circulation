@@ -343,7 +343,7 @@ class Configuration(object):
         return version
 
     @classmethod
-    def set_app_version(cls, _db):
+    def save_app_version(cls, _db):
         """Puts the current app version into the database"""
         from model import ConfigurationSetting
         version = cls.app_version()
@@ -492,6 +492,7 @@ class Configuration(object):
             configuration = cls._load('{}')
         cls.instance = configuration
 
+        cls.app_version()
         if _db:
             cls.load_cdns(_db)
             cls.instance[cls.LOADED_FROM_DATABASE] = True
