@@ -11122,7 +11122,7 @@ def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initia
         work = pool_or_work
         pools = work.license_pools
 
-    if (not oldvalue or oldvalue is NO_VALUE) and work.presentation_edition:
+    if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
         for pool in pools:
             for list in pool.collection.customlists:
                 list.add_entry(work, featured=True)
