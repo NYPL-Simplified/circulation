@@ -54,6 +54,7 @@ from sqlalchemy.orm import (
     sessionmaker,
     synonym,
 )
+from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound,
@@ -11106,14 +11107,25 @@ collections_customlists = Table(
     UniqueConstraint('collection_id', 'customlist_id'),
 )
 
-# When a pool gets a work for the first time, the work should be
-# added to any custom lists associated with the pool's collection.
+# When a pool gets a work and a presentation edition for the first time,
+# the work should be added to any custom lists associated with the pool's
+# collection.
+# In some cases, the work may be generated before the presentation edition.
+# Then we need to add it when the work gets a presentation edition.
 @event.listens_for(LicensePool.work_id, 'set')
-def add_pool_to_customlists_for_collection(pool, value, oldvalue, initiator):
-    if not oldvalue:
-        for list in pool.collection.customlists:
-            list.add_entry(pool.work, featured=True)
+@event.listens_for(Work.presentation_edition_id, 'set')
+def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initiator):
+    if isinstance(pool_or_work, LicensePool):
+        work = pool_or_work.work
+        pools = [pool_or_work]
+    else:
+        work = pool_or_work
+        pools = work.license_pools
 
+    if (not oldvalue or oldvalue is NO_VALUE) and work.presentation_edition:
+        for pool in pools:
+            for list in pool.collection.customlists:
+                list.add_entry(work, featured=True)
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.
