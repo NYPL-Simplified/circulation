@@ -1149,6 +1149,9 @@ class CustomListsController(CirculationManagerController):
                 if not collection:
                     self._db.rollback()
                     return MISSING_COLLECTION
+                if list.library not in collection.libraries:
+                    self._db.rollback()
+                    return COLLECTION_NOT_ASSOCIATED_WITH_LIBRARY
                 new_collections.append(collection)
             list.collections = new_collections
 

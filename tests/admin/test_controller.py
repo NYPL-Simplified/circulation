@@ -1360,9 +1360,21 @@ class TestCustomListsController(AdminControllerTest):
             response = self.manager.admin_custom_lists_controller.custom_lists()
             eq_(MISSING_COLLECTION, response)
 
+    def test_custom_lists_post_collection_with_wrong_library(self):
+        # This collection is not associated with any libraries.
+        collection = self._collection()
+        with self.request_context_with_library("/", method='POST'):
+            flask.request.form = MultiDict([
+                ("name", "name"),
+                ("collections", json.dumps([collection.id])),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(COLLECTION_NOT_ASSOCIATED_WITH_LIBRARY, response)
+
     def test_custom_lists_create(self):
         work = self._work(with_open_access_download=True)
         collection = self._collection()
+        collection.libraries = [self._default_library]
 
         with self.request_context_with_library("/", method="POST"):
             flask.request.form = MultiDict([
@@ -1404,7 +1416,9 @@ class TestCustomListsController(AdminControllerTest):
         new_entries = [dict(pwid=work.presentation_edition.permanent_work_id) for work in [w2, w3]]
 
         c1 = self._collection()
+        c1.libraries = [self._default_library]
         c2 = self._collection()
+        c2.libraries = [self._default_library]
         list.collections = [c1]
         new_collections = [c2]
         
