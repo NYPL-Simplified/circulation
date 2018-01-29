@@ -1,4 +1,6 @@
+import os
 import json
+
 import flask
 from flask import Flask
 from flask_babel import (
@@ -26,12 +28,15 @@ from lane import (
 )
 
 from app_server import (
+    HeartbeatController,
     URNLookupController,
     ErrorHandler,
     ComplaintController,
     load_facets_from_request,
     load_pagination_from_request,
 )
+
+from config import Configuration
 
 from problem_details import (
     INVALID_INPUT,
@@ -42,6 +47,44 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
+
+
+class TestHeartbeatController(object):
+
+    def test_heartbeat(self):
+        app = Flask(__name__)
+        controller = HeartbeatController()
+
+        with app.test_request_context('/'):
+            response = controller.heartbeat()
+        eq_(200, response.status_code)
+        eq_(controller.HEALTH_CHECK_TYPE, response.headers.get('Content-Type'))
+        data = json.loads(response.data)
+        eq_('pass', data['status'])
+
+        # Create a .version file.
+        root_dir = os.path.join(os.path.split(__file__)[0], "..", "..")
+        version_filename = os.path.join(root_dir, controller.VERSION_FILENAME)
+        with open(version_filename, 'w') as f:
+            f.write('ba.na.na-10-ssssssssss')
+
+        # Create a mock configuration object to test with.
+        class MockConfiguration(Configuration):
+            instance = dict()
+
+        with app.test_request_context('/'):
+            response = controller.heartbeat(conf_class=MockConfiguration)
+        if os.path.exists(version_filename):
+            os.remove(version_filename)
+
+        eq_(200, response.status_code)
+        content_type = response.headers.get('Content-Type')
+        eq_(controller.HEALTH_CHECK_TYPE, content_type)
+
+        data = json.loads(response.data)
+        eq_('pass', data['status'])
+        eq_('ba.na.na', data['version'])
+        eq_('ba.na.na-10-ssssssssss', data['releaseID'])
 
 
 class TestURNLookupController(DatabaseTest):
@@ -124,7 +167,7 @@ class TestURNLookupController(DatabaseTest):
     @app.route('/work')
     def work(self, urn):
         pass
-    
+
     def test_work_lookup(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
