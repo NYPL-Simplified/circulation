@@ -947,6 +947,7 @@ class TestWorkController(AdminControllerTest):
             eq_(1, len(work.custom_list_entries))
             eq_(1, len(list.entries))
             eq_(list, work.custom_list_entries[0].customlist)
+            eq_(True, work.custom_list_entries[0].featured)
             eq_(1, lane.size)
 
         # Now remove the list.
@@ -970,6 +971,7 @@ class TestWorkController(AdminControllerTest):
             eq_(1, len(work.custom_list_entries))
             new_list = CustomList.find(self._db, staff_data_source, "new list", self._default_library)
             eq_(new_list, work.custom_list_entries[0].customlist)
+            eq_(True, work.custom_list_entries[0].featured)
 
 class TestSignInController(AdminControllerTest):
 
@@ -1279,6 +1281,8 @@ class TestCustomListsController(AdminControllerTest):
         c2.display_name = self._str
         edition.add_contributor(c2, Contributor.AUTHOR_ROLE)
         one_entry.add_entry(edition)
+        collection = self._collection()
+        collection.customlists = [one_entry]
 
         no_entries, ignore = create(self._db, CustomList, name=self._str, library=self._default_library)
 
@@ -1297,10 +1301,16 @@ class TestCustomListsController(AdminControllerTest):
             eq_(2, len(entry.get("authors")))
             eq_(set([c1.display_name, c2.display_name]),
                 set(entry.get("authors")))
+            eq_(1, len(l1.get("collections")))
+            [c] = l1.get("collections")
+            eq_(collection.name, c.get("name"))
+            eq_(collection.id, c.get("id"))
+            eq_(collection.protocol, c.get("protocol"))
 
             eq_(no_entries.id, l2.get("id"))
             eq_(no_entries.name, l2.get("name"))
             eq_(0, len(l2.get("entries")))
+            eq_(0, len(l2.get("collections")))
 
     def test_custom_lists_post_errors(self):
         with self.request_context_with_library("/", method='POST'):
@@ -1342,13 +1352,23 @@ class TestCustomListsController(AdminControllerTest):
             response = self.manager.admin_custom_lists_controller.custom_lists()
             eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
 
+        with self.request_context_with_library("/", method='POST'):
+            flask.request.form = MultiDict([
+                ("name", "name"),
+                ("collections", json.dumps([12345])),
+            ])
+            response = self.manager.admin_custom_lists_controller.custom_lists()
+            eq_(MISSING_COLLECTION, response)
+
     def test_custom_lists_create(self):
         work = self._work(with_open_access_download=True)
+        collection = self._collection()
 
         with self.request_context_with_library("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "List"),
                 ("entries", json.dumps([dict(pwid=work.presentation_edition.permanent_work_id)])),
+                ("collections", json.dumps([collection.id])),
             ])
 
             response = self.manager.admin_custom_lists_controller.custom_lists()
@@ -1362,6 +1382,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(work, list.entries[0].work)
             eq_(work.presentation_edition, list.entries[0].edition)
             eq_(True, list.entries[0].featured)
+            eq_([collection], list.collections)
 
     def test_custom_lists_edit(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -1381,12 +1402,18 @@ class TestCustomListsController(AdminControllerTest):
         self.add_to_materialized_view([w1, w2, w3])
 
         new_entries = [dict(pwid=work.presentation_edition.permanent_work_id) for work in [w2, w3]]
+
+        c1 = self._collection()
+        c2 = self._collection()
+        list.collections = [c1]
+        new_collections = [c2]
         
         with self.request_context_with_library("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", str(list.id)),
                 ("name", "new name"),
                 ("entries", json.dumps(new_entries)),
+                ("collections", json.dumps([c.id for c in new_collections])),
             ])
 
             response = self.manager.admin_custom_lists_controller.custom_lists()
@@ -1396,6 +1423,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_("new name", list.name)
             eq_(set([w2, w3]),
                 set([entry.work for entry in list.entries]))
+            eq_(new_collections, list.collections)
 
         # The lane's estimated size has been updated.
         eq_(2, lane.size)
