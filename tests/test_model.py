@@ -7837,6 +7837,30 @@ class TestCollection(DatabaseTest):
         eq_(work, list1.entries[0].work)
         eq_(work, list2.entries[0].work)
 
+        # Now remove it from one of the lists. If its presentation edition changes
+        # again or its pool changes works, it's not added back.
+        self._db.delete(list1.entries[0])
+        self._db.commit()
+        eq_(0, len(list1.entries))
+        eq_(1, len(list2.entries))
+
+        pool = work.license_pools[0]
+        identifier = pool.identifier
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        staff_edition, ignore = Edition.for_foreign_id(
+            self._db, staff_data_source,
+            identifier.type, identifier.identifier)
+
+        staff_edition.title = self._str
+        work.calculate_presentation()
+        eq_(0, len(list1.entries))
+        eq_(1, len(list2.entries))
+
+        new_work = self._work(collection=self.collection)
+        pool.work = new_work
+        eq_(0, len(list1.entries))
+        eq_(1, len(list2.entries))
+
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
 
