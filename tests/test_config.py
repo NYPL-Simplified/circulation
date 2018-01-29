@@ -56,29 +56,3 @@ class TestConfiguration(DatabaseTest):
         result = self.Conf.app_version()
         eq_('ba.na.na', result)
         eq_('ba.na.na', self.Conf.get(self.Conf.APP_VERSION))
-
-    def test_save_app_version(self):
-        self.Conf.instance = dict()
-
-        def setting():
-            return ConfigurationSetting.sitewide(
-                self._db, self.Conf.APP_VERSION
-            )
-
-        # With a .version file, the setting is loaded.
-        self.create_version_file('ba.na.na')
-        self.Conf.save_app_version(self._db)
-        eq_('ba.na.na', setting().value)
-
-        # With an empty .version file, there is no value.
-        self.Conf.instance = dict()
-        self.create_version_file(' \n\t')
-        self.Conf.save_app_version(self._db)
-        eq_(None, setting().value)
-
-        # With no .version file, there is no value.
-        self.Conf.instance = dict()
-        setting().value = '2.1.5'
-        os.remove(self.VERSION_FILENAME)
-        self.Conf.save_app_version(self._db)
-        eq_(None, setting().value)

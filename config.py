@@ -343,18 +343,6 @@ class Configuration(object):
         return version
 
     @classmethod
-    def save_app_version(cls, _db):
-        """Puts the current app version into the database"""
-        from model import ConfigurationSetting
-        version = cls.app_version()
-        app_version_setting = ConfigurationSetting.sitewide(_db, cls.APP_VERSION)
-
-        if version and version != cls.NO_APP_VERSION_FOUND:
-            app_version_setting.value = unicode(version)
-        else:
-            app_version_setting.value = None
-
-    @classmethod
     def data_directory(cls):
         return cls.get(cls.DATA_DIRECTORY)
 
