@@ -1761,7 +1761,7 @@ class TestLanesController(AdminControllerTest):
 
     def test_hide_lane_errors(self):
         with self.request_context_with_library("/"):
-            response = self.manager.admin_lanes_controller.hide_lane(123)
+            response = self.manager.admin_lanes_controller.hide_lane(123456789)
             eq_(MISSING_LANE, response)
 
     def test_reset(self):
