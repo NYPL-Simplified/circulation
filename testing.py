@@ -915,6 +915,19 @@ class DatabaseTest(object):
             data_source=data_source, weight=weight
         )[0]
 
+    def sample_cover_path(self, name):
+        """The path to the sample cover with the given filename."""
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "tests", "files", "covers")
+        sample_cover_path = os.path.join(resource_path, name)
+        return sample_cover_path
+
+    def sample_cover_representation(self, name):
+        """A Representation of the sample cover with the given filename."""
+        sample_cover_path = self.sample_cover_path(name)
+        return self._representation(
+            media_type="image/png", content=open(sample_cover_path).read())[0]
+
 
 class MockCoverageProvider(object):
     """Mixin class for mock CoverageProviders that defines common constants."""

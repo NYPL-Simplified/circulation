@@ -34,7 +34,7 @@ from . import (
     DummyHTTPClient,
 )
 
-from s3 import DummyS3Uploader
+from s3 import MockS3Uploader
 
 
 class TestCirculationData(DatabaseTest):
@@ -553,7 +553,7 @@ class TestMetaToModelUtility(DatabaseTest):
         # Note: Mirroring tests passing does not guarantee that all code now 
         # correctly calls on CirculationData, as well as Metadata.  This is a risk.
 
-        mirror = DummyS3Uploader()
+        mirror = MockS3Uploader()
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
         
@@ -622,7 +622,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
     def test_mirror_open_access_link_fetch_failure(self):
-        mirror = DummyS3Uploader()
+        mirror = MockS3Uploader()
         h = DummyHTTPClient()
 
         edition, pool = self._edition(with_license_pool=True)
@@ -665,7 +665,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
     def test_mirror_open_access_link_mirror_failure(self):
-        mirror = DummyS3Uploader(fail=True)
+        mirror = MockS3Uploader(fail=True)
         h = DummyHTTPClient()
 
         edition, pool = self._edition(with_license_pool=True)

@@ -2206,7 +2206,7 @@ class TestSubjectAssignmentScript(object):
     """TODO"""
     pass
 
-        
+
 class TestNYTBestSellerListsScript(object):
     """TODO"""
     pass

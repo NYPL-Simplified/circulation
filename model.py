@@ -121,6 +121,7 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
+from util.mirror import MirrorUploader
 from util.http import (
     HTTP,
     RemoteIntegrationException,
@@ -10002,7 +10003,7 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     # These integrations are associated with external services such as
     # S3 that provide access to book covers.
-    STORAGE_GOAL = u'storage'
+    STORAGE_GOAL = MirrorUploader.STORAGE_GOAL
 
     # These integrations are associated with external services like
     # Cloudfront or other CDNs that mirror and/or cache certain domains.
@@ -10135,6 +10136,13 @@ class ExternalIntegration(Base, HasFullTableCache):
     settings = relationship(
         "ConfigurationSetting", backref="external_integration",
         lazy="joined", cascade="all, delete-orphan",
+    )
+
+    # An ExternalIntegration may be used by many Collections
+    # to mirror book covers or other files.
+    mirror_for = relationship(
+        "Collection", backref="mirror_integration",
+        foreign_keys='Collection.mirror_integration_id',
     )
 
     def __repr__(self):
@@ -10539,6 +10547,14 @@ class Collection(Base, HasFullTableCache):
     # secret as the Overdrive collection, but it has a distinct
     # external_account_id.
     parent_id = Column(Integer, ForeignKey('collections.id'), index=True)
+
+    # Some Collections use an ExternalIntegration to mirror books and
+    # cover images they discover. Such a collection should use an
+    # ExternalIntegration to set up its mirroring technique, and keep
+    # a reference to that ExternalIntegration here.
+    mirror_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), nullable=True
+    )
 
     # A collection may have many child collections. For example,
     # An Overdrive collection may have many children corresponding

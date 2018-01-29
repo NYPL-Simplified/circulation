@@ -50,7 +50,7 @@ from metadata_layer import (
     ReplacementPolicy,
     SubjectData,
 )
-from s3 import DummyS3Uploader
+from s3 import MockS3Uploader
 from coverage import (
     BaseCoverageProvider,
     BibliographicCoverageProvider,
@@ -1284,7 +1284,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
         
         # ..and will then be uploaded to this 'mirror'.
-        mirror = DummyS3Uploader()
+        mirror = MockS3Uploader()
 
         class Tripwire(PresentationCalculationPolicy):
             # This class sets a variable if one of its properties is

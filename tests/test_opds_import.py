@@ -24,7 +24,6 @@ from opds_import import (
     AccessNotAuthenticated,
     MetadataWranglerOPDSLookup,
     OPDSImporter,
-    OPDSImporterWithS3Mirror,
     OPDSImportMonitor,
     OPDSXMLParser,
     SimplifiedOPDSLookup,
@@ -54,7 +53,10 @@ from model import (
 )
 from coverage import CoverageFailure
 
-from s3 import DummyS3Uploader
+from s3 import (
+    S3Uploader,
+    MockS3Uploader,
+)
 from testing import DummyHTTPClient
 
 
@@ -1287,7 +1289,31 @@ class TestCombine(object):
         eq_(dict(a=dict(b=[True, False])),
             OPDSImporter.combine(a_is_true, a_is_false))
         
-class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
+class TestMirroring(OPDSImporterTest):
+
+    def test_importer_gets_appropriate_mirror_for_collection(self):
+
+        # The default collection is not configured to mirror the
+        # resources it finds.
+        collection = self._default_collection
+        importer = OPDSImporter(self._db, collection=collection)
+        eq_(None, importer.mirror)
+
+        # Let's configure a mirror integration for it.
+        integration = self._external_integration(
+            ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
+            username="username", password="password",
+            settings = {S3Uploader.BOOK_COVERS_BUCKET_KEY : "some-covers"}
+        )
+        collection.mirror_integration = integration
+
+        # Now an OPDSImporter created for this collection has an
+        # appropriately configured MirrorUploader associated with it.
+        importer = OPDSImporter(self._db, collection=collection)
+        mirror = importer.mirror
+        assert isinstance(mirror, S3Uploader)
+        eq_("some-covers",
+            mirror.get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
 
     def test_resources_are_mirrored_on_import(self):
 
@@ -1314,7 +1340,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
 
-        s3 = DummyS3Uploader()
+        s3 = MockS3Uploader()
 
         importer = OPDSImporter(
             self._db, collection=self._default_collection,
@@ -1474,7 +1500,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
         )
 
-        s3 = DummyS3Uploader()
+        s3 = MockS3Uploader()
 
         importer = OPDSImporter(
             self._db, collection=None,

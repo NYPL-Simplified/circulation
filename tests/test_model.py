@@ -2470,7 +2470,7 @@ class TestWork(DatabaseTest):
             lp3, complaint_type, "blah", "blah"
         )
 
-        eq_(set([complaint1, complaint2]), set(work.complaints))
+        eq_([complaint1, complaint2], work.complaints)
         assert complaint3 not in work.complaints
 
     def test_all_identifier_ids(self):
@@ -5078,17 +5078,6 @@ class TestRepresentation(DatabaseTest):
 
 
 class TestCoverResource(DatabaseTest):
-
-    def sample_cover_path(self, name):
-        base_path = os.path.split(__file__)[0]
-        resource_path = os.path.join(base_path, "files", "covers")
-        sample_cover_path = os.path.join(resource_path, name)
-        return sample_cover_path
-
-    def sample_cover_representation(self, name):
-        sample_cover_path = self.sample_cover_path(name)
-        return self._representation(
-            media_type="image/png", content=open(sample_cover_path).read())[0]
 
     def test_set_cover(self):
         edition, pool = self._edition(with_license_pool=True)
