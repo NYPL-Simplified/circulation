@@ -63,6 +63,39 @@ def load_lanes(_db, library):
     map(_db.expunge, to_expunge)
     return top_level
 
+
+def _lane_configuration_from_collection_sizes(estimates):
+    """Sort a library's collections into 'large', 'small', and 'tiny'
+    subcollections based on language.
+
+    :param estimates: A Counter.
+
+    :return: A 3-tuple (large, small, tiny). 'large' will contain the
+    collection with the largest language, and any languages with a
+    collection 10% that size. 'small' will contain any languages with
+    a collection 1% that size, and 'tiny' will contain all other
+    languages represented in `estimates`.
+    """
+    if not estimates:
+        # There are no holdings. Assume we have a large English
+        # collection and nothing else.
+        return [u'eng'], [], []
+
+    large = []
+    small = []
+    tiny = []
+
+    [(ignore, largest)] = estimates.most_common(1)
+    for language, count in estimates.most_common():
+        if count > largest * 0.1:
+            large.append(language)
+        elif count > largest * 0.01:
+            small.append(language)
+        else:
+            tiny.append(language)
+    return large, small, tiny
+
+
 def create_default_lanes(_db, library):
     """Reset the lanes for the given library to the default.
 
@@ -92,23 +125,17 @@ def create_default_lanes(_db, library):
 
     top_level_lanes = []
 
+    # Hopefully this library is configured with explicit guidance as
+    # to how the languages should be set up.
     large = Configuration.large_collection_languages(library) or []
     small = Configuration.small_collection_languages(library) or []
     tiny = Configuration.tiny_collection_languages(library) or []
 
-    # If there are no language configuration settings, estimate the
-    # current collection size to determine the lanes.
+    # If there are no language configuration settings, we can estimate
+    # the current collection size to determine the lanes.
     if not large and not small and not tiny:
         estimates = library.estimated_holdings_by_language()
-        [(ignore, largest)] = estimates.most_common(1)
-        for language, count in estimates.most_common():
-            if count > largest * 0.1:
-                large.append(language)
-            elif count > largest * 0.01:
-                small.append(language)
-            else:
-                tiny.append(language)
-
+        large, small, tiny = _lane_configuration_from_collection_sizes(estimates)
     priority = 0
     for language in large:
         priority = create_lanes_for_large_collection(_db, library, language, priority=priority)
