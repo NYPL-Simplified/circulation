@@ -254,7 +254,8 @@ class UpdateSearchIndexScript(RunMonitorScript):
 
 class RunCoverageProvidersScript(Script):
     """Alternate between multiple coverage providers."""
-    def __init__(self, providers):
+    def __init__(self, providers, _db=None):
+        super(RunCoverageProvidersScript, self).__init__(_db=_db)
         self.providers = []
         for i in providers:
             if callable(i):
@@ -292,7 +293,7 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
         providers = providers or list()
         if provider_class:
             providers += self.get_providers(_db, provider_class, **kwargs)
-        super(RunCollectionCoverageProviderScript, self).__init__(providers)
+        super(RunCollectionCoverageProviderScript, self).__init__(providers, _db=_db)
 
     def get_providers(self, _db, provider_class, **kwargs):
         return list(provider_class.all(_db, **kwargs))
