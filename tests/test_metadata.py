@@ -41,6 +41,7 @@ from model import (
 from . import (
     DatabaseTest,
     DummyHTTPClient,
+    DummyMetadataClient,
 )
 
 from s3 import MockS3Uploader
@@ -689,14 +690,56 @@ class TestContributorData(DatabaseTest):
         contributor_new, changed = contributor_data.apply(contributor_new)
         eq_(changed, False)
 
-    def test_display_name_to_sort_name(self):
+    def test_display_name_to_sort_name_from_existing_contributor(self):
         # If there's an existing contributor with a matching display name,
         # we'll use their sort name.
         existing_contributor, ignore = self._contributor(sort_name="Sort, Name", display_name="John Doe")
-        eq_("Sort, Name", ContributorData.display_name_to_sort_name(self._db, "John Doe"))
+        eq_("Sort, Name", ContributorData.display_name_to_sort_name_from_existing_contributor(self._db, "John Doe"))
 
-        # Otherwise, we'll guess based on the display name.
-        eq_("Doe, Jane", ContributorData.display_name_to_sort_name(self._db, "Jane Doe"))
+        # Otherwise, we don't know.
+        eq_(None, ContributorData.display_name_to_sort_name_from_existing_contributor(self._db, "Jane Doe"))
+
+    def test_find_sort_name(self):
+        metadata_client = DummyMetadataClient()
+        metadata_client.lookups["Metadata Client Author"] = "Author, M. C."
+        existing_contributor, ignore = self._contributor(sort_name="Author, E.", display_name="Existing Author")
+        contributor_data = ContributorData()
+
+        # If there's already a sort name, keep it.
+        contributor_data.sort_name = "Sort Name"
+        eq_(True, contributor_data.find_sort_name(self._db, [], metadata_client))
+        eq_("Sort Name", contributor_data.sort_name)
+        
+        contributor_data.sort_name = "Sort Name"
+        contributor_data.display_name = "Existing Author"
+        eq_(True, contributor_data.find_sort_name(self._db, [], metadata_client))
+        eq_("Sort Name", contributor_data.sort_name)
+
+        contributor_data.sort_name = "Sort Name"
+        contributor_data.display_name = "Metadata Client Author"
+        eq_(True, contributor_data.find_sort_name(self._db, [], metadata_client))
+        eq_("Sort Name", contributor_data.sort_name)
+
+        # If there's no sort name but there's already an author with the same display name,
+        # use that author's sort name.
+        contributor_data.sort_name = None
+        contributor_data.display_name = "Existing Author"
+        eq_(True, contributor_data.find_sort_name(self._db, [], metadata_client))
+        eq_("Author, E.", contributor_data.sort_name)
+
+        # If there's no sort name and no existing author, check the metadata wrangler
+        # for a sort name.
+        contributor_data.sort_name = None
+        contributor_data.display_name = "Metadata Client Author"
+        eq_(True, contributor_data.find_sort_name(self._db, [], metadata_client))
+        eq_("Author, M. C.", contributor_data.sort_name)
+
+        # If there's no sort name, no existing author, and nothing from the metadata
+        # wrangler, guess the sort name based on the display name.
+        contributor_data.sort_name = None
+        contributor_data.display_name = "New Author"
+        eq_(True, contributor_data.find_sort_name(self._db, [], metadata_client))
+        eq_("Author, New", contributor_data.sort_name)
 
 class TestLinkData(DatabaseTest):
 

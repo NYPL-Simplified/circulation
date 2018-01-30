@@ -292,7 +292,8 @@ class ContributorData(object):
         # Is there a contributor already in the database with this
         # exact sort name? If so, use their display name.
         # If not, take our best guess based on the display name.
-        sort_name = self.display_name_to_sort_name(_db, self.display_name)
+        sort_name = self.display_name_to_sort_name_from_existing_contributor(
+            _db, self.display_name)
         if sort_name:
             self.sort_name = sort_name
             return True
@@ -303,12 +304,18 @@ class ContributorData(object):
             sort_name = self.display_name_to_sort_name_through_canonicalizer(
                 _db, identifiers, metadata_client
             )
-            self.sort_name = sort_name
+            if sort_name:
+                self.sort_name = sort_name
+                return True
+
+        # If there's still no sort name, take our best guess based
+        # on the display name.
+        self.sort_name = display_name_to_sort_name(self.display_name)
 
         return (self.sort_name is not None)
 
     @classmethod
-    def display_name_to_sort_name(self, _db, display_name):
+    def display_name_to_sort_name_from_existing_contributor(self, _db, display_name):
         """Find the sort name for this book's author, assuming it's easy.
 
         'Easy' means we already have an established sort name for a
@@ -332,9 +339,7 @@ class ContributorData(object):
                 contributors[0].sort_name
             )
             return contributors[0].sort_name
-        # There weren't any matching contributors. Guess the sort name
-        # based on the display name instead.
-        return display_name_to_sort_name(display_name)
+        return None
 
     def _display_name_to_sort_name(
             self, _db, metadata_client, identifier_obj
