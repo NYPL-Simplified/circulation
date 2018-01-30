@@ -689,7 +689,14 @@ class TestContributorData(DatabaseTest):
         contributor_new, changed = contributor_data.apply(contributor_new)
         eq_(changed, False)
 
+    def test_display_name_to_sort_name(self):
+        # If there's an existing contributor with a matching display name,
+        # we'll use their sort name.
+        existing_contributor, ignore = self._contributor(sort_name="Sort, Name", display_name="John Doe")
+        eq_("Sort, Name", ContributorData.display_name_to_sort_name(self._db, "John Doe"))
 
+        # Otherwise, we'll guess based on the display name.
+        eq_("Doe, Jane", ContributorData.display_name_to_sort_name(self._db, "Jane Doe"))
 
 class TestLinkData(DatabaseTest):
 

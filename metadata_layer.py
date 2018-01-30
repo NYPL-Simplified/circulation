@@ -44,6 +44,7 @@ from model import (
 )
 from classifier import NO_VALUE, NO_NUMBER
 from analytics import Analytics
+from util.personal_names import display_name_to_sort_name
 
 class ReplacementPolicy(object):
     """How serious should we be about overwriting old metadata with
@@ -290,6 +291,7 @@ class ContributorData(object):
 
         # Is there a contributor already in the database with this
         # exact sort name? If so, use their display name.
+        # If not, take our best guess based on the display name.
         sort_name = self.display_name_to_sort_name(_db, self.display_name)
         if sort_name:
             self.sort_name = sort_name
@@ -302,6 +304,7 @@ class ContributorData(object):
                 _db, identifiers, metadata_client
             )
             self.sort_name = sort_name
+
         return (self.sort_name is not None)
 
     @classmethod
@@ -329,7 +332,9 @@ class ContributorData(object):
                 contributors[0].sort_name
             )
             return contributors[0].sort_name
-        return None
+        # There weren't any matching contributors. Guess the sort name
+        # based on the display name instead.
+        return display_name_to_sort_name(display_name)
 
     def _display_name_to_sort_name(
             self, _db, metadata_client, identifier_obj
