@@ -72,9 +72,10 @@ def _lane_configuration_from_collection_sizes(estimates):
 
     :return: A 3-tuple (large, small, tiny). 'large' will contain the
     collection with the largest language, and any languages with a
-    collection 10% that size. 'small' will contain any languages with
-    a collection 1% that size, and 'tiny' will contain all other
-    languages represented in `estimates`.
+    collection more than 10% the size of the largest
+    collection. 'small' will contain any languages with a collection
+    more than 1% the size of the largest collection, and 'tiny' will
+    contain all other languages represented in `estimates`.
     """
     if not estimates:
         # There are no holdings. Assume we have a large English
