@@ -58,7 +58,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
                 continue
             collection.external_integration.set_setting(setting, value)
 
-        return FeedbooksOPDSImporter(
+        return collection, FeedbooksOPDSImporter(
             self._db, collection,
             http_get=self.http.do_get, mirror=self.mirror,
             metadata_client=self.metadata,
@@ -73,10 +73,18 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         self.data_source = DataSource.lookup(self._db, DataSource.FEEDBOOKS)
 
         # Create a default importer that's good enough for most tests.
-        self.importer = self._importer()
+        self.collection, self.importer = self._importer()
 
     def sample_file(self, filename):
         return sample_data(filename, "feedbooks")
+
+    def test_opds_url(self):
+        """The OPDS import URL is the standard Feedbooks URL with the `lang`
+        query variable set to the value of the collection's
+        LANGUAGE_KEY.
+        """
+        eq_(u"http://www.feedbooks.com/books/recent.atom?lang=de",
+            self.importer.opds_url(self.collection))
 
     def test_extract_feed_data_improves_descriptions(self):
         feed = self.sample_file("feed.atom")
@@ -183,7 +191,6 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             self._importer, **settings
         )
 
-
     def test_generic_acquisition_epub_link_picked_up_as_open_access(self):
         """The OPDS feed has links with generic OPDS "acquisition"
         relations. We know that the EPUB link should be open-access
@@ -217,7 +224,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             200, content="Some new CSS", media_type="text/css",
         )
 
-        importer = self._importer(**settings)            
+        ignore, importer = self._importer(**settings)
 
         # The replacement CSS is retrieved during the FeedbooksImporter
         # constructor.
