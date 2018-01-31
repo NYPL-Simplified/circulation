@@ -66,7 +66,8 @@ For troubleshooting information and installation directions for the entire Circu
 ### `SIMPLIFIED_DB_TASK`
 
 *Required.* Performs a task against the database at container runtime. Options are:
-  - `ignore` : Does nothing. This is the default value.
+  - `auto` : Either initializes or migrates the database, depending on if it is new or not. This is the default value.
+  - `ignore` : Does nothing.
   - `init` : Initializes the app against a brand new database. If you are running a circulation manager for the first time every, use this value to set up an Elasticsearch alias and account for the database schema for future migrations.
   - `migrate` : Migrates an existing database against a new release. Use this value when switching from one stable version to another.
 
