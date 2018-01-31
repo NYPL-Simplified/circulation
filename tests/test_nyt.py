@@ -226,13 +226,8 @@ class TestNYTBestSellerListTitle(NYTBestSellerAPITest):
         eq_([("ISBN", "9780698185395")], sorted(equivalent_identifiers))
 
         eq_(datetime.datetime(2015, 2, 1, 0, 0), edition.published)
-        # The list said the author was 'Paula Hawkins', but we couldn't
-        # find a sort name based on that, so no Contributor was created,
-        # so the book has no known author.
-        #
-        # See below for cases where we are able to find a sort name.
-        eq_("[Unknown]", edition.author)
-        eq_("[Unknown]", edition.sort_author)
+        eq_("Paula Hawkins", edition.author)
+        eq_("Hawkins, Paula", edition.sort_author)
         eq_("Riverhead", edition.publisher)
 
     def test_to_edition_sets_sort_author_name_if_obvious(self):

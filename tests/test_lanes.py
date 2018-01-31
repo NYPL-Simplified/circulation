@@ -1,4 +1,5 @@
 # encoding: utf-8
+from collections import Counter
 from nose.tools import set_trace, eq_, assert_raises
 import json
 
@@ -32,6 +33,7 @@ from api.lanes import (
     create_lanes_for_large_collection,
     create_lane_for_small_collection,
     create_lane_for_tiny_collections,
+    _lane_configuration_from_collection_sizes,
     load_lanes,
     ContributorLane,
     RecommendationLane,
@@ -216,6 +218,27 @@ class TestLaneCreation(DatabaseTest):
         [other_lane] = [x for x in lanes if x.display_name == 'Other Languages']
         eq_(7, other_lane.priority)
 
+    def test_lane_configuration_from_collection_sizes(self):
+
+        # If the library has no holdings, we assume it has a large English
+        # collection.
+        m = _lane_configuration_from_collection_sizes
+        eq_(([u'eng'], [], []), m(None))
+        eq_(([u'eng'], [], []), m(Counter()))
+
+        # Otherwise, the language with the largest collection, and all
+        # languages more than 10% as large, go into `large`.  All
+        # languages with collections more than 1% as large as the
+        # largest collection go into `small`. All languages with
+        # smaller collections go into `tiny`.
+        base = 10000
+        holdings = Counter(large1=base, large2=base*0.1001,
+                           small1=base*0.1, small2=base*0.01001,
+                           tiny=base*0.01)
+        large, small, tiny = m(holdings)
+        eq_(set(['large1', 'large2']), set(large))
+        eq_(set(['small1', 'small2']), set(small))
+        eq_(['tiny'], tiny)
 
 class TestWorkBasedLane(DatabaseTest):
 
