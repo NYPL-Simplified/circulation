@@ -913,7 +913,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
              {"key": PATRON_RESTRICTION_TYPE_REGEX,  "label": _("Regex Match")},
              {"key": PATRON_RESTRICTION_TYPE_LIST,   "label": _("Exact Match, comma separated list")},
           ],
-          "default": PATRON_RESTRICTION_TYPE_PREFIX
+          "default": PATRON_RESTRICTION_TYPE_NONE
         },
         { "key": PATRON_RESTRICTION_FIELD,
           "label": _("Patron restriction field"),
