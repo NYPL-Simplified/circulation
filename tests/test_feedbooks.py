@@ -202,6 +202,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         We do not modify the link relation for links to the other
         formats, which means they don't get picked up at all.
         """
+
         feed = self.sample_file("feed_with_open_access_book.atom")
         imports, errors = self.importer.extract_feed_data(feed)
         [book] = imports.values()
@@ -215,8 +216,14 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         eq_([], generic_links)
 
     def test_open_access_book_modified_and_mirrored(self):
-        self.metadata.lookups = { u"René Descartes" : "Descartes, Rene" }
+        # If no replacement CSS is specified (this is the case with
+        # the default importer), the OPDSImporter.content_modifier
+        # method is not assigned.
+        eq_(None, self.importer.new_css)
+        eq_(None, self.importer.content_modifier)
 
+        # Let's create an importer that does specify a replacement
+        # CSS file.
         settings = {
             FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY : "http://css/"
         }
@@ -226,12 +233,16 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         self.http.queue_response(
             200, content="Some new CSS", media_type="text/css",
         )
-
         ignore, importer = self._importer(**settings)
 
         # The replacement CSS is retrieved during the FeedbooksImporter
         # constructor.
         eq_([u'http://css/'], self.http.requests)
+
+        # OPDSImporter.content_modifier has been set to call replace_css
+        # when necessary.
+        eq_("Some new CSS", importer.new_css)
+        eq_(importer.replace_css, importer.content_modifier)
 
         # The requests to the various copies of the book will succeed,
         # and the books will be mirrored.
@@ -246,6 +257,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         # mirrored.
         self.http.queue_response(404, media_type="text/plain")
 
+        self.metadata.lookups = { u"René Descartes" : "Descartes, Rene" }
         feed = self.sample_file("feed_with_open_access_book.atom")
         self.http.queue_response(
             200, OPDSFeed.ACQUISITION_FEED_TYPE,

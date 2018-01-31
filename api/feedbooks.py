@@ -61,7 +61,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
         {
             "key" : REPLACEMENT_CSS_KEY,
             "label": _("Replacement stylesheet"),
-            "description": _("This will replace the Feedbooks stylesheet with an alternate stylesheet in mirrored copies of the Feedbooks titles. The default value is an accessibility-focused stylesheet produced by the DAISY consortium."),
+            "description": _("If you are mirroring the Feedbooks titles, you may replace the Feedbooks stylesheet with an alternate stylesheet in the mirrored copies. The default value is an accessibility-focused stylesheet produced by the DAISY consortium. If you mirror Feedbooks titles but leave this empty, the Feedbooks titles will be mirrored as-is."),
             "default": "http://www.daisy.org/z3986/2005/dtbook.2005.basic.css",
         },
 
@@ -72,10 +72,12 @@ class FeedbooksOPDSImporter(OPDSImporter):
     THIRTY_DAYS = datetime.timedelta(days=30)
 
     def __init__(self, _db, collection, *args, **kwargs):
-        kwargs['content_modifier'] = self.replace_css
-        kwargs['data_source_name'] = DataSource.FEEDBOOKS
-
         integration = collection.external_integration
+        new_css_url = integration.setting(self.REPLACEMENT_CSS_KEY).value
+        if new_css_url:
+            # We may need to modify incoming content to replace CSS.
+            kwargs['content_modifier'] = self.replace_css
+        kwargs['data_source_name'] = DataSource.FEEDBOOKS
 
         really_import = integration.setting(self.REALLY_IMPORT_KEY).bool_value
         if not really_import:
@@ -86,7 +88,6 @@ class FeedbooksOPDSImporter(OPDSImporter):
         super(FeedbooksOPDSImporter, self).__init__(_db, collection, **kwargs)
 
         self.new_css = None
-        new_css_url = integration.setting(self.REPLACEMENT_CSS_KEY).value
         if new_css_url and self.http_get:
             status_code, headers, content = self.http_get(new_css_url)
             if status_code != 200:
