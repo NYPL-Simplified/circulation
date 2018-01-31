@@ -10,24 +10,24 @@ from . import (
     DatabaseTest,
     sample_data,
 )
-from ..feedbooks import (
+from api.feedbooks import (
     FeedbooksOPDSImporter,
     RehostingPolicy,
 )
-from ..core.model import (
+from core.model import (
     Collection,
     DataSource,
     Hyperlink,
     Representation,
     RightsStatus,
 )
-from ..core.metadata_layer import (
+from core.metadata_layer import (
     Metadata,
     LinkData,
 )
-from ..core.opds import OPDSFeed
-from ..core.s3 import DummyS3Uploader
-from ..core.testing import (
+from core.opds import OPDSFeed
+from core.s3 import MockS3Uploader
+from core.testing import (
     DummyHTTPClient,
     DummyMetadataClient,
 )
@@ -40,21 +40,27 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         super(TestFeedbooksOPDSImporter, self).setup()
         self.http = DummyHTTPClient()
         self.metadata = DummyMetadataClient()
-        self.mirror = DummyS3Uploader()
+        self.mirror = MockS3Uploader()
 
         self.data_source = DataSource.lookup(self._db, DataSource.FEEDBOOKS)
 
         self.collection = self._collection(
-            name=DataSource.FEEDBOOKS, external_account_id=self._url
+            name=DataSource.FEEDBOOKS + " German"
         )
         self.collection.external_integration.set_setting(
-            Collection.DATA_SOURCE_NAME_SETTING, DataSource.FEEDBOOKS
+            FeedbooksOPDSImporter.REALLY_IMPORT_KEY, "true"
+        )
+        self.collection.external_integration.set_setting(
+            FeedbooksOPDSImporter.LANGUAGE_KEY, "de",
+        )
+        self.collection.external_integration.set_setting(
+            FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY, None
         )
 
         self.importer = FeedbooksOPDSImporter(
             self._db, self.collection,
             http_get=self.http.do_get, mirror=self.mirror,
-            metadata_client=self.metadata, new_css="Test CSS",
+            metadata_client=self.metadata,
         )
 
     def sample_file(self, filename):

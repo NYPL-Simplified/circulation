@@ -5,14 +5,16 @@ from StringIO import StringIO
 from zipfile import ZipFile
 from lxml import etree
 import os
+from flask_babel import lazy_gettext as _
 
 from core.opds import OPDSFeed
 from core.opds_import import (
-    OPDSImporterWithS3Mirror,
+    OPDSImporter,
     OPDSXMLParser,
 )
 from core.model import (
     DataSource,
+    ExternalIntegration,
     Hyperlink,
     Resource,
     Representation,
@@ -29,14 +31,14 @@ class FeedbooksOPDSImporter(OPDSImporter):
     LANGUAGE_KEY = 'language'
     REPLACEMENT_CSS_KEY = 'replacement_css'
 
-    NAME = ExternalIntegration.FEEDBOOKS_IMPORT
+    NAME = ExternalIntegration.FEEDBOOKS
     DESCRIPTION = _("Import open-access books from FeedBooks.")
     SETTINGS = [
         {
             "key": REALLY_IMPORT_KEY,
             "type": "select",
-            "label": _("Really?")
-            "description": _("Most libraries are better off importing Feedbooks titles via an OPDS Import integration from NYPL's open-access content server or DPLA's [x]. Change this setting if you're sure you want to import directly from Feedbooks.")
+            "label": _("Really?"),
+            "description": _("Most libraries are better off importing free Feedbooks titles via an OPDS Import integration from NYPL's open-access content server or DPLA's Open Bookshelf. This setting makes sure you didn't create this collection by accident and really want to import directly from Feedbooks."),
             "options": [
                 { "key": "false", "label": _("Don't actually import directly from Feedbooks.") },
                 { "key": "true", "label": _("I know what I'm doing; import directly from Feedbooks.") },
@@ -46,7 +48,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
         {
             "key": LANGUAGE_KEY,
             "label": _("Import books in this language"),
-            "description": _("Feedbooks offers separate feeds for different languages. Each one can be made into a separate collection.")
+            "description": _("Feedbooks offers separate feeds for different languages. Each one can be made into a separate collection."),
             "type": "select",
             "options": [
                 { "key": "en", "label": _("English") },
@@ -60,13 +62,13 @@ class FeedbooksOPDSImporter(OPDSImporter):
         {
             "key" : REPLACEMENT_CSS_KEY,
             "label": _("Replacement stylesheet"),
-            "description": _("This will replace the Feedbooks stylesheet with an alternate stylesheet in mirrored copies of the Feedbooks titles. The default value is an accessibility-focused stylesheet produced by the DAISY consortium.")
+            "description": _("This will replace the Feedbooks stylesheet with an alternate stylesheet in mirrored copies of the Feedbooks titles. The default value is an accessibility-focused stylesheet produced by the DAISY consortium."),
             "default": "http://www.daisy.org/z3986/2005/dtbook.2005.basic.css",
         },
 
     ]
 
-    BASE_OPDS_URL = u'http://www.feedbooks.com/books/recent.atom?lang='
+    BASE_OPDS_URL = u'http://www.feedbooks.com/books/recent.atom?lang=%(language)s'
 
     THIRTY_DAYS = datetime.timedelta(days=30)
 
@@ -76,7 +78,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
 
         integration = collection.external_integration
 
-        really_import = integration.setting.value(self.REALLY_IMPORT_KEY).bool_value
+        really_import = integration.setting(self.REALLY_IMPORT_KEY).bool_value
         if not really_import:
             raise Exception("Refusing to instantiate a Feedbooks importer because it's configured to not actually do an import.")
 
@@ -88,6 +90,16 @@ class FeedbooksOPDSImporter(OPDSImporter):
         self.language = integration.setting(self.LANGUAGE_KEY).value
 
         super(FeedbooksOPDSImporter, self).__init__(_db, collection, **kwargs)
+
+    def opds_url(self, collection):
+        """Returns the OPDS import URL for the given collection.
+
+        This is the base URL plus the language setting.
+        """
+        language = collection.external_integration.setting(
+            self.LANGUAGE_KEY
+        ).value_or_default('en')
+        return self.BASE_OPDS_URL % dict(language=language)
 
     def extract_feed_data(self, feed, feed_url=None):
         metadata, failures = super(FeedbooksOPDSImporter, self).extract_feed_data(
