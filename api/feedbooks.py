@@ -91,13 +91,13 @@ class FeedbooksOPDSImporter(OPDSImporter):
         if new_css_url:
             status_code, headers, content,  = self.http_get(new_css_url)
             if status_code != 200:
-                raise Exception(
+                raise IOError(
                     "Replacement stylesheet URL returned %r response code." % status_code
                 )
             content_type = headers.get('content-type', '')
             if not content_type.startswith('text/css'):
-                raise Exception(
-                    "Replacement stylesheet URL does not appear to point to a CSS document: media type was %r" % content_type
+                raise IOError(
+                    "Replacement stylesheet is %r, not a CSS document." % content_type
                 )
             self.new_css = content
 
