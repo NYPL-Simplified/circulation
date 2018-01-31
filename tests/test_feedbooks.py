@@ -78,6 +78,38 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
     def sample_file(self, filename):
         return sample_data(filename, "feedbooks")
 
+    def test_safety_switch(self):
+        """The importer won't be instantiated if REALLY_IMPORT_KEY is not
+        set to true.
+        """
+        settings = {FeedbooksOPDSImporter.REALLY_IMPORT_KEY: "false"}
+        assert_raises_regexp(
+            Exception, "configured to not actually do an import",
+            self._importer, **settings
+        )
+
+    def test_error_retrieving_replacement_css(self):
+        """The importer cannot be instantiated if a replacement CSS
+        is specified but the replacement CSS document cannot be
+        retrieved or does not appear to be CSS.
+        """
+        settings = {FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY: "http://foo"}
+
+        self.http.queue_response(500, content="An error message")
+        assert_raises_regexp(
+            IOError, "Replacement stylesheet URL returned 500 response code",
+            self._importer, **settings
+        )
+
+        self.http.queue_response(
+            200, content="We have many CSS offerings",
+            media_type="text/html"
+        )
+        assert_raises_regexp(
+            IOError, "Replacement stylesheet is 'text/html', not a CSS document.",
+            self._importer, **settings
+        )
+
     def test_opds_url(self):
         """The OPDS import URL is the standard Feedbooks URL with the `lang`
         query variable set to the value of the collection's
@@ -168,28 +200,6 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         # Two HTTP requests were made.
         eq_(['http://foo/', 'http://baz/'], self.http.requests)
-
-    def test_error_retrieving_replacement_css(self):
-        """The importer cannot be instantiated if a replacement CSS
-        is specified but the replacement CSS document cannot be
-        retrieved or does not appear to be CSS.
-        """
-        settings = {FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY: "http://foo"}
-
-        self.http.queue_response(500, content="An error message")
-        assert_raises_regexp(
-            IOError, "Replacement stylesheet URL returned 500 response code",
-            self._importer, **settings
-        )
-
-        self.http.queue_response(
-            200, content="We have many CSS offerings",
-            media_type="text/html"
-        )
-        assert_raises_regexp(
-            IOError, "Replacement stylesheet is 'text/html', not a CSS document.",
-            self._importer, **settings
-        )
 
     def test_generic_acquisition_epub_link_picked_up_as_open_access(self):
         """The OPDS feed has links with generic OPDS "acquisition"
