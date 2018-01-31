@@ -1026,9 +1026,8 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             if field == restriction:
                 return True
         elif match_type == cls.PATRON_RESTRICTION_TYPE_LIST:
-            for r in restriction:
-                if r == field:
-                    return True
+            if field in restriction:
+                return True
 
         return False
     
