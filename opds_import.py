@@ -1456,7 +1456,7 @@ class OPDSImportMonitor(CollectionMonitor):
                 )
             )
 
-        data_source = collection.data_source
+        data_source = self.data_source(collection)
         if not data_source:
             raise ValueError(
                 "Collection %s has no associated data source." % collection.name
@@ -1494,6 +1494,14 @@ class OPDSImportMonitor(CollectionMonitor):
         subclasses may override this.
         """
         return collection.external_account_id
+
+    def data_source(self, collection):
+        """Returns the data source name for the given collection.
+
+        By default, this URL is stored as a setting on the collection, but
+        subclasses may hard-code it.
+        """
+        return collection.data_source
 
     def feed_contains_new_data(self, feed):
         """Does the given feed contain any entries that haven't been imported
@@ -1618,7 +1626,7 @@ class OPDSImportMonitor(CollectionMonitor):
         imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed, even_if_no_author=True,
             immediately_presentation_ready = True,
-            feed_url=self.collection.external_account_id
+            feed_url=self.opds_url(self.collection)
         )
 
         # Create CoverageRecords for the successful imports.
