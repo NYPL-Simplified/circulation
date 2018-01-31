@@ -17,6 +17,7 @@ from api.feedbooks import (
 from core.model import (
     Collection,
     DataSource,
+    ExternalIntegration,
     Hyperlink,
     Representation,
     RightsStatus,
@@ -36,6 +37,32 @@ LIFE_PLUS_70 = "This work is available for countries where copyright is Life+70.
 
 class TestFeedbooksOPDSImporter(DatabaseTest):
 
+    def _importer(self, **settings):
+        collection = self._collection(
+            name=DataSource.FEEDBOOKS + self._str,
+            protocol=ExternalIntegration.FEEDBOOKS,
+        )
+
+        defaults = {
+            FeedbooksOPDSImporter.REALLY_IMPORT_KEY: "true",
+            FeedbooksOPDSImporter.LANGUAGE_KEY: "de",
+            FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY: None,
+        }
+        for setting, value in defaults.items():
+            if setting not in settings:
+                settings[setting] = value
+
+        for setting, value in settings.items():
+            if value is None:
+                continue
+            collection.external_integration.set_setting(setting, value)
+
+        return FeedbooksOPDSImporter(
+            self._db, collection,
+            http_get=self.http.do_get, mirror=self.mirror,
+            metadata_client=self.metadata,
+        )
+
     def setup(self):
         super(TestFeedbooksOPDSImporter, self).setup()
         self.http = DummyHTTPClient()
@@ -44,24 +71,8 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         self.data_source = DataSource.lookup(self._db, DataSource.FEEDBOOKS)
 
-        self.collection = self._collection(
-            name=DataSource.FEEDBOOKS + " German"
-        )
-        self.collection.external_integration.set_setting(
-            FeedbooksOPDSImporter.REALLY_IMPORT_KEY, "true"
-        )
-        self.collection.external_integration.set_setting(
-            FeedbooksOPDSImporter.LANGUAGE_KEY, "de",
-        )
-        self.collection.external_integration.set_setting(
-            FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY, None
-        )
-
-        self.importer = FeedbooksOPDSImporter(
-            self._db, self.collection,
-            http_get=self.http.do_get, mirror=self.mirror,
-            metadata_client=self.metadata,
-        )
+        # Create a default importer that's good enough for most tests.
+        self.importer = self._importer()
 
     def sample_file(self, filename):
         return sample_data(filename, "feedbooks")
@@ -172,6 +183,22 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
     def test_open_access_book_modified_and_mirrored(self):
         self.metadata.lookups = { u"René Descartes" : "Descartes, Rene" }
 
+        settings = {
+            FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY : "http://css/"
+        }
+
+        # The very first request made is going to be to the 
+        # REPLACEMENT_CSS_KEY URL.
+        self.http.queue_response(
+            200, content="Some new CSS", media_type="text/css",
+        )
+
+        importer = self._importer(**settings)            
+
+        # The replacement CSS is retrieved during the FeedbooksImporter
+        # constructor.
+        eq_([u'http://css/'], self.http.requests)
+
         # The requests to the various copies of the book will succeed,
         # and the books will be mirrored.
         self.http.queue_response(
@@ -191,7 +218,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             content=feed
         )
 
-        [edition], [pool], [work], failures = self.importer.import_from_feed(
+        [edition], [pool], [work], failures = importer.import_from_feed(
             feed, immediately_presentation_ready=True,
         )
 
@@ -201,9 +228,11 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         eq_("Discourse on the Method", work.title)
         eq_(u'Ren\xe9 Descartes', work.author)
 
-        # Two mock HTTP requests were made.
-        eq_(['http://www.feedbooks.com/book/677.epub',
-            'http://covers.feedbooks.net/book/677.jpg?size=large&t=1428398185',
+        # Two more mock HTTP requests have now made.
+        eq_([
+            u'http://css/',
+            u'http://www.feedbooks.com/book/677.epub',
+            u'http://covers.feedbooks.net/book/677.jpg?size=large&t=1428398185',
         ],
             self.http.requests
         )
@@ -240,7 +269,7 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
             # The content of CSS files has been changed to the new value.
             with zip.open("OPS/css/about.css") as f:
-                eq_("Test CSS", f.read())
+                eq_("Some new CSS", f.read())
 
     def test_in_copyright_book_not_mirrored(self):
 

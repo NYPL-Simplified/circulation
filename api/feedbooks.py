@@ -82,14 +82,25 @@ class FeedbooksOPDSImporter(OPDSImporter):
         if not really_import:
             raise Exception("Refusing to instantiate a Feedbooks importer because it's configured to not actually do an import.")
 
-        self.new_css = None
-        new_css_url = integration.setting(self.REPLACEMENT_CSS_KEY).value
-        if new_css_url:
-            self.new_css = HTTP.get_with_timeout().content
-
         self.language = integration.setting(self.LANGUAGE_KEY).value
 
         super(FeedbooksOPDSImporter, self).__init__(_db, collection, **kwargs)
+
+        self.new_css = None
+        new_css_url = integration.setting(self.REPLACEMENT_CSS_KEY).value
+        if new_css_url:
+            status_code, headers, content,  = self.http_get(new_css_url)
+            if status_code != 200:
+                raise Exception(
+                    "Replacement stylesheet URL returned %r response code." % status_code
+                )
+            content_type = headers.get('content-type', '')
+            if not content_type.startswith('text/css'):
+                raise Exception(
+                    "Replacement stylesheet URL does not appear to point to a CSS document: media type was %r" % content_type
+                )
+            self.new_css = content
+
 
     def opds_url(self, collection):
         """Returns the OPDS import URL for the given collection.
@@ -256,6 +267,10 @@ class FeedbooksOPDSImporter(OPDSImporter):
         manifest with the value in self.new_css. The rest of the file is not changed.
         """
         if not (representation.media_type == Representation.EPUB_MEDIA_TYPE and representation.content):
+            return
+
+        if not self.new_css:
+            # There is no CSS to replace. Do nothing.
             return
 
         new_zip_content = StringIO()
