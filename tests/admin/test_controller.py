@@ -3077,7 +3077,10 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                ("libraries", json.dumps([{ "short_name": library.short_name }])),
+                ("libraries", json.dumps([{
+                    "short_name": library.short_name,
+                    AuthenticationProvider.PATRON_RESTRICTION_TYPE: AuthenticationProvider.PATRON_RESTRICTION_TYPE_NONE,
+                }])),
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, MULTIPLE_BASIC_AUTH_SERVICES.uri)
@@ -3090,8 +3093,8 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", SimpleAuthenticationProvider.__module__),
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
-                    AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "(invalid re",
                     AuthenticationProvider.PATRON_RESTRICTION_TYPE: AuthenticationProvider.PATRON_RESTRICTION_TYPE_NONE,
+                    AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "(invalid re",
                 }])),
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
