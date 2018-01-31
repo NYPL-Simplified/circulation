@@ -1811,6 +1811,7 @@ class SettingsController(CirculationManagerController):
                          OneClickAPI,
                          EnkiAPI,
                          ODLWithConsolidatedCopiesAPI,
+                         FeedbooksOPDSImporter,
                         ]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
