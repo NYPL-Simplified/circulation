@@ -1559,6 +1559,20 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             self._default_collection,
             OPDSImporter,
         )
+
+    def test_hook_methods(self):
+        """By default, the OPDS URL and data source used by the importer 
+        come from the collection configuration.
+        """
+        monitor = OPDSImportMonitor(
+            self._db, self._default_collection,
+            import_class=OPDSImporter,
+        )
+        eq_(self._default_collection.external_account_id,
+            monitor.opds_url(self._default_collection))
+
+        eq_(self._default_collection.data_source,
+            monitor.data_source(self._default_collection))
         
     def test_feed_contains_new_data(self):
         feed = self.content_server_mini_feed

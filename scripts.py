@@ -1603,7 +1603,14 @@ class OPDSImportScript(CollectionInputScript):
     IMPORTER_CLASS = OPDSImporter
     MONITOR_CLASS = OPDSImportMonitor
     PROTOCOL = ExternalIntegration.OPDS_IMPORT
-    
+
+    def __init__(self, _db=None, importer_class=None, monitor_class=None, 
+                 protocol=None, *args, **kwargs):
+        super(OPDSImportScript, self).__init__(_db, *args, **kwargs)
+        self.importer_class = importer_class or self.IMPORTER_CLASS
+        self.monitor_class = monitor_class or self.MONITOR_CLASS
+        self.protocol = protocol or self.PROTOCOL
+
     @classmethod
     def arg_parser(cls):
         parser = CollectionInputScript.arg_parser()
@@ -1616,13 +1623,13 @@ class OPDSImportScript(CollectionInputScript):
     
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
-        collections = parsed.collections or Collection.by_protocol(self._db, self.PROTOCOL)
+        collections = parsed.collections or Collection.by_protocol(self._db, self.protocol)
         for collection in collections:
             self.run_monitor(collection, force=parsed.force)
 
     def run_monitor(self, collection, force=None):
-        monitor = self.MONITOR_CLASS(
-            self._db, collection, import_class=self.IMPORTER_CLASS,
+        monitor = self.monitor_class(
+            self._db, collection, import_class=self.importer_class,
             force_reimport=force
         )
         monitor.run()

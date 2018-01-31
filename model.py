@@ -10039,6 +10039,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     ONE_CLICK = RB_DIGITAL
     OPDS_FOR_DISTRIBUTORS = u'OPDS for Distributors'
     ENKI = DataSource.ENKI
+    FEEDBOOKS = DataSource.FEEDBOOKS
 
     # These protocols are only used on the Content Server when mirroring
     # content from a given directory or directly from Project
