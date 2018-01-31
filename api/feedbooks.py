@@ -10,6 +10,7 @@ from flask_babel import lazy_gettext as _
 from core.opds import OPDSFeed
 from core.opds_import import (
     OPDSImporter,
+    OPDSImportMonitor,
     OPDSXMLParser,
 )
 from core.model import (
@@ -20,9 +21,7 @@ from core.model import (
     Representation,
     RightsStatus,
 )
-from core.util import LanguageCodes
 from core.util.epub import EpubAccessor
-from core.util.http import HTTP
 
 
 class FeedbooksOPDSImporter(OPDSImporter):
@@ -88,8 +87,8 @@ class FeedbooksOPDSImporter(OPDSImporter):
 
         self.new_css = None
         new_css_url = integration.setting(self.REPLACEMENT_CSS_KEY).value
-        if new_css_url:
-            status_code, headers, content,  = self.http_get(new_css_url)
+        if new_css_url and self.http_get:
+            status_code, headers, content = self.http_get(new_css_url)
             if status_code != 200:
                 raise IOError(
                     "Replacement stylesheet URL returned %r response code." % status_code
@@ -101,16 +100,6 @@ class FeedbooksOPDSImporter(OPDSImporter):
                 )
             self.new_css = content
 
-
-    def opds_url(self, collection):
-        """Returns the OPDS import URL for the given collection.
-
-        This is the base URL plus the language setting.
-        """
-        language = collection.external_integration.setting(
-            self.LANGUAGE_KEY
-        ).value_or_default('en')
-        return self.BASE_OPDS_URL % dict(language=language)
 
     def extract_feed_data(self, feed, feed_url=None):
         metadata, failures = super(FeedbooksOPDSImporter, self).extract_feed_data(
@@ -445,3 +434,24 @@ class RehostingPolicy(object):
         # some kind of general incompatible restriction (such as
         # Life+70) and it's not a pre-1923 book.
         return False
+
+class FeedbooksImportMonitor(OPDSImportMonitor):
+    """The same as OPDSImportMonitor, but uses FeedbooksOPDSImporter
+    instead.
+    """
+
+    PROTOCOL = ExternalIntegration.FEEDBOOKS
+
+    def data_source(self, collection):
+        """The data source for all Feedbooks collections is Feedbooks."""
+        return ExternalIntegration.FEEDBOOKS
+
+    def opds_url(self, collection):
+        """Returns the OPDS import URL for the given collection.
+
+        This is the base URL plus the language setting.
+        """
+        language = collection.external_integration.setting(
+            FeedbooksOPDSImporter.LANGUAGE_KEY
+        ).value_or_default('en')
+        return FeedbooksOPDSImporter.BASE_OPDS_URL % dict(language=language)

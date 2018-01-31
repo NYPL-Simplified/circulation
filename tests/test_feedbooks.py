@@ -13,6 +13,7 @@ from . import (
 )
 from api.feedbooks import (
     FeedbooksOPDSImporter,
+    FeedbooksImportMonitor,
     RehostingPolicy,
 )
 from core.model import (
@@ -109,14 +110,6 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             IOError, "Replacement stylesheet is 'text/html', not a CSS document.",
             self._importer, **settings
         )
-
-    def test_opds_url(self):
-        """The OPDS import URL is the standard Feedbooks URL with the `lang`
-        query variable set to the value of the collection's
-        LANGUAGE_KEY.
-        """
-        eq_(u"http://www.feedbooks.com/books/recent.atom?lang=de",
-            self.importer.opds_url(self.collection))
 
     def test_extract_feed_data_improves_descriptions(self):
         feed = self.sample_file("feed.atom")
@@ -445,3 +438,30 @@ class TestRehostingPolicy(object):
                 RehostingPolicy.RIGHTS_UNKNOWN, "Some random website", 2016
             )
         )
+
+
+class TestFeedbooksImportMonitor(DatabaseTest):
+
+    def test_subclass_methods(self):
+        """Test methods of OPDSImportMonitor overridden with special
+        Feedbooks logic.
+        """
+        collection = self._collection(protocol=ExternalIntegration.FEEDBOOKS)
+        for k, v in (
+                (FeedbooksOPDSImporter.LANGUAGE_KEY, "somelanguage"),
+                (FeedbooksOPDSImporter.REALLY_IMPORT_KEY, "true")
+        ):
+            collection.external_integration.set_setting(k, v)
+
+        monitor = FeedbooksImportMonitor(
+            self._db, collection, import_class=FeedbooksOPDSImporter,
+        )
+
+        # The data source and protocol are always Feedbooks.
+        eq_(DataSource.FEEDBOOKS, monitor.data_source(collection))
+        eq_(monitor.PROTOCOL, ExternalIntegration.FEEDBOOKS)
+
+        # The URL is always a feedbooks.com URL based on the collection's
+        # language setting.
+        eq_(u"http://www.feedbooks.com/books/recent.atom?lang=somelanguage",
+            monitor.opds_url(collection))
