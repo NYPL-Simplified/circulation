@@ -902,32 +902,30 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         { "key": PATRON_RESTRICTION_TYPE,
           "label": _("Patron restriction"),
           "type": "select",
-          "description": _("<p>When multiple libraries share an ILS, a person may be able to " +
+          "description": _("When multiple libraries share an ILS, a person may be able to " +
                            "authenticate with the ILS but not be considered a patron of " +
-                           "<i>this</i> library. This setting contains the rule for determining " +
-                           "whether an identifier is valid for this specific library.</p>"),
+                           "<em>this</em> library. This setting contains the rule for determining " +
+                           "whether an identifier is valid for this specific library."),
           "options": [
-             {"key": PATRON_RESTRICTION_TYPE_NONE,   "label": _("No restriction.")},
+             {"key": PATRON_RESTRICTION_TYPE_NONE,   "label": _("No restriction")},
              {"key": PATRON_RESTRICTION_TYPE_PREFIX, "label": _("Prefix Match")},
              {"key": PATRON_RESTRICTION_TYPE_STRING, "label": _("Exact Match")},
              {"key": PATRON_RESTRICTION_TYPE_REGEX,  "label": _("Regex Match")},
-             {"key": PATRON_RESTRICTION_TYPE_LIST,   "label": _("Exact Match, comma separated list.")},
+             {"key": PATRON_RESTRICTION_TYPE_LIST,   "label": _("Exact Match, comma separated list")},
           ],
           "default": PATRON_RESTRICTION_TYPE_PREFIX
         },
         { "key": PATRON_RESTRICTION_FIELD,
           "label": _("Patron restriction field"),
-          "description": _("This is the field on the patron record that the patron restriction is " +
-                           "applied to. The field 'barcode' will match the barcode. Different ILS " +
+          "description": _("This is the field on the patron record that the <em>patron restriction</em> is " +
+                           "applied to. The field <em>'barcode'</em> will match the barcode. Different ILS " +
                            "provide different options for this field."),
           "optional": True,
         },
         { "key": PATRON_RESTRICTION_STRING,
           "label": _("Patron restriction string"),
-          "description": _("This field is the restriction applied to the <em>Patron restriction</em>" +
-                           "chosen above. Usually this a string which is compared against the " +
-                           "patron's identifiers, but if the string starts with a carat (^) " +
-                           "it will be interpreted as a regular expression."),
+          "description": _("This is the restriction applied to the <em>Patron restriction field</em> " +
+                           "using the method chosen in <em>Patron restriction</em>."),
           "optional": True,
         }
     ]
