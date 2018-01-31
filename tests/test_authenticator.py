@@ -1457,7 +1457,7 @@ class TestAuthenticationProvider(AuthenticatorTest):
         provider = MockProvider(library, integration)
         eq_('abc', provider.patron_restriction_string)
 
-        # If its type is string make sure its a string
+        # If its type is none make sure its actually None
         type_setting.value = MockProvider.PATRON_RESTRICTION_TYPE_NONE
         string_setting.value = "abc"
         provider = MockProvider(library, integration)
