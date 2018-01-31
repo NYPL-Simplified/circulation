@@ -106,6 +106,7 @@ from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 
 from core.opds_import import OPDSImporter
+from api.feedbooks import FeedbooksOPDSImporter
 from api.opds_for_distributors import OPDSForDistributorsAPI
 from api.overdrive import OverdriveAPI
 from api.odilo import OdiloAPI
@@ -1811,6 +1812,7 @@ class SettingsController(CirculationManagerController):
                          OneClickAPI,
                          EnkiAPI,
                          ODLWithConsolidatedCopiesAPI,
+                         FeedbooksOPDSImporter,
                         ]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 

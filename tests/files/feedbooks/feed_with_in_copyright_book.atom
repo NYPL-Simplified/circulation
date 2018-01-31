@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:schema="http://schema.org" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:app="http://www.w3.org/2007/app" xml:lang="en" xmlns:odl="http://opds-spec.org/odl" xmlns="http://www.w3.org/2005/Atom" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:thr="http://purl.org/syndication/thread/1.0" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">
+  <id>http://www.feedbooks.com/books/top.atom?category=FSHUM000000N&amp;amp;lang=en</id>
+  <title>Human Science</title>
+  <updated>2016-11-08T21:11:13Z</updated>
+<entry>
+<title>Discourse on the Method</title>
+<id>http://www.feedbooks.com/book/677</id>
+<author>
+  <name>Ren&#233; Descartes</name>
+  <uri>http://www.feedbooks.com/author/143</uri>
+</author>
+<published>2007-03-15T18:27:01Z</published>
+<updated>2015-04-07T09:16:25Z</updated>
+<dcterms:language>en</dcterms:language>
+<category scheme="http://www.feedbooks.com/categories" term="FBNFC000000" label="Non-Fiction"/>
+<category scheme="http://www.feedbooks.com/categories" term="FSHUM000000N" label="Human Science"/>
+<category scheme="http://www.feedbooks.com/categories" term="FBPHI000000" label="Philosophy"/>
+<summary>The Discourse on the Method is a philosophical and mathematical treatise published by Ren&#233; Descartes in 1637. Its full name is Discourse on the Method of Rightly Conducting the Reason, and Searching for Truth in the Sciences (French title: Discour...</summary>
+<dcterms:issued>1990</dcterms:issued>
+<rights>This work is available for countries where copyright is Life+70.</rights>
+<dcterms:source>gutenberg.net.au</dcterms:source>
+<link type="application/epub+zip" href="http://www.feedbooks.com/book/677.epub" rel="http://opds-spec.org/acquisition"/>
+<link type="application/x-mobipocket-ebook" href="http://www.feedbooks.com/book/677.mobi" rel="http://opds-spec.org/acquisition"/>
+<link type="application/pdf" href="http://www.feedbooks.com/book/677.pdf" rel="http://opds-spec.org/acquisition"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/book/677.jpg?size=large&amp;t=1428398185" rel="http://opds-spec.org/image"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/book/677.jpg?t=1428398185" rel="http://opds-spec.org/image/thumbnail"/>
+</entry>
+</feed>
