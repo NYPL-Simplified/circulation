@@ -46,7 +46,7 @@ class MockAPI(MilleniumPatronAPI):
 class TestMilleniumPatronAPI(DatabaseTest):
 
     def mock_api(self, url="http://url/", blacklist=[], auth_mode=None, verify_certificate=True,
-                 block_types=None, password_keyboard=None, restriction_field=None):
+                 block_types=None, password_keyboard=None, library_identifier_field=None):
         integration = self._external_integration(self._str)
         integration.url = url
         integration.setting(MilleniumPatronAPI.IDENTIFIER_BLACKLIST).value = json.dumps(blacklist)
@@ -59,11 +59,11 @@ class TestMilleniumPatronAPI(DatabaseTest):
         if password_keyboard:
             integration.setting(MilleniumPatronAPI.PASSWORD_KEYBOARD).value = password_keyboard
 
-        if restriction_field:
+        if library_identifier_field:
             ConfigurationSetting.for_library_and_externalintegration(
-                self._db, MilleniumPatronAPI.PATRON_RESTRICTION_FIELD,
+                self._db, MilleniumPatronAPI.LIBRARY_IDENTIFIER_FIELD,
                 self._default_library, integration
-            ).value = restriction_field
+            ).value = library_identifier_field
 
         return MockAPI(self._default_library, integration)
     
@@ -363,17 +363,17 @@ class TestMilleniumPatronAPI(DatabaseTest):
         patrondata = self.api.patron_dump_to_patrondata('alice', content)
         eq_("44444444444447", patrondata.authorization_identifier)
         eq_("alice", patrondata.username)
-        eq_(None, patrondata.restriction_field)
+        eq_(None, patrondata.library_identifier)
 
     def test_patron_dump_to_patrondata_restriction_field(self):
-        api = self.mock_api(restriction_field="HOME LIBR[p53]")
+        api = self.mock_api(library_identifier_field="HOME LIBR[p53]")
         content = api.sample_data("dump.success.html")
         patrondata = api.patron_dump_to_patrondata('alice', content)
-        eq_("mm", patrondata.restriction_field)
-        api = self.mock_api(restriction_field="P TYPE[p47]")
+        eq_("mm", patrondata.library_identifier)
+        api = self.mock_api(library_identifier_field="P TYPE[p47]")
         content = api.sample_data("dump.success.html")
         patrondata = api.patron_dump_to_patrondata('alice', content)
-        eq_("10", patrondata.restriction_field)
+        eq_("10", patrondata.library_identifier)
         
     def test_authorization_identifier_blacklist(self):
         """A patron has two authorization identifiers. Ordinarily the second

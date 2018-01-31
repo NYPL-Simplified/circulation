@@ -102,9 +102,9 @@ class PatronData(object):
                  external_type=None,
                  fines=None,
                  block_reason=None,
-                 restriction_field=None,
+                 library_identifier=None,
                  complete=True,
-    ):
+                 ):
         """Store basic information about a patron.
 
         :param permanent_id: A unique and unchanging identifier for
@@ -157,7 +157,7 @@ class PatronData(object):
         may turn out the patron cannot borrow items because their card
         has expired or their fines are excessive.)
 
-        :param restriction_field: A string pulled from the ILS that
+        :param library_identifier: A string pulled from the ILS that
         is used to determine if this user belongs to the current library.
 
         :param complete: Does this PatronData represent the most
@@ -174,7 +174,7 @@ class PatronData(object):
         self.external_type = external_type
         self.fines = fines
         self.block_reason = block_reason
-        self.restriction_field = restriction_field
+        self.library_identifier = library_identifier
         self.complete = complete
         
         # We do not store personal_name in the database, but we provide
@@ -875,23 +875,23 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     # authenticate with the ILS but not be considered a patron of
     # _this_ library. This setting contains the rule for determining
     # whether an identifier is valid for a specific library.
-    PATRON_RESTRICTION_TYPE = 'patron_restriction_type'
+    LIBRARY_IDENTIFIER_RESTRICTION_TYPE = 'library_identifier_restriction_type'
 
     # This field lets the user choose the data source for the patron match.
-    PATRON_RESTRICTION_FIELD = 'patron_restriction_field'
+    LIBRARY_IDENTIFIER_FIELD = 'library_identifier_field'
 
-    # Usually this is a prefix string which is compared against the
-    # patron's identifiers, but if the string starts with a carat (^)
-    # it will be interpreted as a regular expression.
-    PATRON_RESTRICTION_STRING = 'patron_restriction_string'
+    # Usually this is a string which is compared against the
+    # patron's identifiers using the comparison method chosen in
+    # LIBRARY_IDENTIFIER_RESTRICTION_TYPE.
+    LIBRARY_IDENTIFIER_RESTRICTION = 'library_identifier_restriction'
 
     # Different types of patron restrictions.
-    PATRON_RESTRICTION_BARCODE = 'barcode'
-    PATRON_RESTRICTION_TYPE_NONE = 'none'
-    PATRON_RESTRICTION_TYPE_REGEX = 'regex'
-    PATRON_RESTRICTION_TYPE_PREFIX = 'prefix'
-    PATRON_RESTRICTION_TYPE_STRING = 'string'
-    PATRON_RESTRICTION_TYPE_LIST = 'list'
+    LIBRARY_IDENTIFIER_RESTRICTION_BARCODE = 'barcode'
+    LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE = 'none'
+    LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX = 'regex'
+    LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX = 'prefix'
+    LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING = 'string'
+    LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST = 'list'
     
     LIBRARY_SETTINGS = [
         { "key": EXTERNAL_TYPE_REGULAR_EXPRESSION,
@@ -899,33 +899,33 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
           "description": _("Derive a patron's type from their identifier."),
           "optional": True,
         },
-        { "key": PATRON_RESTRICTION_TYPE,
-          "label": _("Patron restriction"),
+        { "key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE,
+          "label": _("Library Identifier Restriction Type"),
           "type": "select",
           "description": _("When multiple libraries share an ILS, a person may be able to " +
                            "authenticate with the ILS but not be considered a patron of " +
                            "<em>this</em> library. This setting contains the rule for determining " +
                            "whether an identifier is valid for this specific library."),
           "options": [
-             {"key": PATRON_RESTRICTION_TYPE_NONE,   "label": _("No restriction")},
-             {"key": PATRON_RESTRICTION_TYPE_PREFIX, "label": _("Prefix Match")},
-             {"key": PATRON_RESTRICTION_TYPE_STRING, "label": _("Exact Match")},
-             {"key": PATRON_RESTRICTION_TYPE_REGEX,  "label": _("Regex Match")},
-             {"key": PATRON_RESTRICTION_TYPE_LIST,   "label": _("Exact Match, comma separated list")},
+             {"key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE, "label": _("No restriction")},
+             {"key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX, "label": _("Prefix Match")},
+             {"key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING, "label": _("Exact Match")},
+             {"key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX, "label": _("Regex Match")},
+             {"key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST, "label": _("Exact Match, comma separated list")},
           ],
-          "default": PATRON_RESTRICTION_TYPE_NONE
+          "default": LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE
         },
-        { "key": PATRON_RESTRICTION_FIELD,
-          "label": _("Patron restriction field"),
-          "description": _("This is the field on the patron record that the <em>patron restriction</em> is " +
-                           "applied to. The field <em>'barcode'</em> will match the barcode. Different ILS " +
-                           "provide different options for this field."),
+        { "key": LIBRARY_IDENTIFIER_FIELD,
+          "label": _("Library Identifier Field"),
+          "description": _("This is the field on the patron record that the <em>Library Identifier Restriction " +
+                           "Type</em> is applied to. The field <em>'barcode'</em> will match the barcode. " +
+                           "Different ILS provide different options for this field."),
           "optional": True,
         },
-        { "key": PATRON_RESTRICTION_STRING,
-          "label": _("Patron restriction string"),
-          "description": _("This is the restriction applied to the <em>Patron restriction field</em> " +
-                           "using the method chosen in <em>Patron restriction</em>."),
+        { "key": LIBRARY_IDENTIFIER_RESTRICTION,
+          "label": _("Library Identifier Restriction"),
+          "description": _("This is the restriction applied to the <em>Library Identifier Field</em> " +
+                           "using the method chosen in <em>Library Identifier Restriction Type</em>."),
           "optional": True,
         }
     ]
@@ -972,43 +972,42 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         self.external_type_regular_expression = regexp
 
         field = ConfigurationSetting.for_library_and_externalintegration(
-            _db, self.PATRON_RESTRICTION_FIELD, library, integration
+            _db, self.LIBRARY_IDENTIFIER_FIELD, library, integration
         ).value
         if isinstance(field, basestring):
             field = field.strip()
-        self.patron_restriction_field = field
+        self.library_identifier_field = field
 
-        self.patron_restriction_type = ConfigurationSetting.for_library_and_externalintegration(
-            _db, self.PATRON_RESTRICTION_TYPE, library, integration
+        self.library_identifier_restriction_type = ConfigurationSetting.for_library_and_externalintegration(
+            _db, self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE, library, integration
         ).value
-        if not self.patron_restriction_type:
-            self.patron_restriction_type = self.PATRON_RESTRICTION_TYPE_NONE
+        if not self.library_identifier_restriction_type:
+            self.library_identifier_restriction_type = self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE
 
         restriction = ConfigurationSetting.for_library_and_externalintegration(
-            _db, self.PATRON_RESTRICTION_STRING, library, integration
+            _db, self.LIBRARY_IDENTIFIER_RESTRICTION, library, integration
         ).value
 
-        if self.patron_restriction_type == self.PATRON_RESTRICTION_TYPE_REGEX:
+        if self.library_identifier_restriction_type == self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX:
             try:
-                self.patron_restriction_string = re.compile(restriction)
+                self.library_identifier_restriction = re.compile(restriction)
             except Exception, e:
                 self.log.error("Could not interpret patron record restriction as a regular expression: %r", e)
-                self.patron_restriction_string = None
-        elif self.patron_restriction_type == self.PATRON_RESTRICTION_TYPE_LIST:
+                self.library_identifier_restriction = None
+        elif self.library_identifier_restriction_type == self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST:
             restriction = restriction.split(",")
-            self.patron_restriction_string = [item.strip() for item in restriction]
-        elif self.patron_restriction_type == self.PATRON_RESTRICTION_TYPE_NONE:
-            self.patron_restriction_string = None
+            self.library_identifier_restriction = [item.strip() for item in restriction]
+        elif self.library_identifier_restriction_type == self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE:
+            self.library_identifier_restriction = None
         else:
             if isinstance(restriction, basestring):
-                self.patron_restriction_string = restriction.strip()
+                self.library_identifier_restriction = restriction.strip()
             else:
-                self.patron_restriction_string = restriction
+                self.library_identifier_restriction = restriction
 
     @classmethod
     def _restriction_matches(cls, field, restriction, match_type):
-        """Does the given patron match the given patron restriction?
-        """
+        """Does the given patron match the given library restriction restriction?"""
         if not restriction:
             # No restriction -- anything matches.
             return True
@@ -1016,33 +1015,32 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             # No field -- it won't match any restriction.
             return False
 
-        if match_type == cls.PATRON_RESTRICTION_TYPE_REGEX:
+        if match_type == cls.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX:
             if restriction.search(field):
                 return True
-        elif match_type == cls.PATRON_RESTRICTION_TYPE_PREFIX:
+        elif match_type == cls.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX:
             if field.startswith(restriction):
                 return True
-        elif match_type == cls.PATRON_RESTRICTION_TYPE_STRING:
+        elif match_type == cls.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING:
             if field == restriction:
                 return True
-        elif match_type == cls.PATRON_RESTRICTION_TYPE_LIST:
+        elif match_type == cls.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST:
             if field in restriction:
                 return True
 
         return False
     
-    def enforce_patron_restriction(self, identifier, patrondata):
-        """Does the given patron match the configured patron restriction?
-        """
-        if not self.patron_restriction_type or self.patron_restriction_type == self.PATRON_RESTRICTION_TYPE_NONE:
+    def enforce_library_identifier_restriction(self, identifier, patrondata):
+        """Does the given patron match the configured library identifier restriction?"""
+        if not self.library_identifier_restriction_type or self.library_identifier_restriction_type == self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE:
             # No restriction to enforce.
             return patrondata
 
-        if not self.patron_restriction_field or not self.patron_restriction_string:
+        if not self.library_identifier_field or not self.library_identifier_restriction:
             # Restriction field is blank, so everything matches.
             return patrondata
 
-        if self.patron_restriction_field.lower() == self.PATRON_RESTRICTION_BARCODE:
+        if self.library_identifier_field.lower() == self.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE:
             field = identifier
         else:
             if not patrondata.complete:
@@ -1050,7 +1048,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
                 patrondata = self.remote_patron_lookup(patrondata)
             field = patrondata.restriction_field
 
-        if self._restriction_matches(field, self.patron_restriction_string, self.patron_restriction_type):
+        if self._restriction_matches(field, self.library_identifier_restriction, self.library_identifier_restriction_type):
             return patrondata
         else:
             return False
@@ -1447,8 +1445,8 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             # to any patron.
             return patrondata
 
-        # Check credentials match patron restriction
-        patrondata = self.enforce_patron_restriction(username, patrondata)
+        # Check that the patron belongs to this library.
+        patrondata = self.enforce_library_identifier_restriction(username, patrondata)
         if not patrondata:
             return PATRON_OF_ANOTHER_LIBRARY
 
@@ -1878,8 +1876,8 @@ class OAuthAuthenticationProvider(AuthenticationProvider):
             return patrondata
 
         for identifier in patrondata.authorization_identifiers:
-            result = self.enforce_patron_restriction(identifier, patrondata)
-            if self.enforce_patron_restriction(identifier, patrondata):
+            result = self.enforce_library_identifier_restriction(identifier, patrondata)
+            if result:
                 patrondata = result
                 break
         else:

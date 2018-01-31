@@ -3079,7 +3079,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", SimpleAuthenticationProvider.__module__),
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
-                    AuthenticationProvider.PATRON_RESTRICTION_TYPE: AuthenticationProvider.PATRON_RESTRICTION_TYPE_NONE,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
                 }])),
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
@@ -3093,7 +3093,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", SimpleAuthenticationProvider.__module__),
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
-                    AuthenticationProvider.PATRON_RESTRICTION_TYPE: AuthenticationProvider.PATRON_RESTRICTION_TYPE_NONE,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "(invalid re",
                 }])),
             ] + common_args)
@@ -3110,7 +3110,7 @@ class TestSettingsController(AdminControllerTest):
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
-                    AuthenticationProvider.PATRON_RESTRICTION_TYPE: AuthenticationProvider.PATRON_RESTRICTION_TYPE_NONE,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
                 }])),
             ] + self._common_basic_auth_arguments())
             response = self.manager.admin_settings_controller.patron_auth_services()
@@ -3175,7 +3175,7 @@ class TestSettingsController(AdminControllerTest):
                 ("libraries", json.dumps([{
                     "short_name": l2.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
-                    AuthenticationProvider.PATRON_RESTRICTION_TYPE: AuthenticationProvider.PATRON_RESTRICTION_TYPE_NONE,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
                 }])),
             ] + self._common_basic_auth_arguments())
             response = self.manager.admin_settings_controller.patron_auth_services()

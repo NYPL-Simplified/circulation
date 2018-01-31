@@ -319,11 +319,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 # failed.
                 return None
 
-        # Set the patron restriction field
-        restriction_field = None
+        # Set the library identifier field
+        library_identifier = None
         for k, v in self._extract_text_nodes(content):
-            if k == self.patron_restriction_field:
-                restriction_field = v.strip()
+            if k == self.library_identifier_field:
+                library_identifier = v.strip()
 
         # We may now have multiple authorization
         # identifiers. PatronData expects the best authorization
@@ -354,7 +354,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             external_type=external_type,
             fines=fines,
             block_reason=block_reason,
-            restriction_field=restriction_field,
+            library_identifier=library_identifier,
             complete=True
         )
         return data

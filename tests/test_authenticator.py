@@ -1338,82 +1338,82 @@ class TestAuthenticationProvider(AuthenticatorTest):
         eq_(None, provider.external_type_regular_expression)
 
     def test_restriction_matches(self):
-        """Test the behavior of the patron identifier restriction algorithm."""
+        """Test the behavior of the library identifier restriction algorithm."""
         m = AuthenticationProvider._restriction_matches
 
         # If restriction is none, we always return True.
-        eq_(True, m("123", None, AuthenticationProvider.PATRON_RESTRICTION_TYPE_PREFIX))
-        eq_(True, m("123", None, AuthenticationProvider.PATRON_RESTRICTION_TYPE_STRING))
-        eq_(True, m("123", None, AuthenticationProvider.PATRON_RESTRICTION_TYPE_REGEX))
-        eq_(True, m("123", None, AuthenticationProvider.PATRON_RESTRICTION_TYPE_LIST))
+        eq_(True, m("123", None, AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX))
+        eq_(True, m("123", None, AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING))
+        eq_(True, m("123", None, AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX))
+        eq_(True, m("123", None, AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST))
 
         # If field is None we always return False.
-        eq_(False, m(None, "1234", AuthenticationProvider.PATRON_RESTRICTION_TYPE_PREFIX))
-        eq_(False, m(None, "1234", AuthenticationProvider.PATRON_RESTRICTION_TYPE_STRING))
-        eq_(False, m(None, re.compile(".*"), AuthenticationProvider.PATRON_RESTRICTION_TYPE_REGEX))
-        eq_(False, m(None, ['1','2'], AuthenticationProvider.PATRON_RESTRICTION_TYPE_LIST))
+        eq_(False, m(None, "1234", AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX))
+        eq_(False, m(None, "1234", AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING))
+        eq_(False, m(None, re.compile(".*"), AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX))
+        eq_(False, m(None, ['1','2'], AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST))
 
         # Test prefix
-        eq_(True, m("12345a", "1234", AuthenticationProvider.PATRON_RESTRICTION_TYPE_PREFIX))
-        eq_(False, m("a1234", "1234", AuthenticationProvider.PATRON_RESTRICTION_TYPE_PREFIX))
+        eq_(True, m("12345a", "1234", AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX))
+        eq_(False, m("a1234", "1234", AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX))
 
         # Test string
-        eq_(False, m("12345a", "1234", AuthenticationProvider.PATRON_RESTRICTION_TYPE_STRING))
-        eq_(False, m("a1234", "1234", AuthenticationProvider.PATRON_RESTRICTION_TYPE_STRING))
-        eq_(True, m("1234", "1234", AuthenticationProvider.PATRON_RESTRICTION_TYPE_STRING))
+        eq_(False, m("12345a", "1234", AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING))
+        eq_(False, m("a1234", "1234", AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING))
+        eq_(True, m("1234", "1234", AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING))
 
         # Test list
-        eq_(True, m("1234", ["1234","4321"], AuthenticationProvider.PATRON_RESTRICTION_TYPE_LIST))
-        eq_(True, m("4321", ["1234", "4321"], AuthenticationProvider.PATRON_RESTRICTION_TYPE_LIST))
-        eq_(False, m("12345", ["1234", "4321"], AuthenticationProvider.PATRON_RESTRICTION_TYPE_LIST))
-        eq_(False, m("54321", ["1234", "4321"], AuthenticationProvider.PATRON_RESTRICTION_TYPE_LIST))
+        eq_(True, m("1234", ["1234","4321"], AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST))
+        eq_(True, m("4321", ["1234", "4321"], AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST))
+        eq_(False, m("12345", ["1234", "4321"], AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST))
+        eq_(False, m("54321", ["1234", "4321"], AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST))
 
         # Test Regex
-        eq_(True, m("123", re.compile("^(12|34)"), AuthenticationProvider.PATRON_RESTRICTION_TYPE_REGEX))
-        eq_(True, m("345", re.compile("^(12|34)"), AuthenticationProvider.PATRON_RESTRICTION_TYPE_REGEX))
-        eq_(False, m("abc", re.compile("^bc"), AuthenticationProvider.PATRON_RESTRICTION_TYPE_REGEX))
+        eq_(True, m("123", re.compile("^(12|34)"), AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX))
+        eq_(True, m("345", re.compile("^(12|34)"), AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX))
+        eq_(False, m("abc", re.compile("^bc"), AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX))
         
-    def test_patron_identifier_restriction_matches(self):
-        """Test the enforce_patron_restriction method."""
+    def test_enforce_library_identifier_restriction_matches(self):
+        """Test the enforce_library_identifier_restriction method."""
         provider = self.mock_basic()
-        m = provider.enforce_patron_restriction
+        m = provider.enforce_library_identifier_restriction
         patrondata = PatronData()
 
         # Test no restriction
-        provider.patron_restriction_type = MockBasic.PATRON_RESTRICTION_TYPE_NONE
-        provider.patron_restriction_string = "2345"
-        provider.patron_restriction_field = MockBasic.PATRON_RESTRICTION_BARCODE
+        provider.library_identifier_restriction_type = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE
+        provider.library_identifier_restriction = "2345"
+        provider.library_identifier_field = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE
         eq_(patrondata, m("12365", patrondata))
 
         # Test regex against barcode
-        provider.patron_restriction_type = MockBasic.PATRON_RESTRICTION_TYPE_REGEX
-        provider.patron_restriction_string = re.compile("23[46]5")
-        provider.patron_restriction_field = MockBasic.PATRON_RESTRICTION_BARCODE
+        provider.library_identifier_restriction_type = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX
+        provider.library_identifier_restriction = re.compile("23[46]5")
+        provider.library_identifier_field = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE
         eq_(patrondata, m("23456", patrondata))
         eq_(patrondata, m("2365", patrondata))
         eq_(False, m("2375", provider.patrondata))
 
         # Test prefix against barcode
-        provider.patron_restriction_type = MockBasic.PATRON_RESTRICTION_TYPE_PREFIX
-        provider.patron_restriction_string = "2345"
-        provider.patron_restriction_field = MockBasic.PATRON_RESTRICTION_BARCODE
+        provider.library_identifier_restriction_type = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX
+        provider.library_identifier_restriction = "2345"
+        provider.library_identifier_field = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE
         eq_(patrondata, m("23456", patrondata))
         eq_(False, m("123456", patrondata))
 
         # Test string against barcode
-        provider.patron_restriction_type = MockBasic.PATRON_RESTRICTION_TYPE_STRING
-        provider.patron_restriction_string = "2345"
-        provider.patron_restriction_field = MockBasic.PATRON_RESTRICTION_BARCODE
+        provider.library_identifier_restriction_type = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING
+        provider.library_identifier_restriction = "2345"
+        provider.library_identifier_field = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE
         eq_(False, m("123456", patrondata))
         eq_(patrondata, m("2345", patrondata))
 
         # Test match applied to field on patrondata not barcode
-        provider.patron_restriction_type = MockBasic.PATRON_RESTRICTION_TYPE_STRING
-        provider.patron_restriction_string = "2345"
-        provider.patron_restriction_field = "agent"
-        patrondata.restriction_field = "2345"
+        provider.library_identifier_restriction_type = MockBasic.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING
+        provider.library_identifier_restriction = "2345"
+        provider.library_identifier_field = "agent"
+        patrondata.library_identifier = "2345"
         eq_(patrondata, m("123456", patrondata))
-        patrondata.restriction_field = "12345"
+        patrondata.library_identifier = "12345"
         eq_(False, m("2345", patrondata))
 
     def test_patron_identifier_restriction(self):
@@ -1424,44 +1424,44 @@ class TestAuthenticationProvider(AuthenticatorTest):
             NAME = "Just a mock"
         
         string_setting = ConfigurationSetting.for_library_and_externalintegration(
-            self._db, MockProvider.PATRON_RESTRICTION_STRING,
+            self._db, MockProvider.LIBRARY_IDENTIFIER_RESTRICTION,
             library, integration
         )
 
         type_setting = ConfigurationSetting.for_library_and_externalintegration(
-            self._db, MockProvider.PATRON_RESTRICTION_TYPE,
+            self._db, MockProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE,
             library, integration
         )
 
         # If the type is regex its converted into a regular expression.
-        type_setting.value = MockProvider.PATRON_RESTRICTION_TYPE_REGEX
+        type_setting.value = MockProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX
         string_setting.value = "^abcd"
         provider = MockProvider(library, integration)
-        eq_("^abcd", provider.patron_restriction_string.pattern)
+        eq_("^abcd", provider.library_identifier_restriction.pattern)
 
         # If its type is list, make sure its converted into a list
-        type_setting.value = MockProvider.PATRON_RESTRICTION_TYPE_LIST
+        type_setting.value = MockProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST
         string_setting.value = "a,b,c"
         provider = MockProvider(library, integration)
-        eq_(['a', 'b', 'c'], provider.patron_restriction_string)
+        eq_(['a', 'b', 'c'], provider.library_identifier_restriction)
 
         # If its type is prefix make sure its a string
-        type_setting.value = MockProvider.PATRON_RESTRICTION_TYPE_PREFIX
+        type_setting.value = MockProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX
         string_setting.value = "abc"
         provider = MockProvider(library, integration)
-        eq_('abc', provider.patron_restriction_string)
+        eq_('abc', provider.library_identifier_restriction)
 
         # If its type is string make sure its a string
-        type_setting.value = MockProvider.PATRON_RESTRICTION_TYPE_STRING
+        type_setting.value = MockProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_STRING
         string_setting.value = "abc"
         provider = MockProvider(library, integration)
-        eq_('abc', provider.patron_restriction_string)
+        eq_('abc', provider.library_identifier_restriction)
 
         # If its type is none make sure its actually None
-        type_setting.value = MockProvider.PATRON_RESTRICTION_TYPE_NONE
+        type_setting.value = MockProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE
         string_setting.value = "abc"
         provider = MockProvider(library, integration)
-        eq_(None, provider.patron_restriction_string)
+        eq_(None, provider.library_identifier_restriction)
 
 
 
@@ -1955,17 +1955,17 @@ class TestOAuthAuthenticationProvider(AuthenticatorTest):
         )
 
         ConfigurationSetting.for_library_and_externalintegration(
-            self._db, CallbackImplementation.PATRON_RESTRICTION_STRING,
+            self._db, CallbackImplementation.LIBRARY_IDENTIFIER_RESTRICTION,
             self._default_library, integration
         ).value = "123"
         ConfigurationSetting.for_library_and_externalintegration(
-            self._db, CallbackImplementation.PATRON_RESTRICTION_TYPE,
+            self._db, CallbackImplementation.LIBRARY_IDENTIFIER_RESTRICTION_TYPE,
             self._default_library, integration
-        ).value = CallbackImplementation.PATRON_RESTRICTION_TYPE_PREFIX
+        ).value = CallbackImplementation.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX
         ConfigurationSetting.for_library_and_externalintegration(
-            self._db, CallbackImplementation.PATRON_RESTRICTION_FIELD,
+            self._db, CallbackImplementation.LIBRARY_IDENTIFIER_FIELD,
             self._default_library, integration
-        ).value = CallbackImplementation.PATRON_RESTRICTION_BARCODE
+        ).value = CallbackImplementation.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE
 
         oauth = CallbackImplementation(
             self._default_library, integration=integration
