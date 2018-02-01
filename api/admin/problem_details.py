@@ -275,6 +275,13 @@ INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION = pd(
     detail=_("The specified external type regular expression does not compile."),
 )
 
+INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION = pd(
+    "http://librarysimplified.org/terms/problem/invalid-library-identifier-restriction-regular-expression",
+    status_code=400,
+    title=_("Invalid library identifier restriction regular expression"),
+    detail=_("The specified library identifier restriction regular expression does not compile."),
+)
+
 MULTIPLE_BASIC_AUTH_SERVICES = pd(
     "http://librarysimplified.org/terms/problem/multiple-basic-auth-services",
     status_code=400,
