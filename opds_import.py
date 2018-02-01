@@ -46,6 +46,7 @@ from model import (
     Identifier,
     LicensePool,
     Measurement,
+    Representation,
     Subject,
     RightsStatus,
 )
@@ -427,7 +428,11 @@ class OPDSImporter(object):
             mirror = MirrorUploader.for_collection(collection)
         self.mirror = mirror
         self.content_modifier = content_modifier
-        self.http_get = http_get
+
+        # In general, we are cautious when mirroring resources so that
+        # we don't, e.g. accidentally get our IP banned from
+        # gutenberg.org.
+        self.http_get = http_get or Representation.cautious_http_get
         self.map_from_collection = map_from_collection
 
     @property

@@ -109,6 +109,8 @@ from . import (
     DummyHTTPClient,
 )
 
+from testing import MockRequestsResponse
+
 from mock_analytics_provider import MockAnalyticsProvider
 
 class TestSessionManager(DatabaseTest):
@@ -5111,6 +5113,140 @@ class TestRepresentation(DatabaseTest):
         eq_(True, is_new)
         assert thumbnail != hyperlink.resource.representation
         eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
+
+    def test_cautious_http_get(self):
+
+        h = DummyHTTPClient()
+        h.queue_response(200, content="yay")
+
+        # If the domain is obviously safe, the GET request goes through,
+        # with no HEAD request being made.
+        m = Representation.cautious_http_get
+        status, headers, content = m(
+            "http://safe.org/", {}, do_not_access=['unsafe.org'],
+            do_get=h.do_get, cautious_head_client=object()
+        )
+        eq_(200, status)
+        eq_("yay", content)
+
+        # If the domain is obviously unsafe, no GET request or HEAD
+        # request is made.
+        status, headers, content = m(
+            "http://unsafe.org/", {}, do_not_access=['unsafe.org'],
+            do_get=object(), cautious_head_client=object()
+        )
+        eq_(417, status)
+        eq_("Cautiously decided not to make a GET request to http://unsafe.org/",
+            content)
+
+        # If the domain is potentially unsafe, a HEAD request is made,
+        # and the answer depends on its outcome.
+
+        # Here, the HEAD request redirects to a prohibited site.
+        def mock_redirect(*args, **kwargs):
+            return MockRequestsResponse(
+                301, dict(location="http://unsafe.org/")
+            )
+        status, headers, content = m(
+            "http://caution.org/", {},
+            do_not_access=['unsafe.org'],
+            check_for_redirect=['caution.org'],
+            do_get=object(), cautious_head_client=mock_redirect
+        )
+        eq_(417, status)
+        eq_("application/vnd.librarysimplified-did-not-make-request",
+            headers['content-type'])
+        eq_("Cautiously decided not to make a GET request to http://caution.org/",
+            content)
+
+        # Here, the HEAD request redirects to an allowed site.
+        h.queue_response(200, content="good content")
+        def mock_redirect(*args, **kwargs):
+            return MockRequestsResponse(
+                301, dict(location="http://safe.org/")
+            )
+        status, headers, content = m(
+            "http://caution.org/", {},
+            do_not_access=['unsafe.org'],
+            check_for_redirect=['caution.org'],
+            do_get=h.do_get, cautious_head_client=mock_redirect
+        )
+        eq_(200, status)
+        eq_("good content", content)
+
+    def test_get_would_be_useful(self):
+        """Test the method that determines whether a GET request will go (or
+        redirect) to a site we don't to make requests to.
+        """
+        safe = Representation.get_would_be_useful
+
+        # If get_would_be_useful tries to use this object to make a HEAD
+        # request, the test will blow up.
+        fake_head = object()
+
+        # Most sites are safe with no HEAD request necessary.
+        eq_(True, safe("http://www.safe-site.org/book.epub", {},
+                       head_client=fake_head))
+
+        # gutenberg.org is problematic, no HEAD request necessary.
+        eq_(False, safe("http://www.gutenberg.org/book.epub", {},
+                        head_client=fake_head))
+
+        # do_not_access controls which domains should always be
+        # considered unsafe.
+        eq_(
+            False, safe(
+                "http://www.safe-site.org/book.epub", {},
+                do_not_access=['safe-site.org'], head_client=fake_head
+            )
+        )
+        eq_(
+            True, safe(
+                "http://www.gutenberg.org/book.epub", {},
+                do_not_access=['safe-site.org'], head_client=fake_head
+            )
+        )
+
+        # Domain match is based on a subdomain match, not a substring
+        # match.
+        eq_(True, safe("http://www.not-unsafe-site.org/book.epub", {},
+                       do_not_access=['unsafe-site.org'],
+                       head_client=fake_head))
+
+        # Some domains (unglue.it) are known to make surprise
+        # redirects to unsafe domains. For these, we must make a HEAD
+        # request to check.
+
+        def bad_redirect(*args, **kwargs):
+            return MockRequestsResponse(
+                301, dict(
+                    location="http://www.gutenberg.org/a-book.html"
+                )
+            )
+        eq_(False, safe("http://www.unglue.it/book", {},
+                        head_client=bad_redirect))
+
+        def good_redirect(*args, **kwargs):
+            return MockRequestsResponse(
+                301,
+                dict(location="http://www.some-other-site.org/a-book.epub")
+            )
+        eq_(
+            True,
+            safe("http://www.unglue.it/book", {}, head_client=good_redirect)
+        )
+
+        def not_a_redirect(*args, **kwargs):
+            return MockRequestsResponse(200)
+        eq_(True, safe("http://www.unglue.it/book", {},
+                       head_client=not_a_redirect))
+
+        # The `check_for_redirect` argument controls which domains are
+        # checked using HEAD requests. Here, we customise it to check
+        # a site other than unglue.it.
+        eq_(False, safe("http://www.questionable-site.org/book.epub", {},
+                        check_for_redirect=['questionable-site.org'],
+                        head_client=bad_redirect))
 
 
 class TestCoverResource(DatabaseTest):
