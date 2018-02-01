@@ -989,11 +989,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         ).value
 
         if self.library_identifier_restriction_type == self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX:
-            try:
-                self.library_identifier_restriction = re.compile(restriction)
-            except Exception, e:
-                self.log.error("Could not interpret patron record restriction as a regular expression: %r", e)
-                self.library_identifier_restriction = None
+            self.library_identifier_restriction = re.compile(restriction)
         elif self.library_identifier_restriction_type == self.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_LIST:
             restriction = restriction.split(",")
             self.library_identifier_restriction = [item.strip() for item in restriction]
