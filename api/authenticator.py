@@ -917,10 +917,13 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         },
         { "key": LIBRARY_IDENTIFIER_FIELD,
           "label": _("Library Identifier Field"),
+          "type": "select",
+          "options": [
+              {"key": LIBRARY_IDENTIFIER_RESTRICTION_BARCODE, "label": _("Barcode")},
+          ],
           "description": _("This is the field on the patron record that the <em>Library Identifier Restriction " +
-                           "Type</em> is applied to. The field <em>'barcode'</em> will match the barcode. " +
-                           "Different ILS provide different options for this field."),
-          "optional": True,
+                           "Type</em> is applied to."),
+          "default": LIBRARY_IDENTIFIER_RESTRICTION_BARCODE
         },
         { "key": LIBRARY_IDENTIFIER_RESTRICTION,
           "label": _("Library Identifier Restriction"),
