@@ -884,8 +884,9 @@ class Hold(Base, LoanAndHoldMixin):
         this--the library's license might expire and then you'll
         _never_ get the book.)
         """
-        if self.end:
-            # Whew, the server provided its own estimate.
+        if self.end and self.end > datetime.datetime.utcnow():
+            # The license source provided their own estimate, and it's
+            # not obviously wrong, so use it.
             return self.end
 
         if default_reservation_period is None:
