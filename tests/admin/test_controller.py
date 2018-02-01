@@ -1275,11 +1275,6 @@ class TestCustomListsController(AdminControllerTest):
 
         one_entry, ignore = create(self._db, CustomList, name=self._str, library=self._default_library)
         edition = self._edition()
-        [c1] = edition.author_contributors
-        c1.display_name = self._str
-        c2, ignore = self._contributor()
-        c2.display_name = self._str
-        edition.add_contributor(c2, Contributor.AUTHOR_ROLE)
         one_entry.add_entry(edition)
         collection = self._collection()
         collection.customlists = [one_entry]
@@ -1294,13 +1289,7 @@ class TestCustomListsController(AdminControllerTest):
 
             eq_(one_entry.id, l1.get("id"))
             eq_(one_entry.name, l1.get("name"))
-            eq_(1, len(l1.get("entries")))
-            [entry] = l1.get("entries")
-            eq_(edition.permanent_work_id, entry.get("pwid"))
-            eq_(edition.title, entry.get("title"))
-            eq_(2, len(entry.get("authors")))
-            eq_(set([c1.display_name, c2.display_name]),
-                set(entry.get("authors")))
+            eq_(1, l1.get("entry_count"))
             eq_(1, len(l1.get("collections")))
             [c] = l1.get("collections")
             eq_(collection.name, c.get("name"))
@@ -1309,7 +1298,7 @@ class TestCustomListsController(AdminControllerTest):
 
             eq_(no_entries.id, l2.get("id"))
             eq_(no_entries.name, l2.get("name"))
-            eq_(0, len(l2.get("entries")))
+            eq_(0, l2.get("entry_count"))
             eq_(0, len(l2.get("collections")))
 
     def test_custom_lists_post_errors(self):
@@ -1396,7 +1385,42 @@ class TestCustomListsController(AdminControllerTest):
             eq_(True, list.entries[0].featured)
             eq_([collection], list.collections)
 
-    def test_custom_lists_edit(self):
+    def test_custom_list_get(self):
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=data_source)
+        edition = self._edition()
+        [c1] = edition.author_contributors
+        c1.display_name = self._str
+        c2, ignore = self._contributor()
+        c2.display_name = self._str
+        edition.add_contributor(c2, Contributor.AUTHOR_ROLE)
+        list.add_entry(edition)
+        collection = self._collection()
+        collection.customlists = [list]
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_custom_lists_controller.custom_list(list.id)
+            eq_(list.id, response.get("id"))
+            eq_(list.name, response.get("name"))
+            eq_(1, response.get("entry_count"))
+            eq_(1, len(response.get("entries")))
+            [entry] = response.get("entries")
+            eq_(edition.permanent_work_id, entry.get("pwid"))
+            eq_(edition.title, entry.get("title"))
+            eq_(2, len(entry.get("authors")))
+            eq_(set([c1.display_name, c2.display_name]),
+                set(entry.get("authors")))
+            eq_(1, len(response.get("collections")))
+            [c] = response.get("collections")
+            eq_(collection.name, c.get("name"))
+            eq_(collection.id, c.get("id"))
+            eq_(collection.protocol, c.get("protocol"))
+
+    def test_custom_list_get_errors(self):
+        with self.request_context_with_library("/"):
+            response = self.manager.admin_custom_lists_controller.custom_list(123)
+            eq_(MISSING_CUSTOM_LIST, response)
+
+    def test_custom_list_edit(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
         list.library = self._default_library
@@ -1430,7 +1454,7 @@ class TestCustomListsController(AdminControllerTest):
                 ("collections", json.dumps([c.id for c in new_collections])),
             ])
 
-            response = self.manager.admin_custom_lists_controller.custom_lists()
+            response = self.manager.admin_custom_lists_controller.custom_list(list.id)
             eq_(200, response.status_code)
             eq_(list.id, int(response.response[0]))
 

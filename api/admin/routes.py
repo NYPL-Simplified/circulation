@@ -467,7 +467,7 @@ def library_registrations():
 def custom_lists():
     return app.manager.admin_custom_lists_controller.custom_lists()
 
-@library_route("/admin/custom_list/<list_id>", methods=["DELETE"])
+@library_route("/admin/custom_list/<list_id>", methods=["GET", "POST", "DELETE"])
 @has_library
 @returns_json_or_response_or_problem_detail
 @requires_admin
