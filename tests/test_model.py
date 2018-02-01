@@ -5123,7 +5123,7 @@ class TestRepresentation(DatabaseTest):
         # with no HEAD request being made.
         m = Representation.cautious_http_get
         status, headers, content = m(
-            "http://safe.org/", {}, cautious_access_domains=['unsafe.org'],
+            "http://safe.org/", {}, do_not_access=['unsafe.org'],
             do_get=h.do_get, cautious_head_client=object()
         )
         eq_(200, status)
@@ -5132,7 +5132,7 @@ class TestRepresentation(DatabaseTest):
         # If the domain is obviously unsafe, no GET request or HEAD
         # request is made.
         status, headers, content = m(
-            "http://unsafe.org/", {}, cautious_access_domains=['unsafe.org'],
+            "http://unsafe.org/", {}, do_not_access=['unsafe.org'],
             do_get=object(), cautious_head_client=object()
         )
         eq_(417, status)
@@ -5149,8 +5149,8 @@ class TestRepresentation(DatabaseTest):
             )
         status, headers, content = m(
             "http://caution.org/", {},
-            cautious_access_domains=['unsafe.org'],
-            cautious_redirect_domains=['caution.org'],
+            do_not_access=['unsafe.org'],
+            check_for_redirect=['caution.org'],
             do_get=object(), cautious_head_client=mock_redirect
         )
         eq_(417, status)
@@ -5167,8 +5167,8 @@ class TestRepresentation(DatabaseTest):
             )
         status, headers, content = m(
             "http://caution.org/", {},
-            cautious_access_domains=['unsafe.org'],
-            cautious_redirect_domains=['caution.org'],
+            do_not_access=['unsafe.org'],
+            check_for_redirect=['caution.org'],
             do_get=h.do_get, cautious_head_client=mock_redirect
         )
         eq_(200, status)
