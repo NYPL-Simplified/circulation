@@ -8657,6 +8657,109 @@ class Representation(Base):
         headers['User-Agent'] = cls.BROWSER_USER_AGENT
         return cls.simple_http_get(url, headers, **kwargs)
 
+    @classmethod
+    def cautious_http_get(cls, url, headers, **kwargs):
+        """Examine the URL we're about to GET, possibly going so far as to
+        perform a HEAD request, to avoid making a request (or
+        following a redirect) to a site known to cause problems.
+
+        The motivating case is that unglue.it contains gutenberg.org
+        links that appear to be direct links to EPUBs, but 1) they're
+        not direct links to EPUBs, and 2) automated requests to
+        gutenberg.org quickly result in IP bans. So we don't make those
+        requests.
+        """
+        do_not_access = kwargs.pop('cautious_access_domains')
+        check_for_redirect = kwargs.pop(
+            'cautious_redirect_domains', cls.CAUTIOUS_REDIRECT_DOMAINS
+        )
+        do_get = kwargs.pop('do_get', cls.simple_http_get)
+        head_client = kwargs.pop('cautious_head_client')
+
+        if cls.get_would_be_useful(
+                url, headers, do_not_access, check_for_redirect,
+                head_client
+        ):
+            # Go ahead and make the GET request.
+            return do_get(url, headers, **kwargs)
+        else:
+            logging.info(
+                "Declining to make non-useful HTTP request to %s", url
+            )
+            # 417 Expectation Failed - "... if the server is a proxy,
+            # the server has unambiguous evidence that the request
+            # could not be met by the next-hop server."
+            #
+            # Not quite accurate, but I think it's the closest match
+            # to "the HTTP client decided to not even make your
+            # request".
+            return (
+                417,
+                {"content-type" :
+                 "application/vnd.librarysimplified-did-not-make-request"},
+                "Cautiously decided not to make a GET request to %s" % url
+            )
+
+    # Sites that cause problems for us if we make automated
+    # HTTP requests to them while trying to find free books.
+    CAUTIOUS_ACCESS_DOMAINS = ['gutenberg.org']
+
+    # Sites known to host both free books and redirects to a domain in
+    # CAUTIOUS_ACCESS_DOMAINS.
+    CAUTIOUS_REDIRECT_DOMAINS = ['unglue.it']
+
+    @classmethod
+    def get_would_be_useful(
+            cls, url, headers, do_not_access=None, check_for_redirect=None,
+            head_client=None
+    ):
+        """Determine whether making a GET request to a given URL is likely to
+        have a useful result.
+
+        :param URL: URL under consideration.
+        :param headers: Headers that would be sent with the GET request.
+        :param do_not_access: Domains to which GET requests are not useful.
+        :param check_for_redirect: Domains to which we should make a HEAD
+            request, in case they redirect to a `do_not_access` domain.
+        :param head_client: Function for making the HEAD request, if 
+            one becomes necessary. Should return requests.Response or a mock.
+        """
+        do_not_access = do_not_access or cls.CAUTIOUS_ACCESS_DOMAINS
+        check_for_redirect = check_for_redirect or cls.CAUTIOUS_REDIRECT_DOMAINS
+        head_client = head_client or requests.head
+
+        def has_domain(domain, check_against):
+            """Is the given `domain` in `check_against`, 
+            or maybe a subdomain of one of the domains in `check_against`?
+            """
+            return any(domain == x or domain.endswith('.' + x)
+                       for x in check_against)
+
+        netloc = urlparse.urlparse(url).netloc
+        if has_domain(netloc, do_not_access):
+            # The link points directly to a domain we don't want to
+            # access.
+            return False
+
+        if not has_domain(netloc, check_for_redirect):
+            # We trust this domain not to redirect to a domain we don't
+            # want to access.
+            return True
+
+        # We might be fine, or we might get redirected to a domain we
+        # don't want to access. Make a HEAD request to see what
+        # happens.
+        head_response = head_client(url, headers=headers)
+        if head_response.status_code / 100 != 3:
+            # It's not a redirect. Go ahead and make the GET request.
+            return True
+
+        # Yes, it's a redirect. Does it redirect to a 
+        # domain we don't want to access?
+        location = head_response.headers.get('location', '')
+        netloc = urlparse.urlparse(location).netloc
+        return not has_domain(netloc, do_not_access)
+
     @property
     def is_image(self):
         return self.media_type and self.media_type.startswith("image/")
