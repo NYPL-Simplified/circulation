@@ -8671,7 +8671,7 @@ class Representation(Base):
         """
         do_not_access = kwargs.pop('cautious_access_domains')
         check_for_redirect = kwargs.pop(
-            'cautious_redirect_domains', cls.CAUTIOUS_REDIRECT_DOMAINS
+            'cautious_redirect_domains', cls.EXERCISE_CAUTION_DOMAINS
         )
         do_get = kwargs.pop('do_get', cls.simple_http_get)
         head_client = kwargs.pop('cautious_head_client')
@@ -8700,13 +8700,13 @@ class Representation(Base):
                 "Cautiously decided not to make a GET request to %s" % url
             )
 
+    # Sites known to host both free books and redirects to a domain in
+    # AVOID_WHEN_CAUTIOUS_DOMAINS.
+    EXERCISE_CAUTION_DOMAINS = ['unglue.it']
+
     # Sites that cause problems for us if we make automated
     # HTTP requests to them while trying to find free books.
-    CAUTIOUS_ACCESS_DOMAINS = ['gutenberg.org']
-
-    # Sites known to host both free books and redirects to a domain in
-    # CAUTIOUS_ACCESS_DOMAINS.
-    CAUTIOUS_REDIRECT_DOMAINS = ['unglue.it']
+    AVOID_WHEN_CAUTIOUS_DOMAINS = ['gutenberg.org']
 
     @classmethod
     def get_would_be_useful(
@@ -8724,8 +8724,8 @@ class Representation(Base):
         :param head_client: Function for making the HEAD request, if 
             one becomes necessary. Should return requests.Response or a mock.
         """
-        do_not_access = do_not_access or cls.CAUTIOUS_ACCESS_DOMAINS
-        check_for_redirect = check_for_redirect or cls.CAUTIOUS_REDIRECT_DOMAINS
+        do_not_access = do_not_access or cls.AVOID_WHEN_CAUTIOUS_DOMAINS
+        check_for_redirect = check_for_redirect or cls.EXERCISE_CAUTION_DOMAINS
         head_client = head_client or requests.head
 
         def has_domain(domain, check_against):

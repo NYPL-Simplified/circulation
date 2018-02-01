@@ -200,6 +200,17 @@ class OPDSImporterTest(DatabaseTest):
 
 class TestOPDSImporter(OPDSImporterTest):
 
+    def test_constructor(self):
+        # The default way of making HTTP requests is with
+        # Representation.cautious_http_get.
+        importer = OPDSImporter(self._db, collection=None)
+        eq_(Representation.cautious_http_get, importer.http_get)
+
+        # But you can pass in anything you want.
+        do_get = object()
+        importer = OPDSImporter(self._db, collection=None, http_get=do_get)
+        eq_(do_get, importer.http_get)
+
     def test_data_source_autocreated(self):
         name = "New data source " + self._str
         importer = OPDSImporter(
