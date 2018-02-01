@@ -4609,6 +4609,42 @@ class TestHold(DatabaseTest):
             start, 10, 0, default_loan, default_reservation)
         eq_(e, None)
 
+    def test_vendor_hold_end_value_takes_precedence_over_calculated_value(self):
+        """If the vendor has provided an estimated availability time,
+        that is used in preference to the availability time we
+        calculate.
+        """
+        now = datetime.datetime.utcnow()
+        tomorrow = now + datetime.timedelta(days=1)
+
+        patron = self._patron()
+        pool = self._licensepool(edition=None)
+        hold, is_new = pool.on_hold_to(patron)
+        hold.position = 1
+        hold.end = tomorrow
+        
+        default_loan = datetime.timedelta(days=1)
+        default_reservation = datetime.timedelta(days=2)
+        eq_(tomorrow, hold.until(default_loan, default_reservation))
+
+        calculated_value = hold._calculate_until(
+            now, hold.position, pool.licenses_available,
+            default_loan, default_reservation
+        )
+
+        # If the vendor value is not in the future, it's ignored
+        # and the calculated value is used instead.
+        def assert_calculated_value_used():
+            result = hold.until(default_loan, default_reservation)
+            assert (result-calculated_value).seconds < 5
+        hold.end = now
+        assert_calculated_value_used()
+
+        # The calculated value is also used there is no
+        # vendor-provided value.
+        hold.end = None
+        assert_calculated_value_used()
+
 class TestAnnotation(DatabaseTest):
     def test_set_inactive(self):
         pool = self._licensepool(None)
