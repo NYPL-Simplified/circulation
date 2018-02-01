@@ -1046,7 +1046,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             if not patrondata.complete:
                 # Get full patron information
                 patrondata = self.remote_patron_lookup(patrondata)
-            field = patrondata.restriction_field
+            field = patrondata.library_identifier
 
         if self._restriction_matches(field, self.library_identifier_restriction, self.library_identifier_restriction_type):
             return patrondata
