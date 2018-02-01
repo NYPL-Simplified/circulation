@@ -106,6 +106,7 @@ from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 
 from core.opds_import import OPDSImporter
+from api.feedbooks import FeedbooksOPDSImporter
 from api.opds_for_distributors import OPDSForDistributorsAPI
 from api.overdrive import OverdriveAPI
 from api.odilo import OdiloAPI
@@ -1060,22 +1061,13 @@ class CustomListsController(CirculationManagerController):
     def custom_lists(self):
         library = flask.request.library
 
-        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
-
         if flask.request.method == "GET":
             custom_lists = []
             for list in library.custom_lists:
-                entries = []
-                for entry in list.entries:
-                    if entry.edition:
-                        entries.append(dict(pwid=entry.edition.permanent_work_id,
-                                            title=entry.edition.title,
-                                            authors=[author.display_name for author in entry.edition.author_contributors],
-                        ))
                 collections = []
                 for collection in list.collections:
                     collections.append(dict(id=collection.id, name=collection.name, protocol=collection.protocol))
-                custom_lists.append(dict(id=list.id, name=list.name, entries=entries, collections=collections))
+                custom_lists.append(dict(id=list.id, name=list.name, collections=collections, entry_count=len(list.entries)))
             return dict(custom_lists=custom_lists)
 
         if flask.request.method == "POST":
@@ -1083,91 +1075,115 @@ class CustomListsController(CirculationManagerController):
             name = flask.request.form.get("name")
             entries = flask.request.form.get("entries")
             collections = flask.request.form.get("collections")
+            return self._create_or_update_list(library, name, entries, collections, id)
 
-            old_list_with_name = CustomList.find(self._db, data_source, name, library)
-
-            if id:
-                is_new = False
-                list = get_one(self._db, CustomList, id=int(id), data_source=data_source)
-                if not list:
-                    return MISSING_CUSTOM_LIST
-                if list.library != library:
-                    return CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST
-                if old_list_with_name and old_list_with_name != list:
-                    return CUSTOM_LIST_NAME_ALREADY_IN_USE
-            elif old_list_with_name:
-                return CUSTOM_LIST_NAME_ALREADY_IN_USE
-            else:
-                list, is_new = create(self._db, CustomList, name=name, data_source=data_source)
-                list.created = datetime.now()
-                list.library = library
-
-            list.updated = datetime.now()
-            list.name = name
-
-            if entries:
-                entries = json.loads(entries)
-            else:
-                entries = []
-
-            old_entries = [x for x in list.entries if x.edition]
-            membership_change = False
-            for entry in entries:
-                pwid = entry.get("pwid")
-                work = self._db.query(
-                    Work
-                ).join(
-                    Edition, Edition.id==Work.presentation_edition_id
-                ).filter(
-                    Edition.permanent_work_id==pwid
-                ).one()
-
-                if work:
-                    entry, entry_is_new = list.add_entry(work, featured=True)
-                    if entry_is_new:
-                        membership_change = True
-
-            new_pwids = [entry.get("pwid") for entry in entries]
-            for entry in old_entries:
-                if entry.edition.permanent_work_id not in new_pwids:
-                    list.remove_entry(entry.edition)
-                    membership_change = True
-
-            if membership_change:
-                # If this list was used to populate any lanes, those
-                # lanes need to have their counts updated.
-                for lane in Lane.affected_by_customlist(list):
-                    lane.update_size(self._db)
-
-            if collections:
-                collections = json.loads(collections)
-            else:
-                collections = []
-            new_collections = []
-            for collection_id in collections:
-                collection = get_one(self._db, Collection, id=collection_id)
-                if not collection:
-                    self._db.rollback()
-                    return MISSING_COLLECTION
-                if list.library not in collection.libraries:
-                    self._db.rollback()
-                    return COLLECTION_NOT_ASSOCIATED_WITH_LIBRARY
-                new_collections.append(collection)
-            list.collections = new_collections
-
-            if is_new:
-                return Response(unicode(list.id), 201)
-            else:
-                return Response(unicode(list.id), 200)
-
-    def custom_list(self, list_id):
+    def _create_or_update_list(self, library, name, entries, collections, id=None):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
-        if flask.request.method == "DELETE":
-            list = get_one(self._db, CustomList, id=list_id, data_source=data_source)
+        old_list_with_name = CustomList.find(self._db, data_source, name, library)
+
+        if id:
+            is_new = False
+            list = get_one(self._db, CustomList, id=int(id), data_source=data_source)
             if not list:
                 return MISSING_CUSTOM_LIST
+            if list.library != library:
+                return CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST
+            if old_list_with_name and old_list_with_name != list:
+                return CUSTOM_LIST_NAME_ALREADY_IN_USE
+        elif old_list_with_name:
+            return CUSTOM_LIST_NAME_ALREADY_IN_USE
+        else:
+            list, is_new = create(self._db, CustomList, name=name, data_source=data_source)
+            list.created = datetime.now()
+            list.library = library
 
+        list.updated = datetime.now()
+        list.name = name
+
+        if entries:
+            entries = json.loads(entries)
+        else:
+            entries = []
+
+        old_entries = [x for x in list.entries if x.edition]
+        membership_change = False
+        for entry in entries:
+            pwid = entry.get("pwid")
+            work = self._db.query(
+                Work
+            ).join(
+                Edition, Edition.id==Work.presentation_edition_id
+            ).filter(
+                Edition.permanent_work_id==pwid
+            ).one()
+
+            if work:
+                entry, entry_is_new = list.add_entry(work, featured=True)
+                if entry_is_new:
+                    membership_change = True
+
+        new_pwids = [entry.get("pwid") for entry in entries]
+        for entry in old_entries:
+            if entry.edition.permanent_work_id not in new_pwids:
+                list.remove_entry(entry.edition)
+                membership_change = True
+
+        if membership_change:
+            # If this list was used to populate any lanes, those
+            # lanes need to have their counts updated.
+            for lane in Lane.affected_by_customlist(list):
+                lane.update_size(self._db)
+
+        if collections:
+            collections = json.loads(collections)
+        else:
+            collections = []
+        new_collections = []
+        for collection_id in collections:
+            collection = get_one(self._db, Collection, id=collection_id)
+            if not collection:
+                self._db.rollback()
+                return MISSING_COLLECTION
+            if list.library not in collection.libraries:
+                self._db.rollback()
+                return COLLECTION_NOT_ASSOCIATED_WITH_LIBRARY
+            new_collections.append(collection)
+        list.collections = new_collections
+
+        if is_new:
+            return Response(unicode(list.id), 201)
+        else:
+            return Response(unicode(list.id), 200)
+
+    def custom_list(self, list_id):
+        library = flask.request.library
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        list = get_one(self._db, CustomList, id=list_id, data_source=data_source)
+        if not list:
+            return MISSING_CUSTOM_LIST
+
+        if flask.request.method == "GET":
+            entries = []
+            for entry in list.entries:
+                if entry.edition:
+                    entries.append(dict(pwid=entry.edition.permanent_work_id,
+                                        title=entry.edition.title,
+                                        authors=[author.display_name for author in entry.edition.author_contributors],
+                    ))
+            collections = []
+            for collection in list.collections:
+                collections.append(dict(id=collection.id, name=collection.name, protocol=collection.protocol))
+            return dict(id=list.id, name=list.name, entries=entries, collections=collections, entry_count=len(entries))
+
+        elif flask.request.method == "POST":
+            name = flask.request.form.get("name")
+            entries = flask.request.form.get("entries")
+            collections = flask.request.form.get("collections")
+            return self._create_or_update_list(library, name, entries, collections, list_id)
+
+        elif flask.request.method == "DELETE":
             # Build the list of affected lanes before modifying the
             # CustomList.
             affected_lanes = Lane.affected_by_customlist(list)
@@ -1811,6 +1827,7 @@ class SettingsController(CirculationManagerController):
                          OneClickAPI,
                          EnkiAPI,
                          ODLWithConsolidatedCopiesAPI,
+                         FeedbooksOPDSImporter,
                         ]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 

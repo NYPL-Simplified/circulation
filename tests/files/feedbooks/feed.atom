@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:schema="http://schema.org" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:app="http://www.w3.org/2007/app" xml:lang="en" xmlns:odl="http://opds-spec.org/odl" xmlns="http://www.w3.org/2005/Atom" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:thr="http://purl.org/syndication/thread/1.0" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/">
+  <id>http://www.feedbooks.com/books/top.atom?category=FSHUM000000N&amp;amp;lang=en</id>
+  <title>Human Science</title>
+  <updated>2016-11-08T21:11:13Z</updated>
+  <icon>http://assets2.feedbooks.net/images/favicon.ico?t=1478624086</icon>
+  <author>
+    <name>Feedbooks</name>
+    <uri>http://www.feedbooks.com</uri>
+    <email>support@feedbooks.zendesk.com</email>
+  </author>
+  <link type="application/atom+xml; profile=opds-catalog; kind=acquisition" href="http://www.feedbooks.com/books/top.atom?category=FSHUM000000N&amp;amp;lang=en" rel="self" title="Most Popular"/>
+  <link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="http://www.feedbooks.com/catalog.atom" rel="start" title="Home"/>
+  <link type="application/opensearchdescription+xml" href="http://www.feedbooks.com/opensearch.xml" rel="search" title="Search on Feedbooks"/>
+  <link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="https://www.feedbooks.com/user/bookshelf.atom" rel="http://opds-spec.org/shelf" title="Bookshelf"/>
+<opensearch:totalResults>55</opensearch:totalResults>
+<opensearch:itemsPerPage>50</opensearch:itemsPerPage>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="http://www.feedbooks.com/books/top.atom?category=FSHUM000000N&amp;lang=en&amp;page=2" rel="next" title="Next Page"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="http://www.feedbooks.com/books/recent.atom?category=FSHUM000000N&amp;lang=en" rel="http://opds-spec.org/sort/new" title="Recently Added"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="/books/top.atom?category=FBPHI000000&amp;free=true&amp;lang=en" opds:facetGroup="In category" rel="http://opds-spec.org/facet" title="Philosophy" thr:count="50"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="/books/top.atom?category=FBLAN000000&amp;free=true&amp;lang=en" opds:facetGroup="In category" rel="http://opds-spec.org/facet" title="Language arts &amp; disciplines" thr:count="3"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="/books/top.atom?category=FBPSY000000&amp;free=true&amp;lang=en" opds:facetGroup="In category" rel="http://opds-spec.org/facet" title="Psychology" thr:count="3"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="/books/top.atom?category=FSHUM000000N&amp;free=true&amp;lang=en" opds:facetGroup="Language" rel="http://opds-spec.org/facet" opds:activeFacet="true" title="English" thr:count="55"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="/books/top.atom?category=FSHUM000000N&amp;free=true&amp;lang=fr" opds:facetGroup="Language" rel="http://opds-spec.org/facet" title="French" thr:count="23"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="/books/top.atom?category=FSHUM000000N&amp;free=true&amp;lang=de" opds:facetGroup="Language" rel="http://opds-spec.org/facet" title="German" thr:count="10"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="/books/top.atom?category=FSHUM000000N&amp;free=true&amp;lang=es" opds:facetGroup="Language" rel="http://opds-spec.org/facet" title="Spanish" thr:count="11"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="/books/top.atom?category=FSHUM000000N&amp;free=true&amp;lang=it" opds:facetGroup="Language" rel="http://opds-spec.org/facet" title="Italian" thr:count="16"/>
+<entry>
+<title>Discourse on the Method</title>
+<id>http://www.feedbooks.com/book/677</id>
+<author>
+  <name>Ren&#233; Descartes</name>
+  <uri>http://www.feedbooks.com/author/143</uri>
+</author>
+<published>2007-03-15T18:27:01Z</published>
+<updated>2015-04-07T09:16:25Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:issued>1637</dcterms:issued>
+<category scheme="http://www.feedbooks.com/categories" term="FBNFC000000" label="Non-Fiction"/>
+<category scheme="http://www.feedbooks.com/categories" term="FSHUM000000N" label="Human Science"/>
+<category scheme="http://www.feedbooks.com/categories" term="FBPHI000000" label="Philosophy"/>
+<summary>The Discourse on the Method is a philosophical and mathematical treatise published by Ren&#233; Descartes in 1637. Its full name is Discourse on the Method of Rightly Conducting the Reason, and Searching for Truth in the Sciences (French title: Discour...</summary>
+<dcterms:extent>23,005 words</dcterms:extent>
+<dcterms:source>http://en.wikisource.org</dcterms:source>
+<link type="text/html" href="http://www.feedbooks.com/book/677" rel="alternate" title="View on Feedbooks"/>
+<link type="application/epub+zip" href="http://www.feedbooks.com/book/677.epub" rel="http://opds-spec.org/acquisition"/>
+<link type="application/x-mobipocket-ebook" href="http://www.feedbooks.com/book/677.mobi" rel="http://opds-spec.org/acquisition"/>
+<link type="application/pdf" href="http://www.feedbooks.com/book/677.pdf" rel="http://opds-spec.org/acquisition"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/book/677.jpg?size=large&amp;t=1428398185" rel="http://opds-spec.org/image"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/book/677.jpg?t=1428398185" rel="http://opds-spec.org/image/thumbnail"/>
+<link type="application/atom+xml;type=entry;profile=opds-catalog" href="http://www.feedbooks.com/book/677.atom" rel="alternate" title="Full entry"/>
+</entry>
+</feed>

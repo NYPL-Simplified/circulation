@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns:dcterms="http://purl.org/dc/terms/" xmlns:schema="http://schema.org/" xmlns="http://www.w3.org/2005/Atom" xmlns:thr="http://purl.org/syndication/thread/1.0">
+<title>Discourse on the Method</title>
+<id>http://www.feedbooks.com/book/677</id>
+<author>
+  <name>Ren&#233; Descartes</name>
+  <uri>http://www.feedbooks.com/author/143</uri>
+</author>
+<published>2007-03-15T18:27:01Z</published>
+<updated>2015-04-07T09:16:25Z</updated>
+<dcterms:language>en</dcterms:language>
+<dcterms:issued>1637</dcterms:issued>
+<category scheme="http://www.feedbooks.com/categories" label="Non-Fiction" term="FBNFC000000"/>
+<category scheme="http://www.feedbooks.com/categories" label="Human Science" term="FSHUM000000N"/>
+<category scheme="http://www.feedbooks.com/categories" label="Philosophy" term="FBPHI000000"/>
+<summary>The Discourse on the Method is a philosophical and mathematical treatise published by Ren&#233; Descartes in 1637. Its full name is Discourse on the Method of Rightly Conducting the Reason, and Searching for Truth in the Sciences (French title: Discour...</summary>
+<dcterms:extent>23,005 words</dcterms:extent>
+<dcterms:source>http://en.wikisource.org</dcterms:source>
+<link type="text/html" href="http://www.feedbooks.com/book/677" rel="alternate" title="View on Feedbooks"/>
+<link type="application/epub+zip" href="http://www.feedbooks.com/book/677.epub" rel="http://opds-spec.org/acquisition"/>
+<link type="application/x-mobipocket-ebook" href="http://www.feedbooks.com/book/677.mobi" rel="http://opds-spec.org/acquisition"/>
+<link type="application/pdf" href="http://www.feedbooks.com/book/677.pdf" rel="http://opds-spec.org/acquisition"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/book/677.jpg?size=large&amp;t=1428398185" rel="http://opds-spec.org/image"/>
+<link type="image/jpeg" href="http://covers.feedbooks.net/book/677.jpg?t=1428398185" rel="http://opds-spec.org/image/thumbnail"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=acquisition" href="http://www.feedbooks.com/author/143/books/top.atom?lang=en" rel="http://www.feedbooks.com/opds/same_author" title="From the same author"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="http://www.feedbooks.com/book/677/categories.atom" rel="related" title="Categories for this book"/>
+<link type="application/atom+xml;profile=opds-catalog;kind=navigation" href="http://www.feedbooks.com/book/677/lists.atom" rel="related" title="Reading lists for this book"/>
+<link type="application/atom+xml" href="http://www.feedbooks.com/book/677/comments.atom" thr:count="0" rel="replies" thr:updated="2009-08-18T01:17:10Z" title="Comments for this book (0)"/>
+<content type="html">&lt;p&gt;The Discourse on the Method is a philosophical and mathematical treatise published by Ren&#233; Descartes in 1637. Its full name is Discourse on the Method of Rightly Conducting the Reason, and Searching for Truth in the Sciences (French title: Discours de la m&#233;thode pour bien conduire sa raison, et chercher la verit&#233; dans les sciences). The Discourse on Method is best known as the source of the famous quotation &quot;Je pense, donc je suis&quot; (&quot;I think, therefore I am&quot;), which occurs in Part IV of the work. (The similar statement in Latin, Cogito ergo sum, is found in &#167;7 of Principles of Philosophy.) In addition, in one of its appendices, La G&#233;om&#233;trie, is contained Descartes' first introduction of the Cartesian coordinate system.
+&lt;br /&gt;The Discourse on the Method is one of the most influential works in the history of modern science. It is a method which gives a solid platform from which all modern natural sciences could evolve. In this work, Descartes tackles the problem of skepticism which had been revived from the ancients such as Sextus Empiricus by authors such as Al-Ghazali and Michel de Montaigne. Descartes modified it to account for a truth that he found to be incontrovertible. Descartes started his line of reasoning by doubting everything, so as to assess the world from a fresh perspective, clear of any preconceived notions.
+&lt;br /&gt;The book was originally published in Leiden in French, together with his works &quot;Dioptrique, M&#233;t&#233;ores et G&#233;om&#233;trie&quot;. Later, it was translated into Latin and published in 1656 in Amsterdam.
+&lt;br /&gt;Together with Meditations on First Philosophy (Meditationes de Prima Philosophia), Principles of Philosophy (Principia philosophiae) and Rules for the Direction of the Mind (Regulae ad directionem ingenii), it forms the base of the Epistemology known as Cartesianism.&lt;/p&gt;</content>
+<link type="application/atom+xml;type=entry;profile=opds-catalog" href="http://www.feedbooks.com/book/677.atom" rel="self"/>
+  <link type="application/atom+xml" href="http://www.feedbooks.com/book/677/contents.atom" rel="contents"/>
+</entry>
