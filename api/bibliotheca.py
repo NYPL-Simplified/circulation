@@ -132,10 +132,13 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
         )
         return monitor.process_items([licensepool.identifier])
 
-    def patron_activity(self, patron, pin):
+    def _patron_activity_request(self, patron):
         patron_id = patron.authorization_identifier
         path = "circulation/patron/%s" % patron_id
-        response = self.request(path)
+        return self.request(path)
+
+    def patron_activity(self, patron, pin):
+        response = self._patron_activity_request(patron)
         collection = self.collection
         return PatronCirculationParser(self.collection).process_all(response.content)
 
