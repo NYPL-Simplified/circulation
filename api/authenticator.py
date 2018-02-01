@@ -104,7 +104,7 @@ class PatronData(object):
                  block_reason=None,
                  library_identifier=None,
                  complete=True,
-                 ):
+    ):
         """Store basic information about a patron.
 
         :param permanent_id: A unique and unchanging identifier for

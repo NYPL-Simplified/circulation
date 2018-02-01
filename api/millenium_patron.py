@@ -136,14 +136,13 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         self.auth_mode = auth_mode
 
         self.block_types = integration.setting(self.BLOCK_TYPES).value or None
-
         
     # Begin implementation of BasicAuthenticationProvider abstract
     # methods.
 
     def _request(self, path):
         """Make an HTTP request and parse the response."""
-
+    
     def remote_authenticate(self, username, password):
         """Does the Millenium Patron API approve of these credentials?
 
@@ -211,10 +210,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
         url = self.root + path
         response = self.request(url)
         return self.patron_dump_to_patrondata(identifier, response.content)
+        
     
     # End implementation of BasicAuthenticationProvider abstract
     # methods.
-
+    
     def request(self, url, *args, **kwargs):
         """Actually make an HTTP request. This method exists only so the mock
         can override it.
