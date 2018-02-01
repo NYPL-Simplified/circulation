@@ -8669,12 +8669,14 @@ class Representation(Base):
         gutenberg.org quickly result in IP bans. So we don't make those
         requests.
         """
-        do_not_access = kwargs.pop('cautious_access_domains')
+        do_not_access = kwargs.pop(
+            'do_not_access', cls.AVOID_WHEN_CAUTIOUS_DOMAINS
+        )
         check_for_redirect = kwargs.pop(
-            'cautious_redirect_domains', cls.EXERCISE_CAUTION_DOMAINS
+            'check_for_redirect', cls.EXERCISE_CAUTION_DOMAINS
         )
         do_get = kwargs.pop('do_get', cls.simple_http_get)
-        head_client = kwargs.pop('cautious_head_client')
+        head_client = kwargs.pop('cautious_head_client', requests.head)
 
         if cls.get_would_be_useful(
                 url, headers, do_not_access, check_for_redirect,
