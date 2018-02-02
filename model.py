@@ -5876,7 +5876,7 @@ class Genre(Base, HasFullTableCache):
     """
     __tablename__ = 'genres'
     id = Column(Integer, primary_key=True)
-    name = Column(Unicode)
+    name = Column(Unicode, unique=True, index=True)
 
     # One Genre may have affinity with many Subjects.
     subjects = relationship("Subject", backref="genre")
@@ -8708,7 +8708,7 @@ class Representation(Base):
 
     # Sites that cause problems for us if we make automated
     # HTTP requests to them while trying to find free books.
-    AVOID_WHEN_CAUTIOUS_DOMAINS = ['gutenberg.org']
+    AVOID_WHEN_CAUTIOUS_DOMAINS = ['gutenberg.org', 'books.google.com']
 
     @classmethod
     def get_would_be_useful(
