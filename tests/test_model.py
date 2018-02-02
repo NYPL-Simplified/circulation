@@ -917,7 +917,14 @@ class TestGenre(DatabaseTest):
         # No exception.
         eq_(drama, drama2)
         eq_(False, is_new)
-        
+
+    def test_name_is_unique(self):
+        g1, ignore = Genre.lookup(self._db, "A Genre", autocreate=True)
+        g2, ignore = Genre.lookup(self._db, "A Genre", autocreate=True)
+        eq_(g1, g2)
+
+        assert_raises(IntegrityError, create, self._db, Genre, name="A Genre")
+
     def test_default_fiction(self):
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         nonfiction, ignore = Genre.lookup(self._db, "History")
