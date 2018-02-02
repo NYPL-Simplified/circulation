@@ -2150,6 +2150,21 @@ class SettingsController(CirculationManagerController):
                     self._db.rollback()
                     return INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION
 
+            # Check that the library's identifier restriction regular express is valid, it its set
+            # and its a regular expression.
+            identifier_restriction_type = ConfigurationSetting.for_library_and_externalintegration(
+                self._db, AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE,
+                library, auth_service).value
+            identifier_restriction = ConfigurationSetting.for_library_and_externalintegration(
+                self._db, AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION,
+                library, auth_service).value
+            if identifier_restriction and identifier_restriction_type == AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX:
+                try:
+                    re.compile(identifier_restriction)
+                except Exception, e:
+                    self._db.rollback()
+                    return INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION
+
         if is_new:
             return Response(unicode(auth_service.id), 201)
         else:

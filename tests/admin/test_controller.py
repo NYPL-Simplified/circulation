@@ -3214,7 +3214,11 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
-                ("libraries", json.dumps([{ "short_name": library.short_name }])),
+                ("libraries", json.dumps([{
+                    "short_name": library.short_name,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
+                }])),
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, MULTIPLE_BASIC_AUTH_SERVICES.uri)
@@ -3227,11 +3231,29 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", SimpleAuthenticationProvider.__module__),
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "(invalid re",
                 }])),
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION)
+
+        library, ignore = create(
+            self._db, Library, name="Library", short_name="L",
+        )
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("protocol", SimpleAuthenticationProvider.__module__),
+                ("libraries", json.dumps([{
+                    "short_name": library.short_name,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION: "(invalid re",
+                }])),
+            ] + common_args)
+            response = self.manager.admin_settings_controller.patron_auth_services()
+            eq_(response, INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION)
 
     def test_patron_auth_services_post_create(self):
         library, ignore = create(
@@ -3243,6 +3265,9 @@ class TestSettingsController(AdminControllerTest):
                 ("libraries", json.dumps([{
                     "short_name": library.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_REGEX,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION: "^1234",
                 }])),
             ] + self._common_basic_auth_arguments())
             response = self.manager.admin_settings_controller.patron_auth_services()
@@ -3307,6 +3332,8 @@ class TestSettingsController(AdminControllerTest):
                 ("libraries", json.dumps([{
                     "short_name": l2.short_name,
                     AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION: "^(.)",
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE,
+                    AuthenticationProvider.LIBRARY_IDENTIFIER_FIELD: AuthenticationProvider.LIBRARY_IDENTIFIER_RESTRICTION_BARCODE,
                 }])),
             ] + self._common_basic_auth_arguments())
             response = self.manager.admin_settings_controller.patron_auth_services()

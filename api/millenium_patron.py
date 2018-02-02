@@ -99,7 +99,24 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
           "default": PIN_AUTHENTICATION_MODE
         }
     ] + BasicAuthenticationProvider.SETTINGS
-    
+
+    # Replace library settings to allow text in identifier field.
+    LIBRARY_SETTINGS = []
+    for setting in BasicAuthenticationProvider.LIBRARY_SETTINGS:
+        if setting['key'] == BasicAuthenticationProvider.LIBRARY_IDENTIFIER_FIELD:
+            LIBRARY_SETTINGS.append({
+                "key": BasicAuthenticationProvider.LIBRARY_IDENTIFIER_FIELD,
+                "label": _("Library Identifier Field"),
+                "optional": True,
+                "description": _("This is the field on the patron record that the <em>Library Identifier Restriction " +
+                                 "Type</em> is applied to. The option 'barcode' matches the users barcode, other " +
+                                 "values are pulled directly from the patron record for example: 'P TYPE[p47]'. " +
+                                 "This value is not used if <em>Library Identifier Restriction Type</em> " +
+                                 "is set to 'No restriction'."),
+            })
+        else:
+            LIBRARY_SETTINGS.append(setting)
+
     def __init__(self, library, integration, analytics=None):
         super(MilleniumPatronAPI, self).__init__(library, integration, analytics)
         url = integration.url
@@ -319,6 +336,12 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 # failed.
                 return None
 
+        # Set the library identifier field
+        library_identifier = None
+        for k, v in self._extract_text_nodes(content):
+            if k == self.library_identifier_field:
+                library_identifier = v.strip()
+
         # We may now have multiple authorization
         # identifiers. PatronData expects the best authorization
         # identifier to show up first in the list.
@@ -348,6 +371,7 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
             external_type=external_type,
             fines=fines,
             block_reason=block_reason,
+            library_identifier=library_identifier,
             complete=True
         )
         return data
