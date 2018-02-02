@@ -20,6 +20,7 @@ mock
 py-bcrypt
 Flask-Babel
 money
+pymarc
 
 # for author name manipulations
 nameparser>=0.5.1
