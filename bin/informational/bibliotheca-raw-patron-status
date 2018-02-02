@@ -1,0 +1,34 @@
+#!/usr/bin/env python
+from nose.tools import set_trace
+import json
+import os
+import sys
+from xml.dom import minidom
+bin_dir = os.path.split(__file__)[0]
+package_dir = os.path.join(bin_dir, "..", "..")
+sys.path.append(os.path.abspath(package_dir))
+
+from core.model import (
+    Collection,
+    ExternalIntegration,
+    Patron,
+)
+from core.scripts import Script
+from api.bibliotheca import BibliothecaAPI
+
+class BibliothecaRawPatronStatusScript(Script):
+    def run(self):
+        for patron_identifier in sys.argv[1:]:
+            patron = self._db.query(Patron).filter(
+                Patron.authorization_identifier==patron_identifier
+            ).one()
+            for collection in Collection.by_protocol(
+                    self._db, ExternalIntegration.BIBLIOTHECA
+            ):
+                api = BibliothecaAPI(self._db, collection)
+                response = api._patron_activity_request(patron)
+                xml = minidom.parseString(response.content)
+                print xml.toprettyxml()
+                print
+
+BibliothecaRawPatronStatusScript().run()

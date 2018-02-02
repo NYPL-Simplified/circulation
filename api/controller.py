@@ -408,6 +408,10 @@ class CirculationManagerController(BaseCirculationManagerController):
         if lane_identifier is None:
             # Return the top-level lane.
             lane = self.manager.top_level_lanes[library_id]
+            if isinstance(lane, Lane):
+                lane = self._db.merge(lane)
+            elif isinstance(lane, WorkList):
+                lane.children = [self._db.merge(child) for child in lane.children]
         else:
             lane = get_one(
                 self._db, Lane, id=lane_identifier, library_id=library_id

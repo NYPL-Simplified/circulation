@@ -331,6 +331,13 @@ CUSTOM_LIST_NAME_ALREADY_IN_USE = pd(
     detail=_("The library already has a custom list with that name."),
 )
 
+COLLECTION_NOT_ASSOCIATED_WITH_LIBRARY = pd(
+    "http://librarysimplified.org/terms/problem/collection-not-associated-with-library",
+    status_code=400,
+    title=_("Collection not associated with library"),
+    detail=_("You can't add a collection to a list unless it is associated with the list's library."),
+)
+
 MISSING_LANE = pd(
     "http://librarysimplified.org/terms/problem/missing-lane",
     status_code=404,
