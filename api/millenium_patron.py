@@ -110,7 +110,9 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 "optional": True,
                 "description": _("This is the field on the patron record that the <em>Library Identifier Restriction " +
                                  "Type</em> is applied to. The option 'barcode' matches the users barcode, other " +
-                                 "values are pulled directly from the patron record for example: 'P TYPE[p47]'."),
+                                 "values are pulled directly from the patron record for example: 'P TYPE[p47]'. " +
+                                 "This value is not used if <em>Library Identifier Restriction Type</em> " +
+                                 "is set to 'No restriction'."),
             })
         else:
             LIBRARY_SETTINGS.append(setting)

@@ -905,7 +905,10 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
           "description": _("When multiple libraries share an ILS, a person may be able to " +
                            "authenticate with the ILS but not be considered a patron of " +
                            "<em>this</em> library. This setting contains the rule for determining " +
-                           "whether an identifier is valid for this specific library."),
+                           "whether an identifier is valid for this specific library. <p/> " +
+                           "If this setting it set to 'No Restriction' then the values for " +
+                           "<em>Library Identifier Field</em> and <em>Library Identifier " +
+                           "Restriction</em> will not be used."),
           "options": [
              {"key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE_NONE, "label": _("No restriction")},
              {"key": LIBRARY_IDENTIFIER_RESTRICTION_TYPE_PREFIX, "label": _("Prefix Match")},
@@ -922,13 +925,17 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
               {"key": LIBRARY_IDENTIFIER_RESTRICTION_BARCODE, "label": _("Barcode")},
           ],
           "description": _("This is the field on the patron record that the <em>Library Identifier Restriction " +
-                           "Type</em> is applied to."),
+                           "Type</em> is applied to, different patron authentication methods provide different " +
+                           "values here. This value is not used if <em>Library Identifier Restriction Type</em> " +
+                           "is set to 'No restriction'."),
           "default": LIBRARY_IDENTIFIER_RESTRICTION_BARCODE
         },
         { "key": LIBRARY_IDENTIFIER_RESTRICTION,
           "label": _("Library Identifier Restriction"),
           "description": _("This is the restriction applied to the <em>Library Identifier Field</em> " +
-                           "using the method chosen in <em>Library Identifier Restriction Type</em>."),
+                           "using the method chosen in <em>Library Identifier Restriction Type</em>. " +
+                           "This value is not used if <em>Library Identifier Restriction Type</em> " +
+                           "is set to 'No restriction'."),
           "optional": True,
         }
     ]
