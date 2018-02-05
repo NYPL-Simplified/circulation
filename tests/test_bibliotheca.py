@@ -289,7 +289,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # that the manifest contains information from the 'Findaway'
         # document as well as information from the Work.
         metadata = manifest['metadata']
-        eq_('abcdef01234789abcdef0123', metadata['findaway:checkoutId'])
+        eq_('abcdef01234789abcdef0123', metadata['encrypted']['findaway:checkoutId'])
         eq_(work.title, metadata['title'])
 
         # Now let's see what happens to fulfillment when 'Findaway' or
