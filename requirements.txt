@@ -18,6 +18,7 @@ cairosvg==1.0.22
 py-bcrypt
 Flask-Babel
 money
+pymarc
 
 # Ensure that we support SNI-based SSL
 ndg-httpsclient

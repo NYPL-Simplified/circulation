@@ -89,7 +89,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
 
         self.new_css = None
         if new_css_url and self.http_get:
-            status_code, headers, content = self.http_get(new_css_url)
+            status_code, headers, content = self.http_get(new_css_url, {})
             if status_code != 200:
                 raise IOError(
                     "Replacement stylesheet URL returned %r response code." % status_code
