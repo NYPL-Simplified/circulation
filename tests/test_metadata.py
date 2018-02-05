@@ -8,6 +8,7 @@ import pkgutil
 import csv
 from copy import deepcopy
 
+from classifier import Classifier
 from metadata_layer import (
     CSVFormatError,
     CSVMetadataImporter,
@@ -16,6 +17,7 @@ from metadata_layer import (
     MeasurementData,
     FormatData,
     LinkData,
+    MARCExtractor,
     Metadata,
     IdentifierData,
     ReplacementPolicy,
@@ -1154,3 +1156,47 @@ class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
         equivalent_identifiers = [x.output for x in identifier.equivalencies]
         eq_([book.primary_identifier], equivalent_identifiers)
     
+
+class TestMARCExtractor(DatabaseTest):
+
+    def setup(self):
+        super(TestMARCExtractor, self).setup()
+        base_path = os.path.split(__file__)[0]
+        self.resource_path = os.path.join(base_path, "files", "marc")
+
+    def sample_data(self, filename):
+        with open(os.path.join(self.resource_path, filename)) as fh:
+            return fh.read()
+
+    def test_parser(self):
+        """Parse a MARC file into Metadata objects."""
+
+        file = self.sample_data("ils_plympton_01.mrc")
+        metadata_records = MARCExtractor.parse(file, "Plympton")
+
+        eq_(36, len(metadata_records))
+
+        record = metadata_records[1]
+        eq_("Strange Case of Dr Jekyll and Mr Hyde", record.title)
+        eq_("Stevenson, Robert Louis", record.contributors[0].sort_name)
+        assert "Recovering the Classics" in record.publisher
+        eq_("9781682280041", record.primary_identifier.identifier)
+        eq_(Identifier.ISBN, record.primary_identifier.type)
+        subjects = record.subjects
+        eq_(2, len(subjects))
+        for s in subjects:
+            eq_(Classifier.FAST, s.type)
+        assert "Canon" in subjects[0].identifier
+        eq_(Edition.BOOK_MEDIUM, record.medium)
+        eq_(2015, record.issued.year)
+        eq_('eng', record.language)
+
+        eq_(1, len(record.links))
+        assert "Utterson and Enfield are worried about their friend" in record.links[0].content
+
+    def test_name_cleanup(self):
+        """Test basic name cleanup techniques."""
+        m = MARCExtractor.name_cleanup
+        eq_("Dante Alighieri", m("Dante Alighieri,   1265-1321, author."))
+        eq_("Stevenson, Robert Louis", m("Stevenson, Robert Louis."))
+        eq_("Wells, H.G.", m("Wells,     H.G."))
