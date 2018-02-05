@@ -1165,7 +1165,8 @@ class TestMARCExtractor(DatabaseTest):
         self.resource_path = os.path.join(base_path, "files", "marc")
 
     def sample_data(self, filename):
-        return open(os.path.join(self.resource_path, filename)).read()
+        with open(os.path.join(self.resource_path, filename)) as fh:
+            return fh.read()
 
     def test_parser(self):
         """Parse a MARC file into Metadata objects."""
