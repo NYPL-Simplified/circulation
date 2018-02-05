@@ -581,7 +581,7 @@ class AdobeAccountIDResetScript(PatronInputScript):
         return parser
     
     def do_run(self, *args, **kwargs):
-        parsed = self.parse_command_line(self._db, *args, **kwargs)
+        parsed = self.parse_args(self._db, *args, **kwargs)
         patrons = parsed.patrons
         self.delete = parsed.delete
         if not self.delete:
@@ -1001,7 +1001,7 @@ class DirectoryImportScript(Script):
 
     @classmethod
     def arg_parser(cls, _db):
-        parser = Script.arg_parser(_db)
+        parser = argparse.ArgumentParser()
         parser.add_argument(
             '--collection-name',
             help=u'Titles will be imported into a collection with this name. The collection will be created if it does not already exist.'
@@ -1025,7 +1025,9 @@ class DirectoryImportScript(Script):
         parser.add_argument(
             '--dry-run',
             help=u"Show what would be imported, but don't actually do the import.",
+            action='store_true',
         )
+        return parser
 
     def create_collection(self, data_source_name):
         name = data_source_name
@@ -1045,7 +1047,8 @@ class DirectoryImportScript(Script):
                     data_source_name, collection))
 
     def do_run(self, *args, **kwargs):
-        parsed = self.parse_command_line(self._db, *args, **kwargs)
+        parser = self.arg_parser(self._db)
+        parsed = parser.parse_args(cmd_args)
         collection_name = parsed.data_source_name
         data_source_name = parsed.data_source_name
         metadata_file = parsed.metadata_file
@@ -1205,7 +1208,7 @@ class DirectoryImportScript(Script):
         )
         return circulation_data
 
-   def load_cover_link(self, identifier, data_source, cover_directory, mirror):
+    def load_cover_link(self, identifier, data_source, cover_directory, mirror):
        """Load an actual book cover from disk.
 
        :return: A LinkData containing a cover of the book, or None
@@ -1233,7 +1236,7 @@ class DirectoryImportScript(Script):
        )
        return cover_link
 
-    def _locate_file(self, identifier directory, extensions, file_type="file"):
+    def _locate_file(self, identifier, directory, extensions, file_type="file"):
         """Find an acceptable file in the given directory.
 
         :param metadata: Metadata object whose `primary_identifier` will
@@ -1279,6 +1282,7 @@ class DirectoryImportScript(Script):
             ", ".join(attempts)
         )
         return None, None, None
+
 
 class LaneResetScript(LibraryInputScript):
     """Reset a library's lanes based on language configuration or estimates

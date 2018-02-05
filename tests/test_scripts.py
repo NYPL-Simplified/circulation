@@ -45,6 +45,7 @@ from scripts import (
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
     CacheOPDSGroupFeedPerLane,
+    DirectoryImportScript,
     InstanceInitializationScript,
     LanguageListScript,
     LoanReaperScript,
@@ -422,3 +423,22 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
         eq_(expect_settings,
             sorted((x.key, x.value) for x in integration.settings)
         )
+
+
+class TestDirectoryImportScript(DatabaseTest):
+
+    def test_do_run(self):
+        class Mock(DirectoryImportScript):
+            def run_with_arguments(self, **kwargs):
+                self.ran_with = kwargs
+                
+        script = Mock(self._db)
+        script.do_run(cmd_args=[
+            "--collection-name=coll1",
+            "--data-source-name=ds1",
+            "--metadata-file=metadata",
+            "--cover-directory=covers",
+            "--ebook-directory=ebooks",
+            "--dry-run"
+        ])
+        set_trace()
