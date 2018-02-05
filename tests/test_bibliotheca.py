@@ -364,18 +364,19 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         first = spine[0]
         eq_(16.201, first['duration'])
         eq_("Track 1", first['title'])
-        eq_(1, first['findaway:sequence'])
 
-        # There is no 'href' or value for the spine items because the
+        # There is no 'href' value for the spine items because the
         # files must be obtained through the Findaway SDK rather than
         # through regular HTTP requests.
         #
         # Since this is a relatively small book, it only has one part,
-        # part #0.
-        for i in spine:
-            eq_(None, i['href'])
-            eq_(Representation.MP3_MEDIA_TYPE, i['type'])
-            eq_(0, i['findaway:part'])
+        # part #0. Within that part, the items have been sorted by
+        # their sequence.
+        for i, item in enumerate(spine):
+            eq_(None, item['href'])
+            eq_(Representation.MP3_MEDIA_TYPE, item['type'])
+            eq_(0, item['findaway:part'])
+            eq_(i+1, item['findaway:sequence'])
 
         # The total duration, in seconds, has been added to metadata.
         eq_(28371, int(metadata['duration']))
