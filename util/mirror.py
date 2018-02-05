@@ -28,6 +28,11 @@ class MirrorUploader(object):
         from config import CannotLoadConfiguration
 
         from model import ExternalIntegration as EI
+        return cls.implementation(integration)
+
+    @classmethod
+    def sitewide_integration(cls, _db):
+        """Find the ExternalIntegration for the site-wide mirror."""
         qu = _db.query(EI).filter(EI.goal==cls.STORAGE_GOAL)
         integrations = qu.all()
         if not integrations:
@@ -44,7 +49,7 @@ class MirrorUploader(object):
             )
 
         [integration] = integrations
-        return cls.implementation(integration)
+        return integration
 
     @classmethod
     def for_collection(cls, collection):
