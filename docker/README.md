@@ -16,25 +16,25 @@ These are the Docker images for Library Simplified's [Circulation Manager](https
 The circulation manager is the main connection between a library's collection and Library Simplified's various client-side applications. It handles user authentication, combines licensed works with open access content from the [OA Content Server](https://github.com/NYPL-Simplified/content_server), pulls in updated book information from the [Metadata Wrangler](https://github.com/NYPL-Simplified/metadata_wrangler), and serves up available books in appropriately organized OPDS feeds.
 
 The Dockerfiles in this directory create two distinct but necessary containers to deploy the Circulation Manager:
-  - `circ-deploy`: a container that deploys the API [using Nginx and uWSGI](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Nginx-&-uWSGI)
+  - `circ-webapp` (**deprecated:** `circ-deploy`): a container that launches the API and admin interface [using Nginx and uWSGI](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Nginx-&-uWSGI)
   - `circ-scripts`: a container that schedules and runs important cron jobs at recommended intervals
 
 To avoid database lockups, `circ-scripts` should be deployed as a single instance.
 
 ## Using This Image
 
-You will need **a PostgreSQL instance url** in the format `postgres://[username]:[password]@[host]:[port]/[database_name]`. With this URL, you can created containers for both the web application (`circ-deploy`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`). Either container can be used to initialize or migrate the database. During the first deployment against a brand new database, the first container run should be set with `SIMPLIFIED_DB_TASK='init'`. See the "Environment Variables" section below for mroe information.
+You will need **a PostgreSQL instance url** in the format `postgres://[username]:[password]@[host]:[port]/[database_name]`. With this URL, you can created containers for both the web application (`circ-webapp`) and for the background cron jobs that import and update books and otherwise keep the app running smoothly (`circ-scripts`). Either container can be used to initialize or migrate the database. During the first deployment against a brand new database, the first container run can use the default `SIMPLIFIED_DB_TASK='auto'` or be run manually with `SIMPLIFIED_DB_TASK='init'`. See the "Environment Variables" section below for mroe information.
 
-### circ-deploy
+### circ-webapp (**deprecated:** circ-deploy)
 
 ```
 # See the section "Environment Variables" below for more information
 # about the values listed here and their alternatives.
-$ docker run --name deploy \
+$ docker run --name webapp \
     -d -p 80:80 \
     -e SIMPLIFIED_DB_TASK='init' \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
-    nypl/circ-deploy:2.0
+    nypl/circ-webapp:2.0
 ```
 
 Navigate to `http://localhost/admin` to in your browser to input or update configuration information. If you have not yet created an admin authorization protocol before, you'll need to do that before you can set other configuration.
@@ -53,7 +53,7 @@ $ docker run --name scripts -d \
     nypl/circ-scripts:2.0
 ```
 
-Using `docker exec -it deploy /bin/bash` in your console, navigate to `/var/log/simplified` in the container. After 5-20 minutes, you'll begin to see log files populate that directory.
+Using `docker exec -it scripts /bin/bash` in your console, navigate to `/var/log/simplified` in the container. After 5-20 minutes, you'll begin to see log files populate that directory.
 
 For troubleshooting information and installation directions for the entire Circulation Manager tool suite, please review [the full deployment instructions](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Quickstart-with-Docker).
 
@@ -82,9 +82,9 @@ For troubleshooting information and installation directions for the entire Circu
 
 ## Building new images
 
-If you plan to work with stable versions of the Circulation Manager, we strongly recommend using the latest stable versions of circ-deploy and circ-scripts [published to Docker Hub](https://hub.docker.com/r/nypl/). However, there may come a time in development when you want to build Docker containers for a particular version of the Circulation Manager. If so, please use the instructions below.
+If you plan to work with stable versions of the Circulation Manager, we strongly recommend using the latest stable versions of circ-webapp and circ-scripts [published to Docker Hub](https://hub.docker.com/r/nypl/). However, there may come a time in development when you want to build Docker containers for a particular version of the Circulation Manager. If so, please use the instructions below.
 
-### > `.deploy` and `.scripts`
+### > `.webapp` and `.scripts`
 
 Determine which container you would like to build and update the tag and Dockerfile listed below accordingly.
 
@@ -110,7 +110,7 @@ We welcome your contributions to new features, fixes, or updates, large or small
 Before you start to code, we recommend discussing your plans through a [GitHub issue](https://github.com/NYPL-Simplified/circulation-docker/issues/new), especially for more ambitious contributions. This gives other contributors a chance to point you in the right direction, give you feedback on your design, and help you find out if someone else is working on the same thing.
 
 
-(**Note:** This README is intended to directly reflect [the documentation on Docker Hub](https://hub.docker.com/r/nypl/circ-deploy/).)
+(**Note:** This README is intended to directly reflect [the documentation on Docker Hub](https://hub.docker.com/r/nypl/circ-webapp/).)
 
 ## License
 
