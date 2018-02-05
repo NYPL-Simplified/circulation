@@ -32,7 +32,6 @@ You will need **a PostgreSQL instance url** in the format `postgres://[username]
 # about the values listed here and their alternatives.
 $ docker run --name webapp \
     -d -p 80:80 \
-    -e SIMPLIFIED_DB_TASK='init' \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
     nypl/circ-webapp:2.0
 ```
@@ -48,7 +47,6 @@ For troubleshooting information and installation directions for the entire Circu
 # about the values listed here and their alternatives.
 $ docker run --name scripts -d \
     -e TZ='YOUR_TIMEZONE_STRING' \
-    -e SIMPLIFIED_DB_TASK='migrate' \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
     nypl/circ-scripts:2.0
 ```
@@ -59,13 +57,15 @@ For troubleshooting information and installation directions for the entire Circu
 
 ## Environment Variables
 
+Environment variables can be set with the `-e VARIABLE_KEY='variable_value'` option on the `docker run` command. `SIMPLIFIED_PRODUCTION_DATABASE` is the only required environment variable.
+
 ### `SIMPLIFIED_CONFIGURATION_FILE`
 
 *Optional.* The full path to a configuration file in the container. Configuration is now held in the database and accessed via an administrative interface at `/admin`, so you probably don't need this. If you do, use [this documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Configuration) to create the JSON file for your particular library's configuration. If you're unfamiliar with JSON, you can use [this JSON Formatter & Validator](https://jsonformatter.curiousconcept.com/#) to validate your configuration file.
 
 ### `SIMPLIFIED_DB_TASK`
 
-*Required.* Performs a task against the database at container runtime. Options are:
+*Optional.* Performs a task against the database at container runtime. Options are:
   - `auto` : Either initializes or migrates the database, depending on if it is new or not. This is the default value.
   - `ignore` : Does nothing.
   - `init` : Initializes the app against a brand new database. If you are running a circulation manager for the first time every, use this value to set up an Elasticsearch alias and account for the database schema for future migrations.
@@ -79,6 +79,10 @@ For troubleshooting information and installation directions for the entire Circu
 ### `SIMPLIFIED_TEST_DATABASE`
 
 *Optional.* The URL of a PostgreSQL database for tests. This optional variable allows unit tests to be run in the container.
+
+### `TZ`
+
+*Optional. Applies to `circ-scripts` only.* The time zone that cron should use to run scheduled scripts--usually the time zone of the library or libraries on the circulation manager instance. This value should be selected according to [Debian-system time zone options](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones). This value allows scripts to be run at ideal times.
 
 ## Building new images
 
