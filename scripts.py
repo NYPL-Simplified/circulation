@@ -78,6 +78,7 @@ from core.util.opds_writer import (
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from core.util import LanguageCodes
+from core.util.mirror import MirrorUploader
 
 from api.config import (
     CannotLoadConfiguration,
@@ -994,6 +995,290 @@ class OPDSForDistributorsReaperScript(OPDSImportScript):
     IMPORTER_CLASS = OPDSForDistributorsImporter
     MONITOR_CLASS = OPDSForDistributorsReaperMonitor
     PROTOCOL = OPDSForDistributorsImporter.NAME
+
+
+class DirectoryImportScript(Script):
+
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = Script.arg_parser(_db)
+        parser.add_argument(
+            '--collection-name',
+            help=u'Titles will be imported into a collection with this name. The collection will be created if it does not already exist.'
+        )
+        parser.add_argument(
+            '--data-source-name',
+            help=u'All data associated with this import activity will be recorded as originating with this data source. The data source will be created if it does not already exist.',
+        )
+        parser.add_argument(
+            '--metadata-file',
+            help=u'Path to a file containing MARC metadata for the collection',
+        )
+        parser.add_argument(
+            '--cover-directory',
+            help=u'Directory containing a full-size cover image for every title in the collection.',
+        )
+        parser.add_argument(
+            '--ebook-directory',
+            help=u'Directory containing an EPUB file for every title in the collection.',
+        )
+        parser.add_argument(
+            '--dry-run',
+            help=u"Show what would be imported, but don't actually do the import.",
+        )
+
+    def create_collection(self, data_source_name):
+        name = data_source_name
+        collection, is_new = Collection.by_name_and_protocol(
+            self._db, name, ExternalIntegration.DIRECTORY_IMPORT
+        )
+
+        if not collection.data_source:
+            collection.external_integration.set_setting(
+                Collection.DATA_SOURCE_NAME_SETTING, data_source_name
+            )
+
+        if is_new:
+            library = self._db.query(Library).one()
+            collection.libraries.append(library)
+            self.log.info("CREATED Collection for %s: %r" % (
+                    data_source_name, collection))
+
+    def do_run(self, *args, **kwargs):
+        parsed = self.parse_command_line(self._db, *args, **kwargs)
+        collection_name = parsed.data_source_name
+        data_source_name = parsed.data_source_name
+        metadata_file = parsed.metadata_file
+        cover_directory = parsed.cover_directory
+        ebook_directory = parsed.ebook_directory
+        dry_run = parsed.dry_run
+        return self.run_with_arguments(
+            collection_name, data_source_name,
+            metadata_file, cover_directory,
+            ebook_directory, dry_run
+        )
+
+    def run_with_arguments(
+            self, collection_name, data_source_name,
+            metadata_file, cover_directory, ebook_directory, dry_run
+    ):
+        if dry_run:
+            self.logging.warn(
+                "This is a dry run. No files will be uploaded and nothing will change in the database."
+            )
+        collection, mirror = self.create_collection(
+            collection_name, data_source_name
+        )
+
+        if dry_run:
+            mirror = None
+
+        replacement_policy = ReplacementPolicy(
+            rights=True, links=True, formats=True, contributions=True,
+            mirror=mirror
+        )
+        metadata_records = self.load_metadata(metadata_file)
+        for metadata in metadata_records:
+            work = self.work_from_metadata(
+                metadata, policy, cover_directory, ebook_directory
+            )
+            if not dry_run:
+                self._db.commit()
+
+    def work_from_metadata(self, metadata, policy, cover_directory, ebook_directory):
+        identifier = metadata.primary_identifier
+        mirror = policy.mirror
+        paths = dict()
+
+        circulation_data = self.load_circulation_data()
+        if not circulation_data:
+            # We cannot actually provide access to the book so there
+            # is no point in proceeding with the import.
+            return
+        metadata.circulation = circulation_data
+
+        # If a cover image is available, add it to the Metadata
+        # as a link.
+        cover_link = self.load_cover_link()
+        if cover_link:
+            metadata.links.append(cover_link)
+        else:
+            logging.info(
+                "Proceeding with import even though %r has no cover.",
+                identifier
+            )
+
+        edition, new = metadata.edition(self._db)
+        metadata.apply(edition, replace=policy)
+        [pool] = [x for x in edition.licensed_through
+                  if x.data_source == data_source]
+        if new:
+            self.logging.info("Created new edition for %s", edition.title)
+        else:
+            self.logging.info("Updating existing edition for %s", edition.title)
+
+        work, ignore = pool.calculate_work()
+        work.set_presentation_ready()
+        self.log.info(
+            "FINALIZED %s/%s/%s" % (work.title, work.author, work.sort_author)
+        )
+
+    def load_collection(self, collection_name, data_source_name):
+        """Create or locate a Collection and make sure a MirrorUploader
+        can be instantiated for it.
+
+        :return: A 2-tuple (Collection, MirrorUploader)
+        """
+        collection, is_new = Collection.by_name_and_protocol(
+            self._db, collection_name, ExternalIntegration.DIRECTORY_IMPORT
+        )
+
+        if is_new:
+            self.log.info("CREATED Collection for %s: %r" % (
+                    data_source_name, collection))
+            self.log.warn("The new Collection is not associated with any libraries; you must do this yourself through the admin interface.")
+
+        if not collection.data_source:
+            data_source = DataSource.lookup(
+                data_source_name, autocreate=True, offers_licenses=True
+            )
+            collection.external_integration.set_setting(
+                Collection.DATA_SOURCE_NAME_SETTING, data_source.name
+            )
+            self.log.info(
+                "Associated Collection %s with data source %s",
+                collection.name, data_source_name
+            )
+
+        # Ensure we can get a MirrorUploader for the Collection. If
+        # this is not possible, `sitewide_integration` will raise
+        # CannotLoadConfiguration.
+        mirror = MirrorUploader.for_collection(collection)
+        if not mirror:
+            integration = MirrorUploader.sitewide_integration(self._db)
+            self.log.info(
+                "Associated Collection %s with the sitewide storage integration.",
+                collection.name
+            )
+            collection.mirror_integration = integration
+            mirror = MirrorUploader.implementation(integration)
+
+        return collection, mirror
+
+    def load_circulation_data(self, identifier, ebook_directory, uploader):
+        """Load an actual copy of a book from disk.
+
+        :return: A CirculationData that contains the book as an open-access
+        download, or None if no such book can be found.
+        """
+        book_media_type, book_content = self._locate_file(
+            identifier, ebook_directory, ['.epub', '.pdf'],
+            "ebook file",
+        )
+        if not book_content:
+            # We couldn't find an actual copy of the book, so there is
+            # no point in proceeding.
+            return
+
+        book_url = uploader.book_url(
+            identifier,
+            Representation.EXTENSION_FOR_MEDIA_TYPE[book_media_type]
+        )
+        book_link = LinkData(
+            rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
+            href=book_url,
+            media_type=book_media_type,
+            content=book_content
+        )
+        formats = [
+            FormatData(
+                content_type=book_media_type,
+                drm_scheme=DeliveryMechanism.NO_DRM,
+                link=book_link,
+            )
+        ]
+        circulation_data = CirculationData(
+            data_source_name,
+            primary_identifier,
+            links=[book_link],
+            formats=formats,
+        )
+        return circulation_data
+
+   def load_cover_link(self, identifier, data_source, cover_directory, mirror):
+       """Load an actual book cover from disk.
+
+       :return: A LinkData containing a cover of the book, or None
+       if no book cover can be found.
+       """
+       cover_filename, cover_media_type, cover_content = self._locate_file(
+           identifier, cover_directory, ['.jpg', '.jpeg', '.png', '.gif'],
+           "cover image"
+       )
+
+       if not cover_content:
+           return None
+       cover_filename = (
+           identifier.identifier
+           + Representation.EXTENSION_FOR_MEDIA_TYPE[book_media_type]
+       )
+       cover_url = mirror.cover_image_url(
+           data_source.name, identifier, cover_filename
+       )
+       cover_link = LinkData(
+           rel=Hyperlink.IMAGE,
+           href=cover_url,
+           media_type=cover_media_type,
+           content=cover_content,
+       )
+       return cover_link
+
+    def _locate_file(self, identifier directory, extensions, file_type="file"):
+        """Find an acceptable file in the given directory.
+
+        :param metadata: Metadata object whose `primary_identifier` will
+        be used when looking for a file.
+
+        :param directory: Look for a file in this directory.
+
+        :param extensions: Any of these extensions for the file is
+        acceptable.
+
+        :param file_type: Human-readable description of the type of
+        file we're looking for. This is used only in a log warning if
+        no file can be found.
+
+        :return: A 3-tuple. (None, None, None) if no file can be
+        found; otherwise (filename, media_type, contents).
+        """
+        identifier = metadata.primary_identifier
+        success_path = None
+        media_type = None
+        attempts = []
+        for extension in extensions:
+            if not extension.startswith('.'):
+                extension = '.' + extension
+                filename = identifier + extension
+            for ext in (extension, extension.upper):
+                path = os.path.join(directory, filename)
+                attempts.append(path)
+                if os.path.exists(path):
+                    media_type = Representation.MEDIA_TYPE_FOR_EXTENSION.get(
+                        extension
+                    )
+                    content = None
+                    with open(path) as fh:
+                        content = fh.read()
+                    return filename, media_type, content
+
+        # If we went through that whole loop without returning,
+        # we have failed.
+        logging.warn(
+            "Could not find %s for %s/%s. Looked in: %s",
+            file_type, identifier.identifier, metadata.title,
+            ", ".join(attempts)
+        )
+        return None, None, None
 
 class LaneResetScript(LibraryInputScript):
     """Reset a library's lanes based on language configuration or estimates
