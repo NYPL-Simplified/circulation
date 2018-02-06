@@ -13,6 +13,11 @@
 # relative to Library Simplified directory/circulation/bin.
 SCRIPT_PATH="$1"
 
+if [[ -z "$SCRIPT_PATH" ]]; then
+  echo "No script provided."
+  exit 126
+fi
+
 # Grab the script name for logging purposes.
 SCRIPT_NAME=$(basename $SCRIPT_PATH)
 
@@ -67,7 +72,7 @@ if [[ ! -f $FULL_SCRIPT_PATH ]]; then
   # The script isn't in the main app bin. Try core.
   FULL_SCRIPT_PATH=$LIBSIMPLE_DIR/core/bin/$SCRIPT_PATH
   if [[ ! -f $FULL_SCRIPT_PATH ]]; then
-    echo "$SCRIPT_NAME wasn't found in $LIBSIMPLE_DIR/bin or $LIBSIMPLE_DIR/core/bin"
+    echo "$SCRIPT_PATH wasn't found in $LIBSIMPLE_DIR/bin or $LIBSIMPLE_DIR/core/bin"
     exit 1
   else
     # This script is in core. Update the log- and pidfiles to reflect this.
