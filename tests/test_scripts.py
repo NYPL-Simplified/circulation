@@ -536,25 +536,33 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(False, self._db.is_modified(self._default_collection))
 
     def test_load_collection_no_site_wide_mirror(self):
+        # Calling load_collection creates a new collection with
+        # the given data source.
         script = DirectoryImportScript(self._db)
         collection, mirror = script.load_collection(
             "A collection", "A data source"
         )
         eq_("A collection", collection.name)
         eq_("A data source", collection.data_source.name)
+        eq_(True, collection.data_source.offers_licenses)
 
         integration = collection.external_integration
         eq_(ExternalIntegration.LICENSE_GOAL, integration.goal)
         eq_(ExternalIntegration.DIRECTORY_IMPORT, 
             integration.protocol)
 
+        # The Collection has no mirror integration because there is no
+        # sitewide storage integration to use.
         eq_(None, collection.mirror_integration)
         eq_(None, mirror)
         
     def test_load_collection_installs_site_wide_mirror(self):
+        # We have a sitewide storage integration.
         integration = self._external_integration("my uploader")
         integration.goal = ExternalIntegration.STORAGE_GOAL
 
+        # Calling load_collection creates a Collection and installs
+        # the sitewide storage integration as its mirror integration.
         script = DirectoryImportScript(self._db)
         collection, mirror = script.load_collection(
             "A collection", "A data source"
