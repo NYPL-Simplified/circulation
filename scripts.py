@@ -1066,7 +1066,8 @@ class DirectoryImportScript(Script):
         metadata_records = self.load_metadata(metadata_file)
         for metadata in metadata_records:
             self.work_from_metadata(
-                metadata, replacement_policy, cover_directory, ebook_directory
+                collection, metadata, replacement_policy, cover_directory, 
+                ebook_directory
             )
             if not dry_run:
                 self._db.commit()
@@ -1127,9 +1128,10 @@ class DirectoryImportScript(Script):
         mirror = MirrorUploader.for_collection(collection)
         return collection, mirror
 
-    def work_from_metadata(self, metadata, policy, cover_directory, 
+    def work_from_metadata(self, collection, metadata, policy, cover_directory, 
                            ebook_directory):
-        identifier = metadata.primary_identifier
+        identifier, ignore = metadata.primary_identifier.load(self._db)
+        data_source = metadata.data_source(self._db)
         mirror = policy.mirror
 
         circulation_data = self.load_circulation_data(
@@ -1155,19 +1157,21 @@ class DirectoryImportScript(Script):
             )
 
         edition, new = metadata.edition(self._db)
-        metadata.apply(edition, replace=policy)
-        [pool] = [x for x in edition.licensed_through
+        metadata.apply(edition, collection, replace=policy)
+        [pool] = [x for x in edition.license_pools
                   if x.data_source == data_source]
         if new:
             self.log.info("Created new edition for %s", edition.title)
         else:
             self.log.info("Updating existing edition for %s", edition.title)
 
-        work, ignore = pool.calculate_work()
-        work.set_presentation_ready()
-        self.log.info(
-            "FINALIZED %s/%s/%s" % (work.title, work.author, work.sort_author)
-        )
+        work, ignore = pool.calculate_work(even_if_no_author=True)
+        if work:
+            work.set_presentation_ready()
+            self.log.info(
+                "FINALIZED %s/%s/%s" % (work.title, work.author, work.sort_author)
+            )
+        return work
 
     def load_circulation_data(self, identifier, ebook_directory, mirror):
         """Load an actual copy of a book from disk.

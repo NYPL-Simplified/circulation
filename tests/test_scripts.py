@@ -29,6 +29,7 @@ from core.lane import (
 from core.metadata_layer import (
     CirculationData,
     IdentifierData,
+    LinkData,
     Metadata,
     ReplacementPolicy,
 )
@@ -40,8 +41,10 @@ from core.model import (
     Credential,
     DataSource,
     ExternalIntegration,
+    Hyperlink,
     Identifier,
     get_one,
+    Representation,
     Timestamp,
 )
 
@@ -507,8 +510,12 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # work_from_metadata was called twice, once on each metadata
         # object.
-        [(o1, policy1, c1, e1),
-         (o2, policy2, c2, e2)] = script.work_from_metadata_calls
+        [(coll1, o1, policy1, c1, e1),
+         (coll2, o2, policy2, c2, e2)] = script.work_from_metadata_calls
+
+        eq_(coll1, self._default_collection)
+        eq_(coll1, coll2)
+
         eq_(o1, metadata1)
         eq_(o2, metadata2)
 
@@ -532,8 +539,8 @@ class TestDirectoryImportScript(DatabaseTest):
         script.run_with_arguments(*(basic_args + [False]))
 
         # The ReplacementPolicy has a mirror set appropriately.
-        [(o1, policy1, c1, e1),
-         (o2, policy2, c2, e2)] = script.work_from_metadata_calls
+        [(coll1, o1, policy1, c1, e1),
+         (coll1, o2, policy2, c2, e2)] = script.work_from_metadata_calls
         for policy in policy1, policy2:
             eq_(mirror, policy.mirror)
 
@@ -597,25 +604,59 @@ class TestDirectoryImportScript(DatabaseTest):
                 self.load_circulation_data_call = args
                 return self.mock_circulation_data
 
-            def load_cover_link(self):
+            def load_cover_link(self, *args):
                 self.load_cover_link_call = args
                 return self.mock_cover_link
 
-        identifier = IdentifierData(Identifier.ISBN, "isbn1")
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1003")
+        identifier_obj, ignore = identifier.load(self._db)
         metadata = Metadata(
             DataSource.GUTENBERG,
             primary_identifier=identifier,
-            title="A book"
+            title=u"A book"
         )
+        datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy.from_license_source(self._db)
         policy.mirror = object()
 
-        # If there is no circulation data, work_from_metadata does
-        # nothing because there is no way to actually get the book.    
-        args = (metadata, policy, "cover directory", "ebook directory")
+        # Test failure: there is no circulation data, and
+        # work_from_metadata does nothing, because there is no way to
+        # actually get the book.
+        collection = self._default_collection
+        args = (collection, metadata, policy, "cover directory", 
+                "ebook directory")
         script = Mock(self._db)
         eq_(None, script.work_from_metadata(*args))
-        eq_((identifier, 'ebook directory', policy.mirror),
+        eq_((identifier_obj, 'ebook directory', policy.mirror),
             script.load_circulation_data_call)
             
-            
+        # Test success: there is circulation data and a cover link.
+        #
+
+        # This CirculationData doesn't make sense for a directory import,
+        # but it's simpler to create this than to mock an open-access
+        # book with a download link.
+        circ = CirculationData(
+            DataSource.GUTENBERG, metadata.primary_identifier,
+            licenses_owned=10, licenses_available=8
+        )
+        with open(self.sample_cover_path('tiny-image-cover.png')) as fh:
+            image = fh.read()
+        cover = LinkData(
+            Hyperlink.IMAGE, media_type=Representation.JPEG_MEDIA_TYPE,
+            content=image
+        )
+        script = Mock(self._db, circ, cover)
+        work = script.work_from_metadata(*args)
+        eq_((identifier_obj, 'ebook directory', policy.mirror),
+            script.load_circulation_data_call)
+        eq_((identifier_obj, datasource, 'cover directory', policy.mirror),
+            script.load_cover_link_call)
+
+        eq_("A book", work.title)
+
+        [pool] = work.license_pools
+        eq_(10, pool.licenses_owned)
+        eq_(8, pool.licenses_available)
+
+        set_trace()
