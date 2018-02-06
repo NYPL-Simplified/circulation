@@ -1061,10 +1061,8 @@ class DirectoryImportScript(Script):
         if dry_run:
             mirror = None
 
-        replacement_policy = ReplacementPolicy(
-            rights=True, links=True, formats=True, contributions=True,
-            mirror=mirror
-        )
+        replacement_policy = ReplacementPolicy.from_license_source(self._db)
+        replacement_policy.mirror = mirror
         metadata_records = self.load_metadata(metadata_file)
         for metadata in metadata_records:
             self.work_from_metadata(
@@ -1129,12 +1127,14 @@ class DirectoryImportScript(Script):
         mirror = MirrorUploader.for_collection(collection)
         return collection, mirror
 
-    def work_from_metadata(self, metadata, policy, cover_directory, ebook_directory):
+    def work_from_metadata(self, metadata, policy, cover_directory, 
+                           ebook_directory):
         identifier = metadata.primary_identifier
         mirror = policy.mirror
-        paths = dict()
 
-        circulation_data = self.load_circulation_data()
+        circulation_data = self.load_circulation_data(
+            identifier, ebook_directory, mirror
+        )
         if not circulation_data:
             # We cannot actually provide access to the book so there
             # is no point in proceeding with the import.
@@ -1143,7 +1143,9 @@ class DirectoryImportScript(Script):
 
         # If a cover image is available, add it to the Metadata
         # as a link.
-        cover_link = self.load_cover_link()
+        cover_link = self.load_cover_link(
+            identifier, data_source, cover_directory, mirror
+        )
         if cover_link:
             metadata.links.append(cover_link)
         else:
@@ -1167,7 +1169,7 @@ class DirectoryImportScript(Script):
             "FINALIZED %s/%s/%s" % (work.title, work.author, work.sort_author)
         )
 
-    def load_circulation_data(self, identifier, ebook_directory, uploader):
+    def load_circulation_data(self, identifier, ebook_directory, mirror):
         """Load an actual copy of a book from disk.
 
         :return: A CirculationData that contains the book as an open-access
@@ -1182,7 +1184,7 @@ class DirectoryImportScript(Script):
             # no point in proceeding.
             return
 
-        book_url = uploader.book_url(
+        book_url = mirror.book_url(
             identifier,
             Representation.EXTENSION_FOR_MEDIA_TYPE[book_media_type]
         )

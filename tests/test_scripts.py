@@ -26,6 +26,13 @@ from core.lane import (
     Facets,
 )
 
+from core.metadata_layer import (
+    CirculationData,
+    IdentifierData,
+    Metadata,
+    ReplacementPolicy,
+)
+
 from core.model import (
     CachedFeed,
     ConfigurationSetting,
@@ -33,6 +40,7 @@ from core.model import (
     Credential,
     DataSource,
     ExternalIntegration,
+    Identifier,
     get_one,
     Timestamp,
 )
@@ -482,8 +490,8 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # Make a change to a model object so we can track when the
         # session is committed.
+        from core.analytics import Analytics
         self._default_collection.name = 'changed'
-        eq_(True, self._db.is_modified(self._default_collection))
 
         script = Mock(self._db)
         basic_args = ["collection name", "data source name", "metadata file",
@@ -519,9 +527,6 @@ class TestDirectoryImportScript(DatabaseTest):
             eq_(True, policy.contributions)
             eq_(True, policy.rights)
 
-        # Our pending change to the database was not committed.
-        eq_(True, self._db.is_modified(self._default_collection))
-
         # Now try it not as a dry run.
         script = Mock(self._db)
         script.run_with_arguments(*(basic_args + [False]))
@@ -531,9 +536,6 @@ class TestDirectoryImportScript(DatabaseTest):
          (o2, policy2, c2, e2)] = script.work_from_metadata_calls
         for policy in policy1, policy2:
             eq_(mirror, policy.mirror)
-
-        # Our pending change to the database was committed.
-        eq_(False, self._db.is_modified(self._default_collection))
 
     def test_load_collection_no_site_wide_mirror(self):
         # Calling load_collection creates a new collection with
@@ -576,3 +578,44 @@ class TestDirectoryImportScript(DatabaseTest):
             "A collection", "A data source"
         )
         eq_(collection2, collection)
+
+    def test_work_from_metadata(self):
+        class Mock(DirectoryImportScript):
+            """Mock the methods called by work_from_metadata."""
+
+            def __init__(self, _db, mock_circulation_data=None, 
+                         mock_cover_link=None):
+                super(Mock, self).__init__(_db)
+                self.load_circulation_data_call = None
+                self.mock_circulation_data = mock_circulation_data
+
+                self.load_cover_link_call = None
+                self.mock_cover_link = mock_cover_link
+
+
+            def load_circulation_data(self, *args):
+                self.load_circulation_data_call = args
+                return self.mock_circulation_data
+
+            def load_cover_link(self):
+                self.load_cover_link_call = args
+                return self.mock_cover_link
+
+        identifier = IdentifierData(Identifier.ISBN, "isbn1")
+        metadata = Metadata(
+            DataSource.GUTENBERG,
+            primary_identifier=identifier,
+            title="A book"
+        )
+        policy = ReplacementPolicy.from_license_source(self._db)
+        policy.mirror = object()
+
+        # If there is no circulation data, work_from_metadata does
+        # nothing because there is no way to actually get the book.    
+        args = (metadata, policy, "cover directory", "ebook directory")
+        script = Mock(self._db)
+        eq_(None, script.work_from_metadata(*args))
+        eq_((identifier, 'ebook directory', policy.mirror),
+            script.load_circulation_data_call)
+            
+            
