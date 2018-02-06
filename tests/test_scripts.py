@@ -48,6 +48,8 @@ from core.model import (
     Timestamp,
 )
 
+from core.s3 import MockS3Uploader
+
 from core.util.mirror import MirrorUploader
 
 from . import (
@@ -439,6 +441,19 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
         )
 
 
+class MockDirectoryImportScript(DirectoryImportScript):
+    """Mock a filesystem to make it easier to test DirectoryInputScript."""
+
+    def __init__(self, _db, mock_filesystem={}):
+        super(MockDirectoryImportScript, self).__init__(_db)
+        self.mock_filesystem = mock_filesystem
+
+    def _locate_file(self, identifier, directory, *args):
+        return self.mock_filesystem.get(
+            directory, (None, None, None)
+        )
+
+
 class TestDirectoryImportScript(DatabaseTest):
 
     def test_do_run(self):
@@ -587,27 +602,6 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(collection2, collection)
 
     def test_work_from_metadata(self):
-        class Mock(DirectoryImportScript):
-            """Mock the methods called by work_from_metadata."""
-
-            def __init__(self, _db, mock_circulation_data=None, 
-                         mock_cover_link=None):
-                super(Mock, self).__init__(_db)
-                self.load_circulation_data_call = None
-                self.mock_circulation_data = mock_circulation_data
-
-                self.load_cover_link_call = None
-                self.mock_cover_link = mock_cover_link
-
-
-            def load_circulation_data(self, *args):
-                self.load_circulation_data_call = args
-                return self.mock_circulation_data
-
-            def load_cover_link(self, *args):
-                self.load_cover_link_call = args
-                return self.mock_cover_link
-
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1003")
         identifier_obj, ignore = identifier.load(self._db)
         metadata = Metadata(
@@ -617,46 +611,56 @@ class TestDirectoryImportScript(DatabaseTest):
         )
         datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy.from_license_source(self._db)
-        policy.mirror = object()
+        mirror = MockS3Uploader()
+        policy.mirror = mirror
 
-        # Test failure: there is no circulation data, and
-        # work_from_metadata does nothing, because there is no way to
-        # actually get the book.
+        # Here, work_from_metadata does nothing because there are no
+        # files 'on disk' and thus no way to actually get the book.
         collection = self._default_collection
         args = (collection, metadata, policy, "cover directory", 
                 "ebook directory")
-        script = Mock(self._db)
+        script = MockDirectoryImportScript(self._db)
         eq_(None, script.work_from_metadata(*args))
-        eq_((identifier_obj, 'ebook directory', policy.mirror),
-            script.load_circulation_data_call)
-            
-        # Test success: there is circulation data and a cover link.
-        #
-
-        # This CirculationData doesn't make sense for a directory import,
-        # but it's simpler to create this than to mock an open-access
-        # book with a download link.
-        circ = CirculationData(
-            DataSource.GUTENBERG, metadata.primary_identifier,
-            licenses_owned=10, licenses_available=8
-        )
-        with open(self.sample_cover_path('tiny-image-cover.png')) as fh:
+         
+        # Now let's try it with some files 'on disk'.
+        with open(self.sample_cover_path('test-book-cover.png')) as fh:
             image = fh.read()
-        cover = LinkData(
-            Hyperlink.IMAGE, media_type=Representation.JPEG_MEDIA_TYPE,
-            content=image
+        mock_filesystem = {
+            'cover directory' : (
+                'cover.jpg', Representation.JPEG_MEDIA_TYPE, image
+            ),
+            'ebook directory' : (
+                'book.epub', Representation.EPUB_MEDIA_TYPE, "I'm an EPUB."
+            )
+        }
+        script = MockDirectoryImportScript(
+            self._db, mock_filesystem=mock_filesystem
         )
-        script = Mock(self._db, circ, cover)
         work = script.work_from_metadata(*args)
-        eq_((identifier_obj, 'ebook directory', policy.mirror),
-            script.load_circulation_data_call)
-        eq_((identifier_obj, datasource, 'cover directory', policy.mirror),
-            script.load_cover_link_call)
 
+        # We have created a book. It has a cover image, which has a
+        # thumbnail.
         eq_("A book", work.title)
-
+        assert work.cover_full_url.endswith(
+            '/test.cover.bucket/Gutenberg/Gutenberg%20ID/1003/1003.jpg'
+        )
+        assert work.cover_thumbnail_url.endswith(
+            '/test.cover.bucket/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png'
+        )
         [pool] = work.license_pools
-        eq_(10, pool.licenses_owned)
-        eq_(8, pool.licenses_available)
+        assert pool.open_access_download_url.endswith(
+            '/test.content.bucket/Gutenberg/Gutenberg%20ID/1003/A%20book.epub'
+        )
 
-        set_trace()
+        # The mock S3Uploader has a record of 'uploading' all these files
+        # to S3.
+        epub, full, thumbnail = mirror.uploaded
+        eq_(epub.url, pool.open_access_download_url)
+        eq_(full.url, work.cover_full_url)
+        eq_(thumbnail.url, work.cover_thumbnail_url)
+
+        # The EPUB Representation was cleared out after the upload, to
+        # save database space.
+        eq_("I'm an EPUB.", mirror.content[0])
+        eq_(None, epub.content)
+

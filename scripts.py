@@ -27,7 +27,12 @@ from psycopg2.extras import NumericRange
 from core import log
 from core.lane import Lane
 from core.classifier import Classifier
-from core.metadata_layer import ReplacementPolicy
+from core.metadata_layer import (
+    CirculationData,
+    FormatData,
+    ReplacementPolicy,
+    LinkData,
+)
 from core.model import (
     CirculationEvent,
     Collection,
@@ -1128,18 +1133,48 @@ class DirectoryImportScript(Script):
         mirror = MirrorUploader.for_collection(collection)
         return collection, mirror
 
-    def work_from_metadata(self, collection, metadata, policy, cover_directory, 
-                           ebook_directory):
+    def work_from_metadata(self, collection, metadata, policy, *args, **kwargs):
+        self.annotate_metadata(metadata, policy, *args, **kwargs)
+
+        if not metadata.circulation:
+            # We cannot actually provide access to the book so there
+            # is no point in proceeding with the import.
+            return
+        
+        edition, new = metadata.edition(self._db)
+        metadata.apply(edition, collection, replace=policy)
+        data_source = metadata.data_source(self._db)
+        [pool] = [x for x in edition.license_pools
+                  if x.data_source == data_source]
+        if new:
+            self.log.info("Created new edition for %s", edition.title)
+        else:
+            self.log.info("Updating existing edition for %s", edition.title)
+
+        work, ignore = pool.calculate_work(even_if_no_author=True)
+        if work:
+            work.set_presentation_ready()
+            self.log.info(
+                "FINALIZED %s/%s/%s" % (work.title, work.author, work.sort_author)
+            )
+        return work
+
+
+    def annotate_metadata(self, metadata, policy, 
+                          cover_directory, ebook_directory):
+        """Add a CirculationData and possibly an extra LinkData
+        to `metadata`.
+        """
         identifier, ignore = metadata.primary_identifier.load(self._db)
         data_source = metadata.data_source(self._db)
         mirror = policy.mirror
 
         circulation_data = self.load_circulation_data(
-            identifier, ebook_directory, mirror
+            identifier, data_source, ebook_directory, mirror,
+            metadata.title
         )
         if not circulation_data:
-            # We cannot actually provide access to the book so there
-            # is no point in proceeding with the import.
+            # There is no point in contining.
             return
         metadata.circulation = circulation_data
 
@@ -1156,30 +1191,15 @@ class DirectoryImportScript(Script):
                 identifier
             )
 
-        edition, new = metadata.edition(self._db)
-        metadata.apply(edition, collection, replace=policy)
-        [pool] = [x for x in edition.license_pools
-                  if x.data_source == data_source]
-        if new:
-            self.log.info("Created new edition for %s", edition.title)
-        else:
-            self.log.info("Updating existing edition for %s", edition.title)
 
-        work, ignore = pool.calculate_work(even_if_no_author=True)
-        if work:
-            work.set_presentation_ready()
-            self.log.info(
-                "FINALIZED %s/%s/%s" % (work.title, work.author, work.sort_author)
-            )
-        return work
-
-    def load_circulation_data(self, identifier, ebook_directory, mirror):
+    def load_circulation_data(self, identifier, data_source, ebook_directory, 
+                              mirror, title):
         """Load an actual copy of a book from disk.
 
         :return: A CirculationData that contains the book as an open-access
         download, or None if no such book can be found.
         """
-        book_media_type, book_content = self._locate_file(
+        ignore, book_media_type, book_content = self._locate_file(
             identifier, ebook_directory, ['.epub', '.pdf'],
             "ebook file",
         )
@@ -1190,7 +1210,9 @@ class DirectoryImportScript(Script):
 
         book_url = mirror.book_url(
             identifier,
-            Representation.EXTENSION_FOR_MEDIA_TYPE[book_media_type]
+            '.' + Representation.FILE_EXTENSIONS[book_media_type],
+            data_source=data_source,
+            title=title
         )
         book_link = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
@@ -1206,8 +1228,8 @@ class DirectoryImportScript(Script):
             )
         ]
         circulation_data = CirculationData(
-            data_source_name,
-            primary_identifier,
+            data_source.name,
+            identifier,
             links=[book_link],
             formats=formats,
         )
@@ -1228,10 +1250,10 @@ class DirectoryImportScript(Script):
            return None
        cover_filename = (
            identifier.identifier
-           + Representation.EXTENSION_FOR_MEDIA_TYPE[book_media_type]
+           + '.' + Representation.FILE_EXTENSIONS[cover_media_type]
        )
        cover_url = mirror.cover_image_url(
-           data_source.name, identifier, cover_filename
+           data_source, identifier, cover_filename
        )
        cover_link = LinkData(
            rel=Hyperlink.IMAGE,
