@@ -29,6 +29,7 @@ from core.lane import Lane
 from core.classifier import Classifier
 from core.model import (
     CirculationEvent,
+    Collection,
     ConfigurationSetting,
     Contribution,
     Credential,
@@ -1029,24 +1030,7 @@ class DirectoryImportScript(Script):
         )
         return parser
 
-    def create_collection(self, data_source_name):
-        name = data_source_name
-        collection, is_new = Collection.by_name_and_protocol(
-            self._db, name, ExternalIntegration.DIRECTORY_IMPORT
-        )
-
-        if not collection.data_source:
-            collection.external_integration.set_setting(
-                Collection.DATA_SOURCE_NAME_SETTING, data_source_name
-            )
-
-        if is_new:
-            library = self._db.query(Library).one()
-            collection.libraries.append(library)
-            self.log.info("CREATED Collection for %s: %r" % (
-                    data_source_name, collection))
-
-    def do_run(self, *args, **kwargs):
+    def do_run(self, cmd_args=None):
         parser = self.arg_parser(self._db)
         parsed = parser.parse_args(cmd_args)
         collection_name = parsed.data_source_name
@@ -1127,8 +1111,16 @@ class DirectoryImportScript(Script):
         )
 
     def load_collection(self, collection_name, data_source_name):
-        """Create or locate a Collection and make sure a MirrorUploader
-        can be instantiated for it.
+        """Create or locate a Collection with the given name.
+
+        If the Collection needs to be created, it will be associated
+        with the given data source and (if configured) the site-wide
+        mirror configuration.
+
+        :param collection_name: Name of the Collection.
+        :param data_source_name: Associate this data source with
+            the Collection if it does not already have a data source.
+            A DataSource object will be created if necessary.
 
         :return: A 2-tuple (Collection, MirrorUploader)
         """
@@ -1139,33 +1131,39 @@ class DirectoryImportScript(Script):
         if is_new:
             self.log.info("CREATED Collection for %s: %r" % (
                     data_source_name, collection))
-            self.log.warn("The new Collection is not associated with any libraries; you must do this yourself through the admin interface.")
+            self.log.warn(
+                "The new Collection is not associated with any libraries; you must do this yourself through the admin interface."
+            )
 
-        if not collection.data_source:
             data_source = DataSource.lookup(
-                data_source_name, autocreate=True, offers_licenses=True
+                self._db, data_source_name, autocreate=True,
+                offers_licenses=True
             )
             collection.external_integration.set_setting(
                 Collection.DATA_SOURCE_NAME_SETTING, data_source.name
             )
             self.log.info(
                 "Associated Collection %s with data source %s",
-                collection.name, data_source_name
+                collection.name, data_source.name
             )
 
-        # Ensure we can get a MirrorUploader for the Collection. If
-        # this is not possible, `sitewide_integration` will raise
-        # CannotLoadConfiguration.
+            try:
+                mirror_integration = MirrorUploader.sitewide_integration(
+                    self._db
+                )
+            except CannotLoadConfiguration, e:
+                # There is no sitewide mirror configuration, or else
+                # there is more than one. Either way, we can't
+                # associate a mirror integration with the new collection.
+                mirror_integration = None
+
+            if mirror_integration:
+                collection.mirror_integration = mirror_integration
+                self.log.info(
+                    "Associated Collection %s with the sitewide storage integration.",
+                    collection.name
+                )
         mirror = MirrorUploader.for_collection(collection)
-        if not mirror:
-            integration = MirrorUploader.sitewide_integration(self._db)
-            self.log.info(
-                "Associated Collection %s with the sitewide storage integration.",
-                collection.name
-            )
-            collection.mirror_integration = integration
-            mirror = MirrorUploader.implementation(integration)
-
         return collection, mirror
 
     def load_circulation_data(self, identifier, ebook_directory, uploader):

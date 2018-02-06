@@ -32,9 +32,12 @@ from core.model import (
     create,
     Credential,
     DataSource,
+    ExternalIntegration,
     get_one,
     Timestamp,
 )
+
+from core.util.mirror import MirrorUploader
 
 from . import (
     DatabaseTest,
@@ -428,17 +431,57 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
 class TestDirectoryImportScript(DatabaseTest):
 
     def test_do_run(self):
+        """Calling do_run with command-line arguments parses the
+        arguments and calls run_with_arguments.
+        """
         class Mock(DirectoryImportScript):
-            def run_with_arguments(self, **kwargs):
-                self.ran_with = kwargs
+            def run_with_arguments(self, *args):
+                self.ran_with = args
                 
         script = Mock(self._db)
-        script.do_run(cmd_args=[
-            "--collection-name=coll1",
-            "--data-source-name=ds1",
-            "--metadata-file=metadata",
-            "--cover-directory=covers",
-            "--ebook-directory=ebooks",
-            "--dry-run"
-        ])
-        set_trace()
+        script.do_run(
+            cmd_args=[
+                "--collection-name=coll1",
+                "--data-source-name=ds1",
+                "--metadata-file=metadata",
+                "--cover-directory=covers",
+                "--ebook-directory=ebooks",
+                "--dry-run"
+            ]
+        )
+        eq_(('ds1', 'ds1', 'metadata', 'covers', 'ebooks', True), 
+            script.ran_with)
+
+    def test_load_collection_no_site_wide_mirror(self):
+        script = DirectoryImportScript(self._db)
+        collection, mirror = script.load_collection(
+            "A collection", "A data source"
+        )
+        eq_("A collection", collection.name)
+        eq_("A data source", collection.data_source.name)
+
+        integration = collection.external_integration
+        eq_(ExternalIntegration.LICENSE_GOAL, integration.goal)
+        eq_(ExternalIntegration.DIRECTORY_IMPORT, 
+            integration.protocol)
+
+        eq_(None, collection.mirror_integration)
+        eq_(None, mirror)
+        
+    def test_load_collection_installs_site_wide_mirror(self):
+        integration = self._external_integration("my uploader")
+        integration.goal = ExternalIntegration.STORAGE_GOAL
+
+        script = DirectoryImportScript(self._db)
+        collection, mirror = script.load_collection(
+            "A collection", "A data source"
+        )
+        eq_(integration, collection.mirror_integration)
+        assert isinstance(mirror, MirrorUploader)
+
+        # Calling create_collection again with the same arguments does
+        # nothing.
+        collection2, mirror2 = script.load_collection(
+            "A collection", "A data source"
+        )
+        eq_(collection2, collection)
