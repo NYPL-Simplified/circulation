@@ -460,7 +460,7 @@ class TestDirectoryImportScript(DatabaseTest):
         mirror = object()
 
         class Mock(DirectoryImportScript):
-
+            """Mock the methods called by run_with_arguments."""
             def __init__(self, _db):
                 super(DirectoryImportScript, self).__init__(_db)
                 self.load_collection_calls = []
@@ -479,6 +479,12 @@ class TestDirectoryImportScript(DatabaseTest):
                 self.work_from_metadata_calls.append(args)
 
         # First, try a dry run.
+
+        # Make a change to a model object so we can track when the
+        # session is committed.
+        self._default_collection.name = 'changed'
+        eq_(True, self._db.is_modified(self._default_collection))
+
         script = Mock(self._db)
         basic_args = ["collection name", "data source name", "metadata file",
                       "cover directory", "ebook directory"]
@@ -494,13 +500,40 @@ class TestDirectoryImportScript(DatabaseTest):
         # work_from_metadata was called twice, once on each metadata
         # object.
         [(o1, policy1, c1, e1),
-         (o2, policy1, c1, e1)] = script.work_from_metadata_calls
+         (o2, policy2, c2, e2)] = script.work_from_metadata_calls
         eq_(o1, metadata1)
         eq_(o2, metadata2)
+
         eq_(c1, 'cover directory')
         eq_(c1, c2)
+
         eq_(e1, 'ebook directory')
         eq_(e1, e2)
+
+        # Since this is a dry run, the ReplacementPolicy has no mirror
+        # set.
+        for policy in (policy1, policy2):
+            eq_(None, policy.mirror)
+            eq_(True, policy.links)
+            eq_(True, policy.formats)
+            eq_(True, policy.contributions)
+            eq_(True, policy.rights)
+
+        # Our pending change to the database was not committed.
+        eq_(True, self._db.is_modified(self._default_collection))
+
+        # Now try it not as a dry run.
+        script = Mock(self._db)
+        script.run_with_arguments(*(basic_args + [False]))
+
+        # The ReplacementPolicy has a mirror set appropriately.
+        [(o1, policy1, c1, e1),
+         (o2, policy2, c2, e2)] = script.work_from_metadata_calls
+        for policy in policy1, policy2:
+            eq_(mirror, policy.mirror)
+
+        # Our pending change to the database was committed.
+        eq_(False, self._db.is_modified(self._default_collection))
 
     def test_load_collection_no_site_wide_mirror(self):
         script = DirectoryImportScript(self._db)
