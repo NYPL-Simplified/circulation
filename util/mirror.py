@@ -25,14 +25,14 @@ class MirrorUploader(object):
         goal==STORAGE_GOAL is configured, or if multiple integrations
         are so configured.
         """
-        from config import CannotLoadConfiguration
-
-        from model import ExternalIntegration as EI
+        integration = cls.sitewide_integration(_db)
         return cls.implementation(integration)
 
     @classmethod
     def sitewide_integration(cls, _db):
         """Find the ExternalIntegration for the site-wide mirror."""
+        from ..config import CannotLoadConfiguration
+        from ..model import ExternalIntegration as EI
         qu = _db.query(EI).filter(EI.goal==cls.STORAGE_GOAL)
         integrations = qu.all()
         if not integrations:
@@ -81,7 +81,7 @@ class MirrorUploader(object):
         :param integration: An ExternalIntegration configuring the credentials
            used to upload things.
         """
-        from config import CannotLoadConfiguration
+        from ..config import CannotLoadConfiguration
         if integration.goal != self.STORAGE_GOAL:
             # This collection's 'mirror integration' isn't intended to
             # be used to mirror anything.
