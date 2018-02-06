@@ -344,9 +344,11 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(pool.identifier.urn, metadata['identifier'])
         eq_('en', metadata['language'])
 
-        # Information about the license has been added to an 'encryption'
+        # Information about the license has been added to an 'encrypted'
         # object within metadata.
         encrypted = metadata['encrypted']
+        eq_(u'http://librarysimplified.org/terms/drm/scheme/FAE',
+            encrypted['scheme'])
         eq_(u'abcdef01234789abcdef0123', encrypted[u'findaway:checkoutId'])
         eq_(u'1234567890987654321ababa', encrypted[u'findaway:licenseId'])
         eq_(u'3M', encrypted[u'findaway:accountId'])

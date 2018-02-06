@@ -352,7 +352,9 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
 
         # Add Findaway-specific DRM information as an 'encrypted' object
         # within the metadata object.
-        encrypted = dict()
+        encrypted = dict(
+            scheme='http://librarysimplified.org/terms/drm/scheme/FAE'
+        )
         manifest.metadata['encrypted'] = encrypted
         for findaway_extension in [
                 'accountId', 'checkoutId', 'fulfillmentId', 'licenseId',
