@@ -27,6 +27,7 @@ from psycopg2.extras import NumericRange
 from core import log
 from core.lane import Lane
 from core.classifier import Classifier
+from core.metadata_layer import ReplacementPolicy
 from core.model import (
     CirculationEvent,
     Collection,
@@ -1050,10 +1051,10 @@ class DirectoryImportScript(Script):
             metadata_file, cover_directory, ebook_directory, dry_run
     ):
         if dry_run:
-            self.logging.warn(
+            self.log.warn(
                 "This is a dry run. No files will be uploaded and nothing will change in the database."
             )
-        collection, mirror = self.create_collection(
+        collection, mirror = self.load_collection(
             collection_name, data_source_name
         )
 
@@ -1066,49 +1067,11 @@ class DirectoryImportScript(Script):
         )
         metadata_records = self.load_metadata(metadata_file)
         for metadata in metadata_records:
-            work = self.work_from_metadata(
-                metadata, policy, cover_directory, ebook_directory
+            self.work_from_metadata(
+                metadata, replacement_policy, cover_directory, ebook_directory
             )
             if not dry_run:
                 self._db.commit()
-
-    def work_from_metadata(self, metadata, policy, cover_directory, ebook_directory):
-        identifier = metadata.primary_identifier
-        mirror = policy.mirror
-        paths = dict()
-
-        circulation_data = self.load_circulation_data()
-        if not circulation_data:
-            # We cannot actually provide access to the book so there
-            # is no point in proceeding with the import.
-            return
-        metadata.circulation = circulation_data
-
-        # If a cover image is available, add it to the Metadata
-        # as a link.
-        cover_link = self.load_cover_link()
-        if cover_link:
-            metadata.links.append(cover_link)
-        else:
-            logging.info(
-                "Proceeding with import even though %r has no cover.",
-                identifier
-            )
-
-        edition, new = metadata.edition(self._db)
-        metadata.apply(edition, replace=policy)
-        [pool] = [x for x in edition.licensed_through
-                  if x.data_source == data_source]
-        if new:
-            self.logging.info("Created new edition for %s", edition.title)
-        else:
-            self.logging.info("Updating existing edition for %s", edition.title)
-
-        work, ignore = pool.calculate_work()
-        work.set_presentation_ready()
-        self.log.info(
-            "FINALIZED %s/%s/%s" % (work.title, work.author, work.sort_author)
-        )
 
     def load_collection(self, collection_name, data_source_name):
         """Create or locate a Collection with the given name.
@@ -1165,6 +1128,44 @@ class DirectoryImportScript(Script):
                 )
         mirror = MirrorUploader.for_collection(collection)
         return collection, mirror
+
+    def work_from_metadata(self, metadata, policy, cover_directory, ebook_directory):
+        identifier = metadata.primary_identifier
+        mirror = policy.mirror
+        paths = dict()
+
+        circulation_data = self.load_circulation_data()
+        if not circulation_data:
+            # We cannot actually provide access to the book so there
+            # is no point in proceeding with the import.
+            return
+        metadata.circulation = circulation_data
+
+        # If a cover image is available, add it to the Metadata
+        # as a link.
+        cover_link = self.load_cover_link()
+        if cover_link:
+            metadata.links.append(cover_link)
+        else:
+            logging.info(
+                "Proceeding with import even though %r has no cover.",
+                identifier
+            )
+
+        edition, new = metadata.edition(self._db)
+        metadata.apply(edition, replace=policy)
+        [pool] = [x for x in edition.licensed_through
+                  if x.data_source == data_source]
+        if new:
+            self.log.info("Created new edition for %s", edition.title)
+        else:
+            self.log.info("Updating existing edition for %s", edition.title)
+
+        work, ignore = pool.calculate_work()
+        work.set_presentation_ready()
+        self.log.info(
+            "FINALIZED %s/%s/%s" % (work.title, work.author, work.sort_author)
+        )
 
     def load_circulation_data(self, identifier, ebook_directory, uploader):
         """Load an actual copy of a book from disk.

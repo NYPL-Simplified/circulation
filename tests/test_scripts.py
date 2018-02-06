@@ -452,6 +452,56 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(('ds1', 'ds1', 'metadata', 'covers', 'ebooks', True), 
             script.ran_with)
 
+    def test_run_with_arguments(self):
+
+        metadata1 = object()
+        metadata2 = object()
+        collection = self._default_collection
+        mirror = object()
+
+        class Mock(DirectoryImportScript):
+
+            def __init__(self, _db):
+                super(DirectoryImportScript, self).__init__(_db)
+                self.load_collection_calls = []
+                self.load_metadata_calls = []
+                self.work_from_metadata_calls = []
+
+            def load_collection(self, *args):
+                self.load_collection_calls.append(args)
+                return collection, mirror
+
+            def load_metadata(self, *args, **kwargs):
+                self.load_metadata_calls.append(args)
+                return [metadata1, metadata2]
+
+            def work_from_metadata(self, *args):
+                self.work_from_metadata_calls.append(args)
+
+        # First, try a dry run.
+        script = Mock(self._db)
+        basic_args = ["collection name", "data source name", "metadata file",
+                      "cover directory", "ebook directory"]
+        script.run_with_arguments(*(basic_args + [True]))
+
+        # load_collection was called with the collection and data source names.
+        eq_([('collection name', 'data source name')], 
+            script.load_collection_calls)
+
+        # load_metadata was called with the metadata file.
+        eq_([('metadata file',)], script.load_metadata_calls)
+
+        # work_from_metadata was called twice, once on each metadata
+        # object.
+        [(o1, policy1, c1, e1),
+         (o2, policy1, c1, e1)] = script.work_from_metadata_calls
+        eq_(o1, metadata1)
+        eq_(o2, metadata2)
+        eq_(c1, 'cover directory')
+        eq_(c1, c2)
+        eq_(e1, 'ebook directory')
+        eq_(e1, e2)
+
     def test_load_collection_no_site_wide_mirror(self):
         script = DirectoryImportScript(self._db)
         collection, mirror = script.load_collection(
