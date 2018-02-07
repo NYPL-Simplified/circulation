@@ -480,7 +480,7 @@ class TestDirectoryImportScript(DatabaseTest):
                 "--dry-run"
             ]
         )
-        eq_(('ds1', 'ds1', 'metadata', 'covers', 'ebooks', 'rights', True),
+        eq_(('coll1', 'ds1', 'metadata', 'covers', 'ebooks', 'rights', True),
             script.ran_with)
 
     def test_run_with_arguments(self):
