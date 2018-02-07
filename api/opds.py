@@ -37,7 +37,7 @@ from core.lane import (
     Lane,
     WorkList,
 )
-from api.lanes import DynamicLane
+from api.lanes import DynamicLane, CrawlableCustomListBasedLane
 from core.app_server import cdn_url_for
 
 from adobe_vendor_id import AuthdataUtility
@@ -251,8 +251,12 @@ class CirculationManagerAnnotator(Annotator):
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
+        updated = None
+        if isinstance(self.lane, CrawlableCustomListBasedLane) and isinstance(work, BaseMaterializedWork):
+            updated = max(work.last_update_time, work.first_appearance)
+
         Annotator.annotate_work_entry(
-            work, active_license_pool, edition, identifier, feed, entry
+            work, active_license_pool, edition, identifier, feed, entry, updated
         )
         active_loan = self.active_loans_by_work.get(work)
         active_hold = self.active_holds_by_work.get(work)
@@ -470,6 +474,19 @@ class CirculationManagerAnnotator(Annotator):
             type=AnnotationWriter.CONTENT_TYPE,
             href=self.url_for('annotations', library_short_name=self.library.short_name, _external=True))
         feed.add_link_to_feed(feed.feed, **annotations_link)
+
+        if lane and lane.uses_customlists and len(lane.customlists) == 1:
+            crawlable_url = self.url_for(
+                "crawlable_feed", list_name=lane.customlists[0].name,
+                library_short_name=self.library.short_name,
+                _external=True
+            )
+            crawlable_link = dict(
+                rel="http://opds-spec.org/crawlable",
+                type=OPDSFeed.ACQUISITION_FEED_TYPE,
+                href=crawlable_url,
+            )
+            feed.add_link_to_feed(feed.feed, **crawlable_link)
 
         self.add_configuration_links(feed)
         

@@ -969,7 +969,7 @@ class TestWorkController(AdminControllerTest):
             response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
             eq_(200, response.status_code)
             eq_(1, len(work.custom_list_entries))
-            new_list = CustomList.find(self._db, staff_data_source, "new list", self._default_library)
+            new_list = CustomList.find(self._db, "new list", staff_data_source, self._default_library)
             eq_(new_list, work.custom_list_entries[0].customlist)
             eq_(True, work.custom_list_entries[0].featured)
 

@@ -149,6 +149,13 @@ NO_SUCH_LANE = pd(
       _("You asked for a nonexistent lane."),
 )
 
+NO_SUCH_LIST = pd(
+      "http://librarysimplified.org/terms/problem/unknown-list",
+      404,
+      _("No such list."),
+      _("You asked for a nonexistent list."),
+)
+
 FORBIDDEN_BY_POLICY = pd(
       "http://librarysimplified.org/terms/problem/forbidden-by-policy",
       403,

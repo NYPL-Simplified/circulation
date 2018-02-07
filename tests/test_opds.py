@@ -27,6 +27,7 @@ from core.model import (
     PresentationCalculationPolicy,
     Representation,
     RightsStatus,
+    SessionManager,
     Work,
 )
 
@@ -68,7 +69,7 @@ from api.opds import (
 from api.testing import VendorIDTest
 from api.adobe_vendor_id import AuthdataUtility
 from api.novelist import NoveListAPI
-from api.lanes import ContributorLane
+from api.lanes import ContributorLane, CrawlableCustomListBasedLane
 import jwt
 
 _strftime = AtomFeed._strftime
@@ -543,6 +544,47 @@ class TestOPDS(VendorIDTest):
         [entry] = feed.entries
         self.assert_link_on_entry(entry, partials_by_rel=rel_with_partials)
 
+    def test_work_entry_includes_updated(self):
+        work = self._work(with_open_access_download=True)
+        work.last_update_time = datetime.datetime(2018, 2, 4, 0, 0, 0)
+        self.add_to_materialized_view([work])
+
+        feed = self.get_parsed_feed([work])
+        [entry] = feed.entries
+        assert '2018-02-04' in entry.get("updated")
+
+        # If this is a lane based on one list, the work's first appearance on the list may
+        # be used instead of the work's update time.
+        list, ignore = self._customlist()
+        list_entry, ignore = list.add_entry(work)
+        list_entry.first_appearance = datetime.datetime(2018, 2, 5, 0, 0, 0)
+        lane = CrawlableCustomListBasedLane()
+        lane.initialize(self._default_library, list)
+        SessionManager.refresh_materialized_views(self._db)
+        from core.model import MaterializedWorkWithGenre as work_model
+        mw = self._db.query(work_model).filter(work_model.works_id==work.id).one()
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [mw],
+            CirculationManagerAnnotator(None, lane, self._default_library, test_mode=True)
+        )
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed.entries
+        assert '2018-02-05' in entry.get("updated")
+
+        # But if the last updated time is more recent than the first appearance,
+        # it's still used.
+        work.last_update_time = datetime.datetime(2018, 2, 6, 0, 0, 0)
+        self._db.flush()
+        SessionManager.refresh_materialized_views(self._db)
+        mw = self._db.query(work_model).filter(work_model.works_id==work.id).one()
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [mw],
+            CirculationManagerAnnotator(None, lane, self._default_library, test_mode=True)
+        )
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed.entries
+        assert '2018-02-06' in entry.get("updated")
+
     def test_active_loan_feed(self):
         self.initialize_adobe(self._default_library)
         patron = self._patron()
@@ -864,3 +906,45 @@ class TestOPDS(VendorIDTest):
             identifier, None, [epub_mechanism, kindle_mechanism]
         )
         assert link != None
+
+    def test_feed_includes_lane_links(self):
+        lane = self._lane()
+        annotator = CirculationManagerAnnotator(None, lane, self._default_library, test_mode=True)
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [], annotator
+        )
+        annotator.annotate_feed(feed, lane)
+        raw = unicode(feed)
+        parsed = feedparser.parse(raw)['feed']
+        links = parsed['links']
+
+        [search_link] = [x for x in links if x['rel'].lower() == "search".lower()]
+        assert '/lane_search' in search_link['href']
+        assert str(lane.id) in search_link['href']
+
+        # This lane isn't based on a custom list, so there's no crawlable link.
+        crawlable_links = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
+        eq_(0, len(crawlable_links))
+
+        # It's also not crawlable if it's based on multiple lists.
+        list1, ignore = self._customlist()
+        list2, ignore = self._customlist()
+        lane.customlists = [list1, list2]
+        annotator.annotate_feed(feed, lane)
+        raw = unicode(feed)
+        parsed = feedparser.parse(raw)['feed']
+        links = parsed['links'] 
+        # This lane isn't based on a custom list, so there's no crawlable link.
+        crawlable_links = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
+        eq_(0, len(crawlable_links))
+
+        # But if it's based on one list, it gets a crawlable link.
+        lane.customlists = [list1]
+        annotator.annotate_feed(feed, lane)
+        raw = unicode(feed)
+        parsed = feedparser.parse(raw)['feed']
+        links = parsed['links'] 
+
+        [crawlable_link] = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
+        assert '/crawlable_feed' in crawlable_link['href']
+        assert str(list1.name) in crawlable_link['href']
