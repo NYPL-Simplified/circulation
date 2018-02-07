@@ -1263,8 +1263,9 @@ class DirectoryImportScript(Script):
        )
        return cover_link
 
-    def _locate_file(self, base_filename, directory, extensions,
-                     file_type="file"):
+    @classmethod
+    def _locate_file(cls, base_filename, directory, extensions,
+                     file_type="file", mock_filesystem_operations=None):
         """Find an acceptable file in the given directory.
 
         :param base_filename: A string to be used as the base of the filename.
@@ -1278,32 +1279,42 @@ class DirectoryImportScript(Script):
         file we're looking for. This is used only in a log warning if
         no file can be found.
 
+        :param mock_filesystem_operations: A test may pass in a
+        2-tuple of functions to replace os.path.exists and the 'open'
+        function.
+
         :return: A 3-tuple. (None, None, None) if no file can be
         found; otherwise (filename, media_type, contents).
         """
+        if mock_filesystem_operations:
+            exists_f, open_f = mock_filesystem_operations
+        else:
+            exists_f = os.path.exists
+            open_f = open
+
         success_path = None
         media_type = None
         attempts = []
         for extension in extensions:
-            if not extension.startswith('.'):
-                extension = '.' + extension
-                filename = base_filename + extension
-            for ext in (extension, extension.upper):
+            for ext in (extension, extension.upper()):
+                if not ext.startswith('.'):
+                    ext = '.' + ext
+                filename = base_filename + ext
                 path = os.path.join(directory, filename)
                 attempts.append(path)
-                if os.path.exists(path):
+                if exists_f(path):
                     media_type = Representation.MEDIA_TYPE_FOR_EXTENSION.get(
-                        extension
+                        ext.lower()
                     )
                     content = None
-                    with open(path) as fh:
+                    with open_f(path) as fh:
                         content = fh.read()
                     return filename, media_type, content
 
         # If we went through that whole loop without returning,
         # we have failed.
         logging.warn(
-            "Could not find %s for %. Looked in: %s",
+            "Could not find %s for %s. Looked in: %s",
             file_type, base_filename, ", ".join(attempts)
         )
         return None, None, None

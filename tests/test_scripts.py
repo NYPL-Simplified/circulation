@@ -855,3 +855,57 @@ class TestDirectoryImportScript(DatabaseTest):
         )
         eq_(Representation.JPEG_MEDIA_TYPE, link.media_type)
         eq_("I'm an image.", link.content)
+
+    def test_locate_file(self):
+        """Test the ability of DirectoryImportScript._locate_file
+        to find files on a mock filesystem.
+        """
+        # Create a mock filesystem with a single file.
+        mock_filesystem = {
+            "directory/thefile.JPEG" : "The contents"
+        }
+        def mock_exists(path):
+            return path in mock_filesystem
+
+        @contextlib.contextmanager
+        def mock_open(path):
+            yield StringIO(mock_filesystem[path])
+        mock_filesystem_operations = mock_exists, mock_open
+
+        def assert_not_found(base_filename, directory, extensions):
+            """Verify that the given set of arguments to
+            _locate_file() does not find anything.
+            """
+            result = DirectoryImportScript._locate_file(
+                base_filename, directory, extensions, file_type="some file",
+                mock_filesystem_operations=mock_filesystem_operations
+            )
+            eq_((None, None, None), result)
+
+        def assert_found(base_filename, directory, extensions):
+            """Verify that the given set of arguments to _locate_file()
+            finds and loads the single file on the mock filesystem..
+            """
+            result = DirectoryImportScript._locate_file(
+                base_filename, directory, extensions, file_type="some file",
+                mock_filesystem_operations=mock_filesystem_operations
+            )
+            eq_(
+                ("thefile.JPEG", Representation.JPEG_MEDIA_TYPE,
+                 "The contents"),
+                result
+            )
+
+        # As long as the file and directory match we have some flexibility
+        # regarding the extensions we look for.
+        assert_found('thefile', 'directory', ['.jpeg'])
+        assert_found('thefile', 'directory', ['.JPEG'])
+        assert_found('thefile', 'directory', ['jpeg'])
+        assert_found('thefile', 'directory', ['JPEG'])
+        assert_found('thefile', 'directory', ['.another-extension', '.jpeg'])
+
+        # But file, directory, and (flexible) extension must all match.
+        assert_not_found('anotherfile', 'directory', ['.jpeg'])
+        assert_not_found('thefile', 'another_directory', ['.jpeg'])
+        assert_not_found('thefile', 'directory', ['.another-extension'])
+        assert_not_found('thefile', 'directory', [])
