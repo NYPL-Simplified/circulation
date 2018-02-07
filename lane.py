@@ -42,7 +42,6 @@ from sqlalchemy.orm import (
     relationship,
 )
 from sqlalchemy.sql.expression import literal
-from sqlalchemy.sql.functions import Function
 
 from model import (
     get_one_or_create,
@@ -301,7 +300,7 @@ class Facets(FacetConstants):
         ]
     
         primary_order_by = self.order_facet_to_database_field(self.order)
-        if isinstance(primary_order_by, Function) or primary_order_by:
+        if primary_order_by is not None:
             # Promote the field designated by the sort facet to the top of
             # the order-by list.
             order_by = [primary_order_by]
