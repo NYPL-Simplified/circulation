@@ -46,6 +46,7 @@ from core.model import (
     Identifier,
     get_one,
     Representation,
+    RightsStatus,
     Timestamp,
 )
 
@@ -466,12 +467,6 @@ class TestDirectoryImportScript(DatabaseTest):
         class Mock(DirectoryImportScript):
             def run_with_arguments(self, *args):
                 self.ran_with = args
-
-            def annotate_metadata(self, metadata, *args, **kwargs):
-                metadata.annotated = True
-                return super(Mock, self).annotate_metadata(
-                    metadata, *args, **kwargs
-                )
                 
         script = Mock(self._db)
         script.do_run(
@@ -481,10 +476,11 @@ class TestDirectoryImportScript(DatabaseTest):
                 "--metadata-file=metadata",
                 "--cover-directory=covers",
                 "--ebook-directory=ebooks",
+                "--rights-uri=rights",
                 "--dry-run"
             ]
         )
-        eq_(('ds1', 'ds1', 'metadata', 'covers', 'ebooks', True), 
+        eq_(('ds1', 'ds1', 'metadata', 'covers', 'ebooks', 'rights', True),
             script.ran_with)
 
     def test_run_with_arguments(self):
@@ -522,7 +518,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         script = Mock(self._db)
         basic_args = ["collection name", "data source name", "metadata file",
-                      "cover directory", "ebook directory"]
+                      "cover directory", "ebook directory", "rights URI"]
         script.run_with_arguments(*(basic_args + [True]))
 
         # load_collection was called with the collection and data source names.
@@ -534,8 +530,8 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # work_from_metadata was called twice, once on each metadata
         # object.
-        [(coll1, o1, policy1, c1, e1),
-         (coll2, o2, policy2, c2, e2)] = script.work_from_metadata_calls
+        [(coll1, o1, policy1, c1, e1, r1),
+         (coll2, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
 
         eq_(coll1, self._default_collection)
         eq_(coll1, coll2)
@@ -548,6 +544,9 @@ class TestDirectoryImportScript(DatabaseTest):
 
         eq_(e1, 'ebook directory')
         eq_(e1, e2)
+
+        eq_("rights URI", r1)
+        eq_(r1, r2)
 
         # Since this is a dry run, the ReplacementPolicy has no mirror
         # set.
@@ -564,8 +563,8 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # This time, the ReplacementPolicy has a mirror set
         # appropriately.
-        [(coll1, o1, policy1, c1, e1),
-         (coll1, o2, policy2, c2, e2)] = script.work_from_metadata_calls
+        [(coll1, o1, policy1, c1, e1, r1),
+         (coll1, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
         for policy in policy1, policy2:
             eq_(mirror, policy.mirror)
 
@@ -612,6 +611,19 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(collection2, collection)
 
     def test_work_from_metadata(self):
+        """Validate the ability to create a new Work from appropriate metadata.
+        """
+
+        class Mock(MockDirectoryImportScript):
+            """In this test we need to verify that annotate_metadata
+            was called but did nothing.
+            """
+            def annotate_metadata(self, metadata, *args, **kwargs):
+                metadata.annotated = True
+                return super(Mock, self).annotate_metadata(
+                    metadata, *args, **kwargs
+                )
+
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1003")
         identifier_obj, ignore = identifier.load(self._db)
         metadata = Metadata(
@@ -630,8 +642,8 @@ class TestDirectoryImportScript(DatabaseTest):
         # disk' and thus no way to actually get the book.
         collection = self._default_collection
         args = (collection, metadata, policy, "cover directory", 
-                "ebook directory")
-        script = MockDirectoryImportScript(self._db)
+                "ebook directory", RightsStatus.CC0)
+        script = Mock(self._db)
         eq_(None, script.work_from_metadata(*args))
         eq_(True, metadata.annotated)
          
@@ -664,6 +676,9 @@ class TestDirectoryImportScript(DatabaseTest):
         assert pool.open_access_download_url.endswith(
             '/test.content.bucket/Gutenberg/Gutenberg%20ID/1003/A%20book.epub'
         )
+
+        eq_(RightsStatus.CC0, 
+            pool.delivery_mechanisms[0].rights_status.uri)
 
         # The mock S3Uploader has a record of 'uploading' all these files
         # to S3.
@@ -706,15 +721,16 @@ class TestDirectoryImportScript(DatabaseTest):
         policy = ReplacementPolicy(mirror=mirror)
         cover_directory = object()
         ebook_directory = object()
-        
+        rights_uri = object()
+
         script = MockNoCirculationData(self._db)
-        args = (metadata, policy, cover_directory, ebook_directory)
+        args = (metadata, policy, cover_directory, ebook_directory, rights_uri)
         script.annotate_metadata(*args)
 
         # load_circulation_data was called.
         eq_(
             (identifier_obj, gutenberg, ebook_directory, mirror, 
-             metadata.title),
+             metadata.title, rights_uri),
             script.load_circulation_data_args
         )
 
@@ -777,7 +793,8 @@ class TestDirectoryImportScript(DatabaseTest):
         identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         mirror = MockS3Uploader()
-        args = (identifier, gutenberg, "ebooks", mirror, "Name of book")
+        args = (identifier, gutenberg, "ebooks", mirror, "Name of book",
+                "rights URI")
 
         # There is nothing on the mock filesystem, so in this case
         # load_circulation_data returns None.
@@ -804,6 +821,7 @@ class TestDirectoryImportScript(DatabaseTest):
         circulation = script.load_circulation_data(*args)
         eq_(identifier, circulation.primary_identifier(self._db))
         eq_(gutenberg, circulation.data_source(self._db))
+        eq_("rights URI", circulation.default_rights_uri)
 
         # The CirculationData has an open-access link associated with it.
         [link] = circulation.links

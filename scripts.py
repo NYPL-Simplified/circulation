@@ -53,6 +53,7 @@ from core.model import (
     LicensePoolDeliveryMechanism,
     Loan,
     Representation,
+    RightsStatus,
     Subject,
     Timestamp,
     Work,
@@ -1005,21 +1006,27 @@ class OPDSForDistributorsReaperScript(OPDSImportScript):
 
 
 class DirectoryImportScript(Script):
+    """Import some books into a collection, based on a file containing
+    metadata and directories containing ebook and cover files.
+    """
 
     @classmethod
     def arg_parser(cls, _db):
         parser = argparse.ArgumentParser()
         parser.add_argument(
             '--collection-name',
-            help=u'Titles will be imported into a collection with this name. The collection will be created if it does not already exist.'
+            help=u'Titles will be imported into a collection with this name. The collection will be created if it does not already exist.',
+            required=True
         )
         parser.add_argument(
             '--data-source-name',
             help=u'All data associated with this import activity will be recorded as originating with this data source. The data source will be created if it does not already exist.',
+            required=True
         )
         parser.add_argument(
             '--metadata-file',
-            help=u'Path to a file containing MARC metadata for the collection',
+            help=u'Path to a file containing MARC metadata for every title in the collection',
+            required=True
         )
         parser.add_argument(
             '--cover-directory',
@@ -1027,7 +1034,15 @@ class DirectoryImportScript(Script):
         )
         parser.add_argument(
             '--ebook-directory',
-            help=u'Directory containing an EPUB file for every title in the collection.',
+            help=u'Directory containing an EPUB or PDF file for every title in the collection.',
+            required=True
+        )
+        RS = RightsStatus
+        rights_uris = ", ".join(RS.OPEN_ACCESS)
+        parser.add_argument(
+            '--rights-uri',
+            help=u"A URI explaining the rights status of the works being uploaded. Acceptable values: %s" % rights_uris,
+            required=True
         )
         parser.add_argument(
             '--dry-run',
@@ -1044,16 +1059,18 @@ class DirectoryImportScript(Script):
         metadata_file = parsed.metadata_file
         cover_directory = parsed.cover_directory
         ebook_directory = parsed.ebook_directory
+        rights_uri = parsed.rights_uri
         dry_run = parsed.dry_run
         return self.run_with_arguments(
             collection_name, data_source_name,
             metadata_file, cover_directory,
-            ebook_directory, dry_run
+            ebook_directory, rights_uri, dry_run
         )
 
     def run_with_arguments(
             self, collection_name, data_source_name,
-            metadata_file, cover_directory, ebook_directory, dry_run
+            metadata_file, cover_directory, ebook_directory, rights_uri,
+            dry_run
     ):
         if dry_run:
             self.log.warn(
@@ -1072,7 +1089,7 @@ class DirectoryImportScript(Script):
         for metadata in metadata_records:
             self.work_from_metadata(
                 collection, metadata, replacement_policy, cover_directory, 
-                ebook_directory
+                ebook_directory, rights_uri
             )
             if not dry_run:
                 self._db.commit()
@@ -1161,7 +1178,7 @@ class DirectoryImportScript(Script):
 
 
     def annotate_metadata(self, metadata, policy, 
-                          cover_directory, ebook_directory):
+                          cover_directory, ebook_directory, rights_uri):
         """Add a CirculationData and possibly an extra LinkData
         to `metadata`.
         """
@@ -1171,7 +1188,7 @@ class DirectoryImportScript(Script):
 
         circulation_data = self.load_circulation_data(
             identifier, data_source, ebook_directory, mirror,
-            metadata.title
+            metadata.title, rights_uri
         )
         if not circulation_data:
             # There is no point in contining.
@@ -1192,7 +1209,7 @@ class DirectoryImportScript(Script):
             )
 
     def load_circulation_data(self, identifier, data_source, ebook_directory, 
-                              mirror, title):
+                              mirror, title, rights_uri):
         """Load an actual copy of a book from disk.
 
         :return: A CirculationData that contains the book as an open-access
@@ -1232,6 +1249,7 @@ class DirectoryImportScript(Script):
             primary_identifier=identifier,
             links=[book_link],
             formats=formats,
+            default_rights_uri=rights_uri,
         )
         return circulation_data
 
