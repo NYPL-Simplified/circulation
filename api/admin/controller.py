@@ -1080,7 +1080,7 @@ class CustomListsController(CirculationManagerController):
     def _create_or_update_list(self, library, name, entries, collections, id=None):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
-        old_list_with_name = CustomList.find(self._db, data_source, name, library)
+        old_list_with_name = CustomList.find(self._db, name, library=library)
 
         if id:
             is_new = False

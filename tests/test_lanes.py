@@ -2,6 +2,7 @@
 from collections import Counter
 from nose.tools import set_trace, eq_, assert_raises
 import json
+import datetime
 
 from . import (
     DatabaseTest,
@@ -36,6 +37,8 @@ from api.lanes import (
     _lane_configuration_from_collection_sizes,
     load_lanes,
     ContributorLane,
+    CrawlableCustomListFacets,
+    CrawlableCustomListBasedLane,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
@@ -677,3 +680,79 @@ class TestContributorLane(LaneTest):
             self._default_library, 'Lois Lane', audiences=list(Classifier.AUDIENCES_JUVENILE)
         )
         self.assert_works_queries(ya_lane, [children, ya])
+
+class TestCrawlableCustomListFacets(DatabaseTest):
+
+    def test_default(self):
+        facets = CrawlableCustomListFacets.default(self._default_library)
+        eq_(CrawlableCustomListFacets.COLLECTION_FULL, facets.collection)
+        eq_(CrawlableCustomListFacets.AVAILABLE_ALL, facets.availability)
+        eq_(CrawlableCustomListFacets.ORDER_LAST_UPDATE, facets.order)
+        eq_(False, facets.order_ascending)
+        enabled_facets = facets.facets_enabled_at_init
+        # There's only one enabled facets for each facet group.
+        for group in enabled_facets.itervalues():
+            eq_(1, len(group))
+
+    def test_last_update_order_facet(self):
+        facets = CrawlableCustomListFacets.default(self._default_library)
+
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+        now = datetime.datetime.utcnow()
+        w1.last_update_time = now - datetime.timedelta(days=4)
+        w2.last_update_time = now - datetime.timedelta(days=3)
+        self.add_to_materialized_view([w1, w2])
+
+        from core.model import MaterializedWorkWithGenre as work_model
+        qu = self._db.query(work_model)
+        qu = facets.apply(self._db, qu)
+        # w2 is first because it was updated more recently.
+        eq_([w2.id, w1.id], [mw.works_id for mw in qu])
+
+        list, ignore = self._customlist(num_entries=0)
+        e2, ignore = list.add_entry(w2)
+        e1, ignore = list.add_entry(w1)
+        self._db.flush()
+        SessionManager.refresh_materialized_views(self._db)
+        qu = self._db.query(work_model)
+        qu = facets.apply(self._db, qu)
+        # w1 is first because it was added to the list more recently.
+        eq_([w1.id, w2.id], [mw.works_id for mw in qu])
+        
+class TestCrawlableCustomListBasedLane(DatabaseTest):
+
+    def test_initialize(self):
+        list, ignore = self._customlist()
+        lane = CrawlableCustomListBasedLane()
+        lane.initialize(self._default_library, list)
+        eq_(self._default_library.id, lane.library_id)
+        eq_([list], lane.customlists)
+        eq_(list.name, lane.display_name)
+        eq_(None, lane.audiences)
+        eq_(None, lane.languages)
+        eq_(None, lane.media)
+        eq_([], lane.children)
+
+    def test_bibliographic_filter_clause(self):
+        w1 = self._work(with_license_pool=True)
+        w2 = self._work(with_license_pool=True)
+
+        # Only w2 is in the list.
+        list, ignore = self._customlist(num_entries=0)
+        e2, ignore = list.add_entry(w2)
+        self.add_to_materialized_view([w1, w2])
+        self._db.flush()
+        SessionManager.refresh_materialized_views(self._db)
+
+        lane = CrawlableCustomListBasedLane()
+        lane.initialize(self._default_library, list)
+
+        from core.model import MaterializedWorkWithGenre as work_model
+        qu = self._db.query(work_model)
+        qu, clause = lane.bibliographic_filter_clause(self._db, qu)
+
+        qu = qu.filter(clause)
+
+        eq_([w2.id], [mw.works_id for mw in qu])
+        

@@ -2392,6 +2392,77 @@ class TestFeedController(CirculationControllerTest):
             eq_(2, counter['English'])
             eq_(1, counter['Other Languages'])
 
+    def test_crawlable_feed(self):
+        # Initial setup gave us two English works. Add both to a list.
+        list, ignore = self._customlist(num_entries=0)
+        list.library = self._default_library
+        e1, ignore = list.add_entry(self.english_1)
+        e2, ignore = list.add_entry(self.english_2)
+
+        # Set their last_update_times and first_appearances to control order.
+        now = datetime.datetime.utcnow()
+        yesterday = now - datetime.timedelta(days=1)
+        self.english_1.last_update_time = yesterday
+        e1.first_appearance = now
+        self.english_2.last_update_time = yesterday
+        e2.first_appearance = yesterday
+        self._db.flush()
+        SessionManager.refresh_materialized_views(self._db)
+        with self.request_context_with_library("/?size=1"):
+            response = self.manager.opds_feeds.crawlable_feed(list.name)
+
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+
+            eq_(1, len(entries))
+            [entry] = entries
+            eq_(self.english_1.title, entry.title)
+
+            links = feed['feed']['links']
+            next_link = [x for x in links if x['rel'] == 'next'][0]['href']
+            assert 'after=1' in next_link
+            assert 'size=1' in next_link
+
+            # This feed isn't filterable or sortable so it has no facet links.
+            eq_(0, len([x for x in links if x["rel"] == "http://opds-spec.org/facet"]))
+
+        for feed in self._db.query(CachedFeed):
+            self._db.delete(feed)
+        # Bump english_2 to the top.
+        self.english_1.last_update_time = yesterday
+        e1.first_appearance = yesterday
+        self.english_2.last_update_time = now
+        e2.first_appearance = yesterday
+        self._db.flush()
+        SessionManager.refresh_materialized_views(self._db)
+        with self.request_context_with_library("/?size=1"):
+            response = self.manager.opds_feeds.crawlable_feed(list.name)
+
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+
+            eq_(1, len(entries))
+            [entry] = entries
+            eq_(self.english_2.title, entry.title)
+
+        for feed in self._db.query(CachedFeed):
+            self._db.delete(feed)
+        self.english_1.last_update_time = yesterday
+        e1.first_appearance = yesterday
+        self.english_2.last_update_time = yesterday
+        e2.first_appearance = now
+        self._db.flush()
+        SessionManager.refresh_materialized_views(self._db)
+        with self.request_context_with_library("/?size=1"):
+            response = self.manager.opds_feeds.crawlable_feed(list.name)
+
+            feed = feedparser.parse(response.data)
+            entries = feed['entries']
+
+            eq_(1, len(entries))
+            [entry] = entries
+            eq_(self.english_2.title, entry.title)
+
     def test_search(self):
         # Update the index for two works.
         # english_1 is "Quite British" by John Bull
