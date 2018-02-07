@@ -130,5 +130,5 @@ create index mv_works_for_lanes_ya_nonfiction_by_title on mv_works_for_lanes (so
 create index mv_works_for_lanes_ya_nonfiction_by_availability on mv_works_for_lanes (availability_time DESC, sort_author, sort_title, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
 
 -- Refresh the new materialized view.
-refresh materialized view concurrently mv_works_for_lanes;
+refresh materialized view mv_works_for_lanes;
 
