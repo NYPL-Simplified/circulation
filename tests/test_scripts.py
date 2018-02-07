@@ -26,15 +26,33 @@ from core.lane import (
     Facets,
 )
 
+from core.metadata_layer import (
+    CirculationData,
+    IdentifierData,
+    LinkData,
+    Metadata,
+    ReplacementPolicy,
+)
+
 from core.model import (
     CachedFeed,
     ConfigurationSetting,
     create,
     Credential,
     DataSource,
+    DeliveryMechanism,
+    ExternalIntegration,
+    Hyperlink,
+    Identifier,
     get_one,
+    Representation,
+    RightsStatus,
     Timestamp,
 )
+
+from core.s3 import MockS3Uploader
+
+from core.mirror import MirrorUploader
 
 from . import (
     DatabaseTest,
@@ -45,6 +63,7 @@ from scripts import (
     CacheRepresentationPerLane,
     CacheFacetListsPerLane,
     CacheOPDSGroupFeedPerLane,
+    DirectoryImportScript,
     InstanceInitializationScript,
     LanguageListScript,
     LoanReaperScript,
@@ -422,3 +441,488 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
         eq_(expect_settings,
             sorted((x.key, x.value) for x in integration.settings)
         )
+
+
+class MockDirectoryImportScript(DirectoryImportScript):
+    """Mock a filesystem to make it easier to test DirectoryInputScript."""
+
+    def __init__(self, _db, mock_filesystem={}):
+        super(MockDirectoryImportScript, self).__init__(_db)
+        self.mock_filesystem = mock_filesystem
+        self._locate_file_args = None
+
+    def _locate_file(self, identifier, directory, extensions, file_type):
+        self._locate_file_args = (identifier, directory, extensions, file_type)
+        return self.mock_filesystem.get(
+            directory, (None, None, None)
+        )
+
+
+class TestDirectoryImportScript(DatabaseTest):
+
+    def test_do_run(self):
+        """Calling do_run with command-line arguments parses the
+        arguments and calls run_with_arguments.
+        """
+        class Mock(DirectoryImportScript):
+            def run_with_arguments(self, *args):
+                self.ran_with = args
+                
+        script = Mock(self._db)
+        script.do_run(
+            cmd_args=[
+                "--collection-name=coll1",
+                "--data-source-name=ds1",
+                "--metadata-file=metadata",
+                "--cover-directory=covers",
+                "--ebook-directory=ebooks",
+                "--rights-uri=rights",
+                "--dry-run"
+            ]
+        )
+        eq_(('coll1', 'ds1', 'metadata', 'covers', 'ebooks', 'rights', True),
+            script.ran_with)
+
+    def test_run_with_arguments(self):
+
+        metadata1 = object()
+        metadata2 = object()
+        collection = self._default_collection
+        mirror = object()
+
+        class Mock(DirectoryImportScript):
+            """Mock the methods called by run_with_arguments."""
+            def __init__(self, _db):
+                super(DirectoryImportScript, self).__init__(_db)
+                self.load_collection_calls = []
+                self.load_metadata_calls = []
+                self.work_from_metadata_calls = []
+
+            def load_collection(self, *args):
+                self.load_collection_calls.append(args)
+                return collection, mirror
+
+            def load_metadata(self, *args, **kwargs):
+                self.load_metadata_calls.append(args)
+                return [metadata1, metadata2]
+
+            def work_from_metadata(self, *args):
+                self.work_from_metadata_calls.append(args)
+
+        # First, try a dry run.
+
+        # Make a change to a model object so we can track when the
+        # session is committed.
+        self._default_collection.name = 'changed'
+
+        script = Mock(self._db)
+        basic_args = ["collection name", "data source name", "metadata file",
+                      "cover directory", "ebook directory", "rights URI"]
+        script.run_with_arguments(*(basic_args + [True]))
+
+        # load_collection was called with the collection and data source names.
+        eq_([('collection name', 'data source name')], 
+            script.load_collection_calls)
+
+        # load_metadata was called with the metadata file.
+        eq_([('metadata file',)], script.load_metadata_calls)
+
+        # work_from_metadata was called twice, once on each metadata
+        # object.
+        [(coll1, o1, policy1, c1, e1, r1),
+         (coll2, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
+
+        eq_(coll1, self._default_collection)
+        eq_(coll1, coll2)
+
+        eq_(o1, metadata1)
+        eq_(o2, metadata2)
+
+        eq_(c1, 'cover directory')
+        eq_(c1, c2)
+
+        eq_(e1, 'ebook directory')
+        eq_(e1, e2)
+
+        eq_("rights URI", r1)
+        eq_(r1, r2)
+
+        # Since this is a dry run, the ReplacementPolicy has no mirror
+        # set.
+        for policy in (policy1, policy2):
+            eq_(None, policy.mirror)
+            eq_(True, policy.links)
+            eq_(True, policy.formats)
+            eq_(True, policy.contributions)
+            eq_(True, policy.rights)
+
+        # Now try it not as a dry run.
+        script = Mock(self._db)
+        script.run_with_arguments(*(basic_args + [False]))
+
+        # This time, the ReplacementPolicy has a mirror set
+        # appropriately.
+        [(coll1, o1, policy1, c1, e1, r1),
+         (coll1, o2, policy2, c2, e2, r2)] = script.work_from_metadata_calls
+        for policy in policy1, policy2:
+            eq_(mirror, policy.mirror)
+
+    def test_load_collection_no_site_wide_mirror(self):
+        # Calling load_collection creates a new collection with
+        # the given data source.
+        script = DirectoryImportScript(self._db)
+        collection, mirror = script.load_collection(
+            "A collection", "A data source"
+        )
+        eq_("A collection", collection.name)
+        eq_("A data source", collection.data_source.name)
+        eq_(True, collection.data_source.offers_licenses)
+
+        integration = collection.external_integration
+        eq_(ExternalIntegration.LICENSE_GOAL, integration.goal)
+        eq_(ExternalIntegration.MANUAL, 
+            integration.protocol)
+
+        # The Collection has no mirror integration because there is no
+        # sitewide storage integration to use.
+        eq_(None, collection.mirror_integration)
+        eq_(None, mirror)
+        
+    def test_load_collection_installs_site_wide_mirror(self):
+        # We have a sitewide storage integration.
+        integration = self._external_integration("my uploader")
+        integration.goal = ExternalIntegration.STORAGE_GOAL
+
+        # Calling load_collection creates a Collection and installs
+        # the sitewide storage integration as its mirror integration.
+        script = DirectoryImportScript(self._db)
+        collection, mirror = script.load_collection(
+            "A collection", "A data source"
+        )
+        eq_(integration, collection.mirror_integration)
+        assert isinstance(mirror, MirrorUploader)
+
+        # Calling create_collection again with the same arguments does
+        # nothing.
+        collection2, mirror2 = script.load_collection(
+            "A collection", "A data source"
+        )
+        eq_(collection2, collection)
+
+    def test_work_from_metadata(self):
+        """Validate the ability to create a new Work from appropriate metadata.
+        """
+
+        class Mock(MockDirectoryImportScript):
+            """In this test we need to verify that annotate_metadata
+            was called but did nothing.
+            """
+            def annotate_metadata(self, metadata, *args, **kwargs):
+                metadata.annotated = True
+                return super(Mock, self).annotate_metadata(
+                    metadata, *args, **kwargs
+                )
+
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "1003")
+        identifier_obj, ignore = identifier.load(self._db)
+        metadata = Metadata(
+            DataSource.GUTENBERG,
+            primary_identifier=identifier,
+            title=u"A book"
+        )
+        metadata.annotated = False
+        datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        policy = ReplacementPolicy.from_license_source(self._db)
+        mirror = MockS3Uploader()
+        policy.mirror = mirror
+
+        # Here, work_from_metadata calls annotate_metadata, but does
+        # not actually import anything because there are no files 'on
+        # disk' and thus no way to actually get the book.
+        collection = self._default_collection
+        args = (collection, metadata, policy, "cover directory", 
+                "ebook directory", RightsStatus.CC0)
+        script = Mock(self._db)
+        eq_(None, script.work_from_metadata(*args))
+        eq_(True, metadata.annotated)
+         
+        # Now let's try it with some files 'on disk'.
+        with open(self.sample_cover_path('test-book-cover.png')) as fh:
+            image = fh.read()
+        mock_filesystem = {
+            'cover directory' : (
+                'cover.jpg', Representation.JPEG_MEDIA_TYPE, image
+            ),
+            'ebook directory' : (
+                'book.epub', Representation.EPUB_MEDIA_TYPE, "I'm an EPUB."
+            )
+        }
+        script = MockDirectoryImportScript(
+            self._db, mock_filesystem=mock_filesystem
+        )
+        work = script.work_from_metadata(*args)
+
+        # We have created a book. It has a cover image, which has a
+        # thumbnail.
+        eq_("A book", work.title)
+        assert work.cover_full_url.endswith(
+            '/test.cover.bucket/Gutenberg/Gutenberg%20ID/1003/1003.jpg'
+        )
+        assert work.cover_thumbnail_url.endswith(
+            '/test.cover.bucket/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png'
+        )
+        [pool] = work.license_pools
+        assert pool.open_access_download_url.endswith(
+            '/test.content.bucket/Gutenberg/Gutenberg%20ID/1003/A%20book.epub'
+        )
+
+        eq_(RightsStatus.CC0, 
+            pool.delivery_mechanisms[0].rights_status.uri)
+
+        # The mock S3Uploader has a record of 'uploading' all these files
+        # to S3.
+        epub, full, thumbnail = mirror.uploaded
+        eq_(epub.url, pool.open_access_download_url)
+        eq_(full.url, work.cover_full_url)
+        eq_(thumbnail.url, work.cover_thumbnail_url)
+
+        # The EPUB Representation was cleared out after the upload, to
+        # save database space.
+        eq_("I'm an EPUB.", mirror.content[0])
+        eq_(None, epub.content)
+
+    def test_annotate_metadata(self):
+        """Verify that annotate_metadata calls load_circulation_data
+        and load_cover_link appropriately.
+        """
+
+        # First, test an unsuccessful annotation.
+        class MockNoCirculationData(DirectoryImportScript):
+            """Do nothing when load_circulation_data is called. Explode if
+            load_cover_link is called.
+            """
+            def load_circulation_data(self, *args):
+                self.load_circulation_data_args = args
+                return None
+
+            def load_cover_link(self, *args):
+                raise Exception("Explode!")
+
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "11111")
+        identifier_obj, ignore = identifier.load(self._db)
+        metadata = Metadata(
+            title=self._str,
+            data_source=gutenberg, 
+            primary_identifier=identifier
+        )
+        mirror = object()
+        policy = ReplacementPolicy(mirror=mirror)
+        cover_directory = object()
+        ebook_directory = object()
+        rights_uri = object()
+
+        script = MockNoCirculationData(self._db)
+        args = (metadata, policy, cover_directory, ebook_directory, rights_uri)
+        script.annotate_metadata(*args)
+
+        # load_circulation_data was called.
+        eq_(
+            (identifier_obj, gutenberg, ebook_directory, mirror, 
+             metadata.title, rights_uri),
+            script.load_circulation_data_args
+        )
+
+        # But because load_circulation_data returned None,
+        # metadata.circulation_data was not modified and
+        # load_cover_link was not called (which would have raised an
+        # exception).
+        eq_(None, metadata.circulation)
+
+        # Test a successful annotation with no cover image.
+        class MockNoCoverLink(DirectoryImportScript):
+            """Return an object when load_circulation_data is called.
+            Do nothing when load_cover_link is called.
+            """
+            def load_circulation_data(self, *args):
+                return "Some circulation data"
+
+            def load_cover_link(self, *args):
+                self.load_cover_link_args = args
+                return None
+
+        script = MockNoCoverLink(self._db)
+        script.annotate_metadata(*args)
+
+        # The Metadata object was annotated with the return value of
+        # load_circulation_data.
+        eq_("Some circulation data", metadata.circulation)
+
+        # load_cover_link was called.
+        eq_(
+            (identifier_obj, gutenberg, cover_directory, mirror),
+            script.load_cover_link_args
+        )
+
+        # But since it provided no cover link, metadata.links was empty.
+        eq_([], metadata.links)
+
+        # Finally, test a completely successful annotation.
+        class MockWithCoverLink(DirectoryImportScript):
+            """Mock success for both load_circulation_data
+            and load_cover_link.
+            """
+            def load_circulation_data(self, *args):
+                return "Some circulation data"
+
+            def load_cover_link(self, *args):
+                return "A cover link"
+
+        metadata.circulation = None
+        script = MockWithCoverLink(self._db)
+        script.annotate_metadata(*args)
+
+        eq_("Some circulation data", metadata.circulation)
+        eq_(['A cover link'], metadata.links)
+
+    def test_load_circulation_data(self):
+        # Create a directory import script with an empty mock filesystem.
+        script = MockDirectoryImportScript(self._db, {})
+
+        identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        mirror = MockS3Uploader()
+        args = (identifier, gutenberg, "ebooks", mirror, "Name of book",
+                "rights URI")
+
+        # There is nothing on the mock filesystem, so in this case
+        # load_circulation_data returns None.
+        eq_(None, script.load_circulation_data(*args))
+
+        # But we tried.
+        eq_(
+            ('2345', 'ebooks', Representation.COMMON_EBOOK_EXTENSIONS,
+             'ebook file'),
+            script._locate_file_args
+        )
+
+        # Try another script that has a populated mock filesystem.
+        mock_filesystem = {
+            'ebooks' : (
+                'book.epub', Representation.EPUB_MEDIA_TYPE, "I'm an EPUB."
+            )
+        }
+        script = MockDirectoryImportScript(self._db, mock_filesystem)
+
+        # Now _locate_file finds something on the mock filesystem, and
+        # load_circulation_data loads it into a fully populated
+        # CirculationData object.
+        circulation = script.load_circulation_data(*args)
+        eq_(identifier, circulation.primary_identifier(self._db))
+        eq_(gutenberg, circulation.data_source(self._db))
+        eq_("rights URI", circulation.default_rights_uri)
+
+        # The CirculationData has an open-access link associated with it.
+        [link] = circulation.links
+        eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
+        assert link.href.endswith(
+            '/test.content.bucket/Gutenberg/Gutenberg%20ID/2345/Name%20of%20book.epub'
+        )
+        eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
+        eq_("I'm an EPUB.", link.content)
+
+        # This open-access link will be made available through a
+        # delivery mechanism described by this FormatData.
+        [format] = circulation.formats
+        eq_(link, format.link)
+        eq_(link.media_type, format.content_type)
+        eq_(DeliveryMechanism.NO_DRM, format.drm_scheme)
+
+    def test_load_cover_link(self):
+        # Create a directory import script with an empty mock filesystem.
+        script = MockDirectoryImportScript(self._db, {})
+
+        identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        mirror = MockS3Uploader()
+        args = (identifier, gutenberg, "covers", mirror)
+
+        # There is nothing on the mock filesystem, so in this case
+        # load_cover_link returns None.
+        eq_(None, script.load_cover_link(*args))
+
+        # But we tried.
+        eq_(
+            ('2345', 'covers', Representation.COMMON_IMAGE_EXTENSIONS,
+             'cover image'),
+            script._locate_file_args
+        )
+
+        # Try another script that has a populated mock filesystem.
+        mock_filesystem = {
+            'covers' : (
+                'acover.jpeg', Representation.JPEG_MEDIA_TYPE, "I'm an image."
+            )
+        }
+        script = MockDirectoryImportScript(self._db, mock_filesystem)
+        link = script.load_cover_link(*args)
+        eq_(Hyperlink.IMAGE, link.rel)
+        assert link.href.endswith(
+            '/test.cover.bucket/Gutenberg/Gutenberg%20ID/2345/2345.jpg'
+        )
+        eq_(Representation.JPEG_MEDIA_TYPE, link.media_type)
+        eq_("I'm an image.", link.content)
+
+    def test_locate_file(self):
+        """Test the ability of DirectoryImportScript._locate_file
+        to find files on a mock filesystem.
+        """
+        # Create a mock filesystem with a single file.
+        mock_filesystem = {
+            "directory/thefile.JPEG" : "The contents"
+        }
+        def mock_exists(path):
+            return path in mock_filesystem
+
+        @contextlib.contextmanager
+        def mock_open(path):
+            yield StringIO(mock_filesystem[path])
+        mock_filesystem_operations = mock_exists, mock_open
+
+        def assert_not_found(base_filename, directory, extensions):
+            """Verify that the given set of arguments to
+            _locate_file() does not find anything.
+            """
+            result = DirectoryImportScript._locate_file(
+                base_filename, directory, extensions, file_type="some file",
+                mock_filesystem_operations=mock_filesystem_operations
+            )
+            eq_((None, None, None), result)
+
+        def assert_found(base_filename, directory, extensions):
+            """Verify that the given set of arguments to _locate_file()
+            finds and loads the single file on the mock filesystem..
+            """
+            result = DirectoryImportScript._locate_file(
+                base_filename, directory, extensions, file_type="some file",
+                mock_filesystem_operations=mock_filesystem_operations
+            )
+            eq_(
+                ("thefile.JPEG", Representation.JPEG_MEDIA_TYPE,
+                 "The contents"),
+                result
+            )
+
+        # As long as the file and directory match we have some flexibility
+        # regarding the extensions we look for.
+        assert_found('thefile', 'directory', ['.jpeg'])
+        assert_found('thefile', 'directory', ['.JPEG'])
+        assert_found('thefile', 'directory', ['jpeg'])
+        assert_found('thefile', 'directory', ['JPEG'])
+        assert_found('thefile', 'directory', ['.another-extension', '.jpeg'])
+
+        # But file, directory, and (flexible) extension must all match.
+        assert_not_found('anotherfile', 'directory', ['.jpeg'])
+        assert_not_found('thefile', 'another_directory', ['.jpeg'])
+        assert_not_found('thefile', 'directory', ['.another-extension'])
+        assert_not_found('thefile', 'directory', [])
