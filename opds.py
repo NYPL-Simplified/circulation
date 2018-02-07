@@ -77,7 +77,7 @@ class Annotator(object):
 
     @classmethod
     def annotate_work_entry(cls, work, active_license_pool, edition, 
-                            identifier, feed, entry):
+                            identifier, feed, entry, updated=None):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
         """
@@ -89,6 +89,11 @@ class Annotator(object):
                 **kwargs
             )
             entry.extend([data_source_tag])
+
+        if not updated and work.last_update_time:
+            updated = work.last_update_time
+        if updated:
+            entry.extend([AtomFeed.updated(AtomFeed._strftime(updated))])
 
     @classmethod
     def annotate_feed(cls, feed, lane):
@@ -916,9 +921,6 @@ class AcquisitionFeed(OPDSFeed):
         if content:
             entry.extend([AtomFeed.summary(content, type=content_type)])
 
-        entry.extend([
-            AtomFeed.updated(AtomFeed._strftime(datetime.datetime.utcnow())),
-        ])
 
         permanent_work_id_tag = AtomFeed.makeelement("{%s}pwid" % AtomFeed.SIMPLIFIED_NS)
         permanent_work_id_tag.text = edition.permanent_work_id
