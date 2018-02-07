@@ -622,11 +622,10 @@ class MetaToModelUtility(object):
         # Determine the best URL to use when mirroring this
         # representation.
         if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            if not title:
-                title = identifier.identifier
+            url_title = title or identifier.identifier
             extension = representation.extension()
             mirror_url = mirror.book_url(
-                identifier, data_source=data_source, title=title,
+                identifier, data_source=data_source, title=url_title,
                 extension=extension
             )
         else:
