@@ -165,6 +165,27 @@ class TestBaseAnnotator(DatabaseTest):
         eq_(Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE],
             contributor.attrib[role_attrib])
 
+    def test_annotate_work_entry_adds_distributor_and_updated(self):
+        work = self._work(with_license_pool=True, 
+                          with_open_access_download=True)
+        work.last_update_time = datetime.datetime(2018, 2, 5, 7, 39, 49, 580651)
+        [pool] = work.license_pools
+
+        entry = []
+        Annotator.annotate_work_entry(work, pool, None, None, None, entry)
+        eq_(2, len(entry))
+        [distributor, updated] = entry
+        assert 'ProviderName="Gutenberg"' in etree.tostring(distributor)
+        assert 'updated' in etree.tostring(updated)
+        assert '2018-02-05' in etree.tostring(updated)
+
+        entry = []
+        Annotator.annotate_work_entry(work, None, None, None, None, entry,
+                                      updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651))
+        eq_(1, len(entry))
+        [updated] = entry
+        assert 'updated' in etree.tostring(updated)
+        assert '2017-01-02' in etree.tostring(updated)
 
 class TestAnnotators(DatabaseTest):
 

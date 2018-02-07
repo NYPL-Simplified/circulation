@@ -1,4 +1,4 @@
--- Create the materialized view with no data.
+drop materialized view mv_works_for_lanes;
 create materialized view mv_works_for_lanes
 as
  SELECT 

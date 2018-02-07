@@ -9266,7 +9266,7 @@ class CustomList(Base):
 
     __table_args__ = (
         UniqueConstraint('data_source_id', 'foreign_identifier'),
-        UniqueConstraint('data_source_id', 'name', 'library_id'),
+        UniqueConstraint('name', 'library_id'),
     )
 
     # TODO: It should be possible to associate a CustomList with an
@@ -9290,17 +9290,21 @@ class CustomList(Base):
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
 
     @classmethod
-    def find(cls, _db, source, foreign_identifier_or_name, library=None):
+    def find(cls, _db, foreign_identifier_or_name, data_source=None, library=None):
         """Finds a foreign list in the database by its foreign_identifier
         or its name.
         """
-        source_name = source
-        if isinstance(source, DataSource):
-            source_name = source.name
+        source_name = data_source
+        if isinstance(data_source, DataSource):
+            source_name = data_source.name
         foreign_identifier = unicode(foreign_identifier_or_name)
 
-        qu = _db.query(cls).join(CustomList.data_source).filter(
-            DataSource.name==unicode(source_name),
+        qu = _db.query(cls)
+        if source_name:
+            qu = qu.join(CustomList.data_source).filter(
+                DataSource.name==unicode(source_name))
+
+        qu = qu.filter(
             or_(CustomList.foreign_identifier==foreign_identifier,
                 CustomList.name==foreign_identifier))
         if library:

@@ -6567,28 +6567,32 @@ class TestCustomList(DatabaseTest):
     def test_find(self):
         source = DataSource.lookup(self._db, DataSource.NYT)
         # When there's no CustomList to find, nothing is returned.
-        result = CustomList.find(self._db, source, 'my-list')
+        result = CustomList.find(self._db, 'my-list', source)
         eq_(None, result)
 
         custom_list = self._customlist(
             foreign_identifier='a-list', name='My List', num_entries=0
         )[0]
         # A CustomList can be found by its foreign_identifier.
-        result = CustomList.find(self._db, source, 'a-list')
+        result = CustomList.find(self._db, 'a-list', source)
         eq_(custom_list, result)
 
         # Or its name.
-        result = CustomList.find(self._db, source.name, 'My List')
+        result = CustomList.find(self._db, 'My List', source.name)
+        eq_(custom_list, result)
+
+        # The list can also be found by name without a data source.
+        result = CustomList.find(self._db, 'My List')
         eq_(custom_list, result)
 
         # By default, we only find lists with no associated Library.
         # If we look for a list from a library, there isn't one.
-        result = CustomList.find(self._db, source, 'My List', library=self._default_library)
+        result = CustomList.find(self._db, 'My List', source, library=self._default_library)
         eq_(None, result)
 
         # If we add the Library to the list, it's returned.
         custom_list.library = self._default_library
-        result = CustomList.find(self._db, source, 'My List', library=self._default_library)
+        result = CustomList.find(self._db, 'My List', source, library=self._default_library)
         eq_(custom_list, result)
         
 
