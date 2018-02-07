@@ -1,4 +1,6 @@
 import datetime
+from config import CannotLoadConfiguration
+from model import ExternalIntegration
 
 class MirrorUploader(object):
 
@@ -31,9 +33,9 @@ class MirrorUploader(object):
     @classmethod
     def sitewide_integration(cls, _db):
         """Find the ExternalIntegration for the site-wide mirror."""
-        from ..config import CannotLoadConfiguration
-        from ..model import ExternalIntegration as EI
-        qu = _db.query(EI).filter(EI.goal==cls.STORAGE_GOAL)
+        qu = _db.query(ExternalIntegration).filter(
+            ExternalIntegration.goal==cls.STORAGE_GOAL
+        )
         integrations = qu.all()
         if not integrations:
             raise CannotLoadConfiguration(
@@ -81,7 +83,6 @@ class MirrorUploader(object):
         :param integration: An ExternalIntegration configuring the credentials
            used to upload things.
         """
-        from ..config import CannotLoadConfiguration
         if integration.goal != self.STORAGE_GOAL:
             # This collection's 'mirror integration' isn't intended to
             # be used to mirror anything.
