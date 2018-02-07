@@ -1054,7 +1054,7 @@ class DirectoryImportScript(Script):
     def do_run(self, cmd_args=None):
         parser = self.arg_parser(self._db)
         parsed = parser.parse_args(cmd_args)
-        collection_name = parsed.data_source_name
+        collection_name = parsed.collection_name
         data_source_name = parsed.data_source_name
         metadata_file = parsed.metadata_file
         cover_directory = parsed.cover_directory

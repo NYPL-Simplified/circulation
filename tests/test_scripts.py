@@ -513,7 +513,6 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # Make a change to a model object so we can track when the
         # session is committed.
-        from core.analytics import Analytics
         self._default_collection.name = 'changed'
 
         script = Mock(self._db)
