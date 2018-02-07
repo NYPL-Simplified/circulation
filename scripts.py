@@ -1191,7 +1191,6 @@ class DirectoryImportScript(Script):
                 identifier
             )
 
-
     def load_circulation_data(self, identifier, data_source, ebook_directory, 
                               mirror, title):
         """Load an actual copy of a book from disk.
@@ -1200,7 +1199,7 @@ class DirectoryImportScript(Script):
         download, or None if no such book can be found.
         """
         ignore, book_media_type, book_content = self._locate_file(
-            identifier, ebook_directory, ['.epub', '.pdf'],
+            identifier.identifier, ebook_directory, ['.epub', '.pdf'],
             "ebook file",
         )
         if not book_content:
@@ -1228,8 +1227,8 @@ class DirectoryImportScript(Script):
             )
         ]
         circulation_data = CirculationData(
-            data_source.name,
-            identifier,
+            data_source=data_source.name,
+            primary_identifier=identifier,
             links=[book_link],
             formats=formats,
         )
@@ -1242,8 +1241,8 @@ class DirectoryImportScript(Script):
        if no book cover can be found.
        """
        cover_filename, cover_media_type, cover_content = self._locate_file(
-           identifier, cover_directory, ['.jpg', '.jpeg', '.png', '.gif'],
-           "cover image"
+           identifier.identifier, cover_directory, 
+           ['.jpg', '.jpeg', '.png', '.gif'], "cover image"
        )
 
        if not cover_content:
@@ -1263,11 +1262,11 @@ class DirectoryImportScript(Script):
        )
        return cover_link
 
-    def _locate_file(self, identifier, directory, extensions, file_type="file"):
+    def _locate_file(self, base_filename, directory, extensions,
+                     file_type="file"):
         """Find an acceptable file in the given directory.
 
-        :param metadata: Metadata object whose `primary_identifier` will
-        be used when looking for a file.
+        :param base_filename: A string to be used as the base of the filename.
 
         :param directory: Look for a file in this directory.
 
@@ -1281,14 +1280,13 @@ class DirectoryImportScript(Script):
         :return: A 3-tuple. (None, None, None) if no file can be
         found; otherwise (filename, media_type, contents).
         """
-        identifier = metadata.primary_identifier
         success_path = None
         media_type = None
         attempts = []
         for extension in extensions:
             if not extension.startswith('.'):
                 extension = '.' + extension
-                filename = identifier + extension
+                filename = base_filename + extension
             for ext in (extension, extension.upper):
                 path = os.path.join(directory, filename)
                 attempts.append(path)
@@ -1304,9 +1302,8 @@ class DirectoryImportScript(Script):
         # If we went through that whole loop without returning,
         # we have failed.
         logging.warn(
-            "Could not find %s for %s/%s. Looked in: %s",
-            file_type, identifier.identifier, metadata.title,
-            ", ".join(attempts)
+            "Could not find %s for %. Looked in: %s",
+            file_type, base_filename, ", ".join(attempts)
         )
         return None, None, None
 

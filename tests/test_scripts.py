@@ -40,6 +40,7 @@ from core.model import (
     create,
     Credential,
     DataSource,
+    DeliveryMechanism,
     ExternalIntegration,
     Hyperlink,
     Identifier,
@@ -447,8 +448,10 @@ class MockDirectoryImportScript(DirectoryImportScript):
     def __init__(self, _db, mock_filesystem={}):
         super(MockDirectoryImportScript, self).__init__(_db)
         self.mock_filesystem = mock_filesystem
+        self._locate_file_args = None
 
-    def _locate_file(self, identifier, directory, *args):
+    def _locate_file(self, identifier, directory, extensions, file_type):
+        self._locate_file_args = (identifier, directory, extensions, file_type)
         return self.mock_filesystem.get(
             directory, (None, None, None)
         )
@@ -766,3 +769,53 @@ class TestDirectoryImportScript(DatabaseTest):
 
         eq_("Some circulation data", metadata.circulation)
         eq_(['A cover link'], metadata.links)
+
+    def test_load_circulation_data(self):
+        # Create a directory import script with an empty mock filesystem.
+        script = MockDirectoryImportScript(self._db, {})
+
+        identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        mirror = MockS3Uploader()
+        args = (identifier, gutenberg, "ebooks", mirror, "Name of book")
+
+        # There is nothing on the mock filesystem, so in this case
+        # load_circulation_data returns None.
+        eq_(None, script.load_circulation_data(*args))
+
+        # But we tried.
+        eq_(
+            ('2345', 'ebooks', ['.epub', '.pdf'], 'ebook file'),
+            script._locate_file_args
+        )
+
+        # Try another script that has a populated mock filesystem.
+        mock_filesystem = {
+            'ebooks' : (
+                'book.epub', Representation.EPUB_MEDIA_TYPE, "I'm an EPUB."
+            )
+        }
+        script = MockDirectoryImportScript(self._db, mock_filesystem)
+
+        # Now _locate_file finds something on the mock filesystem, and
+        # load_circulation_data loads it into a fully populated
+        # CirculationData object.
+        circulation = script.load_circulation_data(*args)
+        eq_(identifier, circulation.primary_identifier(self._db))
+        eq_(gutenberg, circulation.data_source(self._db))
+
+        # The CirculationData has an open-access link associated with it.
+        [link] = circulation.links
+        eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
+        assert link.href.endswith(
+            '/test.content.bucket/Gutenberg/Gutenberg%20ID/2345/Name%20of%20book.epub'
+        )
+        eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
+        eq_("I'm an EPUB.", link.content)
+
+        # This open-access link will be made available through a
+        # delivery mechanism described by this FormatData.
+        [format] = circulation.formats
+        eq_(link, format.link)
+        eq_(link.media_type, format.content_type)
+        eq_(DeliveryMechanism.NO_DRM, format.drm_scheme)
