@@ -52,7 +52,7 @@ from core.model import (
 
 from core.s3 import MockS3Uploader
 
-from core.util.mirror import MirrorUploader
+from core.mirror import MirrorUploader
 
 from . import (
     DatabaseTest,

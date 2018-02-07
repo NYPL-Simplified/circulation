@@ -86,7 +86,7 @@ from core.util.opds_writer import (
 from core.external_list import CustomListFromCSV
 from core.external_search import ExternalSearchIndex
 from core.util import LanguageCodes
-from core.util.mirror import MirrorUploader
+from core.mirror import MirrorUploader
 
 from api.config import (
     CannotLoadConfiguration,
