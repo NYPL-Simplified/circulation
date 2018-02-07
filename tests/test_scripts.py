@@ -580,7 +580,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         integration = collection.external_integration
         eq_(ExternalIntegration.LICENSE_GOAL, integration.goal)
-        eq_(ExternalIntegration.DIRECTORY_IMPORT, 
+        eq_(ExternalIntegration.MANUAL, 
             integration.protocol)
 
         # The Collection has no mirror integration because there is no

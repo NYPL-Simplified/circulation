@@ -1109,7 +1109,7 @@ class DirectoryImportScript(Script):
         :return: A 2-tuple (Collection, MirrorUploader)
         """
         collection, is_new = Collection.by_name_and_protocol(
-            self._db, collection_name, ExternalIntegration.DIRECTORY_IMPORT
+            self._db, collection_name, ExternalIntegration.MANUAL
         )
 
         if is_new:
