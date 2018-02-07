@@ -463,6 +463,12 @@ class TestDirectoryImportScript(DatabaseTest):
         class Mock(DirectoryImportScript):
             def run_with_arguments(self, *args):
                 self.ran_with = args
+
+            def annotate_metadata(self, metadata, *args, **kwargs):
+                metadata.annotated = True
+                return super(Mock, self).annotate_metadata(
+                    metadata, *args, **kwargs
+                )
                 
         script = Mock(self._db)
         script.do_run(
@@ -553,7 +559,8 @@ class TestDirectoryImportScript(DatabaseTest):
         script = Mock(self._db)
         script.run_with_arguments(*(basic_args + [False]))
 
-        # The ReplacementPolicy has a mirror set appropriately.
+        # This time, the ReplacementPolicy has a mirror set
+        # appropriately.
         [(coll1, o1, policy1, c1, e1),
          (coll1, o2, policy2, c2, e2)] = script.work_from_metadata_calls
         for policy in policy1, policy2:
@@ -609,18 +616,21 @@ class TestDirectoryImportScript(DatabaseTest):
             primary_identifier=identifier,
             title=u"A book"
         )
+        metadata.annotated = False
         datasource = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy.from_license_source(self._db)
         mirror = MockS3Uploader()
         policy.mirror = mirror
 
-        # Here, work_from_metadata does nothing because there are no
-        # files 'on disk' and thus no way to actually get the book.
+        # Here, work_from_metadata calls annotate_metadata, but does
+        # not actually import anything because there are no files 'on
+        # disk' and thus no way to actually get the book.
         collection = self._default_collection
         args = (collection, metadata, policy, "cover directory", 
                 "ebook directory")
         script = MockDirectoryImportScript(self._db)
         eq_(None, script.work_from_metadata(*args))
+        eq_(True, metadata.annotated)
          
         # Now let's try it with some files 'on disk'.
         with open(self.sample_cover_path('test-book-cover.png')) as fh:
@@ -664,3 +674,95 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_("I'm an EPUB.", mirror.content[0])
         eq_(None, epub.content)
 
+    def test_annotate_metadata(self):
+        """Verify that annotate_metadata calls load_circulation_data
+        and load_cover_link appropriately.
+        """
+
+        # First, test an unsuccessful annotation.
+        class MockNoCirculationData(DirectoryImportScript):
+            """Do nothing when load_circulation_data is called. Explode if
+            load_cover_link is called.
+            """
+            def load_circulation_data(self, *args):
+                self.load_circulation_data_args = args
+                return None
+
+            def load_cover_link(self, *args):
+                raise Exception("Explode!")
+
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        identifier = IdentifierData(Identifier.GUTENBERG_ID, "11111")
+        identifier_obj, ignore = identifier.load(self._db)
+        metadata = Metadata(
+            title=self._str,
+            data_source=gutenberg, 
+            primary_identifier=identifier
+        )
+        mirror = object()
+        policy = ReplacementPolicy(mirror=mirror)
+        cover_directory = object()
+        ebook_directory = object()
+        
+        script = MockNoCirculationData(self._db)
+        args = (metadata, policy, cover_directory, ebook_directory)
+        script.annotate_metadata(*args)
+
+        # load_circulation_data was called.
+        eq_(
+            (identifier_obj, gutenberg, ebook_directory, mirror, 
+             metadata.title),
+            script.load_circulation_data_args
+        )
+
+        # But because load_circulation_data returned None,
+        # metadata.circulation_data was not modified and
+        # load_cover_link was not called (which would have raised an
+        # exception).
+        eq_(None, metadata.circulation)
+
+        # Test a successful annotation with no cover image.
+        class MockNoCoverLink(DirectoryImportScript):
+            """Return an object when load_circulation_data is called.
+            Do nothing when load_cover_link is called.
+            """
+            def load_circulation_data(self, *args):
+                return "Some circulation data"
+
+            def load_cover_link(self, *args):
+                self.load_cover_link_args = args
+                return None
+
+        script = MockNoCoverLink(self._db)
+        script.annotate_metadata(*args)
+
+        # The Metadata object was annotated with the return value of
+        # load_circulation_data.
+        eq_("Some circulation data", metadata.circulation)
+
+        # load_cover_link was called.
+        eq_(
+            (identifier_obj, gutenberg, cover_directory, mirror),
+            script.load_cover_link_args
+        )
+
+        # But since it provided no cover link, metadata.links was empty.
+        eq_([], metadata.links)
+
+        # Finally, test a completely successful annotation.
+        class MockWithCoverLink(DirectoryImportScript):
+            """Mock success for both load_circulation_data
+            and load_cover_link.
+            """
+            def load_circulation_data(self, *args):
+                return "Some circulation data"
+
+            def load_cover_link(self, *args):
+                return "A cover link"
+
+        metadata.circulation = None
+        script = MockWithCoverLink(self._db)
+        script.annotate_metadata(*args)
+
+        eq_("Some circulation data", metadata.circulation)
+        eq_(['A cover link'], metadata.links)
