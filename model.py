@@ -8159,6 +8159,9 @@ class Representation(Base):
         SCORM_MEDIA_TYPE: "zip"
     }
 
+    COMMON_EBOOK_EXTENSIONS = ['.epub', '.pdf']
+    COMMON_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
+
     # Invert FILE_EXTENSIONS and add some extra guesses.
     MEDIA_TYPE_FOR_EXTENSION = {
         ".htm" : TEXT_HTML_MEDIA_TYPE,
