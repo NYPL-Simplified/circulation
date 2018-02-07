@@ -1199,7 +1199,8 @@ class DirectoryImportScript(Script):
         download, or None if no such book can be found.
         """
         ignore, book_media_type, book_content = self._locate_file(
-            identifier.identifier, ebook_directory, ['.epub', '.pdf'],
+            identifier.identifier, ebook_directory,
+            Representation.COMMON_EBOOK_EXTENSIONS,
             "ebook file",
         )
         if not book_content:
@@ -1242,7 +1243,7 @@ class DirectoryImportScript(Script):
        """
        cover_filename, cover_media_type, cover_content = self._locate_file(
            identifier.identifier, cover_directory, 
-           ['.jpg', '.jpeg', '.png', '.gif'], "cover image"
+           Representation.COMMON_IMAGE_EXTENSIONS, "cover image"
        )
 
        if not cover_content:

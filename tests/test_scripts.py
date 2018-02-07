@@ -785,7 +785,8 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # But we tried.
         eq_(
-            ('2345', 'ebooks', ['.epub', '.pdf'], 'ebook file'),
+            ('2345', 'ebooks', Representation.COMMON_EBOOK_EXTENSIONS,
+             'ebook file'),
             script._locate_file_args
         )
 
@@ -819,3 +820,38 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_(link, format.link)
         eq_(link.media_type, format.content_type)
         eq_(DeliveryMechanism.NO_DRM, format.drm_scheme)
+
+    def test_load_cover_link(self):
+        # Create a directory import script with an empty mock filesystem.
+        script = MockDirectoryImportScript(self._db, {})
+
+        identifier = self._identifier(Identifier.GUTENBERG_ID, "2345")
+        gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        mirror = MockS3Uploader()
+        args = (identifier, gutenberg, "covers", mirror)
+
+        # There is nothing on the mock filesystem, so in this case
+        # load_cover_link returns None.
+        eq_(None, script.load_cover_link(*args))
+
+        # But we tried.
+        eq_(
+            ('2345', 'covers', Representation.COMMON_IMAGE_EXTENSIONS,
+             'cover image'),
+            script._locate_file_args
+        )
+
+        # Try another script that has a populated mock filesystem.
+        mock_filesystem = {
+            'covers' : (
+                'acover.jpeg', Representation.JPEG_MEDIA_TYPE, "I'm an image."
+            )
+        }
+        script = MockDirectoryImportScript(self._db, mock_filesystem)
+        link = script.load_cover_link(*args)
+        eq_(Hyperlink.IMAGE, link.rel)
+        assert link.href.endswith(
+            '/test.cover.bucket/Gutenberg/Gutenberg%20ID/2345/2345.jpg'
+        )
+        eq_(Representation.JPEG_MEDIA_TYPE, link.media_type)
+        eq_("I'm an image.", link.content)
