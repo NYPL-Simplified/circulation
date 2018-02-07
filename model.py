@@ -121,7 +121,7 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
-from util.mirror import MirrorUploader
+from mirror import MirrorUploader
 from util.http import (
     HTTP,
     RemoteIntegrationException,

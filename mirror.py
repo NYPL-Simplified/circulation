@@ -1,6 +1,5 @@
 import datetime
 from config import CannotLoadConfiguration
-from model import ExternalIntegration
 
 class MirrorUploader(object):
 
@@ -33,6 +32,7 @@ class MirrorUploader(object):
     @classmethod
     def sitewide_integration(cls, _db):
         """Find the ExternalIntegration for the site-wide mirror."""
+        from model import ExternalIntegration
         qu = _db.query(ExternalIntegration).filter(
             ExternalIntegration.goal==cls.STORAGE_GOAL
         )
