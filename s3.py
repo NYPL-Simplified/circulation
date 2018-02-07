@@ -5,7 +5,7 @@ import urllib
 from nose.tools import set_trace
 from sqlalchemy.orm.session import Session
 from urlparse import urlsplit
-from util.mirror import MirrorUploader
+from mirror import MirrorUploader
 
 from config import CannotLoadConfiguration
 from model import ExternalIntegration

@@ -621,10 +621,11 @@ class MetaToModelUtility(object):
 
         # Determine the best URL to use when mirroring this
         # representation.
-        if title and link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+        if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            url_title = title or identifier.identifier
             extension = representation.extension()
             mirror_url = mirror.book_url(
-                identifier, data_source=data_source, title=title,
+                identifier, data_source=data_source, title=url_title,
                 extension=extension
             )
         else:
@@ -721,6 +722,9 @@ class CirculationData(MetaToModelUtility):
             self.data_source_name = data_source
         if isinstance(primary_identifier, Identifier):
             self.primary_identifier_obj = primary_identifier
+            self._primary_identifier = IdentifierData(
+                primary_identifier.type, primary_identifier.identifier
+            )
         else:
             self.primary_identifier_obj = None
             self._primary_identifier = primary_identifier

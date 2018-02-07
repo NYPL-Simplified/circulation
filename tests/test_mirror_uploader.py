@@ -5,7 +5,7 @@ from nose.tools import (
 )
 from . import DatabaseTest
 from config import CannotLoadConfiguration
-from util.mirror import MirrorUploader
+from mirror import MirrorUploader
 from model import ExternalIntegration
 
 class DummySuccessUploader(MirrorUploader):

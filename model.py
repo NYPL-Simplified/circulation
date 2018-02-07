@@ -121,7 +121,7 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
-from util.mirror import MirrorUploader
+from mirror import MirrorUploader
 from util.http import (
     HTTP,
     RemoteIntegrationException,
@@ -8159,6 +8159,9 @@ class Representation(Base):
         SCORM_MEDIA_TYPE: "zip"
     }
 
+    COMMON_EBOOK_EXTENSIONS = ['.epub', '.pdf']
+    COMMON_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
+
     # Invert FILE_EXTENSIONS and add some extra guesses.
     MEDIA_TYPE_FOR_EXTENSION = {
         ".htm" : TEXT_HTML_MEDIA_TYPE,
@@ -10150,17 +10153,19 @@ class ExternalIntegration(Base, HasFullTableCache):
     OPDS_FOR_DISTRIBUTORS = u'OPDS for Distributors'
     ENKI = DataSource.ENKI
     FEEDBOOKS = DataSource.FEEDBOOKS
+    MANUAL = DataSource.MANUAL
 
-    # These protocols are only used on the Content Server when mirroring
+    # These protocols were used on the Content Server when mirroring
     # content from a given directory or directly from Project
-    # Gutenberg, respectively. These protocols aren't intended for use
-    # with LicensePools on the Circulation Manager.
-    DIRECTORY_IMPORT = u'Directory Import'
+    # Gutenberg, respectively. DIRECTORY_IMPORT was replaced by
+    # MANUAL.  GUTENBERG has yet to be replaced, but will eventually
+    # be moved into LICENSE_PROTOCOLS.
+    DIRECTORY_IMPORT = "Directory Import"
     GUTENBERG = DataSource.GUTENBERG
 
     LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, ODILO, BIBLIOTHECA, AXIS_360, RB_DIGITAL,
-        DIRECTORY_IMPORT, GUTENBERG, ENKI,
+        GUTENBERG, ENKI, MANUAL
     ]
 
     # Some integrations with LICENSE_GOAL imply that the data and

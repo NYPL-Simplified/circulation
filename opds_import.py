@@ -59,7 +59,7 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
-from util.mirror import MirrorUploader
+from mirror import MirrorUploader
 
 
 class AccessNotAuthenticated(Exception):
