@@ -589,7 +589,7 @@ class AdobeAccountIDResetScript(PatronInputScript):
         return parser
     
     def do_run(self, *args, **kwargs):
-        parsed = self.parse_args(self._db, *args, **kwargs)
+        parsed = self.parse_command_line(self._db, *args, **kwargs)
         patrons = parsed.patrons
         self.delete = parsed.delete
         if not self.delete:
