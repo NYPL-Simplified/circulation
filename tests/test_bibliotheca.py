@@ -8,6 +8,7 @@ import datetime
 import json
 import os
 import pkgutil
+import random
 
 from . import (
     DatabaseTest,
@@ -288,7 +289,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         # that the manifest contains information from the 'Findaway'
         # document as well as information from the Work.
         metadata = manifest['metadata']
-        eq_('abcdef01234789abcdef0123', metadata['findaway:checkoutId'])
+        eq_('abcdef01234789abcdef0123', metadata['encrypted']['findaway:checkoutId'])
         eq_(work.title, metadata['title'])
 
         # Now let's see what happens to fulfillment when 'Findaway' or
@@ -312,6 +313,13 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         work = self._work(with_license_pool=True)
         [pool] = work.license_pools
         document = self.sample_data("sample_findaway_audiobook_license.json")
+
+        # Randomly scramble the Findaway manifest to make sure it gets
+        # properly sorted when converted to a Webpub-like manifest.
+        document = json.loads(document)
+        document['items'].sort(key=lambda x: random.random())
+        document = json.dumps(document)
+
         m = BibliothecaAPI.findaway_license_to_webpub_manifest
         media_type, manifest = m(pool, document)
         eq_(DeliveryMechanism.FINDAWAY_DRM, media_type)
@@ -336,13 +344,17 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         eq_(pool.identifier.urn, metadata['identifier'])
         eq_('en', metadata['language'])
 
-        # Information about the license has been added to metadata.
-        eq_(u'abcdef01234789abcdef0123', metadata[u'findaway:checkoutId'])
-        eq_(u'1234567890987654321ababa', metadata[u'findaway:licenseId'])
-        eq_(u'3M', metadata[u'findaway:accountId'])
-        eq_(u'123456', metadata[u'findaway:fulfillmentId'])
+        # Information about the license has been added to an 'encrypted'
+        # object within metadata.
+        encrypted = metadata['encrypted']
+        eq_(u'http://librarysimplified.org/terms/drm/scheme/FAE',
+            encrypted['scheme'])
+        eq_(u'abcdef01234789abcdef0123', encrypted[u'findaway:checkoutId'])
+        eq_(u'1234567890987654321ababa', encrypted[u'findaway:licenseId'])
+        eq_(u'3M', encrypted[u'findaway:accountId'])
+        eq_(u'123456', encrypted[u'findaway:fulfillmentId'])
         eq_(u'aaaaaaaa-4444-cccc-dddd-666666666666', 
-            metadata[u'findaway:sessionKey'])
+            encrypted[u'findaway:sessionKey'])
 
         # Every entry in the license document's 'items' list has
         # become a spine item in the manifest.
@@ -354,15 +366,19 @@ class TestBibliothecaAPI(BibliothecaAPITest):
         first = spine[0]
         eq_(16.201, first['duration'])
         eq_("Track 1", first['title'])
-        eq_(1, first['findaway:sequence'])
 
-        # There is no 'href' or 'type' value for the spine items
-        # because the files must be obtained through the Findaway SDK
-        # rather than through regular HTTP requests.
-        for i in spine:
-            eq_(None, i['href'])
-            eq_(None, i['type'])
-            eq_(0, i['findaway:part'])
+        # There is no 'href' value for the spine items because the
+        # files must be obtained through the Findaway SDK rather than
+        # through regular HTTP requests.
+        #
+        # Since this is a relatively small book, it only has one part,
+        # part #0. Within that part, the items have been sorted by
+        # their sequence.
+        for i, item in enumerate(spine):
+            eq_(None, item['href'])
+            eq_(Representation.MP3_MEDIA_TYPE, item['type'])
+            eq_(0, item['findaway:part'])
+            eq_(i+1, item['findaway:sequence'])
 
         # The total duration, in seconds, has been added to metadata.
         eq_(28371, int(metadata['duration']))
