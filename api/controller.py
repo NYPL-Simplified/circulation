@@ -54,6 +54,7 @@ from core.model import (
     Collection,
     Complaint,
     ConfigurationSetting,
+    CustomList,
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
@@ -112,6 +113,8 @@ from lanes import (
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
+    CrawlableCustomListBasedLane,
+    CrawlableCustomListFacets,
 )
 
 from adobe_vendor_id import (
@@ -615,6 +618,36 @@ class OPDSFeedController(CirculationManagerController):
         facets = load_facets_from_request()
         if isinstance(facets, ProblemDetail):
             return facets
+        pagination = load_pagination_from_request()
+        if isinstance(pagination, ProblemDetail):
+            return pagination
+        feed = AcquisitionFeed.page(
+            self._db, title, url, lane, annotator=annotator,
+            facets=facets,
+            pagination=pagination,
+        )
+        return feed_response(feed.content)
+
+    def crawlable_feed(self, list_name):
+        """Build or retrieve a crawlable, paginated acquisition feed, sorted
+        by update date.
+        """
+        library = flask.request.library
+        list = CustomList.find(self._db, list_name, library=library)
+        if not list:
+            return NO_SUCH_LIST
+        library_short_name = library.short_name
+        url = self.cdn_url_for(
+            "crawlable_feed", list_name=list.name,
+            library_short_name=library_short_name,
+        )
+
+        title = list.name
+        lane = CrawlableCustomListBasedLane()
+        lane.initialize(library, list)
+
+        annotator = self.manager.annotator(lane)
+        facets = CrawlableCustomListFacets.default(library)
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
