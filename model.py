@@ -9380,7 +9380,7 @@ class CustomList(Base):
         if isinstance(work_or_edition, Work):
             edition = work_or_edition.presentation_edition
 
-        existing_entries = list(self.entries_for_work(edition))
+        existing_entries = list(self.entries_for_work(work_or_edition))
         for entry in existing_entries:
             _db.delete(entry)
 
@@ -9392,14 +9392,17 @@ class CustomList(Base):
         """Find all of the entries in the list representing a particular
         Edition or Work.
         """
-        edition = work_or_edition
         if isinstance(work_or_edition, Work):
+            work = work_or_edition
             edition = work_or_edition.presentation_edition
+        else:
+            edition = work_or_edition
+            work = edition.work
 
         equivalents = edition.equivalent_editions().all()
 
         for entry in self.entries:
-            if entry.edition in equivalents:
+            if (work and entry.work == work) or entry.edition in equivalents:
                 yield entry
 
 
