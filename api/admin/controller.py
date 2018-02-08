@@ -2551,7 +2551,7 @@ class SettingsController(CirculationManagerController):
     def search_services(self):
         return self._manage_sitewide_service(
             ExternalIntegration.SEARCH_GOAL, [ExternalSearchIndex],
-            MULTIPLE_SEARCH_SERVICES
+            'search_services', MULTIPLE_SEARCH_SERVICES
         )
 
     def search_service(self, service_id):
@@ -2561,7 +2561,7 @@ class SettingsController(CirculationManagerController):
     def storage_services(self):
         return self._manage_sitewide_service(
             ExternalIntegration.STORAGE_GOAL, [S3Uploader],
-            MULTIPLE_STORAGE_SERVICES
+            'storage_services', MULTIPLE_STORAGE_SERVICES
         )
 
     def storage_service(self, service_id):
