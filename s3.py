@@ -16,11 +16,20 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
+    NAME = u'Amazon S3'
+
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
 
     S3_HOSTNAME = "s3.amazonaws.com"
     S3_BASE = "http://%s/" % S3_HOSTNAME
+
+    SETTINGS = [
+        { "key": ExternalIntegration.username, "label": _("Access Key") },
+        { "key": ExternalIntegration.password, "label": _("Secret Key") },
+        { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket") },
+        { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket") },
+    ]
 
     def __init__(self, integration, pool_class=None):
         """Instantiate an S3Uploader from an ExternalIntegration.
@@ -99,7 +108,7 @@ class S3Uploader(MirrorUploader):
             raise NotImplementedError()
         return cls.url(bucket, '/')
 
-    def book_url(self, identifier, extension='.epub', open_access=True, 
+    def book_url(self, identifier, extension='.epub', open_access=True,
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
         bucket = self.get_bucket(self.OA_CONTENT_BUCKET_KEY)
@@ -142,7 +151,7 @@ class S3Uploader(MirrorUploader):
             bucket, filename = path.split("/", 1)
         else:
             bucket = netloc
-            filename = path[1:]        
+            filename = path[1:]
         return bucket, filename
 
     def mirror_one(self, representation):
@@ -261,7 +270,7 @@ class MockS3Pool(object):
 
     def upload(self, remote_filename, fh, bucket=None, content_type=None,
                **kwargs):
-        self.uploads.append((remote_filename, fh.read(), bucket, content_type, 
+        self.uploads.append((remote_filename, fh.read(), bucket, content_type,
                              kwargs))
         url = S3Uploader.url(bucket, remote_filename)
         response = MockS3Response(url)
