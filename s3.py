@@ -25,8 +25,8 @@ class S3Uploader(MirrorUploader):
     S3_BASE = "http://%s/" % S3_HOSTNAME
 
     SETTINGS = [
-        { "key": ExternalIntegration.username, "label": _("Access Key") },
-        { "key": ExternalIntegration.password, "label": _("Secret Key") },
+        { "key": ExternalIntegration.USERNAME, "label": _("Access Key") },
+        { "key": ExternalIntegration.PASSWORD, "label": _("Secret Key") },
         { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket") },
         { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket") },
     ]
