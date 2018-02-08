@@ -2491,17 +2491,18 @@ class SettingsController(CirculationManagerController):
         if flask.request.method == "DELETE":
             return self._delete_integration(service_id, ExternalIntegration.CDN_GOAL)
 
-    def search_services(self):
-        provider_apis = [ExternalSearchIndex,
-                        ]
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+    def _manage_sitewide_service(
+            self, goal, provider_apis, service_key_name, 
+            multiple_services_problem, protocol_name_attr='NAME'
+    ):
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr=protocol_name_attr)
 
         if flask.request.method == 'GET':
-            services = self._get_integration_info(ExternalIntegration.SEARCH_GOAL, protocols)
-            return dict(
-                search_services=services,
-                protocols=protocols,
-            )
+            services = self._get_integration_info(goal, protocols)
+            return {
+                service_key_name : services,
+                'protocols' : protocols,
+            }
 
         id = flask.request.form.get("id")
 
@@ -2511,7 +2512,7 @@ class SettingsController(CirculationManagerController):
 
         is_new = False
         if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.SEARCH_GOAL)
+            service = get_one(self._db, ExternalIntegration, id=id, goal=goal)
             if not service:
                 return MISSING_SERVICE
             if protocol != service.protocol:
@@ -2520,11 +2521,11 @@ class SettingsController(CirculationManagerController):
             if protocol:
                 service, is_new = get_one_or_create(
                     self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.SEARCH_GOAL
+                    goal=goal
                 )
                 if not is_new:
                     self._db.rollback()
-                    return MULTIPLE_SEARCH_SERVICES
+                    return multiple_services_problem
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
@@ -2547,9 +2548,25 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(service.id), 200)
 
+    def search_services(self):
+        return self._manage_sitewide_service(
+            ExternalIntegration.SEARCH_GOAL, [ExternalSearchIndex],
+            MULTIPLE_SEARCH_SERVICES
+        )
+
     def search_service(self, service_id):
         if flask.request.method == "DELETE":
             return self._delete_integration(service_id, ExternalIntegration.SEARCH_GOAL)
+
+    def storage_services(self):
+        return self._manage_sitewide_service(
+            ExternalIntegration.STORAGE_GOAL, [S3Uploader],
+            MULTIPLE_STORAGE_SERVICES
+        )
+
+    def storage_service(self, service_id):
+        if flask.request.method == "DELETE":
+            return self._delete_integration(service_id, ExternalIntegration.STORAGE_GOAL)
 
     def discovery_services(self):
         protocols = [
