@@ -2532,7 +2532,7 @@ class SettingsController(CirculationManagerController):
                 )
                 if not is_new:
                     self._db.rollback()
-                    return MULTIPLE_SITEWIDE_SERVICES.detail(
+                    return MULTIPLE_SITEWIDE_SERVICES.detailed(
                         multiple_sitewide_services_detail
                     )
             else:

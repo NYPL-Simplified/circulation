@@ -4059,7 +4059,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
             response = self.manager.admin_settings_controller.search_services()
-            eq_(response, MULTIPLE_SEARCH_SERVICES)
+            eq_(response.uri, MULTIPLE_SITEWIDE_SERVICES.uri)
 
         service, ignore = create(
             self._db, ExternalIntegration,
