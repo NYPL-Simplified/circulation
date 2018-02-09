@@ -8203,6 +8203,32 @@ class TestMaterializedViews(DatabaseTest):
         # the data source ID of the license pool.
         eq_(pool.data_source.id, mwg.data_source_id)
 
+    def test_work_on_same_list_twice(self):
+        # Here's the NYT best-seller list.
+        cl, ignore = self._customlist(num_entries=0)
+
+        # Here are two Editions containing data from the NYT
+        # best-seller list.
+        now = datetime.datetime.utcnow()
+        earlier = now - datetime.timedelta(seconds=3600)
+        edition1 = self._edition()
+        entry1, ignore = cl.add_entry(edition1, first_appearance=earlier)
+
+        edition2 = self._edition()
+        entry2, ignore = cl.add_entry(edition2, first_appearance=now)
+
+        # In a shocking turn of events, we've determined that the two
+        # editions are slight title variants of the same work.
+        work = self._work(with_license_pool=True, genre="Romance")
+        entry1.work = work
+        entry2.work = work
+        self._db.commit()
+
+        # The materialized view can handle this revelation.
+        SessionManager.refresh_materialized_views(self._db)
+        from model import MaterializedWorkWithGenre as mw
+        [o1, o2] = self._db.query(mw)
+
 
 class TestAdmin(DatabaseTest):
     def setup(self):
