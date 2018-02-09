@@ -303,11 +303,11 @@ MISSING_SITEWIDE_SETTING_VALUE = pd(
     detail=_("A value is required to change a sitewide setting."),
 )
 
-MULTIPLE_SEARCH_SERVICES = pd(
+MULTIPLE_SITEWIDE_SERVICES = pd(
     "http://librarysimplified.org/terms/problem/multiple-search-services",
     status_code=400,
-    title=_("Multiple search services"),
-    detail=_("You tried to create a new search service, but a search service is already configured."),
+    title=_("Multiple sitewide services"),
+    detail=_("You tried to create a new sitewide service, but a sitewide service of the same type is already configured."),
 )
 
 MULTIPLE_STORAGE_SERVICES = pd(
