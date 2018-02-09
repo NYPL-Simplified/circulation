@@ -36,6 +36,7 @@ as
     licensepools.availability_time,
     licensepools.collection_id,
     customlistentries.list_id,
+    customlistentries.edition_id as list_edition_id,
     customlistentries.first_appearance
 
    FROM works
