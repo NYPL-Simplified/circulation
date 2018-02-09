@@ -6678,6 +6678,12 @@ class TestCustomList(DatabaseTest):
         # And/or add a .work if one is newly available.
         eq_(lp.work, equivalent_entry.work)
 
+        # Adding a non-equivalent edition for the same work will not create multiple entries.
+        not_equivalent, lp = self._edition(with_open_access_download=True)
+        not_equivalent.work = work
+        not_equivalent_entry, is_new = custom_list.add_entry(not_equivalent)
+        eq_(False, is_new)
+
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=3)
         [first, second, third] = editions
