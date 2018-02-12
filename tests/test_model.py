@@ -8219,15 +8219,30 @@ class TestMaterializedViews(DatabaseTest):
 
         # In a shocking turn of events, we've determined that the two
         # editions are slight title variants of the same work.
-        work = self._work(with_license_pool=True, genre="Romance")
+        romance, ignore = Genre.lookup(self._db, "Romance")
+        work = self._work(with_license_pool=True, genre=romance)
         entry1.work = work
         entry2.work = work
         self._db.commit()
 
-        # The materialized view can handle this revelation.
+        # The materialized view can handle this revelation
+        # and stores the two list entries in different rows.
         SessionManager.refresh_materialized_views(self._db)
         from model import MaterializedWorkWithGenre as mw
-        [o1, o2] = self._db.query(mw)
+        [o1, o2] = self._db.query(mw).order_by(mw.list_edition_id)
+
+        # Both MaterializedWorkWithGenre objects are on the same
+        # list, associated with the same work, the same genre,
+        # and the same presentation edition.
+        for o in (o1, o2):
+            eq_(cl.id, o.list_id)
+            eq_(work.id, o.works_id)
+            eq_(romance.id, o.genre_id)
+            eq_(work.presentation_edition.id, o.editions_id)
+
+        # But they are associated with different list editions.
+        eq_(edition1.id, o1.list_edition_id)
+        eq_(edition2.id, o2.list_edition_id)
 
 
 class TestAdmin(DatabaseTest):
