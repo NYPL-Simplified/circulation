@@ -358,13 +358,13 @@ class OPDSImporter(object):
             "key": ExternalIntegration.USERNAME,
             "label": _("Username"),
             "optional": True,
-            "description": _("If authentication is required to access the OPDS feed, enter the username here."),
+            "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the username here."),
         },
         {
             "key": ExternalIntegration.PASSWORD,
             "label": _("Password"),
             "optional": True,
-            "description": _("If authentication is required to access the OPDS feed, enter the password here."),
+            "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here."),
         },
     ]
 
