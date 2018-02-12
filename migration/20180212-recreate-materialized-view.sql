@@ -1,4 +1,6 @@
 drop materialized view mv_works_for_lanes;
+
+-- Create the materialized view with no data.
 create materialized view mv_works_for_lanes
 as
  SELECT 
@@ -36,6 +38,7 @@ as
     licensepools.availability_time,
     licensepools.collection_id,
     customlistentries.list_id,
+    customlistentries.edition_id as list_edition_id,
     customlistentries.first_appearance
 
    FROM works
@@ -52,7 +55,9 @@ as
   WITH NO DATA;
 
 -- First create an index that allows work/genre lookup. It's unique and incorporates license_pool_id so that the materialized view can be refreshed CONCURRENTLY.
-create unique index mv_works_for_lanes_unique on mv_works_for_lanes (works_id, genre_id, list_id, license_pool_id);
+-- NOTE: All fields mentioned here also need to be part of the primary key
+-- for the model object defined in model.py.
+create unique index mv_works_for_lanes_unique on mv_works_for_lanes (works_id, genre_id, list_id, list_edition_id, license_pool_id);
 
 -- Create an index on everything, sorted by descending availability time, so that sync feeds are fast.
 
@@ -130,5 +135,5 @@ create index mv_works_for_lanes_ya_nonfiction_by_title on mv_works_for_lanes (so
 create index mv_works_for_lanes_ya_nonfiction_by_availability on mv_works_for_lanes (availability_time DESC, sort_author, sort_title, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
 
 -- Refresh the new materialized view.
-refresh materialized view concurrently mv_works_for_lanes;
+refresh materialized view mv_works_for_lanes;
 

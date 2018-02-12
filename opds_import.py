@@ -353,7 +353,19 @@ class OPDSImporter(object):
         {
             "key": Collection.DATA_SOURCE_NAME_SETTING,
             "label": _("Data source name"),
-        }
+        },
+        {
+            "key": ExternalIntegration.USERNAME,
+            "label": _("Username"),
+            "optional": True,
+            "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the username here."),
+        },
+        {
+            "key": ExternalIntegration.PASSWORD,
+            "label": _("Password"),
+            "optional": True,
+            "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here."),
+        },
     ]
 
     # Subclasses of OPDSImporter may define a different parser class that's
@@ -1469,6 +1481,8 @@ class OPDSImportMonitor(CollectionMonitor):
 
         self.feed_url = self.opds_url(collection)
         self.force_reimport = force_reimport
+        self.username = collection.external_integration.username
+        self.password = collection.external_integration.password
         self.importer = import_class(
             _db, collection=collection, **import_class_kwargs
         )
@@ -1480,6 +1494,9 @@ class OPDSImportMonitor(CollectionMonitor):
         Long timeout, raise error on anything but 2xx or 3xx.
         """
         headers = dict(headers or {})
+        if self.username and self.password:
+            auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
+            headers['Authorization'] = auth_header
 
         types = dict(
             opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
