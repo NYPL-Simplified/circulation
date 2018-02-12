@@ -6678,6 +6678,12 @@ class TestCustomList(DatabaseTest):
         # And/or add a .work if one is newly available.
         eq_(lp.work, equivalent_entry.work)
 
+        # Adding a non-equivalent edition for the same work will not create multiple entries.
+        not_equivalent, lp = self._edition(with_open_access_download=True)
+        not_equivalent.work = work
+        not_equivalent_entry, is_new = custom_list.add_entry(not_equivalent)
+        eq_(False, is_new)
+
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=3)
         [first, second, third] = editions
@@ -8196,6 +8202,47 @@ class TestMaterializedViews(DatabaseTest):
         # associated with the license pool, we would expect it to be
         # the data source ID of the license pool.
         eq_(pool.data_source.id, mwg.data_source_id)
+
+    def test_work_on_same_list_twice(self):
+        # Here's the NYT best-seller list.
+        cl, ignore = self._customlist(num_entries=0)
+
+        # Here are two Editions containing data from the NYT
+        # best-seller list.
+        now = datetime.datetime.utcnow()
+        earlier = now - datetime.timedelta(seconds=3600)
+        edition1 = self._edition()
+        entry1, ignore = cl.add_entry(edition1, first_appearance=earlier)
+
+        edition2 = self._edition()
+        entry2, ignore = cl.add_entry(edition2, first_appearance=now)
+
+        # In a shocking turn of events, we've determined that the two
+        # editions are slight title variants of the same work.
+        romance, ignore = Genre.lookup(self._db, "Romance")
+        work = self._work(with_license_pool=True, genre=romance)
+        entry1.work = work
+        entry2.work = work
+        self._db.commit()
+
+        # The materialized view can handle this revelation
+        # and stores the two list entries in different rows.
+        SessionManager.refresh_materialized_views(self._db)
+        from model import MaterializedWorkWithGenre as mw
+        [o1, o2] = self._db.query(mw).order_by(mw.list_edition_id)
+
+        # Both MaterializedWorkWithGenre objects are on the same
+        # list, associated with the same work, the same genre,
+        # and the same presentation edition.
+        for o in (o1, o2):
+            eq_(cl.id, o.list_id)
+            eq_(work.id, o.works_id)
+            eq_(romance.id, o.genre_id)
+            eq_(work.presentation_edition.id, o.editions_id)
+
+        # But they are associated with different list editions.
+        eq_(edition1.id, o1.list_edition_id)
+        eq_(edition2.id, o2.list_edition_id)
 
 
 class TestAdmin(DatabaseTest):
