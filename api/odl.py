@@ -745,24 +745,6 @@ class ODLBibliographicImportMonitor(OPDSImportMonitor):
     PROTOCOL = ODLBibliographicImporter.NAME
     SERVICE_NAME = "ODL Bibliographic Import Monitor"
 
-    def __init__(self, _db, collection, import_class, **kwargs):
-        super(ODLBibliographicImportMonitor, self).__init__(_db, collection, import_class, **kwargs)
-
-        self.api = ODLWithConsolidatedCopiesAPI(_db, collection)
-
-    def _get(self, url, headers):
-        """Make a normal HTTP request, but add in an auth header
-        with the credentials for the collection.
-        """
-
-        username = self.api.username
-        password = self.api.password
-        headers = dict(headers or {})
-        auth_header = "Basic %s" % base64.b64encode("%s:%s" % (username, password))
-        headers['Authorization'] = auth_header
-
-        return super(ODLBibliographicImportMonitor, self)._get(url, headers)
-
 class ODLConsolidatedCopiesMonitor(CollectionMonitor):
     """Monitor a consolidated copies feed for circulation information changes.
 
