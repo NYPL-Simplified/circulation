@@ -53,6 +53,8 @@ as
   WITH NO DATA;
 
 -- First create an index that allows work/genre lookup. It's unique and incorporates license_pool_id so that the materialized view can be refreshed CONCURRENTLY.
+-- NOTE: All fields mentioned here also need to be part of the primary key
+-- for the model object defined in model.py.
 create unique index mv_works_for_lanes_unique on mv_works_for_lanes (works_id, genre_id, list_id, list_edition_id, license_pool_id);
 
 -- Create an index on everything, sorted by descending availability time, so that sync feeds are fast.

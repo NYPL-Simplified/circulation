@@ -405,13 +405,14 @@ class SessionManager(object):
                     Base.metadata,
                     Column('works_id', Integer, primary_key=True),
                     Column('workgenres_id', Integer, primary_key=True),
+                    Column('list_id', Integer, ForeignKey('customlists.id'),
+                           primary_key=True),
+                    Column(
+                        'list_edition_id', Integer, ForeignKey('editions.id'),
+                        primary_key=True
+                    ),
                     Column('license_pool_id', Integer,
-                           ForeignKey('licensepools.id')),
-                    Column('collection_id', Integer,
-                           ForeignKey('collections.id')),
-                    Column('list_id', Integer, ForeignKey('customlists.id')),
-                    Column('list_edition_id', Integer,
-                           ForeignKey('editions.id')),
+                           ForeignKey('licensepools.id'), primary_key=True),
                     autoload=True,
                     autoload_with=engine
                 )
