@@ -303,6 +303,8 @@ class SIPClient(Constants):
                         self.target_server, self.target_port
                     )
                 )
+            # Set socket timeout in case remote SIP server inactivity timeout has been exceeded
+            sock.settimeout(12)
 
             # Since this is a new socket connection, reset the message count
             # and, potentially, logged_in.
@@ -705,14 +707,22 @@ class SIPClient(Constants):
         data = ""
         tmp = ""
         while not done:
-            tmp = self.socket.recv(4096)
+            try:
+                tmp = self.socket.recv(4096)
+            except socket.timeout:
+                raise socket.error
+            except socket.error, e:
+                raise IOError("Socket error occurred receiving SIP response: %s" % e)
+            except Exception, e:
+                raise IOError("Some other error occurred with SIP response: %s" % e.message)
             data = data + tmp
-            if not tmp:
+            if not data:
                 raise IOError("No data read from socket.")
             if ord(data[-1]) == 13 or ord(data[-1]) == 10:
                 done = True
             if len(data) > max_size:
                 raise IOError("SIP2 response too large.")
+            # Do we need to test for a malformed response with no proper line termination?
 
         return data
   
