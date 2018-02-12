@@ -310,13 +310,6 @@ MULTIPLE_SITEWIDE_SERVICES = pd(
     detail=_("You tried to create a new sitewide service, but a sitewide service of the same type is already configured."),
 )
 
-MULTIPLE_STORAGE_SERVICES = pd(
-    "http://librarysimplified.org/terms/problem/multiple-storage-services",
-    status_code=400,
-    title=_("Multiple storage services"),
-    detail=_("You tried to create a new storage service, but a storage service is already configured."),
-)
-
 MISSING_CUSTOM_LIST = pd(
     "http://librarysimplified.org/terms/problem/missing-custom-list",
     status_code=404,
