@@ -1,0 +1,8 @@
+{
+  "integrations": {
+    "Postgres": {
+      "production_url" : "postgres://simplified:kiba119@localhost:5432/simplified_circulation_dev",
+      "test_url" : "postgres://simplified_test:kiba119@localhost:5432/simplified_circulation_test"
+    }
+  }
+}
