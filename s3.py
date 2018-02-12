@@ -28,9 +28,11 @@ class S3Uploader(MirrorUploader):
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Access Key") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Secret Key") },
-        { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket") },
-        { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket") },
+        { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"), "optional": True },
+        { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"), "optional": True },
     ]
+
+    SITEWIDE = True
 
     def __init__(self, integration, pool_class=None):
         """Instantiate an S3Uploader from an ExternalIntegration.
