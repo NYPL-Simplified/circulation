@@ -37,7 +37,10 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound,
 )
-from sqlalchemy.orm.session import Session
+from sqlalchemy.orm import (
+    Session,
+    scoped_session,
+)
 
 from app_server import ComplaintController
 from axis import Axis360BibliographicCoverageProvider
@@ -84,6 +87,7 @@ from oneclick import (
     OneClickBibliographicCoverageProvider,
 )
 from overdrive import OverdriveBibliographicCoverageProvider
+from util import fast_query_count
 from util.opds_writer import OPDSFeed
 from util.personal_names import (
     contributor_name_match_ratio, 
@@ -297,6 +301,101 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
 
     def get_providers(self, _db, provider_class, **kwargs):
         return list(provider_class.all(_db, **kwargs))
+
+
+class DatabaseWorker(workerpool.Worker):
+
+    def __init__(self, jobs, _db):
+        self._db = _db
+        super(DatabaseWorker, self).__init__(jobs)
+
+    def run(self):
+        while True:
+            job = self.jobs.get()
+            try:
+                job.run(self._db)
+                self.jobs.task_done()
+            except workerpool.TerminationNotice:
+                self.jobs.task_done()
+                break
+
+
+class CollectionCoverageProviderJob(workerpool.Job):
+
+    def __init__(self, collection, provider_class, item_offset,
+        **provider_kwargs
+    ):
+        self.collection = collection
+        self.offset = item_offset
+        self.provider_class = provider_class
+        self.provider_kwargs = provider_kwargs
+
+    def run(self, thread_db_session):
+        thread_db_session.expire_all()
+        collection = thread_db_session.merge(self.collection)
+        provider = self.provider_class(collection, self.provider_kwargs)
+        provider.run_once(self.offset)
+        thread_db_session.commit()
+        thread_db_session.prune()
+
+
+class TerminationJob(workerpool.Job):
+    def run(self, *args, **kw):
+        raise workerpool.TerminationNotice()
+
+
+class RunThreadedCoverageProviderScript(Script):
+    """Run coverage providers in multiple threads."""
+
+    DEFAULT_WORKER_SIZE = 5
+
+    def __init__(self, provider_class, worker_size=None, _db=None, **provider_kwargs):
+        super(RunThreadedCoverageProviderScript, self).__init__(_db)
+        self.session_factory = SessionManager.sessionmaker(session=self._db)
+
+        worker_size = worker_size or self.DEFAULT_WORKER_SIZE
+        self.pool = workerpool.WorkerPool(
+            size=worker_size, worker_factory=self.worker_factory
+        )
+
+        self.provider_class = provider_class
+        self.provider_kwargs = provider_kwargs
+
+    def worker_factory(self, job_queue):
+        """Returns a Worker with a database"""
+        return DatabaseWorker(job_queue, scoped_session(self.session_factory))
+
+    def run(self):
+        try:
+            _db = scoped_session(self.session_factory)
+            collections = self.provider_class.collections(self._db)
+
+            for collection in collections:
+                offset = 0
+                query_size, batch_size = self.get_query_and_batch_sizes(
+                    collection
+                )
+
+                while offset < query_size:
+                    _db.merge(collection)
+                    job = CollectionCoverageProviderJob(
+                        collection, self.provider_class, offset,
+                        **self.provider_kwargs
+                    )
+                    self.pool.put(job)
+                    offset += batch_size
+                self.pool.join()
+        except Exception as e:
+            self.log.error('An error happened whoops!')
+            set_trace()
+
+            self.pool.join()
+            raise e
+
+    def get_query_and_batch_sizes(self, collection):
+        provider = self.provider_class(collection, **self.provider_kwargs)
+        qu = provider.items_that_need_coverage()
+        return fast_query_count(qu), provider.batch_size
 
 
 class RunWorkCoverageProviderScript(RunCollectionCoverageProviderScript):
