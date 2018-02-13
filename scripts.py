@@ -368,7 +368,7 @@ class RunThreadedCoverageProviderScript(Script):
     def run(self):
         try:
             _db = scoped_session(self.session_factory)
-            collections = self.provider_class.collections(self._db)
+            collections = self.provider_class.collections(_db)
 
             for collection in collections:
                 offset = 0
