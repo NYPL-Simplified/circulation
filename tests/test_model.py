@@ -2479,7 +2479,7 @@ class TestWork(DatabaseTest):
             lp3, complaint_type, "blah", "blah"
         )
 
-        eq_([complaint1, complaint2], work.complaints)
+        eq_(sorted([complaint1, complaint2]), sorted(work.complaints))
         assert complaint3 not in work.complaints
 
     def test_all_identifier_ids(self):
