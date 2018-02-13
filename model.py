@@ -329,13 +329,18 @@ class SessionManager(object):
     engine_for_url = {}
 
     @classmethod
-    def engine(cls, url=None):
+    def engine(cls, url=None, session=None):
         url = url or Configuration.database_url()
         return create_engine(url, echo=DEBUG)
 
     @classmethod
-    def sessionmaker(cls, url=None):
-        engine = cls.engine(url)
+    def sessionmaker(cls, url=None, session=None):
+        if not (url or session):
+            url = Configuration.database_url()
+        if url:
+            engine = cls.engine(url)
+        elif session:
+            engine = session.connection().engine
         return sessionmaker(bind=engine)
 
     @classmethod
@@ -2414,7 +2419,6 @@ class Identifier(Base):
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
 
         return qu
-
 
     def opds_entry(self):
         """Create an OPDS entry using only resources directly
