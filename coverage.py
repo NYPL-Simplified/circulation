@@ -2,6 +2,7 @@ from nose.tools import set_trace
 import datetime
 import logging
 
+import sqlalchemy
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
 
@@ -200,10 +201,14 @@ class BaseCoverageProvider(object):
         # run.
         count_as_covered_message = '(counting %s as covered)' % (', '.join(count_as_covered))
 
-        qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
-        self.log.info("%d items need coverage%s", qu.count(), 
-                      count_as_covered_message)
-        batch = qu.limit(self.batch_size).offset(offset)
+        try:
+            qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
+            self.log.info("%d items need coverage%s", qu.count(), 
+                        count_as_covered_message)
+            batch = qu.limit(self.batch_size).offset(offset)
+        except sqlalchemy.orm.exc.DetachedInstanceError:
+            set_trace()
+            pass
 
         if not batch.count():
             # The batch is empty. We're done.

@@ -94,6 +94,11 @@ from util.personal_names import (
     display_name_to_sort_name, 
     is_corporate_name
 )
+from util.worker_pools import (
+    DatabaseJob,
+    DatabaseWorker,
+    Pool,
+)
 
 from bibliotheca import (
     BibliothecaBibliographicCoverageProvider,
@@ -303,24 +308,7 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
         return list(provider_class.all(_db, **kwargs))
 
 
-class DatabaseWorker(workerpool.Worker):
-
-    def __init__(self, jobs, _db):
-        self._db = _db
-        super(DatabaseWorker, self).__init__(jobs)
-
-    def run(self):
-        while True:
-            job = self.jobs.get()
-            try:
-                job.run(self._db)
-                self.jobs.task_done()
-            except workerpool.TerminationNotice:
-                self.jobs.task_done()
-                break
-
-
-class CollectionCoverageProviderJob(workerpool.Job):
+class CollectionCoverageProviderJob(DatabaseJob):
 
     def __init__(self, collection, provider_class, item_offset,
         **provider_kwargs
@@ -330,17 +318,10 @@ class CollectionCoverageProviderJob(workerpool.Job):
         self.provider_class = provider_class
         self.provider_kwargs = provider_kwargs
 
-    def run(self, thread_db_session):
-        thread_db_session.expire_all()
-        collection = thread_db_session.merge(self.collection)
+    def run(self, _db):
+        collection = _db.merge(self.collection)
         provider = self.provider_class(collection, self.provider_kwargs)
         provider.run_once(self.offset)
-        thread_db_session.commit()
-
-
-class TerminationJob(workerpool.Job):
-    def run(self, *args, **kw):
-        raise workerpool.TerminationNotice()
 
 
 class RunThreadedCoverageProviderScript(Script):
@@ -353,9 +334,7 @@ class RunThreadedCoverageProviderScript(Script):
         self.session_factory = SessionManager.sessionmaker(session=self._db)
 
         worker_size = worker_size or self.DEFAULT_WORKER_SIZE
-        self.pool = workerpool.WorkerPool(
-            size=worker_size, worker_factory=self.worker_factory
-        )
+        self.pool = Pool(size=worker_size, worker_factory=self.worker_factory)
 
         self.provider_class = provider_class
         self.provider_kwargs = provider_kwargs
@@ -374,6 +353,7 @@ class RunThreadedCoverageProviderScript(Script):
                 query_size, batch_size = self.get_query_and_batch_sizes(
                     collection
                 )
+                _db.commit()
 
                 while offset < query_size:
                     _db.merge(collection)
@@ -383,6 +363,7 @@ class RunThreadedCoverageProviderScript(Script):
                     )
                     self.pool.put(job)
                     offset += batch_size
+
                 self.pool.join()
         except Exception as e:
             self.log.error('An error happened whoops!')

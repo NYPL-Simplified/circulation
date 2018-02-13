@@ -8,7 +8,6 @@ import logging
 import urlparse
 import urllib
 import sys
-from threading import RLock
 
 from sqlalchemy.orm.exc import (
     NoResultFound,
@@ -65,6 +64,7 @@ from util.http import (
     HTTP,
     BadResponseException,
 )
+from util.worker_pools import RLock
 
 from testing import MockRequestsResponse
 
