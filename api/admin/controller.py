@@ -1674,7 +1674,27 @@ class SettingsController(CirculationManagerController):
             if sitewide != None:
                 protocol["sitewide"] = sitewide
 
-            settings = getattr(api, "SETTINGS", [])
+            if hasattr(api, 'get_settings'):
+                settings = api.ui_settings(self._db)
+            else:
+                settings = getattr(api, "SETTINGS", [])
+
+            try:
+                mirror = MirrorUploader.sitewide(self._db)
+            except CannotLoadConfiguration, e:
+                mirror = None
+            if mirror:
+                s3_integration_setting = {
+                    "key": "storage_integration",
+                    "name": "Storage integration to use",
+                    "type": "select",
+                    "options" : [
+                        "None - Do not mirror cover images or free books",
+                        "Mirror cover images and free books to %s" % mirror.integration.name
+                    ]
+                }
+                settings.append(s3_integration_setting)
+
             protocol["settings"] = settings
 
             child_settings = getattr(api, "CHILD_SETTINGS", None)
@@ -1934,6 +1954,14 @@ class SettingsController(CirculationManagerController):
                         _("The collection configuration is missing a required setting: %(setting)s",
                           setting=setting.get("label")))
                 collection.external_account_id = value
+            elif key == 'storage_integration_id':
+                value = flask.request.form.get(key)
+                integration = get_one(
+                    self._db, ExternalIntegration, id=value
+                )
+                if integration.goal != ExternalIntegration.STORAGE_GOAL:
+                    return DOESNT_MAKE_SENSE
+                collection.storage_integration = integration
             else:
                 result = self._set_integration_setting(collection.external_integration, setting)
                 if isinstance(result, ProblemDetail):
