@@ -336,7 +336,6 @@ class CollectionCoverageProviderJob(workerpool.Job):
         provider = self.provider_class(collection, self.provider_kwargs)
         provider.run_once(self.offset)
         thread_db_session.commit()
-        thread_db_session.prune()
 
 
 class TerminationJob(workerpool.Job):
