@@ -174,23 +174,23 @@ class BaseCoverageProvider(object):
         self.run_once_and_update_timestamp()
 
     def run_once_and_update_timestamp(self):
-        # First cover items that have never had a coverage attempt
-        # before.
-        offset = 0
-        while offset is not None:
-            offset = self.run_once(
-                offset, count_as_covered=BaseCoverageRecord.ALL_STATUSES
-            )
+        # First prioritize items that have never had a coverage attempt before.
+        # Then cover items that failed with a transient failure on a
+        # previous attempt.
+        covered_status_lists = [
+            BaseCoverageRecord.PREVIOUSLY_ATTEMPTED,
+            BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
+        ]
+        for covered_statuses in covered_status_lists:
+            offset = 0
+            while offset is not None:
+                offset = self.run_once(
+                    offset, count_as_covered=covered_statuses
+                )
 
-        # Next, cover items that failed with a transient failure
-        # on a previous attempt.
-        offset = 0
-        while offset is not None:
-            offset = self.run_once(
-                offset, 
-                count_as_covered=BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
-            )
-        
+        self.update_timestamp()
+
+    def update_timestamp(self):
         Timestamp.stamp(self._db, self.service_name, self.collection)
         self._db.commit()
 

@@ -1270,6 +1270,9 @@ class BaseCoverageRecord(object):
 
     ALL_STATUSES = [REGISTERED, SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
 
+    # Count coverage as attempted if the record is not 'registered'.
+    PREVIOUSLY_ATTEMPTED = [SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
+
     # By default, count coverage as present if it ended in
     # success or in persistent failure. Do not count coverage
     # as present if it ended in transient failure.
