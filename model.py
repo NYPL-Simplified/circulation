@@ -2402,8 +2402,13 @@ class Identifier(Base):
             collection_id = collection.id
         else:
             collection_id = None
+
+        data_source_id = None
+        if coverage_data_source:
+            data_source_id = coverage_data_source.id
+
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
-                      CoverageRecord.data_source==coverage_data_source,
+                      CoverageRecord.data_source_id==data_source_id,
                       CoverageRecord.operation==operation,
                       CoverageRecord.collection_id==collection_id
         )
