@@ -147,7 +147,7 @@ class BaseCoverageProvider(object):
         self.cutoff_time = cutoff_time
         self.registered_only = registered_only
         self.collection_id = None
-        
+
     @property
     def log(self):
         if not hasattr(self, '_log'):
@@ -920,6 +920,17 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         return ReplacementPolicy.from_license_source(_db)
 
     @classmethod
+    def collections(cls, _db):
+        """Returns a list of randomly sorted list of collections covered by the
+        provider.
+        """
+        if cls.PROTOCOL:
+            collections = Collection.by_protocol(_db, cls.PROTOCOL)
+        else:
+            collections = _db.query(Collection)
+        return collections.order_by(func.random()).all()
+
+    @classmethod
     def all(cls, _db, **kwargs):
         """Yield a sequence of CollectionCoverageProvider instances, one for
         every Collection that gets its licenses from cls.PROTOCOL.
@@ -930,13 +941,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         CollectionCoverageProvider (or, more likely, one of its subclasses).
 
         """
-        if cls.PROTOCOL:
-            collections = Collection.by_protocol(_db, cls.PROTOCOL)
-        else:
-            collections = _db.query(Collection)
-
-        collections = collections.order_by(func.random())
-        for collection in collections:
+        for collection in cls.collections(_db):
             yield cls(collection, **kwargs)
 
     def items_that_need_coverage(self, identifiers=None, **kwargs):
