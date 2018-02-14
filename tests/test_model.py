@@ -2479,8 +2479,9 @@ class TestWork(DatabaseTest):
             lp3, complaint_type, "blah", "blah"
         )
 
-        eq_([complaint1, complaint2], work.complaints)
-        assert complaint3 not in work.complaints
+        # Only the first two complaints show up in work.complaints.
+        eq_(sorted([complaint1.id, complaint2.id]),
+            sorted([x.id for x in work.complaints]))
 
     def test_all_identifier_ids(self):
         work = self._work(with_license_pool=True)
