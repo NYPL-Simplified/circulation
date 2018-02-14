@@ -1962,12 +1962,18 @@ class SettingsController(CirculationManagerController):
                 collection.external_account_id = value
             elif key == 'mirror_integration_id':
                 value = flask.request.form.get(key)
-                integration = get_one(
-                    self._db, ExternalIntegration, id=value
-                )
-                if integration.goal != ExternalIntegration.STORAGE_GOAL:
-                    return INTEGRATION_GOAL_CONFLICT
-                collection.mirror_integration_id = integration.id
+                if value is None:
+                    integration_id = None
+                else:
+                    integration = get_one(
+                        self._db, ExternalIntegration, id=value
+                    )
+                    if not integration:
+                        return MISSING_SERVICE
+                    if integration.goal != ExternalIntegration.STORAGE_GOAL:
+                        return INTEGRATION_GOAL_CONFLICT
+                    integration_id = integration.id
+                collection.mirror_integration_id = integration_id
             else:
                 result = self._set_integration_setting(collection.external_integration, setting)
                 if isinstance(result, ProblemDetail):

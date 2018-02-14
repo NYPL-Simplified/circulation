@@ -2646,6 +2646,71 @@ class TestSettingsController(AdminControllerTest):
         # The collection now has a parent.
         eq_(parent, collection.parent)
 
+    def test_collections_post_edit_mirror_integration(self):
+        # The collection exists.
+        collection = self._collection(
+            name="Collection 1",
+            protocol=ExternalIntegration.RB_DIGITAL
+        )
+
+        # There is a storage integration not associated with the collection.
+        storage = self._external_integration(
+            protocol=ExternalIntegration.S3,
+            goal=ExternalIntegration.STORAGE_GOAL
+        )
+        eq_(None, collection.mirror_integration_id)
+
+        # It's possible to associate the storage integration with the
+        # collection.
+        base_request = [
+                ("id", collection.id),
+                ("name", "Collection 1"),
+                ("protocol", ExternalIntegration.RB_DIGITAL),
+                ("external_account_id", "1234"),
+                ("username", "user2"),
+                ("password", "password"),
+                ("url", "http://rb/"),
+        ]
+        with self.app.test_request_context("/", method="POST"):
+            request = MultiDict(
+                base_request + [("mirror_integration_id", storage.id)]
+            )
+            flask.request.form = request
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+            eq_(storage.id, collection.mirror_integration_id)
+
+        # It's possible to unset the mirror integration ID.
+        with self.app.test_request_context("/", method="POST"):
+            request = MultiDict(
+                base_request + [("mirror_integration_id", None)]
+            )
+            flask.request.form = request
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response.status_code, 200)
+            eq_(None, collection.mirror_integration_id)
+
+        # Providing a nonexistent integration ID gives an error.
+        with self.app.test_request_context("/", method="POST"):
+            request = MultiDict(
+                base_request + [("mirror_integration_id", -200)]
+            )
+            flask.request.form = request
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, MISSING_SERVICE)
+
+        # Providing the ID of a non-storage integration gives an
+        # error.
+        with self.app.test_request_context("/", method="POST"):
+            request = MultiDict(
+                base_request + [
+                    ("mirror_integration_id", collection.external_integration.id)
+                ]
+            )
+            flask.request.form = request
+            response = self.manager.admin_settings_controller.collections()
+            eq_(response, INTEGRATION_GOAL_CONFLICT)
+
     def test_collections_post_edit_library_specific_configuration(self):
         # The collection exists.
         collection = self._collection(
