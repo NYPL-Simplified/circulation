@@ -1954,8 +1954,10 @@ class SettingsController(CirculationManagerController):
                         self._db, ExternalIntegration, id=value
                     )
                     if not integration:
+                        self._db.rollback()
                         return MISSING_SERVICE
                     if integration.goal != ExternalIntegration.STORAGE_GOAL:
+                        self._db.rollback()
                         return INTEGRATION_GOAL_CONFLICT
                     integration_id = integration.id
                 collection.mirror_integration_id = integration_id
