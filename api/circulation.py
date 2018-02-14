@@ -827,19 +827,12 @@ class CirculationAPI(object):
 
             delivery_mechanism = None
             fulfillment = loan.fulfillment_info
-            if (fulfillment and fulfillment.content_type
-                and fulfillment.drm_scheme):
+            if (fulfillment and fulfillment.content_type):
                 # The loan source is letting us know that the loan is
                 # locked to a specific delivery mechanism. Even if
                 # this is the first we've heard of this loan,
                 # it may have been created in another app or through
                 # a library website integraiton.
-                #
-                # Note that if there is no DRM, we would expect
-                # fulfillment.drm_scheme to be
-                # DeliveryMechanism.NO_DRM, so this code would run.
-                # drm_scheme=None indicates that the loan is
-                # _not_ locked to a specific delivery mechanism.
                 delivery_mechanism, ignore = DeliveryMechanism.lookup(
                     self._db, fulfillment.content_type,
                     fulfillment.drm_scheme
@@ -951,27 +944,13 @@ class CirculationAPI(object):
             # This shouldn't happen, but bail out if it does.
             return None
 
-        lpdm = get_one(
-            self._db, LicensePoolDeliveryMechanism,
-            identifier=pool.identifier,
-            data_source=pool.data_source,
-            delivery_mechanism=delivery_mechanism,
-            resource=None
+        # Look up the LicensePoolDeliveryMechanism for the way the
+        # server says this book is available, creating the object if
+        # necessary.
+        lpdm = LicensePoolDeliveryMechanism.set(
+            pool.data_source, pool.identifier, delivery_mechanism.content_type,
+            delivery_mechanism.drm_scheme, None, commit=False
         )
-
-        if not lpdm:
-            # The remote source says this loan is associated with a
-            # delivery mechanism we didn't know was available for this
-            # book. In theory we could create a new
-            # LicensePoolDeliveryMechanism right here, but that's a
-            # little weird. I'm going to bail, rather than update the 
-            # entire book based on what we heard about a single loan.
-            logging.error(
-                "Remote loan source said delivery mechanism for a %r loan was %r, but we didn't know that delivery mechanism was even available.",
-                pool, delivery_mechanism
-            )
-            return
-
         loan.fulfillment = lpdm
 
 

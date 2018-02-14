@@ -532,6 +532,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # shouldn't show it in the list.
             return None
 
+        fulfillment_info = None
         if len(usable_formats) == 1:
             # Either the book has been locked into a specific format,
             # or only one usable format is available. We don't know
@@ -544,7 +545,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                     format, (None, None)
                 )
             )
-            if media_type and drm_scheme:
+            if media_type:
                 # We can translate the information Overdrive gave us into
                 # a DeliveryMechanism.
                 fulfillment_info = FulfillmentInfo(

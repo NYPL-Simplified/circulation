@@ -580,6 +580,37 @@ class TestSyncBookshelf(OverdriveAPITest):
         eq_(4, len(loans))
         eq_(loans.sort(), patron.loans.sort())
 
+        # We have created previously unknown LicensePools and
+        # Identifiers.
+        identifiers = [loan.license_pool.identifier.identifier
+                       for loan in loans]
+        eq_(sorted([u'a5a3d737-34d4-4d69-aad8-eba4e46019a3',
+                    u'99409f99-45a5-4238-9e10-98d1435cde04',
+                    u'993e4b33-823c-40af-8f61-cac54e1cba5d', 
+                    u'a2ec6f3a-ebfe-4c95-9638-2cb13be8de5a']), 
+            sorted(identifiers)
+        )
+
+        # We have recorded a new DeliveryMechanism associated with
+        # each loan.
+        mechanisms = []
+        for loan in loans:
+            if loan.fulfillment:
+                mechanism = loan.fulfillment.delivery_mechanism
+                mechanisms.append(
+                    (mechanism.content_type, mechanism.drm_scheme)
+                )
+        eq_(
+            [
+                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM),
+                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+                (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+            ],
+            sorted(mechanisms)
+        )
+
+        # There are no holds.
         eq_([], holds)
 
         # Running the sync again leaves all four loans in place.
