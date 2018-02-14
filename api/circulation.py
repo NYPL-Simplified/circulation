@@ -949,7 +949,7 @@ class CirculationAPI(object):
         # necessary.
         lpdm = LicensePoolDeliveryMechanism.set(
             pool.data_source, pool.identifier, delivery_mechanism.content_type,
-            delivery_mechanism.drm_scheme, None, commit=False
+            delivery_mechanism.drm_scheme, None, autocommit=False
         )
         loan.fulfillment = lpdm
 
