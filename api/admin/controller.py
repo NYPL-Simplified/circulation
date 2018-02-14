@@ -1675,30 +1675,6 @@ class SettingsController(CirculationManagerController):
                 protocol["sitewide"] = sitewide
 
             settings = getattr(api, "SETTINGS", [])
-            integrations = self._db.query(ExternalIntegration).filter(
-                ExternalIntegration.goal==ExternalIntegration.STORAGE_GOAL
-            ).order_by(
-                ExternalIntegration.name
-            ).all()
-            if integrations:
-                mirror_integration_setting = {
-                    "key": "mirror_integration_id",
-                    "label": _("Mirror"),
-                    "description": _("Any cover images or free books encountered while importing content from this collection can be mirrored to a server you control."),
-                    "type": "select",
-                    "options" : [
-                        dict(
-                            key=None,
-                            label=_("None - Do not mirror cover images or free books")
-                        )
-                    ]
-                }
-                for integration in integrations:
-                    mirror_integration_setting['options'].append(
-                        dict(key=integration.id, label=integration.name)
-                    )
-                settings.append(mirror_integration_setting)
-
             protocol["settings"] = settings
 
             child_settings = getattr(api, "CHILD_SETTINGS", None)
@@ -1858,6 +1834,13 @@ class SettingsController(CirculationManagerController):
                         ]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
+        # If there are storage integrations, add a mirror integration
+        # setting to every protocol's 'settings' block.
+        mirror_integration_setting = self._mirror_integration_setting()
+        if mirror_integration_setting:
+            for protocol in protocols:
+                protocol['settings'].append(mirror_integration_setting)
+
         if flask.request.method == 'GET':
             collections = []
             for c in self._db.query(Collection).order_by(Collection.name).all():
@@ -2005,6 +1988,35 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(collection.id), 201)
         else:
             return Response(unicode(collection.id), 200)
+
+    def _mirror_integration_setting(self):
+        """Create a setting interface for selecting a storage integration to
+        be used when mirroring items from a collection.
+        """
+        integrations = self._db.query(ExternalIntegration).filter(
+            ExternalIntegration.goal==ExternalIntegration.STORAGE_GOAL
+        ).order_by(
+            ExternalIntegration.name
+        ).all()
+        if not integrations:
+            return
+        mirror_integration_setting = {
+            "key": "mirror_integration_id",
+            "label": _("Mirror"),
+            "description": _("Any cover images or free books encountered while importing content from this collection can be mirrored to a server you control."),
+            "type": "select",
+            "options" : [
+                dict(
+                    key=None,
+                    label=_("None - Do not mirror cover images or free books")
+                )
+            ]
+        }
+        for integration in integrations:
+            mirror_integration_setting['options'].append(
+                dict(key=integration.id, label=integration.name)
+            )
+        return mirror_integration_setting
 
     def collection(self, collection_id):
         if flask.request.method == "DELETE":

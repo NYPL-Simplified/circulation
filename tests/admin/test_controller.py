@@ -2274,7 +2274,56 @@ class TestSettingsController(AdminControllerTest):
             assert ExternalIntegration.OVERDRIVE in names
             assert ExternalIntegration.OPDS_IMPORT in names
 
-    def test_collections_get_with_multiple_collections(self):
+    def test_collections_get_protocols(self):
+
+        [c1] = self._default_library.collections
+
+        # When there is no storage integration configured,
+        # the protocols will not offer a 'mirror_integration_id'
+        # setting.
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.collections()
+            protocols = response.get('protocols')
+            for protocol in protocols:
+                assert all([s.get('key') != 'mirror_integration_id' 
+                            for s in protocol['settings']])
+
+        # When storage integrations are configured, each protocol will
+        # offer a 'mirror_integration_id' setting.
+        storage1 = self._external_integration(
+            name="integration 1",
+            protocol=ExternalIntegration.S3,
+            goal=ExternalIntegration.STORAGE_GOAL
+        )
+        storage2 = self._external_integration(
+            name="integration 2",
+            protocol="Some other protocol",
+            goal=ExternalIntegration.STORAGE_GOAL
+        )
+
+        with self.app.test_request_context("/"):
+            response = self.manager.admin_settings_controller.collections()
+            protocols = response.get('protocols')
+            for protocol in protocols:
+                [setting] = [x for x in protocol['settings']
+                             if x.get('key') == 'mirror_integration_id']
+                eq_("Mirror", setting['label'])
+                options = setting['options']
+
+                # The first option is to disable mirroring on this
+                # collection altogether.
+                no_mirror = options[0]
+                eq_(None, no_mirror['key'])
+
+                # The other options are to use one of the storage
+                # integrations to do the mirroring.
+                use_mirrors = [(x['key'], x['label'])
+                               for x in options[1:]]
+                expect = [(integration.id, integration.name)
+                          for integration in (storage1, storage2)]
+                eq_(expect, use_mirrors)
+
+    def test_collections_get_collections_with_multiple_collections(self):
 
         [c1] = self._default_library.collections
 
