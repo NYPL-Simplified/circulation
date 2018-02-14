@@ -2699,6 +2699,18 @@ class TestSettingsController(AdminControllerTest):
         # The collection now has a parent.
         eq_(parent, collection.parent)
 
+    def _base_collections_post_request(self, collection):
+        """A template for POST requests to the collections controller."""
+        return [
+            ("id", collection.id),
+            ("name", "Collection 1"),
+            ("protocol", ExternalIntegration.RB_DIGITAL),
+            ("external_account_id", "1234"),
+            ("username", "user2"),
+            ("password", "password"),
+            ("url", "http://rb/"),
+        ]
+
     def test_collections_post_edit_mirror_integration(self):
         # The collection exists.
         collection = self._collection(
@@ -2715,15 +2727,7 @@ class TestSettingsController(AdminControllerTest):
 
         # It's possible to associate the storage integration with the
         # collection.
-        base_request = [
-                ("id", collection.id),
-                ("name", "Collection 1"),
-                ("protocol", ExternalIntegration.RB_DIGITAL),
-                ("external_account_id", "1234"),
-                ("username", "user2"),
-                ("password", "password"),
-                ("url", "http://rb/"),
-        ]
+        base_request = self._base_collections_post_request(collection)
         with self.app.test_request_context("/", method="POST"):
             request = MultiDict(
                 base_request + [("mirror_integration_id", storage.id)]
@@ -2754,8 +2758,25 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response, MISSING_SERVICE)
 
-        # Providing the ID of a non-storage integration gives an
-        # error.
+    def test_cannot_set_non_storage_integration_as_mirror_integration(self):
+        # The collection exists.
+        collection = self._collection(
+            name="Collection 1",
+            protocol=ExternalIntegration.RB_DIGITAL
+        )
+
+        # There is a storage integration not associated with the collection,
+        # which makes it possible to associate storage integrations
+        # with collections through the collections controller.
+        storage = self._external_integration(
+            protocol=ExternalIntegration.S3,
+            goal=ExternalIntegration.STORAGE_GOAL
+        )
+
+        # Trying to set a non-storage integration (such as the
+        # integration associated with the collection's licenses) as
+        # the collection's mirror integration gives an error.
+        base_request = self._base_collections_post_request(collection)
         with self.app.test_request_context("/", method="POST"):
             request = MultiDict(
                 base_request + [
