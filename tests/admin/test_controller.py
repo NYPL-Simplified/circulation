@@ -15,7 +15,11 @@ from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
 from ..test_controller import CirculationControllerTest
-from api.admin.controller import setup_admin_controllers, AdminAnnotator
+from api.admin.controller import (
+    setup_admin_controllers,
+    AdminAnnotator,
+    SettingsController,
+)
 from api.admin.problem_details import *
 from api.admin.routes import setup_admin
 from api.config import (
@@ -47,6 +51,7 @@ from core.model import (
     WorkGenre
 )
 from core.lane import Lane
+from core.s3 import S3Uploader
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
@@ -4054,7 +4059,7 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
             response = self.manager.admin_settings_controller.search_services()
-            eq_(response, MULTIPLE_SEARCH_SERVICES)
+            eq_(response.uri, MULTIPLE_SITEWIDE_SERVICES.uri)
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -4140,6 +4145,53 @@ class TestSettingsController(AdminControllerTest):
 
         service = get_one(self._db, ExternalIntegration, id=search_service.id)
         eq_(None, service)
+
+    def test_sitewide_service_management(self):
+        """The configuration of storage and search collections is delegated to
+        the _manage_sitewide_service and _delete_integration methods.
+
+        Since search collections are tested above, this provides
+        test coverage for storage collections.
+        """
+        class Mock(SettingsController):
+            def _manage_sitewide_service(self,*args):
+                self.manage_called_with = args
+
+            def _delete_integration(self, *args):
+                self.delete_called_with = args
+
+        controller = Mock(self.manager)
+
+        # Test storage services first.
+        EI = ExternalIntegration
+        with self.app.test_request_context("/"):
+            controller.storage_services()
+            goal, apis, key_name, problem = controller.manage_called_with
+            eq_(EI.STORAGE_GOAL, goal)
+            assert S3Uploader in apis
+            eq_('storage_services', key_name)
+            assert 'new storage service' in problem
+
+        with self.app.test_request_context("/"):
+            id = object()
+            controller.storage_service(id)
+            eq_((id, EI.STORAGE_GOAL), controller.delete_called_with)
+
+        # Search services work the same way but pass in different
+        # arguments.
+        with self.app.test_request_context("/"):
+            controller.search_services()
+            goal, apis, key_name, problem = controller.manage_called_with
+            eq_(EI.SEARCH_GOAL, goal)
+            assert ExternalSearchIndex in apis
+            eq_('search_services', key_name)
+            assert 'new search service' in problem
+
+        with self.app.test_request_context("/"):
+            id = object()
+            controller.search_service(id)
+            eq_((id, EI.SEARCH_GOAL),
+                controller.delete_called_with)
 
     def test_discovery_services_get_with_no_services_creates_default(self):
         with self.app.test_request_context("/"):
