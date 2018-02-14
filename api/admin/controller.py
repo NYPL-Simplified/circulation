@@ -1531,7 +1531,7 @@ class SettingsController(CirculationManagerController):
 
     METADATA_SERVICE_URI_TYPE = 'application/opds+json;profile=https://librarysimplified.org/rel/profile/metadata-service'
 
-    NO_MIRROR_INTEGRATION = "NO_MIRROR"
+    NO_MIRROR_INTEGRATION = u"NO_MIRROR"
 
     def libraries(self):
         if flask.request.method == 'GET':
@@ -1947,7 +1947,7 @@ class SettingsController(CirculationManagerController):
                 collection.external_account_id = value
             elif key == 'mirror_integration_id':
                 value = flask.request.form.get(key)
-                if value is self.NO_MIRROR_INTEGRATION:
+                if value == self.NO_MIRROR_INTEGRATION:
                     integration_id = None
                 else:
                     integration = get_one(

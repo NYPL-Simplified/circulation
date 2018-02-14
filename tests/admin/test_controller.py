@@ -2738,7 +2738,7 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="POST"):
             request = MultiDict(
                 base_request + [("mirror_integration_id",
-                                 controller.NO_MIRROR_INTEGRATION)]
+                                 str(controller.NO_MIRROR_INTEGRATION))]
             )
             flask.request.form = request
             response = controller.collections()
