@@ -512,6 +512,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             if format_type in cls.FORMATS:
                 usable_formats.append(format_type)
 
+
         # If a format hasn't been selected yet, available formats are in actions.
         actions = checkout.get('actions', {})
         format_action = actions.get('format', {})
@@ -531,9 +532,33 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # shouldn't show it in the list.
             return None
 
-        # TODO: if there is one and only one format (usable or not, do
-        # not count overdrive-read), put it into fulfillment_info and
-        # let the caller make the decision whether or not to show it.
+        if len(usable_formats) == 1:
+            # Either the book has been locked into a specific format,
+            # or only one usable format is available. We don't know
+            # which case we're looking at, but for our purposes the
+            # book is locked. Create a FulfillmentInfo to make it
+            # clear that there is only one option.
+            [format] = usable_formats
+            media_type, drm_scheme = (
+                OverdriveRepresentationExtractor.format_data_for_overdrive_format.get(
+                    format, (None, None)
+                )
+            )
+            if media_type and drm_scheme:
+                # We can translate the information Overdrive gave us into
+                # a DeliveryMechanism.
+                fulfillment_info = FulfillmentInfo(
+                    collection=collection,
+                    data_source_name=DataSource.OVERDRIVE,
+                    identifier_type=Identifier.OVERDRIVE_ID,
+                    identifier=overdrive_identifier,
+                    content_link=None,
+                    content_type=media_type,
+                    content=None,
+                    content_expires=None,
+                    drm_scheme=drm_scheme
+                )
+
         return LoanInfo(
             collection,
             DataSource.OVERDRIVE,
@@ -541,7 +566,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             overdrive_identifier,
             start_date=start,
             end_date=end,
-            fulfillment_info=None
+            fulfillment_info=fulfillment_info
         )
 
     def default_notification_email_address(self, patron, pin):

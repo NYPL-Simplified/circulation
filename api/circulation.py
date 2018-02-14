@@ -16,6 +16,7 @@ from core.model import (
     Collection,
     CollectionMissing,
     ConfigurationSetting,
+    DeliveryMechanism,
     ExternalIntegration,
     Identifier,
     DataSource,
@@ -74,22 +75,38 @@ class CirculationInfo(object):
             return datetime.datetime.strftime(d, "%Y/%m/%d %H:%M:%S")
 
 class FulfillmentInfo(CirculationInfo):
+    """A record of a technique that can be (and, usually, is being) used to
+    fulfill a loan.
 
-    """A record of an attempt to fulfill a loan.
+    One and only one of `content_link`, `content`, and `drm_scheme`
+    should be provided.
 
-    :param identifier_type Ex: Third party provider, ISBN, URI, etc...
-    :param identifier Contains ISBN or third party item id, etc., and links to LicensePool, Work, etc..
-    :param content_link Either URL to download ACSM file from or URL to streaming content.
-    :param content_type Media type of the book version we're getting.  
-        Ex: "text/html" or Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE 
-        or EPUB_MEDIA_TYPE.
-    :param content Body of acsm file or empty.  Would have either content or content_link filled in.
-    :param content_expires Download link expiration datetime.
+    :param identifier_type: A possible value for Identifier.type indicating
+        a type of identifier such as ISBN.
+    :param identifier: A possible value for Identifier.identifier containing
+        the identifier used to designate the item beinf fulfilled.
+    :param content_link: A "next step" URL towards fulfilling the work.
+        This may be a link to an ACSM file, a streaming-content web application,
+        a direct download, etc.
+    :param content_type: Final media type of the content, once acquired.
+        E.g. EPUB_MEDIA_TYPE or
+        Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE 
+    :param content: "Next step" content to be served. This may be an
+        intermediate document such as an ACSM file or audiobook
+        manifest, or it may be the actual content of the item on loan.
+    :param content_expires: The time at which the "next step" link or content
+    :param drm_scheme: If no specific "next step" link or content is currently
+        available, because the client has not yet actually tried to fulfill
+        the loan, this variable may be set to indicate the DRM scheme that
+        _will_ come into play when the client _does_ try to fulfill the loan.
+        This can be used to indicate that the library patron used some means
+        to lock in a delivery mechanism that the circulation manager didn't
+        hear about.
     """
 
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier, content_link, content_type, content,
-                 content_expires):
+                 content_expires, drm_scheme=None):
         super(FulfillmentInfo, self).__init__(
             collection, data_source_name, identifier_type, identifier
         )
@@ -97,15 +114,17 @@ class FulfillmentInfo(CirculationInfo):
         self.content_type = content_type
         self.content = content
         self.content_expires = content_expires
+        self.drm_scheme = drm_scheme
     
     def __repr__(self):
         if self.content:
             blength = len(self.content)
         else:
             blength = 0
-        return "<FulfillmentInfo: content_link: %r, content_type: %r, content: %d bytes, expires: %r>" % (
+        return "<FulfillmentInfo: content_link: %r, content_type: %r, content: %d bytes, drm scheme: %r, expires: %r>" % (
             self.content_link, self.content_type, blength,
-            self.fd(self.content_expires))
+            self.drm_scheme, self.fd(self.content_expires))
+
 
 class LoanInfo(CirculationInfo):
     """A record of a loan."""
@@ -805,6 +824,27 @@ class CirculationAPI(object):
             start = loan.start_date
             end = loan.end_date
             key = (loan.identifier_type, loan.identifier)
+
+            delivery_mechanism = None
+            fulfillment = loan.fulfillment_info
+            if (fulfillment and fulfillment.content_type
+                and fulfillment.drm_scheme):
+                # The loan source is letting us know that the loan is
+                # locked to a specific delivery mechanism. Even if
+                # this is the first we've heard of this loan,
+                # it may have been created in another app or through
+                # a library website integraiton.
+                #
+                # Note that if there is no DRM, we would expect
+                # fulfillment.drm_scheme to be
+                # DeliveryMechanism.NO_DRM, so this code would run.
+                # drm_scheme=None indicates that the loan is
+                # _not_ locked to a specific delivery mechanism.
+                delivery_mechanism, ignore = DeliveryMechanism.lookup(
+                    self._db, fulfillment.content_type,
+                    fulfillment.drm_scheme
+                )
+
             if key in local_loans_by_identifier:
                 # We already have the Loan object, we don't need to look
                 # it up again.
@@ -818,6 +858,8 @@ class CirculationAPI(object):
                     local_loan.end = end
             else:
                 local_loan, new = pool.loan_to(patron, start, end)
+
+            self.update_delivery_mechanism(local_loan, delivery_mechanism)
             active_loans.append(local_loan)
 
             # Check the local loan off the list we're keeping so we
@@ -880,6 +922,57 @@ class CirculationAPI(object):
 
         __transaction.commit()
         return active_loans, active_holds
+
+    def update_delivery_mechanism(self, loan, delivery_mechanism):
+        """Make sure that the given `loan` is set as being fulfilled
+        by the given `delivery_mechanism`.
+
+        This deals with a situation where the loan source identified
+        one specific delivery mechanism for this loan, but either the
+        local loan doesn't have a delivery mechanism set, or the local
+        mechanism doesn't match what the loan source says.
+
+        :param loan: A Loan
+        :param delivery_mechanism: A DeliveryMechanism
+        """
+        if not delivery_mechanism:
+            # No known incoming delivery mechanism. Do nothing.
+            return
+
+        if (loan.fulfillment
+            and loan.fulfillment.delivery_mechanism == delivery_mechanism):
+            # The work has already been done. Do nothing.
+            return
+
+        # At this point we know we need to update the local delivery
+        # mechanism.
+        pool = loan.license_pool
+        if not pool:
+            # This shouldn't happen, but bail out if it does.
+            return None
+
+        lpdm = get_one(
+            self._db, LicensePoolDeliveryMechanism,
+            identifier=pool.identifier,
+            data_source=pool.data_source,
+            delivery_mechanism=delivery_mechanism,
+            resource=None
+        )
+
+        if not lpdm:
+            # The remote source says this loan is associated with a
+            # delivery mechanism we didn't know was available for this
+            # book. In theory we could create a new
+            # LicensePoolDeliveryMechanism right here, but that's a
+            # little weird. I'm going to bail, rather than update the 
+            # entire book based on what we heard about a single loan.
+            logging.error(
+                "Remote loan source said delivery mechanism for a %r loan was %r, but we didn't know that delivery mechanism was even available.",
+                pool, delivery_mechanism
+            )
+            return
+
+        loan.fulfillment = lpdm
 
 
 class BaseCirculationAPI(object):
