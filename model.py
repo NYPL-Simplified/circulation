@@ -5407,7 +5407,7 @@ class LicensePoolDeliveryMechanism(Base):
 
     @classmethod
     def set(cls, data_source, identifier, content_type, drm_scheme, rights_uri,
-            resource=None):
+            resource=None, autocommit=True):
         """Register the fact that a distributor makes a title available in a
         certain format.
 
@@ -5420,32 +5420,44 @@ class LicensePoolDeliveryMechanism(Base):
             title.
         :param resource: A Resource representing the book itself in
             a freely redistributable form.
+        :param autocommit: Commit the database session immediately if
+            anything changes in the database. If you're already inside
+            a nested session, pass in False here, but understand that if 
+            a LicensePool's open-access status changes as a result of 
+            calling this method, the change may not be properly reflected
+            in LicensePool.open_access.
         """
         _db = Session.object_session(data_source)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
             _db, content_type, drm_scheme
         )
         rights_status = RightsStatus.lookup(_db, rights_uri)
-        lpdm, ignore = get_one_or_create(
+        lpdm, dirty = get_one_or_create(
             _db, LicensePoolDeliveryMechanism,
             identifier=identifier,
             data_source=data_source,
             delivery_mechanism=delivery_mechanism,
             resource=resource
         )
-        lpdm.rights_status = rights_status
+        if not lpdm.rights_status or rights_status.uri != RightsStatus.UNKNOWN:
+            # We have better information available about the
+            # rights status of this delivery mechanism.
+            lpdm.rights_status = rights_status
+            dirty = True
 
-        # TODO: We need to explicitly commit here so that
-        # LicensePool.delivery_mechanisms gets updated. It would be
-        # better if we didn't have to do this, but I haven't been able
-        # to get LicensePool.delivery_mechanisms to notice that it's
-        # out of date.
-        _db.commit()
+        if dirty:
+            # TODO: We need to explicitly commit here so that
+            # LicensePool.delivery_mechanisms gets updated. It would be
+            # better if we didn't have to do this, but I haven't been able
+            # to get LicensePool.delivery_mechanisms to notice that it's
+            # out of date.
+            if autocommit:
+                _db.commit()
 
-        # Creating or modifying a LPDM might change the open-access status
-        # of all LicensePools for that DataSource/Identifier.
-        for pool in lpdm.license_pools:
-            pool.set_open_access_status()
+            # Creating or modifying a LPDM might change the open-access status
+            # of all LicensePools for that DataSource/Identifier.
+            for pool in lpdm.license_pools:
+                pool.set_open_access_status()
         return lpdm
 
     @property
