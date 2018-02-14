@@ -2281,8 +2281,13 @@ class TestSettingsController(AdminControllerTest):
         c2 = self._collection(
             name="Collection 2", protocol=ExternalIntegration.OVERDRIVE,
         )
+        c2_storage = self._external_integration(
+            protocol=ExternalIntegration.S3,
+            goal=ExternalIntegration.STORAGE_GOAL
+        )
         c2.external_account_id = "1234"
         c2.external_integration.password = "b"
+        c2.mirror_integration_id=c2_storage.id
 
         c3 = self._collection(
             name="Collection 3", protocol=ExternalIntegration.OVERDRIVE,
@@ -2313,12 +2318,20 @@ class TestSettingsController(AdminControllerTest):
             eq_(c2.protocol, coll2.get("protocol"))
             eq_(c3.protocol, coll3.get("protocol"))
 
-            eq_(c1.external_account_id, coll1.get("settings").get("external_account_id"))
-            eq_(c2.external_account_id, coll2.get("settings").get("external_account_id"))
-            eq_(c3.external_account_id, coll3.get("settings").get("external_account_id"))
+            settings1 = coll1.get("settings", {})
+            settings2 = coll2.get("settings", {})
+            settings3 = coll3.get("settings", {})
 
-            eq_(c1.external_integration.password, coll1.get("settings").get("password"))
-            eq_(c2.external_integration.password, coll2.get("settings").get("password"))
+            eq_(None, settings1.get("mirror_integration_id"))
+            eq_(c2_storage.id, settings2.get("mirror_integration_id"))
+            eq_(None, settings3.get("protocol"))
+
+            eq_(c1.external_account_id, settings1.get("external_account_id"))
+            eq_(c2.external_account_id, settings2.get("external_account_id"))
+            eq_(c3.external_account_id, settings3.get("external_account_id"))
+
+            eq_(c1.external_integration.password, settings1.get("password"))
+            eq_(c2.external_integration.password, settings2.get("password"))
 
             eq_(c2.id, coll3.get("parent_id"))
 
