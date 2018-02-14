@@ -58,6 +58,7 @@ from core.util.problem_detail import (
     ProblemDetail, 
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
+from core.mirror import MirrorUploader
 from core.util.http import HTTP
 from problem_details import *
 from core.util import (
@@ -1810,6 +1811,8 @@ class SettingsController(CirculationManagerController):
         return True
 
     def _delete_integration(self, integration_id, goal):
+        if flask.request.method != "DELETE":
+            return
         integration = get_one(self._db, ExternalIntegration,
                               id=integration_id, goal=goal)
         if not integration:
@@ -2171,8 +2174,9 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(auth_service.id), 200)
 
     def patron_auth_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.PATRON_AUTH_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.PATRON_AUTH_GOAL
+        )
 
     def sitewide_settings(self):
         if flask.request.method == 'GET':
@@ -2275,8 +2279,9 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 200)
 
     def metadata_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.METADATA_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.METADATA_GOAL
+        )
 
     def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
                               do_post=HTTP.debuggable_post, key=None
@@ -2424,8 +2429,9 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 200)
 
     def analytics_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.ANALYTICS_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.ANALYTICS_GOAL
+        )
 
     def cdn_services(self):
         protocols = [
@@ -2488,20 +2494,22 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 200)
 
     def cdn_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.CDN_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.CDN_GOAL
+        )
 
-    def search_services(self):
-        provider_apis = [ExternalSearchIndex,
-                        ]
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+    def _manage_sitewide_service(
+            self, goal, provider_apis, service_key_name, 
+            multiple_sitewide_services_detail, protocol_name_attr='NAME'
+    ):
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr=protocol_name_attr)
 
         if flask.request.method == 'GET':
-            services = self._get_integration_info(ExternalIntegration.SEARCH_GOAL, protocols)
-            return dict(
-                search_services=services,
-                protocols=protocols,
-            )
+            services = self._get_integration_info(goal, protocols)
+            return {
+                service_key_name : services,
+                'protocols' : protocols,
+            }
 
         id = flask.request.form.get("id")
 
@@ -2511,7 +2519,7 @@ class SettingsController(CirculationManagerController):
 
         is_new = False
         if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.SEARCH_GOAL)
+            service = get_one(self._db, ExternalIntegration, id=id, goal=goal)
             if not service:
                 return MISSING_SERVICE
             if protocol != service.protocol:
@@ -2520,11 +2528,13 @@ class SettingsController(CirculationManagerController):
             if protocol:
                 service, is_new = get_one_or_create(
                     self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.SEARCH_GOAL
+                    goal=goal
                 )
                 if not is_new:
                     self._db.rollback()
-                    return MULTIPLE_SEARCH_SERVICES
+                    return MULTIPLE_SITEWIDE_SERVICES.detailed(
+                        multiple_sitewide_services_detail
+                    )
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
@@ -2547,9 +2557,30 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(service.id), 200)
 
+    def search_services(self):
+        detail = _("You tried to create a new search service, but a search service is already configured.")
+        return self._manage_sitewide_service(
+            ExternalIntegration.SEARCH_GOAL, [ExternalSearchIndex],
+            'search_services', detail
+        )
+
     def search_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.SEARCH_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.SEARCH_GOAL
+        )
+
+    def storage_services(self):
+        detail = _("You tried to create a new storage service, but a storage service is already configured.")
+        return self._manage_sitewide_service(
+            ExternalIntegration.STORAGE_GOAL,
+            MirrorUploader.IMPLEMENTATION_REGISTRY.values(),
+            'storage_services', detail
+        )
+
+    def storage_service(self, service_id):
+        return self._delete_integration(
+            service_id, ExternalIntegration.STORAGE_GOAL
+        )
 
     def discovery_services(self):
         protocols = [
@@ -2621,8 +2652,9 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 200)
 
     def discovery_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.DISCOVERY_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.DISCOVERY_GOAL
+        )
 
     def library_registrations(self, do_get=HTTP.debuggable_get, 
                               do_post=HTTP.debuggable_post, key=None):
