@@ -1531,6 +1531,8 @@ class SettingsController(CirculationManagerController):
 
     METADATA_SERVICE_URI_TYPE = 'application/opds+json;profile=https://librarysimplified.org/rel/profile/metadata-service'
 
+    NO_MIRROR_INTEGRATION = "NO_MIRROR"
+
     def libraries(self):
         if flask.request.method == 'GET':
             libraries = []
@@ -1675,15 +1677,15 @@ class SettingsController(CirculationManagerController):
                 protocol["sitewide"] = sitewide
 
             settings = getattr(api, "SETTINGS", [])
-            protocol["settings"] = settings
+            protocol["settings"] = list(settings)
 
             child_settings = getattr(api, "CHILD_SETTINGS", None)
             if child_settings != None:
-                protocol["child_settings"] = child_settings
+                protocol["child_settings"] = list(child_settings)
 
             library_settings = getattr(api, "LIBRARY_SETTINGS", None)
             if library_settings != None:
-                protocol["library_settings"] = library_settings
+                protocol["library_settings"] = list(library_settings)
 
             protocols.append(protocol)
         return protocols
@@ -1862,7 +1864,7 @@ class SettingsController(CirculationManagerController):
                         key = setting.get("key")
                         if key not in collection["settings"]:
                             if key == 'mirror_integration_id':
-                                value = c.mirror_integration_id
+                                value = c.mirror_integration_id or self.NO_MIRROR_INTEGRATION
                             elif setting.get("type") == "list":
                                 value = c.external_integration.setting(key).json_value
                             else:
@@ -1945,7 +1947,7 @@ class SettingsController(CirculationManagerController):
                 collection.external_account_id = value
             elif key == 'mirror_integration_id':
                 value = flask.request.form.get(key)
-                if value is None:
+                if value is self.NO_MIRROR_INTEGRATION:
                     integration_id = None
                 else:
                     integration = get_one(
@@ -2007,7 +2009,7 @@ class SettingsController(CirculationManagerController):
             "type": "select",
             "options" : [
                 dict(
-                    key=None,
+                    key=self.NO_MIRROR_INTEGRATION,
                     label=_("None - Do not mirror cover images or free books")
                 )
             ]

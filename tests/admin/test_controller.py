@@ -2302,7 +2302,8 @@ class TestSettingsController(AdminControllerTest):
         )
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_settings_controller.collections()
+            controller = self.manager.admin_settings_controller
+            response = controller.collections()
             protocols = response.get('protocols')
             for protocol in protocols:
                 [setting] = [x for x in protocol['settings']
@@ -2313,7 +2314,7 @@ class TestSettingsController(AdminControllerTest):
                 # The first option is to disable mirroring on this
                 # collection altogether.
                 no_mirror = options[0]
-                eq_(None, no_mirror['key'])
+                eq_(controller.NO_MIRROR_INTEGRATION, no_mirror['key'])
 
                 # The other options are to use one of the storage
                 # integrations to do the mirroring.
@@ -2351,7 +2352,8 @@ class TestSettingsController(AdminControllerTest):
             self._db, "ebook_loan_duration", l1, c3.external_integration).value = "14"
 
         with self.app.test_request_context("/"):
-            response = self.manager.admin_settings_controller.collections()
+            controller = self.manager.admin_settings_controller
+            response = controller.collections()
             coll2, coll3, coll1 = sorted(
                 response.get("collections"), key = lambda c: c.get('name')
             )
@@ -2371,9 +2373,11 @@ class TestSettingsController(AdminControllerTest):
             settings2 = coll2.get("settings", {})
             settings3 = coll3.get("settings", {})
 
-            eq_(None, settings1.get("mirror_integration_id"))
+            eq_(controller.NO_MIRROR_INTEGRATION,
+                settings1.get("mirror_integration_id"))
             eq_(c2_storage.id, settings2.get("mirror_integration_id"))
-            eq_(None, settings3.get("protocol"))
+            eq_(controller.NO_MIRROR_INTEGRATION,
+                settings3.get("mirror_integration_id"))
 
             eq_(c1.external_account_id, settings1.get("external_account_id"))
             eq_(c2.external_account_id, settings2.get("external_account_id"))
@@ -2730,12 +2734,14 @@ class TestSettingsController(AdminControllerTest):
             eq_(storage.id, collection.mirror_integration_id)
 
         # It's possible to unset the mirror integration ID.
+        controller = self.manager.admin_settings_controller
         with self.app.test_request_context("/", method="POST"):
             request = MultiDict(
-                base_request + [("mirror_integration_id", None)]
+                base_request + [("mirror_integration_id",
+                                 controller.NO_MIRROR_INTEGRATION)]
             )
             flask.request.form = request
-            response = self.manager.admin_settings_controller.collections()
+            response = controller.collections()
             eq_(response.status_code, 200)
             eq_(None, collection.mirror_integration_id)
 
