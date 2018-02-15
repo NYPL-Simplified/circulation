@@ -25,6 +25,7 @@ from core.model import (
     LicensePool,
     Loan,
     Hold,
+    RightsStatus,
     Session,
 )
 from util.patron import PatronUtility
@@ -76,12 +77,12 @@ class CirculationInfo(object):
 
 
 class DeliveryMechanismInfo(CirculationInfo):
-    """A record of a technique that could be (but is not, currently, being)
-    used to fulfill a loan.
+    """A record of a technique that must be (but is not, currently, being)
+    used to fulfill a certain loan.
     """
     
-    def __init__(self, loan, content_type, drm_scheme, rights_uri,
-                 resource=None):
+    def __init__(self, content_type, drm_scheme,
+                 rights_uri=RightsStatus.IN_COPYRIGHT, resource=None):
         """Constructor.
 
         :param content_type: Once the loan is fulfilled, the resulting document
@@ -94,7 +95,7 @@ class DeliveryMechanismInfo(CirculationInfo):
         :param resource: The loan can be fulfilled by directly serving the
             content in the given `Resource`.
         """
-        self.content_type = content
+        self.content_type = content_type
         self.drm_scheme = drm_scheme
         self.rights_uri = rights_uri
         self.resource = resource        
@@ -130,6 +131,9 @@ class DeliveryMechanismInfo(CirculationInfo):
         # Look up the LicensePoolDeliveryMechanism for the way the
         # server says this book is available, creating the object if
         # necessary.
+        #
+        # We set autocommit=False because we're probably in the middle
+        # of a nested transaction.
         lpdm = LicensePoolDeliveryMechanism.set(
             pool.data_source, pool.identifier, self.content_type,
             self.drm_scheme, self.rights_uri, self.resource,
@@ -140,8 +144,7 @@ class DeliveryMechanismInfo(CirculationInfo):
 
 
 class FulfillmentInfo(CirculationInfo):
-
-        """A record of a technique that can be used _right now_ to fulfill
+    """A record of a technique that can be used _right now_ to fulfill
     a loan.
     """
 
@@ -200,15 +203,15 @@ class LoanInfo(CirculationInfo):
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier, start_date, end_date,
                  fulfillment_info=None, external_identifier=None,
-                 delivery_info=None):
+                 locked_to=None):
         """Constructor.
 
         :param start_date: A datetime reflecting when the patron borrowed the book.
         :param end_date: A datetime reflecting when the checked-out book is due.
         :param fulfillment_info: A FulfillmentInfo object representing an
             active attempt to fulfill the loan.
-        :param delivery_info: A DeliveryInfo object representing the delivery
-            mechanism to which this loan is 'locked'.
+        :param locked_to: A DeliveryMechanismInfo object representing the
+            delivery mechanism to which this loan is 'locked'.
         """
         super(LoanInfo, self).__init__(
             collection, data_source_name, identifier_type, identifier
@@ -216,7 +219,7 @@ class LoanInfo(CirculationInfo):
         self.start_date = start_date
         self.end_date = end_date
         self.fulfillment_info = fulfillment_info
-        self.delivery_info = delivery_info
+        self.locked_to = locked_to
         self.external_identifier = external_identifier
 
     def __repr__(self):
@@ -916,13 +919,13 @@ class CirculationAPI(object):
             else:
                 local_loan, new = pool.loan_to(patron, start, end)
 
-            if loan.delivery_info:
+            if loan.locked_to:
                 # The loan source is letting us know that the loan is
                 # locked to a specific delivery mechanism. Even if
                 # this is the first we've heard of this loan,
                 # it may have been created in another app or through
-                # a library-website integraiton.
-                loan.delivery_info.apply(local_loan)
+                # a library-website integration.
+                loan.locked_to.apply(local_loan)
             active_loans.append(local_loan)
 
             # Check the local loan off the list we're keeping so we

@@ -533,7 +533,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # shouldn't show it in the list.
             return None
 
-        delivery_info = None
+        locked_to = None
         if len(usable_formats) == 1:
             # Either the book has been locked into a specific format,
             # or only one usable format is available. We don't know
@@ -548,10 +548,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             if media_type:
                 # Make it clear that Overdrive will only deliver the content
                 # in one specific media type.
-                delivery_info = DeliveryMechanismInfo(
+                locked_to = DeliveryMechanismInfo(
                     content_type=media_type,
-                    drm_scheme=drm_scheme,
-                    rights_uri=RightsStatus.IN_COPYRIGHT
+                    drm_scheme=drm_scheme
                 )
 
         return LoanInfo(
@@ -561,7 +560,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             overdrive_identifier,
             start_date=start,
             end_date=end,
-            delivery_info=delivery_info
+            locked_to=locked_to
         )
 
     def default_notification_email_address(self, patron, pin):
