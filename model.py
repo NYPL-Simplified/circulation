@@ -5422,10 +5422,11 @@ class LicensePoolDeliveryMechanism(Base):
             a freely redistributable form.
         :param autocommit: Commit the database session immediately if
             anything changes in the database. If you're already inside
-            a nested session, pass in False here, but understand that if 
-            a LicensePool's open-access status changes as a result of 
-            calling this method, the change may not be properly reflected
-            in LicensePool.open_access.
+            a nested transaction, pass in False here to avoid
+            committing prematurely, but understand that if a
+            LicensePool's open-access status changes as a result of
+            calling this method, the change may not be properly
+            reflected in LicensePool.open_access.
         """
         _db = Session.object_session(data_source)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
