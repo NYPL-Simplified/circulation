@@ -19,6 +19,7 @@ from datetime import (
 from api.circulation_exceptions import *
 from api.circulation import (
     CirculationAPI,
+    DeliveryMechanismInfo,
     FulfillmentInfo,
     LoanInfo,
     HoldInfo,
@@ -35,6 +36,7 @@ from core.model import (
     Identifier,
     Loan,
     Hold,
+    Representation,
     RightsStatus,
 )
 from core.mock_analytics_provider import MockAnalyticsProvider
@@ -782,7 +784,80 @@ class TestCirculationAPI(DatabaseTest):
         eq_(0, len(loans))
         eq_(0, len(holds))
         eq_(False, complete)        
+
+
+class TestDeliveryMechanismInfo(DatabaseTest):
+
+    def test_apply(self):
+
+        # Here's a LicensePool with one non-open-access delivery mechanism.
+        pool = self._licensepool(None)
+        eq_(False, pool.open_access)
+        [mechanism] = [
+            lpdm.delivery_mechanism for lpdm in pool.delivery_mechanisms
+        ]
+        eq_(Representation.EPUB_MEDIA_TYPE, mechanism.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, mechanism.drm_scheme)
+
+        # This patron has the book out on loan, but as far as we no,
+        # no delivery mechanism has been set.
+        patron = self._patron()
+        loan, ignore = pool.loan_to(patron)
+
+        # When consulting with the source of the loan, we learn that 
+        # the patron has locked the delivery mechanism to a previously
+        # unknown mechanism.
+        info = DeliveryMechanismInfo(
+            Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+        )
+        info.apply(loan)
+
+        # This results in the addition of a new delivery mechanism to
+        # the LicensePool.
+        [new_mechanism] = [
+            lpdm.delivery_mechanism for lpdm in pool.delivery_mechanisms
+            if lpdm.delivery_mechanism != mechanism
+        ]
+        eq_(Representation.PDF_MEDIA_TYPE, new_mechanism.content_type)
+        eq_(DeliveryMechanism.NO_DRM, new_mechanism.drm_scheme)
+        eq_(new_mechanism, loan.fulfillment.delivery_mechanism)
+        eq_(RightsStatus.IN_COPYRIGHT, loan.fulfillment.rights_status.uri)
+
+        # Calling apply() again with the same arguments does nothing.
+        info.apply(loan)
+        eq_(2, len(pool.delivery_mechanisms))
+
+        # Although it's extremely unlikely that this will happen in
+        # real life, it's possible for this operation to reveal a new
+        # *open-access* delivery mechanism for a LicensePool.
+        link, new = pool.identifier.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url,
+            pool.data_source, Representation.EPUB_MEDIA_TYPE
+        )
+
+        info = DeliveryMechanismInfo(
+            Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM,
+            RightsStatus.CC0, link.resource
+        )
+
+        # Calling apply() on the loan we were using before will update
+        # its associated LicensePoolDeliveryMechanism.
+        info.apply(loan)
+        [oa_lpdm] = [
+            lpdm for lpdm in pool.delivery_mechanisms
+            if lpdm.delivery_mechanism not in (mechanism, new_mechanism)
+        ]
+        eq_(oa_lpdm, loan.fulfillment)
         
+        # The correct resource and rights status have been associated
+        # with the new LicensePoolDeliveryMechanism.
+        eq_(RightsStatus.CC0, oa_lpdm.rights_status.uri)
+        eq_(link.resource, oa_lpdm.resource)
+
+        # The LicensePool is now considered an open-access LicensePool,
+        # since it has an open-access delivery mechanism.
+        eq_(True, pool.open_access)
+
 
 class TestConfigurationFailures(DatabaseTest):
 

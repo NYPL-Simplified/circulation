@@ -79,8 +79,17 @@ class CirculationInfo(object):
 class DeliveryMechanismInfo(CirculationInfo):
     """A record of a technique that must be (but is not, currently, being)
     used to fulfill a certain loan.
-    """
 
+    Although this class is similar to `FormatInfo` in
+    core/metadata.py, usage here is strictly limited to recording
+    which `LicensePoolDeliveryMechanism` a specific loan is currently
+    locked to.
+
+    If, in the course of investigating a patron's loans, you discover
+    general facts about a LicensePool's availability or formats, that
+    information needs to be stored in a `CirculationData` and applied to
+    the LicensePool separately.
+    """
     def __init__(self, content_type, drm_scheme,
                  rights_uri=RightsStatus.IN_COPYRIGHT, resource=None):
         """Constructor.
@@ -100,11 +109,13 @@ class DeliveryMechanismInfo(CirculationInfo):
         self.rights_uri = rights_uri
         self.resource = resource
 
-    def apply(self, loan):
+    def apply(self, loan, autocommit=True):
         """Set an appropriate LicensePoolDeliveryMechanism on the given
         `Loan`, creating a DeliveryMechanism if necessary.
 
         :param loan: A Loan object.
+        :param autocommit: Set this to false if you are in the middle
+            of a nested transaction.
         :return: A LicensePoolDeliveryMechanism if one could be set on the
             given Loan; None otherwise.
         """
@@ -137,7 +148,7 @@ class DeliveryMechanismInfo(CirculationInfo):
         lpdm = LicensePoolDeliveryMechanism.set(
             pool.data_source, pool.identifier, self.content_type,
             self.drm_scheme, self.rights_uri, self.resource,
-            autocommit=False
+            autocommit=autocommit
         )
         loan.fulfillment = lpdm
         return lpdm
@@ -924,7 +935,7 @@ class CirculationAPI(object):
                 # this is the first we've heard of this loan,
                 # it may have been created in another app or through
                 # a library-website integration.
-                loan.locked_to.apply(local_loan)
+                loan.locked_to.apply(local_loan, autocommit=False)
             active_loans.append(local_loan)
 
             # Check the local loan off the list we're keeping so we
