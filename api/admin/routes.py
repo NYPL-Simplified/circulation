@@ -424,6 +424,20 @@ def search_services():
 def search_service(service_id):
     return app.manager.admin_settings_controller.search_service(service_id)
 
+@app.route("/admin/storage_services", methods=["GET", "POST"])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def storage_services():
+    return app.manager.admin_settings_controller.storage_services()
+
+@app.route("/admin/storage_service/<service_id>", methods=["DELETE"])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def storage_service(service_id):
+    return app.manager.admin_settings_controller.storage_service(service_id)
+
 @app.route("/admin/discovery_services", methods=["GET", "POST"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
