@@ -233,6 +233,13 @@ INTEGRATION_NAME_ALREADY_IN_USE = pd(
     detail=_("The integration name must be unique, and there's already an integration with the specified name."),
 )
 
+INTEGRATION_GOAL_CONFLICT = pd(
+    "http://librarysimplified.org/terms/problem/integration-goal-conflict",
+    status_code=409,
+    title=_("Incompatible use of integration"),
+    detail=_("You tried to use an integration in a way incompatible with the goal of that integration"),
+)
+
 MISSING_PGCRYPTO_EXTENSION = pd(
     "http://librarysimplified.org/terms/problem/missing-pgcrypto-extension",
     status_code=500,
