@@ -8,6 +8,7 @@ from flask_babel import lazy_gettext as _
 from sqlalchemy.orm import contains_eager
 
 from circulation import (
+    DeliveryMechanismInfo,
     LoanInfo,
     HoldInfo,
     FulfillmentInfo,
@@ -532,13 +533,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # shouldn't show it in the list.
             return None
 
-        fulfillment_info = None
+        delivery_info = None
         if len(usable_formats) == 1:
             # Either the book has been locked into a specific format,
             # or only one usable format is available. We don't know
             # which case we're looking at, but for our purposes the
-            # book is locked. Create a FulfillmentInfo to make it
-            # clear that there is only one option.
+            # book is locked.
             [format] = usable_formats
             media_type, drm_scheme = (
                 OverdriveRepresentationExtractor.format_data_for_overdrive_format.get(
@@ -546,18 +546,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 )
             )
             if media_type:
-                # We can translate the information Overdrive gave us into
-                # a DeliveryMechanism.
-                fulfillment_info = FulfillmentInfo(
-                    collection=collection,
-                    data_source_name=DataSource.OVERDRIVE,
-                    identifier_type=Identifier.OVERDRIVE_ID,
-                    identifier=overdrive_identifier,
-                    content_link=None,
+                # Make it clear that Overdrive will only deliver the content
+                # in one specific media type.
+                delivery_info = DeliveryMechanismInfo(
                     content_type=media_type,
-                    content=None,
-                    content_expires=None,
-                    drm_scheme=drm_scheme
+                    drm_scheme=drm_scheme,
+                    rights_uri=RightsStatus.IN_COPYRIGHT
                 )
 
         return LoanInfo(
@@ -567,7 +561,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             overdrive_identifier,
             start_date=start,
             end_date=end,
-            fulfillment_info=fulfillment_info
+            delivery_info=delivery_info
         )
 
     def default_notification_email_address(self, patron, pin):
