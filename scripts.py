@@ -45,6 +45,7 @@ from sqlalchemy.orm import (
 from app_server import ComplaintController
 from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
+from coverage import CollectionCoverageProviderJob
 from lane import Lane
 from metadata_layer import ReplacementPolicy
 from model import (
@@ -308,22 +309,6 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
         return list(provider_class.all(_db, **kwargs))
 
 
-class CollectionCoverageProviderJob(DatabaseJob):
-
-    def __init__(self, collection, provider_class, item_offset,
-        **provider_kwargs
-    ):
-        self.collection = collection
-        self.offset = item_offset
-        self.provider_class = provider_class
-        self.provider_kwargs = provider_kwargs
-
-    def run(self, _db):
-        collection = _db.merge(self.collection)
-        provider = self.provider_class(collection, self.provider_kwargs)
-        provider.run_once(self.offset)
-
-
 class RunThreadedCoverageProviderScript(Script):
     """Run coverage providers in multiple threads."""
 
@@ -344,33 +329,26 @@ class RunThreadedCoverageProviderScript(Script):
         return DatabaseWorker(job_queue, scoped_session(self.session_factory))
 
     def run(self):
-        try:
-            _db = scoped_session(self.session_factory)
-            collections = self.provider_class.collections(_db)
+        _db = scoped_session(self.session_factory)
+        collections = self.provider_class.collections(_db)
 
-            for collection in collections:
-                offset = 0
-                query_size, batch_size = self.get_query_and_batch_sizes(
-                    collection
-                )
-                _db.commit()
+        for collection in collections:
+            offset = 0
+            query_size, batch_size = self.get_query_and_batch_sizes(
+                collection
+            )
+            _db.commit()
 
+            try:
                 while offset < query_size:
-                    _db.merge(collection)
                     job = CollectionCoverageProviderJob(
                         collection, self.provider_class, offset,
                         **self.provider_kwargs
                     )
                     self.pool.put(job)
                     offset += batch_size
-
+            finally:
                 self.pool.join()
-        except Exception as e:
-            self.log.error('An error happened whoops!')
-            set_trace()
-
-            self.pool.join()
-            raise e
 
     def get_query_and_batch_sizes(self, collection):
         provider = self.provider_class(collection, **self.provider_kwargs)

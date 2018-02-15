@@ -25,6 +25,7 @@ from model import (
 from metadata_layer import (
     ReplacementPolicy
 )
+from util.worker_pools import DatabaseJob
 
 import log # This sets the appropriate log format.
 
@@ -1112,6 +1113,22 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             return work
         work.set_presentation_ready(exclude_search=self.EXCLUDE_SEARCH_INDEX)
         return identifier
+
+
+class CollectionCoverageProviderJob(DatabaseJob):
+
+    def __init__(self, collection, provider_class, item_offset,
+        **provider_kwargs
+    ):
+        self.collection = collection
+        self.offset = item_offset
+        self.provider_class = provider_class
+        self.provider_kwargs = provider_kwargs
+
+    def run(self, _db):
+        collection = _db.merge(self.collection)
+        provider = self.provider_class(collection, self.provider_kwargs)
+        provider.run_once(self.offset)
 
 
 class CatalogCoverageProvider(CollectionCoverageProvider):
