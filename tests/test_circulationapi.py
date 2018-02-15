@@ -761,6 +761,34 @@ class TestCirculationAPI(DatabaseTest):
         eq_(self.TODAY, hold.start)
         eq_(self.IN_TWO_WEEKS, hold.end)
         eq_(0, hold.position)
+
+    def test_sync_bookshelf_applies_locked_delivery_mechanism_to_loan(self):
+
+        # By the time we hear about the patron's loan, they've already
+        # locked in an oddball delivery mechanism.
+        mechanism = DeliveryMechanismInfo(
+            Representation.TEXT_HTML_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+        )
+        pool = self._licensepool(None)
+        self.circulation.add_remote_loan(
+            pool.collection, pool.data_source.name,
+            pool.identifier.type,
+            pool.identifier.identifier,
+            datetime.utcnow(),
+            None,
+            locked_to=mechanism
+        )
+        self.circulation.sync_bookshelf(self.patron, "1234")
+
+        # The oddball delivery mechanism is now associated with the loan...
+        [loan] = self.patron.loans
+        delivery = loan.fulfillment.delivery_mechanism
+        eq_(Representation.TEXT_HTML_MEDIA_TYPE, delivery.content_type)
+        eq_(DeliveryMechanism.NO_DRM, delivery.drm_scheme)
+
+        # ... and (once we commit) with the LicensePool.
+        self._db.commit()
+        assert loan.fulfillment in pool.delivery_mechanisms
         
     def test_patron_activity(self):
         # Get a CirculationAPI that doesn't mock out its API's patron activity.

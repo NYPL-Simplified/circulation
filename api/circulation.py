@@ -911,10 +911,6 @@ class CirculationAPI(object):
             start = loan.start_date
             end = loan.end_date
             key = (loan.identifier_type, loan.identifier)
-
-            delivery_mechanism = None
-            fulfillment = loan.fulfillment_info
-
             if key in local_loans_by_identifier:
                 # We already have the Loan object, we don't need to look
                 # it up again.
