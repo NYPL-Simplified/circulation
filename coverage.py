@@ -1127,7 +1127,7 @@ class CollectionCoverageProviderJob(DatabaseJob):
 
     def run(self, _db):
         collection = _db.merge(self.collection)
-        provider = self.provider_class(collection, self.provider_kwargs)
+        provider = self.provider_class(collection, **self.provider_kwargs)
         provider.run_once(self.offset)
 
 

@@ -96,7 +96,6 @@ from util.personal_names import (
     is_corporate_name
 )
 from util.worker_pools import (
-    DatabaseJob,
     DatabaseWorker,
     Pool,
 )
