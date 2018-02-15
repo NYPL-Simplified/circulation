@@ -80,7 +80,7 @@ class DeliveryMechanismInfo(CirculationInfo):
     """A record of a technique that must be (but is not, currently, being)
     used to fulfill a certain loan.
     """
-    
+
     def __init__(self, content_type, drm_scheme,
                  rights_uri=RightsStatus.IN_COPYRIGHT, resource=None):
         """Constructor.
@@ -98,7 +98,7 @@ class DeliveryMechanismInfo(CirculationInfo):
         self.content_type = content_type
         self.drm_scheme = drm_scheme
         self.rights_uri = rights_uri
-        self.resource = resource        
+        self.resource = resource
 
     def apply(self, loan):
         """Set an appropriate LicensePoolDeliveryMechanism on the given
@@ -150,7 +150,7 @@ class FulfillmentInfo(CirculationInfo):
 
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier, content_link, content_type, content,
-                 content_expires, drm_scheme=None):
+                 content_expires):
         """Constructor.
 
         One and only one of `content_link` and `content` should be
@@ -165,19 +165,18 @@ class FulfillmentInfo(CirculationInfo):
         :param content_link: A "next step" URL towards fulfilling the
             work. This may be a link to an ACSM file, a
             streaming-content web application, a direct download, etc.
-
         :param content_type: Final media type of the content, once acquired.
             E.g. EPUB_MEDIA_TYPE or
-            Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE 
-
+            Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE
         :param content: "Next step" content to be served. This may be
             the actual content of the item on loan (in which case its
-            media type is `content_type`) or an intermediate document
-            such as an ACSM file or audiobook manifest (in which case
-            its media type will differ from `content_type`).
-
+            is of the type mentioned in `content_type`) or an
+            intermediate document such as an ACSM file or audiobook
+            manifest (in which case its media type will differ from
+            `content_type`).
         :param content_expires: A time after which the "next step"
             link or content will no longer be usable.
+
         """
         super(FulfillmentInfo, self).__init__(
             collection, data_source_name, identifier_type, identifier

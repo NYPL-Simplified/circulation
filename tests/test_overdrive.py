@@ -586,8 +586,8 @@ class TestSyncBookshelf(OverdriveAPITest):
                        for loan in loans]
         eq_(sorted([u'a5a3d737-34d4-4d69-aad8-eba4e46019a3',
                     u'99409f99-45a5-4238-9e10-98d1435cde04',
-                    u'993e4b33-823c-40af-8f61-cac54e1cba5d', 
-                    u'a2ec6f3a-ebfe-4c95-9638-2cb13be8de5a']), 
+                    u'993e4b33-823c-40af-8f61-cac54e1cba5d',
+                    u'a2ec6f3a-ebfe-4c95-9638-2cb13be8de5a']),
             sorted(identifiers)
         )
 
