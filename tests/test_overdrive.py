@@ -541,24 +541,35 @@ class TestExtractData(OverdriveAPITest):
         [on_kindle, not_on_kindle] = json["checkouts"]
 
         # The book already fulfilled on Kindle doesn't get turned into
-        # LoanInfo.
+        # LoanInfo at all.
         eq_(None, MockOverdriveAPI.process_checkout_data(on_kindle, self.collection))
 
         # The book not yet fulfilled does show up as a LoanInfo.
         loan_info = MockOverdriveAPI.process_checkout_data(not_on_kindle, self.collection)
         eq_("2fadd2ac-a8ec-4938-a369-4c3260e8922b", loan_info.identifier)
 
+        # Since there are two usable formats (Adobe EPUB and Adobe
+        # PDF), the LoanInfo is not locked to any particular format.
+        eq_(None, loan_info.locked_to)
+
+        # A book that's on loan and locked to a specific format has a
+        # DeliveryMechanismInfo associated with that format.
         data, format_locked_in = self.sample_json("checkout_response_locked_in_format.json")
-
-        # A book that's on loan with a format locked in shows up.
         loan_info = MockOverdriveAPI.process_checkout_data(format_locked_in, self.collection)
-        assert loan_info != None
+        delivery = loan_info.locked_to
+        eq_(Representation.EPUB_MEDIA_TYPE, delivery.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, delivery.drm_scheme)
 
+        # This book is on loan and the choice between Kindle and Adobe
+        # EPUB has not yet been made, but as far as we're concerned,
+        # Adobe EPUB is the only *usable* format, so it's effectively
+        # locked.
         data, no_format_locked_in = self.sample_json("checkout_response_no_format_locked_in.json")
-
-        # A book that's on loan with no format locked in also shows up.
         loan_info = MockOverdriveAPI.process_checkout_data(no_format_locked_in, self.collection)
         assert loan_info != None
+        delivery = loan_info.locked_to
+        eq_(Representation.EPUB_MEDIA_TYPE, delivery.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, delivery.drm_scheme)
 
         # TODO: In the future both of these tests should return a
         # LoanInfo with appropriate FulfillmentInfo. The calling code
@@ -580,6 +591,37 @@ class TestSyncBookshelf(OverdriveAPITest):
         eq_(4, len(loans))
         eq_(loans.sort(), patron.loans.sort())
 
+        # We have created previously unknown LicensePools and
+        # Identifiers.
+        identifiers = [loan.license_pool.identifier.identifier
+                       for loan in loans]
+        eq_(sorted([u'a5a3d737-34d4-4d69-aad8-eba4e46019a3',
+                    u'99409f99-45a5-4238-9e10-98d1435cde04',
+                    u'993e4b33-823c-40af-8f61-cac54e1cba5d',
+                    u'a2ec6f3a-ebfe-4c95-9638-2cb13be8de5a']),
+            sorted(identifiers)
+        )
+
+        # We have recorded a new DeliveryMechanism associated with
+        # each loan.
+        mechanisms = []
+        for loan in loans:
+            if loan.fulfillment:
+                mechanism = loan.fulfillment.delivery_mechanism
+                mechanisms.append(
+                    (mechanism.content_type, mechanism.drm_scheme)
+                )
+        eq_(
+            [
+                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM),
+                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+                (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+                (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
+            ],
+            sorted(mechanisms)
+        )
+
+        # There are no holds.
         eq_([], holds)
 
         # Running the sync again leaves all four loans in place.

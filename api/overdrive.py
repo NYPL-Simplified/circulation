@@ -8,6 +8,7 @@ from flask_babel import lazy_gettext as _
 from sqlalchemy.orm import contains_eager
 
 from circulation import (
+    DeliveryMechanismInfo,
     LoanInfo,
     HoldInfo,
     FulfillmentInfo,
@@ -512,6 +513,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             if format_type in cls.FORMATS:
                 usable_formats.append(format_type)
 
+
         # If a format hasn't been selected yet, available formats are in actions.
         actions = checkout.get('actions', {})
         format_action = actions.get('format', {})
@@ -531,9 +533,26 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             # shouldn't show it in the list.
             return None
 
-        # TODO: if there is one and only one format (usable or not, do
-        # not count overdrive-read), put it into fulfillment_info and
-        # let the caller make the decision whether or not to show it.
+        locked_to = None
+        if len(usable_formats) == 1:
+            # Either the book has been locked into a specific format,
+            # or only one usable format is available. We don't know
+            # which case we're looking at, but for our purposes the
+            # book is locked.
+            [format] = usable_formats
+            media_type, drm_scheme = (
+                OverdriveRepresentationExtractor.format_data_for_overdrive_format.get(
+                    format, (None, None)
+                )
+            )
+            if media_type:
+                # Make it clear that Overdrive will only deliver the content
+                # in one specific media type.
+                locked_to = DeliveryMechanismInfo(
+                    content_type=media_type,
+                    drm_scheme=drm_scheme
+                )
+
         return LoanInfo(
             collection,
             DataSource.OVERDRIVE,
@@ -541,7 +560,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             overdrive_identifier,
             start_date=start,
             end_date=end,
-            fulfillment_info=None
+            locked_to=locked_to
         )
 
     def default_notification_email_address(self, patron, pin):
