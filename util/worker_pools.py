@@ -63,8 +63,10 @@ class DatabaseWorker(Worker):
         while True:
             job = self.jobs.get()
             with self.scoped_session(self._db):
-                job.run(self._db)
-            self.jobs.task_done()
+                try:
+                    job.run(self._db)
+                finally:
+                    self.jobs.task_done()
 
 
 class Pool(object):
@@ -76,6 +78,7 @@ class Pool(object):
     def __init__(self, size, worker_factory=None):
         self.jobs = Queue()
         self.size = size
+        self.job_total = 0
         self.error_count = 0
 
         # Use Worker for pool by default.
@@ -88,10 +91,17 @@ class Pool(object):
     def inc_error(self):
         self.error_count += 1
 
+    @property
+    def success_rate(self):
+        if self.job_total <= 0 or self.error_count <= 0:
+            return float(1)
+        return self.error_count / float(self.job_total)
+
     def get(self):
         return self.jobs.get()
 
     def put(self, job):
+        self.job_total += 1
         return self.jobs.put(job)
 
     def task_done(self):
@@ -99,7 +109,10 @@ class Pool(object):
 
     def join(self):
         self.jobs.join()
-        self.log.info("%d job errors occurred" % self.error_count)
+        self.log.info(
+            "%d job errors occurred. %.2f\% success rate.",
+            self.error_count, self.success_rate
+        )
 
 
 class Job(object):
