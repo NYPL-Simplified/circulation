@@ -17,7 +17,6 @@ from Queue import Queue
 
 
 class Worker(Thread):
-
     """A Thread that finishes jobs"""
 
     @classmethod
@@ -36,16 +35,16 @@ class Worker(Thread):
 
     def run(self):
         while True:
-            job = self.jobs.get()
             try:
-                self.do_job(job)
+                self.do_job()
             except Exception as e:
                 self.jobs.inc_error()
                 self.log.error("Job raised error: %r", e, exc_info=e)
             finally:
                 self.jobs.task_done()
 
-    def do_job(self, job, *args, **kwargs):
+    def do_job(self, *args, **kwargs):
+        job = self.jobs.get()
         if callable(job):
             job(*args, **kwargs)
         else:
@@ -53,7 +52,6 @@ class Worker(Thread):
 
 
 class DatabaseWorker(Worker):
-
     """A worker Thread that provides jobs with a db scoped_session"""
 
     def __init__(self, jobs, _db):
@@ -71,13 +69,12 @@ class DatabaseWorker(Worker):
         else:
             _db.commit()
 
-    def do_job(self, job):
+    def do_job(self):
         with self.scoped_session(self._db):
             super(DatabaseWorker, self).do_job(self._db)
 
 
 class Pool(object):
-
     """A pool of Worker threads and a job queue to keep them busy."""
 
     log = logging.getLogger(__name__)
@@ -141,7 +138,6 @@ class Pool(object):
 
 
 class Job(object):
-
     """Abstract parent class for a bit o' work that can be run in a Thread.
     For use with Worker."""
 

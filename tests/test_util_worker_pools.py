@@ -1,10 +1,12 @@
 import threading
 from contextlib import contextmanager
+
 from nose.tools import (
     eq_,
     set_trace,
 )
 
+from model import Identifier
 from util.worker_pools import (
     DatabaseWorker,
     Job,
@@ -78,6 +80,13 @@ class TestPool(object):
         eq_(1/3.0, pool.success_rate)
 
 
+class MockQueue(Queue):
+    error_count = 0
+
+    def inc_error(self):
+        self.error_count += 1
+
+
 class TestWorker(object):
 
     def test_factory(self):
@@ -94,7 +103,7 @@ class TestWorker(object):
             results.append('werk')
 
         try:
-            q = Queue()
+            q = MockQueue()
             for i in range(6):
                 q.put(task)
             rihanna = Worker(q)
@@ -116,7 +125,7 @@ class TestWorker(object):
                 results.append(original[self.idx])
 
         try:
-            q = Queue()
+            q = MockQueue()
             for i in range(len(original)):
                 q.put(MockJob(i))
             rb = Worker(q)
@@ -125,3 +134,63 @@ class TestWorker(object):
             q.join()
 
         eq_(sorted(original), sorted(results))
+
+
+class TestDatabaseWorker(DatabaseTest):
+
+    def test_scoped_session(self):
+
+        # Create a mock database object to keep track of methods that
+        # are called.
+        class MockDatabase():
+            def __init__(self, _db):
+                self._expired = 0
+                self._committed = 0
+                self._db = _db
+
+            def expire_all(self):
+                self._expired += 1
+
+            def commit(self):
+                self._committed += 1
+
+            def add(self, item):
+                self._db.add(item)
+
+        # A job that works.
+        def task(_db):
+            identifier = Identifier(type='Keep It', identifier='100')
+            _db.add(identifier)
+
+        # A job that breaks.
+        def broken_task(_db):
+            identifier = Identifier(type='You Can', identifier='Keep It')
+            _db.add(identifier)
+            raise RuntimeError
+
+        try:
+            q = MockQueue()
+            q.put(task)
+            q.put(broken_task)
+
+            mock_db = MockDatabase(self._db)
+            dbw = DatabaseWorker(q, mock_db)
+            dbw.start()
+        finally:
+            q.join()
+
+        # The database was expired for each job, then called one more
+        # time before finding out the queue was empty.
+        eq_(3, mock_db._expired)
+
+        # It was only committed for the working job.
+        eq_(1, mock_db._committed)
+
+        # The DatabaseWorker doesn't roll back the database. It
+        # trusts the task to manage that.
+        [i1, i2] = self._db.query(Identifier).order_by(Identifier.id).all()
+        eq_(('Keep It', '100'), (i1.type, i1.identifier))
+        eq_(('You Can', 'Keep It'), (i2.type, i2.identifier))
+
+        # The error count has been incremented.
+        eq_(1, q.error_count)
