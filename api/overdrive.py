@@ -251,10 +251,60 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         return loan
 
     def checkin(self, patron, pin, licensepool):
+
+        # Get the loan for this patron to see whether or not they
+        # have a delivery mechanism recorded.
+        loans = [l for l in patron.loans if l.license_pool == licensepool]
+        if loans:
+            loan = loans[0]
+        set_trace()
+        if (loan and loan.fulfillment
+            and loan.fulfillment.drm_scheme == DeliveryMechanism.NO_DRM):
+            # This patron fulfilled this loan without DRM. That means we
+            # should be able to find a loanEarlyReturnURL and hit it.
+            if self.early_return(patron, pin, loan):
+                # No need for the fallback strategy.
+                return
+            
+        # Our fallback strategy is to DELETE the checkout endpoint.
+        # We do this if no loan can be found, no delivery mechanism is
+        # recorded, the delivery mechanism uses DRM, we are unable to
+        # locate the return URL, or we encounter a problem using the
+        # return URL.
+        #
+        # The only case where this is likely to work is when the 
+        # loan exists but has not been locked to a delivery mechanism.
         overdrive_id = licensepool.identifier.identifier
         url = self.CHECKOUT_ENDPOINT % dict(
             overdrive_id=overdrive_id)
         return self.patron_request(patron, pin, url, method='DELETE')
+
+    def early_return(self, patron, pin, loan, http_get=None):
+        """Ask Overdrive for a loanEarlyReturnURL for the given loan
+        and try to hit that URL.
+        """
+
+        url, media_type = self.get_fulfillment_link(
+            patron, pin, loan.licensepool.identifier.identifier,
+            loan.delivery_mechanism
+        )
+
+        # Make a regular, non-authenticated request to the fulfillment link.
+
+        http_get = http_get or HTTP.get_with_timeout
+        response = http_get(url)
+        early_return_url = self._extract_early_return_url(response)
+        if early_return_url:
+            response = http_get(early_return_url)
+            if response.status_code == 200:
+                return True
+        return False
+
+    def _extract_early_return_url(self, response):
+        """Extract an early return URL from the URL Overdrive sends to
+        fulfill a non-DRMed book.
+        """
+        set_trace()
 
     def fill_out_form(self, **values):
         fields = []
