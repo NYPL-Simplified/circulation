@@ -28,12 +28,28 @@ class Worker(Thread):
         super(Worker, self).__init__()
         self.daemon = True
         self.jobs = jobs
+        self._log = logging.getLogger(self.name)
+
+    @property
+    def log(self):
+        return self._log
 
     def run(self):
         while True:
             job = self.jobs.get()
-            job.run()
-            job.task_done()
+            try:
+                self.do_job(job)
+            except Exception as e:
+                self.jobs.inc_error()
+                self.log.error("Job raised error: %r", e, exc_info=e)
+            finally:
+                self.jobs.task_done()
+
+    def do_job(self, job, *args, **kwargs):
+        if callable(job):
+            job(*args, **kwargs)
+        else:
+            job.run(*args, **kwargs)
 
 
 class DatabaseWorker(Worker):
@@ -42,33 +58,22 @@ class DatabaseWorker(Worker):
 
     def __init__(self, jobs, _db):
         super(DatabaseWorker, self).__init__(jobs)
-
         # A scoped_session to run tasks against.
         self._db = _db
-        self._log = logging.getLogger(self.name)
-
-    @property
-    def log(self):
-        return self._log
 
     @contextmanager
     def scoped_session(self, _db):
         _db.expire_all()
         try:
             yield
-            _db.commit()
         except Exception as e:
-            self.jobs.inc_error()
-            self.log.error("Job raised error: %r", e)
+            raise e
+        else:
+            _db.commit()
 
-    def run(self):
-        while True:
-            job = self.jobs.get()
-            with self.scoped_session(self._db):
-                try:
-                    job.run(self._db)
-                finally:
-                    self.jobs.task_done()
+    def do_job(self, job):
+        with self.scoped_session(self._db):
+            super(DatabaseWorker, self).do_job(self._db)
 
 
 class Pool(object):
@@ -122,14 +127,4 @@ class Job(object):
     For use with Worker."""
 
     def run(self):
-        raise NotImplementedError()
-
-
-class DatabaseJob(object):
-
-    """Abstrct parent class for a bit o' work that can be run in a Thread and
-    uses a database session. For use with DatabaseWorker.
-    """
-
-    def run(self, _db):
         raise NotImplementedError()
