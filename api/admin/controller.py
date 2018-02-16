@@ -2562,7 +2562,7 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            service, is_new = self.create_integration(
+            service, is_new = self._create_integration(
                 protocols, protocol, ExternalIntegration.CDN_GOAL
             )
             if isinstance(service, ProblemDetail):
@@ -2718,7 +2718,7 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            service, is_new = self.create_integration(
+            service, is_new = self._create_integration(
                 protocols, protocol, ExternalIntegration.DISCOVERY_GOAL
             )
             if isinstance(service, ProblemDetail):
