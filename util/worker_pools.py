@@ -12,7 +12,8 @@ from Queue import Queue
 # https://github.com/shazow/workerpool, with
 # great appreciation.
 
-# TODO: Consider supporting multiprocessing as well.
+# TODO: Consider supporting multiprocessing as well as
+# (or instead of) multithreading.
 
 
 class Worker(Thread):
@@ -24,8 +25,9 @@ class Worker(Thread):
         return cls(worker_pool)
 
     def __init__(self, jobs):
-        self.jobs = jobs
         super(Worker, self).__init__()
+        self.daemon = True
+        self.jobs = jobs
 
     def run(self):
         while True:
@@ -85,7 +87,6 @@ class Pool(object):
         worker_factory = worker_factory or Worker.factory
         for i in range(size):
             w = worker_factory(self)
-            w.daemon = True
             w.start()
 
     def inc_error(self):
