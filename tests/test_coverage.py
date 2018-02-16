@@ -213,10 +213,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         assert (datetime.datetime.utcnow() - value).total_seconds() < 1
 
         # run_once was called twice: once to exclude items that have
-        # any coverage record whatsoever (ALL_STATUSES), and again to
+        # any coverage record whatsoever (PREVIOUSLY_ATTEMPTED), and again to
         # exclude only items that have coverage records that indicate
         # success or persistent failure (DEFAULT_COUNT_AS_COVERED).
-        eq_([CoverageRecord.ALL_STATUSES,
+        eq_([CoverageRecord.PREVIOUSLY_ATTEMPTED,
              CoverageRecord.DEFAULT_COUNT_AS_COVERED], provider.run_once_calls)
         
     def test_run_once(self):
