@@ -2031,6 +2031,10 @@ class SettingsController(CirculationManagerController):
         """Create a new ExternalIntegration for the given protocol and
         goal, assuming that doing so is compatible with the protocol's
         definition.
+
+        :return: A 2-tuple (result, is_new). `result` will be an
+            ExternalIntegration if one could be created, and a
+            ProblemDetail otherwise.
         """
         if not protocol:
             return NO_PROTOCOL_FOR_NEW_SERVICE, False
@@ -2058,8 +2062,9 @@ class SettingsController(CirculationManagerController):
 
         integration, is_new = m(*args, **kwargs)
         if not is_new and not allow_multiple:
-            # This can happen if two clients try simultaneously to
-            # create two integrations of the same type.
+            # This can happen, despite our check above, in a race
+            # condition where two clients try simultaneously to create
+            # two integrations of the same type.
             return DUPLICATE_INTEGRATION, False
         return integration, is_new
 
