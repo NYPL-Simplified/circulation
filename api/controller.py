@@ -628,24 +628,45 @@ class OPDSFeedController(CirculationManagerController):
         )
         return feed_response(feed.content)
 
-    def crawlable_feed(self, list_name):
-        """Build or retrieve a crawlable, paginated acquisition feed, sorted
-        by update date.
+    def crawlable_library_feed(self):
+        """Build or retrieve a crawlable acquisition feed for the
+        request library.
+        """
+        library = flask.request.library
+        url = self.cdn_url_for(
+            "crawlable_library_feed",
+            library_short_name=library_short_name,
+        )
+        title = library.name
+        lane = CrawlableCollectionBasedLane(library)
+        return self._crawlable_feed(lane)
+
+    def crawlable_library_feed(self):
+        """Build or retrieve a crawlable acquisition feed for the
+        requested collection.
+        """
+        # TODO: This is a little tough because there's no active library.
+        # needs to be possible to get some facets without one.
+
+    def crawlable_list_feed(self, list_name):
+        """Build or retrieve a crawlable, paginated acquisition feed for the
+        named CustomList, sorted by update date.
         """
         library = flask.request.library
         list = CustomList.find(self._db, list_name, library=library)
         if not list:
             return NO_SUCH_LIST
         library_short_name = library.short_name
+        title = list.name
         url = self.cdn_url_for(
-            "crawlable_feed", list_name=list.name,
+            "crawlable_list_feed", list_name=list.name,
             library_short_name=library_short_name,
         )
-
-        title = list.name
         lane = CrawlableCustomListBasedLane()
         lane.initialize(library, list)
+        return self._crawlable_feed(library, title, url, lane)
 
+    def _crawlable_feed(self, library, title, url, lane)
         annotator = self.manager.annotator(lane)
         facets = CrawlableCustomListFacets.default(library)
         pagination = load_pagination_from_request()

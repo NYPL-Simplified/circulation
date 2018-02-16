@@ -1051,6 +1051,38 @@ class CrawlableCustomListFacets(Facets):
         else:
             return Facets.order_facet_to_database_field(order_facet)
 
+
+class CrawlableCollectionBasedLane(DynamicLane):
+
+    def __init__(self, collections):
+        """Create a lane that finds all books in the given collections.
+
+        :param collections: A list of Collections.
+
+        Unlike other DynamicLane subclasses, this constructor does not
+        take a library; however, if a Library is passed in as `collections`,
+        its collections will be used.
+        """
+        if isinstance(collections, Library):
+            collections = library.collections
+        self.collection_ids = [x.id for x in collections]
+
+    def bibliographic_filter_clause(self, _db, qu, featured=False):
+        """Filter out any books that aren't in the right collections."""
+        qu, clauses = super(
+            CrawlableCollectionBasedLane, self).bibliographic_filter_clause(
+                _db, qu, featured
+            )
+        from core.model import MaterializedWorkWithGenre as work_model
+        if self.collection_ids:
+            clause = work_model.collection_id.in_(collections)
+        else:
+            # When no collection IDs are specified, no titles should
+            # be returned. Add a contradiction to the query.
+            clause = True==False
+        return and(clauses, clause)
+
+
 class CrawlableCustomListBasedLane(DynamicLane):
     """A lane that consists of all works in a single CustomList."""
 
