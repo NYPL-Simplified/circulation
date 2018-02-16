@@ -4,6 +4,7 @@ import logging
 import json
 import os
 import socket
+from flask_babel import lazy_gettext as _
 from config import Configuration
 from StringIO import StringIO
 from loggly.handlers import HTTPSHandler as LogglyHandler
