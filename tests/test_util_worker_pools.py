@@ -16,6 +16,68 @@ from util.worker_pools import (
 from . import DatabaseTest
 
 
+class TestPool(object):
+
+    def test_initializes_with_active_workers(self):
+        original_thread_count = threading.active_count()
+        with Pool(3) as pool:
+            pool_thread_count = threading.active_count() - original_thread_count
+            eq_(3, pool_thread_count)
+            eq_(3, pool.size)
+            eq_(3, len(pool.workers))
+
+    def test_put_tracks_total_job_count(self):
+        def task():
+            return "T'Challa"
+
+        with Pool(2) as pool:
+            eq_(0, pool.job_total)
+            for i in range(4):
+                pool.put(task)
+            eq_(4, pool.job_total)
+
+    def test_pool_tracks_error_count(self):
+        def broken_task():
+            raise RuntimeError
+
+        pool = Pool(2)
+        try:
+            # The pool instantiates with 0 errors.
+            eq_(0, pool.error_count)
+
+            for i in range(3):
+                pool.put(broken_task)
+        finally:
+            pool.join()
+
+        # The pool maintains a count of its errors.
+        eq_(3, pool.error_count)
+
+    def test_success_rate(self):
+        def task():
+            return "Shuri"
+
+        def broken_task():
+            raise RuntimeError
+
+        pool = Pool(2)
+        try:
+            # When there are no tasks, the success rate is 1.0.
+            eq_(1.0, pool.success_rate)
+
+            pool.put(task)
+            pool.put(task)
+            # When there are no errors, the success rate is 1.0.
+            pool.join()
+            eq_(1.0, pool.success_rate)
+
+            # When a job fails, it impacts the success rate.
+            pool.put(broken_task)
+        finally:
+            pool.join()
+        eq_(1/3.0, pool.success_rate)
+
+
 class TestWorker(object):
 
     def test_factory(self):
