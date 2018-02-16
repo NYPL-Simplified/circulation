@@ -255,6 +255,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
 
         # Get the loan for this patron to see whether or not they
         # have a delivery mechanism recorded.
+        loan = None
         loans = [l for l in patron.loans if l.license_pool == licensepool]
         if loans:
             loan = loans[0]

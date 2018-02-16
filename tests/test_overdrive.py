@@ -110,7 +110,83 @@ class TestOverdriveAPI(OverdriveAPITest):
             self.api.default_notification_email_address(patron, 'pin'))
 
     def test_checkin(self):
-        pass
+
+        class Mock(MockOverdriveAPI):
+            EARLY_RETURN_SUCCESS = False
+
+            def perform_early_return(self, *args):
+                self.perform_early_return_call = args
+                return self.EARLY_RETURN_SUCCESS
+
+            def patron_request(self, *args, **kwargs):
+                self.patron_request_call = (args, kwargs)
+
+        overdrive = Mock(self._db, self.collection)
+        overdrive.perform_early_return_call = None
+
+        # In most circumstances we do not bother calling
+        # perform_early_return; we just call patron_request.
+        pool = self._licensepool(None)
+        patron = self._patron()
+        pin = object()
+        expect_url = overdrive.CHECKOUT_ENDPOINT % dict(
+            overdrive_id=pool.identifier.identifier
+        )
+
+        def assert_no_early_return():
+            """Call this to verify that patron_request is
+            called within checkin() instead of perform_early_return.
+            """
+            overdrive.checkin(patron, pin, pool)
+
+            # perform_early_return was not called.
+            eq_(None, overdrive.perform_early_return_call)
+
+            # patron_request was called in an attempt to
+            # DELETE an active loan.
+            args, kwargs = overdrive.patron_request_call
+            eq_((patron, pin, expect_url), args)
+            eq_(dict(method="DELETE"), kwargs)
+            overdrive.patron_request_call = None
+
+        # If there is no loan, there is no perform_early_return.
+        assert_no_early_return()
+
+        # Same if the loan is not fulfilled...
+        loan, ignore = pool.loan_to(patron)
+        assert_no_early_return()
+
+        # If the loan is fulfilled but its LicensePoolDeliveryMechanism has
+        # no DeliveryMechanism for some reason...
+        loan.fulfillment = pool.delivery_mechanisms[0]
+        dm = loan.fulfillment.delivery_mechanism
+        loan.fulfillment.delivery_mechanism = None
+        assert_no_early_return()
+
+        # If the loan is fulfilled but the delivery mechanism uses DRM...
+        loan.fulfillment.delivery_mechanism = dm
+        assert_no_early_return()
+
+        # If the loan is fulfilled with a DRM-free delivery mechanism,
+        # perform_early_return _is_ called.
+        dm.drm_scheme = DeliveryMechanism.NO_DRM
+        overdrive.checkin(patron, pin, pool)
+
+        eq_((patron, pin, loan), overdrive.perform_early_return_call)
+
+        # But if it fails, patron_request is _also_ called.
+        args, kwargs = overdrive.patron_request_call
+        eq_((patron, pin, expect_url), args)
+        eq_(dict(method="DELETE"), kwargs)
+
+        # Finally, if the loan is fulfilled with a DRM-free delivery mechanism
+        # and perform_early_return succeeds, patron_request_call is not
+        # called -- the title was already returned.
+        overdrive.patron_request_call = None
+        overdrive.EARLY_RETURN_SUCCESS = True
+        overdrive.checkin(patron, pin, pool)
+        eq_((patron, pin, loan), overdrive.perform_early_return_call)
+        eq_(None, overdrive.patron_request_call)
 
     def test_perform_early_return(self):
 
@@ -127,12 +203,15 @@ class TestOverdriveAPI(OverdriveAPITest):
                 return self.EARLY_RETURN_URL
 
         overdrive = Mock(self._db, self.collection)
+
+        # This patron has a loan.
         pool = self._licensepool(None)
         patron = self._patron()
         pin = object()
         loan, ignore = pool.loan_to(patron)
 
-        # The loan has been fulfilled.
+        # The loan has been fulfilled and now the patron wants to
+        # do early return.
         loan.fulfillment = pool.delivery_mechanisms[0]
 
         # Our mocked perform_early_return will make two HTTP requests.
@@ -166,7 +245,7 @@ class TestOverdriveAPI(OverdriveAPITest):
             overdrive.get_fulfillment_link_call
         )
 
-        # The URL returned by that method was requested.
+        # The URL returned by that method was 'requested'.
         eq_('http://fulfillment/', http.requests.pop(0))
 
         # The resulting URL was passed into _extract_early_return_url.
@@ -175,11 +254,12 @@ class TestOverdriveAPI(OverdriveAPITest):
             overdrive._extract_early_return_url_call
         )
 
-        # Then the URL returned by _that_ method was requested.
+        # Then the URL returned by _that_ method was 'requested'.
         eq_('http://early-return/', http.requests.pop(0))
 
         # If no early return URL can be extracted from the fulfillment URL,
         # perform_early_return has no effect.
+        #
         overdrive._extract_early_return_url_call = None
         overdrive.EARLY_RETURN_URL = None
         http.responses.append(
@@ -199,6 +279,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # If we can't map the delivery mechanism to one of Overdrive's
         # internal formats, perform_early_return has no effect.
+        #
         loan.fulfillment.delivery_mechanism.content_type = "not-in/overdrive"
         success = overdrive.perform_early_return(patron, pin, loan, http.do_get)
         eq_(False, success)
