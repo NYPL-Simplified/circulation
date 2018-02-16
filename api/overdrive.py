@@ -298,7 +298,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if not internal_format:
             # Something's wrong in general, but in particular we don't know
             # which fulfillment link to ask for. Bail out.
-            return
+            return False
 
         # Ask Overdrive for a link that can be used to fulfill the book
         # (but which may also contain an early return URL).

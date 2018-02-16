@@ -38,6 +38,10 @@ from core.model import (
     Representation,
     RightsStatus,
 )
+from core.testing import (
+    DummyHTTPClient,
+    MockRequestsResponse,
+)
 
 from api.config import temp_config
 
@@ -109,18 +113,110 @@ class TestOverdriveAPI(OverdriveAPITest):
         pass
 
     def test_perform_early_return(self):
-        # status_code 200, content "Success"
-        pass
+
+        class Mock(MockOverdriveAPI):
+
+            EARLY_RETURN_URL = "http://early-return/"
+
+            def get_fulfillment_link(self, *args):
+                self.get_fulfillment_link_call = args
+                return ("http://fulfillment/", "content/type")
+
+            def _extract_early_return_url(self, *args):
+                self._extract_early_return_url_call = args
+                return self.EARLY_RETURN_URL
+
+        overdrive = Mock(self._db, self.collection)
+        pool = self._licensepool(None)
+        patron = self._patron()
+        pin = object()
+        loan, ignore = pool.loan_to(patron)
+
+        # The loan has been fulfilled.
+        loan.fulfillment = pool.delivery_mechanisms[0]
+
+        # Our mocked perform_early_return will make two HTTP requests.
+        # The first will be to the fulfill link returned by our mock
+        # get_fulfillment_link. The response to this request is a
+        # redirect that includes an early return link.
+        http = DummyHTTPClient()
+        http.responses.append(
+            MockRequestsResponse(
+                302, dict(location="http://fulfill-this-book/?or=return-early")
+            )
+        )
+
+        # The second HTTP request made will be to the early return
+        # link 'extracted' from that link by our mock
+        # _extract_early_return_url. The response here is a copy of
+        # the actual response Overdrive sends in this situation.
+        http.responses.append(MockRequestsResponse(200, content="Success"))
+
+        # Do the thing.
+        success = overdrive.perform_early_return(patron, pin, loan, http.do_get)
+
+        # The title was 'returned'.
+        eq_(True, success)
+
+        # It worked like this:
+        #
+        # get_fulfillment_link was called with appropriate arguments.
+        eq_(
+            (patron, pin, pool.identifier.identifier, 'ebook-epub-adobe'),
+            overdrive.get_fulfillment_link_call
+        )
+
+        # The URL returned by that method was requested.
+        eq_('http://fulfillment/', http.requests.pop(0))
+
+        # The resulting URL was passed into _extract_early_return_url.
+        eq_(
+            ('http://fulfill-this-book/?or=return-early',),
+            overdrive._extract_early_return_url_call
+        )
+
+        # Then the URL returned by _that_ method was requested.
+        eq_('http://early-return/', http.requests.pop(0))
+
+        # If no early return URL can be extracted from the fulfillment URL,
+        # perform_early_return has no effect.
+        overdrive._extract_early_return_url_call = None
+        overdrive.EARLY_RETURN_URL = None
+        http.responses.append(
+            MockRequestsResponse(
+                302, dict(location="http://fulfill-this-book/")
+            )
+        )
+        success = overdrive.perform_early_return(patron, pin, loan, http.do_get)
+        eq_(False, success)
+
+        # extract_early_return_url_call was called, but since it returned
+        # None, no second HTTP request was made.
+        eq_('http://fulfillment/', http.requests.pop(0))
+        eq_(("http://fulfill-this-book/",),
+            overdrive._extract_early_return_url_call)
+        eq_([], http.requests)
+
+        # If we can't map the delivery mechanism to one of Overdrive's
+        # internal formats, perform_early_return has no effect.
+        loan.fulfillment.delivery_mechanism.content_type = "not-in/overdrive"
+        success = overdrive.perform_early_return(patron, pin, loan, http.do_get)
+        eq_(False, success)
+
+        # In this case, no HTTP requests were made at all, since we
+        # couldn't figure out which arguments to pass into
+        # get_fulfillment_link.
+        eq_([], http.requests)
 
     def test_extract_early_return_url(self):
         m = OverdriveAPI._extract_early_return_url
+        eq_(None, m("http://no-early-return/"))
+        eq_(None, m(""))
+        eq_(None, m(None))
 
         # This is based on a real Overdrive early return URL.
         has_early_return = 'https://openepub-gk.cdn.overdrive.com/OpenEPUBStore1/1577-1/%7B5880F6D0-48AC-44DE-8BF1-FD1CE62E97A8%7DFzr418.epub?e=1518753718&loanExpirationDate=2018-03-01T17%3a12%3a33Z&loanEarlyReturnUrl=https%3a%2f%2fnotifications-ofs.contentreserve.com%2fEarlyReturn%2fnypl%2f037-1374147-00279%2f5480F6E1-48F3-00DE-96C1-FD3CE32D94FD-312%3fh%3dVgvxBQHdQxtsbgb43AH6%252bEmpni9LoffkPczNiUz7%252b10%253d&sourceId=nypl&h=j7nGk7qxE71X2ZcdLw%2bqa04jqEw%3d'
         eq_('https://notifications-ofs.contentreserve.com/EarlyReturn/nypl/037-1374147-00279/5480F6E1-48F3-00DE-96C1-FD3CE32D94FD-312?h=VgvxBQHdQxtsbgb43AH6%2bEmpni9LoffkPczNiUz7%2b10%3d', m(has_early_return))
-        eq_(None, m("http://no-early-return/"))
-        eq_(None, m(""))
-        eq_(None, m(None))
 
     def test_place_hold_raises_exception_if_patron_over_hold_limit(self):
         over_hold_limit = self.error_message(
