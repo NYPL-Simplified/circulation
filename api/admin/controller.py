@@ -54,8 +54,9 @@ from core.model import (
     WorkGenre,
 )
 from core.lane import Lane
+from core.log import LogConfiguration
 from core.util.problem_detail import (
-    ProblemDetail, 
+    ProblemDetail,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
 from core.mirror import MirrorUploader
@@ -67,7 +68,7 @@ from core.util import (
 )
 
 from api.config import (
-    Configuration, 
+    Configuration,
     CannotLoadConfiguration
 )
 from api.lanes import create_default_lanes
@@ -79,7 +80,7 @@ from api.controller import CirculationManagerController
 from api.coverage import MetadataWranglerCollectionRegistrar
 from core.app_server import entry_response
 from core.app_server import (
-    entry_response, 
+    entry_response,
     feed_response,
     load_pagination_from_request
 )
@@ -230,7 +231,7 @@ class AdminController(object):
     def generate_csrf_token(self):
         """Generate a random CSRF token."""
         return base64.b64encode(os.urandom(24))
-        
+
 
 class ViewController(AdminController):
     def __call__(self, collection, book, path=None):
@@ -277,7 +278,7 @@ class ViewController(AdminController):
         # until the user closes the browser window.
         response.set_cookie("csrf_token", csrf_token, httponly=True)
         return response
-        
+
 
 class SignInController(AdminController):
 
@@ -335,7 +336,7 @@ class SignInController(AdminController):
             admin = self.authenticated_admin(admin_details)
             return redirect(redirect_url, Response=Response)
 
-    
+
     def staff_email(self, email):
         """Checks the domain of an email address against the admin-authorized
         domain"""
@@ -384,7 +385,7 @@ class WorkController(CirculationManagerController):
 
     def details(self, identifier_type, identifier):
         """Return an OPDS entry with detailed information for admins.
-        
+
         This includes relevant links for editing the book.
         """
 
@@ -398,11 +399,11 @@ class WorkController(CirculationManagerController):
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator), cache_for=0,
         )
-        
+
     def complaints(self, identifier_type, identifier):
         """Return detailed complaint information for admins."""
-        
-        
+
+
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
@@ -415,7 +416,7 @@ class WorkController(CirculationManagerController):
             },
             "complaints": counter
         })
-        
+
         return response
 
     def roles(self):
@@ -797,7 +798,7 @@ class WorkController(CirculationManagerController):
 
     def edit_classifications(self, identifier_type, identifier):
         """Edit a work's audience, target age, fiction status, and genres."""
-        
+
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
@@ -816,8 +817,8 @@ class WorkController(CirculationManagerController):
         old_genre_classifications = old_classifications \
             .filter(Subject.genre_id != None)
         old_staff_genres = [
-            c.subject.genre.name 
-            for c in old_genre_classifications 
+            c.subject.genre.name
+            for c in old_genre_classifications
             if c.subject.genre
         ]
         old_computed_genres = [
@@ -930,7 +931,7 @@ class WorkController(CirculationManagerController):
                     subject_identifier=SimplifiedGenreClassifier.NONE,
                     weight=WorkController.STAFF_WEIGHT
                 )
-            else: 
+            else:
                 # otherwise delete existing NONE genre classification
                 none_classifications = self._db \
                     .query(Classification) \
@@ -1015,7 +1016,7 @@ class WorkController(CirculationManagerController):
 
             return Response(unicode(_("Success")), 200)
 
-    
+
 class FeedController(CirculationManagerController):
 
     def complaints(self):
@@ -1361,7 +1362,7 @@ class DashboardController(CirculationManagerController):
                 )
             )
         ).alias()
-        
+
 
         active_loans_or_holds_patron_count_query = select(
             [func.count(distinct(active_patrons.c.id))]
@@ -1473,7 +1474,7 @@ class DashboardController(CirculationManagerController):
         default = str(datetime.today()).split(" ")[0]
         date = flask.request.args.get("date", default)
         next_date = datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)
-            
+
         query = self._db.query(
                 CirculationEvent, Identifier, Work, Edition
             ) \
@@ -1488,7 +1489,7 @@ class DashboardController(CirculationManagerController):
             .options(lazyload(Identifier.licensed_through)) \
             .options(lazyload(Work.license_pools))
         results = query.all()
-        
+
         work_ids = map(lambda result: result[2].id, results)
 
         subquery = self._db \
@@ -1504,7 +1505,7 @@ class DashboardController(CirculationManagerController):
         genres = dict(genre_query.all())
 
         header = [
-            "time", "event", "identifier", "identifier_type", "title", "author", 
+            "time", "event", "identifier", "identifier_type", "title", "author",
             "fiction", "audience", "publisher", "language", "target_age", "genres"
         ]
 
@@ -1798,7 +1799,7 @@ class SettingsController(CirculationManagerController):
             result = self._set_integration_setting(integration, setting)
             if isinstance(result, ProblemDetail):
                 return result
-                
+
         if not protocol.get("sitewide"):
             integration.libraries = []
 
@@ -1821,6 +1822,31 @@ class SettingsController(CirculationManagerController):
             return MISSING_SERVICE
         self._db.delete(integration)
         return Response(unicode(_("Deleted")), 200)
+
+    def _sitewide_settings_controller(self, configuration_object):
+        if flask.request.method == 'GET':
+            settings = []
+            for s in configuration_object.SITEWIDE_SETTINGS:
+                setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
+                if setting.value:
+                    settings += [{ "key": setting.key, "value": setting.value }]
+
+            return dict(
+                settings=settings,
+                all_settings=configuration_object.SITEWIDE_SETTINGS,
+            )
+
+        key = flask.request.form.get("key")
+        if not key:
+            return MISSING_SITEWIDE_SETTING_KEY
+
+        value = flask.request.form.get("value")
+        if not value:
+            return MISSING_SITEWIDE_SETTING_VALUE
+
+        setting = ConfigurationSetting.sitewide(self._db, key)
+        setting.value = value
+        return Response(unicode(setting.key), 200)
 
     def collections(self):
         provider_apis = [OPDSImporter,
@@ -1903,7 +1929,7 @@ class SettingsController(CirculationManagerController):
                 collection_with_name = get_one(self._db, Collection, name=name)
                 if collection_with_name:
                     return COLLECTION_NAME_ALREADY_IN_USE
-                
+
         else:
             if protocol:
                 collection, is_new = get_one_or_create(self._db, Collection, name=name)
@@ -2235,29 +2261,10 @@ class SettingsController(CirculationManagerController):
         )
 
     def sitewide_settings(self):
-        if flask.request.method == 'GET':
-            settings = []
-            for s in Configuration.SITEWIDE_SETTINGS:
-                setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
-                if setting.value:
-                    settings += [{ "key": setting.key, "value": setting.value }]
+        self._sitewide_settings_controller(Configuration)
 
-            return dict(
-                settings=settings,
-                all_settings=Configuration.SITEWIDE_SETTINGS,
-            )
-
-        key = flask.request.form.get("key")
-        if not key:
-            return MISSING_SITEWIDE_SETTING_KEY
-
-        value = flask.request.form.get("value")
-        if not value:
-            return MISSING_SITEWIDE_SETTING_VALUE
-
-        setting = ConfigurationSetting.sitewide(self._db, key)
-        setting.value = value
-        return Response(unicode(setting.key), 200)
+    def logging_settings(self):
+        self._sitewide_settings_controller(LogConfiguration)
 
     def sitewide_setting(self, key):
         if flask.request.method == "DELETE":
@@ -2266,7 +2273,7 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Deleted")), 200)
 
     def metadata_services(
-            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, 
+            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
             key=None
     ):
         provider_apis = [NYTBestSellerAPI,
@@ -2555,7 +2562,7 @@ class SettingsController(CirculationManagerController):
         )
 
     def _manage_sitewide_service(
-            self, goal, provider_apis, service_key_name, 
+            self, goal, provider_apis, service_key_name,
             multiple_sitewide_services_detail, protocol_name_attr='NAME'
     ):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr=protocol_name_attr)
@@ -2712,7 +2719,7 @@ class SettingsController(CirculationManagerController):
             service_id, ExternalIntegration.DISCOVERY_GOAL
         )
 
-    def library_registrations(self, do_get=HTTP.debuggable_get, 
+    def library_registrations(self, do_get=HTTP.debuggable_get,
                               do_post=HTTP.debuggable_post, key=None):
         LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
         SUCCESS = u"success"
@@ -2802,7 +2809,7 @@ class SettingsController(CirculationManagerController):
             self._db.commit()
 
             auth_document_url = self.url_for(
-                "authentication_document", 
+                "authentication_document",
                 library_short_name=library.short_name
             )
             response = do_post(

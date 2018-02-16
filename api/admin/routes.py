@@ -459,7 +459,15 @@ def discovery_service(service_id):
 def sitewide_settings():
     return app.manager.admin_settings_controller.sitewide_settings()
 
+@app.route("/admin/logging_settings", methods=['GET', 'POST'])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def logging_settings():
+    return app.manager.admin_settings_controller.logging_settings()
+
 @app.route("/admin/sitewide_setting/<key>", methods=["DELETE"])
+@app.route("/admin/logging_setting/<key>", methods=["DELETE"])
 @returns_json_or_response_or_problem_detail
 @requires_admin
 @requires_csrf_token
