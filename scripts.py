@@ -314,11 +314,10 @@ class RunThreadedCollectionCoverageProviderScript(Script):
     DEFAULT_WORKER_SIZE = 5
 
     def __init__(self, provider_class, worker_size=None, _db=None, **provider_kwargs):
-        self.session_factory = SessionManager.sessionmaker(session=self._db)
         super(RunThreadedCollectionCoverageProviderScript, self).__init__(_db)
 
-        worker_size = worker_size or self.DEFAULT_WORKER_SIZE
-        self.pool = Pool(size=worker_size, worker_factory=self.worker_factory)
+        self.session_factory = SessionManager.sessionmaker(session=self._db)
+        self.worker_size = worker_size or self.DEFAULT_WORKER_SIZE
 
         self.provider_class = provider_class
         self.provider_kwargs = provider_kwargs
@@ -331,23 +330,24 @@ class RunThreadedCollectionCoverageProviderScript(Script):
         _db = scoped_session(self.session_factory)
         collections = self.provider_class.collections(_db)
 
-        for collection in collections:
-            offset = 0
-            query_size, batch_size = self.get_query_and_batch_sizes(
-                collection
-            )
-            _db.commit()
+        if not collections:
+            return
 
-            try:
+        with Pool(self.worker_size, self.worker_factory) as pool:
+            for collection in collections:
+                offset = 0
+                query_size, batch_size = self.get_query_and_batch_sizes(
+                    collection
+                )
+                _db.commit()
+
                 while offset < query_size:
                     job = CollectionCoverageProviderJob(
                         collection, self.provider_class, offset,
                         **self.provider_kwargs
                     )
-                    self.pool.put(job)
+                    pool.put(job)
                     offset += batch_size
-            finally:
-                self.pool.join()
 
     def get_query_and_batch_sizes(self, collection):
         provider = self.provider_class(collection, **self.provider_kwargs)

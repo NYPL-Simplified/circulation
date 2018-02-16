@@ -84,7 +84,10 @@ class Pool(object):
 
     def __init__(self, size, worker_factory=None):
         self.jobs = Queue()
+
         self.size = size
+        self.workers = list()
+
         self.job_total = 0
         self.error_count = 0
 
@@ -92,16 +95,32 @@ class Pool(object):
         worker_factory = worker_factory or Worker.factory
         for i in range(size):
             w = worker_factory(self)
+            self.workers.append(w)
             w.start()
-
-    def inc_error(self):
-        self.error_count += 1
 
     @property
     def success_rate(self):
         if self.job_total <= 0 or self.error_count <= 0:
             return float(1)
         return self.error_count / float(self.job_total)
+
+    def inc_error(self):
+        self.error_count += 1
+
+    def restart(self):
+        for w in self.workers:
+            if not w.is_alive():
+                w.start()
+        return self
+
+    __enter__ = restart
+
+    def __exit__(self, type, value, traceback):
+        self.join()
+        if type:
+            self.log.error('Error with %r: %r', self, value, exc_info=traceback)
+            raise value
+        return
 
     def get(self):
         return self.jobs.get()
