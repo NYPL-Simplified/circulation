@@ -11,6 +11,7 @@ from datetime import (
 )
 from api.overdrive import (
     MockOverdriveAPI,
+    OverdriveAPI,
     OverdriveCollectionReaper,
     OverdriveFormatSweep,
 )
@@ -103,6 +104,23 @@ class TestOverdriveAPI(OverdriveAPITest):
         self.api.queue_response(404)
         eq_("notifications@example.com", 
             self.api.default_notification_email_address(patron, 'pin'))
+
+    def test_checkin(self):
+        pass
+
+    def test_perform_early_return(self):
+        # status_code 200, content "Success"
+        pass
+
+    def test_extract_early_return_url(self):
+        m = OverdriveAPI._extract_early_return_url
+
+        # This is based on a real Overdrive early return URL.
+        has_early_return = 'https://openepub-gk.cdn.overdrive.com/OpenEPUBStore1/1577-1/%7B5880F6D0-48AC-44DE-8BF1-FD1CE62E97A8%7DFzr418.epub?e=1518753718&loanExpirationDate=2018-03-01T17%3a12%3a33Z&loanEarlyReturnUrl=https%3a%2f%2fnotifications-ofs.contentreserve.com%2fEarlyReturn%2fnypl%2f037-1374147-00279%2f5480F6E1-48F3-00DE-96C1-FD3CE32D94FD-312%3fh%3dVgvxBQHdQxtsbgb43AH6%252bEmpni9LoffkPczNiUz7%252b10%253d&sourceId=nypl&h=j7nGk7qxE71X2ZcdLw%2bqa04jqEw%3d'
+        eq_('https://notifications-ofs.contentreserve.com/EarlyReturn/nypl/037-1374147-00279/5480F6E1-48F3-00DE-96C1-FD3CE32D94FD-312?h=VgvxBQHdQxtsbgb43AH6%2bEmpni9LoffkPczNiUz7%2b10%3d', m(has_early_return))
+        eq_(None, m("http://no-early-return/"))
+        eq_(None, m(""))
+        eq_(None, m(None))
 
     def test_place_hold_raises_exception_if_patron_over_hold_limit(self):
         over_hold_limit = self.error_message(
