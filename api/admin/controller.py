@@ -1687,6 +1687,10 @@ class SettingsController(CirculationManagerController):
             if library_settings != None:
                 protocol["library_settings"] = list(library_settings)
 
+            cardinality = getattr(api, 'CARDINALITY', None)
+            if cardinality != None:
+                protocol['cardinality'] = cardinality
+
             protocols.append(protocol)
         return protocols
 
@@ -2163,13 +2167,11 @@ class SettingsController(CirculationManagerController):
             if protocol != auth_service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                auth_service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.PATRON_AUTH_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            auth_service, is_new = self.create_integration(
+                protocols, protocol, ExternalIntegration.PATRON_AUTH_GOAL
+            )
+            if isinstance(auth_service, ProblemDetail):
+                return auth_service
 
         name = flask.request.form.get("name")
         if name:
@@ -2296,13 +2298,11 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.METADATA_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            service, is_new = self.create_integration(
+                protocols, protocol, ExternalIntegration.METADATA_GOAL
+            )
+            if isinstance(service, ProblemDetail):
+                return service
 
         name = flask.request.form.get("name")
         if name:
@@ -2457,13 +2457,11 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.ANALYTICS_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            service, is_new = self.create_integration(
+                protocols, protocol, ExternalIntegration.ANALYTICS_GOAL
+            )
+            if isinstance(service, ProblemDetail):
+                return service
 
         name = flask.request.form.get("name")
         if name:
@@ -2483,6 +2481,37 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 201)
         else:
             return Response(unicode(service.id), 200)
+
+    def create_integration(self, protocol_definitions, protocol, goal):
+        """Create a new ExternalIntegration for the given protocol and
+        goal, assuming that doing so is compatible with the protocol's
+        definition.
+        """
+        if not protocol:
+            return NO_PROTOCOL_FOR_NEW_SERVICE, False
+        matches = [x for x in protocol_definitions if x.get('name') == protocol]
+        if not matches:
+            return INVALID_PROTOCOL, False
+        definition = matches[0]
+
+        # Most of the time there can be multiple ExternalIntegrations with
+        # the same protocol and goal...
+        allow_multiple = True
+        m = create
+        if definition.get('cardinality') == 1:
+            # ...but not all the time.
+            allow_multiple = False
+            m = get_one_or_create
+
+        integration, is_new = m(
+            self._db, ExternalIntegration, protocol=protocol, goal=goal
+        )
+        if is_new and not allow_multiple:
+            # We were asked to create a new ExternalIntegration
+            # but there's already one for this protocol, which is not
+            # allowed.
+            return DUPLICATE_INTEGRATION, False
+        return integration, is_new
 
     def analytics_service(self, service_id):
         return self._delete_integration(
@@ -2522,13 +2551,11 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.CDN_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            service, is_new = self.create_integration(
+                protocols, protocol, ExternalIntegration.CDN_GOAL
+            )
+            if isinstance(service, ProblemDetail):
+                return service
 
         name = flask.request.form.get("name")
         if name:
@@ -2680,13 +2707,11 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.DISCOVERY_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            service, is_new = self.create_integration(
+                protocols, protocol, ExternalIntegration.DISCOVERY_GOAL
+            )
+            if isinstance(service, ProblemDetail):
+                return service
 
         name = flask.request.form.get("name")
         if name:
