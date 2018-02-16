@@ -308,14 +308,14 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
         return list(provider_class.all(_db, **kwargs))
 
 
-class RunThreadedCoverageProviderScript(Script):
+class RunThreadedCollectionCoverageProviderScript(Script):
     """Run coverage providers in multiple threads."""
 
     DEFAULT_WORKER_SIZE = 5
 
     def __init__(self, provider_class, worker_size=None, _db=None, **provider_kwargs):
-        super(RunThreadedCoverageProviderScript, self).__init__(_db)
         self.session_factory = SessionManager.sessionmaker(session=self._db)
+        super(RunThreadedCollectionCoverageProviderScript, self).__init__(_db)
 
         worker_size = worker_size or self.DEFAULT_WORKER_SIZE
         self.pool = Pool(size=worker_size, worker_factory=self.worker_factory)
