@@ -289,6 +289,19 @@ class TestOverdriveAPI(OverdriveAPITest):
         # get_fulfillment_link.
         eq_([], http.requests)
 
+        # If the final attempt to hit the return URL doesn't result
+        # in a 200 status code, perform_early_return has no effect.
+        http.responses.append(
+            MockRequestsResponse(
+                302, dict(location="http://fulfill-this-book/?or=return-early")
+            )
+        )
+        http.responses.append(
+            MockRequestsResponse(401, content="Unauthorized!")
+        )
+        success = overdrive.perform_early_return(patron, pin, loan, http.do_get)
+        eq_(False, success)
+
     def test_extract_early_return_url(self):
         m = OverdriveAPI._extract_early_return_url
         eq_(None, m("http://no-early-return/"))
