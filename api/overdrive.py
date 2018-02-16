@@ -3,6 +3,7 @@ import datetime
 import json
 import requests
 import flask
+import urlparse
 from flask_babel import lazy_gettext as _
 
 from sqlalchemy.orm import contains_eager
@@ -251,10 +252,90 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         return loan
 
     def checkin(self, patron, pin, licensepool):
+
+        # Get the loan for this patron to see whether or not they
+        # have a delivery mechanism recorded.
+        loan = None
+        loans = [l for l in patron.loans if l.license_pool == licensepool]
+        if loans:
+            loan = loans[0]
+        if (loan and loan.fulfillment
+            and loan.fulfillment.delivery_mechanism
+            and loan.fulfillment.delivery_mechanism.drm_scheme
+            == DeliveryMechanism.NO_DRM):
+            # This patron fulfilled this loan without DRM. That means we
+            # should be able to find a loanEarlyReturnURL and hit it.
+            if self.perform_early_return(patron, pin, loan):
+                # No need for the fallback strategy.
+                return
+            
+        # Our fallback strategy is to DELETE the checkout endpoint.
+        # We do this if no loan can be found, no delivery mechanism is
+        # recorded, the delivery mechanism uses DRM, we are unable to
+        # locate the return URL, or we encounter a problem using the
+        # return URL.
+        #
+        # The only case where this is likely to work is when the 
+        # loan exists but has not been locked to a delivery mechanism.
         overdrive_id = licensepool.identifier.identifier
         url = self.CHECKOUT_ENDPOINT % dict(
             overdrive_id=overdrive_id)
         return self.patron_request(patron, pin, url, method='DELETE')
+
+    def perform_early_return(self, patron, pin, loan, http_get=None):
+        """Ask Overdrive for a loanEarlyReturnURL for the given loan
+        and try to hit that URL.
+
+        :param patron: A Patron
+        :param pin: Authorization PIN for the patron
+        :param loan: A Loan object corresponding to the title on loan.
+        :param http_get: You may pass in a mock of HTTP.get_with_timeout
+            for use in tests.
+        """
+        mechanism = loan.fulfillment.delivery_mechanism
+        internal_format = self.delivery_mechanism_to_internal_format.get(
+            (mechanism.content_type, mechanism.drm_scheme)
+        )
+        if not internal_format:
+            # Something's wrong in general, but in particular we don't know
+            # which fulfillment link to ask for. Bail out.
+            return False
+
+        # Ask Overdrive for a link that can be used to fulfill the book
+        # (but which may also contain an early return URL).
+        url, media_type = self.get_fulfillment_link(
+            patron, pin, loan.license_pool.identifier.identifier,
+            internal_format
+        )
+
+        # Make a regular, non-authenticated request to the fulfillment link.
+        http_get = http_get or HTTP.get_with_timeout
+        response = http_get(url, allow_redirects=False)
+        location = response.headers.get('location')
+
+        # Try to find an early return URL in the Location header
+        # sent from the fulfillment request.
+        early_return_url = self._extract_early_return_url(location)
+        if early_return_url:
+            response = http_get(early_return_url)
+            if response.status_code == 200:
+                return True
+        return False
+
+    @classmethod
+    def _extract_early_return_url(cls, location):
+        """Extract an early return URL from the URL Overdrive sends to
+        fulfill a non-DRMed book.
+
+        :param location: A URL found in a Location header.
+        """
+        if not location:
+            return None
+        parsed = urlparse.urlparse(location)
+        query = urlparse.parse_qs(parsed.query)
+        urls = query.get('loanEarlyReturnUrl')
+        if urls:
+            return urls[0]
 
     def fill_out_form(self, **values):
         fields = []
