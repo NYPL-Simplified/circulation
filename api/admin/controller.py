@@ -2491,25 +2491,30 @@ class SettingsController(CirculationManagerController):
             return NO_PROTOCOL_FOR_NEW_SERVICE, False
         matches = [x for x in protocol_definitions if x.get('name') == protocol]
         if not matches:
-            return INVALID_PROTOCOL, False
+            return UNKNOWN_PROTOCOL, False
         definition = matches[0]
 
         # Most of the time there can be multiple ExternalIntegrations with
         # the same protocol and goal...
         allow_multiple = True
         m = create
+        args = (self._db, ExternalIntegration)
+        kwargs = dict(protocol=protocol, goal=goal)
         if definition.get('cardinality') == 1:
             # ...but not all the time.
             allow_multiple = False
+            existing = get_one(*args, **kwargs)
+            if existing is not None:
+                # We were asked to create a new ExternalIntegration
+                # but there's already one for this protocol, which is not
+                # allowed.
+                return DUPLICATE_INTEGRATION, False
             m = get_one_or_create
 
-        integration, is_new = m(
-            self._db, ExternalIntegration, protocol=protocol, goal=goal
-        )
-        if is_new and not allow_multiple:
-            # We were asked to create a new ExternalIntegration
-            # but there's already one for this protocol, which is not
-            # allowed.
+        integration, is_new = m(*args, **kwargs)
+        if not is_new and not allow_multiple:
+            # This can happen if two clients try simultaneously to
+            # create two integrations of the same type.
             return DUPLICATE_INTEGRATION, False
         return integration, is_new
 
