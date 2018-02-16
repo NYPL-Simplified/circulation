@@ -116,8 +116,8 @@ class Pool(object):
     def join(self):
         self.jobs.join()
         self.log.info(
-            "%d job errors occurred. %.2f\% success rate.",
-            self.error_count, self.success_rate
+            "%d job errors occurred. %.2f%% success rate.",
+            self.error_count, self.success_rate*100
         )
 
 
