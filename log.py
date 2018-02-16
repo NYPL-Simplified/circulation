@@ -52,7 +52,7 @@ class UTF8Formatter(logging.Formatter):
             data = data.encode("utf8")
         return data
 
-       
+
 class LogConfiguration(object):
     """Configures the active Python logging handlers based on logging
     configuration from the database.
@@ -80,6 +80,25 @@ class LogConfiguration(object):
     DATABASE_LOG_LEVEL = 'database_log_level'
     LOG_MESSAGE_TEMPLATE = 'message_template'
 
+    LOG_LEVEL_UI = [
+        { "key": DEBUG, "value": _("Debug") },
+        { "key": INFO, "value": _("Info") },
+        { "key": WARN, "value": _("Warn") },
+        { "key": ERROR, "value": _("Error") },
+    ]
+
+    SITEWIDE_SETTINGS = [
+        { "key": LOG_LEVEL, "label": _("Log Level"), "type": "select", "options": LOG_LEVEL_UI },
+        { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
+            "options": [
+                { "key": JSON_LOG_FORMAT, "value": _("json") },
+                { "key": TEXT_LOG_FORMAT, "value": _("text") }
+            ]
+        },
+        { "key": LOG_APP_NAME, "label": _("Log App") },
+        { "key": DATABASE_LOG_LEVEL, "label": _("Database Log Level"), "type": "select", "options": LOG_LEVEL_UI  },
+    ]
+
     @classmethod
     def initialize(cls, _db, testing=False):
         """Make the logging handlers reflect the current logging rules
@@ -94,7 +113,7 @@ class LogConfiguration(object):
         log_level, database_log_level, new_handlers = (
             cls.from_configuration(_db, testing)
         )
-        
+
         # Replace the set of handlers associated with the root logger.
         logger = logging.getLogger()
         logger.setLevel(log_level)
@@ -108,7 +127,7 @@ class LogConfiguration(object):
         # Set the loggers for various verbose libraries to the database
         # log level, which is probably higher than the normal log level.
         for logger in (
-                'sqlalchemy.engine', 'elasticsearch', 
+                'sqlalchemy.engine', 'elasticsearch',
                 'requests.packages.urllib3.connectionpool',
         ):
             logging.getLogger(logger).setLevel(database_log_level)
@@ -148,7 +167,7 @@ class LogConfiguration(object):
 
         # Establish defaults, in case the database is not initialized or
         # it is initialized but logging is not configured.
-        (internal_log_level, internal_log_format, database_log_level, 
+        (internal_log_level, internal_log_format, database_log_level,
          message_template) = cls._defaults(testing)
 
         handlers = []
@@ -164,11 +183,11 @@ class LogConfiguration(object):
             )
             if internal:
                 internal_log_level = (
-                    internal.setting(cls.LOG_LEVEL).value 
+                    internal.setting(cls.LOG_LEVEL).value
                     or internal_log_level
                 )
                 internal_log_format = (
-                    internal.setting(cls.LOG_FORMAT).value 
+                    internal.setting(cls.LOG_FORMAT).value
                     or internal_log_format
                 )
                 database_log_level = (
@@ -251,4 +270,3 @@ class LogConfiguration(object):
 
         # Assume the token is already in the URL.
         return url
-
