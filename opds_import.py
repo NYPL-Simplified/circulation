@@ -1449,6 +1449,7 @@ class OPDSImporter(object):
         series_position = attr.get('{http://schema.org/}position', None)
         return series_name, series_position
 
+
 class OPDSImportMonitor(CollectionMonitor):
 
     """Periodically monitor a Collection's OPDS archive feed and import
@@ -1501,21 +1502,26 @@ class OPDSImportMonitor(CollectionMonitor):
 
         Long timeout, raise error on anything but 2xx or 3xx.
         """
-        headers = dict(headers or {})
-        if self.username and self.password:
-            auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
-            headers['Authorization'] = auth_header
-
-        types = dict(
-            opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
-            atom="application/atom+xml",
-            xml="application/xml",
-            anything="*/*",
-        )
-        headers['Accept'] = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
+        headers = self._update_headers(headers)
         kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
+
+    def _update_headers(self, headers):
+        dict(headers or {})
+        if self.username and self.password and not 'Authorization' in headers:
+            auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
+            headers['Authorization'] = auth_header
+
+        if not 'Accept' in headers:
+            types = dict(
+                opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
+                atom="application/atom+xml",
+                xml="application/xml",
+                anything="*/*",
+            )
+            headers['Accept'] = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
+        return headers
 
     def opds_url(self, collection):
         """Returns the OPDS import URL for the given collection.
