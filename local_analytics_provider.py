@@ -6,6 +6,9 @@ class LocalAnalyticsProvider(object):
 
     DESCRIPTION = _("Store analytics events in the 'circulationevents' database table.")
 
+    # A given site can only have one analytics provider.
+    CARDINALITY = 1
+
     def __init__(self, integration, library=None):
         self.integration_id = integration.id
         if library:
