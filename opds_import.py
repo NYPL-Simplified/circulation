@@ -346,7 +346,9 @@ class OPDSImporter(object):
 
     NAME = ExternalIntegration.OPDS_IMPORT
     DESCRIPTION = _("Import books from a publicly-accessible OPDS feed.")
-    SETTINGS = [
+
+    # These settings are used by all OPDS-derived import methods.
+    BASE_SETTINGS = [
         {
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("URL"),
@@ -355,6 +357,11 @@ class OPDSImporter(object):
             "key": Collection.DATA_SOURCE_NAME_SETTING,
             "label": _("Data source name"),
         },
+    ]
+
+    # These settings are used by 'regular' OPDS but not by OPDS For
+    # Distributors, which has its own way of doing authentication.
+    SETTINGS = BASE_SETTINGS + [
         {
             "key": ExternalIntegration.USERNAME,
             "label": _("Username"),
