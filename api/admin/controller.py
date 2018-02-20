@@ -2261,10 +2261,10 @@ class SettingsController(CirculationManagerController):
         )
 
     def sitewide_settings(self):
-        self._sitewide_settings_controller(Configuration)
+        return self._sitewide_settings_controller(Configuration)
 
     def logging_settings(self):
-        self._sitewide_settings_controller(LogConfiguration)
+        return self._sitewide_settings_controller(LogConfiguration)
 
     def sitewide_setting(self, key):
         if flask.request.method == "DELETE":
