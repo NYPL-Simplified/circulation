@@ -2028,6 +2028,84 @@ class TestSettingsController(AdminControllerTest):
         response = self.responses.pop()
         return HTTP.process_debuggable_response(response)
 
+    def test_get_integration_protocols(self):
+        """Test the _get_integration_protocols helper method."""
+        class Protocol(object):
+            __module__ = 'my name'
+            NAME = 'my label'
+            DESCRIPTION = 'my description'
+            SITEWIDE = True
+            SETTINGS = [1,2,3]
+            CHILD_SETTINGS = [4,5]
+            LIBRARY_SETTINGS = [6]
+            CARDINALITY = 1
+
+        [result] = SettingsController._get_integration_protocols([Protocol])
+        expect = dict(
+            sitewide=True, description='my description',
+            settings=[1, 2, 3], library_settings=[6],
+            child_settings=[4, 5], label='my label',
+            cardinality=1, name='my name'
+        )
+        eq_(expect, result)
+
+        # Remove the CARDINALITY setting
+        del Protocol.CARDINALITY
+
+        # And look in a different place for the name.
+        [result] = SettingsController._get_integration_protocols(
+            [Protocol], protocol_name_attr='NAME'
+        )
+
+        eq_('my label', result['name'])
+        assert 'cardinality' not in result
+
+    def test_create_integration(self):
+        """Test the _create_integration helper method."""
+
+        m = self.manager.admin_settings_controller._create_integration
+
+        protocol_definitions = [
+            dict(name="allow many"),
+            dict(name="allow one", cardinality=1),
+        ]
+        goal = "some goal"
+
+        # You get an error if you don't pass in a protocol.
+        eq_(
+            (NO_PROTOCOL_FOR_NEW_SERVICE, False),
+            m(protocol_definitions, None, goal)
+        )
+
+        # You get an error if you do provide a protocol but no definition
+        # for it can be found.
+        eq_(
+            (UNKNOWN_PROTOCOL, False),
+            m(protocol_definitions, "no definition", goal)
+        )
+
+        # If the protocol has multiple cardinality you can create as many
+        # integrations using that protocol as you want.
+        i1, is_new1 = m(protocol_definitions, "allow many", goal)
+        eq_(True, is_new1)
+
+        i2, is_new2 = m(protocol_definitions, "allow many", goal)
+        eq_(True, is_new2)
+
+        assert i1 != i2
+        for i in [i1, i2]:
+            eq_("allow many", i.protocol)
+            eq_(goal, i.goal)
+
+        # If the protocol has single cardinality, you can only create one
+        # integration using that protocol before you start getting errors.
+        i1, is_new1 = m(protocol_definitions, "allow one", goal)
+        eq_(True, is_new1)
+
+        i2, is_new2 = m(protocol_definitions, "allow one", goal)
+        eq_(False, is_new2)
+        eq_(DUPLICATE_INTEGRATION, i2)
+
     def test_libraries_get_with_no_libraries(self):
         # Delete any existing library created by the controller test setup.
         library = get_one(self._db, Library)

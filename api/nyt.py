@@ -47,6 +47,7 @@ class NYTBestSellerAPI(NYTAPI):
     
     PROTOCOL = ExternalIntegration.NYT
     NAME = _("NYT Best Seller API")
+    CARDINALITY = 1
 
     SETTINGS = [
         { "key": ExternalIntegration.PASSWORD, "label": _("API key") },
