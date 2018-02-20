@@ -42,7 +42,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
     NAME = "OPDS for Distributors"
     DESCRIPTION = _("Import books from a distributor that requires authentication to get the OPDS feed and download books.")
 
-    SETTINGS = OPDSImporter.SETTINGS + [
+    SETTINGS = OPDSImporter.BASE_SETTINGS + [
         {
             "key": ExternalIntegration.USERNAME,
             "label": _("Library's username or access key"),
