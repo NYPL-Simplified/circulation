@@ -226,11 +226,25 @@ INCOMPLETE_CONFIGURATION = pd(
     detail=_("The configuration is missing a required field."),
 )
 
+DUPLICATE_INTEGRATION = pd(
+    "http://librarysimplified.org/terms/problem/duplicate-integration",
+    status_code=400,
+    title=_("Duplicate integration"),
+    detail=_("A given site can only support one integration of this type.")
+)
+
 INTEGRATION_NAME_ALREADY_IN_USE = pd(
     "http://librarysimplified.org/terms/problem/integration-name-already-in-use",
     status_code=400,
     title=_("Integration name already in use"),
     detail=_("The integration name must be unique, and there's already an integration with the specified name."),
+)
+
+INTEGRATION_GOAL_CONFLICT = pd(
+    "http://librarysimplified.org/terms/problem/integration-goal-conflict",
+    status_code=409,
+    title=_("Incompatible use of integration"),
+    detail=_("You tried to use an integration in a way incompatible with the goal of that integration"),
 )
 
 MISSING_PGCRYPTO_EXTENSION = pd(
@@ -303,11 +317,11 @@ MISSING_SITEWIDE_SETTING_VALUE = pd(
     detail=_("A value is required to change a sitewide setting."),
 )
 
-MULTIPLE_SEARCH_SERVICES = pd(
+MULTIPLE_SITEWIDE_SERVICES = pd(
     "http://librarysimplified.org/terms/problem/multiple-search-services",
     status_code=400,
-    title=_("Multiple search services"),
-    detail=_("You tried to create a new search service, but a search service is already configured."),
+    title=_("Multiple sitewide services"),
+    detail=_("You tried to create a new sitewide service, but a sitewide service of the same type is already configured."),
 )
 
 MISSING_CUSTOM_LIST = pd(

@@ -83,7 +83,7 @@
                     "reserveId": "2FADD2AC-A8EC-4938-A369-4C3260E8922B"
                 },
                 {
-                    "formatType": "ebook-overdrive",
+                    "formatType": "ebook-pdf-adobe",
                     "linkTemplates": {
                         "downloadLink": {
                             "href": "http://patron.api.overdrive.com/v1/patrons/me/checkouts/2FADD2AC-A8EC-4938-A369-4C3260E8922B/formats/ebook-overdrive/downloadlink?errorpageurl={errorpageurl}&odreadauthurl={odreadauthurl}",
