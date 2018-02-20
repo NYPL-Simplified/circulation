@@ -1789,3 +1789,31 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         # Feeds are imported in reverse order
         eq_(["last page", "second page", "first page"], monitor.imports)
+
+    def test_update_headers(self):
+        """Test the _update_headers helper method."""
+        monitor = OPDSImportMonitor(
+            self._db, collection=self._default_collection,
+            import_class=OPDSImporter
+        )
+
+        # By default, only an Accept header is added.
+        headers = {}
+        monitor._update_headers(headers)
+        eq_(['Accept'], headers.keys())
+
+        # If the monitor has a username and password, an Authorization
+        # header using HTTP Basic Authentication is also added.
+        monitor.username = "a user"
+        monitor.password = "a password"
+        headers = {}
+        monitor._update_headers(headers)
+        assert headers['Authorization'].startswith('Basic')
+
+        # However, if the Authorization and/or Accept headers have been
+        # filled in by some other piece of code, _update_headers does
+        # not touch them.
+        expect = dict(Accept="text/html", Authorization="Bearer abc")
+        headers = dict(expect)
+        monitor._update_headers(headers)
+        eq_(headers, expect)
