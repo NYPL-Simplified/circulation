@@ -226,6 +226,13 @@ INCOMPLETE_CONFIGURATION = pd(
     detail=_("The configuration is missing a required field."),
 )
 
+DUPLICATE_INTEGRATION = pd(
+    "http://librarysimplified.org/terms/problem/duplicate-integration",
+    status_code=400,
+    title=_("Duplicate integration"),
+    detail=_("A given site can only support one integration of this type.")
+)
+
 INTEGRATION_NAME_ALREADY_IN_USE = pd(
     "http://librarysimplified.org/terms/problem/integration-name-already-in-use",
     status_code=400,
