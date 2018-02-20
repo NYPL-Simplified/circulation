@@ -1658,7 +1658,8 @@ class SettingsController(CirculationManagerController):
             self._db.delete(library)
             return Response(unicode(_("Deleted")), 200)
 
-    def _get_integration_protocols(self, provider_apis, protocol_name_attr="__module__"):
+    @classmethod
+    def _get_integration_protocols(cls, provider_apis, protocol_name_attr="__module__"):
         protocols = []
         for api in provider_apis:
             protocol = dict()
@@ -2026,6 +2027,47 @@ class SettingsController(CirculationManagerController):
             )
         return mirror_integration_setting
 
+    def _create_integration(self, protocol_definitions, protocol, goal):
+        """Create a new ExternalIntegration for the given protocol and
+        goal, assuming that doing so is compatible with the protocol's
+        definition.
+
+        :return: A 2-tuple (result, is_new). `result` will be an
+            ExternalIntegration if one could be created, and a
+            ProblemDetail otherwise.
+        """
+        if not protocol:
+            return NO_PROTOCOL_FOR_NEW_SERVICE, False
+        matches = [x for x in protocol_definitions if x.get('name') == protocol]
+        if not matches:
+            return UNKNOWN_PROTOCOL, False
+        definition = matches[0]
+
+        # Most of the time there can be multiple ExternalIntegrations with
+        # the same protocol and goal...
+        allow_multiple = True
+        m = create
+        args = (self._db, ExternalIntegration)
+        kwargs = dict(protocol=protocol, goal=goal)
+        if definition.get('cardinality') == 1:
+            # ...but not all the time.
+            allow_multiple = False
+            existing = get_one(*args, **kwargs)
+            if existing is not None:
+                # We were asked to create a new ExternalIntegration
+                # but there's already one for this protocol, which is not
+                # allowed.
+                return DUPLICATE_INTEGRATION, False
+            m = get_one_or_create
+
+        integration, is_new = m(*args, **kwargs)
+        if not is_new and not allow_multiple:
+            # This can happen, despite our check above, in a race
+            # condition where two clients try simultaneously to create
+            # two integrations of the same type.
+            return DUPLICATE_INTEGRATION, False
+        return integration, is_new
+
     def collection(self, collection_id):
         if flask.request.method == "DELETE":
             collection = get_one(self._db, Collection, id=collection_id)
@@ -2167,7 +2209,7 @@ class SettingsController(CirculationManagerController):
             if protocol != auth_service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            auth_service, is_new = self.create_integration(
+            auth_service, is_new = self._create_integration(
                 protocols, protocol, ExternalIntegration.PATRON_AUTH_GOAL
             )
             if isinstance(auth_service, ProblemDetail):
@@ -2298,7 +2340,7 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            service, is_new = self.create_integration(
+            service, is_new = self._create_integration(
                 protocols, protocol, ExternalIntegration.METADATA_GOAL
             )
             if isinstance(service, ProblemDetail):
@@ -2457,7 +2499,7 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            service, is_new = self.create_integration(
+            service, is_new = self._create_integration(
                 protocols, protocol, ExternalIntegration.ANALYTICS_GOAL
             )
             if isinstance(service, ProblemDetail):
@@ -2481,42 +2523,6 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 201)
         else:
             return Response(unicode(service.id), 200)
-
-    def create_integration(self, protocol_definitions, protocol, goal):
-        """Create a new ExternalIntegration for the given protocol and
-        goal, assuming that doing so is compatible with the protocol's
-        definition.
-        """
-        if not protocol:
-            return NO_PROTOCOL_FOR_NEW_SERVICE, False
-        matches = [x for x in protocol_definitions if x.get('name') == protocol]
-        if not matches:
-            return UNKNOWN_PROTOCOL, False
-        definition = matches[0]
-
-        # Most of the time there can be multiple ExternalIntegrations with
-        # the same protocol and goal...
-        allow_multiple = True
-        m = create
-        args = (self._db, ExternalIntegration)
-        kwargs = dict(protocol=protocol, goal=goal)
-        if definition.get('cardinality') == 1:
-            # ...but not all the time.
-            allow_multiple = False
-            existing = get_one(*args, **kwargs)
-            if existing is not None:
-                # We were asked to create a new ExternalIntegration
-                # but there's already one for this protocol, which is not
-                # allowed.
-                return DUPLICATE_INTEGRATION, False
-            m = get_one_or_create
-
-        integration, is_new = m(*args, **kwargs)
-        if not is_new and not allow_multiple:
-            # This can happen if two clients try simultaneously to
-            # create two integrations of the same type.
-            return DUPLICATE_INTEGRATION, False
-        return integration, is_new
 
     def analytics_service(self, service_id):
         return self._delete_integration(
@@ -2556,7 +2562,7 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            service, is_new = self.create_integration(
+            service, is_new = self._create_integration(
                 protocols, protocol, ExternalIntegration.CDN_GOAL
             )
             if isinstance(service, ProblemDetail):
@@ -2712,7 +2718,7 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            service, is_new = self.create_integration(
+            service, is_new = self._create_integration(
                 protocols, protocol, ExternalIntegration.DISCOVERY_GOAL
             )
             if isinstance(service, ProblemDetail):

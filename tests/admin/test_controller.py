@@ -2028,10 +2028,42 @@ class TestSettingsController(AdminControllerTest):
         response = self.responses.pop()
         return HTTP.process_debuggable_response(response)
 
-    def test_create_integration(self):
-        """Test the create_integration helper method."""
+    def test_get_integration_protocols(self):
+        """Test the _get_integration_protocols helper method."""
+        class Protocol(object):
+            __module__ = 'my name'
+            NAME = 'my label'
+            DESCRIPTION = 'my description'
+            SITEWIDE = True
+            SETTINGS = [1,2,3]
+            CHILD_SETTINGS = [4,5]
+            LIBRARY_SETTINGS = [6]
+            CARDINALITY = 1
 
-        m = self.manager.admin_settings_controller.create_integration
+        [result] = SettingsController._get_integration_protocols([Protocol])
+        expect = dict(
+            sitewide=True, description='my description',
+            settings=[1, 2, 3], library_settings=[6],
+            child_settings=[4, 5], label='my label',
+            cardinality=1, name='my name'
+        )
+        eq_(expect, result)
+
+        # Remove the CARDINALITY setting
+        del Protocol.CARDINALITY
+
+        # And look in a different place for the name.
+        [result] = SettingsController._get_integration_protocols(
+            [Protocol], protocol_name_attr='NAME'
+        )
+
+        eq_('my label', result['name'])
+        assert 'cardinality' not in result
+
+    def test_create_integration(self):
+        """Test the _create_integration helper method."""
+
+        m = self.manager.admin_settings_controller._create_integration
 
         protocol_definitions = [
             dict(name="allow many"),
