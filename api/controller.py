@@ -640,7 +640,7 @@ class OPDSFeedController(CirculationManagerController):
             library_short_name=library_short_name,
         )
         title = library.name
-        lane = CrawlableCollectionBasedLane(library, library.collections)
+        lane = CrawlableCollectionBasedLane(library)
         return self._crawlable_feed(library, title, url, lane)
 
     def crawlable_collection_feed(self, collection_id):

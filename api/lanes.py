@@ -1059,18 +1059,20 @@ class CrawlableCustomListFacets(Facets):
 
 class CrawlableCollectionBasedLane(DynamicLane):
 
-    def __init__(self, library, collections):
+    def __init__(self, library, collections=None):
         """Create a lane that finds all books in the given collections.
 
         :param library: The Library to use for purposes of annotating
             this Lane's OPDS feed.
-        :param collections: A list of Collections.
+        :param collections: A list of Collections. If none are specified,
+            all Collections associated with `library` will be used.
         """
         self.library_id = library.id
         if collections:
             identifier = " / ".join([x.name for x in collections])
         else:
             identifier = library.name
+            collections = library.collections
         self.initialize(library, "Crawlable feed: %s" % identifier)
         if collections:
             # initialize() set the collection IDs to all collections
@@ -1095,6 +1097,7 @@ class CrawlableCollectionBasedLane(DynamicLane):
             CrawlableCollectionBasedLane, self).bibliographic_filter_clause(
                 _db, qu, featured
             )
+
 
 class CrawlableCustomListBasedLane(DynamicLane):
     """A lane that consists of all works in a single CustomList."""

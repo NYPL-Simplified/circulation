@@ -23,6 +23,7 @@ from core.model import (
     DataSource,
     ExternalIntegration,
     Library,
+    MaterializedWorkWithGenre,
 )
 
 from api.config import (
@@ -37,6 +38,7 @@ from api.lanes import (
     _lane_configuration_from_collection_sizes,
     load_lanes,
     ContributorLane,
+    CrawlableCollectionBasedLane,
     CrawlableCustomListFacets,
     CrawlableCustomListBasedLane,
     RecommendationLane,
@@ -719,7 +721,8 @@ class TestCrawlableCustomListFacets(DatabaseTest):
         qu = facets.apply(self._db, qu)
         # w1 is first because it was added to the list more recently.
         eq_([w1.id, w2.id], [mw.works_id for mw in qu])
-        
+
+       
 class TestCrawlableCustomListBasedLane(DatabaseTest):
 
     def test_initialize(self):
@@ -756,3 +759,46 @@ class TestCrawlableCustomListBasedLane(DatabaseTest):
 
         eq_([w2.id], [mw.works_id for mw in qu])
         
+
+class TestCrawlableCollectionBasedLane(DatabaseTest):
+
+    def test_init(self):
+
+        library = self._default_library
+        default_collection = self._default_collection
+        other_collection = self._collection()
+
+        # A lane for all the collections associated with a library.
+        lane = CrawlableCollectionBasedLane(library)
+        eq_([x.id for x in library.collections], lane.collection_ids)
+
+        # A lane for a collection not actually associated with a
+        # library. (A Library is still necessary to provide a point of
+        # reference for classes like Facets and CachedFeed.)
+        lane = CrawlableCollectionBasedLane(library, [other_collection])
+        eq_([other_collection.id], lane.collection_ids)
+        eq_(library, lane.get_library(self._db))
+
+    def test_bibliographic_filter_clause(self):
+        # Normally, if collection_ids is empty it means there are no
+        # restrictions on collection. However, in this case if
+        # collections_id is empty it means no titles should be
+        # returned.
+        collection = self._default_collection
+        self._default_library.collections = []
+        lane = CrawlableCollectionBasedLane(self._default_library)
+        eq_([], lane.collection_ids)
+
+        # This is managed by having bibliographic_filter_clause return None
+        # to short-circuit a query in progress.
+        eq_((None, None), lane.bibliographic_filter_clause(object(), object()))
+
+        # If collection_ids is not empty, then
+        # bibliographic_filter_clause passed through the query it's
+        # given without changing it.
+        lane.collection_ids = [self._default_collection.id]
+        qu = self._db.query(MaterializedWorkWithGenre)
+        qu2, clause = lane.bibliographic_filter_clause(self._db, qu)
+        eq_(qu, qu2)
+        eq_(None, clause)
+
