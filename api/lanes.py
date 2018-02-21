@@ -1069,7 +1069,7 @@ class CrawlableCollectionBasedLane(DynamicLane):
         """
         self.library_id = library.id
         if collections:
-            identifier = " / ".join([x.name for x in collections])
+            identifier = " / ".join(sorted([x.name for x in collections]))
         else:
             identifier = library.name
             collections = library.collections

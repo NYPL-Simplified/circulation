@@ -767,16 +767,27 @@ class TestCrawlableCollectionBasedLane(DatabaseTest):
         library = self._default_library
         default_collection = self._default_collection
         other_collection = self._collection()
+        other_collection_2 = self._collection()
 
         # A lane for all the collections associated with a library.
         lane = CrawlableCollectionBasedLane(library)
+        eq_("Crawlable feed: %s" % library.name, lane.display_name)
         eq_([x.id for x in library.collections], lane.collection_ids)
 
         # A lane for a collection not actually associated with a
         # library. (A Library is still necessary to provide a point of
         # reference for classes like Facets and CachedFeed.)
-        lane = CrawlableCollectionBasedLane(library, [other_collection])
-        eq_([other_collection.id], lane.collection_ids)
+        lane = CrawlableCollectionBasedLane(
+            library, [other_collection, other_collection_2]
+        )
+        eq_(
+            "Crawlable feed: %s / %s" % (
+                sorted([other_collection.name, other_collection_2.name])
+            ),
+            lane.display_name
+        )
+        eq_(set([other_collection.id, other_collection_2.id]),
+            set(lane.collection_ids))
         eq_(library, lane.get_library(self._db))
 
     def test_bibliographic_filter_clause(self):
