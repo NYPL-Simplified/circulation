@@ -113,6 +113,7 @@ from lanes import (
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
+    CrawlableCollectionBasedLane,
     CrawlableCustomListBasedLane,
     CrawlableCustomListFacets,
 )
@@ -633,20 +634,34 @@ class OPDSFeedController(CirculationManagerController):
         request library.
         """
         library = flask.request.library
+        library_short_name = flask.request.library.short_name
         url = self.cdn_url_for(
             "crawlable_library_feed",
             library_short_name=library_short_name,
         )
         title = library.name
-        lane = CrawlableCollectionBasedLane(library)
-        return self._crawlable_feed(lane)
+        lane = CrawlableCollectionBasedLane(library, library.collections)
+        return self._crawlable_feed(library, title, url, lane)
 
-    def crawlable_library_feed(self):
+    def crawlable_collection_feed(self, collection_id):
         """Build or retrieve a crawlable acquisition feed for the
         requested collection.
         """
-        # TODO: This is a little tough because there's no active library.
-        # needs to be possible to get some facets without one.
+        # We use a library only for purposes of creating a Facets object.
+        # The requested collection does not have to be associated with
+        # the default library.
+        default_library = Library.default(self._db)
+        collection = get_one(self._db, Collection, id=collection_id)
+        if not list:
+            return NO_SUCH_COLLECTION
+        title = collection.name
+        url = self.cdn_url_for(
+            "crawlable_collection_feed",
+            collection_id=collection.id
+        )
+        lane = CrawlableCollectionBasedLane(default_library, [collection])
+        return self._crawlable_feed(default_library, title, url, lane)
+
 
     def crawlable_list_feed(self, list_name):
         """Build or retrieve a crawlable, paginated acquisition feed for the
@@ -666,7 +681,7 @@ class OPDSFeedController(CirculationManagerController):
         lane.initialize(library, list)
         return self._crawlable_feed(library, title, url, lane)
 
-    def _crawlable_feed(self, library, title, url, lane)
+    def _crawlable_feed(self, library, title, url, lane):
         annotator = self.manager.annotator(lane)
         facets = CrawlableCustomListFacets.default(library)
         pagination = load_pagination_from_request()

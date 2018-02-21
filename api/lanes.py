@@ -1,5 +1,9 @@
 from nose.tools import set_trace
-from sqlalchemy import or_, func
+from sqlalchemy import (
+    and_,
+    func,
+    or_,
+)
 from sqlalchemy.orm import aliased
 from flask_babel import lazy_gettext as _
 import time
@@ -30,6 +34,7 @@ from core.model import (
     DataSource,
     Edition,
     ExternalIntegration,
+    Library,
     LicensePool,
     Session,
     Work,
@@ -1054,34 +1059,42 @@ class CrawlableCustomListFacets(Facets):
 
 class CrawlableCollectionBasedLane(DynamicLane):
 
-    def __init__(self, collections):
+    def __init__(self, library, collections):
         """Create a lane that finds all books in the given collections.
 
+        :param library: The Library to use for purposes of annotating
+            this Lane's OPDS feed.
         :param collections: A list of Collections.
-
-        Unlike other DynamicLane subclasses, this constructor does not
-        take a library; however, if a Library is passed in as `collections`,
-        its collections will be used.
         """
-        if isinstance(collections, Library):
-            collections = library.collections
-        self.collection_ids = [x.id for x in collections]
+        self.library_id = library.id
+        if collections:
+            identifier = " / ".join([x.name for x in collections])
+        else:
+            identifier = library.name
+        self.initialize(library, "Crawlable feed: %s" % identifier)
+        if collections:
+            # initialize() set the collection IDs to all collections
+            # associated with the library. We may want to restrict that
+            # further.
+            self.collection_ids = [x.id for x in collections]
+
+    def get_library(self, _db):
+        """Find the Library object associated with this WorkList."""
+        return Library.by_id(_db, self.library_id)
 
     def bibliographic_filter_clause(self, _db, qu, featured=False):
         """Filter out any books that aren't in the right collections."""
-        qu, clauses = super(
+        # The normal behavior of works() is to put a restriction on
+        # collection_ids, so we only need to do something if
+        # there are no collections specified.
+        if not self.collection_ids:
+            # When no collection IDs are specified, there is no lane
+            # whatsoever
+            return None, None
+        return super(
             CrawlableCollectionBasedLane, self).bibliographic_filter_clause(
                 _db, qu, featured
             )
-        from core.model import MaterializedWorkWithGenre as work_model
-        if self.collection_ids:
-            clause = work_model.collection_id.in_(collections)
-        else:
-            # When no collection IDs are specified, no titles should
-            # be returned. Add a contradiction to the query.
-            clause = True==False
-        return and(clauses, clause)
-
 
 class CrawlableCustomListBasedLane(DynamicLane):
     """A lane that consists of all works in a single CustomList."""
@@ -1089,7 +1102,9 @@ class CrawlableCustomListBasedLane(DynamicLane):
     uses_customlists = True
 
     def initialize(self, library, list):
-        super(CrawlableCustomListBasedLane, self).initialize(library, list.name)
+        super(CrawlableCustomListBasedLane, self).initialize(
+            library, "Crawlable feed: %s" % list.name
+        )
         self.customlists = [list]
 
     def bibliographic_filter_clause(self, _db, qu, featured=False):
