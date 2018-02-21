@@ -89,15 +89,25 @@ class LogConfiguration(object):
     ]
 
     SITEWIDE_SETTINGS = [
-        { "key": LOG_LEVEL, "label": _("Log Level"), "type": "select", "options": LOG_LEVEL_UI },
+        { "key": LOG_LEVEL, "label": _("Log Level"), "type": "select",
+          "options": LOG_LEVEL_UI, "default": INFO,
+        },
         { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
             "options": [
-                { "key": JSON_LOG_FORMAT, "value": _("json") },
-                { "key": TEXT_LOG_FORMAT, "value": _("text") }
-            ]
+                { "key": TEXT_LOG_FORMAT, "value": _("Plain text") },
+                { "key": JSON_LOG_FORMAT, "value": _("JSON") },
+            ],
+          "default": TEXT_LOG_FORMAT,
         },
-        { "key": LOG_APP_NAME, "label": _("Log App") },
-        { "key": DATABASE_LOG_LEVEL, "label": _("Database Log Level"), "type": "select", "options": LOG_LEVEL_UI  },
+        { "key": LOG_APP_NAME, "label": _("Application name"),
+          "description": _("Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems."),
+          "default": DEFAULT_APP_NAME,
+        },
+        { "key": DATABASE_LOG_LEVEL, "label": _("Database Log Level"),
+          "type": "select", "options": LOG_LEVEL_UI,
+          "description": _("Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages."),
+          "default": WARN,
+        },
     ]
 
     @classmethod
