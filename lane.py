@@ -848,7 +848,7 @@ class WorkList(object):
         qu, bibliographic_clause = self.bibliographic_filter_clause(
             _db, qu, featured
         )
-        if not qu:
+        if qu is None:
             # bibliographic_filter_clause() may return a null query to
             # indicate that the WorkList should not exist at all.
             return None
