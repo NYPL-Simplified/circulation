@@ -238,6 +238,7 @@ def crawlable_list_feed(list_name):
     return app.manager.opds_feeds.crawlable_list_feed(list_name)
 
 @library_route('/collections/<collection_name>/crawlable')
+@has_library
 @allows_patron_web
 @returns_problem_detail
 def crawlable_collection_feed(collection_name):

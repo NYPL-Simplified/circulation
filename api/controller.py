@@ -658,7 +658,7 @@ class OPDSFeedController(CirculationManagerController):
         url = self.cdn_url_for(
             "crawlable_collection_feed",
             library_short_name=library.short_name,
-            collection_id=collection.id
+            collection_name=collection.name
         )
         lane = CrawlableCollectionBasedLane(library, [collection])
         return self._crawlable_feed(library, title, url, lane)
