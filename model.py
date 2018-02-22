@@ -11373,6 +11373,9 @@ def tuple_to_numericrange(t):
         return None
     return NumericRange(t[0], t[1], '[]')
 
+
+from threading import RLock
+site_configuration_has_changed_lock = RLock()
 def site_configuration_has_changed(_db, timeout=1):
     """Call this whenever you want to indicate that the site configuration
     has changed and needs to be reloaded.
@@ -11388,6 +11391,21 @@ def site_configuration_has_changed(_db, timeout=1):
     number of seconds since the last site configuration change was
     recorded.
     """
+    has_lock = site_configuration_has_changed_lock.acquire(blocking=False)
+    if not has_lock:
+        # Another thread is updating site configuration right now.
+        # There is no need to do anything--the timestamp will still be
+        # accurate.
+        logging.error("BAILING OUT!")
+        return
+
+    try:
+        _site_configuration_has_changed(_db, timeout)
+    finally:
+        site_configuration_has_changed_lock.release()
+
+def _site_configuration_has_changed(_db, timeout=1):
+    """Actually changes the timestamp on the site configuration."""
     now = datetime.datetime.utcnow()
     last_update = Configuration._site_configuration_last_update()
     if not last_update or (now - last_update).total_seconds() > timeout:
