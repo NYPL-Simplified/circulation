@@ -803,6 +803,7 @@ class WorkList(object):
         """Create the appearance of having called works(),
         but return the specific MaterializedWorks identified by `work_ids`.
         """
+
         # Get a list of MaterializedWorkWithGenre objects as though we
         # had called works().
         from model import MaterializedWorkWithGenre as mw
