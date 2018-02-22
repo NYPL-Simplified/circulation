@@ -1908,7 +1908,7 @@ lanes_customlists = Table(
 
 @event.listens_for(Lane, 'after_insert')
 @event.listens_for(Lane, 'after_delete')
-# @event.listens_for(Lane, 'after_update')
+@event.listens_for(Lane, 'after_update')
 @event.listens_for(LaneGenre, 'after_insert')
 @event.listens_for(LaneGenre, 'after_delete')
 @event.listens_for(LaneGenre, 'after_update')
