@@ -1060,8 +1060,6 @@ class CrawlableFacets(Facets):
 
 class CrawlableCollectionBasedLane(DynamicLane):
 
-    MAX_CACHE_AGE = 60 * 60 * 12 # 12 hours
-
     def __init__(self, library, collections=None):
         """Create a lane that finds all books in the given collections.
 
@@ -1083,10 +1081,6 @@ class CrawlableCollectionBasedLane(DynamicLane):
             # further.
             self.collection_ids = [x.id for x in collections]
 
-    def get_library(self, _db):
-        """Find the Library object associated with this WorkList."""
-        return Library.by_id(_db, self.library_id)
-
     def bibliographic_filter_clause(self, _db, qu, featured=False):
         """Filter out any books that aren't in the right collections."""
         # The normal behavior of works() is to put a restriction on
@@ -1104,8 +1098,6 @@ class CrawlableCollectionBasedLane(DynamicLane):
 
 class CrawlableCustomListBasedLane(DynamicLane):
     """A lane that consists of all works in a single CustomList."""
-
-    MAX_CACHE_AGE = 60 * 60 * 12 # 12 hours
 
     uses_customlists = True
 

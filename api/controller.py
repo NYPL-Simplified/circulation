@@ -647,9 +647,6 @@ class OPDSFeedController(CirculationManagerController):
         """Build or retrieve a crawlable acquisition feed for the
         requested collection.
         """
-        # We use a library only for purposes of creating a Facets object.
-        # The requested collection does not have to be associated with
-        # the default library.
         library = flask.request.library
         collection = get_one(self._db, Collection, name=collection_name)
         if not collection or collection not in library.collections:

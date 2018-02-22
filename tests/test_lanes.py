@@ -731,7 +731,7 @@ class TestCrawlableCustomListBasedLane(DatabaseTest):
         lane.initialize(self._default_library, list)
         eq_(self._default_library.id, lane.library_id)
         eq_([list], lane.customlists)
-        eq_(list.name, lane.display_name)
+        eq_("Crawlable feed: %s" % list.name, lane.display_name)
         eq_(None, lane.audiences)
         eq_(None, lane.languages)
         eq_(None, lane.media)
@@ -781,7 +781,7 @@ class TestCrawlableCollectionBasedLane(DatabaseTest):
             library, [other_collection, other_collection_2]
         )
         eq_(
-            "Crawlable feed: %s / %s" % (
+            "Crawlable feed: %s / %s" % tuple(
                 sorted([other_collection.name, other_collection_2.name])
             ),
             lane.display_name
