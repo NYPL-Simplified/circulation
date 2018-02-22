@@ -39,7 +39,7 @@ from api.lanes import (
     load_lanes,
     ContributorLane,
     CrawlableCollectionBasedLane,
-    CrawlableCustomListFacets,
+    CrawlableFacets,
     CrawlableCustomListBasedLane,
     RecommendationLane,
     RelatedBooksLane,
@@ -683,13 +683,13 @@ class TestContributorLane(LaneTest):
         )
         self.assert_works_queries(ya_lane, [children, ya])
 
-class TestCrawlableCustomListFacets(DatabaseTest):
+class TestCrawlableFacets(DatabaseTest):
 
     def test_default(self):
-        facets = CrawlableCustomListFacets.default(self._default_library)
-        eq_(CrawlableCustomListFacets.COLLECTION_FULL, facets.collection)
-        eq_(CrawlableCustomListFacets.AVAILABLE_ALL, facets.availability)
-        eq_(CrawlableCustomListFacets.ORDER_LAST_UPDATE, facets.order)
+        facets = CrawlableFacets.default(self._default_library)
+        eq_(CrawlableFacets.COLLECTION_FULL, facets.collection)
+        eq_(CrawlableFacets.AVAILABLE_ALL, facets.availability)
+        eq_(CrawlableFacets.ORDER_LAST_UPDATE, facets.order)
         eq_(False, facets.order_ascending)
         enabled_facets = facets.facets_enabled_at_init
         # There's only one enabled facets for each facet group.
@@ -697,7 +697,7 @@ class TestCrawlableCustomListFacets(DatabaseTest):
             eq_(1, len(group))
 
     def test_last_update_order_facet(self):
-        facets = CrawlableCustomListFacets.default(self._default_library)
+        facets = CrawlableFacets.default(self._default_library)
 
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)

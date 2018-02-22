@@ -1031,7 +1031,8 @@ class ContributorLane(DynamicLane):
         return super(ContributorLane, self).apply_filters(
             _db, qu, facets, pagination, featured=featured)
 
-class CrawlableCustomListFacets(Facets):
+class CrawlableFacets(Facets):
+    """A special Facets class for crawlable feeds."""
     @classmethod
     def default(cls, library):
         enabled_facets = {

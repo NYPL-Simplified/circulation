@@ -115,7 +115,7 @@ from lanes import (
     SeriesLane,
     CrawlableCollectionBasedLane,
     CrawlableCustomListBasedLane,
-    CrawlableCustomListFacets,
+    CrawlableFacets,
 )
 
 from adobe_vendor_id import (
@@ -683,7 +683,7 @@ class OPDSFeedController(CirculationManagerController):
 
     def _crawlable_feed(self, library, title, url, lane):
         annotator = self.manager.annotator(lane)
-        facets = CrawlableCustomListFacets.default(library)
+        facets = CrawlableFacets.default(library)
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
