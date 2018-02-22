@@ -2482,7 +2482,7 @@ class TestFeedController(CirculationControllerTest):
         self._db.flush()
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_feed(list.name)
+            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2500,7 +2500,7 @@ class TestFeedController(CirculationControllerTest):
         self._db.flush()
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_feed(list.name)
+            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
