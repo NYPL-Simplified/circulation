@@ -72,7 +72,7 @@ class OverdriveAPI(object):
 
     log = logging.getLogger("Overdrive API")
 
-    # A lock to use for threaded usage.
+    # A lock for threaded usage.
     lock = RLock()
 
     TOKEN_ENDPOINT = "https://oauth.overdrive.com/token"
