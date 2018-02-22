@@ -11521,6 +11521,7 @@ def directly_modified(obj):
 @event.listens_for(Library.settings, 'append')
 @event.listens_for(Library.settings, 'remove')
 def configuration_relevant_collection_change(target, value, initiator):
+    logging.error("CONFIGURATION RELEVANT COLLECTION CHANGE: %r, %r, %r", target, value, initiator)
     site_configuration_has_changed(target)
 
 @event.listens_for(Library, 'after_insert')
@@ -11532,6 +11533,7 @@ def configuration_relevant_collection_change(target, value, initiator):
 @event.listens_for(ConfigurationSetting, 'after_insert')
 @event.listens_for(ConfigurationSetting, 'after_delete')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
+    logging.error("CONFIGURATION RELEVANT LIFECYCLE EVENT: %r", target)
     site_configuration_has_changed(target)
 
 @event.listens_for(Library, 'after_update')
@@ -11540,6 +11542,7 @@ def configuration_relevant_lifecycle_event(mapper, connection, target):
 @event.listens_for(ConfigurationSetting, 'after_update')
 def configuration_relevant_update(mapper, connection, target):
     if directly_modified(target):
+        logging.error("CONFIGURATION RELEVANT UPDATE: %r", target)
         site_configuration_has_changed(target)
 
 @event.listens_for(Collection, 'after_insert')
