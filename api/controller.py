@@ -643,25 +643,25 @@ class OPDSFeedController(CirculationManagerController):
         lane = CrawlableCollectionBasedLane(library)
         return self._crawlable_feed(library, title, url, lane)
 
-    def crawlable_collection_feed(self, collection_id):
+    def crawlable_collection_feed(self, collection_name):
         """Build or retrieve a crawlable acquisition feed for the
         requested collection.
         """
         # We use a library only for purposes of creating a Facets object.
         # The requested collection does not have to be associated with
         # the default library.
-        default_library = Library.default(self._db)
-        collection = get_one(self._db, Collection, id=collection_id)
-        if not list:
+        library = flask.request.library
+        collection = get_one(self._db, Collection, name=collection_name)
+        if not collection or collection not in library.collections:
             return NO_SUCH_COLLECTION
         title = collection.name
         url = self.cdn_url_for(
             "crawlable_collection_feed",
+            library_short_name=library.short_name,
             collection_id=collection.id
         )
-        lane = CrawlableCollectionBasedLane(default_library, [collection])
-        return self._crawlable_feed(default_library, title, url, lane)
-
+        lane = CrawlableCollectionBasedLane(library, [collection])
+        return self._crawlable_feed(library, title, url, lane)
 
     def crawlable_list_feed(self, list_name):
         """Build or retrieve a crawlable, paginated acquisition feed for the
