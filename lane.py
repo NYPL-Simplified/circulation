@@ -1912,7 +1912,6 @@ lanes_customlists = Table(
 @event.listens_for(LaneGenre, 'after_insert')
 @event.listens_for(LaneGenre, 'after_delete')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
-    logging.error("CONFIGURATION RELEVANT LIFECYCLE EVENT: %r", target)
     site_configuration_has_changed(target)
 
 
@@ -1920,5 +1919,4 @@ def configuration_relevant_lifecycle_event(mapper, connection, target):
 @event.listens_for(LaneGenre, 'after_update')
 def configuration_relevant_update(mapper, connection, target):
     if directly_modified(target):
-        logging.error("CONFIGURATION RELEVANT UPDATE: %r", target)
         site_configuration_has_changed(target)
