@@ -1060,6 +1060,8 @@ class CrawlableFacets(Facets):
 
 class CrawlableCollectionBasedLane(DynamicLane):
 
+    MAX_CACHE_AGE = 60 * 60 * 12 # 12 hours
+
     def __init__(self, library, collections=None):
         """Create a lane that finds all books in the given collections.
 
@@ -1102,6 +1104,8 @@ class CrawlableCollectionBasedLane(DynamicLane):
 
 class CrawlableCustomListBasedLane(DynamicLane):
     """A lane that consists of all works in a single CustomList."""
+
+    MAX_CACHE_AGE = 60 * 60 * 12 # 12 hours
 
     uses_customlists = True
 
