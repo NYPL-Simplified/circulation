@@ -11418,7 +11418,7 @@ def _site_configuration_has_changed(_db, timeout=1):
 
         # Update the timestamp.
         now = datetime.datetime.utcnow()
-        earlier = now-datetime.timedelta(seconds=1)
+        earlier = now-datetime.timedelta(seconds=timeout)
         sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL AND timestamp<=:earlier;"
         _db.execute(
             text(sql),
