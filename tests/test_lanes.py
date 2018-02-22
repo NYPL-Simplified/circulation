@@ -722,7 +722,7 @@ class TestCrawlableCustomListFacets(DatabaseTest):
         # w1 is first because it was added to the list more recently.
         eq_([w1.id, w2.id], [mw.works_id for mw in qu])
 
-       
+
 class TestCrawlableCustomListBasedLane(DatabaseTest):
 
     def test_initialize(self):

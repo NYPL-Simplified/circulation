@@ -2393,7 +2393,8 @@ class TestFeedController(CirculationControllerTest):
             eq_(1, counter['Other Languages'])
 
     def test_crawlable_library_feed(self):
-        # Bump up the last update times of two of the works.
+        # set the last update times to reflect what we want to
+        # see in the list.
         now = datetime.datetime.now()
         self.english_2.last_update_time = (
             now + datetime.timedelta(hours=2)
@@ -2404,12 +2405,13 @@ class TestFeedController(CirculationControllerTest):
         self.english_1.last_update_time = (
             now - datetime.timedelta(hours=1)
         )
+        self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
         with self.request_context_with_library("/?size=2"):
             response = self.manager.opds_feeds.crawlable_library_feed()
             feed = feedparser.parse(response.data)
-            # Those are the works at the top of the list.
+            # We see the first two books sorted by update time.
             eq_([self.english_2.title, self.french_1.title],
                 [x['title'] for x in feed['entries']])
 
@@ -2430,7 +2432,7 @@ class TestFeedController(CirculationControllerTest):
         self._db.flush()
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_feed(list.name)
+            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
