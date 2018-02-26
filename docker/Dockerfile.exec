@@ -2,7 +2,6 @@ FROM phusion/baseimage
 MAINTAINER Library Simplified <info@librarysimplified.org>
 
 ARG version
-ARG script_name
 ARG repo="NYPL-Simplified/circulation"
 
 ENV SIMPLIFIED_DB_TASK "auto"
