@@ -33,7 +33,7 @@ You will need **a PostgreSQL instance url** in the format `postgres://[username]
 $ docker run --name webapp \
     -d -p 80:80 \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
-    nypl/circ-webapp:2.0
+    nypl/circ-webapp:2.1
 ```
 
 Navigate to `http://localhost/admin` to in your browser to input or update configuration information. If you have not yet created an admin authorization protocol before, you'll need to do that before you can set other configuration.
@@ -48,12 +48,29 @@ For troubleshooting information and installation directions for the entire Circu
 $ docker run --name scripts -d \
     -e TZ='YOUR_TIMEZONE_STRING' \
     -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
-    nypl/circ-scripts:2.0
+    nypl/circ-scripts:2.1
 ```
 
 Using `docker exec -it scripts /bin/bash` in your console, navigate to `/var/log/simplified` in the container. After 5-20 minutes, you'll begin to see log files populate that directory.
 
 For troubleshooting information and installation directions for the entire Circulation Manager tool suite, please review [the full deployment instructions](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Quickstart-with-Docker).
+
+### circ-exec
+
+This image builds containers that will run a single script and stop. It's useful in conjunction with a tool like Amazon ECS Scheduled Tasks, where you can run script containers on a cron-style schedule.
+
+Unlike the `circ-scripts` image, which runs constantly and executes every possible maintenance script--whether or not your configuration requires it--`circ-exec` offers more nuanced control of your Library Simplified Circulation Manager jobs. The most accurate place to look for recommended jobs and their recommended frequencies is [the existing `circ-scripts` crontab](https://github.com/NYPL-Simplified/circulation-docker/blob/master/services/simplified_crontab).
+
+Because containers based on `circ-exec` are built, run their job, and are destroyed, it's important to configure an external log aggregator to find *.log files in `/var/log/simplified/${SIMPLIFIED_SCRIPT_NAME}.log`.
+
+```
+# See the section "Environment Variables" below for more information
+# about the values listed here and their alternatives.
+$ docker run --name refresh-materialized-views -it \
+    -e SIMPLIFIED_SCRIPT_NAME='refresh_materialized_views' \
+    -e SIMPLIFIED_PRODUCTION_DATABASE='postgres://[username]:[password]@[host]:[port]/[database_name]' \
+    nypl/circ-exec:2.1
+```
 
 ## Environment Variables
 
