@@ -403,16 +403,19 @@ class SessionManager(object):
                 __table__ = Table(
                     cls.MATERIALIZED_VIEW_LANES,
                     Base.metadata,
-                    Column('works_id', Integer, primary_key=True),
-                    Column('workgenres_id', Integer, primary_key=True),
+                    Column('works_id', Integer, primary_key=True, index=True),
+                    Column('workgenres_id', Integer, primary_key=True, index=True),
                     Column('list_id', Integer, ForeignKey('customlists.id'),
-                           primary_key=True),
+                           primary_key=True, index=True),
                     Column(
                         'list_edition_id', Integer, ForeignKey('editions.id'),
-                        primary_key=True
+                        primary_key=True, index=True
                     ),
-                    Column('license_pool_id', Integer,
-                           ForeignKey('licensepools.id'), primary_key=True),
+                    Column(
+                        'license_pool_id', Integer,
+                        ForeignKey('licensepools.id'), primary_key=True,
+                        index=True
+                    ),
                     autoload=True,
                     autoload_with=engine
                 )
@@ -6641,7 +6644,7 @@ class LicensePool(Base):
 
     open_access = Column(Boolean, index=True)
     last_checked = Column(DateTime, index=True)
-    licenses_owned = Column(Integer,default=0)
+    licenses_owned = Column(Integer, default=0, index=True)
     licenses_available = Column(Integer,default=0, index=True)
     licenses_reserved = Column(Integer,default=0)
     patrons_in_hold_queue = Column(Integer,default=0)
