@@ -70,7 +70,6 @@ class Configuration(object):
 
     # Policies, mostly circulation specific
     POLICIES = "policies"
-   
     LANES_POLICY = "lanes"
 
     # Lane policies
@@ -103,8 +102,8 @@ class Configuration(object):
 
     # The names of the site-wide configuration settings that determine
     # feed cache time.
-    NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age" 
-    GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age" 
+    NONGROUPED_MAX_AGE_POLICY = "default_nongrouped_feed_max_age"
+    GROUPED_MAX_AGE_POLICY = "default_grouped_feed_max_age"
 
     # The name of the per-library configuration policy that controls whether
     # books may be put on hold.
@@ -130,7 +129,27 @@ class Configuration(object):
     EXTERNAL_TYPE_REGULAR_EXPRESSION = 'external_type_regular_expression'
 
     WEBSITE_URL = u'website'
-    
+
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARN = "WARN"
+    ERROR = "ERROR"
+
+    # The default value to put into the 'app' field of JSON-format logs,
+    # unless LOG_APP_NAME overrides it.
+    DEFAULT_APP_NAME = 'simplified'
+
+    # Settings for the integration with protocol=INTERNAL_LOGGING
+    LOG_LEVEL = 'log_level'
+    LOG_APP_NAME = 'log_app'
+    DATABASE_LOG_LEVEL = 'database_log_level'
+    LOG_LEVEL_UI = [
+        { "key": DEBUG, "value": _("Debug") },
+        { "key": INFO, "value": _("Info") },
+        { "key": WARN, "value": _("Warn") },
+        { "key": ERROR, "value": _("Error") },
+    ]
+
     SITEWIDE_SETTINGS = [
         {
             "key": NONGROUPED_MAX_AGE_POLICY,
@@ -144,6 +163,9 @@ class Configuration(object):
             "key": BASE_URL_KEY,
             "label": _("Base url of the application"),
         },
+        { "key": LOG_LEVEL, "label": _("Log Level"), "type": "select", "options": LOG_LEVEL_UI },
+        { "key": LOG_APP_NAME, "label": _("Log App") },
+        { "key": DATABASE_LOG_LEVEL, "label": _("Database Log Level"), "type": "select", "options": LOG_LEVEL_UI  },
     ]
 
     LIBRARY_SETTINGS = [
@@ -206,7 +228,7 @@ class Configuration(object):
         return cls.instance and cls.instance.get(
             cls.LOADED_FROM_DATABASE, False
         )
-    
+
     # General getters
 
     @classmethod
@@ -276,8 +298,8 @@ class Configuration(object):
         """Find the database URL configured for this site.
 
         For compatibility with old configurations, we will look in the
-        site configuration first. 
-        
+        site configuration first.
+
         If it's not there, we will look in the appropriate environment
         variable.
         """
@@ -377,7 +399,7 @@ class Configuration(object):
     # The name of the service associated with a Timestamp that tracks
     # the last time the site's configuration changed in the database.
     SITE_CONFIGURATION_CHANGED = "Site Configuration Changed"
-            
+
     @classmethod
     def last_checked_for_site_configuration_update(cls):
         """When was the last time we actually checked when the database
@@ -392,7 +414,7 @@ class Configuration(object):
                                        timeout=None):
         """Check when the site configuration was last updated.
 
-        Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE]. 
+        Updates Configuration.instance[Configuration.SITE_CONFIGURATION_LAST_UPDATE].
         It's the application's responsibility to periodically check
         this value and reload the configuration if appropriate.
 
@@ -426,7 +448,7 @@ class Configuration(object):
             # We went to the database less than [timeout] seconds ago.
             # Assume there has been no change.
             return cls._site_configuration_last_update()
-        
+
         # Ask the database when was the last time the site
         # configuration changed. Specifically, this is the last time
         # site_configuration_was_changed() (defined in model.py) was
@@ -444,7 +466,7 @@ class Configuration(object):
 
         # Update the Configuration object's record of the last update time.
         cls.instance[cls.SITE_CONFIGURATION_LAST_UPDATE] = last_update
-        
+
         # Whether that record changed or not, the time at which we
         # _checked_ is going to be set to the current time.
         cls.instance[cls.LAST_CHECKED_FOR_SITE_CONFIGURATION_UPDATE] = now
@@ -457,7 +479,7 @@ class Configuration(object):
         without any attempt to find a fresher value from the database.
         """
         return cls.instance.get(cls.SITE_CONFIGURATION_LAST_UPDATE, None)
-    
+
     @classmethod
     def load(cls, _db=None):
         """Load additional site configuration from a config file.
@@ -491,9 +513,9 @@ class Configuration(object):
             if not cls.integration('CDN'):
                 cls.instance.setdefault(cls.INTEGRATIONS, {})[
                     'CDN'] = cls.UNINITIALIZED_CDNS
-                
+
         return configuration
-    
+
     @classmethod
     def _load(cls, str):
         lines = [x for x in str.split("\n")

@@ -17,7 +17,9 @@ from log import (
 )
 from model import (
     ExternalIntegration,
+    ConfigurationSetting
 )
+from config import Configuration
 
 class TestJSONFormatter(object):
 
@@ -31,7 +33,7 @@ class TestJSONFormatter(object):
         except ValueError, e:
             pass
         exception = sys.exc_info()
-            
+
         record = logging.LogRecord(
             "some logger", logging.DEBUG, "pathname",
             104, "A message", {}, exception, None
@@ -59,6 +61,7 @@ class TestLogConfiguration(DatabaseTest):
 
     def test_from_configuration(self):
         cls = LogConfiguration
+        config = Configuration
         m = cls.from_configuration
 
         # When logging is configured on initial startup, with no
@@ -85,10 +88,10 @@ class TestLogConfiguration(DatabaseTest):
             protocol=ExternalIntegration.INTERNAL_LOGGING,
             goal=ExternalIntegration.LOGGING_GOAL
         )
-        internal.setting(cls.LOG_LEVEL).value = cls.ERROR
+        ConfigurationSetting.sitewide(self._db, config.LOG_LEVEL).value = config.ERROR
         internal.setting(cls.LOG_FORMAT).value = cls.TEXT_LOG_FORMAT
-        internal.setting(cls.DATABASE_LOG_LEVEL).value = cls.DEBUG
-        internal.setting(cls.LOG_APP_NAME).value = "test app"
+        ConfigurationSetting.sitewide(self._db, config.DATABASE_LOG_LEVEL).value = config.DEBUG
+        ConfigurationSetting.sitewide(self._db, config.LOG_APP_NAME).value = "test app"
         template = "%(filename)s:%(message)s"
         internal.setting(cls.LOG_MESSAGE_TEMPLATE).value = template
         internal_log_level, database_log_level, handlers = m(
@@ -100,7 +103,7 @@ class TestLogConfiguration(DatabaseTest):
         eq_("http://example.com/a_token/", loggly_handler.url)
         eq_("test app", loggly_handler.formatter.app_name)
 
-        [stream_handler] = [x for x in handlers 
+        [stream_handler] = [x for x in handlers
                             if isinstance(x, logging.StreamHandler)]
         assert isinstance(stream_handler.formatter, UTF8Formatter)
         eq_(template, stream_handler.formatter._fmt)
@@ -122,8 +125,8 @@ class TestLogConfiguration(DatabaseTest):
         # Normally the default log level is INFO and log messages are
         # emitted in JSON format.
         eq_(
-            (cls.INFO, cls.JSON_LOG_FORMAT, cls.WARN, 
-             cls.DEFAULT_MESSAGE_TEMPLATE), 
+            (cls.INFO, cls.JSON_LOG_FORMAT, cls.WARN,
+             cls.DEFAULT_MESSAGE_TEMPLATE),
             cls._defaults(testing=False)
         )
 
@@ -131,7 +134,7 @@ class TestLogConfiguration(DatabaseTest):
         # and log messages are emitted in text format.
         eq_(
             (cls.INFO, cls.TEXT_LOG_FORMAT, cls.WARN,
-             cls.DEFAULT_MESSAGE_TEMPLATE), 
+             cls.DEFAULT_MESSAGE_TEMPLATE),
             cls._defaults(testing=True)
         )
 
@@ -196,11 +199,10 @@ class TestLogConfiguration(DatabaseTest):
 
         # If the URL contains no string interpolation, we assume the token's
         # already in there.
-        eq_("http://foo/othertoken/bar/", 
+        eq_("http://foo/othertoken/bar/",
             m("http://foo/othertoken/bar/", "token"))
 
         # Anything that doesn't fall under one of these cases will raise an
         # exception.
         assert_raises(TypeError, m, "http://%s/%s", "token")
         assert_raises(KeyError, m, "http://%(atoken)s/", "token")
-

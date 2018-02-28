@@ -53,6 +53,40 @@ class UTF8Formatter(logging.Formatter):
             data = data.encode("utf8")
         return data
 
+class SysLogger(object):
+
+    NAME = 'sysLog'
+
+    JSON_LOG_FORMAT = 'json'
+    TEXT_LOG_FORMAT = 'text'
+
+    # Settings for the integration with protocol=INTERNAL_LOGGING
+    LOG_FORMAT = 'log_format'
+    LOG_MESSAGE_TEMPLATE = 'message_template'
+
+    SETTINGS = [
+        { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
+            "options": [
+                { "key": JSON_LOG_FORMAT, "value": _("json") },
+                { "key": TEXT_LOG_FORMAT, "value": _("text") }
+            ]
+        },
+        { "key": LOG_MESSAGE_TEMPLATE, "label": _("template") }
+    ]
+
+class Loggly(object):
+
+    NAME = 'loggly'
+
+    USER = 'user'
+    PASSWORD = 'password'
+    URL = 'url'
+
+    SETTINGS = [
+        { "key": USER, "label": _("Username") },
+        { "key": PASSWORD, "label": _("Password") },
+        { "key": URL, "label": _("URL") },
+    ]
 
 class LogConfiguration(object):
     """Configures the active Python logging handlers based on logging
@@ -75,30 +109,17 @@ class LogConfiguration(object):
     DEFAULT_APP_NAME = 'simplified'
 
     # Settings for the integration with protocol=INTERNAL_LOGGING
-    LOG_LEVEL = 'log_level'
     LOG_FORMAT = 'log_format'
-    LOG_APP_NAME = 'log_app'
-    DATABASE_LOG_LEVEL = 'database_log_level'
     LOG_MESSAGE_TEMPLATE = 'message_template'
 
-    LOG_LEVEL_UI = [
-        { "key": DEBUG, "value": _("Debug") },
-        { "key": INFO, "value": _("Info") },
-        { "key": WARN, "value": _("Warn") },
-        { "key": ERROR, "value": _("Error") },
-    ]
-
-    SITEWIDE_SETTINGS = [
-        { "key": LOG_LEVEL, "label": _("Log Level"), "type": "select", "options": LOG_LEVEL_UI },
-        { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
-            "options": [
-                { "key": JSON_LOG_FORMAT, "value": _("json") },
-                { "key": TEXT_LOG_FORMAT, "value": _("text") }
-            ]
-        },
-        { "key": LOG_APP_NAME, "label": _("Log App") },
-        { "key": DATABASE_LOG_LEVEL, "label": _("Database Log Level"), "type": "select", "options": LOG_LEVEL_UI  },
-    ]
+    # SITEWIDE_SETTINGS = [
+    #     { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
+    #         "options": [
+    #             { "key": JSON_LOG_FORMAT, "value": _("json") },
+    #             { "key": TEXT_LOG_FORMAT, "value": _("text") }
+    #         ]
+    #     },
+    # ]
 
     @classmethod
     def initialize(cls, _db, testing=False):
@@ -172,7 +193,7 @@ class LogConfiguration(object):
          message_template) = cls._defaults(testing)
 
         handlers = []
-        from model import ExternalIntegration
+        from model import (ExternalIntegration, ConfigurationSetting)
         app_name = cls.DEFAULT_APP_NAME
         if _db and not testing:
             goal = ExternalIntegration.LOGGING_GOAL
@@ -182,24 +203,26 @@ class LogConfiguration(object):
             loggly = ExternalIntegration.lookup(
                 _db, ExternalIntegration.LOGGLY, goal
             )
+
+            internal_log_level = (
+                ConfigurationSetting.sitewide(_db, Configuration.LOG_LEVEL).value
+                or internal_log_level
+            )
+            database_log_level = (
+                ConfigurationSetting.sitewide(_db, Configuration.DATABASE_LOG_LEVEL).value
+                or database_log_level
+            )
+            app_name = ConfigurationSetting.sitewide(_db, Configuration.LOG_APP_NAME).value or app_name
+
             if internal:
-                internal_log_level = (
-                    internal.setting(cls.LOG_LEVEL).value
-                    or internal_log_level
-                )
                 internal_log_format = (
                     internal.setting(cls.LOG_FORMAT).value
                     or internal_log_format
-                )
-                database_log_level = (
-                    internal.setting(cls.DATABASE_LOG_LEVEL).value
-                    or database_log_level
                 )
                 message_template = (
                     internal.setting(cls.LOG_MESSAGE_TEMPLATE).value
                     or message_template
                 )
-                app_name = internal.setting(cls.LOG_APP_NAME).value or app_name
 
             if loggly:
                 handlers.append(cls.loggly_handler(loggly))
