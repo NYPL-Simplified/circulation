@@ -44,6 +44,7 @@ from sqlalchemy.orm import (
 from sqlalchemy.sql.expression import literal
 
 from model import (
+    directly_modified,
     get_one_or_create,
     numericrange_to_tuple,
     site_configuration_has_changed,
@@ -848,7 +849,7 @@ class WorkList(object):
         qu, bibliographic_clause = self.bibliographic_filter_clause(
             _db, qu, featured
         )
-        if not qu:
+        if qu is None:
             # bibliographic_filter_clause() may return a null query to
             # indicate that the WorkList should not exist at all.
             return None
@@ -1908,9 +1909,14 @@ lanes_customlists = Table(
 
 @event.listens_for(Lane, 'after_insert')
 @event.listens_for(Lane, 'after_delete')
-@event.listens_for(Lane, 'after_update')
 @event.listens_for(LaneGenre, 'after_insert')
 @event.listens_for(LaneGenre, 'after_delete')
-@event.listens_for(LaneGenre, 'after_update')
 def configuration_relevant_lifecycle_event(mapper, connection, target):
     site_configuration_has_changed(target)
+
+
+@event.listens_for(Lane, 'after_update')
+@event.listens_for(LaneGenre, 'after_update')
+def configuration_relevant_update(mapper, connection, target):
+    if directly_modified(target):
+        site_configuration_has_changed(target)
