@@ -112,14 +112,34 @@ class LogConfiguration(object):
     LOG_FORMAT = 'log_format'
     LOG_MESSAGE_TEMPLATE = 'message_template'
 
-    # SITEWIDE_SETTINGS = [
-    #     { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
-    #         "options": [
-    #             { "key": JSON_LOG_FORMAT, "value": _("json") },
-    #             { "key": TEXT_LOG_FORMAT, "value": _("text") }
-    #         ]
-    #     },
-    # ]
+    LOG_LEVEL_UI = [
+        { "key": DEBUG, "value": _("Debug") },
+        { "key": INFO, "value": _("Info") },
+        { "key": WARN, "value": _("Warn") },
+        { "key": ERROR, "value": _("Error") },
+    ]
+
+    SITEWIDE_SETTINGS = [
+        { "key": LOG_LEVEL, "label": _("Log Level"), "type": "select",
+          "options": LOG_LEVEL_UI, "default": INFO,
+        },
+        { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
+            "options": [
+                { "key": TEXT_LOG_FORMAT, "value": _("Plain text") },
+                { "key": JSON_LOG_FORMAT, "value": _("JSON") },
+            ],
+          "default": TEXT_LOG_FORMAT,
+        },
+        { "key": LOG_APP_NAME, "label": _("Application name"),
+          "description": _("Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems."),
+          "default": DEFAULT_APP_NAME,
+        },
+        { "key": DATABASE_LOG_LEVEL, "label": _("Database Log Level"),
+          "type": "select", "options": LOG_LEVEL_UI,
+          "description": _("Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages."),
+          "default": WARN,
+        },
+    ]
 
     @classmethod
     def initialize(cls, _db, testing=False):
