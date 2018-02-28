@@ -107,11 +107,13 @@ class LogConfiguration(object):
     # The default value to put into the 'app' field of JSON-format logs,
     # unless LOG_APP_NAME overrides it.
     DEFAULT_APP_NAME = 'simplified'
+    LOG_APP_NAME = 'log_app'
 
     # Settings for the integration with protocol=INTERNAL_LOGGING
+    LOG_LEVEL = 'log_level'
     LOG_FORMAT = 'log_format'
     LOG_MESSAGE_TEMPLATE = 'message_template'
-
+    DATABASE_LOG_LEVEL = 'database_log_level'
     LOG_LEVEL_UI = [
         { "key": DEBUG, "value": _("Debug") },
         { "key": INFO, "value": _("Info") },
