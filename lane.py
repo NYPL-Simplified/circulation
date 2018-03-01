@@ -811,8 +811,9 @@ class WorkList(object):
         qu = _db.query(mw).join(
             LicensePool, mw.license_pool_id==LicensePool.id
         ).filter(
-            mw.works_id.in_(work_ids)
-        )
+            mw.works_id.in_(work_ids),
+            LicensePool.work_id.in_(work_ids),
+        ).enable_eagerloads(False)
         qu = self._lazy_load(qu)
         qu = self._defer_unused_fields(qu)
         qu = self.only_show_ready_deliverable_works(_db, qu)

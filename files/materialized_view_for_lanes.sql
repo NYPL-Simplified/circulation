@@ -52,6 +52,13 @@ as
   ORDER BY (editions.sort_title, editions.sort_author, licensepools.availability_time)
   WITH NO DATA;
 
+-- Put an index on all foreign keys.
+create index ix_mv_works_for_lanes_works_id on mv_works_for_lanes (works_id);
+create index ix_mv_works_for_lanes_license_pool_id on mv_works_for_lanes (license_pool_id);
+create index ix_mv_works_for_lanes_workgenres_id on mv_works_for_lanes (workgenres_id);
+create index ix_mv_works_for_lanes_list_id on mv_works_for_lanes (list_id);
+create index ix_mv_works_for_lanes_list_edition_id on mv_works_for_lanes (list_edition_id);
+
 -- First create an index that allows work/genre lookup. It's unique and incorporates license_pool_id so that the materialized view can be refreshed CONCURRENTLY.
 -- NOTE: All fields mentioned here also need to be part of the primary key
 -- for the model object defined in model.py.
