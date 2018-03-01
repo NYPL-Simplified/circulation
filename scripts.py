@@ -339,6 +339,8 @@ class RunThreadedCollectionCoverageProviderScript(Script):
                 query_size, batch_size = self.get_query_and_batch_sizes(
                     collection
                 )
+                # Without a commit, the query to count which items need
+                # coverage hangs in the database, blocking the threads.
                 _db.commit()
 
                 while offset < query_size:

@@ -329,7 +329,7 @@ class SessionManager(object):
     engine_for_url = {}
 
     @classmethod
-    def engine(cls, url=None, session=None):
+    def engine(cls, url=None):
         url = url or Configuration.database_url()
         return create_engine(url, echo=DEBUG)
 

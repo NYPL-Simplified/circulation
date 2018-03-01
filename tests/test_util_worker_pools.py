@@ -186,7 +186,7 @@ class TestDatabaseWorker(DatabaseTest):
         # It was only committed for the working job.
         eq_(1, mock_db._committed)
 
-        # The DatabaseWorker doesn't roll back the database. It
+        # The DatabaseWorker doesn't rollback the database. It
         # trusts the task to manage that.
         [i1, i2] = self._db.query(Identifier).order_by(Identifier.id).all()
         eq_(('Keep It', '100'), (i1.type, i1.identifier))
