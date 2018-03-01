@@ -2307,14 +2307,24 @@ class SettingsController(CirculationManagerController):
     def sitewide_settings(self):
         return self._sitewide_settings_controller(Configuration)
 
-    def logging_settings(self):
-        return self._sitewide_settings_controller(LogConfiguration)
-
     def sitewide_setting(self, key):
         if flask.request.method == "DELETE":
             setting = ConfigurationSetting.sitewide(self._db, key)
             setting.value = None
             return Response(unicode(_("Deleted")), 200)
+
+    def logging_services(self):
+        detail = _("You tried to create a new logging service, but a logging service is already configured.")
+        return self._manage_sitewide_service(
+            ExternalIntegration.LOGGING_GOAL,
+            [Loggly] + [SysLogger],
+            'logging_services', detail
+        )
+
+    def logging_service(self, service_id):
+        return self._delete_integration(
+            service_id, ExternalIntegration.LOGGING_GOAL
+        )
 
     def metadata_services(
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
