@@ -67,12 +67,14 @@ class SysLogger(object):
     SETTINGS = [
         { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
             "options": [
-                { "key": JSON_LOG_FORMAT, "value": _("json") },
-                { "key": TEXT_LOG_FORMAT, "value": _("text") }
+                { "key": JSON_LOG_FORMAT, "label": _("json") },
+                { "key": TEXT_LOG_FORMAT, "label": _("text") }
             ]
         },
         { "key": LOG_MESSAGE_TEMPLATE, "label": _("template") }
     ]
+
+    SITEWIDE = True
 
 class Loggly(object):
 
@@ -87,6 +89,8 @@ class Loggly(object):
         { "key": PASSWORD, "label": _("Password") },
         { "key": URL, "label": _("URL") },
     ]
+
+    SITEWIDE = True
 
 class LogConfiguration(object):
     """Configures the active Python logging handlers based on logging
