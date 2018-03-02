@@ -120,6 +120,7 @@ class LogConfiguration(object):
     LOG_APP_NAME = 'log_app'
 
     LOG_FORMAT = 'log_format'
+    LOG_MESSAGE_TEMPLATE = 'message_template'
 
     # Settings for the integration with protocol=INTERNAL_LOGGING
     LOG_LEVEL = 'log_level'
