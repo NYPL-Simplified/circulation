@@ -2317,7 +2317,7 @@ class SettingsController(CirculationManagerController):
         detail = _("You tried to create a new logging service, but a logging service is already configured.")
         return self._manage_sitewide_service(
             ExternalIntegration.LOGGING_GOAL,
-            [Loggly] + [SysLogger],
+            [Loggly, SysLogger],
             'logging_services', detail
         )
 
@@ -2691,19 +2691,6 @@ class SettingsController(CirculationManagerController):
     def storage_service(self, service_id):
         return self._delete_integration(
             service_id, ExternalIntegration.STORAGE_GOAL
-        )
-
-    def logging_services(self):
-        detail = _("You tried to create a new logging service, but a logging service is already configured.")
-        return self._manage_sitewide_service(
-            ExternalIntegration.LOGGING_GOAL,
-            [Loggly] + [SysLogger],
-            'logging_services', detail
-        )
-
-    def logging_service(self, service_id):
-        return self._delete_integration(
-            service_id, ExternalIntegration.LOGGING_GOAL
         )
 
     def discovery_services(self):
