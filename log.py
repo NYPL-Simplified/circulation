@@ -119,6 +119,8 @@ class LogConfiguration(object):
     DEFAULT_APP_NAME = 'simplified'
     LOG_APP_NAME = 'log_app'
 
+    LOG_FORMAT = 'log_format'
+
     # Settings for the integration with protocol=INTERNAL_LOGGING
     LOG_LEVEL = 'log_level'
     DATABASE_LOG_LEVEL = 'database_log_level'
