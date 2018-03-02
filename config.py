@@ -144,10 +144,10 @@ class Configuration(object):
     LOG_APP_NAME = 'log_app'
     DATABASE_LOG_LEVEL = 'database_log_level'
     LOG_LEVEL_UI = [
-        { "key": DEBUG, "value": _("Debug") },
-        { "key": INFO, "value": _("Info") },
-        { "key": WARN, "value": _("Warn") },
-        { "key": ERROR, "value": _("Error") },
+        { "key": DEBUG, "label": _("Debug") },
+        { "key": INFO, "label": _("Info") },
+        { "key": WARN, "label": _("Warn") },
+        { "key": ERROR, "label": _("Error") },
     ]
 
     SITEWIDE_SETTINGS = [
@@ -163,9 +163,21 @@ class Configuration(object):
             "key": BASE_URL_KEY,
             "label": _("Base url of the application"),
         },
-        { "key": LOG_LEVEL, "label": _("Log Level"), "type": "select", "options": LOG_LEVEL_UI },
-        { "key": LOG_APP_NAME, "label": _("Log App") },
-        { "key": DATABASE_LOG_LEVEL, "label": _("Database Log Level"), "type": "select", "options": LOG_LEVEL_UI  },
+        {
+            "key": LOG_LEVEL, "label": _("Log Level"), "type": "select",
+            "options": LOG_LEVEL_UI, "default": INFO,
+        },
+        {
+            "key": LOG_APP_NAME, "label": _("Application name"),
+            "description": _("Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems."),
+            "default": DEFAULT_APP_NAME,
+        },
+        {
+            "key": DATABASE_LOG_LEVEL, "label": _("Database Log Level"),
+            "type": "select", "options": LOG_LEVEL_UI,
+            "description": _("Database logs are extremely verbose, so unless you're diagnosing a database-related problem, it's a good idea to set a higher log level for database messages."),
+            "default": WARN,
+        },
     ]
 
     LIBRARY_SETTINGS = [

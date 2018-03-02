@@ -57,6 +57,8 @@ class SysLogger(object):
 
     NAME = 'sysLog'
 
+    DEFAULT_MESSAGE_TEMPLATE = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s"
+
     JSON_LOG_FORMAT = 'json'
     TEXT_LOG_FORMAT = 'text'
 
@@ -65,13 +67,17 @@ class SysLogger(object):
     LOG_MESSAGE_TEMPLATE = 'message_template'
 
     SETTINGS = [
-        { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
+        {
+            "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
             "options": [
                 { "key": JSON_LOG_FORMAT, "label": _("json") },
                 { "key": TEXT_LOG_FORMAT, "label": _("text") }
             ]
         },
-        { "key": LOG_MESSAGE_TEMPLATE, "label": _("template") }
+        {
+            "key": LOG_MESSAGE_TEMPLATE, "label": _("template"),
+            "default": DEFAULT_MESSAGE_TEMPLATE
+        }
     ]
 
     SITEWIDE = True
@@ -115,8 +121,6 @@ class LogConfiguration(object):
 
     # Settings for the integration with protocol=INTERNAL_LOGGING
     LOG_LEVEL = 'log_level'
-    LOG_FORMAT = 'log_format'
-    LOG_MESSAGE_TEMPLATE = 'message_template'
     DATABASE_LOG_LEVEL = 'database_log_level'
     LOG_LEVEL_UI = [
         { "key": DEBUG, "value": _("Debug") },
@@ -129,14 +133,7 @@ class LogConfiguration(object):
         { "key": LOG_LEVEL, "label": _("Log Level"), "type": "select",
           "options": LOG_LEVEL_UI, "default": INFO,
         },
-        { "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
-            "options": [
-                { "key": TEXT_LOG_FORMAT, "value": _("Plain text") },
-                { "key": JSON_LOG_FORMAT, "value": _("JSON") },
-            ],
-          "default": TEXT_LOG_FORMAT,
-        },
-        { "key": LOG_APP_NAME, "label": _("Application name"),
+        { "key": LOG_APP_NAME, "label": _("Log Application name"),
           "description": _("Log messages originating from this application will be tagged with this name. If you run multiple instances, giving each one a different application name will help you determine which instance is having problems."),
           "default": DEFAULT_APP_NAME,
         },
