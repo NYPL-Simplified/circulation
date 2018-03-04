@@ -1639,7 +1639,7 @@ class OPDSImportMonitor(CollectionMonitor):
         """
         self.log.info("Following next link: %s", url)
         get = do_get or self._get
-        status_code, content_type, feed = get(url, None)
+        status_code, content_type, feed = get(url, {})
 
         new_data = self.feed_contains_new_data(feed)
 

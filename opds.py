@@ -1140,7 +1140,7 @@ class AcquisitionFeed(OPDSFeed):
                 obj = loan
             elif hold:
                 obj = hold
-            library = obj.patron.library
+            library = obj.library
             default_loan_period = datetime.timedelta(
                 collection.default_loan_period(library)
             )

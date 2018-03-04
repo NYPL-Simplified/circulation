@@ -4628,6 +4628,26 @@ class TestLoans(DatabaseTest):
         pool.presentation_edition.work = None
         eq_(None, loan.work)
 
+    def test_library(self):
+        patron = self._patron()
+        work = self._work(with_license_pool=True)
+        pool = work.license_pools[0]
+
+        loan, is_new = pool.loan_to(patron)
+        eq_(self._default_library, loan.library)
+
+        loan.patron = None
+        client = self._integration_client()
+        loan.integration_client = client
+        eq_(self._default_library, loan.library)
+
+        loan.integration_client = None
+        eq_(None, loan.library)
+
+        patron.library = self._library()
+        loan.patron = patron
+        eq_(patron.library, loan.library)
+
 
 class TestHold(DatabaseTest):
 
@@ -7880,6 +7900,38 @@ class TestCollection(DatabaseTest):
 
         self.collection.default_loan_period_setting(library, audio).value = 606
         eq_(606, self.collection.default_loan_period(library, audio))
+
+        # Given an integration client rather than a library, use
+        # a sitewide integration setting rather than a library-specific
+        # setting.
+        client = self._integration_client()
+
+        # The default when no value is set.
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(client, ebook)
+        )
+
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(client, audio)
+        )
+
+        # Set a value, and it's used.
+        self.collection.default_loan_period_setting(client, ebook).value = 347
+        eq_(347, self.collection.default_loan_period(client))
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(client, audio)
+        )
+
+        self.collection.default_loan_period_setting(client, audio).value = 349
+        eq_(349, self.collection.default_loan_period(client, audio))
+
+        # The same value is used for other clients.
+        client2 = self._integration_client()
+        eq_(347, self.collection.default_loan_period(client))
+        eq_(349, self.collection.default_loan_period(client, audio))
 
     def test_default_reservation_period(self):
         library = self._default_library
