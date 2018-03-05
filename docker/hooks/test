@@ -50,6 +50,11 @@ function check_service_status()
 # Wait for the container to start services before running tests
 sleep 20;
 
+# If this is an exec container, there are no tests to run.
+if [[ ${IMAGE_NAME} == *"exec"* ]]; then
+  exit 0
+fi
+
 # If this is a scripts container, check that cron is running.
 if [[ ${IMAGE_NAME} == *"scripts"* ]]; then
   check_service_status /etc/service/cron
