@@ -42,7 +42,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
     NAME = "OPDS for Distributors"
     DESCRIPTION = _("Import books from a distributor that requires authentication to get the OPDS feed and download books.")
 
-    SETTINGS = OPDSImporter.SETTINGS + [
+    SETTINGS = OPDSImporter.BASE_SETTINGS + [
         {
             "key": ExternalIntegration.USERNAME,
             "label": _("Library's username or access key"),
@@ -215,16 +215,19 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
 class OPDSForDistributorsImporter(OPDSImporter):
     NAME = OPDSForDistributorsAPI.NAME
 
-    def import_from_feed(self, feed, **kwargs):
-        editions, pools, works, failures = super(OPDSForDistributorsImporter, self).import_from_feed(feed, **kwargs)
-
-        # If we were able to import a pool, it means we have a license for it,
-        # and can distribute unlimited copies.
-        for pool in pools:
-            pool.licenses_owned = 1
-            pool.licenses_available = 1
-
-        return editions, pools, works, failures
+    def update_work_for_edition(self, *args, **kwargs):
+        """After importing a LicensePool, set its availability
+        appropriately. Books imported through OPDS For Distributors are
+        not open-access, but a library that can perform this import has
+        a license for the title and can distribute unlimited copies.
+        """
+        pool, work = super(
+            OPDSForDistributorsImporter, self).update_work_for_edition(
+                *args, **kwargs
+        )
+        pool.licenses_owned = 1
+        pool.licenses_available = 1
+        return pool, work
 
     @classmethod
     def _add_format_data(cls, circulation):
