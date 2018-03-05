@@ -52,11 +52,14 @@ class Worker(Thread):
 
 
 class DatabaseWorker(Worker):
-    """A worker Thread that provides jobs with a db scoped_session"""
+    """A worker Thread that provides jobs with a database session"""
+
+    @classmethod
+    def factory(cls, worker_pool, _db):
+        return cls(worker_pool, _db)
 
     def __init__(self, jobs, _db):
         super(DatabaseWorker, self).__init__(jobs)
-        # A scoped_session to run tasks against.
         self._db = _db
 
     @contextmanager
@@ -89,9 +92,9 @@ class Pool(object):
         self.error_count = 0
 
         # Use Worker for pool by default.
-        worker_factory = worker_factory or Worker.factory
-        for i in range(size):
-            w = worker_factory(self)
+        self.worker_factory = worker_factory or Worker.factory
+        for i in range(self.size):
+            w = self.create_worker()
             self.workers.append(w)
             w.start()
 
@@ -100,6 +103,9 @@ class Pool(object):
         if self.job_total <= 0 or self.error_count <= 0:
             return float(1)
         return self.error_count / float(self.job_total)
+
+    def create_worker(self):
+        return self.worker_factory(self)
 
     def inc_error(self):
         self.error_count += 1
@@ -137,9 +143,32 @@ class Pool(object):
         )
 
 
+class DatabasePool(Pool):
+
+    def __init__(self, size, session_factory, worker_factory=None):
+        self.session_factory = session_factory
+        self.worker_sessions = list()
+        self.worker_factory = worker_factory or DatabaseWorker.factory
+        super(DatabasePool, self).__init__(
+            size, worker_factory=self.worker_factory
+        )
+
+    def create_worker(self):
+        worker_session = self.session_factory()
+        self.worker_sessions.append(worker_session)
+        return self.worker_factory(self, worker_session)
+
+    def join(self):
+        super(DatabasePool, self).join()
+        # Close database sessions associated with worker threads.
+        for session in self.worker_sessions:
+            session.close()
+
+
 class Job(object):
     """Abstract parent class for a bit o' work that can be run in a Thread.
-    For use with Worker."""
+    For use with Worker.
+    """
 
     def run(self):
         raise NotImplementedError()
