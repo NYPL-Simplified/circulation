@@ -52,6 +52,7 @@ from model import (
     get_one,
     get_one_or_create,
     production_session,
+    BaseCoverageRecord,
     CachedFeed,
     Collection,
     Complaint,
@@ -353,7 +354,9 @@ class RunThreadedCollectionCoverageProviderScript(Script):
 
     def get_query_and_batch_sizes(self, collection):
         provider = self.provider_class(collection, **self.provider_kwargs)
-        qu = provider.items_that_need_coverage()
+        qu = provider.items_that_need_coverage(
+            count_as_covered=BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
+        )
         return fast_query_count(qu), provider.batch_size
 
 

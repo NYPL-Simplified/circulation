@@ -978,7 +978,18 @@ class AlwaysSuccessfulCollectionCoverageProvider(MockCoverageProvider,
                                                  CollectionCoverageProvider):
     """A CollectionCoverageProvider that does nothing and always succeeds."""
     SERVICE_NAME = "Always successful (collection)"
-    
+
+    attempts = []
+
+    @classmethod
+    def reset(cls):
+        cls.attempts = list()
+
+    def process_item(self, item):
+        self.attempts.append(item)
+        return item
+
+
 class AlwaysSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always succeeds."""
     SERVICE_NAME = "Always successful"

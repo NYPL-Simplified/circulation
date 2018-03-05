@@ -70,6 +70,7 @@ from scripts import (
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
     RunMonitorScript,
+    RunThreadedCollectionCoverageProviderScript,
     RunWorkCoverageProviderScript,
     Script,
     ShowCollectionsScript,
@@ -81,6 +82,7 @@ from scripts import (
 from testing import(
     AlwaysSuccessfulBibliographicCoverageProvider,
     BrokenBibliographicCoverageProvider,
+    AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
 )
 from monitor import (
@@ -88,6 +90,9 @@ from monitor import (
 )
 from util.opds_writer import (
     OPDSFeed,
+)
+from util.worker_pools import (
+    DatabasePool,
 )
 
 
@@ -502,6 +507,67 @@ class TestRunCoverageProviderScript(DatabaseTest):
         eq_(datetime.datetime(2016, 5, 1), parsed.cutoff_time)
         eq_([identifier], parsed.identifiers)
         eq_(identifier.type, parsed.identifier_type)
+
+
+class TestRunThreadedCollectionCoverageProviderScript(DatabaseTest):
+
+    def test_run(self):
+        provider = AlwaysSuccessfulCollectionCoverageProvider
+        script = RunThreadedCollectionCoverageProviderScript(
+            provider, worker_size=2, _db=self._db
+        )
+
+        original_session = self._db
+        transaction = None
+        try:
+            # Create a nested transaction so nothing goes into the database.
+            #
+            # This arrangement is required because objects created with self._db
+            # won't be seen by the script's session_factory as they're created
+            # in a nested transaction.
+            transation = script._db.connection().begin_nested()
+
+            # Use the script's database to make objects.
+            self._db = script._db
+
+            # If there are no collections for the provider, run does nothing.
+            # Pass a mock pool that will raise an error if it's used.
+            pool = object()
+            collection = self._collection(protocol=ExternalIntegration.ENKI)
+            # Run exits with a problem.
+            script.run(pool=pool)
+
+            # Create some identifiers that need coverage.
+            collection = self._collection()
+            ed1 = self._edition(collection=collection, with_license_pool=True)
+            ed2 = self._edition(collection=collection, with_license_pool=True)
+            ed3 = self._edition()
+            self._db.commit()
+
+            pool = DatabasePool(2, script.session_factory)
+            script.run(pool=pool)
+            self._db.commit()
+
+            # The expected number of workers and jobs have been created.
+            eq_(2, len(pool.workers))
+            eq_(1, pool.job_total)
+
+            # All relevant identifiers have been given coverage.
+            source = DataSource.lookup(self._db, provider.DATA_SOURCE_NAME)
+            identifiers_missing_coverage = Identifier.missing_coverage_from(
+                self._db, provider.INPUT_IDENTIFIER_TYPES, source,
+            )
+            eq_([ed3.primary_identifier], identifiers_missing_coverage.all())
+            eq_(
+                sorted([ed1.primary_identifier, ed2.primary_identifier]),
+                sorted(provider.attempts)
+            )
+        finally:
+            provider.reset()
+            self._db = original_session
+            script._db.close()
+            if transaction:
+                transaction.rollback()
 
 
 class TestRunWorkCoverageProviderScript(DatabaseTest):
