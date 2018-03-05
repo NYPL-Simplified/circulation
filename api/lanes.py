@@ -1,5 +1,9 @@
 from nose.tools import set_trace
-from sqlalchemy import or_, func
+from sqlalchemy import (
+    and_,
+    func,
+    or_,
+)
 from sqlalchemy.orm import aliased
 from flask_babel import lazy_gettext as _
 import time
@@ -30,6 +34,7 @@ from core.model import (
     DataSource,
     Edition,
     ExternalIntegration,
+    Library,
     LicensePool,
     Session,
     Work,
@@ -1026,7 +1031,8 @@ class ContributorLane(DynamicLane):
         return super(ContributorLane, self).apply_filters(
             _db, qu, facets, pagination, featured=featured)
 
-class CrawlableCustomListFacets(Facets):
+class CrawlableFacets(Facets):
+    """A special Facets class for crawlable feeds."""
     @classmethod
     def default(cls, library):
         enabled_facets = {
@@ -1051,13 +1057,54 @@ class CrawlableCustomListFacets(Facets):
         else:
             return Facets.order_facet_to_database_field(order_facet)
 
+
+class CrawlableCollectionBasedLane(DynamicLane):
+
+    def __init__(self, library, collections=None):
+        """Create a lane that finds all books in the given collections.
+
+        :param library: The Library to use for purposes of annotating
+            this Lane's OPDS feed.
+        :param collections: A list of Collections. If none are specified,
+            all Collections associated with `library` will be used.
+        """
+        self.library_id = library.id
+        if collections:
+            identifier = " / ".join(sorted([x.name for x in collections]))
+        else:
+            identifier = library.name
+            collections = library.collections
+        self.initialize(library, "Crawlable feed: %s" % identifier)
+        if collections:
+            # initialize() set the collection IDs to all collections
+            # associated with the library. We may want to restrict that
+            # further.
+            self.collection_ids = [x.id for x in collections]
+
+    def bibliographic_filter_clause(self, _db, qu, featured=False):
+        """Filter out any books that aren't in the right collections."""
+        # The normal behavior of works() is to put a restriction on
+        # collection_ids, so we only need to do something if
+        # there are no collections specified.
+        if not self.collection_ids:
+            # When no collection IDs are specified, there is no lane
+            # whatsoever
+            return None, None
+        return super(
+            CrawlableCollectionBasedLane, self).bibliographic_filter_clause(
+                _db, qu, featured
+            )
+
+
 class CrawlableCustomListBasedLane(DynamicLane):
     """A lane that consists of all works in a single CustomList."""
 
     uses_customlists = True
 
     def initialize(self, library, list):
-        super(CrawlableCustomListBasedLane, self).initialize(library, list.name)
+        super(CrawlableCustomListBasedLane, self).initialize(
+            library, "Crawlable feed: %s" % list.name
+        )
         self.customlists = [list]
 
     def bibliographic_filter_clause(self, _db, qu, featured=False):

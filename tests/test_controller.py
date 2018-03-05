@@ -2392,7 +2392,53 @@ class TestFeedController(CirculationControllerTest):
             eq_(2, counter['English'])
             eq_(1, counter['Other Languages'])
 
-    def test_crawlable_feed(self):
+    def _set_update_times(self):
+        """Set the last update times so we can create a crawlable feed."""
+        now = datetime.datetime.now()
+        self.english_2.last_update_time = (
+            now + datetime.timedelta(hours=2)
+        )
+        self.french_1.last_update_time = (
+            now + datetime.timedelta(hours=1)
+        )
+        self.english_1.last_update_time = (
+            now - datetime.timedelta(hours=1)
+        )
+        self._db.commit()
+        SessionManager.refresh_materialized_views(self._db)
+
+    def test_crawlable_library_feed(self):
+        self._set_update_times()
+        with self.request_context_with_library("/?size=2"):
+            response = self.manager.opds_feeds.crawlable_library_feed()
+            feed = feedparser.parse(response.data)
+            # We see the first two books sorted by update time.
+            eq_([self.english_2.title, self.french_1.title],
+                [x['title'] for x in feed['entries']])
+
+    def test_crawlable_collection_feed(self):
+        self._set_update_times()
+        not_in_library = self._collection()
+        with self.request_context_with_library("/?size=2"):
+            response = self.manager.opds_feeds.crawlable_collection_feed(
+                self._default_collection.name
+            )
+            feed = feedparser.parse(response.data)
+            # We see the first two books sorted by update time.
+            eq_([self.english_2.title, self.french_1.title],
+                [x['title'] for x in feed['entries']])
+
+        # The collection must exist and it must be associated
+        # with the request library.
+        for name in ['no such collection', not_in_library.name]:
+            with self.request_context_with_library("/?size=1"):
+                response = self.manager.opds_feeds.crawlable_collection_feed(
+                    name
+                )
+                eq_(response.uri, NO_SUCH_COLLECTION.uri)
+
+
+    def test_crawlable_list_feed(self):
         # Initial setup gave us two English works. Add both to a list.
         list, ignore = self._customlist(num_entries=0)
         list.library = self._default_library
@@ -2409,7 +2455,7 @@ class TestFeedController(CirculationControllerTest):
         self._db.flush()
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_feed(list.name)
+            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2436,7 +2482,7 @@ class TestFeedController(CirculationControllerTest):
         self._db.flush()
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_feed(list.name)
+            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -2454,7 +2500,7 @@ class TestFeedController(CirculationControllerTest):
         self._db.flush()
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?size=1"):
-            response = self.manager.opds_feeds.crawlable_feed(list.name)
+            response = self.manager.opds_feeds.crawlable_list_feed(list.name)
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
