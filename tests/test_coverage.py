@@ -421,7 +421,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         record.timestamp = cutoff
         eq_(False, provider.should_update(record))
 
-    
+        # If coverage is only 'registered', we should update.
+        record.status = CoverageRecord.REGISTERED
+        eq_(True, provider.should_update(record))
+
 
 class TestIdentifierCoverageProvider(CoverageProviderTest):
 

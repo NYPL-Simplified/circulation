@@ -350,6 +350,11 @@ class BaseCoverageProvider(object):
             # so we need to do the work.
             return True
 
+        if coverage_record.status==BaseCoverageRecord.REGISTERED:
+            # There's a CoverageRecord, but coverage hasn't actually
+            # been attempted. Try to get covered.
+            return True
+
         if self.cutoff_time is None:
             # An easy decision -- without a cutoff_time, once we
             # create a coverage record we never update it.
