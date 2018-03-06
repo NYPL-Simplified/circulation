@@ -330,6 +330,12 @@ class RunThreadedCollectionCoverageProviderScript(Script):
         self.provider_kwargs = provider_kwargs
 
     def run(self, pool=None):
+        """Runs a CollectionCoverageProvider with multiple threads and
+        updates the timestamp accordingly.
+
+        :param pool: A DatabasePool (or other) object for use in testing
+        environments.
+        """
         collections = self.provider_class.collections(self._db)
         if not collections:
             return

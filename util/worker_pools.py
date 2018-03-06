@@ -63,7 +63,7 @@ class DatabaseWorker(Worker):
         self._db = _db
 
     @contextmanager
-    def scoped_session(self, _db):
+    def refresh_session(self, _db):
         _db.expire_all()
         try:
             yield
@@ -73,7 +73,7 @@ class DatabaseWorker(Worker):
             _db.commit()
 
     def do_job(self):
-        with self.scoped_session(self._db):
+        with self.refresh_session(self._db):
             super(DatabaseWorker, self).do_job(self._db)
 
 
@@ -138,8 +138,8 @@ class Pool(object):
     def join(self):
         self.jobs.join()
         self.log.info(
-            "%d job errors occurred. %.2f%% success rate.",
-            self.error_count, self.success_rate*100
+            "%d/%d job errors occurred. %.2f%% success rate.",
+            self.error_count, self.job_total, self.success_rate*100
         )
 
 
