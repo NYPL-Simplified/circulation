@@ -4603,6 +4603,20 @@ class TestLoans(DatabaseTest):
         eq_(loan, loan2)
         eq_(False, was_new)
 
+        # Make sure we can also loan this book to an IntegrationClient.
+        client = self._integration_client()
+        loan, was_new = pool.loan_to(client)
+        eq_(True, was_new)
+        eq_(client, loan.integration_client)
+        eq_(pool, loan.license_pool)
+
+        # Loaning the book to the same IntegrationClient twice creates two loans,
+        # since these loans could be on behalf of different patrons on the client.
+        loan2, was_new = pool.loan_to(client)
+        eq_(True, was_new)
+        eq_(client, loan2.integration_client)
+        eq_(pool, loan2.license_pool)
+        assert loan != loan2
 
     def test_work(self):
         """Test the attribute that finds the Work for a Loan or Hold."""
@@ -4672,6 +4686,21 @@ class TestHold(DatabaseTest):
         # The patron has until `hold.end` to actually check out the book.
         eq_(later, hold.end)
         eq_(0, hold.position)
+
+        # Make sure we can also hold this book for an IntegrationClient.
+        client = self._integration_client()
+        hold, was_new = pool.on_hold_to(client)
+        eq_(True, was_new)
+        eq_(client, hold.integration_client)
+        eq_(pool, hold.license_pool)
+
+        # Holding the book twice for the same IntegrationClient creates two holds,
+        # since they might be for different patrons on the client.
+        hold2, was_new = pool.on_hold_to(client)
+        eq_(True, was_new)
+        eq_(client, hold2.integration_client)
+        eq_(pool, hold2.license_pool)
+        assert hold != hold2
 
     def test_holds_not_allowed(self):
         patron = self._patron()

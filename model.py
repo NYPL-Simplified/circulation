@@ -7316,26 +7316,39 @@ class LicensePool(Base):
         )
         return message, tuple(args)
 
-    def loan_to(self, patron, start=None, end=None, fulfillment=None, external_identifier=None):
-        _db = Session.object_session(patron)
+    def loan_to(self, patron_or_client, start=None, end=None, fulfillment=None, external_identifier=None):
+        _db = Session.object_session(patron_or_client)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
                       end=end)
-        loan, is_new = get_one_or_create(
-            _db, Loan, patron=patron, license_pool=self,
-            create_method_kwargs=kwargs)
+        if isinstance(patron_or_client, Patron):
+            loan, is_new = get_one_or_create(
+                _db, Loan, patron=patron_or_client, license_pool=self,
+                create_method_kwargs=kwargs)
+        else:
+            # An IntegrationClient can have multiple loans, so this always creates
+            # a new loan rather than returning an existing loan.
+            loan, is_new = create(
+                _db, Loan, integration_client=patron_or_client, license_pool=self,
+                create_method_kwargs=kwargs)
         if fulfillment:
             loan.fulfillment = fulfillment
         if external_identifier:
             loan.external_identifier = external_identifier
         return loan, is_new
 
-    def on_hold_to(self, patron, start=None, end=None, position=None, external_identifier=None):
-        _db = Session.object_session(patron)
-        if not patron.library.allow_holds:
+    def on_hold_to(self, patron_or_client, start=None, end=None, position=None, external_identifier=None):
+        _db = Session.object_session(patron_or_client)
+        if isinstance(patron_or_client, Patron) and not patron_or_client.library.allow_holds:
             raise PolicyException("Holds are disabled for this library.")
         start = start or datetime.datetime.utcnow()
-        hold, new = get_one_or_create(
-            _db, Hold, patron=patron, license_pool=self)
+        if isinstance(patron_or_client, Patron):
+            hold, new = get_one_or_create(
+                _db, Hold, patron=patron_or_client, license_pool=self)
+        else:
+            # An IntegrationClient can have multiple holds, so this always creates
+            # a new hold rather than returning an existing loan.
+            hold, new = create(
+                _db, Hold, integration_client=patron_or_client, license_pool=self)
         hold.update(start, end, position)
         if external_identifier:
             hold.external_identifier = external_identifier
