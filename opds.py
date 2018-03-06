@@ -577,6 +577,7 @@ class AcquisitionFeed(OPDSFeed):
             works = []
         else:
             works = works_q.all()
+            pagination.this_page_size = len(works)
         feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.

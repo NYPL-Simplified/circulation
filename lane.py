@@ -424,9 +424,15 @@ class Pagination(object):
         return Pagination(0, cls.DEFAULT_SIZE)
 
     def __init__(self, offset=0, size=DEFAULT_SIZE):
+        """Constructor.
+
+        :param offset: Start pulling entries from the query at this index.
+        :param size: Pull no more than this number of entries from the query.
+        """
         self.offset = offset
         self.size = size
-        self.query_size = None
+        self.total_size = None
+        self.this_page_size = None
 
     def items(self):
         yield("after", self.offset)
@@ -456,18 +462,23 @@ class Pagination(object):
     def has_next_page(self):
         """Returns boolean reporting whether pagination is done for a query
 
-        This method only returns valid information _after_ self.apply
-        has been run on a query.
+        Either `total_size` or `this_page_size` must be set for this
+        method to be accurate.
         """
-        if self.query_size is None:
+        if self.this_page_size is not None:
+            # If this page was empty, we can assume there is no next
+            # page; if not, we can assume there is a next page.
+            return self.this_page_size > 0
+        if self.total_size is None:
+            # We don't know the size of the result set; assume there is more.
             return True
-        if self.query_size==0:
+        if self.total_size==0:
+            # We know the size of the result set--it's empty.
             return False
-        return self.offset + self.size < self.query_size
+        return self.offset + self.size < self.total_size
 
     def apply(self, qu):
         """Modify the given query with OFFSET and LIMIT."""
-        self.query_size = fast_query_count(qu)
         return qu.offset(self.offset).limit(self.size)
 
 
@@ -779,6 +790,13 @@ class WorkList(object):
         if self.collection_ids is not None:
             qu = qu.filter(
                 LicensePool.collection_id.in_(self.collection_ids)
+            )
+            # Also apply the filter on the materialized view --
+            # this doesn't seem to do anything, but it's possible that
+            # applying the filter here might cause the database to use
+            # an index it wouldn't have otherwise used.
+            qu = qu.filter(
+                mw.collection_id.in_(self.collection_ids)
             )
         qu = self.apply_filters(_db, qu, facets, pagination)
         if qu:
