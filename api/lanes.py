@@ -1049,7 +1049,8 @@ class CrawlableFacets(Facets):
             order_ascending=cls.ORDER_DESCENDING,
         )
 
-    def order_by(self):
+    @classmethod
+    def order_by(cls):
         """Order the search results by last update time."""
         from core.model import MaterializedWorkWithGenre as work_model
         updated = func.greatest(work_model.availability_time, work_model.first_appearance, work_model.last_update_time)
