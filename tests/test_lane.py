@@ -510,6 +510,17 @@ class TestPagination(DatabaseTest):
         pagination.offset = 400
         eq_(False, pagination.has_next_page)
 
+        # If both total_size and this_page_size are set, total_size
+        # takes precedence.
+        pagination.offset = 0
+        pagination.total_size = 100
+        pagination.this_page_size = 0
+        eq_(True, pagination.has_next_page)
+
+        pagination.total_size = 0
+        pagination.this_page_size = 10
+        eq_(False, pagination.has_next_page)
+
     def test_has_next_page_this_page_size(self):
         """Test the ability of Pagination.this_page_size to control whether there is a next page."""
         query = self._db.query(Work)

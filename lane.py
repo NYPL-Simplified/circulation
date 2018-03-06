@@ -465,17 +465,21 @@ class Pagination(object):
         Either `total_size` or `this_page_size` must be set for this
         method to be accurate.
         """
+        if self.total_size is not None:
+            # We know the total size of the result set, so we know
+            # whether or not there are more results.
+            return self.offset + self.size < self.total_size
         if self.this_page_size is not None:
-            # If this page was empty, we can assume there is no next
-            # page; if not, we can assume there is a next page.
+            # We know the number of items on the current page. If this
+            # page was empty, we can assume there is no next page; if
+            # not, we can assume there is a next page. This is a little
+            # more conservative than checking whether we have a 'full'
+            # page.
             return self.this_page_size > 0
-        if self.total_size is None:
-            # We don't know the size of the result set; assume there is more.
-            return True
-        if self.total_size==0:
-            # We know the size of the result set--it's empty.
-            return False
-        return self.offset + self.size < self.total_size
+
+        # We don't know anything about this result set, so assume there is
+        # a next page.
+        return True
 
     def apply(self, qu):
         """Modify the given query with OFFSET and LIMIT."""
