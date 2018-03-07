@@ -2452,6 +2452,59 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         eq_(lpdm2.delivery_mechanism, lpdm.delivery_mechanism)
         assert lpdm2.resource != lpdm.resource
 
+    def test_compatible_with(self):
+        """Test the rules about which LicensePoolDeliveryMechanisms are
+        mutually compatible and which are mutually exclusive.
+        """
+
+        edition, pool = self._edition(with_license_pool=True,
+                                      with_open_access_download=True)
+        [mech] = pool.delivery_mechanisms
+
+        # Test the simple cases.
+        eq_(False, mech.compatible_with(None))
+        eq_(False, mech.compatible_with("Not a LicensePoolDeliveryMechanism"))
+        eq_(True, mech.compatible_with(mech))
+
+        # Now let's set up a scenario that works and then see how it fails.
+        self._add_generic_delivery_mechanism(pool)
+
+        # This book has two different LicensePoolDeliveryMechanisms
+        # with the same underlying DeliveryMechanism. They're
+        # compatible.
+        [mech1, mech2] = pool.delivery_mechanisms
+        assert mech1.id != mech2.id
+        eq_(mech1.delivery_mechanism, mech2.delivery_mechanism)
+        eq_(True, mech1.compatible_with(mech2))
+
+        # The LicensePoolDeliveryMechanisms must identify the same
+        # book from the same data source.
+        mech1.data_source_id = self._id
+        eq_(False, mech1.compatible_with(mech2))
+
+        mech1.data_source_id = mech2.data_source_id
+        mech1.identifier_id = self._id
+        eq_(False, mech1.compatible_with(mech2))
+        mech1.identifier_id = mech2.identifier_id
+
+        # The underlying delivery mechanisms don't have to be exactly
+        # the same, but they must be compatible.
+        pdf_adobe, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.PDF_MEDIA_TYPE,
+            DeliveryMechanism.ADOBE_DRM
+        )
+        mech1.delivery_mechanism = pdf_adobe
+        self._db.commit()
+        eq_(False, mech1.compatible_with(mech2))
+
+        streaming, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
+            DeliveryMechanism.STREAMING_DRM
+        )
+        mech1.delivery_mechanism = streaming
+        self._db.commit()
+        eq_(True, mech1.compatible_with(mech2))
+
 
 class TestWork(DatabaseTest):
 
@@ -5672,6 +5725,45 @@ class TestDeliveryMechanism(DatabaseTest):
         mech = lpmech.delivery_mechanism
         eq_(Representation.EPUB_MEDIA_TYPE, mech.content_type)
         eq_(mech.NO_DRM, mech.drm_scheme)
+
+    def test_compatible_with(self):
+        """Test the rules about which DeliveryMechanisms are
+        mutually compatible and which are mutually exclusive.
+        """
+
+        epub_adobe, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE,
+            DeliveryMechanism.ADOBE_DRM
+        )
+
+        pdb_adobe, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.PDF_MEDIA_TYPE,
+            DeliveryMechanism.ADOBE_DRM
+        )
+
+        epub_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE,
+            DeliveryMechanism.NO_DRM
+        )
+
+        streaming, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
+            DeliveryMechanism.STREAMING_DRM
+        )
+
+        # A non-streaming DeliveryMechanism is compatible only with
+        # itself or a streaming mechanism.
+        eq_(False, epub_adobe.compatible_with(None))
+        eq_(False, epub_adobe.compatible_with("Not a DeliveryMechanism"))
+        eq_(False, epub_adobe.compatible_with(epub_no_drm))
+        eq_(False, epub_adobe.compatible_with(pdf_adobe))
+        eq_(True, epub_adobe.compatible_with(epub_adobe))
+        eq_(True, epub_adobe.compatible_with(streaming))
+
+        # A streaming mechanism is compatible with anything.
+        eq_(True, streaming.compatible_with(epub_adobe))
+        eq_(True, streaming.compatible_with(pdf_adobe))
+        eq_(True, streaming.compatible_with(epub_no_drm))
 
 
 class TestRightsStatus(DatabaseTest):
