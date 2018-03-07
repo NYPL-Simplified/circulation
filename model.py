@@ -338,10 +338,10 @@ class SessionManager(object):
         if not (url or session):
             url = Configuration.database_url()
         if url:
-            engine = cls.engine(url)
+            bind_obj = cls.engine(url)
         elif session:
-            engine = session.connection().engine
-        return sessionmaker(bind=engine)
+            bind_obj = session.get_bind()
+        return sessionmaker(bind=bind_obj)
 
     @classmethod
     def initialize(cls, url, create_materialized_work_class=True):

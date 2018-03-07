@@ -2,7 +2,6 @@ from nose.tools import set_trace
 import datetime
 import logging
 
-import sqlalchemy
 from sqlalchemy.orm.session import Session
 from sqlalchemy.sql.functions import func
 
@@ -1126,7 +1125,7 @@ class CollectionCoverageProviderJob(Job):
         self.provider_class = provider_class
         self.provider_kwargs = provider_kwargs
 
-    def run(self, _db):
+    def run(self, _db, **kwargs):
         collection = _db.merge(self.collection)
         provider = self.provider_class(collection, **self.provider_kwargs)
         provider.run_once(self.offset)
