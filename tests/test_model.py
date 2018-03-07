@@ -5705,6 +5705,42 @@ class TestCoverResource(DatabaseTest):
 
 class TestDeliveryMechanism(DatabaseTest):
 
+    def setup(self):
+        super(TestDeliveryMechanism, self).setup()
+        self.epub_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
+        self.epub_adobe_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
+        self.overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
+
+    def test_implicit_medium(self):
+        eq_(Edition.BOOK_MEDIUM, self.epub_no_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.epub_adobe_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.overdrive_streaming_text.implicit_medium)
+
+    def test_is_media_type(self):
+        eq_(False, DeliveryMechanism.is_media_type(None))
+        eq_(True, DeliveryMechanism.is_media_type(Representation.EPUB_MEDIA_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.KINDLE_CONTENT_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE))
+
+    def test_is_streaming(self):
+        eq_(False, self.epub_no_drm.is_streaming)
+        eq_(False, self.epub_adobe_drm.is_streaming)
+        eq_(True, self.overdrive_streaming_text.is_streaming)
+
+    def test_drm_scheme_media_type(self):
+        eq_(None, self.epub_no_drm.drm_scheme_media_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, self.epub_adobe_drm.drm_scheme_media_type)
+        eq_(None, self.overdrive_streaming_text.drm_scheme_media_type)
+
+    def test_content_type_media_type(self):
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_no_drm.content_type_media_type)
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
+        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+            self.overdrive_streaming_text.content_type_media_type)
+
     def test_default_fulfillable(self):
         mechanism, is_new = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE, 
@@ -5732,19 +5768,23 @@ class TestDeliveryMechanism(DatabaseTest):
         """Test the rules about which DeliveryMechanisms are
         mutually compatible and which are mutually exclusive.
         """
-
         epub_adobe, ignore = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE,
             DeliveryMechanism.ADOBE_DRM
         )
 
-        pdb_adobe, ignore = DeliveryMechanism.lookup(
+        pdf_adobe, ignore = DeliveryMechanism.lookup(
             self._db, Representation.PDF_MEDIA_TYPE,
             DeliveryMechanism.ADOBE_DRM
         )
 
         epub_no_drm, ignore = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE,
+            DeliveryMechanism.NO_DRM
+        )
+
+        pdf_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.PDF_MEDIA_TYPE,
             DeliveryMechanism.NO_DRM
         )
 
@@ -5759,6 +5799,7 @@ class TestDeliveryMechanism(DatabaseTest):
         eq_(False, epub_adobe.compatible_with("Not a DeliveryMechanism"))
         eq_(False, epub_adobe.compatible_with(epub_no_drm))
         eq_(False, epub_adobe.compatible_with(pdf_adobe))
+        eq_(False, epub_no_drm.compatible_with(pdf_no_drm))
         eq_(True, epub_adobe.compatible_with(epub_adobe))
         eq_(True, epub_adobe.compatible_with(streaming))
 
@@ -5767,7 +5808,10 @@ class TestDeliveryMechanism(DatabaseTest):
         eq_(True, streaming.compatible_with(pdf_adobe))
         eq_(True, streaming.compatible_with(epub_no_drm))
 
-        # TODO: rules are different for open-access books vs not.
+        # Rules are slightly different for open-access books: books
+        # in any format are compatible so long as they have no DRM.
+        eq_(True, epub_no_drm.compatible_with(pdf_no_drm, True))
+        eq_(False, epub_no_drm.compatible_with(pdf_adobe, True))
 
 
 class TestRightsStatus(DatabaseTest):
@@ -6618,45 +6662,6 @@ class TestComplaint(DatabaseTest):
         complaint.resolve()
         assert complaint.resolved != None
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
-
-
-class TestDeliveryMechanism(DatabaseTest):
-
-    def setup(self):
-        super(TestDeliveryMechanism, self).setup()
-        self.epub_no_drm, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
-        self.epub_adobe_drm, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
-        self.overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
-            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
-
-    def test_implicit_medium(self):
-        eq_(Edition.BOOK_MEDIUM, self.epub_no_drm.implicit_medium)
-        eq_(Edition.BOOK_MEDIUM, self.epub_adobe_drm.implicit_medium)
-        eq_(Edition.BOOK_MEDIUM, self.overdrive_streaming_text.implicit_medium)
-
-    def test_is_media_type(self):
-        eq_(False, DeliveryMechanism.is_media_type(None))
-        eq_(True, DeliveryMechanism.is_media_type(Representation.EPUB_MEDIA_TYPE))
-        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.KINDLE_CONTENT_TYPE))
-        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE))
-
-    def test_is_streaming(self):
-        eq_(False, self.epub_no_drm.is_streaming)
-        eq_(False, self.epub_adobe_drm.is_streaming)
-        eq_(True, self.overdrive_streaming_text.is_streaming)
-
-    def test_drm_scheme_media_type(self):
-        eq_(None, self.epub_no_drm.drm_scheme_media_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, self.epub_adobe_drm.drm_scheme_media_type)
-        eq_(None, self.overdrive_streaming_text.drm_scheme_media_type)
-
-    def test_content_type_media_type(self):
-        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_no_drm.content_type_media_type)
-        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
-        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
-            self.overdrive_streaming_text.content_type_media_type)
 
 
 class TestCustomList(DatabaseTest):
