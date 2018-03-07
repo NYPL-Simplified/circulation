@@ -724,18 +724,20 @@ class TestCrawlableFacets(DatabaseTest):
 
     def test_order_by(self):
         """Crawlable feeds are always ordered by time updated and then by 
-        work id.
+        collection ID and work ID.
         """
         from core.model import MaterializedWorkWithGenre as mw
         order_by, distinct = CrawlableFacets.order_by()
 
-        updated, works_id = distinct
+        updated, collection_id, works_id = distinct
         expect_func = 'greatest(mv_works_for_lanes.availability_time, mv_works_for_lanes.first_appearance, mv_works_for_lanes.last_update_time)'
         eq_(expect_func, str(updated))
+        eq_(mw.collection_id, collection_id)
         eq_(mw.works_id, works_id)
 
-        updated_desc, works_id = order_by
+        updated_desc, collection_id, works_id = order_by
         eq_(expect_func + ' DESC', str(updated_desc))
+        eq_(mw.collection_id, collection_id)
         eq_(mw.works_id, works_id)
 
 
