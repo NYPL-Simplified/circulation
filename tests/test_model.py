@@ -2505,8 +2505,54 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         self._db.commit()
         eq_(True, mech1.compatible_with(mech2))
 
-        # TODO: rules are different for open-access books vs not.
+    def test_compatible_with_calls_compatible_with_on_deliverymechanism(self):
+        # Create two LicensePoolDeliveryMechanisms with different
+        # media types.
+        edition, pool = self._edition(with_license_pool=True,
+                                      with_open_access_download=True)
+        self._add_generic_delivery_mechanism(pool)
+        [mech1, mech2] = pool.delivery_mechanisms
+        mech2.delivery_mechanism, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+        )
+        self._db.commit()
 
+        eq_(True, mech1.is_open_access)
+        eq_(False, mech2.is_open_access)
+
+        # Determining whether the mechanisms are compatible requires
+        # calling compatible_with on the first mechanism's
+        # DeliveryMechanism, passing in the second DeliveryMechanism
+        # plus the answer to 'are both LicensePoolDeliveryMechanisms
+        # open-access?'
+        class Mock(object):
+            called_with = None
+            @classmethod
+            def compatible_with(cls, other, open_access):
+                cls.called_with = (other, open_access)
+                return True
+        mech1.delivery_mechanism.compatible_with = Mock.compatible_with
+
+        # Call compatible_with, and the mock method is called with the
+        # second DeliveryMechanism and (since one of the
+        # LicensePoolDeliveryMechanisms is not open-access) the value
+        # False.
+        mech1.compatible_with(mech2)
+        eq_(
+            (mech2.delivery_mechanism, False),
+            Mock.called_with
+        )
+
+        # If both LicensePoolDeliveryMechanisms are open-access,
+        # True is passed in instead, so that
+        # DeliveryMechanism.compatible_with() applies the less strict
+        # compatibility rules for open-access fulfillment.
+        mech2.set_rights_status(RightsStatus.GENERIC_OPEN_ACCESS)
+        mech1.compatible_with(mech2)
+        eq_(
+            (mech2.delivery_mechanism, True),
+            Mock.called_with
+        )
 
 class TestWork(DatabaseTest):
 

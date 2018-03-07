@@ -5504,10 +5504,11 @@ class LicensePoolDeliveryMechanism(Base):
         # In practice, this means that either the two
         # DeliveryMechanisms are the same or that one of them is a
         # streaming mechanism.
+        open_access_rules = self.is_open_access and other.is_open_access
         return (
             other.delivery_mechanism
-            and other.delivery_mechanism.compatible_with(
-                self.delivery_mechanism, self.is_open_access
+            and self.delivery_mechanism.compatible_with(
+                other.delivery_mechanism, open_access_rules
             )
         )
 
@@ -9304,12 +9305,15 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
         return None
 
-    def compatible_with(self, other, open_access=False):
+    def compatible_with(self, other, open_access_rules=False):
         """Can a single loan be fulfilled with both this delivery mechanism
         and the given one?
 
         :param other: A DeliveryMechanism
-        :param open_access: Is the loan for an open-access book?
+
+        :param open_access: If this is True, the rules for open-access
+            fulfillment will be applied. If not, the stricted rules
+            for commercial fulfillment will be applied.
         """
         if not isinstance(other, DeliveryMechanism):
             return False
@@ -9327,7 +9331,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
         # For an open-access book, loans are not locked to delivery
         # mechanisms, so as long as neither delivery mechanism has
         # DRM, they're compatible.
-        if (open_access and self.drm_scheme==self.NO_DRM
+        if (open_access_rules and self.drm_scheme==self.NO_DRM
             and other.drm_scheme==self.NO_DRM):
             return True
 
