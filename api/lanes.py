@@ -1054,8 +1054,10 @@ class CrawlableFacets(Facets):
         """Order the search results by last update time."""
         from core.model import MaterializedWorkWithGenre as work_model
         updated = func.greatest(work_model.availability_time, work_model.first_appearance, work_model.last_update_time)
+        collection_id = work_model.collection_id
         work_id = work_model.works_id
-        return [updated.desc(), work_id], [updated, work_id]
+        return ([updated.desc(), collection_id, work_id],
+                [updated, collection_id, work_id])
 
 
 class CrawlableCollectionBasedLane(DynamicLane):
