@@ -85,6 +85,7 @@ from testing import(
     AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
 )
+from coverage import CoverageRecord
 from monitor import (
     CollectionMonitor,
 )
@@ -518,30 +519,34 @@ class TestRunThreadedCollectionCoverageProviderScript(DatabaseTest):
         )
 
         original_session = self._db
-        transaction = None
         try:
-            # Create a nested transaction so nothing goes into the database.
-            #
-            # This arrangement is required because objects created with self._db
-            # won't be seen by the script's session_factory as they're created
-            # in a nested transaction.
-            transation = script._db.connection().begin_nested()
-
-            # Use the script's database to make objects.
+            # Use the script's session to make objects instead of the
+            # DatabaseTest session. Otherwise, the objects created in the
+            # test session will not be accessible to the DatabasePool
+            # workers.
             self._db = script._db
 
             # If there are no collections for the provider, run does nothing.
             # Pass a mock pool that will raise an error if it's used.
             pool = object()
             collection = self._collection(protocol=ExternalIntegration.ENKI)
-            # Run exits with a problem.
+
+            # Run exits without a problem because the pool is never touched.
             script.run(pool=pool)
 
             # Create some identifiers that need coverage.
             collection = self._collection()
-            ed1 = self._edition(collection=collection, with_license_pool=True)
-            ed2 = self._edition(collection=collection, with_license_pool=True)
+            ed1, lp1 = self._edition(collection=collection, with_license_pool=True)
+            ed2, lp2 = self._edition(collection=collection, with_license_pool=True)
             ed3 = self._edition()
+
+            [id1, id2, id3] = [e.primary_identifier for e in (ed1, ed2, ed3)]
+
+            # Set a timestamp for the provider.
+            timestamp = Timestamp.stamp(
+                self._db, provider.SERVICE_NAME, collection
+            )
+            original_timestamp = timestamp.timestamp
             self._db.commit()
 
             pool = DatabasePool(2, script.session_factory)
@@ -557,17 +562,24 @@ class TestRunThreadedCollectionCoverageProviderScript(DatabaseTest):
             identifiers_missing_coverage = Identifier.missing_coverage_from(
                 self._db, provider.INPUT_IDENTIFIER_TYPES, source,
             )
-            eq_([ed3.primary_identifier], identifiers_missing_coverage.all())
-            eq_(
-                sorted([ed1.primary_identifier, ed2.primary_identifier]),
-                sorted(provider.attempts)
+            eq_([id3], identifiers_missing_coverage.all())
+            record1, was_registered1 = provider.register(id1)
+            record2, was_registered2 = provider.register(id2)
+
+            eq_(CoverageRecord.SUCCESS, record1.status)
+            eq_(CoverageRecord.SUCCESS, record2.status)
+            eq_((False, False), (was_registered1, was_registered2))
+
+
+            # The timestamp for the provider has been updated.
+            new_timestamp = Timestamp.value(
+                self._db, provider.SERVICE_NAME, collection
             )
+            assert new_timestamp != original_timestamp
+            assert new_timestamp > original_timestamp
         finally:
-            provider.reset()
             self._db = original_session
             script._db.close()
-            if transaction:
-                transaction.rollback()
 
 
 class TestRunWorkCoverageProviderScript(DatabaseTest):

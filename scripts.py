@@ -314,7 +314,9 @@ class RunThreadedCollectionCoverageProviderScript(Script):
 
     DEFAULT_WORKER_SIZE = 5
 
-    def __init__(self, provider_class, worker_size=None, _db=None, **provider_kwargs):
+    def __init__(self, provider_class, worker_size=None, _db=None,
+        **provider_kwargs
+    ):
         super(RunThreadedCollectionCoverageProviderScript, self).__init__(_db)
 
         self.worker_size = worker_size or self.DEFAULT_WORKER_SIZE
@@ -340,10 +342,13 @@ class RunThreadedCollectionCoverageProviderScript(Script):
         if not collections:
             return
 
-        with (pool or DatabasePool(self.worker_size, self.session_factory)) as pool:
-            for collection in collections:
+        for collection in collections:
+            provider = self.provider_class(collection, **self.provider_kwargs)
+            with (
+                pool or DatabasePool(self.worker_size, self.session_factory)
+            ) as job_queue:
                 query_size, batch_size = self.get_query_and_batch_sizes(
-                    collection
+                    provider
                 )
                 # Without a commit, the query to count which items need
                 # coverage hangs in the database, blocking the threads.
@@ -355,11 +360,13 @@ class RunThreadedCollectionCoverageProviderScript(Script):
                         collection, self.provider_class, offset,
                         **self.provider_kwargs
                     )
-                    pool.put(job)
+                    job_queue.put(job)
                     offset += batch_size
 
-    def get_query_and_batch_sizes(self, collection):
-        provider = self.provider_class(collection, **self.provider_kwargs)
+            # Now that all the work is done, update the timestamp.
+            provider.update_timestamp()
+
+    def get_query_and_batch_sizes(self, provider):
         qu = provider.items_that_need_coverage(
             count_as_covered=BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         )
