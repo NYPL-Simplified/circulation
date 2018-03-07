@@ -2505,6 +2505,8 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         self._db.commit()
         eq_(True, mech1.compatible_with(mech2))
 
+        # TODO: rules are different for open-access books vs not.
+
 
 class TestWork(DatabaseTest):
 
@@ -5764,6 +5766,8 @@ class TestDeliveryMechanism(DatabaseTest):
         eq_(True, streaming.compatible_with(epub_adobe))
         eq_(True, streaming.compatible_with(pdf_adobe))
         eq_(True, streaming.compatible_with(epub_no_drm))
+
+        # TODO: rules are different for open-access books vs not.
 
 
 class TestRightsStatus(DatabaseTest):

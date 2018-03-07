@@ -5507,7 +5507,7 @@ class LicensePoolDeliveryMechanism(Base):
         return (
             other.delivery_mechanism
             and other.delivery_mechanism.compatible_with(
-                self.delivery_mechanism
+                self.delivery_mechanism, self.is_open_access
             )
         )
 
@@ -9304,11 +9304,12 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
         return None
 
-    def compatible_with(self, other):
+    def compatible_with(self, other, open_access=False):
         """Can a single loan be fulfilled with both this delivery mechanism
         and the given one?
 
         :param other: A DeliveryMechanism
+        :param open_access: Is the loan for an open-access book?
         """
         if not isinstance(other, DeliveryMechanism):
             return False
@@ -9323,9 +9324,16 @@ class DeliveryMechanism(Base, HasFullTableCache):
         if self.is_streaming or other.is_streaming:
             return True
 
-        # In general, locking a license pool to a non-streaming
-        # delivery mechanism prohibits the use of any other
-        # non-streaming delivery mechanism.
+        # For an open-access book, loans are not locked to delivery
+        # mechanisms, so as long as neither delivery mechanism has
+        # DRM, they're compatible.
+        if (open_access and self.drm_scheme==self.NO_DRM
+            and other.drm_scheme==self.NO_DRM):
+            return True
+
+        # For non-open-access books, locking a license pool to a
+        # non-streaming delivery mechanism prohibits the use of any
+        # other non-streaming delivery mechanism.
         return False
 
 Index("ix_deliverymechanisms_drm_scheme_content_type",
