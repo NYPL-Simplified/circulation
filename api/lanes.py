@@ -1050,12 +1050,14 @@ class CrawlableFacets(Facets):
         )
 
     @classmethod
-    def order_facet_to_database_field(cls, order_facet):
-        if order_facet == cls.ORDER_LAST_UPDATE:
-            from core.model import MaterializedWorkWithGenre as work_model
-            return func.greatest(work_model.last_update_time, work_model.first_appearance)
-        else:
-            return Facets.order_facet_to_database_field(order_facet)
+    def order_by(cls):
+        """Order the search results by last update time."""
+        from core.model import MaterializedWorkWithGenre as work_model
+        updated = func.greatest(work_model.availability_time, work_model.first_appearance, work_model.last_update_time)
+        collection_id = work_model.collection_id
+        work_id = work_model.works_id
+        return ([updated.desc(), collection_id, work_id],
+                [updated, collection_id, work_id])
 
 
 class CrawlableCollectionBasedLane(DynamicLane):
