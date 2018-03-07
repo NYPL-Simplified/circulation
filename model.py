@@ -9335,7 +9335,6 @@ Index("ix_deliverymechanisms_drm_scheme_content_type",
 
 
 class CustomList(Base):
-
     """A custom grouping of Editions."""
 
     STAFF_PICKS_NAME = u"Staff Picks"
