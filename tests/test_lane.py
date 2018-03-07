@@ -487,34 +487,65 @@ class TestFeaturedFacets(DatabaseTest):
 
 class TestPagination(DatabaseTest):
 
-    def test_has_next_page(self):
+    def test_has_next_page_total_size(self):
+        """Test the ability of Pagination.total_size to control whether there is a next page."""
         query = self._db.query(Work)
         pagination = Pagination(size=2)
 
-        # When the query is empty, pagination doesn't have a next page.
-        pagination.apply(query)
-        eq_(False, pagination.has_next_page)
-
-        # When there are more results in the query, it does.
-        for num in range(3):
-            # Create three works.
-            self._work()
+        # When total_size is not set, Pagination assumes there is a
+        # next page.
         pagination.apply(query)
         eq_(True, pagination.has_next_page)
 
-        # When we reach the end of results, there's no next page.
+        # Here, there is one more item on the next page.
+        pagination.total_size = 3
+        eq_(0, pagination.offset)
+        eq_(True, pagination.has_next_page)
+
+        # Here, the last item on this page is the last item in the dataset.
         pagination.offset = 1
         eq_(False, pagination.has_next_page)
 
-        # When the database is updated, pagination knows.
-        for num in range(3):
-            self._work()
+        # If we somehow go over the end of the dataset, there is no next page.
+        pagination.offset = 400
+        eq_(False, pagination.has_next_page)
+
+        # If both total_size and this_page_size are set, total_size
+        # takes precedence.
+        pagination.offset = 0
+        pagination.total_size = 100
+        pagination.this_page_size = 0
+        eq_(True, pagination.has_next_page)
+
+        pagination.total_size = 0
+        pagination.this_page_size = 10
+        eq_(False, pagination.has_next_page)
+
+    def test_has_next_page_this_page_size(self):
+        """Test the ability of Pagination.this_page_size to control whether there is a next page."""
+        query = self._db.query(Work)
+        pagination = Pagination(size=2)
+
+        # When this_page_size is not set, Pagination assumes there is a
+        # next page.
         pagination.apply(query)
         eq_(True, pagination.has_next_page)
 
-        # Even when the query ends at the same size as a page, all is well.
-        pagination.offset = 4
+        # Here, there is nothing on the current page. There is no next page.
+        pagination.this_page_size = 0
         eq_(False, pagination.has_next_page)
+
+        # If the page is full, we can be almost certain there is a next page.
+        pagination.this_page_size = 400
+        eq_(True, pagination.has_next_page)
+
+        # Here, there is one item on the current page. Even though the
+        # current page is not full (page size is 2), we assume for
+        # safety's sake that there is a next page. The cost of getting
+        # this wrong is low, compared to the cost of saying there is no
+        # next page when there actually is.
+        pagination.this_page_size = 1
+        eq_(True, pagination.has_next_page)
 
 
 class MockFeaturedWorks(object):

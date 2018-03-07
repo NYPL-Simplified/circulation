@@ -65,7 +65,8 @@ create index mv_works_for_lanes_by_availability on mv_works_for_lanes (availabil
 
 -- Create an index on everything, sorted by the maximum of entry first appearance, license pool availability time, and work update time, so that crawlable feeds are fast.
 
-create index mv_works_for_lanes_by_recently_updated on mv_works_for_lanes (GREATEST(availability_time, first_appearance, last_update_time) DESC, works_id);
+-- MIGRATION NOTE: We don't create mv_works_for_lanes_by_recently_updated here
+-- because it will be created in 20180307-replace-recently-updated-index.
 
 -- Create indexes that are helpful in running the query to find featured works.
 

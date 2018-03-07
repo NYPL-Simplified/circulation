@@ -65,12 +65,14 @@ create index ix_mv_works_for_lanes_list_edition_id on mv_works_for_lanes (list_e
 create unique index mv_works_for_lanes_unique on mv_works_for_lanes (works_id, genre_id, list_id, list_edition_id, license_pool_id);
 
 -- Create an index on everything, sorted by descending availability time, so that sync feeds are fast.
-
+-- TODO: This index might not be necessary anymore.
 create index mv_works_for_lanes_by_availability on mv_works_for_lanes (availability_time DESC, sort_author, sort_title, works_id);
 
--- Create an index on everything, sorted by the maximum of entry first appearance, license pool availability time, and work update time, so that crawlable feeds are fast.
+-- Create an index on everything, sorted by 'last update time' (the thing used by crawlable feeds).
+create index mv_works_for_lanes_by_recently_updated on mv_works_for_lanes (GREATEST(availability_time, first_appearance, last_update_time) DESC, collection_id, works_id);
 
-create index mv_works_for_lanes_by_recently_updated on mv_works_for_lanes (GREATEST(availability_time, first_appearance, last_update_time) DESC, works_id);
+-- This index quickly cuts down the number of rows considered when generating a crawlable feed for a custom list.
+create index mv_works_for_lanes_list_and_collection_id on mv_works_for_lanes (list_id, collection_id);
 
 -- Create indexes that are helpful in running the query to find featured works.
 
