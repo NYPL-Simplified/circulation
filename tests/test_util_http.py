@@ -216,6 +216,7 @@ class TestHTTP(object):
         # You can force a response to be treated as successful by
         # passing in its response code as allowed_response_codes.
         eq_(error, m(error, allowed_response_codes=[400]))
+        eq_(error, m(error, allowed_response_codes=["400"]))
         eq_(error, m(error, allowed_response_codes=['4xx']))
 
 class TestRemoteIntegrationException(object):
