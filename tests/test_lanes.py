@@ -722,6 +722,24 @@ class TestCrawlableFacets(DatabaseTest):
         # w1 is first because it was added to the list more recently.
         eq_([w1.id, w2.id], [mw.works_id for mw in qu])
 
+    def test_order_by(self):
+        """Crawlable feeds are always ordered by time updated and then by 
+        collection ID and work ID.
+        """
+        from core.model import MaterializedWorkWithGenre as mw
+        order_by, distinct = CrawlableFacets.order_by()
+
+        updated, collection_id, works_id = distinct
+        expect_func = 'greatest(mv_works_for_lanes.availability_time, mv_works_for_lanes.first_appearance, mv_works_for_lanes.last_update_time)'
+        eq_(expect_func, str(updated))
+        eq_(mw.collection_id, collection_id)
+        eq_(mw.works_id, works_id)
+
+        updated_desc, collection_id, works_id = order_by
+        eq_(expect_func + ' DESC', str(updated_desc))
+        eq_(mw.collection_id, collection_id)
+        eq_(mw.works_id, works_id)
+
 
 class TestCrawlableCustomListBasedLane(DatabaseTest):
 
