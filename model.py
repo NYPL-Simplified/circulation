@@ -341,6 +341,11 @@ class SessionManager(object):
             bind_obj = cls.engine(url)
         elif session:
             bind_obj = session.get_bind()
+            if not os.environ.get('TESTING'):
+                # If a factory is being created from a session in test mode,
+                # use the same Connection for all of the tests so objects can
+                # be accessed. Otherwise, bind against an Engine object.
+                bind_obj = bind_obj.engine
         return sessionmaker(bind=bind_obj)
 
     @classmethod
