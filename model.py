@@ -334,9 +334,19 @@ class SessionManager(object):
         return create_engine(url, echo=DEBUG)
 
     @classmethod
-    def sessionmaker(cls, url=None):
-        engine = cls.engine(url)
-        return sessionmaker(bind=engine)
+    def sessionmaker(cls, url=None, session=None):
+        if not (url or session):
+            url = Configuration.database_url()
+        if url:
+            bind_obj = cls.engine(url)
+        elif session:
+            bind_obj = session.get_bind()
+            if not os.environ.get('TESTING'):
+                # If a factory is being created from a session in test mode,
+                # use the same Connection for all of the tests so objects can
+                # be accessed. Otherwise, bind against an Engine object.
+                bind_obj = bind_obj.engine
+        return sessionmaker(bind=bind_obj)
 
     @classmethod
     def initialize(cls, url, create_materialized_work_class=True):
@@ -1269,6 +1279,9 @@ class BaseCoverageRecord(object):
     REGISTERED = u'registered'
 
     ALL_STATUSES = [REGISTERED, SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
+
+    # Count coverage as attempted if the record is not 'registered'.
+    PREVIOUSLY_ATTEMPTED = [SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
 
     # By default, count coverage as present if it ended in
     # success or in persistent failure. Do not count coverage
@@ -2394,8 +2407,13 @@ class Identifier(Base):
             collection_id = collection.id
         else:
             collection_id = None
+
+        data_source_id = None
+        if coverage_data_source:
+            data_source_id = coverage_data_source.id
+
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
-                      CoverageRecord.data_source==coverage_data_source,
+                      CoverageRecord.data_source_id==data_source_id,
                       CoverageRecord.operation==operation,
                       CoverageRecord.collection_id==collection_id
         )
@@ -2411,7 +2429,6 @@ class Identifier(Base):
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
 
         return qu
-
 
     def opds_entry(self):
         """Create an OPDS entry using only resources directly

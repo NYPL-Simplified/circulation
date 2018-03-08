@@ -8,6 +8,7 @@ import logging
 import urlparse
 import urllib
 import sys
+
 from sqlalchemy.orm.exc import (
     NoResultFound,
 )
@@ -63,12 +64,16 @@ from util.http import (
     HTTP,
     BadResponseException,
 )
+from util.worker_pools import RLock
 
 from testing import MockRequestsResponse
 
 class OverdriveAPI(object):
 
     log = logging.getLogger("Overdrive API")
+
+    # A lock for threaded usage.
+    lock = RLock()
 
     TOKEN_ENDPOINT = "https://oauth.overdrive.com/token"
     PATRON_TOKEN_ENDPOINT = "https://oauth-patron.overdrive.com/patrontoken"
@@ -192,15 +197,15 @@ class OverdriveAPI(object):
 
     def check_creds(self, force_refresh=False):
         """If the Bearer Token has expired, update it."""
-        if force_refresh:
-            refresh_on_lookup = lambda x: x
-        else:
+        with self.lock:
             refresh_on_lookup = self.refresh_creds
+            if force_refresh:
+                refresh_on_lookup = lambda x: x
 
-        credential = self.credential_object(refresh_on_lookup)
-        if force_refresh:
-            self.refresh_creds(credential)
-        self.token = credential.credential
+            credential = self.credential_object(refresh_on_lookup)
+            if force_refresh:
+                self.refresh_creds(credential)
+            self.token = credential.credential
 
     def credential_object(self, refresh):
         """Look up the Credential object that allows us to use
@@ -280,11 +285,12 @@ class OverdriveAPI(object):
         a link to the titles in the collection.
         """
         url = self._library_endpoint
-        representation, cached = Representation.get(
-            self._db, url, self.get, 
-            exception_handler=Representation.reraise_exception,
-        )
-        return json.loads(representation.content)
+        with self.lock:
+            representation, cached = Representation.get(
+                self._db, url, self.get,
+                exception_handler=Representation.reraise_exception,
+            )
+            return json.loads(representation.content)
 
     def get_advantage_accounts(self):
         """Find all the Overdrive Advantage accounts managed by this library.

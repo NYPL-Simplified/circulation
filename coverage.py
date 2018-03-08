@@ -24,6 +24,7 @@ from model import (
 from metadata_layer import (
     ReplacementPolicy
 )
+from util.worker_pools import DatabaseJob
 
 import log # This sets the appropriate log format.
 
@@ -147,7 +148,7 @@ class BaseCoverageProvider(object):
         self.cutoff_time = cutoff_time
         self.registered_only = registered_only
         self.collection_id = None
-        
+
     @property
     def log(self):
         if not hasattr(self, '_log'):
@@ -174,23 +175,23 @@ class BaseCoverageProvider(object):
         self.run_once_and_update_timestamp()
 
     def run_once_and_update_timestamp(self):
-        # First cover items that have never had a coverage attempt
-        # before.
-        offset = 0
-        while offset is not None:
-            offset = self.run_once(
-                offset, count_as_covered=BaseCoverageRecord.ALL_STATUSES
-            )
+        # First prioritize items that have never had a coverage attempt before.
+        # Then cover items that failed with a transient failure on a
+        # previous attempt.
+        covered_status_lists = [
+            BaseCoverageRecord.PREVIOUSLY_ATTEMPTED,
+            BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
+        ]
+        for covered_statuses in covered_status_lists:
+            offset = 0
+            while offset is not None:
+                offset = self.run_once(
+                    offset, count_as_covered=covered_statuses
+                )
 
-        # Next, cover items that failed with a transient failure
-        # on a previous attempt.
-        offset = 0
-        while offset is not None:
-            offset = self.run_once(
-                offset, 
-                count_as_covered=BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
-            )
-        
+        self.update_timestamp()
+
+    def update_timestamp(self):
         Timestamp.stamp(self._db, self.service_name, self.collection)
         self._db.commit()
 
@@ -201,7 +202,7 @@ class BaseCoverageProvider(object):
         count_as_covered_message = '(counting %s as covered)' % (', '.join(count_as_covered))
 
         qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
-        self.log.info("%d items need coverage%s", qu.count(), 
+        self.log.info("%d items need coverage%s", qu.count(),
                       count_as_covered_message)
         batch = qu.limit(self.batch_size).offset(offset)
 
@@ -346,6 +347,11 @@ class BaseCoverageProvider(object):
         if coverage_record is None:
             # An easy decision -- there is no existing coverage record,
             # so we need to do the work.
+            return True
+
+        if coverage_record.status==BaseCoverageRecord.REGISTERED:
+            # There's a CoverageRecord, but coverage hasn't actually
+            # been attempted. Try to get covered.
             return True
 
         if self.cutoff_time is None:
@@ -920,6 +926,17 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         return ReplacementPolicy.from_license_source(_db)
 
     @classmethod
+    def collections(cls, _db):
+        """Returns a list of randomly sorted list of collections covered by the
+        provider.
+        """
+        if cls.PROTOCOL:
+            collections = Collection.by_protocol(_db, cls.PROTOCOL)
+        else:
+            collections = _db.query(Collection)
+        return collections.order_by(func.random()).all()
+
+    @classmethod
     def all(cls, _db, **kwargs):
         """Yield a sequence of CollectionCoverageProvider instances, one for
         every Collection that gets its licenses from cls.PROTOCOL.
@@ -930,13 +947,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         CollectionCoverageProvider (or, more likely, one of its subclasses).
 
         """
-        if cls.PROTOCOL:
-            collections = Collection.by_protocol(_db, cls.PROTOCOL)
-        else:
-            collections = _db.query(Collection)
-
-        collections = collections.order_by(func.random())
-        for collection in collections:
+        for collection in cls.collections(_db):
             yield cls(collection, **kwargs)
 
     def items_that_need_coverage(self, identifiers=None, **kwargs):
@@ -1102,6 +1113,22 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             return work
         work.set_presentation_ready(exclude_search=self.EXCLUDE_SEARCH_INDEX)
         return identifier
+
+
+class CollectionCoverageProviderJob(DatabaseJob):
+
+    def __init__(self, collection, provider_class, item_offset,
+        **provider_kwargs
+    ):
+        self.collection = collection
+        self.offset = item_offset
+        self.provider_class = provider_class
+        self.provider_kwargs = provider_kwargs
+
+    def run(self, _db, **kwargs):
+        collection = _db.merge(self.collection)
+        provider = self.provider_class(collection, **self.provider_kwargs)
+        provider.run_once(self.offset)
 
 
 class CatalogCoverageProvider(CollectionCoverageProvider):
