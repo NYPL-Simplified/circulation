@@ -5471,6 +5471,47 @@ class LicensePoolDeliveryMechanism(Base):
         return (self.rights_status
                 and self.rights_status.uri in RightsStatus.OPEN_ACCESS)
 
+    def compatible_with(self, other):
+        """Can a single loan be fulfilled with both this
+        LicensePoolDeliveryMechanism and the given one?
+
+        :param other: A LicensePoolDeliveryMechanism.
+        """
+        if not isinstance(other, LicensePoolDeliveryMechanism):
+            return False
+
+        if other.id==self.id:
+            # They two LicensePoolDeliveryMechanisms are the same object.
+            return True
+
+        # The two LicensePoolDeliveryMechanisms must be different ways
+        # of getting the same book from the same source.
+        if other.identifier_id != self.identifier_id:
+            return False
+        if other.data_source_id != self.data_source_id:
+            return False
+
+        if other.delivery_mechanism_id == self.delivery_mechanism_id:
+            # We have two LicensePoolDeliveryMechanisms for the same
+            # underlying delivery mechanism. This can happen when an
+            # open-access book gets its content mirrored to two
+            # different places.
+            return True
+
+        # If the DeliveryMechanisms themselves are compatible, then the
+        # LicensePoolDeliveryMechanisms are compatible.
+        #
+        # In practice, this means that either the two
+        # DeliveryMechanisms are the same or that one of them is a
+        # streaming mechanism.
+        open_access_rules = self.is_open_access and other.is_open_access
+        return (
+            other.delivery_mechanism
+            and self.delivery_mechanism.compatible_with(
+                other.delivery_mechanism, open_access_rules
+            )
+        )
+
     def delete(self):
         """Delete a LicensePoolDeliveryMechanism."""
         _db = Session.object_session(self)
@@ -9264,6 +9305,40 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
         return None
 
+    def compatible_with(self, other, open_access_rules=False):
+        """Can a single loan be fulfilled with both this delivery mechanism
+        and the given one?
+
+        :param other: A DeliveryMechanism
+
+        :param open_access: If this is True, the rules for open-access
+            fulfillment will be applied. If not, the stricted rules
+            for commercial fulfillment will be applied.
+        """
+        if not isinstance(other, DeliveryMechanism):
+            return False
+
+        if self.id == other.id:
+            # The two DeliveryMechanisms are the same.
+            return True
+
+        # Streaming delivery mechanisms can be used even when a
+        # license pool is locked into a non-streaming delivery
+        # mechanism.
+        if self.is_streaming or other.is_streaming:
+            return True
+
+        # For an open-access book, loans are not locked to delivery
+        # mechanisms, so as long as neither delivery mechanism has
+        # DRM, they're compatible.
+        if (open_access_rules and self.drm_scheme==self.NO_DRM
+            and other.drm_scheme==self.NO_DRM):
+            return True
+
+        # For non-open-access books, locking a license pool to a
+        # non-streaming delivery mechanism prohibits the use of any
+        # other non-streaming delivery mechanism.
+        return False
 
 Index("ix_deliverymechanisms_drm_scheme_content_type",
       DeliveryMechanism.drm_scheme,
