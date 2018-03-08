@@ -17,7 +17,7 @@ from Queue import Queue
 
 
 class Worker(Thread):
-    """A Thread that finishes jobs"""
+    """A Thread that performs jobs"""
 
     @classmethod
     def factory(cls, worker_pool):
@@ -47,12 +47,15 @@ class Worker(Thread):
         job = self.jobs.get()
         if callable(job):
             job(*args, **kwargs)
-        else:
-            job.run(*args, **kwargs)
+            return
+
+        # This is a Job object. Do any setup and finalization, as well as
+        # running the task.
+        job.run(*args, **kwargs)
 
 
 class DatabaseWorker(Worker):
-    """A worker Thread that provides jobs with a database session"""
+    """A worker Thread that performs jobs with a database session"""
 
     @classmethod
     def factory(cls, worker_pool, _db):
@@ -62,19 +65,8 @@ class DatabaseWorker(Worker):
         super(DatabaseWorker, self).__init__(jobs)
         self._db = _db
 
-    @contextmanager
-    def refresh_session(self, _db):
-        _db.expire_all()
-        try:
-            yield
-        except Exception as e:
-            raise e
-        else:
-            _db.commit()
-
     def do_job(self):
-        with self.refresh_session(self._db):
-            super(DatabaseWorker, self).do_job(self._db)
+        super(DatabaseWorker, self).do_job(self._db)
 
 
 class Pool(object):
@@ -144,10 +136,10 @@ class Pool(object):
 
 
 class DatabasePool(Pool):
-
+    """A pool of DatabaseWorker threads and a job queue to keep them busy."""
     def __init__(self, size, session_factory, worker_factory=None):
         self.session_factory = session_factory
-        self.worker_sessions = list()
+
         self.worker_factory = worker_factory or DatabaseWorker.factory
         super(DatabasePool, self).__init__(
             size, worker_factory=self.worker_factory
@@ -155,14 +147,7 @@ class DatabasePool(Pool):
 
     def create_worker(self):
         worker_session = self.session_factory()
-        self.worker_sessions.append(worker_session)
         return self.worker_factory(self, worker_session)
-
-    def join(self):
-        super(DatabasePool, self).join()
-        # Close database sessions associated with worker threads.
-        for session in self.worker_sessions:
-            session.close()
 
 
 class Job(object):
@@ -170,5 +155,35 @@ class Job(object):
     For use with Worker.
     """
 
-    def run(self):
+    def rollback(self, *args, **kwargs):
+        """Cleans up the task if it errors"""
+        pass
+
+    def finalize(self, *args, **kwargs):
+        """Finalizes the task if it is successful"""
+        pass
+
+    def do_run(self):
+        """Does the work"""
+        raise NotImplementedError()
+
+    def run(self, *args, **kwargs):
+        try:
+            self.do_run(*args, **kwargs)
+        except Exception as e:
+            self.rollback(*args, **kwargs)
+            raise e
+        else:
+            self.finalize(*args, **kwargs)
+
+
+class DatabaseJob(Job):
+
+    def rollback(self, _db):
+        _db.rollback()
+
+    def finalize(self, _db):
+        _db.commit()
+
+    def do_run(self):
         raise NotImplementedError()
