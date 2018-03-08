@@ -33,6 +33,7 @@ from model import (
     Complaint, 
     ConfigurationSetting,
     Contributor, 
+    CoverageRecord,
     CustomList,
     DataSource,
     Edition,
@@ -85,7 +86,6 @@ from testing import(
     AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
 )
-from coverage import CoverageRecord
 from monitor import (
     CollectionMonitor,
 )

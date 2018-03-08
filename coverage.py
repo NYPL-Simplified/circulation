@@ -24,7 +24,7 @@ from model import (
 from metadata_layer import (
     ReplacementPolicy
 )
-from util.worker_pools import Job
+from util.worker_pools import DatabaseJob
 
 import log # This sets the appropriate log format.
 
@@ -1115,7 +1115,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         return identifier
 
 
-class CollectionCoverageProviderJob(Job):
+class CollectionCoverageProviderJob(DatabaseJob):
 
     def __init__(self, collection, provider_class, item_offset,
         **provider_kwargs

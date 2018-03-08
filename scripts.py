@@ -37,10 +37,7 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound,
 )
-from sqlalchemy.orm import (
-    Session,
-    scoped_session,
-)
+from sqlalchemy.orm import Session
 
 from app_server import ComplaintController
 from axis import Axis360BibliographicCoverageProvider
