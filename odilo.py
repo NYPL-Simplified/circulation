@@ -160,7 +160,6 @@ class OdiloAPI(object):
             self.TOKEN_ENDPOINT, generic_error
         )
 
-        content_type = response.headers.get('Content-Type')
         try:
             data = response.json()
         except ValueError:
