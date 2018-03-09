@@ -2945,8 +2945,9 @@ class SettingsController(CirculationManagerController):
             
         catalog = json.loads(response.content)
 
-        # Since we generated a public key, the catalog should have the short name
-        # and shared secret for Short Client Tokens.
+        # Since we generated a public key, the catalog should provide credentials
+        # for future authenticated communication, e.g. through Short Client Tokens
+        # or authenticated API requests.
         short_name = catalog.get("metadata", {}).get("short_name")
         shared_secret = catalog.get("metadata", {}).get("shared_secret")
 
