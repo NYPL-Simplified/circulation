@@ -546,6 +546,7 @@ class TestOPDS(VendorIDTest):
 
     def test_work_entry_includes_updated(self):
         work = self._work(with_open_access_download=True)
+        work.license_pools[0].availability_time = datetime.datetime(2018, 1, 1, 0, 0, 0)
         work.last_update_time = datetime.datetime(2018, 2, 4, 0, 0, 0)
         self.add_to_materialized_view([work])
 
@@ -584,6 +585,20 @@ class TestOPDS(VendorIDTest):
         feed = feedparser.parse(unicode(feed))
         [entry] = feed.entries
         assert '2018-02-06' in entry.get("updated")
+
+        # If the availability date is more recent than the other dates, then it's used.
+        work.license_pools[0].availability_time = datetime.datetime(2018, 2, 7, 0, 0, 0)
+        self._db.flush()
+        SessionManager.refresh_materialized_views(self._db)
+        mw = self._db.query(work_model).filter(work_model.works_id==work.id).one()
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [mw],
+            CirculationManagerAnnotator(None, lane, self._default_library, test_mode=True)
+        )
+        feed = feedparser.parse(unicode(feed))
+        [entry] = feed.entries
+        assert '2018-02-07' in entry.get("updated")
+        
 
     def test_active_loan_feed(self):
         self.initialize_adobe(self._default_library)

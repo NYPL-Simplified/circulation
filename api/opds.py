@@ -253,7 +253,7 @@ class CirculationManagerAnnotator(Annotator):
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
         updated = None
         if isinstance(self.lane, CrawlableCustomListBasedLane) and isinstance(work, BaseMaterializedWork):
-            updated = max(work.last_update_time, work.first_appearance)
+            updated = max(work.last_update_time, work.first_appearance, work.availability_time)
 
         Annotator.annotate_work_entry(
             work, active_license_pool, edition, identifier, feed, entry, updated
