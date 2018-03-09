@@ -948,3 +948,107 @@ class TestOPDS(VendorIDTest):
         [crawlable_link] = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
         assert '/crawlable_list_feed' in crawlable_link['href']
         assert str(list1.name) in crawlable_link['href']
+
+    def test_acquisition_links(self):
+        annotator = CirculationManagerLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)
+        feed = AcquisitionFeed(
+            self._db, "test", "url", [], annotator
+        )
+
+        # Loans and holds can belong to local patrons or patrons of other libraries,
+        # via IntegrationClients.
+        patron = self._patron()
+        client = self._integration_client()
+
+        now = datetime.datetime.utcnow()
+        tomorrow = now + datetime.timedelta(days=1)
+
+        # Loans of an open-access book.
+        work1 = self._work(with_open_access_download=True)
+        patron_loan1, ignore = work1.license_pools[0].loan_to(patron, start=now)
+        client_loan1, ignore = work1.license_pools[0].loan_to(client, start=now)
+
+        # Loans of a licensed book.
+        work2 = self._work(with_license_pool=True)
+        patron_loan2, ignore = work2.license_pools[0].loan_to(patron, start=now, end=tomorrow)
+        client_loan2, ignore = work2.license_pools[0].loan_to(client, start=now, end=tomorrow)
+        
+        # Holds on a licensed book.
+        work3 = self._work(with_license_pool=True)
+        patron_hold, ignore = work3.license_pools[0].on_hold_to(patron, start=now, end=tomorrow)
+        client_hold, ignore = work3.license_pools[0].on_hold_to(client, start=now, end=tomorrow)
+
+        # Book with no loans or holds yet.
+        work4 = self._work(with_license_pool=True)
+
+        patron_loan1_links = annotator.acquisition_links(
+            patron_loan1.license_pool, patron_loan1, None, None, feed, patron_loan1.license_pool.identifier)
+        # Fulfill, open access, and revoke.
+        [revoke, fulfill, open_access] = sorted(patron_loan1_links, key=lambda x: x.attrib.get("rel"))
+        assert 'revoke_loan_or_hold' in revoke.attrib.get("href")
+        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert "fulfill" in fulfill.attrib.get("href")
+        eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
+        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.url, open_access.attrib.get("href"))
+        eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
+
+        client_loan1_links = annotator.acquisition_links(
+            client_loan1.license_pool, client_loan1, None, None, feed, client_loan1.license_pool.identifier)
+        # Fulfill, open access, revoke, and loan info.
+        [revoke, fulfill, open_access, info] = sorted(client_loan1_links, key=lambda x: x.attrib.get("rel"))
+        assert 'shared_collection_revoke_loan' in revoke.attrib.get("href")
+        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert "shared_collection_fulfill" in fulfill.attrib.get("href")
+        eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
+        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.url, open_access.attrib.get("href"))
+        eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
+        assert 'shared_collection_loan_info' in info.attrib.get("href")
+        eq_("self", info.attrib.get("rel"))
+
+        patron_loan2_links = annotator.acquisition_links(
+            patron_loan2.license_pool, patron_loan2, None, None, feed, patron_loan2.license_pool.identifier)
+        # Fulfill and revoke.
+        [revoke, fulfill] = sorted(patron_loan2_links, key=lambda x: x.attrib.get("rel"))
+        assert 'revoke_loan_or_hold' in revoke.attrib.get("href")
+        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert "fulfill" in fulfill.attrib.get("href")
+        eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
+
+        client_loan2_links = annotator.acquisition_links(
+            client_loan2.license_pool, client_loan2, None, None, feed, client_loan2.license_pool.identifier)
+        # Fulfill, revoke, and loan info.
+        [revoke, fulfill, info] = sorted(client_loan2_links, key=lambda x: x.attrib.get("rel"))
+        assert 'shared_collection_revoke_loan' in revoke.attrib.get("href")
+        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert "shared_collection_fulfill" in fulfill.attrib.get("href")
+        eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
+        assert 'shared_collection_loan_info' in info.attrib.get("href")
+        eq_("self", info.attrib.get("rel"))
+
+        patron_hold_links = annotator.acquisition_links(
+            patron_hold.license_pool, None, patron_hold, None, feed, patron_hold.license_pool.identifier)
+        # Borrow and revoke.
+        [revoke, borrow] = sorted(patron_hold_links, key=lambda x: x.attrib.get("rel"))
+        assert 'revoke_loan_or_hold' in revoke.attrib.get("href")
+        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert "borrow" in borrow.attrib.get("href")
+        eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
+
+        client_hold_links = annotator.acquisition_links(
+            client_hold.license_pool, None, client_hold, None, feed, client_hold.license_pool.identifier)
+        # Borrow, revoke, and hold info.
+        [revoke, borrow, info] = sorted(client_hold_links, key=lambda x: x.attrib.get("rel"))
+        assert 'shared_collection_revoke_hold' in revoke.attrib.get("href")
+        eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
+        assert "shared_collection_borrow" in borrow.attrib.get("href")
+        eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
+        assert 'shared_collection_hold_info' in info.attrib.get("href")
+        eq_("self", info.attrib.get("rel"))
+
+        work4_links = annotator.acquisition_links(
+            work4.license_pools[0], None, None, None, feed, work4.license_pools[0].identifier)
+        # Borrow only.
+        [borrow] = work4_links
+        assert "borrow" in borrow.attrib.get("href")
+        eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
+

@@ -295,3 +295,10 @@ INVALID_LOAN_FOR_ODL_NOTIFICATION = pd(
     title=_("Invalid loan for ODL notification"),
     detail=_("The ODL notification is for a loan that's not from an ODL collection."),
 )
+
+INVALID_REGISTRATION = pd(
+    "http://librarysimplified.org/terms/problem/cannot-register",
+    status_code=400,
+    title=_("Invalid registration"),
+    detail=_("You did not submit enough information to register with the collection."),
+)

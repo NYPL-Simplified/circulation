@@ -549,15 +549,32 @@ class CirculationManagerAnnotator(Annotator):
         # add a link to revoke it.
         revoke_links = []
         if can_revoke:
-            url = self.url_for(
-                'revoke_loan_or_hold',
-                license_pool_id=active_license_pool.id,
-                library_short_name=self.library.short_name,
-                _external=True)
+            url = None
+            if (active_loan and active_loan.patron or active_hold and active_hold.patron):
+                url = self.url_for(
+                    'revoke_loan_or_hold',
+                    license_pool_id=active_license_pool.id,
+                    library_short_name=self.library.short_name,
+                    _external=True)
+            elif active_loan:
+                url = self.url_for(
+                    'shared_collection_revoke_loan',
+                    collection_name=active_license_pool.collection.name,
+                    loan_id=active_loan.id,
+                    library_short_name=active_loan.library.short_name,
+                    _external=True)
+            elif active_hold:
+                url = self.url_for(
+                    'shared_collection_revoke_hold',
+                    collection_name=active_license_pool.collection.name,
+                    hold_id=active_hold.id,
+                    library_short_name=active_hold.library.short_name,
+                    _external=True)
 
-            kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
-            revoke_link_tag = OPDSFeed.makeelement("link", **kw)
-            revoke_links.append(revoke_link_tag)
+            if url:
+                kw = dict(href=url, rel=OPDSFeed.REVOKE_LOAN_REL)
+                revoke_link_tag = OPDSFeed.makeelement("link", **kw)
+                revoke_links.append(revoke_link_tag)
 
         # Add next-step information for every useful delivery
         # mechanism.
@@ -583,7 +600,8 @@ class CirculationManagerAnnotator(Annotator):
                     borrow_links.append(
                         self.borrow_link(
                             identifier,
-                            mechanism, [mechanism]
+                            mechanism, [mechanism],
+                            active_hold
                         )
                     )
             else:
@@ -596,7 +614,8 @@ class CirculationManagerAnnotator(Annotator):
                 borrow_links.append(
                     self.borrow_link(
                         identifier,
-                        None, active_license_pool.delivery_mechanisms
+                        None, active_license_pool.delivery_mechanisms,
+                        active_hold
                     )
                 )
 
@@ -656,26 +675,61 @@ class CirculationManagerAnnotator(Annotator):
                 if lpdm.resource:
                     open_access_links.append(self.open_access_link(lpdm))
 
-        return [x for x in borrow_links + fulfill_links + open_access_links + revoke_links
+        # If this book is on loan or hold to a patron of an external library, give the
+        # library a link to check the status of the specific loan or hold.
+        info_links = []
+        if active_loan and active_loan.integration_client:
+            url = self.url_for(
+                'shared_collection_loan_info',
+                collection_name=active_license_pool.collection.name,
+                loan_id=active_loan.id,
+                library_short_name=self.library.short_name,
+                _external=True)
+            
+            kw = dict(href=url, rel='self')
+            info_link_tag = OPDSFeed.makeelement("link", **kw)
+            info_links.append(info_link_tag)
+
+        if active_hold and active_hold.integration_client:
+            url = self.url_for(
+                'shared_collection_hold_info',
+                collection_name=active_license_pool.collection.name,
+                hold_id=active_hold.id,
+                library_short_name=self.library.short_name,
+                _external=True)
+            
+            kw = dict(href=url, rel='self')
+            info_link_tag = OPDSFeed.makeelement("link", **kw)
+            info_links.append(info_link_tag)
+
+        return [x for x in borrow_links + fulfill_links + open_access_links + revoke_links + info_links
                 if x is not None]
 
     def borrow_link(self, identifier,
-                    borrow_mechanism, fulfillment_mechanisms):
-        if borrow_mechanism:
-            # Following this link will both borrow the book and set
-            # its delivery mechanism.
-            mechanism_id = borrow_mechanism.delivery_mechanism.id
+                    borrow_mechanism, fulfillment_mechanisms, active_hold=None):
+        if not active_hold or active_hold.patron:
+            if borrow_mechanism:
+                # Following this link will both borrow the book and set
+                # its delivery mechanism.
+                mechanism_id = borrow_mechanism.delivery_mechanism.id
+            else:
+                # Following this link will borrow the book but not set 
+                # its delivery mechanism.
+                mechanism_id = None
+            borrow_url = self.url_for(
+                "borrow", 
+                identifier_type=identifier.type,
+                identifier=identifier.identifier, 
+                mechanism_id=mechanism_id,
+                library_short_name=self.library.short_name,
+                _external=True)
         else:
-            # Following this link will borrow the book but not set 
-            # its delivery mechanism.
-            mechanism_id = None
-        borrow_url = self.url_for(
-            "borrow", 
-            identifier_type=identifier.type,
-            identifier=identifier.identifier, 
-            mechanism_id=mechanism_id,
-            library_short_name=self.library.short_name,
-            _external=True)
+            borrow_url = self.url_for(
+                "shared_collection_borrow",
+                collection_name=active_hold.license_pool.collection.name,
+                hold_id=active_hold.id,
+                _external=True,
+            )
         rel = OPDSFeed.BORROW_REL
         borrow_link = AcquisitionFeed.link(
             rel=rel, href=borrow_url, type=OPDSFeed.ENTRY_TYPE
@@ -719,13 +773,23 @@ class CirculationManagerAnnotator(Annotator):
         if not format_types:
             return None
             
-        fulfill_url = self.url_for(
-            "fulfill",
-            license_pool_id=license_pool.id,
-            mechanism_id=delivery_mechanism.id,
-            library_short_name=self.library.short_name,
-            _external=True
-        )
+        if active_loan.patron:
+            fulfill_url = self.url_for(
+                "fulfill",
+                license_pool_id=license_pool.id,
+                mechanism_id=delivery_mechanism.id,
+                library_short_name=self.library.short_name,
+                _external=True
+            )
+        else:
+            fulfill_url = self.url_for(
+                "shared_collection_fulfill",
+                collection_name=license_pool.collection.name,
+                loan_id=active_loan.id,
+                mechanism_id=delivery_mechanism.id,
+                library_short_name=active_loan.library.short_name,
+                _external=True
+            )
         rel=OPDSFeed.ACQUISITION_REL
         link_tag = AcquisitionFeed.acquisition_link(
             rel=rel, href=fulfill_url,
@@ -906,7 +970,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_loan_feed(cls, circulation, loan, test_mode=False):
         db = Session.object_session(loan)
         work = loan.license_pool.work or loan.license_pool.presentation_edition.work
-        annotator = cls(circulation, None, loan.patron.library,
+        annotator = cls(circulation, None, loan.library,
                         active_loans_by_work={work:loan}, 
                         active_holds_by_work={}, 
                         test_mode=test_mode)
@@ -915,7 +979,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
             'loan_or_hold_detail',
             identifier_type=identifier.type,
             identifier=identifier.identifier,
-            library_short_name=loan.patron.library.short_name,
+            library_short_name=loan.library.short_name,
             _external=True
         )
         if not work:
@@ -927,7 +991,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_hold_feed(cls, circulation, hold, test_mode=False):
         db = Session.object_session(hold)
         work = hold.license_pool.work or hold.license_pool.presentation_edition.work
-        annotator = cls(circulation, None, hold.patron.library,
+        annotator = cls(circulation, None, hold.library,
                         active_loans_by_work={}, 
                         active_holds_by_work={work:hold}, 
                         test_mode=test_mode)
@@ -937,7 +1001,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
     def single_fulfillment_feed(cls, circulation, loan, fulfillment, test_mode=False):
         db = Session.object_session(loan)
         work = loan.license_pool.work or loan.license_pool.presentation_edition.work
-        annotator = cls(circulation, None, loan.patron.library,
+        annotator = cls(circulation, None, loan.library,
                         active_loans_by_work={}, 
                         active_holds_by_work={}, 
                         active_fulfillments_by_work={work:fulfillment},
@@ -947,7 +1011,7 @@ class CirculationManagerLoanAndHoldAnnotator(CirculationManagerAnnotator):
             'loan_or_hold_detail',
             identifier_type=identifier.type,
             identifier=identifier.identifier,
-            library_short_name=loan.patron.library.short_name,
+            library_short_name=loan.library.short_name,
             _external=True
         )
         if not work:

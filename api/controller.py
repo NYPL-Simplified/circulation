@@ -4,6 +4,7 @@ import logging
 import sys
 import urllib
 import datetime
+import base64
 from wsgiref.handlers import format_date_time
 from time import mktime
 
@@ -60,6 +61,7 @@ from core.model import (
     ExternalIntegration,
     Hold,
     Identifier,
+    IntegrationClient,
     Library,
     LicensePool,
     Loan,
@@ -83,6 +85,7 @@ from core.util.flask_util import (
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
 from core.util.problem_detail import ProblemDetail
 from core.util.http import (
+    HTTP,
     RemoteIntegrationException,
 )
 
@@ -123,17 +126,15 @@ from adobe_vendor_id import (
     DeviceManagementProtocolController,
     AuthdataUtility,
 )
-from axis import Axis360API
-from overdrive import OverdriveAPI
-from bibliotheca import BibliothecaAPI
 from circulation import CirculationAPI
+from shared_collection import SharedCollectionAPI
 from odl import ODLWithConsolidatedCopiesAPI
 from novelist import (
     NoveListAPI,
     MockNoveListAPI,
 )
 from base_controller import BaseCirculationManagerController
-from testing import MockCirculationAPI
+from testing import MockCirculationAPI, MockSharedCollectionAPI
 from services import ServiceStatus
 from core.analytics import Analytics
 
@@ -187,6 +188,8 @@ class CirculationManager(object):
         new_top_level_lanes = {}
         # Create a CirculationAPI for each library.
         new_circulation_apis = {}
+        # Create a SharedCollectionAPI for each library.
+        new_shared_collection_apis = {}
 
         new_adobe_device_management = None
         for library in self._db.query(Library):
@@ -197,6 +200,9 @@ class CirculationManager(object):
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
+            new_shared_collection_apis[library.id] = self.setup_shared_collection(
+                library,
+            )
             authdata = self.setup_adobe_vendor_id(self._db, library)
             if authdata and not new_adobe_device_management:
                 # There's at least one library on this system that
@@ -206,6 +212,7 @@ class CirculationManager(object):
         self.adobe_device_management = new_adobe_device_management
         self.top_level_lanes = new_top_level_lanes
         self.circulation_apis = new_circulation_apis
+        self.shared_collection_apis = new_shared_collection_apis
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
@@ -272,6 +279,13 @@ class CirculationManager(object):
         else:
             cls = CirculationAPI
         return cls(self._db, library, analytics)
+
+    def setup_shared_collection(self, library):
+        if self.testing:
+            cls = MockSharedCollectionAPI
+        else:
+            cls = SharedCollectionAPI
+        return cls(self._db, library)
         
     def setup_one_time_controllers(self):
         """Set up all the controllers that will be used by the web app.
@@ -290,6 +304,7 @@ class CirculationManager(object):
         self.heartbeat = HeartbeatController()
         self.service_status = ServiceStatusController(self)
         self.odl_notification_controller = ODLNotificationController(self)
+        self.shared_collection_controller = SharedCollectionController(self)
 
     def setup_configuration_dependent_controllers(self):
         """Set up all the controllers that depend on the 
@@ -405,6 +420,12 @@ class CirculationManagerController(BaseCirculationManagerController):
         library_id = flask.request.library.id
         return self.manager.circulation_apis[library_id]
     
+    @property
+    def shared_collection(self):
+        """Return the appropriate SharedCollectionAPI for the request library."""
+        library_id = flask.request.library.id
+        return self.manager.shared_collection_apis[library_id]
+
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
@@ -1478,3 +1499,248 @@ class ODLNotificationController(CirculationManagerController):
         api = self.manager.circulation_apis[library.id].api_for_license_pool(loan.license_pool)
         api.update_loan(loan, json.loads(status_doc))
         return Response(_('Success'), 200)
+
+class SharedCollectionController(CirculationManagerController):
+    """Enable this circulation manager to share its collections with
+    libraries on other circulation managers, for collection types that
+    support it."""
+    def info(self, collection_name):
+        """Return an OPDS2 catalog-like document with a link to register."""
+        register_url = self.url_for('shared_collection_register',
+                                    library_short_name=flask.request.library.short_name,
+                                    collection_name=collection_name)
+        register_link = dict(href=register_url, rel='register')
+        content = json.dumps(dict(links=[register_link]))
+        headers = dict()
+        headers["Content-Type"] = "application/opds+json;profile=https://librarysimplified.org/rel/profile/directory"
+        return Response(content, 200, headers)
+
+    def load_collection(self, collection_name):
+        library = flask.request.library
+        collection = get_one(self._db, Collection, name=collection_name)
+        if not collection or collection not in library.collections:
+            return NO_SUCH_COLLECTION
+        return collection
+
+    def register(self, collection_name):
+        collection = self.load_collection(collection_name)
+        if isinstance(collection, ProblemDetail):
+            return collection
+        url = flask.request.form.get("url")
+        try:
+            response = self.shared_collection.register(collection, url)
+        except InvalidInputException, e:
+            return INVALID_REGISTRATION.detailed(str(e))
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(str(e))
+        except RemoteInitiatedServerError, e:
+            return e.as_problem_detail_document(debug=False)
+
+        return Response(json.dumps(response), 200)
+
+    def authenticated_client_from_request(self):
+        header = flask.request.headers.get('Authorization')
+        if header and 'bearer' in header.lower():
+            shared_secret = base64.b64decode(header.split(' ')[1])
+            client = IntegrationClient.authenticate(self._db, shared_secret)
+            if client:
+                return client
+        return INVALID_CREDENTIALS
+
+    def loan_info(self, collection_name, loan_id):
+        collection = self.load_collection(collection_name)
+        if isinstance(collection, ProblemDetail):
+            return collection
+        client = self.authenticated_client_from_request()
+        if isinstance(client, ProblemDetail):
+            return client
+        loan = get_one(self._db, Loan, id=loan_id, integration_client=client)
+        if not loan or loan.license_pool.collection != collection:
+            return NO_ACTIVE_LOAN
+
+        feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
+            self.circulation, loan)
+        headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
+        return Response(etree.tostring(feed), 200, headers)
+
+    def borrow(self, collection_name, identifier_type, identifier, hold_id):
+        collection = self.load_collection(collection_name)
+        if isinstance(collection, ProblemDetail):
+            return collection
+        client = self.authenticated_client_from_request()
+        if isinstance(client, ProblemDetail):
+            return client
+        if identifier_type and identifier:
+            pools = self.load_licensepools(
+                flask.request.library, identifier_type, identifier
+            )
+            if isinstance(pools, ProblemDetail):
+                return pools
+            pools = [p for p in pools if p.collection == collection]
+            if not pools:
+                return NO_LICENSES
+            pool = pools[0]
+            hold = None
+        elif hold_id:
+            hold = get_one(self._db, Hold, id=hold_id)
+            pool = hold.license_pool
+
+        try:
+            loan = self.shared_collection.borrow(collection, client, pool, hold)
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(str(e))
+        except NoAvailableCopies, e:
+            return NO_AVAILABLE_LICENSE.detailed(str(e))
+        except CannotLoan, e:
+            return CHECKOUT_FAILED.detailed(str(e))
+        except RemoteIntegrationException, e:
+            return e.as_problem_detail_document(debug=False)
+        if loan:
+            feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
+                self.circulation, loan)
+            headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
+            return Response(etree.tostring(feed), 201, headers)
+
+    def revoke_loan(self, collection_name, loan_id):
+        collection = self.load_collection(collection_name)
+        if isinstance(collection, ProblemDetail):
+            return collection
+        client = self.authenticated_client_from_request()
+        if isinstance(client, ProblemDetail):
+            return client
+        loan = get_one(self._db, Loan, id=loan_id, integration_client=client)
+        if not loan or not loan.license_pool.collection == collection:
+            return NO_ACTIVE_LOAN
+
+        try:
+            self.shared_collection.revoke_loan(collection, client, loan)
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(str(e))
+        except NotCheckedOut, e:
+            return NO_ACTIVE_LOAN.detailed(str(e))
+        except CannotReturn, e:
+            return COULD_NOT_MIRROR_TO_REMOTE.detailed(str(e))
+        return Response(_("Success"), 200)
+
+    def fulfill(self, collection_name, loan_id, mechanism_id, do_get=HTTP.get_with_timeout):
+        collection = self.load_collection(collection_name)
+        if isinstance(collection, ProblemDetail):
+            return collection
+        client = self.authenticated_client_from_request()
+        if isinstance(client, ProblemDetail):
+            return client
+        loan = get_one(self._db, Loan, id=loan_id)
+        if not loan or not loan.license_pool.collection == collection:
+            return NO_ACTIVE_LOAN
+
+        mechanism = None
+        if mechanism_id:
+            mechanism = self.load_licensepooldelivery(
+                loan.license_pool, mechanism_id
+            )
+            if isinstance(mechanism, ProblemDetail):
+                return mechanism
+            
+        if not mechanism:
+            # See if the loan already has a mechanism set. We can use that.
+            if loan and loan.fulfillment:
+                mechanism = loan.fulfillment
+            else:
+                return BAD_DELIVERY_MECHANISM.detailed(
+                    _("You must specify a delivery mechanism to fulfill this loan.")
+                )
+
+        try:
+            fulfillment = self.shared_collection.fulfill(collection, client, loan, mechanism)
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(str(e))
+        except CannotFulfill, e:
+            return CANNOT_FULFILL.detailed(str(e))
+        except RemoteIntegrationException, e:
+            return e.as_problem_detail_document(debug=False)
+        headers = dict()
+        content = fulfillment.content
+        if fulfillment.content_link:
+            # If we have a link to the content on a remote server, web clients may not
+            # be able to access it if the remote server does not support CORS requests.
+            # We need to fetch the content and return it instead of redirecting to it.
+            try:
+                response = do_get(fulfillment.content_link)
+                status_code = response.status_code
+                headers = dict(response.headers)
+                content = response.content
+            except RemoteIntegrationException, e:
+                return e.as_problem_detail_document(debug=False)
+        else:
+            status_code = 200
+        if fulfillment.content_type:
+            headers['Content-Type'] = fulfillment.content_type
+
+        return Response(content, status_code, headers)
+
+    def place_hold(self, collection_name, identifier_type, identifier):
+        collection = self.load_collection(collection_name)
+        if isinstance(collection, ProblemDetail):
+            return collection
+        client = self.authenticated_client_from_request()
+        if isinstance(client, ProblemDetail):
+            return client
+        pools = self.load_licensepools(
+            flask.request.library, identifier_type, identifier
+        )
+        if isinstance(pools, ProblemDetail):
+            return pools
+        pools = [p for p in pools if p.collection == collection]
+        if not pools:
+            return NO_LICENSES
+
+        pool = pools[0]
+
+        try:
+            hold = self.shared_collection.place_hold(collection, client, pool)
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(str(e))
+        except CannotHold, e:
+            return HOLD_FAILED.detailed(str(e))
+        if hold:
+            feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
+                self.circulation, hold)
+            headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
+            return Response(etree.tostring(feed), 201, headers)
+
+    def hold_info(self, collection_name, hold_id):
+        collection = self.load_collection(collection_name)
+        if isinstance(collection, ProblemDetail):
+            return collection
+        client = self.authenticated_client_from_request()
+        if isinstance(client, ProblemDetail):
+            return client
+        hold = get_one(self._db, Hold, id=hold_id, integration_client=client)
+        if not hold or not hold.license_pool.collection == collection:
+            return NO_ACTIVE_HOLD
+
+        feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
+            self.circulation, hold)
+        headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
+        return Response(etree.tostring(feed), 200, headers)
+
+    def revoke_hold(self, collection_name, hold_id):
+        collection = self.load_collection(collection_name)
+        if isinstance(collection, ProblemDetail):
+            return collection
+        client = self.authenticated_client_from_request()
+        if isinstance(client, ProblemDetail):
+            return client
+        hold = get_one(self._db, Hold, id=hold_id, integration_client=client)
+        if not hold or not hold.license_pool.collection == collection:
+            return NO_ACTIVE_HOLD
+
+        try:
+            self.shared_collection.revoke_hold(collection, client, hold)
+        except AuthorizationFailedException, e:
+            return INVALID_CREDENTIALS.detailed(str(e))
+        except NotOnHold, e:
+            return NO_ACTIVE_HOLD.detailed(str(e))
+        except CannotReleaseHold, e:
+            return CANNOT_RELEASE_HOLD.detailed(str(e))
+        return Response(_("Success"), 200)

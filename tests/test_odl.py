@@ -26,9 +26,14 @@ from api.odl import (
     ODLConsolidatedCopiesMonitor,
     ODLHoldReaper,
     MockODLWithConsolidatedCopiesAPI,
+    MockSharedODLAPI,
+    SharedODLImporter,
 )
 from api.circulation_exceptions import *
-from core.util.http import BadResponseException
+from core.util.http import (
+    BadResponseException,
+    RemoteIntegrationException,
+)
 
 class BaseODLTest(object):
     base_path = os.path.split(__file__)[0]
@@ -51,6 +56,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.api = MockODLWithConsolidatedCopiesAPI(self._db, self.collection)
         self.pool = self._licensepool(None, collection=self.collection)
         self.patron = self._patron()
+        self.client = self._integration_client()
 
     def test_get_license_status_document_success(self):
         # With a new loan.
@@ -182,8 +188,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(0, hold.position)
 
     def test_checkin_already_fulfilled(self):
-        # The loan is already fulfilled. Attempting to check in
-        # won't do anything, but won't raise an exception.
+        # The loan is already fulfilled.
         self.pool.licenses_owned = 7
         self.pool.licenses_available = 6
         loan, ignore = self.pool.loan_to(self.patron)
@@ -195,7 +200,10 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         })
 
         self.api.queue_response(200, content=lsd)
-        self.api.checkin(self.patron, "pin", self.pool)
+        assert_raises(
+            CannotReturn, self.api.checkin,
+            self.patron, "pin", self.pool,
+        )
         eq_(1, len(self.api.requests))
         eq_(6, self.pool.licenses_available)
         eq_(1, self._db.query(Loan).count())
@@ -1003,6 +1011,183 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(1, self.pool.licenses_reserved)
         eq_(0, hold.position)
         eq_(0, self._db.query(Loan).count())
+
+    def test_checkout_from_external_library(self):
+        # This book is available to check out.
+        self.pool.licenses_owned = 6
+        self.pool.licenses_available = 6
+
+        # An integration client checks out the book successfully.
+        loan_url = self._str
+        lsd = json.dumps({
+            "status": "ready",
+            "potential_rights": {
+                "end": "3017-10-21T11:12:13Z"
+            },
+            "links": {
+                "self": { "href": loan_url }
+            },
+        })
+
+        self.api.queue_response(200, content=lsd)
+        loan = self.api.checkout_to_external_library(self.client, self.pool)
+        eq_(self.client, loan.integration_client)
+        eq_(self.pool, loan.license_pool)
+        assert loan.start > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert loan.start < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        eq_(datetime.datetime(3017, 10, 21, 11, 12, 13), loan.end)
+        eq_(loan_url, loan.external_identifier)
+        eq_(1, self._db.query(Loan).count())
+
+        # The pool's availability has decreased.
+        eq_(5, self.pool.licenses_available)
+
+    def test_checkout_from_external_library_with_hold(self):
+        # An integration client has this book on hold, and the book just became available to check out.
+        self.pool.licenses_owned = 1
+        self.pool.licenses_available = 0
+        self.pool.licenses_reserved = 1
+        self.pool.patrons_in_hold_queue = 1
+        hold, ignore = self.pool.on_hold_to(self.client, start=datetime.datetime.utcnow() - datetime.timedelta(days=1), position=0)
+
+        # The patron checks out the book.
+        loan_url = self._str
+        lsd = json.dumps({
+            "status": "ready",
+            "potential_rights": {
+                "end": "3017-10-21T11:12:13Z"
+            },
+            "links": {
+                "self": { "href": loan_url }
+            },
+        })
+
+        self.api.queue_response(200, content=lsd)
+
+        # The patron gets a loan successfully.
+        loan = self.api.checkout_to_external_library(self.client, self.pool, hold)
+        eq_(self.client, loan.integration_client)
+        eq_(self.pool, loan.license_pool)
+        assert loan.start > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert loan.start < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        eq_(datetime.datetime(3017, 10, 21, 11, 12, 13), loan.end)
+        eq_(loan_url, loan.external_identifier)
+        eq_(1, self._db.query(Loan).count())
+
+        # The book is no longer reserved for the patron, and the hold has been deleted.
+        eq_(0, self.pool.licenses_reserved)
+        eq_(0, self.pool.licenses_available)
+        eq_(0, self.pool.patrons_in_hold_queue)
+        eq_(0, self._db.query(Hold).count())
+
+    def test_checkin_from_external_library(self):
+        # An integration client has a copy of this book checked out.
+        self.pool.licenses_owned = 7
+        self.pool.licenses_available = 6
+        loan, ignore = self.pool.loan_to(self.client)
+        loan.external_identifier = "http://loan/" + self._str
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
+
+        # The patron returns the book successfully.
+        lsd = json.dumps({
+            "status": "ready",
+            "links": {
+                "return": {
+                    "href": "http://return",
+                },
+            },
+        })
+        returned_lsd = json.dumps({
+            "status": "returned",
+        })
+
+        self.api.queue_response(200, content=lsd)
+        self.api.queue_response(200)
+        self.api.queue_response(200, content=returned_lsd)
+        self.api.checkin_from_external_library(self.client, loan)
+        eq_(3, len(self.api.requests))
+        assert "http://loan" in self.api.requests[0][0]
+        eq_("http://return", self.api.requests[1][0])
+        assert "http://loan" in self.api.requests[2][0]
+
+        # The pool's availability has increased, and the local loan has
+        # been deleted.
+        eq_(7, self.pool.licenses_available)
+        eq_(0, self._db.query(Loan).count())
+
+    def test_fulfill_for_external_library(self):
+        loan, ignore = self.pool.loan_to(self.client)
+        loan.external_identifier = self._str
+        loan.end = datetime.datetime.utcnow() + datetime.timedelta(days=3)
+
+        lsd = json.dumps({
+            "status": "ready",
+            "potential_rights": {
+                "end": "2017-10-21T11:12:13Z"
+            },
+            "links": {
+                "license": {
+                    "href": "http://license",
+                    "type": DeliveryMechanism.ADOBE_DRM,
+                },
+            },
+        })
+
+        self.api.queue_response(200, content=lsd)
+        fulfillment = self.api.fulfill_for_external_library(self.client, loan, None)
+        eq_(self.collection, fulfillment.collection(self._db))
+        eq_(self.pool.data_source.name, fulfillment.data_source_name)
+        eq_(self.pool.identifier.type, fulfillment.identifier_type)
+        eq_(self.pool.identifier.identifier, fulfillment.identifier)
+        eq_(datetime.datetime(2017, 10, 21, 11, 12, 13), fulfillment.content_expires)
+        eq_("http://license", fulfillment.content_link)
+        eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
+
+    def test_place_hold_for_external_library(self):
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        self.pool.licenses_owned = 1
+        self.pool.loan_to(self._patron(), end=tomorrow)
+
+        hold = self.api.place_hold_for_external_library(self.client, self.pool)
+
+        eq_(1, self.pool.patrons_in_hold_queue)
+        eq_(self.client, hold.integration_client)
+        eq_(self.pool, hold.license_pool)
+        assert hold.start > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert hold.start < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        eq_(tomorrow, hold.end)
+        eq_(1, hold.position)
+        eq_(1, self._db.query(Hold).count())
+
+    def test_release_hold_from_external_library(self):
+        self.pool.licenses_owned = 1
+        loan, ignore = self.pool.loan_to(self._patron())
+        hold, ignore = self.pool.on_hold_to(self.client, position=1)
+
+        eq_(True, self.api.release_hold_from_external_library(self.client, hold))
+        eq_(0, self.pool.licenses_available)
+        eq_(0, self.pool.licenses_reserved)
+        eq_(0, self.pool.patrons_in_hold_queue)
+        eq_(0, self._db.query(Hold).count())
+
+        self._db.delete(loan)
+        hold, ignore = self.pool.on_hold_to(self.client, position=0)
+
+        eq_(True, self.api.release_hold_from_external_library(self.client, hold))
+        eq_(1, self.pool.licenses_available)
+        eq_(0, self.pool.licenses_reserved)
+        eq_(0, self.pool.patrons_in_hold_queue)
+        eq_(0, self._db.query(Hold).count())
+
+        hold, ignore = self.pool.on_hold_to(self.client, position=0)
+        other_hold, ignore = self.pool.on_hold_to(self._patron(), position=2)
+
+        eq_(True, self.api.release_hold_from_external_library(self.client, hold))
+        eq_(0, self.pool.licenses_available)
+        eq_(1, self.pool.licenses_reserved)
+        eq_(1, self.pool.patrons_in_hold_queue)
+        eq_(1, self._db.query(Hold).count())
+        eq_(0, other_hold.position)
         
 
 class TestODLBibliographicImporter(DatabaseTest, BaseODLTest):
@@ -1221,3 +1406,359 @@ class TestODLHoldReaper(DatabaseTest, BaseODLTest):
         assert bad_end_date.end > now
         eq_(1, pool.licenses_available)
         eq_(2, pool.licenses_reserved)
+
+class TestSharedODLAPI(DatabaseTest, BaseODLTest):
+
+    def setup(self):
+        super(TestSharedODLAPI, self).setup()
+        self.collection = MockSharedODLAPI.mock_collection(self._db)
+        self.collection.external_integration.set_setting(
+            Collection.DATA_SOURCE_NAME_SETTING,
+            "Feedbooks"
+        )
+        self.api = MockSharedODLAPI(self._db, self.collection)
+        self.pool = self._licensepool(None, collection=self.collection)
+        self.patron = self._patron()
+
+    def test_checkout_success(self):
+        response = self.get_data("shared_collection_borrow_success.opds")
+        self.api.queue_response(200, content=response)
+
+        loan = self.api.checkout(self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE)
+        eq_(self.collection, loan.collection(self._db))
+        eq_(self.pool.data_source.name, loan.data_source_name)
+        eq_(self.pool.identifier.type, loan.identifier_type)
+        eq_(self.pool.identifier.identifier, loan.identifier)
+        eq_(datetime.datetime(2018, 3, 8, 17, 41, 31), loan.start_date)
+        eq_(datetime.datetime(2018, 3, 29, 17, 41, 30), loan.end_date)
+        eq_("http://localhost:6500/AL/collections/DPLA%20Exchange/loans/31", loan.external_identifier)
+
+        eq_(["%s/%s/%s/borrow" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
+             self.api.requests)
+
+    def test_checkout_from_hold(self):
+        hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
+        hold_info_response = self.get_data("shared_collection_hold_info_ready.opds")
+        self.api.queue_response(200, content=hold_info_response)
+        borrow_response = self.get_data("shared_collection_borrow_success.opds")
+        self.api.queue_response(200, content=borrow_response)
+
+        loan = self.api.checkout(self.patron, "pin", self.pool, Representation.EPUB_MEDIA_TYPE)
+        eq_(self.collection, loan.collection(self._db))
+        eq_(self.pool.data_source.name, loan.data_source_name)
+        eq_(self.pool.identifier.type, loan.identifier_type)
+        eq_(self.pool.identifier.identifier, loan.identifier)
+        eq_(datetime.datetime(2018, 3, 8, 17, 41, 31), loan.start_date)
+        eq_(datetime.datetime(2018, 3, 29, 17, 41, 30), loan.end_date)
+        eq_("http://localhost:6500/AL/collections/DPLA%20Exchange/loans/31", loan.external_identifier)
+
+        eq_([hold.external_identifier,
+             "http://localhost:6500/AL/collections/DPLA%20Exchange/holds/17/borrow"],
+            self.api.requests)
+
+    def test_checkout_already_checked_out(self):
+        loan, ignore = self.pool.loan_to(self.patron)
+        assert_raises(AlreadyCheckedOut, self.api.checkout, self.patron, "pin",
+                      self.pool, Representation.EPUB_MEDIA_TYPE)
+        eq_([], self.api.requests)
+
+    def test_checkout_no_available_copies(self):
+        self.api.queue_response(403)
+        assert_raises(NoAvailableCopies, self.api.checkout, self.patron, "pin",
+                      self.pool, Representation.EPUB_MEDIA_TYPE)
+        eq_(["%s/%s/%s/borrow" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
+             self.api.requests)
+
+    def test_checkout_from_hold_not_available(self):
+        hold, ignore = self.pool.on_hold_to(self.patron)
+        hold_info_response = self.get_data("shared_collection_hold_info_reserved.opds")
+        self.api.queue_response(200, content=hold_info_response)
+        assert_raises(NoAvailableCopies, self.api.checkout, self.patron, "pin",
+                      self.pool, Representation.EPUB_MEDIA_TYPE)
+        eq_([hold.external_identifier], self.api.requests)
+
+    def test_checkout_cannot_loan(self):
+        self.api.queue_response(500)
+        assert_raises(CannotLoan, self.api.checkout, self.patron, "pin",
+                      self.pool, Representation.EPUB_MEDIA_TYPE)
+        eq_(["%s/%s/%s/borrow" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
+             self.api.requests)
+
+    def test_checkin_success(self):
+        loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
+        loan_info_response = self.get_data("shared_collection_loan_info.opds")
+        self.api.queue_response(200, content=loan_info_response)
+        self.api.queue_response(200, content="Deleted")
+        response = self.api.checkin(self.patron, "pin", self.pool)
+        eq_(True, response)
+        eq_([loan.external_identifier,
+             "http://localhost:6500/AL/collections/DPLA%20Exchange/loans/33/revoke"],
+            self.api.requests)
+
+    def test_checkin_not_checked_out(self):
+        assert_raises(NotCheckedOut, self.api.checkin, self.patron, "pin", self.pool)
+        eq_([], self.api.requests)
+
+        loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
+        self.api.queue_response(400)
+        assert_raises(NotCheckedOut, self.api.checkin, self.patron, "pin", self.pool)
+        eq_([loan.external_identifier], self.api.requests)
+
+    def test_checkin_cannot_return(self):
+        loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
+        self.api.queue_response(500)
+        assert_raises(CannotReturn, self.api.checkin, self.patron, "pin", self.pool)
+        eq_([loan.external_identifier], self.api.requests)
+
+
+        loan_info_response = self.get_data("shared_collection_loan_info.opds")
+        self.api.queue_response(200, content=loan_info_response)
+        self.api.queue_response(500)
+        assert_raises(CannotReturn, self.api.checkin, self.patron, "pin", self.pool)
+        eq_([loan.external_identifier,
+             "http://localhost:6500/AL/collections/DPLA%20Exchange/loans/33/revoke"],
+            self.api.requests[1:])
+
+    def test_fulfill_success(self):
+        loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
+        loan_info_response = self.get_data("shared_collection_loan_info.opds")
+        self.api.queue_response(200, content=loan_info_response)
+        self.api.queue_response(200, content="An ACSM file")
+        fulfillment = self.api.fulfill(self.patron, "pin", self.pool, self.pool.delivery_mechanisms[0])
+        eq_(self.collection, fulfillment.collection(self._db))
+        eq_(self.pool.data_source.name, fulfillment.data_source_name)
+        eq_(self.pool.identifier.type, fulfillment.identifier_type)
+        eq_(self.pool.identifier.identifier, fulfillment.identifier)
+        eq_(None, fulfillment.content_link)
+        eq_("An ACSM file", fulfillment.content)
+        eq_(datetime.datetime(2018, 3, 29, 17, 44, 11), fulfillment.content_expires)
+
+        eq_([loan.external_identifier,
+             "http://localhost:6500/AL/collections/DPLA%20Exchange/loans/33/fulfill/2"],
+            self.api.requests)
+
+    def test_fulfill_not_checked_out(self):
+        assert_raises(NotCheckedOut, self.api.fulfill, self.patron, "pin",
+                      self.pool, self.pool.delivery_mechanisms[0])
+        eq_([], self.api.requests)
+
+    def test_fulfill_cannot_fulfill(self):
+        loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
+        self.api.queue_response(500)
+        assert_raises(CannotFulfill, self.api.fulfill, self.patron, "pin",
+                      self.pool, self.pool.delivery_mechanisms[0])
+        eq_([loan.external_identifier], self.api.requests)
+
+        self.api.queue_response(200, content="not opds")
+        assert_raises(CannotFulfill, self.api.fulfill, self.patron, "pin",
+                      self.pool, self.pool.delivery_mechanisms[0])
+        eq_([loan.external_identifier], self.api.requests[1:])
+
+        loan_info_response = self.get_data("shared_collection_loan_info.opds")
+        self.api.queue_response(200, content=loan_info_response)
+        self.api.queue_response(500)
+        assert_raises(CannotFulfill, self.api.fulfill, self.patron, "pin",
+                      self.pool, self.pool.delivery_mechanisms[0])
+        eq_([loan.external_identifier,
+             "http://localhost:6500/AL/collections/DPLA%20Exchange/loans/33/fulfill/2"],
+            self.api.requests[2:])
+
+    def test_fulfill_format_not_available(self):
+        loan, ignore = self.pool.loan_to(self.patron)
+        loan_info_response = self.get_data("shared_collection_loan_info_no_epub.opds")
+        self.api.queue_response(200, content=loan_info_response)
+        assert_raises(FormatNotAvailable, self.api.fulfill, self.patron, "pin",
+                      self.pool, self.pool.delivery_mechanisms[0])
+        eq_([loan.external_identifier], self.api.requests)
+
+    def test_place_hold_success(self):
+        hold_response = self.get_data("shared_collection_hold_info_reserved.opds")
+        self.api.queue_response(200, content=hold_response)
+        hold = self.api.place_hold(self.patron, "pin", self.pool, "notifications@librarysimplified.org")
+        eq_(self.collection, hold.collection(self._db))
+        eq_(self.pool.data_source.name, hold.data_source_name)
+        eq_(self.pool.identifier.type, hold.identifier_type)
+        eq_(self.pool.identifier.identifier, hold.identifier)
+        eq_(datetime.datetime(2018, 3, 8, 18, 50, 18), hold.start_date)
+        eq_(datetime.datetime(2018, 3, 29, 17, 44, 01), hold.end_date)
+        eq_(1, hold.hold_position)
+        eq_("http://localhost:6500/AL/collections/DPLA%20Exchange/holds/18", hold.external_identifier)
+
+        eq_(["%s/%s/%s/place_hold" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
+             self.api.requests)
+
+    def test_place_hold_already_checked_out(self):
+        loan, ignore = self.pool.loan_to(self.patron)
+        assert_raises(AlreadyCheckedOut, self.api.place_hold, self.patron, "pin",
+                      self.pool, "notification@librarysimplified.org")
+        eq_([], self.api.requests)
+
+    def test_place_hold_already_on_hold(self):
+        hold, ignore = self.pool.on_hold_to(self.patron)
+        assert_raises(AlreadyOnHold, self.api.place_hold, self.patron, "pin",
+                      self.pool, "notification@librarysimplified.org")
+        eq_([], self.api.requests)
+
+    def test_place_hold_cannot_hold(self):
+        self.api.queue_response(500)
+        assert_raises(CannotHold, self.api.place_hold, self.patron, "pin",
+                      self.pool, "notification@librarysimplified.org")
+        eq_(["%s/%s/%s/place_hold" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
+             self.api.requests)
+
+    def test_release_hold_success(self):
+        hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
+        hold_response = self.get_data("shared_collection_hold_info_reserved.opds")
+        self.api.queue_response(200, content=hold_response)
+        self.api.queue_response(200, content="Deleted")
+        response = self.api.release_hold(self.patron, "pin", self.pool)
+        eq_(True, response)
+        eq_([hold.external_identifier,
+             "http://localhost:6500/AL/collections/DPLA%20Exchange/holds/18/revoke"],
+            self.api.requests)
+
+    def test_release_hold_not_on_hold(self):
+        assert_raises(NotOnHold, self.api.release_hold, self.patron, "pin", self.pool)
+        eq_([], self.api.requests)
+
+    def test_release_hold_cannot_release_hold(self):
+        hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
+        self.api.queue_response(500)
+        assert_raises(CannotReleaseHold, self.api.release_hold, self.patron, "pin", self.pool)
+        eq_([hold.external_identifier], self.api.requests)
+
+        hold_response = self.get_data("shared_collection_hold_info_reserved.opds")
+        self.api.queue_response(200, content=hold_response)
+        self.api.queue_response(500)
+        assert_raises(CannotReleaseHold, self.api.release_hold, self.patron, "pin", self.pool)
+        eq_([hold.external_identifier,
+             "http://localhost:6500/AL/collections/DPLA%20Exchange/holds/18/revoke"],
+            self.api.requests[1:])
+
+    def test_patron_activity_success(self):
+        # The patron has one loan, and the remote circ manager returns it.
+        loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
+        loan_response = self.get_data("shared_collection_loan_info.opds")
+        self.api.queue_response(200, content=loan_response)
+        activity = self.api.patron_activity(self.patron, "pin")
+        eq_(1, len(activity))
+        [loan_info] = activity
+        eq_(self.collection, loan_info.collection(self._db))
+        eq_(self.pool.data_source.name, loan_info.data_source_name)
+        eq_(self.pool.identifier.type, loan_info.identifier_type)
+        eq_(self.pool.identifier.identifier, loan_info.identifier)
+        eq_(datetime.datetime(2018, 3, 8, 17, 44, 12), loan_info.start_date)
+        eq_(datetime.datetime(2018, 3, 29, 17, 44, 11), loan_info.end_date)
+        eq_([loan.external_identifier], self.api.requests)
+
+        # The patron's loan has been deleted on the remote.
+        self.api.queue_response(400, content="No loan here")
+        activity = self.api.patron_activity(self.patron, "pin")
+        eq_(0, len(activity))
+        eq_([loan.external_identifier], self.api.requests[1:])
+
+        # Now the patron has a hold instead.
+        self._db.delete(loan)
+        hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
+        hold_response = self.get_data("shared_collection_hold_info_reserved.opds")
+        self.api.queue_response(200, content=hold_response)
+        activity = self.api.patron_activity(self.patron, "pin")
+        eq_(1, len(activity))
+        [hold_info] = activity
+        eq_(self.collection, hold_info.collection(self._db))
+        eq_(self.pool.data_source.name, hold_info.data_source_name)
+        eq_(self.pool.identifier.type, hold_info.identifier_type)
+        eq_(self.pool.identifier.identifier, hold_info.identifier)
+        eq_(datetime.datetime(2018, 3, 8, 18, 50, 18), hold_info.start_date)
+        eq_(datetime.datetime(2018, 3, 29, 17, 44, 01), hold_info.end_date)
+        eq_([hold.external_identifier], self.api.requests[2:])
+
+        # The patron's hold has been deleted on the remote.
+        self.api.queue_response(400, content="No hold here")
+        activity = self.api.patron_activity(self.patron, "pin")
+        eq_(0, len(activity))
+        eq_([hold.external_identifier], self.api.requests[3:])
+
+    def test_patron_activity_remote_integration_exception(self):
+        loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
+        self.api.queue_response(500)
+        assert_raises(RemoteIntegrationException, self.api.patron_activity, self.patron, "pin")
+        eq_([loan.external_identifier], self.api.requests)
+        self._db.delete(loan)
+
+        hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
+        self.api.queue_response(500)
+        assert_raises(RemoteIntegrationException, self.api.patron_activity, self.patron, "pin")
+        eq_([hold.external_identifier], self.api.requests[1:])
+
+class TestSharedODLImporter(DatabaseTest, BaseODLTest):
+
+    def test_import(self):
+        feed = self.get_data("shared_collection_feed.opds")
+        data_source = DataSource.lookup(self._db, "DPLA Exchange", autocreate=True)
+        collection = MockSharedODLAPI.mock_collection(self._db)
+        collection.external_integration.set_setting(
+            Collection.DATA_SOURCE_NAME_SETTING,
+            data_source.name
+        )
+
+        class MockMetadataClient(object):
+            def canonicalize_author_name(self, identifier, working_display_name):
+                return working_display_name
+        metadata_client = MockMetadataClient()
+        importer = SharedODLImporter(
+            self._db, collection=collection,
+            metadata_client=metadata_client,
+        )
+
+        imported_editions, imported_pools, imported_works, failures = (
+            importer.import_from_feed(feed)
+        )
+
+        # This importer works the same as the base OPDSImporter, except that
+        # it extracts license pool information from acquisition links.
+
+        # The importer created 3 editions, pools, and works.
+        eq_(3, len(imported_editions))
+        eq_(3, len(imported_pools))
+        eq_(3, len(imported_works))
+
+        [six_months, essex, gatsby] = sorted(imported_editions, key=lambda x: x.title)
+        eq_("Six Months, Three Days, Five Others", six_months.title)
+        eq_("The Essex Serpent", essex.title)
+        eq_("The Great Gatsby", gatsby.title)
+
+        # This book is open access.
+        [gatsby_pool] = [p for p in imported_pools if p.identifier == gatsby.primary_identifier]
+        eq_(True, gatsby_pool.open_access)
+        # This pool has two delivery mechanisms, from a borrow link and an open-access link.
+        # Both are DRM-free epubs.
+        lpdms = gatsby_pool.delivery_mechanisms
+        eq_(2, len(lpdms))
+        for lpdm in lpdms:
+            eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
+            eq_(DeliveryMechanism.NO_DRM, lpdm.delivery_mechanism.drm_scheme)
+
+        # This book is already checked out and has a hold.
+        [six_months_pool] = [p for p in imported_pools if p.identifier == six_months.primary_identifier]
+        eq_(False, six_months_pool.open_access)
+        eq_(1, six_months_pool.licenses_owned)
+        eq_(0, six_months_pool.licenses_available)
+        eq_(1, six_months_pool.patrons_in_hold_queue)
+        [lpdm] = six_months_pool.delivery_mechanisms
+        eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
+        eq_(RightsStatus.IN_COPYRIGHT, lpdm.rights_status.uri)
+
+        # This book is currently available.
+        [essex_pool] = [p for p in imported_pools if p.identifier == essex.primary_identifier]
+        eq_(False, essex_pool.open_access)
+        eq_(4, essex_pool.licenses_owned)
+        eq_(4, essex_pool.licenses_available)
+        eq_(0, essex_pool.patrons_in_hold_queue)
+        [lpdm] = essex_pool.delivery_mechanisms
+        eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
+        eq_(RightsStatus.IN_COPYRIGHT, lpdm.rights_status.uri)
+
+        

@@ -259,13 +259,15 @@ class HoldInfo(CirculationInfo):
     """
 
     def __init__(self, collection, data_source_name, identifier_type,
-                 identifier, start_date, end_date, hold_position):
+                 identifier, start_date, end_date, hold_position,
+                 external_identifier=None):
         super(HoldInfo, self).__init__(
             collection, data_source_name, identifier_type, identifier
         )
         self.start_date = start_date
         self.end_date = end_date
         self.hold_position = hold_position
+        self.external_identifier = external_identifier
 
     def __repr__(self):
         return "<HoldInfo for %s/%s, start=%s end=%s, position=%s>" % (
@@ -350,7 +352,7 @@ class CirculationAPI(object):
         from oneclick import OneClickAPI
         from enki import EnkiAPI
         from opds_for_distributors import OPDSForDistributorsAPI
-        from odl import ODLWithConsolidatedCopiesAPI
+        from odl import ODLWithConsolidatedCopiesAPI, SharedODLAPI
         return {
             ExternalIntegration.OVERDRIVE : OverdriveAPI,
             ExternalIntegration.ODILO : OdiloAPI,
@@ -360,6 +362,7 @@ class CirculationAPI(object):
             EnkiAPI.ENKI_EXTERNAL : EnkiAPI,
             OPDSForDistributorsAPI.NAME: OPDSForDistributorsAPI,
             ODLWithConsolidatedCopiesAPI.NAME: ODLWithConsolidatedCopiesAPI,
+            SharedODLAPI.NAME: SharedODLAPI,
         }
 
     def api_for_license_pool(self, licensepool):
@@ -407,6 +410,10 @@ class CirculationAPI(object):
         # This also means that our internal model of whether this book
         # is currently on loan or on hold might be wrong.
         api = self.api_for_license_pool(licensepool)
+        if not api:
+            # If there's no API for the pool, the pool is probably associated
+            # with a collection that this library doesn't have access to.
+            raise NoLicenses()
 
         must_set_delivery_mechanism = (
             api.SET_DELIVERY_MECHANISM_AT == BaseCirculationAPI.BORROW_STEP)
@@ -576,7 +583,8 @@ class CirculationAPI(object):
             patron,
             hold_info.start_date or now,
             hold_info.end_date, 
-            hold_info.hold_position
+            hold_info.hold_position,
+            hold_info.external_identifier,
         )
 
         if hold and is_new and self.analytics:

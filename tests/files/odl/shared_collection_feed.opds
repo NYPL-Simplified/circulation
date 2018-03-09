@@ -1,0 +1,120 @@
+<feed xmlns:app="http://www.w3.org/2007/app" xmlns:bib="http://bib.schema.org/" xmlns:bibframe="http://bibframe.org/vocab/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:drm="http://librarysimplified.org/terms/drm" xmlns:opds="http://opds-spec.org/2010/catalog" xmlns:opf="http://www.idpf.org/2007/opf" xmlns:schema="http://schema.org/" xmlns:simplified="http://librarysimplified.org/terms/" xmlns="http://www.w3.org/2005/Atom">
+  <id>/AL/collections/DPLA%20Exchange/crawlable</id>
+  <title>DPLA Exchange</title>
+  <updated>2018-03-09T02:34:00Z</updated>
+  <link href="/AL/collections/DPLA%20Exchange/crawlable" rel="self"/>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>http://www.feedbooks.com/item/2493650</id>
+    <title>Six Months, Three Days, Five Others</title>
+    <author>
+      <name>Charlie Jane Anders</name>
+      <link href="http://localhost:6500/AL/works/contributor/Charlie%20Jane%20Anders/eng/Adult%2CAdults+Only%2CChildren%2CYoung+Adult" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="contributor" title="Charlie Jane Anders"/>
+    </author>
+    <summary type="html">"A master absurdist...Highly recommended." &#8212;The New York TimesBefore the success of her debut SF-and-fantasy novel All the Birds in the Sky, Charlie Jane Anders was a rising star in SF and fantasy short fiction. Collected in a mini-book format, he...</summary>
+    <simplified:pwid>d47d038b-9d25-aaa4-d956-02dbdb2eeb56</simplified:pwid>
+    <link href="http://covers.feedbooks.net/item/2493650.jpg?size=large&amp;t=1511539042" type="image/png" rel="http://opds-spec.org/image"/>
+    <link href="http://covers.feedbooks.net/item/2493650.jpg?t=1511539042" type="image/png" rel="http://opds-spec.org/image/thumbnail"/>
+    <category term="Adult" scheme="http://schema.org/audience" label="Adult"/>
+    <category term="http://librarysimplified.org/terms/fiction/Fiction" scheme="http://librarysimplified.org/terms/fiction/" label="Fiction"/>
+    <category term="http://librarysimplified.org/terms/genres/Simplified/Short%20Stories" scheme="http://librarysimplified.org/terms/genres/Simplified/" label="Short Stories"/>
+    <category term="http://librarysimplified.org/terms/genres/Simplified/Fantasy" scheme="http://librarysimplified.org/terms/genres/Simplified/" label="Fantasy"/>
+    <category term="http://librarysimplified.org/terms/genres/Simplified/Literary%20Fiction" scheme="http://librarysimplified.org/terms/genres/Simplified/" label="Literary Fiction"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Tom Doherty Associates</dcterms:publisher>
+    <bibframe:distribution bibframe:ProviderName="DPLA Exchange"/>
+    <updated>2018-02-20T03:35:21Z</updated>
+    <link href="http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/2493650" type="application/atom+xml;type=entry;profile=opds-catalog" rel="alternate"/>
+    <link href="http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/2493650/report" rel="issues"/>
+    <link href="http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/2493650/borrow" rel="http://opds-spec.org/acquisition/borrow" type="application/atom+xml;type=entry;profile=opds-catalog">
+      <opds:indirectAcquisition type="application/vnd.adobe.adept+xml">
+        <opds:indirectAcquisition type="application/epub+zip"/>
+      </opds:indirectAcquisition>
+      <opds:availability status="unavailable"/>
+      <opds:holds total="1"/>
+      <opds:copies available="0" total="1"/>
+    </link>
+    <link href="http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/2493650/related_books" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Recommended Works"/>
+    <link href="http://localhost:6500/AL/annotations/URI/http://www.feedbooks.com/item/2493650/" type="application/ld+json; profile=&quot;http://www.w3.org/ns/anno.jsonld&quot;" rel="http://www.w3.org/ns/oa#annotationService"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>http://www.feedbooks.com/item/1946289</id>
+    <title>The Essex Serpent</title>
+    <author>
+      <name>Sarah Perry</name>
+      <link href="http://localhost:6500/AL/works/contributor/Sarah%20Perry/eng/Adult%2CAdults+Only%2CChildren%2CYoung+Adult" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="contributor" title="Sarah Perry"/>
+    </author>
+    <summary type="html">A Kirkus Review Best Book of 2017 and a Washington Post Notable Work of Fiction. Winner of the British Book Awards Fiction Book of the Year and overall Book of the Year, selected as the Waterstones Book of the Year, and a Costa Book Award Finalist...</summary>
+    <simplified:pwid>1cec35fe-fb01-bea0-e98f-ee1d9d1ca65a</simplified:pwid>
+    <link href="http://covers.feedbooks.net/item/1946289.jpg?size=large&amp;t=1511940921" type="image/png" rel="http://opds-spec.org/image"/>
+    <link href="http://covers.feedbooks.net/item/1946289.jpg?t=1511940921" type="image/png" rel="http://opds-spec.org/image/thumbnail"/>
+    <category term="Adult" scheme="http://schema.org/audience" label="Adult"/>
+    <category term="http://librarysimplified.org/terms/fiction/Fiction" scheme="http://librarysimplified.org/terms/fiction/" label="Fiction"/>
+    <category term="http://librarysimplified.org/terms/genres/Simplified/Literary%20Fiction" scheme="http://librarysimplified.org/terms/genres/Simplified/" label="Literary Fiction"/>
+    <category term="http://librarysimplified.org/terms/genres/Simplified/Historical%20Fiction" scheme="http://librarysimplified.org/terms/genres/Simplified/" label="Historical Fiction"/>
+    <dcterms:language>en</dcterms:language>
+    <dcterms:publisher>Custom House</dcterms:publisher>
+    <bibframe:distribution bibframe:ProviderName="DPLA Exchange"/>
+    <updated>2018-02-20T03:35:21Z</updated>
+    <link href="http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/1946289" type="application/atom+xml;type=entry;profile=opds-catalog" rel="alternate"/>
+    <link href="http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/1946289/report" rel="issues"/>
+    <link href="http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/1946289/borrow" rel="http://opds-spec.org/acquisition/borrow" type="application/atom+xml;type=entry;profile=opds-catalog">
+      <opds:indirectAcquisition type="application/vnd.adobe.adept+xml">
+        <opds:indirectAcquisition type="application/epub+zip"/>
+      </opds:indirectAcquisition>
+      <opds:availability status="available"/>
+      <opds:holds total="0"/>
+      <opds:copies available="4" total="4"/>
+    </link>
+    <link href="http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/1946289/related_books" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Recommended Works"/>
+    <link href="http://localhost:6500/AL/annotations/URI/http://www.feedbooks.com/item/1946289/" type="application/ld+json; profile=&quot;http://www.w3.org/ns/anno.jsonld&quot;" rel="http://www.w3.org/ns/oa#annotationService"/>
+  </entry>
+  <entry schema:additionalType="http://schema.org/EBook">
+    <id>https://www.feedbooks.com/book/5543</id>
+    <title>The Great Gatsby</title>
+    <author>
+      <name>Francis Scott Fitzgerald</name>
+      <link href="http://localhost:6500/AL/works/contributor/Francis%20Scott%20Fitzgerald/eng/Adult%2CAdults+Only%2CChildren%2CYoung+Adult" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="contributor" title="Francis Scott Fitzgerald"/>
+    </author>
+    <summary type="html">&lt;p&gt;In 1922, F. Scott Fitzgerald announced his decision to write "something new--something extraordinary and beautiful and simple + intricately patterned." That extraordinary, beautiful, intricately patterned, and above all, simple novel became The Great Gatsby, arguably Fitzgerald's finest work and certainly the book for which he is best known. A portrait of the Jazz Age in all of its decadence and excess, Gatsby captured the spirit of the author's generation and earned itself a permanent place in American mythology. Self-made, self-invented millionaire Jay Gatsby embodies some of Fitzgerald's--and his country's--most abiding obsessions: money, ambition, greed, and the promise of new beginnings. "Gatsby believed in the green light, the orgiastic future that year by year recedes before us. It eluded us then, but that's no matter--tomorrow we will run faster, stretch out our arms farther.... And one fine morning--" Gatsby's rise to glory and eventual fall from grace becomes a kind of cautionary tale about the American Dream.&lt;/p&gt;
+
+&lt;p&gt;It's also a love story, of sorts, the narrative of Gatsby's quixotic passion for Daisy Buchanan. The pair meet five years before the novel begins, when Daisy is a legendary young Louisville beauty and Gatsby an impoverished officer. They fall in love, but while Gatsby serves overseas, Daisy marries the brutal, bullying, but extremely rich Tom Buchanan. After the war, Gatsby devotes himself blindly to the pursuit of wealth by whatever means--and to the pursuit of Daisy, which amounts to the same thing. "Her voice is full of money," Gatsby says admiringly, in one of the novel's more famous descriptions. His millions made, Gatsby buys a mansion across Long Island Sound from Daisy's patrician East Egg address, throws lavish parties, and waits for her to appear. When she does, events unfold with all the tragic inevitability of a Greek drama, with detached, cynical neighbor Nick Carraway acting as chorus throughout. Spare, elegantly plotted, and written in crystalline prose, The Great Gatsby is as perfectly satisfying as the best kind of poem.&lt;/p&gt;
+
+&lt;p&gt;*  *  *&lt;/p&gt;
+
+&lt;p&gt;"Now we have an American masterpiece in its final form: the original crystal has shaped itself into the true diamond. This is the novel as Fitzgerald wished it to be, and so it is what we have dreamed of, sleeping and waking." -- James Dickey&lt;/p&gt;
+
+&lt;p&gt;*  *  *&lt;/p&gt;
+
+&lt;p&gt;The Great Gatsby is a novel by the American author F. Scott Fitzgerald. First published on April 10, 1925, it is set on Long Island's North Shore and in New York City during the summer of 1922.&lt;/p&gt;
+
+&lt;p&gt;The novel takes place following the First World War. American society enjoyed prosperity during the "roaring" 1920s as the economy soared. At the same time, Prohibition, the ban on the sale and manufacture of alcohol as mandated by the Eighteenth Amendment, made millionaires out of bootleggers. After its republishing in 1945 and 1953, it quickly found a wide readership and is today widely regarded as a paragon of the Great American Novel, and a literary classic. The Great Gatsby has become a standard text in high school and university courses on American literature in countries around the world, and is ranked second in the Modern Library's lists of the 100 Best Novels of the 20th Century.&lt;/p&gt;
+
+&lt;p&gt;--Wikipedia&lt;/p&gt;</summary>
+    <simplified:pwid>86a90761-785e-eee2-d127-a2b2f9c9d5ca</simplified:pwid>
+    <link href="http://covers.feedbooks.net/book/5543.jpg?size=large&amp;t=1491314033" type="image/png" rel="http://opds-spec.org/image"/>
+    <link href="http://covers.feedbooks.net/book/5543.jpg?t=1491314033" type="image/png" rel="http://opds-spec.org/image/thumbnail"/>
+    <category term="Adult" scheme="http://schema.org/audience" label="Adult"/>
+    <category term="http://librarysimplified.org/terms/fiction/Fiction" scheme="http://librarysimplified.org/terms/fiction/" label="Fiction"/>
+    <category term="http://librarysimplified.org/terms/genres/Simplified/Literary%20Fiction" scheme="http://librarysimplified.org/terms/genres/Simplified/" label="Literary Fiction"/>
+    <category term="http://librarysimplified.org/terms/genres/Simplified/Romance" scheme="http://librarysimplified.org/terms/genres/Simplified/" label="Romance"/>
+    <dcterms:language>en</dcterms:language>
+    <bibframe:distribution bibframe:ProviderName="DPLA Exchange"/>
+    <updated>2018-02-20T03:34:59Z</updated>
+    <link href="http://localhost:6500/AL/works/URI/https://www.feedbooks.com/book/5543" type="application/atom+xml;type=entry;profile=opds-catalog" rel="alternate"/>
+    <link href="http://localhost:6500/AL/works/URI/https://www.feedbooks.com/book/5543/report" rel="issues"/>
+    <link href="http://localhost:6500/AL/works/URI/https://www.feedbooks.com/book/5543/borrow" rel="http://opds-spec.org/acquisition/borrow" type="application/atom+xml;type=entry;profile=opds-catalog">
+      <opds:indirectAcquisition type="application/epub+zip"/>
+      <opds:availability status="available"/>
+    </link>
+    <link href="https://loan.feedbooks.net/loan/get_public_domain/?uuid=de7bb1b2-0b11-11e7-a2bc-6c626d85bd27" rel="http://opds-spec.org/acquisition/open-access" type="application/epub+zip">
+      <opds:availability status="available"/>
+    </link>
+    <link href="http://localhost:6500/AL/works/URI/https://www.feedbooks.com/book/5543/related_books" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="related" title="Recommended Works"/>
+    <link href="http://localhost:6500/AL/annotations/URI/https://www.feedbooks.com/book/5543/" type="application/ld+json; profile=&quot;http://www.w3.org/ns/anno.jsonld&quot;" rel="http://www.w3.org/ns/oa#annotationService"/>
+  </entry>
+  <link href="http://localhost:6500/AL/groups/" rel="start" title="All Books"/>
+  <link href="http://localhost:6500/AL/authentication_document" rel="http://opds-spec.org/auth/document"/>
+  <link href="http://localhost:6500/AL/search/" type="application/opensearchdescription+xml" rel="search"/>
+  <link href="http://localhost:6500/AL/loans/" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="http://opds-spec.org/shelf"/>
+  <link href="http://localhost:6500/AL/annotations/" type="application/ld+json; profile=&quot;http://www.w3.org/ns/anno.jsonld&quot;" rel="http://www.w3.org/ns/oa#annotationService"/>
+</feed>
