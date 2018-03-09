@@ -1007,7 +1007,6 @@ class TestLoanController(CirculationControllerTest):
 
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
-            args = self.pool.id, mech1.delivery_mechanism.id
             response = self.manager.loans.fulfill(
                 self.pool.id, mech1.delivery_mechanism.id
             )
