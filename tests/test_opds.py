@@ -946,5 +946,5 @@ class TestOPDS(VendorIDTest):
         links = parsed['links'] 
 
         [crawlable_link] = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
-        assert '/crawlable_feed' in crawlable_link['href']
+        assert '/crawlable_list_feed' in crawlable_link['href']
         assert str(list1.name) in crawlable_link['href']

@@ -156,6 +156,13 @@ NO_SUCH_LIST = pd(
       _("You asked for a nonexistent list."),
 )
 
+NO_SUCH_COLLECTION = pd(
+      "http://librarysimplified.org/terms/problem/unknown-collection",
+      404,
+      _("No such collection."),
+      _("You asked for a nonexistent collection."),
+)
+
 FORBIDDEN_BY_POLICY = pd(
       "http://librarysimplified.org/terms/problem/forbidden-by-policy",
       403,

@@ -477,7 +477,7 @@ class CirculationManagerAnnotator(Annotator):
 
         if lane and lane.uses_customlists and len(lane.customlists) == 1:
             crawlable_url = self.url_for(
-                "crawlable_feed", list_name=lane.customlists[0].name,
+                "crawlable_list_feed", list_name=lane.customlists[0].name,
                 library_short_name=self.library.short_name,
                 _external=True
             )
