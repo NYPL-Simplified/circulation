@@ -54,7 +54,8 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             "Feedbooks"
         )
         self.api = MockODLWithConsolidatedCopiesAPI(self._db, self.collection)
-        self.pool = self._licensepool(None, collection=self.collection)
+        self.work = self._work(with_license_pool=True, collection=self.collection)
+        self.pool = self.work.license_pools[0]
         self.patron = self._patron()
         self.client = self._integration_client()
 
@@ -714,10 +715,14 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         self.pool.licenses_available = 0
         self.pool.licenses_reserved = 1
         self.pool.patrons_in_hold_queue = 0
+        last_update = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
+        self.work.last_update_time = last_update
         self.api.update_hold_queue(self.pool)
         eq_(1, self.pool.licenses_available)
         eq_(0, self.pool.licenses_reserved)
         eq_(0, self.pool.patrons_in_hold_queue)
+        # The work's last update time is changed so it will be moved up in the crawlable OPDS feed.
+        assert self.work.last_update_time > last_update
 
         # If there are holds, a license will get reserved for the next hold
         # and its end date will be set.

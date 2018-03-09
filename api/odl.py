@@ -183,6 +183,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.consolidated_loan_url = collection.external_integration.setting(self.CONSOLIDATED_LOAN_URL_KEY).value
+        self.analytics = Analytics(_db)
 
     def internal_format(self, delivery_mechanism):
         """Each consolidated copy is only available in one format, so we don't need
@@ -570,13 +571,21 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         ).all()
 
         if len(holds) > remaining_licenses:
-            licensepool.licenses_available = 0
-            licensepool.licenses_reserved = remaining_licenses
-            licensepool.patrons_in_hold_queue = len(holds)
+            new_licenses_available = 0
+            new_licenses_reserved = remaining_licenses
+            new_patrons_in_hold_queue = len(holds)
         else:
-            licensepool.licenses_available = remaining_licenses - len(holds)
-            licensepool.licenses_reserved = len(holds)
-            licensepool.patrons_in_hold_queue = len(holds)
+            new_licenses_available = remaining_licenses - len(holds)
+            new_licenses_reserved = len(holds)
+            new_patrons_in_hold_queue = len(holds)
+        licensepool.update_availability(
+            licensepool.licenses_owned,
+            new_licenses_available,
+            new_licenses_reserved,
+            new_patrons_in_hold_queue,
+            analytics=self.analytics,
+            as_of=datetime.datetime.utcnow(),
+        )
 
         for hold in holds[:licensepool.licenses_reserved]:
             if hold.position != 0:
@@ -831,7 +840,7 @@ class ODLConsolidatedCopiesMonitor(CollectionMonitor):
 
         self.api = api or ODLWithConsolidatedCopiesAPI(_db, collection)
         self.start_url = collection.external_integration.setting(ODLWithConsolidatedCopiesAPI.CONSOLIDATED_COPIES_URL_KEY).value
-        self.analytics = Analytics(_db)
+        self.analytics = self.api.analytics
 
     def run_once(self, start, cutoff):
         url = self.start_url
