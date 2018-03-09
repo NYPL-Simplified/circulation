@@ -776,6 +776,14 @@ class TestCrawlableCustomListBasedLane(DatabaseTest):
         qu = qu.filter(clause)
 
         eq_([w2.id], [mw.works_id for mw in qu])
+
+    def test_url_arguments(self):
+        list, ignore = self._customlist()
+        lane = CrawlableCustomListBasedLane()
+        lane.initialize(self._default_library, list)
+        route, kwargs = lane.url_arguments
+        eq_(CrawlableCustomListBasedLane.ROUTE, route)
+        eq_(list.name, kwargs.get("list_name"))
         
 
 class TestCrawlableCollectionBasedLane(DatabaseTest):
@@ -831,3 +839,22 @@ class TestCrawlableCollectionBasedLane(DatabaseTest):
         eq_(qu, qu2)
         eq_(None, clause)
 
+    def test_url_arguments(self):
+        library = self._default_library
+        other_collection = self._collection()
+
+        # A lane for all the collections associated with a library.
+        lane = CrawlableCollectionBasedLane(library)
+        route, kwargs = lane.url_arguments
+        eq_(CrawlableCollectionBasedLane.LIBRARY_ROUTE, route)
+        eq_(None, kwargs.get("collection_name"))
+
+        # A lane for a collection not actually associated with a
+        # library. (A Library is still necessary to provide a point of
+        # reference for classes like Facets and CachedFeed.)
+        lane = CrawlableCollectionBasedLane(
+            library, [other_collection]
+        )
+        route, kwargs = lane.url_arguments
+        eq_(CrawlableCollectionBasedLane.COLLECTION_ROUTE, route)
+        eq_(other_collection.name, kwargs.get("collection_name"))
