@@ -1162,23 +1162,7 @@ class SharedODLAPI(BaseCirculationAPI):
         parser = SharedODLImporter.PARSER_CLASS()
         root = etree.parse(StringIO(unicode(response.content)))
 
-        fulfill_url = None
-        for link_tag in parser._xpath(root, 'atom:link'):
-            if link_tag.attrib.get("rel") == Hyperlink.GENERIC_OPDS_ACQUISITION:
-                content_type = None
-                drm_scheme = link_tag.attrib.get("type")
-
-                indirect_acquisition = parser._xpath(link_tag, "opds:indirectAcquisition")
-                if indirect_acquisition:
-                    content_type = indirect_acquisition[0].get("type")
-                else:
-                    content_type = drm_scheme
-                    drm_scheme = None
-
-                if content_type == requested_content_type and drm_scheme == requested_drm_scheme:
-                    fulfill_url = link_tag.attrib.get("href")
-                    break
-
+        fulfill_url = SharedODLImporter.get_fulfill_url(response.content, requested_content_type, requested_drm_scheme)
         if not fulfill_url:
             raise FormatNotAvailable()
 
@@ -1367,6 +1351,30 @@ class SharedODLAPI(BaseCirculationAPI):
 
 class SharedODLImporter(OPDSImporter):
     NAME = SharedODLAPI.NAME
+
+    @classmethod
+    def get_fulfill_url(cls, entry, requested_content_type, requested_drm_scheme):
+        parser = cls.PARSER_CLASS()
+        root = etree.parse(StringIO(unicode(entry)))
+
+        fulfill_url = None
+        for link_tag in parser._xpath(root, 'atom:link'):
+            if link_tag.attrib.get("rel") == Hyperlink.GENERIC_OPDS_ACQUISITION:
+                content_type = None
+                drm_scheme = link_tag.attrib.get("type")
+
+                indirect_acquisition = parser._xpath(link_tag, "opds:indirectAcquisition")
+                if indirect_acquisition:
+                    content_type = indirect_acquisition[0].get("type")
+                else:
+                    content_type = drm_scheme
+                    drm_scheme = None
+
+                if content_type == requested_content_type and drm_scheme == requested_drm_scheme:
+                    fulfill_url = link_tag.attrib.get("href")
+                    break
+        return fulfill_url
+
 
     @classmethod
     def _detail_for_elementtree_entry(cls, parser, entry_tag, feed_url=None):

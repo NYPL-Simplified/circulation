@@ -1738,6 +1738,13 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
 
 class TestSharedODLImporter(DatabaseTest, BaseODLTest):
 
+    def test_get_fulfill_url(self):
+        entry = self.get_data("shared_collection_loan_info.opds")
+        eq_("http://localhost:6500/AL/collections/DPLA%20Exchange/loans/33/fulfill/2",
+            SharedODLImporter.get_fulfill_url(entry, "application/epub+zip", "application/vnd.adobe.adept+xml"))
+        eq_(None, SharedODLImporter.get_fulfill_url(entry, "application/pdf", "application/vnd.adobe.adept+xml"))
+        eq_(None, SharedODLImporter.get_fulfill_url(entry, "application/epub+zip", None))
+
     def test_import(self):
         feed = self.get_data("shared_collection_feed.opds")
         data_source = DataSource.lookup(self._db, "DPLA Exchange", autocreate=True)
