@@ -1005,7 +1005,7 @@ class SharedODLAPI(BaseCirculationAPI):
     def collection(self, _db):
         return get_one(_db, Collection, id=self.collection_id)
 
-    def _get(self, url, headers=None, patron=None, allowed_response_codes=None):
+    def _get(self, url, headers=None, patron=None, allowed_response_codes=None, do_get=HTTP.get_with_timeout):
         """Make a normal HTTP request, but include an authentication
         header with the credentials for the collection.
         """
@@ -1023,7 +1023,7 @@ class SharedODLAPI(BaseCirculationAPI):
         auth_header = 'Bearer ' + base64.b64encode(shared_secret)
         headers['Authorization'] = auth_header
 
-        return HTTP.get_with_timeout(url, headers=headers, allowed_response_codes=allowed_response_codes)
+        return do_get(url, headers=headers, allowed_response_codes=allowed_response_codes)
 
     def checkout(self, patron, pin, licensepool, internal_format):
         _db = Session.object_session(patron)

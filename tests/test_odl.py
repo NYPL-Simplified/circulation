@@ -7,13 +7,16 @@ import os
 import json
 import datetime
 import re
+import base64
 
 from . import DatabaseTest
 from core.model import (
     Collection,
+    ConfigurationSetting,
     Credential,
     DataSource,
     DeliveryMechanism,
+    ExternalIntegration,
     Hold,
     Identifier,
     Loan,
@@ -26,6 +29,7 @@ from api.odl import (
     ODLConsolidatedCopiesMonitor,
     ODLHoldReaper,
     MockODLWithConsolidatedCopiesAPI,
+    SharedODLAPI,
     MockSharedODLAPI,
     SharedODLImporter,
 )
@@ -1424,6 +1428,31 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         self.api = MockSharedODLAPI(self._db, self.collection)
         self.pool = self._licensepool(None, collection=self.collection)
         self.patron = self._patron()
+
+    def test_get(self):
+        # Create a SharedODLAPI to test the _get method. The other tests use a
+        # mock API class that overrides _get.
+        api = SharedODLAPI(self._db, self.collection)
+
+        # The library has not registered with the remote collection yet.
+        def do_get(url, headers=None, allowed_response_codes=None):
+            raise Exception("do_get should not be called")
+        assert_raises(LibraryAuthorizationFailedException, api._get,
+                      "test url", patron=self.patron, do_get=do_get)
+
+        # Once the library registers, it gets a shared secret that is included
+        # in request headers.
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, ExternalIntegration.PASSWORD, self.patron.library,
+            self.collection.external_integration).value = "secret"
+        def do_get(url, headers=None, allowed_response_codes=None):
+            eq_("test url", url)
+            eq_("test header value", headers.get("test_key"))
+            eq_("Bearer " + base64.b64encode("secret"), headers.get("Authorization"))
+            eq_(["200"], allowed_response_codes)
+        api._get("test url", headers=dict(test_key="test header value"),
+                 patron=self.patron, allowed_response_codes=["200"],
+                 do_get=do_get)
 
     def test_checkout_success(self):
         response = self.get_data("shared_collection_borrow_success.opds")
