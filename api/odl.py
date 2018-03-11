@@ -1105,10 +1105,10 @@ class SharedODLAPI(BaseCirculationAPI):
 
         info_url = loan.external_identifier
         try:
-            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "400"])
+            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
         except RemoteIntegrationException, e:
             raise CannotReturn()
-        if response.status_code == 400:
+        if response.status_code == 404:
             raise NotCheckedOut()
         feed = feedparser.parse(unicode(response.content))
         entries = feed.get("entries")
@@ -1139,9 +1139,11 @@ class SharedODLAPI(BaseCirculationAPI):
 
         info_url = loan.external_identifier
         try:
-            response = self._get(info_url)
+            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
         except RemoteIntegrationException, e:
             raise CannotFulfill()
+        if response.status_code == 404:
+            raise NotCheckedOut()
 
         requested_content_type = internal_format.delivery_mechanism.content_type
         requested_drm_scheme = internal_format.delivery_mechanism.drm_scheme
@@ -1262,9 +1264,11 @@ class SharedODLAPI(BaseCirculationAPI):
 
         info_url = hold.external_identifier
         try:
-            response = self._get(info_url)
+            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
         except RemoteIntegrationException, e:
             raise CannotReleaseHold()
+        if response.status_code == 404:
+            raise NotOnHold()
         feed = feedparser.parse(unicode(response.content))
         entries = feed.get("entries")
         if len(entries) < 1:
@@ -1300,9 +1304,9 @@ class SharedODLAPI(BaseCirculationAPI):
         activity = []
         for loan in loans:
             info_url = loan.external_identifier
-            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "400"])
-            if response.status_code == 400:
-                # 400 is returned when the loan has been deleted. Leave this loan out of the result.
+            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
+            if response.status_code == 404:
+                # 404 is returned when the loan has been deleted. Leave this loan out of the result.
                 continue
             feed = feedparser.parse(unicode(response.content))
             entries = feed.get("entries")
@@ -1329,9 +1333,9 @@ class SharedODLAPI(BaseCirculationAPI):
             )
         for hold in holds:
             info_url = hold.external_identifier
-            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "400"])
-            if response.status_code == 400:
-                # 400 is returned when the hold has been deleted. Leave this hold out of the result.
+            response = self._get(info_url, allowed_response_codes=["2xx", "3xx", "404"])
+            if response.status_code == 404:
+                # 404 is returned when the hold has been deleted. Leave this hold out of the result.
                 continue
             feed = feedparser.parse(unicode(response.content))
             entries = feed.get("entries")

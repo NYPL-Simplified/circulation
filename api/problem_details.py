@@ -135,6 +135,20 @@ NO_ACTIVE_LOAN_OR_HOLD = pd(
       _("You can't do this without first borrowing this book or putting it on hold."),
 )
 
+LOAN_NOT_FOUND = pd(
+      "http://librarysimplified.org/terms/problem/loan-not-found",
+      404,
+      _("Loan not found."),
+      _("You don't have a loan with the provided id."),
+)
+
+HOLD_NOT_FOUND = pd(
+      "http://librarysimplified.org/terms/problem/hold-not-found",
+      404,
+      _("Hold not found."),
+      _("You don't have a hold with the provided id."),
+)
+
 COULD_NOT_MIRROR_TO_REMOTE = pd(
       "http://librarysimplified.org/terms/problem/cannot-mirror-to-remote",
       502,

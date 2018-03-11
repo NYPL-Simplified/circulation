@@ -2900,15 +2900,15 @@ class TestSharedCollectionController(ControllerTest):
         with self.request_context_with_library_and_client("/"):
             # This loan doesn't exist.
             response = self.manager.shared_collection_controller.loan_info(self.collection.name, 1234567)
-            eq_(NO_ACTIVE_LOAN, response)
+            eq_(LOAN_NOT_FOUND, response)
 
             # This loan belongs to a different library.
             response = self.manager.shared_collection_controller.loan_info(self.collection.name, other_client_loan.id)
-            eq_(NO_ACTIVE_LOAN, response)
+            eq_(LOAN_NOT_FOUND, response)
 
             # This loan's pool belongs to a different collection.
             response = self.manager.shared_collection_controller.loan_info(self.collection.name, other_pool_loan.id)
-            eq_(NO_ACTIVE_LOAN, response)
+            eq_(LOAN_NOT_FOUND, response)
 
             # This loan is ours.
             response = self.manager.shared_collection_controller.loan_info(self.collection.name, loan.id)
@@ -3036,10 +3036,10 @@ class TestSharedCollectionController(ControllerTest):
 
         with self.request_context_with_library_and_client("/"):
             response = self.manager.shared_collection_controller.revoke_loan(self.collection.name, other_pool_loan.id)
-            eq_(NO_ACTIVE_LOAN.uri, response.uri)
+            eq_(LOAN_NOT_FOUND.uri, response.uri)
 
             response = self.manager.shared_collection_controller.revoke_loan(self.collection.name, other_client_loan.id)
-            eq_(NO_ACTIVE_LOAN.uri, response.uri)
+            eq_(LOAN_NOT_FOUND.uri, response.uri)
 
             api = self.app.manager.shared_collection_controller.shared_collection
 
@@ -3072,7 +3072,7 @@ class TestSharedCollectionController(ControllerTest):
 
         with self.request_context_with_library_and_client("/"):
             response = self.manager.shared_collection_controller.fulfill(self.collection.name, other_pool_loan.id, None)
-            eq_(NO_ACTIVE_LOAN.uri, response.uri)
+            eq_(LOAN_NOT_FOUND.uri, response.uri)
 
             api = self.app.manager.shared_collection_controller.shared_collection
 
@@ -3187,15 +3187,15 @@ class TestSharedCollectionController(ControllerTest):
         with self.request_context_with_library_and_client("/"):
             # This hold doesn't exist.
             response = self.manager.shared_collection_controller.hold_info(self.collection.name, 1234567)
-            eq_(NO_ACTIVE_HOLD, response)
+            eq_(HOLD_NOT_FOUND, response)
 
             # This hold belongs to a different library.
             response = self.manager.shared_collection_controller.hold_info(self.collection.name, other_client_hold.id)
-            eq_(NO_ACTIVE_HOLD, response)
+            eq_(HOLD_NOT_FOUND, response)
 
             # This hold's pool belongs to a different collection.
             response = self.manager.shared_collection_controller.hold_info(self.collection.name, other_pool_hold.id)
-            eq_(NO_ACTIVE_HOLD, response)
+            eq_(HOLD_NOT_FOUND, response)
 
             # This hold is ours.
             response = self.manager.shared_collection_controller.hold_info(self.collection.name, hold.id)
@@ -3235,10 +3235,10 @@ class TestSharedCollectionController(ControllerTest):
 
         with self.request_context_with_library_and_client("/"):
             response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, other_pool_hold.id)
-            eq_(NO_ACTIVE_HOLD.uri, response.uri)
+            eq_(HOLD_NOT_FOUND.uri, response.uri)
 
             response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, other_client_hold.id)
-            eq_(NO_ACTIVE_HOLD.uri, response.uri)
+            eq_(HOLD_NOT_FOUND.uri, response.uri)
 
             api = self.app.manager.shared_collection_controller.shared_collection
 

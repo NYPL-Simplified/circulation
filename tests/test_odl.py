@@ -1534,7 +1534,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         eq_([], self.api.requests)
 
         loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
-        self.api.queue_response(400)
+        self.api.queue_response(404)
         assert_raises(NotCheckedOut, self.api.checkin, self.patron, "pin", self.pool)
         eq_([loan.external_identifier], self.api.requests)
 
@@ -1575,6 +1575,12 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert_raises(NotCheckedOut, self.api.fulfill, self.patron, "pin",
                       self.pool, self.pool.delivery_mechanisms[0])
         eq_([], self.api.requests)
+
+        loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
+        self.api.queue_response(404)
+        assert_raises(NotCheckedOut, self.api.fulfill, self.patron, "pin",
+                      self.pool, self.pool.delivery_mechanisms[0])
+        eq_([loan.external_identifier], self.api.requests)
 
     def test_fulfill_cannot_fulfill(self):
         loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
@@ -1655,6 +1661,11 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert_raises(NotOnHold, self.api.release_hold, self.patron, "pin", self.pool)
         eq_([], self.api.requests)
 
+        hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
+        self.api.queue_response(404)
+        assert_raises(NotOnHold, self.api.release_hold, self.patron, "pin", self.pool)
+        eq_([hold.external_identifier], self.api.requests)
+
     def test_release_hold_cannot_release_hold(self):
         hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
         self.api.queue_response(500)
@@ -1686,7 +1697,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         eq_([loan.external_identifier], self.api.requests)
 
         # The patron's loan has been deleted on the remote.
-        self.api.queue_response(400, content="No loan here")
+        self.api.queue_response(404, content="No loan here")
         activity = self.api.patron_activity(self.patron, "pin")
         eq_(0, len(activity))
         eq_([loan.external_identifier], self.api.requests[1:])
@@ -1708,7 +1719,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         eq_([hold.external_identifier], self.api.requests[2:])
 
         # The patron's hold has been deleted on the remote.
-        self.api.queue_response(400, content="No hold here")
+        self.api.queue_response(404, content="No hold here")
         activity = self.api.patron_activity(self.patron, "pin")
         eq_(0, len(activity))
         eq_([hold.external_identifier], self.api.requests[3:])

@@ -1556,7 +1556,7 @@ class SharedCollectionController(CirculationManagerController):
             return client
         loan = get_one(self._db, Loan, id=loan_id, integration_client=client)
         if not loan or loan.license_pool.collection != collection:
-            return NO_ACTIVE_LOAN
+            return LOAN_NOT_FOUND
 
         feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
             self.circulation, loan)
@@ -1610,7 +1610,7 @@ class SharedCollectionController(CirculationManagerController):
             return client
         loan = get_one(self._db, Loan, id=loan_id, integration_client=client)
         if not loan or not loan.license_pool.collection == collection:
-            return NO_ACTIVE_LOAN
+            return LOAN_NOT_FOUND
 
         try:
             self.shared_collection.revoke_loan(collection, client, loan)
@@ -1631,7 +1631,7 @@ class SharedCollectionController(CirculationManagerController):
             return client
         loan = get_one(self._db, Loan, id=loan_id)
         if not loan or not loan.license_pool.collection == collection:
-            return NO_ACTIVE_LOAN
+            return LOAN_NOT_FOUND
 
         mechanism = None
         if mechanism_id:
@@ -1717,7 +1717,7 @@ class SharedCollectionController(CirculationManagerController):
             return client
         hold = get_one(self._db, Hold, id=hold_id, integration_client=client)
         if not hold or not hold.license_pool.collection == collection:
-            return NO_ACTIVE_HOLD
+            return HOLD_NOT_FOUND
 
         feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
             self.circulation, hold)
@@ -1733,7 +1733,7 @@ class SharedCollectionController(CirculationManagerController):
             return client
         hold = get_one(self._db, Hold, id=hold_id, integration_client=client)
         if not hold or not hold.license_pool.collection == collection:
-            return NO_ACTIVE_HOLD
+            return HOLD_NOT_FOUND
 
         try:
             self.shared_collection.revoke_hold(collection, client, hold)
