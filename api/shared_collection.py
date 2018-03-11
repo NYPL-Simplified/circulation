@@ -104,15 +104,6 @@ class SharedCollectionAPI(object):
             raise InvalidInputException(
                 _("An authentication document URL is required to register a library."))
 
-        external_library_urls = ConfigurationSetting.for_externalintegration(
-            BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, collection.external_integration
-        ).json_value
-
-        if not external_library_urls or auth_document_url not in external_library_urls:
-            raise AuthorizationFailedException(
-                _("Your library's URL is not one of the allowed URLs for this collection. Ask the collection administrator to add %(auth_document_url)s to the list of allowed URLs.",
-                  auth_document_url=auth_document_url))
-
         auth_response = do_get(auth_document_url, allowed_response_codes=["2xx", "3xx"])
         try:
             auth_document = json.loads(auth_response.content)
@@ -121,6 +112,29 @@ class SharedCollectionAPI(object):
                 _("Authentication document at %(auth_document_url)s was not valid JSON.",
                   auth_document_url=auth_document_url),
                 _("Remote authentication document"))
+
+        links = auth_document.get("links")
+        start_url = None
+        for link in links:
+            if link.get("rel") == "start":
+                start_url = link.get("href")
+                break
+
+        if not start_url:
+            raise RemoteInitiatedServerError(
+                _("Authentication document at %(auth_document_url)s did not contain a start link.",
+                  auth_document_url=auth_document_url),
+                _("Remote authentication document"))
+
+        external_library_urls = ConfigurationSetting.for_externalintegration(
+            BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, collection.external_integration
+        ).json_value
+
+        if not external_library_urls or start_url not in external_library_urls:
+            raise AuthorizationFailedException(
+                _("Your library's URL is not one of the allowed URLs for this collection. Ask the collection administrator to add %(library_url)s to the list of allowed URLs.",
+                  library_url=start_url))
+
         public_key = auth_document.get("public_key")
         if not public_key or not public_key.get("type") == "RSA" or not public_key.get("value"):
             raise RemoteInitiatedServerError(
@@ -132,10 +146,10 @@ class SharedCollectionAPI(object):
         public_key = RSA.importKey(public_key)
         encryptor = PKCS1_OAEP.new(public_key)
 
-        normalized_url = IntegrationClient.normalize_url(auth_document_url)
+        normalized_url = IntegrationClient.normalize_url(start_url)
         client = get_one(self._db, IntegrationClient, url=normalized_url)
         if not client:
-            client, ignore = IntegrationClient.register(self._db, auth_document_url)
+            client, ignore = IntegrationClient.register(self._db, start_url)
 
         shared_secret = client.shared_secret
         encrypted_secret = encryptor.encrypt(str(shared_secret))
@@ -203,6 +217,7 @@ class BaseSharedCollectionAPI(object):
         {
             "key": EXTERNAL_LIBRARY_URLS,
             "label": _("URLs for libraries on other circulation managers that use this collection"),
+            "description": _("A URL should include the library's short name (e.g. https://circulation.librarysimplified.org/NYNYPL/), even if it is the only library on the circulation manager."),
             "type": "list",
             "optional": True,
         },

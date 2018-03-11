@@ -117,17 +117,6 @@ class TestSharedCollectionAPI(DatabaseTest):
         assert_raises(InvalidInputException, self.shared_collection.register,
                       self.collection, None)
 
-        # If no external library URLs are configured, no one can register.
-        assert_raises(AuthorizationFailedException, self.shared_collection.register,
-                      self.collection, "http://library.org/auth")
-
-        # If the library's URL isn't in the configuration, it can't register.
-        ConfigurationSetting.for_externalintegration(
-            BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, self.collection.external_integration
-        ).value = json.dumps(["http://library.org/auth"])
-        assert_raises(AuthorizationFailedException, self.shared_collection.register,
-                      self.collection, "http://differentlibrary.org/auth")
-
         # If the url doesn't return a valid auth document, there's an exception.
         auth_response = "not json"
         def do_get(*args, **kwargs):
@@ -135,16 +124,39 @@ class TestSharedCollectionAPI(DatabaseTest):
         assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
 
-        # Or if the public key is missing.
-        auth_response = json.dumps({})
+        # The auth document also must have a link to the library's catalog.
+        auth_response = json.dumps({"links": []})
         assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
 
-        auth_response = json.dumps({"public_key": { "type": "not RSA", "value": "123" }})
+        # If no external library URLs are configured, no one can register.
+        auth_response = json.dumps({"links": [{"href": "http://library.org", "rel": "start"}]})
+        ConfigurationSetting.for_externalintegration(
+            BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, self.collection.external_integration
+        ).value = None
+        assert_raises(AuthorizationFailedException, self.shared_collection.register,
+                      self.collection, "http://library.org/auth", do_get=do_get)
+
+        # If the library's URL isn't in the configuration, it can't register.
+        auth_response = json.dumps({"links": [{"href": "http://differentlibrary.org", "rel": "start"}]})
+        ConfigurationSetting.for_externalintegration(
+            BaseSharedCollectionAPI.EXTERNAL_LIBRARY_URLS, self.collection.external_integration
+        ).value = json.dumps(["http://library.org"])
+        assert_raises(AuthorizationFailedException, self.shared_collection.register,
+                      self.collection, "http://differentlibrary.org/auth", do_get=do_get)
+
+        # Or if the public key is missing from the auth document.
+        auth_response = json.dumps({"links": [{"href": "http://library.org", "rel": "start"}]})
         assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
 
-        auth_response = json.dumps({"public_key": { "type": "RSA" }})
+        auth_response = json.dumps({"public_key": { "type": "not RSA", "value": "123" },
+                                    "links": [{"href": "http://library.org", "rel": "start"}]})
+        assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
+                      self.collection, "http://library.org/auth", do_get=do_get)
+
+        auth_response = json.dumps({"public_key": { "type": "RSA" },
+                                    "links": [{"href": "http://library.org", "rel": "start"}]})
         assert_raises(RemoteInitiatedServerError, self.shared_collection.register,
                       self.collection, "http://library.org/auth", do_get=do_get)
         
@@ -153,11 +165,12 @@ class TestSharedCollectionAPI(DatabaseTest):
         key = RSA.generate(2048)
         public_key = key.publickey().exportKey()
         encryptor = PKCS1_OAEP.new(key)
-        auth_response = json.dumps({"public_key": { "type": "RSA", "value": public_key }})
+        auth_response = json.dumps({"public_key": { "type": "RSA", "value": public_key },
+                                    "links": [{"href": "http://library.org", "rel": "start"}]})
         response = self.shared_collection.register(self.collection, "http://library.org/auth", do_get=do_get)
 
         # An IntegrationClient has been created.
-        client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/auth"))
+        client = get_one(self._db, IntegrationClient, url=IntegrationClient.normalize_url("http://library.org/"))
         decrypted_secret = encryptor.decrypt(base64.b64decode(response.get("metadata", {}).get("shared_secret")))
         eq_(client.shared_secret, decrypted_secret)
 
