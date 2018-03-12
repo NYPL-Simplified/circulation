@@ -2259,7 +2259,9 @@ class TestSettingsController(AdminControllerTest):
         # collection (not a good choice for a real library), so only
         # two lanes were created: "Other Languages" and then "German"
         # underneath it.
-        [other_languages, german] = library.lanes
+        [german, other_languages] = sorted(
+            library.lanes, key=lambda x: x.display_name
+        )
         eq_(None, other_languages.parent)
         eq_(['ger'], other_languages.languages)
         eq_(other_languages, german.parent)

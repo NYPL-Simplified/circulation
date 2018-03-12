@@ -36,7 +36,11 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
     NAME = ExternalIntegration.ODILO
     DESCRIPTION = _("Integrate an Odilo library collection.")
     SETTINGS = [
-                   {"key": BaseOdiloAPI.LIBRARY_API_BASE_URL, "label": _("Library API base URL")},
+                   {
+                       "key": BaseOdiloAPI.LIBRARY_API_BASE_URL,
+                       "label": _("Library API base URL"),
+                       "description": _("This might look like <code>https://[library].odilo.us/api/v2</code>."),
+                   },
                    {"key": ExternalIntegration.USERNAME, "label": _("Client Key")},
                    {"key": ExternalIntegration.PASSWORD, "label": _("Client Secret")},
                ] + BaseCirculationAPI.SETTINGS
