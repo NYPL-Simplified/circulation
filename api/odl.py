@@ -292,26 +292,30 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         return self._checkin(loan)
 
     def _checkin(self, loan):
+        _db = Session.object_session(loan)
         doc = self.get_license_status_document(loan)
         status = doc.get("status")
         if status in [self.REVOKED_STATUS, self.RETURNED_STATUS, self.CANCELLED_STATUS, self.EXPIRED_STATUS]:
             # This loan was already returned early or revoked by the distributor, or it expired.
             self.update_loan(loan, doc)
             raise NotCheckedOut()
-        elif status == self.ACTIVE_STATUS:
-            # This loan has already been fulfilled, so it needs to be returned through the DRM system.
-            raise CannotReturn(_("This loan has already been fulfilled, so it must be returned through the DRM system."))
 
         return_url = doc.get("links", {}).get("return", {}).get("href")
-        if return_url:
-            # Hit the distributor's return link.
-            self._get(return_url)
-            # Get the status document again to make sure the return was successful,
-            # and if so update the pool availability and delete the local loan.
-            self.update_loan(loan)
-        else:
+        if not return_url:
             # The distributor didn't provide a link to return this loan.
             raise CannotReturn()
+
+        # Hit the distributor's return link.
+        self._get(return_url)
+        # Get the status document again to make sure the return was successful,
+        # and if so update the pool availability and delete the local loan.
+        self.update_loan(loan)
+
+        # At this point, if the loan still exists, something went wrong.
+        loan = get_one(_db, Loan, id=loan.id)
+        if loan:
+            raise RemoteRefusedReturn()
+        return True
 
     def checkout(self, patron, pin, licensepool, internal_format):
         """Create a new loan."""

@@ -251,6 +251,24 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             self.patron, "pin", self.pool,
         )
 
+        # The return link doesn't change the status.
+        lsd = json.dumps({
+            "status": "ready",
+            "links": {
+                "return": {
+                    "href": "http://return",
+                },
+            },
+        })
+
+        self.api.queue_response(200, content=lsd)
+        self.api.queue_response(200, content="Deleted")
+        self.api.queue_response(200, content=lsd)
+        assert_raises(
+            RemoteRefusedReturn, self.api.checkin,
+            self.patron, "pin", self.pool,
+        )
+
     def test_checkout_success(self):
         # This book is available to check out.
         self.pool.licenses_owned = 6
