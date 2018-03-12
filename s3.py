@@ -17,7 +17,7 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
-    NAME = u'Amazon S3'
+    NAME = ExternalIntegration.S3
 
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
