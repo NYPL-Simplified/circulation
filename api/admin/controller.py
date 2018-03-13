@@ -58,6 +58,7 @@ from core.util.problem_detail import (
     ProblemDetail, 
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
+from core.mirror import MirrorUploader
 from core.util.http import HTTP
 from problem_details import *
 from core.util import (
@@ -1530,6 +1531,8 @@ class SettingsController(CirculationManagerController):
 
     METADATA_SERVICE_URI_TYPE = 'application/opds+json;profile=https://librarysimplified.org/rel/profile/metadata-service'
 
+    NO_MIRROR_INTEGRATION = u"NO_MIRROR"
+
     def libraries(self):
         if flask.request.method == 'GET':
             libraries = []
@@ -1655,7 +1658,8 @@ class SettingsController(CirculationManagerController):
             self._db.delete(library)
             return Response(unicode(_("Deleted")), 200)
 
-    def _get_integration_protocols(self, provider_apis, protocol_name_attr="__module__"):
+    @classmethod
+    def _get_integration_protocols(cls, provider_apis, protocol_name_attr="__module__"):
         protocols = []
         for api in provider_apis:
             protocol = dict()
@@ -1674,15 +1678,19 @@ class SettingsController(CirculationManagerController):
                 protocol["sitewide"] = sitewide
 
             settings = getattr(api, "SETTINGS", [])
-            protocol["settings"] = settings
+            protocol["settings"] = list(settings)
 
             child_settings = getattr(api, "CHILD_SETTINGS", None)
             if child_settings != None:
-                protocol["child_settings"] = child_settings
+                protocol["child_settings"] = list(child_settings)
 
             library_settings = getattr(api, "LIBRARY_SETTINGS", None)
             if library_settings != None:
-                protocol["library_settings"] = library_settings
+                protocol["library_settings"] = list(library_settings)
+
+            cardinality = getattr(api, 'CARDINALITY', None)
+            if cardinality != None:
+                protocol['cardinality'] = cardinality
 
             protocols.append(protocol)
         return protocols
@@ -1810,6 +1818,8 @@ class SettingsController(CirculationManagerController):
         return True
 
     def _delete_integration(self, integration_id, goal):
+        if flask.request.method != "DELETE":
+            return
         integration = get_one(self._db, ExternalIntegration,
                               id=integration_id, goal=goal)
         if not integration:
@@ -1831,6 +1841,13 @@ class SettingsController(CirculationManagerController):
                         ]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
+        # If there are storage integrations, add a mirror integration
+        # setting to every protocol's 'settings' block.
+        mirror_integration_setting = self._mirror_integration_setting()
+        if mirror_integration_setting:
+            for protocol in protocols:
+                protocol['settings'].append(mirror_integration_setting)
+
         if flask.request.method == 'GET':
             collections = []
             for c in self._db.query(Collection).order_by(Collection.name).all():
@@ -1851,7 +1868,9 @@ class SettingsController(CirculationManagerController):
                     for setting in protocol.get("settings"):
                         key = setting.get("key")
                         if key not in collection["settings"]:
-                            if setting.get("type") == "list":
+                            if key == 'mirror_integration_id':
+                                value = c.mirror_integration_id or self.NO_MIRROR_INTEGRATION
+                            elif setting.get("type") == "list":
                                 value = c.external_integration.setting(key).json_value
                             else:
                                 value = c.external_integration.setting(key).value
@@ -1919,7 +1938,7 @@ class SettingsController(CirculationManagerController):
         else:
             collection.parent = None
             settings = protocol.get("settings")
-        
+
         for setting in settings:
             key = setting.get("key")
             if key == "external_account_id":
@@ -1931,6 +1950,22 @@ class SettingsController(CirculationManagerController):
                         _("The collection configuration is missing a required setting: %(setting)s",
                           setting=setting.get("label")))
                 collection.external_account_id = value
+            elif key == 'mirror_integration_id':
+                value = flask.request.form.get(key)
+                if value == self.NO_MIRROR_INTEGRATION:
+                    integration_id = None
+                else:
+                    integration = get_one(
+                        self._db, ExternalIntegration, id=value
+                    )
+                    if not integration:
+                        self._db.rollback()
+                        return MISSING_SERVICE
+                    if integration.goal != ExternalIntegration.STORAGE_GOAL:
+                        self._db.rollback()
+                        return INTEGRATION_GOAL_CONFLICT
+                    integration_id = integration.id
+                collection.mirror_integration_id = integration_id
             else:
                 result = self._set_integration_setting(collection.external_integration, setting)
                 if isinstance(result, ProblemDetail):
@@ -1962,6 +1997,76 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(collection.id), 201)
         else:
             return Response(unicode(collection.id), 200)
+
+    def _mirror_integration_setting(self):
+        """Create a setting interface for selecting a storage integration to
+        be used when mirroring items from a collection.
+        """
+        integrations = self._db.query(ExternalIntegration).filter(
+            ExternalIntegration.goal==ExternalIntegration.STORAGE_GOAL
+        ).order_by(
+            ExternalIntegration.name
+        ).all()
+        if not integrations:
+            return
+        mirror_integration_setting = {
+            "key": "mirror_integration_id",
+            "label": _("Mirror"),
+            "description": _("Any cover images or free books encountered while importing content from this collection can be mirrored to a server you control."),
+            "type": "select",
+            "options" : [
+                dict(
+                    key=self.NO_MIRROR_INTEGRATION,
+                    label=_("None - Do not mirror cover images or free books")
+                )
+            ]
+        }
+        for integration in integrations:
+            mirror_integration_setting['options'].append(
+                dict(key=integration.id, label=integration.name)
+            )
+        return mirror_integration_setting
+
+    def _create_integration(self, protocol_definitions, protocol, goal):
+        """Create a new ExternalIntegration for the given protocol and
+        goal, assuming that doing so is compatible with the protocol's
+        definition.
+
+        :return: A 2-tuple (result, is_new). `result` will be an
+            ExternalIntegration if one could be created, and a
+            ProblemDetail otherwise.
+        """
+        if not protocol:
+            return NO_PROTOCOL_FOR_NEW_SERVICE, False
+        matches = [x for x in protocol_definitions if x.get('name') == protocol]
+        if not matches:
+            return UNKNOWN_PROTOCOL, False
+        definition = matches[0]
+
+        # Most of the time there can be multiple ExternalIntegrations with
+        # the same protocol and goal...
+        allow_multiple = True
+        m = create
+        args = (self._db, ExternalIntegration)
+        kwargs = dict(protocol=protocol, goal=goal)
+        if definition.get('cardinality') == 1:
+            # ...but not all the time.
+            allow_multiple = False
+            existing = get_one(*args, **kwargs)
+            if existing is not None:
+                # We were asked to create a new ExternalIntegration
+                # but there's already one for this protocol, which is not
+                # allowed.
+                return DUPLICATE_INTEGRATION, False
+            m = get_one_or_create
+
+        integration, is_new = m(*args, **kwargs)
+        if not is_new and not allow_multiple:
+            # This can happen, despite our check above, in a race
+            # condition where two clients try simultaneously to create
+            # two integrations of the same type.
+            return DUPLICATE_INTEGRATION, False
+        return integration, is_new
 
     def collection(self, collection_id):
         if flask.request.method == "DELETE":
@@ -2104,13 +2209,11 @@ class SettingsController(CirculationManagerController):
             if protocol != auth_service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                auth_service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.PATRON_AUTH_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            auth_service, is_new = self._create_integration(
+                protocols, protocol, ExternalIntegration.PATRON_AUTH_GOAL
+            )
+            if isinstance(auth_service, ProblemDetail):
+                return auth_service
 
         name = flask.request.form.get("name")
         if name:
@@ -2171,8 +2274,9 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(auth_service.id), 200)
 
     def patron_auth_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.PATRON_AUTH_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.PATRON_AUTH_GOAL
+        )
 
     def sitewide_settings(self):
         if flask.request.method == 'GET':
@@ -2236,13 +2340,11 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.METADATA_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            service, is_new = self._create_integration(
+                protocols, protocol, ExternalIntegration.METADATA_GOAL
+            )
+            if isinstance(service, ProblemDetail):
+                return service
 
         name = flask.request.form.get("name")
         if name:
@@ -2275,8 +2377,9 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 200)
 
     def metadata_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.METADATA_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.METADATA_GOAL
+        )
 
     def sitewide_registration(self, integration, do_get=HTTP.debuggable_get,
                               do_post=HTTP.debuggable_post, key=None
@@ -2396,13 +2499,11 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.ANALYTICS_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            service, is_new = self._create_integration(
+                protocols, protocol, ExternalIntegration.ANALYTICS_GOAL
+            )
+            if isinstance(service, ProblemDetail):
+                return service
 
         name = flask.request.form.get("name")
         if name:
@@ -2424,8 +2525,9 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 200)
 
     def analytics_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.ANALYTICS_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.ANALYTICS_GOAL
+        )
 
     def cdn_services(self):
         protocols = [
@@ -2460,13 +2562,11 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.CDN_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            service, is_new = self._create_integration(
+                protocols, protocol, ExternalIntegration.CDN_GOAL
+            )
+            if isinstance(service, ProblemDetail):
+                return service
 
         name = flask.request.form.get("name")
         if name:
@@ -2488,20 +2588,22 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 200)
 
     def cdn_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.CDN_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.CDN_GOAL
+        )
 
-    def search_services(self):
-        provider_apis = [ExternalSearchIndex,
-                        ]
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+    def _manage_sitewide_service(
+            self, goal, provider_apis, service_key_name, 
+            multiple_sitewide_services_detail, protocol_name_attr='NAME'
+    ):
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr=protocol_name_attr)
 
         if flask.request.method == 'GET':
-            services = self._get_integration_info(ExternalIntegration.SEARCH_GOAL, protocols)
-            return dict(
-                search_services=services,
-                protocols=protocols,
-            )
+            services = self._get_integration_info(goal, protocols)
+            return {
+                service_key_name : services,
+                'protocols' : protocols,
+            }
 
         id = flask.request.form.get("id")
 
@@ -2511,7 +2613,7 @@ class SettingsController(CirculationManagerController):
 
         is_new = False
         if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.SEARCH_GOAL)
+            service = get_one(self._db, ExternalIntegration, id=id, goal=goal)
             if not service:
                 return MISSING_SERVICE
             if protocol != service.protocol:
@@ -2520,11 +2622,13 @@ class SettingsController(CirculationManagerController):
             if protocol:
                 service, is_new = get_one_or_create(
                     self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.SEARCH_GOAL
+                    goal=goal
                 )
                 if not is_new:
                     self._db.rollback()
-                    return MULTIPLE_SEARCH_SERVICES
+                    return MULTIPLE_SITEWIDE_SERVICES.detailed(
+                        multiple_sitewide_services_detail
+                    )
             else:
                 return NO_PROTOCOL_FOR_NEW_SERVICE
 
@@ -2547,9 +2651,30 @@ class SettingsController(CirculationManagerController):
         else:
             return Response(unicode(service.id), 200)
 
+    def search_services(self):
+        detail = _("You tried to create a new search service, but a search service is already configured.")
+        return self._manage_sitewide_service(
+            ExternalIntegration.SEARCH_GOAL, [ExternalSearchIndex],
+            'search_services', detail
+        )
+
     def search_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.SEARCH_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.SEARCH_GOAL
+        )
+
+    def storage_services(self):
+        detail = _("You tried to create a new storage service, but a storage service is already configured.")
+        return self._manage_sitewide_service(
+            ExternalIntegration.STORAGE_GOAL,
+            MirrorUploader.IMPLEMENTATION_REGISTRY.values(),
+            'storage_services', detail
+        )
+
+    def storage_service(self, service_id):
+        return self._delete_integration(
+            service_id, ExternalIntegration.STORAGE_GOAL
+        )
 
     def discovery_services(self):
         protocols = [
@@ -2593,13 +2718,11 @@ class SettingsController(CirculationManagerController):
             if protocol != service.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            if protocol:
-                service, is_new = create(
-                    self._db, ExternalIntegration, protocol=protocol,
-                    goal=ExternalIntegration.DISCOVERY_GOAL
-                )
-            else:
-                return NO_PROTOCOL_FOR_NEW_SERVICE
+            service, is_new = self._create_integration(
+                protocols, protocol, ExternalIntegration.DISCOVERY_GOAL
+            )
+            if isinstance(service, ProblemDetail):
+                return service
 
         name = flask.request.form.get("name")
         if name:
@@ -2621,8 +2744,9 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(service.id), 200)
 
     def discovery_service(self, service_id):
-        if flask.request.method == "DELETE":
-            return self._delete_integration(service_id, ExternalIntegration.DISCOVERY_GOAL)
+        return self._delete_integration(
+            service_id, ExternalIntegration.DISCOVERY_GOAL
+        )
 
     def library_registrations(self, do_get=HTTP.debuggable_get, 
                               do_post=HTTP.debuggable_post, key=None):
