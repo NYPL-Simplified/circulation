@@ -51,12 +51,12 @@ HOME=/var/www/circulation
 # Axis 360
 #
 */15 * * * * root core/bin/run axis_monitor >> /var/log/cron.log 2>&1
-*/15 * * * * root core/bin/run axis_reaper >> /var/log/cron.log 2>&1
+0 4 * * * root core/bin/run axis_reaper >> /var/log/cron.log 2>&1
 
 # Bibliotheca
 #
 */15 * * * * root core/bin/run bibliotheca_monitor >> /var/log/cron.log 2>&1
-*/15 * * * * root core/bin/run bibliotheca_circulation_sweep >> /var/log/cron.log 2>&1
+0 5 * * * root core/bin/run bibliotheca_circulation_sweep >> /var/log/cron.log 2>&1
 
 # Overdrive
 #
