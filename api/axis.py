@@ -199,7 +199,6 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         The book's LicensePool will be updated with current
         circulation information.
         """
-        collection = self.collection
         remainder = set(identifiers)
         for bibliographic, availability in self._fetch_remote_availability(identifiers):
             identifier, is_new = bibliographic.primary_identifier.load(self._db)
