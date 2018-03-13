@@ -2,6 +2,10 @@ import os
 import datetime
 from PIL import Image
 from StringIO import StringIO
+from botocore.exceptions import (
+    BotoCoreError,
+    ClientError,
+)
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -240,6 +244,41 @@ class TestS3Uploader(S3UploaderTest):
         eq_("a-book.epub", key2)
         eq_(Representation.EPUB_MEDIA_TYPE, args2['ContentType'])
         assert (datetime.datetime.utcnow() - epub_rep.mirrored_at).seconds < 10
+
+    def test_mirror_failure(self):
+        edition, pool = self._edition(with_license_pool=True)
+        original_epub_location = "https://books.com/a-book.epub"
+        epub, ignore = pool.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, original_epub_location,
+            edition.data_source, Representation.EPUB_MEDIA_TYPE,
+            content="i'm an epub"
+        )
+        epub_rep = epub.resource.representation
+
+        uploader = self._uploader(MockS3Client)
+
+        # A network failure is treated as a transient error.
+        uploader.client.fail_with = BotoCoreError()
+        uploader.mirror_one(epub_rep)
+        eq_(None, epub_rep.mirrored_at)
+        eq_(None, epub_rep.mirror_exception)
+
+        # An S3 credential failure is treated as a transient error.
+        response = dict(
+            Error=dict(
+                Code=401,
+                Message="Bad credentials",
+            )
+        )
+        uploader.client.fail_with = ClientError(response, "SomeOperation")
+        uploader.mirror_one(epub_rep)
+        eq_(None, epub_rep.mirrored_at)
+        eq_(None, epub_rep.mirror_exception)
+
+        # A bug in the code is not treated as a transient error --
+        # the exception propagates through.
+        uploader.client.fail_with = Exception("crash!")
+        assert_raises(Exception, uploader.mirror_one, epub_rep)
 
     def test_automatic_conversion_while_mirroring(self):
         edition, pool = self._edition(with_license_pool=True)

@@ -249,13 +249,12 @@ class MockS3Client(object):
     boto3 client.
     """
 
-    def __init__(self, service, aws_access_key_id, aws_secret_access_key,
-                 fail_with=None):
+    def __init__(self, service, aws_access_key_id, aws_secret_access_key):
         assert service == 's3'
         self.access_key = aws_access_key_id
         self.secret_key = aws_secret_access_key
         self.uploads = []
-        self.fail_with = fail_with
+        self.fail_with = None
 
     def upload_fileobj(self, Fileobj, Bucket, Key, ExtraArgs=None, **kwargs):
         if self.fail_with:
