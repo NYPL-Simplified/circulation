@@ -18,7 +18,6 @@ from requests.exceptions import (
     ConnectionError,
     HTTPError,
 )
-from util.http import RemoteIntegrationException
 
 class S3Uploader(MirrorUploader):
 
