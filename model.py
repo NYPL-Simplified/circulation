@@ -9513,6 +9513,7 @@ class CustomList(Base):
 
         equivalent_ids = [x.id for x in edition.equivalent_editions()]
 
+        _db = Session.object_session(work_or_edition)
         clauses = []
         if equivalent_ids:
             clauses.append(CustomListEntry.edition_id.in_(equivalent_ids))
@@ -9521,13 +9522,12 @@ class CustomList(Base):
         if len(clauses) == 0:
             # This shouldn't happen, but if it does, there can be
             # no matching results.
-            return
+            return _db.query(CustomListEntry).filter(False)
         elif len(clauses) == 1:
             clause = clauses[0]
         else:
             clause = or_(*clauses)
 
-        _db = Session.object_session(work_or_edition)
         qu = _db.query(CustomListEntry).filter(
             CustomListEntry.customlist==self).filter(
                 clause
