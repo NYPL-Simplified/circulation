@@ -9614,6 +9614,7 @@ class CustomListEntry(Base):
         """Combines any number of equivalent entries into a single entry
         and updates the edition being used to represent the Work.
         """
+        work = None
         if not equivalent_entries:
             # There are no entries to compare against. Leave it be.
             return
