@@ -4237,7 +4237,7 @@ class Work(Base):
         return q
 
     @classmethod
-    def from_identifiers(cls, _db, identifiers, base_query=None):
+    def from_identifiers(cls, _db, identifiers, base_query=None, identifier_id_field=Identifier.id):
         """Returns all of the works that have one or more license_pools
         associated with either an identifier in the given list or an
         identifier considered equivalent to one of those listed
@@ -4256,7 +4256,7 @@ class Work(Base):
             Identifier.id, levels=1, threshold=0.999)
         identifier_ids_subquery = identifier_ids_subquery.where(Identifier.id.in_(identifier_ids))
 
-        query = base_query.filter(Identifier.id.in_(identifier_ids_subquery))
+        query = base_query.filter(identifier_id_field.in_(identifier_ids_subquery))
         return query
 
     @classmethod
