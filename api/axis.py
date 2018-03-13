@@ -205,7 +205,8 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             identifier, is_new = bibliographic.primary_identifier.load(self._db)
             if identifier in remainder:
                 remainder.remove(identifier)
-            self._update_availability(availability)
+            pool, is_new = availability.license_pool(self._db, self.collection)
+            availability.apply(self._db, pool.collection)
 
         # We asked Axis about n books. It sent us n-k responses. Those
         # k books are the identifiers in `remainder`. These books have
@@ -220,22 +221,16 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         """
         identifier_strings = self.create_identifier_strings(identifiers)
         response = self.availability(title_ids=identifier_strings)
-        parser = BibliographicParser(collection)
+        parser = BibliographicParser(self.collection)
         return parser.process_all(response.content)
-
-    def _update_availability(self, availability):
-        """Apply CirculationData obtained from the remote to the local
-        collection.
-        """
-        pool, is_new = availability.license_pool(self._db, self.collection)
-        availability.apply(self._db, pool.collection)
 
     def _reap(self, identifier):
         """Update our local circulation information to reflect the fact that
         the identified book has been removed from the remote
         collection.
         """
-        pool = identifier.licensed_through_collection(self.collection)
+        collection = self.collection
+        pool = identifier.licensed_through_collection(collection)
         if not pool:
             self.log.warn(
                 "Was about to reap %r but no local license pool in this collection.",
@@ -245,7 +240,7 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         if pool.licenses_owned == 0:
             # Already reaped.
             return
-        self.log.info("Reaping %r", removed_identifier)
+        self.log.info("Reaping %r", identifier)
 
         availability = CirculationData(
             data_source=pool.data_source,
