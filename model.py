@@ -4237,7 +4237,7 @@ class Work(Base):
         return q
 
     @classmethod
-    def from_identifiers(cls, _db, identifiers, base_query=None):
+    def from_identifiers(cls, _db, identifiers, base_query=None, identifier_id_field=Identifier.id):
         """Returns all of the works that have one or more license_pools
         associated with either an identifier in the given list or an
         identifier considered equivalent to one of those listed
@@ -4256,7 +4256,7 @@ class Work(Base):
             Identifier.id, levels=1, threshold=0.999)
         identifier_ids_subquery = identifier_ids_subquery.where(Identifier.id.in_(identifier_ids))
 
-        query = base_query.filter(Identifier.id.in_(identifier_ids_subquery))
+        query = base_query.filter(identifier_id_field.in_(identifier_ids_subquery))
         return query
 
     @classmethod
@@ -9511,11 +9511,28 @@ class CustomList(Base):
             edition = work_or_edition
             work = edition.work
 
-        equivalents = edition.equivalent_editions().all()
+        equivalent_ids = [x.id for x in edition.equivalent_editions()]
 
-        for entry in self.entries:
-            if (work and entry.work == work) or entry.edition in equivalents:
-                yield entry
+        _db = Session.object_session(work_or_edition)
+        clauses = []
+        if equivalent_ids:
+            clauses.append(CustomListEntry.edition_id.in_(equivalent_ids))
+        if work:
+            clauses.append(CustomListEntry.work==work)
+        if len(clauses) == 0:
+            # This shouldn't happen, but if it does, there can be
+            # no matching results.
+            return _db.query(CustomListEntry).filter(False)
+        elif len(clauses) == 1:
+            clause = clauses[0]
+        else:
+            clause = or_(*clauses)
+
+        qu = _db.query(CustomListEntry).filter(
+            CustomListEntry.customlist==self).filter(
+                clause
+            )
+        return qu
 
 
 class CustomListEntry(Base):
