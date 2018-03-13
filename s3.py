@@ -1,6 +1,10 @@
 import logging
 import os
 import boto3
+from botocore.exceptions import (
+    BotoCoreError,
+    ClientError,
+)
 import urllib
 from flask_babel import lazy_gettext as _
 from nose.tools import set_trace
@@ -14,6 +18,7 @@ from requests.exceptions import (
     ConnectionError,
     HTTPError,
 )
+from util.http import RemoteIntegrationException
 
 class S3Uploader(MirrorUploader):
 
@@ -167,9 +172,6 @@ class S3Uploader(MirrorUploader):
 
     def mirror_batch(self, representations):
         """Mirror a bunch of Representations at once."""
-        filehandles = []
-        futures = []
-        representations_by_response_url = dict()
         for representation in representations:
             if not representation.mirror_url:
                 representation.mirror_url = representation.url
@@ -177,25 +179,17 @@ class S3Uploader(MirrorUploader):
             bucket, filename = self.bucket_and_filename(
                 representation.mirror_url
             )
-            response_url = self.url(bucket, filename)
-            representations_by_response_url[response_url] = (
-                representation)
             media_type = representation.external_media_type
-            fh = representation.external_content()
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
-            filehandles.append(fh)
-            future = self.client.upload_file(
-                fh,
-                bucket,
-                remote_filename,
-                extra_args=dict(ContentType=media_type)
-            )
-            futures.append(future)
-        set_trace()
-        def process_response(response):
-            representation = representations_by_response_url[response.url]
-            if response.status_code == 200:
+            fh = representation.external_content()
+            try:
+                self.client.upload_fileobj(
+                    Fileobj=fh,
+                    Bucket=bucket,
+                    Key=remote_filename,
+                    ExtraArgs=dict(ContentType=media_type)
+                )
                 source = representation.local_content_path
                 if representation.url != representation.mirror_url:
                     source = representation.url
@@ -205,27 +199,18 @@ class S3Uploader(MirrorUploader):
                 else:
                     logging.info("MIRRORED %s", representation.mirror_url)
                 representation.set_as_mirrored()
-            else:
-                representation.mirrored_at = None
-                representation.mirror_exception = "Status code %d: %s" % (
-                    response.status_code, response.content)
-
-        try:
-            for response in self.client.as_completed(requests):
-                process_response(response)
-        except ConnectionError, e:
-            # This is a transient error; we can just try again.
-            logging.error("S3 connection error: %r", e, exc_info=e)
-            pass
-        except HTTPError, e:
-            # Probably also a transient error. In any case
-            # there's nothing we can do about it but try again.
-            logging.error("S3 HTTP error: %r", e, exc_info=e)
-            pass
-
-        # Close the filehandles
-        for fh in filehandles:
-            fh.close()
+            except (BotoCoreError, ClientError), e:
+                # BotoCoreError happens when there's a problem with
+                # the network transport. ClientError happens when
+                # there's a problem with the credentials. Either way,
+                # the best thing to do is treat this as a transient
+                # error and try again later.
+                logging.error(
+                    "Error uploading %s: %r", representation.mirror_url,
+                    e, exc_info=e
+                )
+            finally:
+                fh.close()
 
 # MirrorUploader.implementation will instantiate an S3Uploader
 # for storage integrations with protocol 'Amazon S3'.
