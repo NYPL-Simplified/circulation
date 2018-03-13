@@ -45,6 +45,15 @@ class S3UploaderTest(DatabaseTest):
 
 class TestS3Uploader(S3UploaderTest):
 
+    def test_names(self):
+        # The NAME associated with this class must be the same as its
+        # key in the MirrorUploader implementation registry, and it's
+        # better if it's the same as the name of the external
+        # integration.
+        eq_(S3Uploader.NAME, ExternalIntegration.S3)
+        eq_(S3Uploader,
+            MirrorUploader.IMPLEMENTATION_REGISTRY[ExternalIntegration.S3])
+
     def test_instantiation(self):
         # If there is a configuration but it's misconfigured, an error
         # is raised.
@@ -61,7 +70,6 @@ class TestS3Uploader(S3UploaderTest):
         integration.password = 'your-secret-key'
         uploader = MirrorUploader.implementation(integration)
         eq_(True, isinstance(uploader, S3Uploader))
-
 
     def test_custom_pool_class(self):
         """You can specify a pool class to use instead of tinys3.Pool."""

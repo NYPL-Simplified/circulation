@@ -223,8 +223,8 @@ class S3Uploader(MirrorUploader):
             fh.close()
 
 # MirrorUploader.implementation will instantiate an S3Uploader
-# for storage integrations with protocol 'S3'.
-MirrorUploader.IMPLEMENTATION_REGISTRY[ExternalIntegration.S3] = S3Uploader
+# for storage integrations with protocol 'Amazon S3'.
+MirrorUploader.IMPLEMENTATION_REGISTRY[S3Uploader.NAME] = S3Uploader
 
 
 class MockS3Uploader(S3Uploader):
