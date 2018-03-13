@@ -199,45 +199,66 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         The book's LicensePool will be updated with current
         circulation information.
         """
-        identifier_strings = self.create_identifier_strings(identifiers)
-        response = self.availability(title_ids=identifier_strings)
         collection = self.collection
-        parser = BibliographicParser(collection)
         remainder = set(identifiers)
-        for bibliographic, availability in parser.process_all(response.content):
+        for bibliographic, availability in self._fetch_remote_availability(identifiers):
             identifier, is_new = bibliographic.primary_identifier.load(self._db)
             if identifier in remainder:
                 remainder.remove(identifier)
-            pool, is_new = availability.license_pool(self._db, collection)
-            availability.apply(self._db, pool.collection)
+            self._update_availability(availability)
 
         # We asked Axis about n books. It sent us n-k responses. Those
         # k books are the identifiers in `remainder`. These books have
         # been removed from the collection without us being notified.
         for removed_identifier in remainder:
-            pool = identifier.licensed_through_collection(self.collection)
-            if not pool:
-                self.log.warn(
-                    "Was about to reap %r but no local license pool in this collection.",
-                    removed_identifier
-                )
-                continue
-            if pool.licenses_owned == 0:
-                # Already reaped.
-                continue
-            self.log.info(
-                "Reaping %r", removed_identifier
-            )
+            self._reap(removed_identifier)
 
-            availability = CirculationData(
-                data_source=pool.data_source,
-                primary_identifier=removed_identifier,
-                licenses_owned=0,
-                licenses_available=0,
-                licenses_reserved=0,
-                patrons_in_hold_queue=0,
+    def _fetch_remote_availability(self, identifiers):
+        """Retrieve availability information for the specified identifiers.
+
+        :yield: A stream of (Metadata, CirculationData) 2-tuples.
+        """
+        identifier_strings = self.create_identifier_strings(identifiers)
+        response = self.availability(title_ids=identifier_strings)
+        parser = BibliographicParser(collection)
+        return parser.process_all(response.content)
+
+    def _update_availability(self, availability):
+        """Apply CirculationData obtained from the remote to the local
+        collection.
+        """
+        pool, is_new = availability.license_pool(self._db, self.collection)
+        availability.apply(self._db, pool.collection)
+
+    def _reap(self, identifier):
+        """Update our local circulation information to reflect the fact that
+        the identified book has been removed from the remote
+        collection.
+        """
+        pool = identifier.licensed_through_collection(self.collection)
+        if not pool:
+            self.log.warn(
+                "Was about to reap %r but no local license pool in this collection.",
+                identifier
             )
-            availability.apply(pool, ReplacementPolicy.from_license_source(self._db))
+            return
+        if pool.licenses_owned == 0:
+            # Already reaped.
+            return
+        self.log.info("Reaping %r", removed_identifier)
+
+        availability = CirculationData(
+            data_source=pool.data_source,
+            primary_identifier=identifier,
+            licenses_owned=0,
+            licenses_available=0,
+            licenses_reserved=0,
+            patrons_in_hold_queue=0,
+        )
+        availability.apply(
+            self._db, collection,
+            ReplacementPolicy.from_license_source(self._db)
+        )
 
 
 class Axis360CirculationMonitor(CollectionMonitor):

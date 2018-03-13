@@ -135,6 +135,58 @@ class TestAxis360API(Axis360Test):
         params = request[-1]['params']
         eq_('notifications@example.com', params['email'])
 
+    def test_update_licensepools_for_identifiers(self):
+
+        class Mock(MockAxis360API):
+            """Simulates an Axis 360 API that knows about some
+            books but not others.
+            """
+            updated = []
+            reaped = []
+
+            def _fetch_remote_availability(self, identifiers):
+                for i, identifier in enumerate(identifiers):
+                    # The first identifer in the list is still
+                    # available.
+                    identifier_data = IdentifierData(
+                        type=identifier.type,
+                        identifier=identifier.identifier
+                    )
+                    metadata = Metadata(
+                        data_source=DataSource.AXIS_360,
+                        primary_identifier=identifier_data
+                    )
+                    availability = CirculationData(
+                        data_source=DataSource.AXIS_360,
+                        primary_identifier=identifier_data,
+                        licenses_owned=1,
+                    )
+                    yield metadata, availability
+
+                    # The rest have been 'forgotten' by Axis 360.
+                    break
+
+            def _update_availability(self, identifier):
+                self.updated.append(identifier)
+
+            def _reap(self, identifier):
+                self.reaped.append(identifier)
+
+        api = Mock(self._db, self.collection)
+        still_in_collection = self._identifier()
+        no_longer_in_collection = self._identifier()
+        api.update_licensepools_for_identifiers(
+            [still_in_collection, no_longer_in_collection]
+        )
+
+        # The first identifier was updated.
+        [circulation] = api.updated
+        eq_(still_in_collection, circulation.primary_identifier(self._db))
+
+        # The second was reaped.
+        eq_([no_longer_in_collection], api.reaped)
+
+
 class TestCirculationMonitor(Axis360Test):
 
     BIBLIOGRAPHIC_DATA = Metadata(
@@ -276,7 +328,7 @@ class TestReaper(Axis360Test):
             self._db, self.collection,
             api_class=MockAxis360API
         )
-        
+
 
 class TestResponseParser(object):
 
