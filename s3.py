@@ -204,7 +204,8 @@ class S3Uploader(MirrorUploader):
                 # the network transport. ClientError happens when
                 # there's a problem with the credentials. Either way,
                 # the best thing to do is treat this as a transient
-                # error and try again later.
+                # error and try again later. There's no scenario where
+                # giving up is the right move.
                 logging.error(
                     "Error uploading %s: %r", representation.mirror_url,
                     e, exc_info=e
@@ -243,34 +244,21 @@ class MockS3Uploader(S3Uploader):
                 representation.set_as_mirrored()
 
 
-class MockS3Response(object):
-    def __init__(self, url):
-        self.url = url
-        self.status_code = 200
-
-
-class MockS3Pool(object):
-    """This pool lets us test the real S3Uploader class with a mocked-up S3
-    pool.
+class MockS3Client(object):
+    """This pool lets us test the real S3Uploader class with a mocked-up
+    boto3 client.
     """
 
-    def __init__(self, access_key, secret_key):
-        self.access_key = access_key
-        self.secret_key = secret_key
+    def __init__(self, service, aws_access_key_id, aws_secret_access_key,
+                 fail_with=None):
+        assert service == 's3'
+        self.access_key = aws_access_key_id
+        self.secret_key = aws_secret_access_key
         self.uploads = []
-        self.in_progress = []
-        self.n = 0
+        self.fail_with = fail_with
 
-    def upload(self, remote_filename, fh, bucket=None, content_type=None,
-               **kwargs):
-        self.uploads.append((remote_filename, fh.read(), bucket, content_type,
-                             kwargs))
-        url = S3Uploader.url(bucket, remote_filename)
-        response = MockS3Response(url)
-        self.in_progress.append(response)
-        return response
-
-    def as_completed(self, requests):
-        for i in self.in_progress:
-            yield i
-        self.in_progress = []
+    def upload_fileobj(self, Fileobj, Bucket, Key, ExtraArgs=None, **kwargs):
+        if self.fail_with:
+            raise self.fail_with
+        self.uploads.append((Fileobj.read(), Bucket, Key, ExtraArgs, kwargs))
+        return None

@@ -19,7 +19,7 @@ from model import (
 )
 from s3 import (
     S3Uploader,
-    MockS3Pool,
+    MockS3Client,
 )
 from mirror import MirrorUploader
 from config import CannotLoadConfiguration
@@ -36,11 +36,11 @@ class S3UploaderTest(DatabaseTest):
         integration.password = 'password'
         return integration
 
-    def _uploader(self, pool_class=None, uploader_class=None, **settings):
+    def _uploader(self, client_class=None, uploader_class=None, **settings):
         """Create a simple S3Uploader."""
         integration = self._integration(**settings)
         uploader_class = uploader_class or S3Uploader
-        return uploader_class(integration, pool_class=pool_class)
+        return uploader_class(integration, client_class=client_class)
 
 
 class TestS3Uploader(S3UploaderTest):
@@ -71,11 +71,11 @@ class TestS3Uploader(S3UploaderTest):
         uploader = MirrorUploader.implementation(integration)
         eq_(True, isinstance(uploader, S3Uploader))
 
-    def test_custom_pool_class(self):
-        """You can specify a pool class to use instead of tinys3.Pool."""
+    def test_custom_client_class(self):
+        """You can specify a client class to use instead of boto3.client."""
         integration = self._integration()
-        uploader = S3Uploader(integration, MockS3Pool)
-        assert isinstance(uploader.pool, MockS3Pool)
+        uploader = S3Uploader(integration, MockS3Client)
+        assert isinstance(uploader.client, MockS3Client)
 
     def test_get_bucket(self):
         buckets = {
@@ -217,28 +217,28 @@ class TestS3Uploader(S3UploaderTest):
         epub_rep = epub.resource.representation
         eq_(None, epub_rep.mirrored_at)
 
-        s3 = self._uploader(MockS3Pool)
+        s3 = self._uploader(MockS3Client)
         to_mirror = [
             cover.resource.representation, epub.resource.representation
         ]
         s3.mirror_batch(to_mirror)
-        [[filename1, data1, bucket1, media_type1, ignore1],
-         [filename2, data2, bucket2, media_type2, ignore2],] = s3.pool.uploads
+        [[data1, bucket1, key1, args1, ignore1],
+         [data2, bucket2, key2, args2, ignore2],] = s3.client.uploads
 
         # Both representations have been mirrored to their .mirror_urls
-        eq_("covers-go", bucket1)
-        eq_("here.png", filename1)
-        eq_(Representation.PNG_MEDIA_TYPE, media_type1)
         assert data1.startswith(b'\x89')
+        eq_("covers-go", bucket1)
+        eq_("here.png", key1)
+        eq_(Representation.PNG_MEDIA_TYPE, args1['ContentType'])
         assert (datetime.datetime.utcnow() - cover_rep.mirrored_at).seconds < 10
 
         # Since the epub_rep didn't have a .mirror_url, the .url was used
         # instead, and .mirror_url was set to .url.
         eq_(original_epub_location, epub_rep.mirror_url)
-        eq_("books.com", bucket2)
-        eq_("a-book.epub", filename2)
         eq_("i'm an epub", data2)
-        eq_(Representation.EPUB_MEDIA_TYPE, media_type2)
+        eq_("books.com", bucket2)
+        eq_("a-book.epub", key2)
+        eq_(Representation.EPUB_MEDIA_TYPE, args2['ContentType'])
         assert (datetime.datetime.utcnow() - epub_rep.mirrored_at).seconds < 10
 
     def test_automatic_conversion_while_mirroring(self):
@@ -258,12 +258,12 @@ class TestS3Uploader(S3UploaderTest):
             content=svg)
 
         # 'Upload' it to S3.
-        s3 = self._uploader(MockS3Pool)
+        s3 = self._uploader(MockS3Client)
         s3.mirror_one(hyperlink.resource.representation)
-        [[filename, data, bucket, media_type, ignore]] = s3.pool.uploads
+        [[data, bucket, key, args, ignore]] = s3.client.uploads
 
         # The thing that got uploaded was a PNG, not the original SVG
         # file.
-        eq_(Representation.PNG_MEDIA_TYPE, media_type)
+        eq_(Representation.PNG_MEDIA_TYPE, args['ContentType'])
         assert 'PNG' in data
         assert 'svg' not in data
