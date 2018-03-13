@@ -890,7 +890,7 @@ class RecommendationLane(WorkBasedLane):
     def apply_filters(self, _db, qu, facets, pagination, featured=False):
         if not self.recommendations:
             return None
-        from core.model import MaterializedWorkWithGenre as wm
+        from core.model import MaterializedWorkWithGenre as mw
         qu = qu.join(LicensePool.identifier)
         qu = Work.from_identifiers(
             _db, self.recommendations, base_query=qu,
