@@ -1797,23 +1797,25 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             import_class=OPDSImporter
         )
 
-        # By default, only an Accept header is added.
-        headers = {}
-        monitor._update_headers(headers)
-        eq_(['Accept'], headers.keys())
+        # _update_headers return a new dictionary. By default, only an
+        # Accept header is added.
+        headers = {'Some other': 'header'}
+        new_headers = monitor._update_headers(headers)
+        eq_(['Some other'], headers.keys())
+        eq_(['Some other', 'Accept'], new_headers.keys())
 
         # If the monitor has a username and password, an Authorization
         # header using HTTP Basic Authentication is also added.
         monitor.username = "a user"
         monitor.password = "a password"
         headers = {}
-        monitor._update_headers(headers)
-        assert headers['Authorization'].startswith('Basic')
+        new_headers = monitor._update_headers(headers)
+        assert new_headers['Authorization'].startswith('Basic')
 
         # However, if the Authorization and/or Accept headers have been
         # filled in by some other piece of code, _update_headers does
         # not touch them.
         expect = dict(Accept="text/html", Authorization="Bearer abc")
         headers = dict(expect)
-        monitor._update_headers(headers)
+        new_headers = monitor._update_headers(headers)
         eq_(headers, expect)

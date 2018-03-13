@@ -17,7 +17,7 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
-    NAME = u'Amazon S3'
+    NAME = ExternalIntegration.S3
 
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
@@ -228,8 +228,8 @@ class S3Uploader(MirrorUploader):
             fh.close()
 
 # MirrorUploader.implementation will instantiate an S3Uploader
-# for storage integrations with protocol 'S3'.
-MirrorUploader.IMPLEMENTATION_REGISTRY[ExternalIntegration.S3] = S3Uploader
+# for storage integrations with protocol 'Amazon S3'.
+MirrorUploader.IMPLEMENTATION_REGISTRY[S3Uploader.NAME] = S3Uploader
 
 
 class MockS3Uploader(S3Uploader):
