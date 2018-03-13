@@ -10022,7 +10022,7 @@ class Library(Base, HasFullTableCache):
         return self.setting(key)
 
     def restrict_to_ready_deliverable_works(
-        self, query, work_model, show_suppressed=False, collection_ids=None
+        self, query, work_model, collection_ids=None, show_suppressed=False,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -10036,50 +10036,16 @@ class Library(Base, HasFullTableCache):
         :param work_model: Either Work or one of the MaterializedWork
         materialized view classes.
 
-        :param show_suppressed: Include titles that have nothing but
-        suppressed LicensePools.
-
         :param collection_ids: Only include titles in the given
         collections.
+
+        :param show_suppressed: Include titles that have nothing but
+        suppressed LicensePools.
         """
         collection_ids = collection_ids or [x.id for x in self.all_collections]
-        # Only find presentation-ready works.
-        #
-        # Such works are automatically filtered out of
-        # the materialized view, but we need to filter them out of Work.
-        if work_model == Work:
-            query = query.filter(
-                work_model.presentation_ready == True,
-            )
-
-        # Only find books that have some kind of DeliveryMechanism.
-        LPDM = LicensePoolDeliveryMechanism
-        exists_clause = exists().where(
-            and_(LicensePool.data_source_id==LPDM.data_source_id,
-                LicensePool.identifier_id==LPDM.identifier_id)
-        )
-        query = query.filter(exists_clause)
-
-        # Only find books with unsuppressed LicensePools.
-        if not show_suppressed:
-            query = query.filter(LicensePool.suppressed==False)
-
-        # Only find books with available licenses.
-        query = query.filter(
-                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
-        )
-
-        # Only find books in an appropriate collection.
-        query = query.filter(
-            LicensePool.collection_id.in_(collection_ids)
-        )
-
-        # If we don't allow holds, hide any books with no available copies.
-        if not self.allow_holds:
-            query = query.filter(
-                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
-            )
-        return query
+        return Collection.restrict_to_ready_deliverable_works(
+            query, work_model, collection_ids=collection_ids, show_suppressed=show_suppressed,
+            allow_holds=self.allow_holds)
 
     def estimated_holdings_by_language(self, include_open_access=True):
         """Estimate how many titles this library has in various languages.
@@ -11320,6 +11286,70 @@ class Collection(Base, HasFullTableCache):
             isbns = isbns.filter(CoverageRecord.timestamp > timestamp)
 
         return isbns
+
+    @classmethod
+    def restrict_to_ready_deliverable_works(
+        cls, query, work_model, collection_ids=None, show_suppressed=False,
+        allow_holds=True,
+    ):
+        """Restrict a query to show only presentation-ready works present in
+        an appropriate collection which the default client can
+        fulfill.
+
+        Note that this assumes the query has an active join against
+        LicensePool.
+
+        :param query: The query to restrict.
+
+        :param work_model: Either Work or one of the MaterializedWork
+        materialized view classes.
+
+        :param show_suppressed: Include titles that have nothing but
+        suppressed LicensePools.
+
+        :param collection_ids: Only include titles in the given
+        collections.
+
+        :param allow_holds: If false, pools with no available copies
+        will be hidden.
+        """
+        # Only find presentation-ready works.
+        #
+        # Such works are automatically filtered out of
+        # the materialized view, but we need to filter them out of Work.
+        if work_model == Work:
+            query = query.filter(
+                work_model.presentation_ready == True,
+            )
+
+        # Only find books that have some kind of DeliveryMechanism.
+        LPDM = LicensePoolDeliveryMechanism
+        exists_clause = exists().where(
+            and_(LicensePool.data_source_id==LPDM.data_source_id,
+                LicensePool.identifier_id==LPDM.identifier_id)
+        )
+        query = query.filter(exists_clause)
+
+        # Only find books with unsuppressed LicensePools.
+        if not show_suppressed:
+            query = query.filter(LicensePool.suppressed==False)
+
+        # Only find books with available licenses.
+        query = query.filter(
+                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+        )
+
+        # Only find books in an appropriate collection.
+        query = query.filter(
+            LicensePool.collection_id.in_(collection_ids)
+        )
+
+        # If we don't allow holds, hide any books with no available copies.
+        if not allow_holds:
+            query = query.filter(
+                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
+            )
+        return query
 
 
 collections_libraries = Table(

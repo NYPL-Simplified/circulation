@@ -100,6 +100,10 @@ class Facets(FacetConstants):
     def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None):
         """
+        :param library: The library's defaults will be used when creating the
+        facets. If library is None, collection, availability, order, and
+        enabled_facets must be specified.
+
         :param collection: This is not a Collection object; it's a value for
         the 'collection' facet, e.g. 'main' or 'featured'.
         """
@@ -117,7 +121,7 @@ class Facets(FacetConstants):
         )
         order = order or library.default_facet(self.ORDER_FACET_GROUP_NAME)
 
-        if (availability == self.AVAILABLE_ALL and not library.allow_holds):
+        if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)):
             # Under normal circumstances we would show all works, but
             # library configuration says to hide books that aren't
             # available.
@@ -575,10 +579,13 @@ class WorkList(object):
         show up in relation to its siblings when it is the child of
         some other WorkList.
         """
-        self.library_id = library.id
-        self.collection_ids = [
-            collection.id for collection in library.all_collections
-        ]
+        self.library_id = None
+        self.collection_ids = []
+        if library:
+            self.library_id = library.id
+            self.collection_ids = [
+                collection.id for collection in library.all_collections
+            ]
         self.display_name = display_name
         if genres:
             self.genre_ids = [x.id for x in genres]
@@ -951,8 +958,8 @@ class WorkList(object):
         Note that this assumes the query has an active join against
         LicensePool.
         """
-        from model import MaterializedWorkWithGenre as mwg
-        return self.get_library(_db).restrict_to_ready_deliverable_works(
+        from model import MaterializedWorkWithGenre as mwg, Collection
+        return Collection.restrict_to_ready_deliverable_works(
             query, mwg, show_suppressed=show_suppressed,
             collection_ids=self.collection_ids
         )
