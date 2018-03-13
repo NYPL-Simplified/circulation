@@ -9614,6 +9614,7 @@ class CustomListEntry(Base):
         """Combines any number of equivalent entries into a single entry
         and updates the edition being used to represent the Work.
         """
+        work = None
         if not equivalent_entries:
             # There are no entries to compare against. Leave it be.
             return
@@ -9663,7 +9664,10 @@ class CustomListEntry(Base):
                 self.annotation = annotations[0]
 
         # Reset the entry's edition to be the Work's presentation edition.
-        best_edition = work.presentation_edition
+        if work:
+            best_edition = work.presentation_edition
+        else:
+            best_edition = None
         if work and not best_edition:
             work.calculate_presentation()
             best_edition = work.presentation_edition
@@ -10321,7 +10325,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     CONTENT_SERVER = u'Content Server'
 
     # Integrations with STORAGE_GOAL
-    S3 = u'S3'
+    S3 = u'Amazon S3'
 
     # Integrations with CDN_GOAL
     CDN = u'CDN'
