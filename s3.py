@@ -1,6 +1,6 @@
 import logging
 import os
-import tinys3
+import boto3
 import urllib
 from flask_babel import lazy_gettext as _
 from nose.tools import set_trace
@@ -34,18 +34,18 @@ class S3Uploader(MirrorUploader):
 
     SITEWIDE = True
 
-    def __init__(self, integration, pool_class=None):
+    def __init__(self, integration, client_class=None):
         """Instantiate an S3Uploader from an ExternalIntegration.
 
         :param integration: An ExternalIntegration
 
-        :param pool_class: Mock object (or class) to use (or instantiate)
-            instead of tinys3.Pool.
+        :param client_class: Mock object (or class) to use (or instantiate)
+            instead of boto3.client.
         """
-        if not pool_class:
-            pool_class = tinys3.Pool
+        if not client_class:
+            client_class = boto3.client
 
-        if callable(pool_class):
+        if callable(client_class):
             access_key = integration.username
             secret_key = integration.password
             if not (access_key and secret_key):
@@ -53,9 +53,13 @@ class S3Uploader(MirrorUploader):
                     'Cannot create S3Uploader without both'
                     ' access_key and secret_key.'
                 )
-            self.pool = pool_class(access_key, secret_key)
+            self.client = client_class(
+                's3',
+                aws_access_key_id=access_key, 
+                aws_secret_access_key=secret_key,
+            )
         else:
-            self.pool = pool_class
+            self.client = client_class
 
         # Transfer information about bucket names from the
         # ExternalIntegration to the S3Uploader object, so we don't
@@ -164,7 +168,7 @@ class S3Uploader(MirrorUploader):
     def mirror_batch(self, representations):
         """Mirror a bunch of Representations at once."""
         filehandles = []
-        requests = []
+        futures = []
         representations_by_response_url = dict()
         for representation in representations:
             if not representation.mirror_url:
@@ -181,13 +185,14 @@ class S3Uploader(MirrorUploader):
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
             filehandles.append(fh)
-            request = self.pool.upload(
-                remote_filename, fh, bucket=bucket,
-                content_type=media_type
+            future = self.client.upload_file(
+                fh,
+                bucket,
+                remote_filename,
+                extra_args=dict(ContentType=media_type)
             )
-            requests.append(request)
-        # Do the upload.
-
+            futures.append(future)
+        set_trace()
         def process_response(response):
             representation = representations_by_response_url[response.url]
             if response.status_code == 200:
@@ -206,7 +211,7 @@ class S3Uploader(MirrorUploader):
                     response.status_code, response.content)
 
         try:
-            for response in self.pool.as_completed(requests):
+            for response in self.client.as_completed(requests):
                 process_response(response)
         except ConnectionError, e:
             # This is a transient error; we can just try again.

@@ -10321,7 +10321,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     CONTENT_SERVER = u'Content Server'
 
     # Integrations with STORAGE_GOAL
-    S3 = u'S3'
+    S3 = u'Amazon S3'
 
     # Integrations with CDN_GOAL
     CDN = u'CDN'
