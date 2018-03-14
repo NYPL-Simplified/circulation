@@ -263,6 +263,8 @@ class SIPClient(Constants):
             self.logged_in = True
             self.must_log_in = False
 
+        self.socket_lock = threading.RLock()
+
         # The only reason connect would be false is that we're running
         # a unit test and don't actually want to use a server.
         if connect:
@@ -272,7 +274,6 @@ class SIPClient(Constants):
             # We need to use an RLock here because both connect() and
             # make_request() require the lock, and make_request() will end
             # up calling connect() if there's an error.
-            self.socket_lock = threading.RLock()
             self.connect()
         
     def login(self, *args, **kwargs):
@@ -303,6 +304,7 @@ class SIPClient(Constants):
                         self.target_server, self.target_port
                     )
                 )
+            sock.settimeout(12)
 
             # Since this is a new socket connection, reset the message count
             # and, potentially, logged_in.
