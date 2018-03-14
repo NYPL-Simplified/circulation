@@ -29,8 +29,7 @@ class SharedCollectionAPI(object):
     def __init__(self, _db, api_map=None):
         """Constructor.
 
-        :param _db: A database session (probably a scoped session, which is
-            why we can't derive it from `library`).
+        :param _db: A database session (probably a scoped session).
 
         :param api_map: A dictionary mapping Collection protocols to
            API classes that should be instantiated to deal with these
@@ -38,8 +37,8 @@ class SharedCollectionAPI(object):
            unit test.
 
            Since instantiating these API classes may result in API
-           calls, we only instantiate one CirculationAPI per library,
-           and keep them around as long as possible.
+           calls, we only instantiate one SharedCollectionAPI,
+           and keep it around as long as possible.
         """
         # TODO: Should there be analytics events for external libraries?
         self._db = _db
