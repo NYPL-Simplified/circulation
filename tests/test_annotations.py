@@ -538,6 +538,35 @@ class TestAnnotationParser(AnnotationTest):
         eq_(True, annotation.active)
         assert annotation.timestamp > yesterday
 
+    def test_parse_treats_duplicates_as_interchangeable(self):
+        self.pool.loan_to(self.patron)
+
+        # Due to an earlier race condition, two duplicate annotations
+        # were put in the database.
+        a1, ignore = create(
+            self._db, Annotation,
+            patron_id=self.patron.id,
+            identifier_id=self.identifier.id,
+            motivation=Annotation.IDLING,
+        )
+
+        a2, ignore = create(
+            self._db, Annotation,
+            patron_id=self.patron.id,
+            identifier_id=self.identifier.id,
+            motivation=Annotation.IDLING,
+        )
+
+        assert a1 != a2
+
+        # Parsing the annotation again retrieves one or the other
+        # of the annotations rather than crashing or creating a third
+        # annotation.
+        data = self._sample_jsonld()
+        data = json.dumps(data)
+        annotation = AnnotationParser.parse(self._db, data, self.patron)
+        assert annotation in (a1, a2)
+
     def test_parse_jsonld_with_patron_opt_out(self):
         self.pool.loan_to(self.patron)
         data = self._sample_jsonld()

@@ -135,6 +135,138 @@ class TestAxis360API(Axis360Test):
         params = request[-1]['params']
         eq_('notifications@example.com', params['email'])
 
+    def test_update_licensepools_for_identifiers(self):
+
+        class Mock(MockAxis360API):
+            """Simulates an Axis 360 API that knows about some
+            books but not others.
+            """
+            updated = []
+            reaped = []
+
+            def _fetch_remote_availability(self, identifiers):
+                for i, identifier in enumerate(identifiers):
+                    # The first identifer in the list is still
+                    # available.
+                    identifier_data = IdentifierData(
+                        type=identifier.type,
+                        identifier=identifier.identifier
+                    )
+                    metadata = Metadata(
+                        data_source=DataSource.AXIS_360,
+                        primary_identifier=identifier_data
+                    )
+                    availability = CirculationData(
+                        data_source=DataSource.AXIS_360,
+                        primary_identifier=identifier_data,
+                        licenses_owned=7,
+                        licenses_available=6
+                    )
+                    yield metadata, availability
+
+                    # The rest have been 'forgotten' by Axis 360.
+                    break
+
+            def _reap(self, identifier):
+                self.reaped.append(identifier)
+
+        api = Mock(self._db, self.collection)
+        still_in_collection = self._identifier(
+            identifier_type=Identifier.AXIS_360_ID
+        )
+        no_longer_in_collection = self._identifier(
+            identifier_type=Identifier.AXIS_360_ID
+        )
+        api.update_licensepools_for_identifiers(
+            [still_in_collection, no_longer_in_collection]
+        )
+
+        # The LicensePool for the first identifier was updated.
+        [lp] = still_in_collection.licensed_through
+        eq_(7, lp.licenses_owned)
+        eq_(6, lp.licenses_available)
+
+        # The second was reaped.
+        eq_([no_longer_in_collection], api.reaped)
+
+    def test_fetch_remote_availability(self):
+        """Test the _fetch_remote_availability method, as
+        used by update_licensepools_for_identifiers.
+        """
+        id1 = self._identifier(identifier_type=Identifier.AXIS_360_ID)
+        id2 = self._identifier(identifier_type=Identifier.AXIS_360_ID)
+        data = self.sample_data("availability_with_loans.xml")
+        # Modify the sample data so that it appears to be talking
+        # about one of the books we're going to request.
+        data = data.replace("0012533119", id1.identifier.encode("ascii"))
+        self.api.queue_response(200, {}, data)
+        results = [x for x in self.api._fetch_remote_availability([id1, id2])]
+
+        # We asked for information on two identifiers.
+        [request] = self.api.requests
+        kwargs = request[-1]
+        eq_({'titleIds': u'2001,2002'}, kwargs['params'])
+
+        # We got information on only one.
+        [(metadata, circulation)] = results
+        eq_((id1, False), metadata.primary_identifier.load(self._db))
+        eq_(u'El caso de la gracia : Un periodista explora las evidencias de unas vidas transformadas', metadata.title)
+        eq_(2, circulation.licenses_owned)
+
+    def test_reap(self):
+        """Test the _reap method, as used by
+        update_licensepools_for_identifiers.
+        """
+        id1 = self._identifier(identifier_type=Identifier.AXIS_360_ID)
+        eq_([], id1.licensed_through)
+
+        # If there is no LicensePool to reap, nothing happens.
+        self.api._reap(id1)
+        eq_([], id1.licensed_through)
+
+        # If there is a LicensePool but it has no owned licenses,
+        # it's already been reaped, so nothing happens.
+        edition, pool, = self._edition(
+            data_source_name=DataSource.AXIS_360,
+            identifier_type=id1.type, identifier_id=id1.identifier,
+            with_license_pool=True, collection=self.collection
+        )
+
+        # This LicensePool has licenses, but it's not in a different
+        # collection from the collection associated with this
+        # Axis360API object, so it's not affected.
+        collection2 = self._collection()
+        edition2, pool2, = self._edition(
+            data_source_name=DataSource.AXIS_360,
+            identifier_type=id1.type, identifier_id=id1.identifier,
+            with_license_pool=True, collection=collection2
+        )
+
+        pool.licenses_owned = 0
+        pool2.licenses_owned = 10
+        self._db.commit()
+        updated = pool.last_checked
+        updated2 = pool2.last_checked
+        self.api._reap(id1)
+
+        eq_(updated, pool.last_checked)
+        eq_(0, pool.licenses_owned)
+        eq_(updated2, pool2.last_checked)
+        eq_(10, pool2.licenses_owned)
+
+        # If the LicensePool did have licenses, then reaping it
+        # reflects the fact that the licenses are no longer owned.
+        pool.licenses_owned = 10
+        pool.licenses_available = 9
+        pool.licenses_reserved = 8
+        pool.patrons_in_hold_queue = 7
+        self.api._reap(id1)
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.licenses_reserved)
+        eq_(0, pool.patrons_in_hold_queue)
+
+
 class TestCirculationMonitor(Axis360Test):
 
     BIBLIOGRAPHIC_DATA = Metadata(
@@ -276,7 +408,7 @@ class TestReaper(Axis360Test):
             self._db, self.collection,
             api_class=MockAxis360API
         )
-        
+
 
 class TestResponseParser(object):
 
