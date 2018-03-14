@@ -646,7 +646,7 @@ class CirculationAPI(object):
                 )
             else:
                 raise NoActiveLoan(_("Cannot find your active loan for this work."))
-        if loan.fulfillment is not None and loan.fulfillment != delivery_mechanism and not delivery_mechanism.delivery_mechanism.is_streaming:
+        if loan.fulfillment is not None and not loan.fulfillment.compatible_with(delivery_mechanism):
             raise DeliveryMechanismConflict(
                 _("You already fulfilled this loan as %(loan_delivery_mechanism)s, you can't also do it as %(requested_delivery_mechanism)s",
                   loan_delivery_mechanism=loan.fulfillment.delivery_mechanism.name, 
