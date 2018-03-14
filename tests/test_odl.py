@@ -983,6 +983,7 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
             collection=self.collection,
         )
         pool.licenses_owned = 3
+        loan, ignore = pool.loan_to(self._patron())
         pool.licenses_available = 2
 
         # The library bought 8 more licenses for this book.

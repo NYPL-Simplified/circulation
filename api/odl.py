@@ -718,26 +718,14 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         circulation_data = CirculationData(
             data_source=self.data_source_name,
             primary_identifier=identifier_data,
+            licenses_owned=licenses,
         )
-        pool, is_new = circulation_data.license_pool(_db, self.collection(_db), analytics)
-        if is_new:
-            circulation_data.licenses_owned = licenses
-            circulation_data.licenses_available = licenses
-            circulation_data.licenses_reserved = 0
-            circulation_data.patrons_in_hold_queue = 0
-        else:
-            old_licenses_owned = pool.licenses_owned
-            difference = licenses - old_licenses_owned
-            new_available = pool.licenses_available + difference
-            circulation_data.licenses_owned = licenses
-            circulation_data.licenses_available = new_available
 
         replacement_policy = ReplacementPolicy(analytics=analytics)
         pool, ignore = circulation_data.apply(_db, self.collection(_db), replacement_policy)
 
-        # Update licenses reserved if there are holds.
-        if len(pool.holds) > 0 and pool.licenses_available > 0:
-            self.update_hold_queue(pool)
+        # Update licenses available and reserved based on existing loans and holds.
+        self.update_hold_queue(pool)
 
     def update_loan(self, loan, status_doc=None):
         """Check a loan's status, and if it is no longer active, delete the loan
