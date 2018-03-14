@@ -985,14 +985,23 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         pool.licenses_owned = 3
         pool.licenses_available = 2
 
+        # The library bought 8 more licenses for this book.
         consolidated_copy_info = dict(
             identifier=pool.identifier.identifier,
             licenses=11,
-            available=6,
         )
         self.api.update_consolidated_copy(self._db, consolidated_copy_info)
         eq_(11, pool.licenses_owned)
-        eq_(6, pool.licenses_available)
+        eq_(10, pool.licenses_available)
+
+        # Now five licenses expired.
+        consolidated_copy_info = dict(
+            identifier=pool.identifier.identifier,
+            licenses=6,
+        )
+        self.api.update_consolidated_copy(self._db, consolidated_copy_info)
+        eq_(6, pool.licenses_owned)
+        eq_(5, pool.licenses_available)
 
     def test_update_loan_still_active(self):
         self.pool.licenses_available = 6
@@ -1367,11 +1376,12 @@ class TestODLConsolidatedCopiesMonitor(DatabaseTest, BaseODLTest):
         eq_("http://copies", api.requests[0][0])
         eq_("http://copies/page2", api.requests[1][0])
 
-        # The two existing pools were updated.
+        # The two existing pools were updated. We ignored the "available" info
+        # in the document and updated it based on the change to licenses owned.
         eq_(1, pool1.licenses_owned)
         eq_(1, pool1.licenses_available)
         eq_(10, pool2.licenses_owned)
-        eq_(4, pool2.licenses_available)
+        eq_(10, pool2.licenses_available)
 
         # The pool from the other collection wasn't changed.
         eq_(6, pool_from_other_collection.licenses_owned)
@@ -1382,7 +1392,7 @@ class TestODLConsolidatedCopiesMonitor(DatabaseTest, BaseODLTest):
         eq_(1, len(identifier.licensed_through))
         eq_(collection, identifier.licensed_through[0].collection)
         eq_(4, identifier.licensed_through[0].licenses_owned)
-        eq_(0, identifier.licensed_through[0].licenses_available)
+        eq_(4, identifier.licensed_through[0].licenses_available)
 
         # If the monitor is run with a start time, it will subtract 5 minutes
         # and add a date to the end of the url.

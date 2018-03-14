@@ -709,15 +709,28 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         """
         identifier = copy_info.get("identifier")
         licenses = copy_info.get("licenses")
+        # The remote feed provides the number of licenses available,
+        # but we don't need it - we compute that based on the circulation
+        # manager's internal state instead.
         available = copy_info.get("available")
             
         identifier_data = IdentifierData(Identifier.URI, identifier)
         circulation_data = CirculationData(
             data_source=self.data_source_name,
             primary_identifier=identifier_data,
-            licenses_owned=licenses,
-            licenses_available=available,
         )
+        pool, is_new = circulation_data.license_pool(_db, self.collection(_db), analytics)
+        if is_new:
+            circulation_data.licenses_owned = licenses
+            circulation_data.licenses_available = licenses
+            circulation_data.licenses_reserved = 0
+            circulation_data.patrons_in_hold_queue = 0
+        else:
+            old_licenses_owned = pool.licenses_owned
+            difference = licenses - old_licenses_owned
+            new_available = pool.licenses_available + difference
+            circulation_data.licenses_owned = licenses
+            circulation_data.licenses_available = new_available
 
         replacement_policy = ReplacementPolicy(analytics=analytics)
         pool, ignore = circulation_data.apply(_db, self.collection(_db), replacement_policy)
