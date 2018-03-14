@@ -185,7 +185,8 @@ class AnnotationParser(object):
 
         annotation, ignore = Annotation.get_one_or_create(
             _db, patron=patron, identifier=identifier,
-            motivation=motivation, **extra_kwargs
+            motivation=motivation, on_multiple='interchangeable',
+            **extra_kwargs
         )
         annotation.target = target
         if content:
