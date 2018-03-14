@@ -463,7 +463,7 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
         self._update_hold_position(hold)
 
         default_loan_period = self.collection(_db).default_loan_period(
-            hold.library
+            hold.library or hold.integration_client
         )
         default_reservation_period = self.collection(_db).default_reservation_period
 

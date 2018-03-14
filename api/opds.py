@@ -1064,7 +1064,6 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
             collection_name=license_pool.collection.name,
             loan_id=active_loan.id,
             mechanism_id=delivery_mechanism.id,
-            library_short_name=active_loan.library.short_name,
             _external=True
         )
         rel=OPDSFeed.ACQUISITION_REL
