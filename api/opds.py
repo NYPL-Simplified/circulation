@@ -971,7 +971,7 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
             info_link_tag = OPDSFeed.makeelement("link", **kw)
             info_links.append(info_link_tag)
 
-        if active_hold and active_hold.integration_client:
+        if active_hold and active_hold:
             url = self.url_for(
                 'shared_collection_hold_info',
                 collection_name=self.collection.name,
