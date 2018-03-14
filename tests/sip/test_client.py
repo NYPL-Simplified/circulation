@@ -10,7 +10,45 @@ from api.sip.client import (
     CannotReceiveMockSIPClient,
     CannotSendMockSIPClient,
     MockSIPClient,
+    SIPClient,
 )
+
+class MockSocket(object):
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+        self.timeout = None
+        self.connected_to = None
+
+    def connect(self, server_and_port):
+        self.connected_to = server_and_port
+
+    def settimeout(self, value):
+        self.timeout = value
+
+
+class TestSIPClient(object):
+    """Test the real SIPClient class without allowing it to make
+    network connections.
+    """
+
+    def test_connect(self):
+        target_server = object()
+        sip = SIPClient(target_server, 999, connect=False)
+
+        old_socket = socket.socket
+
+        # Mock the socket.socket function.
+        socket.socket = MockSocket
+
+        # Call connect() and make sure timeout is set properly.
+        try:
+            connection = sip.connect()
+            eq_(12, connection.timeout)
+        finally:
+            # Un-mock the socket.socket function
+            socket.socket = old_socket
+
 
 class TestBasicProtocol(object):
 
