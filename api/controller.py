@@ -93,7 +93,10 @@ from circulation_exceptions import *
 
 from opds import (
     CirculationManagerAnnotator,
-    CirculationManagerLoanAndHoldAnnotator,
+    LibraryAnnotator,
+    SharedCollectionAnnotator,
+    LibraryLoanAndHoldAnnotator,
+    SharedCollectionLoanAndHoldAnnotator,
 )
 from annotations import (
   AnnotationWriter,
@@ -188,8 +191,6 @@ class CirculationManager(object):
         new_top_level_lanes = {}
         # Create a CirculationAPI for each library.
         new_circulation_apis = {}
-        # Create a SharedCollectionAPI for each library.
-        new_shared_collection_apis = {}
 
         new_adobe_device_management = None
         for library in self._db.query(Library):
@@ -200,9 +201,6 @@ class CirculationManager(object):
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
             )
-            new_shared_collection_apis[library.id] = self.setup_shared_collection(
-                library,
-            )
             authdata = self.setup_adobe_vendor_id(self._db, library)
             if authdata and not new_adobe_device_management:
                 # There's at least one library on this system that
@@ -212,7 +210,7 @@ class CirculationManager(object):
         self.adobe_device_management = new_adobe_device_management
         self.top_level_lanes = new_top_level_lanes
         self.circulation_apis = new_circulation_apis
-        self.shared_collection_apis = new_shared_collection_apis
+        self.shared_collection_api = self.setup_shared_collection()
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
         )
@@ -280,12 +278,12 @@ class CirculationManager(object):
             cls = CirculationAPI
         return cls(self._db, library, analytics)
 
-    def setup_shared_collection(self, library):
+    def setup_shared_collection(self):
         if self.testing:
             cls = MockSharedCollectionAPI
         else:
             cls = SharedCollectionAPI
-        return cls(self._db, library)
+        return cls(self._db)
         
     def setup_one_time_controllers(self):
         """Set up all the controllers that will be used by the web app.
@@ -382,7 +380,7 @@ class CirculationManager(object):
             library = lane.get_library(self._db)
         else:
             library = flask.request.library
-        return CirculationManagerAnnotator(
+        return LibraryAnnotator(
             self.circulation_apis[library.id], lane, library,
             top_level_title='All Books', *args, **kwargs
         )
@@ -423,8 +421,7 @@ class CirculationManagerController(BaseCirculationManagerController):
     @property
     def shared_collection(self):
         """Return the appropriate SharedCollectionAPI for the request library."""
-        library_id = flask.request.library.id
-        return self.manager.shared_collection_apis[library_id]
+        return self.manager.shared_collection_api
 
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
@@ -668,18 +665,20 @@ class OPDSFeedController(CirculationManagerController):
         """Build or retrieve a crawlable acquisition feed for the
         requested collection.
         """
-        library = flask.request.library
         collection = get_one(self._db, Collection, name=collection_name)
-        if not collection or collection not in library.collections:
+        if not collection:
             return NO_SUCH_COLLECTION
         title = collection.name
         url = self.cdn_url_for(
             "crawlable_collection_feed",
-            library_short_name=library.short_name,
             collection_name=collection.name
         )
-        lane = CrawlableCollectionBasedLane(library, [collection])
-        return self._crawlable_feed(library, title, url, lane)
+        lane = CrawlableCollectionBasedLane(None, [collection])
+        if collection.protocol in [ODLWithConsolidatedCopiesAPI.NAME]:
+            annotator = SharedCollectionAnnotator(collection, lane)
+        else:
+            annotator = CirculationManagerAnnotator(lane)
+        return self._crawlable_feed(None, title, url, lane, annotator=annotator)
 
     def crawlable_list_feed(self, list_name):
         """Build or retrieve a crawlable, paginated acquisition feed for the
@@ -699,8 +698,8 @@ class OPDSFeedController(CirculationManagerController):
         lane.initialize(library, list)
         return self._crawlable_feed(library, title, url, lane)
 
-    def _crawlable_feed(self, library, title, url, lane):
-        annotator = self.manager.annotator(lane)
+    def _crawlable_feed(self, library, title, url, lane, annotator=None):
+        annotator = annotator or self.manager.annotator(lane)
         facets = CrawlableFacets.default(library)
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
@@ -788,7 +787,7 @@ class LoanController(CirculationManagerController):
                 )
 
         # Then make the feed.
-        feed = CirculationManagerLoanAndHoldAnnotator.active_loans_for(
+        feed = LibraryLoanAndHoldAnnotator.active_loans_for(
             self.circulation, patron)
         return feed_response(feed, cache_for=None)
 
@@ -864,10 +863,10 @@ class LoanController(CirculationManagerController):
         # a feed that tells the patron how to fulfill the loan. If a hold,
         # serve a feed that talks about the hold.
         if loan:
-            feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
+            feed = LibraryLoanAndHoldAnnotator.single_loan_feed(
                 self.circulation, loan)
         elif hold:
-            feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
+            feed = LibraryLoanAndHoldAnnotator.single_hold_feed(
                 self.circulation, hold)
         else:
             # This should never happen -- we should have sent a more specific
@@ -1024,7 +1023,7 @@ class LoanController(CirculationManagerController):
         if mechanism.delivery_mechanism.is_streaming:
             # If this is a streaming delivery mechanism, create an OPDS entry
             # with a fulfillment link to the streaming reader url.
-            feed = CirculationManagerLoanAndHoldAnnotator.single_fulfillment_feed(
+            feed = LibraryLoanAndHoldAnnotator.single_fulfillment_feed(
                 self.circulation, loan, fulfillment)
             if isinstance(feed, OPDSFeed):
                 content = unicode(feed)
@@ -1127,7 +1126,7 @@ class LoanController(CirculationManagerController):
                 feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
                     self.circulation, loan)
             else:
-                feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
+                feed = LibraryLoanAndHoldAnnotator.single_hold_feed(
                     self.circulation, hold)
             feed = unicode(feed)
             return feed_response(feed, None)
@@ -1507,7 +1506,6 @@ class SharedCollectionController(CirculationManagerController):
     def info(self, collection_name):
         """Return an OPDS2 catalog-like document with a link to register."""
         register_url = self.url_for('shared_collection_register',
-                                    library_short_name=flask.request.library.short_name,
                                     collection_name=collection_name)
         register_link = dict(href=register_url, rel='register')
         content = json.dumps(dict(links=[register_link]))
@@ -1516,9 +1514,8 @@ class SharedCollectionController(CirculationManagerController):
         return Response(content, 200, headers)
 
     def load_collection(self, collection_name):
-        library = flask.request.library
         collection = get_one(self._db, Collection, name=collection_name)
-        if not collection or collection not in library.collections:
+        if not collection:
             return NO_SUCH_COLLECTION
         return collection
 
@@ -1558,8 +1555,8 @@ class SharedCollectionController(CirculationManagerController):
         if not loan or loan.license_pool.collection != collection:
             return LOAN_NOT_FOUND
 
-        feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-            self.circulation, loan)
+        feed = SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
+            collection, loan)
         headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
         return Response(etree.tostring(feed), 200, headers)
 
@@ -1571,14 +1568,20 @@ class SharedCollectionController(CirculationManagerController):
         if isinstance(client, ProblemDetail):
             return client
         if identifier_type and identifier:
-            pools = self.load_licensepools(
-                flask.request.library, identifier_type, identifier
-            )
-            if isinstance(pools, ProblemDetail):
-                return pools
-            pools = [p for p in pools if p.collection == collection]
+            pools = self._db.query(LicensePool).join(LicensePool.collection).join(
+                LicensePool.identifier).filter(
+                    Identifier.type==identifier_type
+                ).filter(
+                    Identifier.identifier==identifier
+                ).filter(
+                    Collection.id==collection.id
+                ).all()
             if not pools:
-                return NO_LICENSES
+                return NO_LICENSES.detailed(
+                    _("The item you're asking about (%s/%s) isn't in this collection.") % (
+                        identifier_type, identifier
+                    )
+                )
             pool = pools[0]
             hold = None
         elif hold_id:
@@ -1595,9 +1598,14 @@ class SharedCollectionController(CirculationManagerController):
             return CHECKOUT_FAILED.detailed(str(e))
         except RemoteIntegrationException, e:
             return e.as_problem_detail_document(debug=False)
-        if loan:
-            feed = CirculationManagerLoanAndHoldAnnotator.single_loan_feed(
-                self.circulation, loan)
+        if loan and isinstance(loan, Loan):
+            feed = SharedCollectionLoanAndHoldAnnotator.single_loan_feed(
+                collection, loan)
+            headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
+            return Response(etree.tostring(feed), 201, headers)
+        elif loan and isinstance(loan, Hold):
+            feed = SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
+                collection, loan)
             headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
             return Response(etree.tostring(feed), 201, headers)
 
@@ -1678,36 +1686,6 @@ class SharedCollectionController(CirculationManagerController):
 
         return Response(content, status_code, headers)
 
-    def place_hold(self, collection_name, identifier_type, identifier):
-        collection = self.load_collection(collection_name)
-        if isinstance(collection, ProblemDetail):
-            return collection
-        client = self.authenticated_client_from_request()
-        if isinstance(client, ProblemDetail):
-            return client
-        pools = self.load_licensepools(
-            flask.request.library, identifier_type, identifier
-        )
-        if isinstance(pools, ProblemDetail):
-            return pools
-        pools = [p for p in pools if p.collection == collection]
-        if not pools:
-            return NO_LICENSES
-
-        pool = pools[0]
-
-        try:
-            hold = self.shared_collection.place_hold(collection, client, pool)
-        except AuthorizationFailedException, e:
-            return INVALID_CREDENTIALS.detailed(str(e))
-        except CannotHold, e:
-            return HOLD_FAILED.detailed(str(e))
-        if hold:
-            feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
-                self.circulation, hold)
-            headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
-            return Response(etree.tostring(feed), 201, headers)
-
     def hold_info(self, collection_name, hold_id):
         collection = self.load_collection(collection_name)
         if isinstance(collection, ProblemDetail):
@@ -1719,8 +1697,8 @@ class SharedCollectionController(CirculationManagerController):
         if not hold or not hold.license_pool.collection == collection:
             return HOLD_NOT_FOUND
 
-        feed = CirculationManagerLoanAndHoldAnnotator.single_hold_feed(
-            self.circulation, hold)
+        feed = SharedCollectionLoanAndHoldAnnotator.single_hold_feed(
+            collection, hold)
         headers = { "Content-Type" : OPDSFeed.ACQUISITION_FEED_TYPE }
         return Response(etree.tostring(feed), 200, headers)
 

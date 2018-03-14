@@ -48,9 +48,6 @@ class MockAPI(BaseSharedCollectionAPI):
         self.fulfills.append((client, loan, mechanism))
         return self.fulfillment
         
-    def place_hold_for_external_library(self, client, pool):
-        self.holds.append((client, pool))
-
     def release_hold_from_external_library(self, client, hold):
         self.released_holds.append((client, hold))
 
@@ -59,9 +56,8 @@ class TestSharedCollectionAPI(DatabaseTest):
     def setup(self):
         super(TestSharedCollectionAPI, self).setup()
         self.collection = self._collection(protocol="Mock")
-        self._default_library.collections = [self.collection]
         self.shared_collection = SharedCollectionAPI(
-            self._db, self._default_library, api_map = {
+            self._db, api_map = {
                 "Mock" : MockAPI
             }
         )
@@ -82,7 +78,7 @@ class TestSharedCollectionAPI(DatabaseTest):
 
         api_map = { self._default_collection.protocol: MisconfiguredAPI }
         shared_collection = SharedCollectionAPI(
-            self._db, self._default_library, api_map=api_map
+            self._db, api_map=api_map
         )
         # Although the SharedCollectionAPI was created, it has no functioning
         # APIs.
@@ -96,20 +92,19 @@ class TestSharedCollectionAPI(DatabaseTest):
 
     def test_api_for_licensepool(self):
         collection = self._collection(protocol=ODLWithConsolidatedCopiesAPI.NAME)
-        self._default_library.collections = [collection]
         edition, pool = self._edition(with_license_pool=True, collection=collection)
-        shared_collection = SharedCollectionAPI(self._db, self._default_library)
+        shared_collection = SharedCollectionAPI(self._db)
         assert isinstance(shared_collection.api_for_licensepool(pool), ODLWithConsolidatedCopiesAPI)
 
     def test_api_for_collection(self):
-        collection = self._collection(protocol=ODLWithConsolidatedCopiesAPI.NAME)
-        shared_collection = SharedCollectionAPI(self._db, self._default_library)
-        # The collection isn't associated with the library, so looking up its API
+        collection = self._collection()
+        shared_collection = SharedCollectionAPI(self._db)
+        # The collection isn't a shared collection, so looking up its API
         # raises an exception.
         assert_raises(CirculationException, shared_collection.api, collection)
 
-        self._default_library.collections = [collection]
-        shared_collection = SharedCollectionAPI(self._db, self._default_library)
+        collection.protocol = ODLWithConsolidatedCopiesAPI.NAME
+        shared_collection = SharedCollectionAPI(self._db)
         assert isinstance(shared_collection.api(collection), ODLWithConsolidatedCopiesAPI)
 
     def test_register(self):
@@ -232,10 +227,6 @@ class TestSharedCollectionAPI(DatabaseTest):
         fulfillment = self.shared_collection.fulfill(self.collection, self.client, loan, self.delivery_mechanism)
         eq_([(self.client, loan, self.delivery_mechanism)], self.api.fulfills[1:])
         eq_(self.delivery_mechanism, loan.fulfillment)
-
-    def test_place_hold(self):
-        self.shared_collection.place_hold(self.collection, self.client, self.pool)
-        eq_([(self.client, self.pool)], self.api.holds)
 
     def test_revoke_hold(self):
         other_client, ignore = IntegrationClient.register(self._db, "http://other_library.org")

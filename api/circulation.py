@@ -469,15 +469,21 @@ class CirculationAPI(object):
                     patron, pin, licensepool, internal_format
                 )
 
-                # We asked the API to create a loan and it gave us a
-                # LoanInfo object, rather than raising an exception like
-                # AlreadyCheckedOut.
-                #
-                # For record-keeping purposes we're going to treat this as
-                # a newly transacted loan, although it's possible that the
-                # API does something unusual like return LoanInfo instead
-                # of raising AlreadyCheckedOut.
-                new_loan = True
+                if isinstance(loan_info, HoldInfo):
+                    # If the API couldn't give us a loan, it may have given us
+                    # a hold instead of raising an exception.
+                    hold_info = loan_info
+                    loan_info = None
+                else:
+                    # We asked the API to create a loan and it gave us a
+                    # LoanInfo object, rather than raising an exception like
+                    # AlreadyCheckedOut.
+                    #
+                    # For record-keeping purposes we're going to treat this as
+                    # a newly transacted loan, although it's possible that the
+                    # API does something unusual like return LoanInfo instead
+                    # of raising AlreadyCheckedOut.
+                    new_loan = True
             except AlreadyCheckedOut:
                 # This is good, but we didn't get the real loan info.
                 # Just fake it.

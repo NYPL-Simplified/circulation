@@ -18,6 +18,7 @@ from core.model import (
     DeliveryMechanism,
     ExternalIntegration,
     Hold,
+    Hyperlink,
     Identifier,
     Loan,
     Representation,
@@ -1069,6 +1070,21 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         # The pool's availability has decreased.
         eq_(5, self.pool.licenses_available)
 
+        # The book can also be placed on hold to an external library,
+        # if there are no copies available.
+        self.pool.licenses_owned = 1
+
+        hold = self.api.checkout_to_external_library(self.client, self.pool)
+
+        eq_(1, self.pool.patrons_in_hold_queue)
+        eq_(self.client, hold.integration_client)
+        eq_(self.pool, hold.license_pool)
+        assert hold.start > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
+        assert hold.start < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
+        assert hold.end > datetime.datetime.utcnow() + datetime.timedelta(days=7)
+        eq_(1, hold.position)
+        eq_(1, self._db.query(Hold).count())
+
     def test_checkout_from_external_library_with_hold(self):
         # An integration client has this book on hold, and the book just became available to check out.
         self.pool.licenses_owned = 1
@@ -1169,22 +1185,6 @@ class TestODLWithConsolidatedCopiesAPI(DatabaseTest, BaseODLTest):
         eq_(datetime.datetime(2017, 10, 21, 11, 12, 13), fulfillment.content_expires)
         eq_("http://license", fulfillment.content_link)
         eq_(DeliveryMechanism.ADOBE_DRM, fulfillment.content_type)
-
-    def test_place_hold_for_external_library(self):
-        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
-        self.pool.licenses_owned = 1
-        self.pool.loan_to(self._patron(), end=tomorrow)
-
-        hold = self.api.place_hold_for_external_library(self.client, self.pool)
-
-        eq_(1, self.pool.patrons_in_hold_queue)
-        eq_(self.client, hold.integration_client)
-        eq_(self.pool, hold.license_pool)
-        assert hold.start > datetime.datetime.utcnow() - datetime.timedelta(minutes=1)
-        assert hold.start < datetime.datetime.utcnow() + datetime.timedelta(minutes=1)
-        eq_(tomorrow, hold.end)
-        eq_(1, hold.position)
-        eq_(1, self._db.query(Hold).count())
 
     def test_release_hold_from_external_library(self):
         self.pool.licenses_owned = 1
@@ -1445,6 +1445,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         )
         self.api = MockSharedODLAPI(self._db, self.collection)
         self.pool = self._licensepool(None, collection=self.collection)
+        self.pool.identifier.add_link(Hyperlink.BORROW, self._str, self.collection.data_source)
         self.patron = self._patron()
 
     def test_get(self):
@@ -1485,7 +1486,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         eq_(datetime.datetime(2018, 3, 29, 17, 41, 30), loan.end_date)
         eq_("http://localhost:6500/AL/collections/DPLA%20Exchange/loans/31", loan.external_identifier)
 
-        eq_(["%s/%s/%s/borrow" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
+        eq_([self.pool.identifier.links[0].resource.url],
              self.api.requests)
 
     def test_checkout_from_hold(self):
@@ -1518,7 +1519,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         self.api.queue_response(403)
         assert_raises(NoAvailableCopies, self.api.checkout, self.patron, "pin",
                       self.pool, Representation.EPUB_MEDIA_TYPE)
-        eq_(["%s/%s/%s/borrow" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
+        eq_([self.pool.identifier.links[0].resource.url],
              self.api.requests)
 
     def test_checkout_from_hold_not_available(self):
@@ -1533,8 +1534,13 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         self.api.queue_response(500)
         assert_raises(CannotLoan, self.api.checkout, self.patron, "pin",
                       self.pool, Representation.EPUB_MEDIA_TYPE)
-        eq_(["%s/%s/%s/borrow" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
+        eq_([self.pool.identifier.links[0].resource.url],
              self.api.requests)
+
+        # This pool has no borrow link.
+        pool = self._licensepool(None, collection=self.collection)
+        assert_raises(CannotLoan, self.api.checkout, self.patron, "pin",
+                      pool, Representation.EPUB_MEDIA_TYPE)
 
     def test_checkin_success(self):
         loan, ignore = self.pool.loan_to(self.patron, external_identifier=self._str)
@@ -1642,7 +1648,7 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         eq_(1, hold.hold_position)
         eq_("http://localhost:6500/AL/collections/DPLA%20Exchange/holds/18", hold.external_identifier)
 
-        eq_(["%s/%s/%s/place_hold" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
+        eq_([self.pool.identifier.links[0].resource.url],
              self.api.requests)
 
     def test_place_hold_already_checked_out(self):
@@ -1650,19 +1656,6 @@ class TestSharedODLAPI(DatabaseTest, BaseODLTest):
         assert_raises(AlreadyCheckedOut, self.api.place_hold, self.patron, "pin",
                       self.pool, "notification@librarysimplified.org")
         eq_([], self.api.requests)
-
-    def test_place_hold_already_on_hold(self):
-        hold, ignore = self.pool.on_hold_to(self.patron)
-        assert_raises(AlreadyOnHold, self.api.place_hold, self.patron, "pin",
-                      self.pool, "notification@librarysimplified.org")
-        eq_([], self.api.requests)
-
-    def test_place_hold_cannot_hold(self):
-        self.api.queue_response(500)
-        assert_raises(CannotHold, self.api.place_hold, self.patron, "pin",
-                      self.pool, "notification@librarysimplified.org")
-        eq_(["%s/%s/%s/place_hold" % (self.collection.external_account_id, self.pool.identifier.type, self.pool.identifier.identifier)],
-             self.api.requests)
 
     def test_release_hold_success(self):
         hold, ignore = self.pool.on_hold_to(self.patron, external_identifier=self._str)
@@ -1819,6 +1812,8 @@ class TestSharedODLImporter(DatabaseTest, BaseODLTest):
         eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
         eq_(RightsStatus.IN_COPYRIGHT, lpdm.rights_status.uri)
+        [borrow_link] = [l for l in six_months_pool.identifier.links if l.rel == Hyperlink.BORROW]
+        eq_('http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/2493650/borrow', borrow_link.resource.url)
 
         # This book is currently available.
         [essex_pool] = [p for p in imported_pools if p.identifier == essex.primary_identifier]
@@ -1830,5 +1825,7 @@ class TestSharedODLImporter(DatabaseTest, BaseODLTest):
         eq_(Representation.EPUB_MEDIA_TYPE, lpdm.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.ADOBE_DRM, lpdm.delivery_mechanism.drm_scheme)
         eq_(RightsStatus.IN_COPYRIGHT, lpdm.rights_status.uri)
+        [borrow_link] = [l for l in essex_pool.identifier.links if l.rel == Hyperlink.BORROW]
+        eq_('http://localhost:6500/AL/works/URI/http://www.feedbooks.com/item/1946289/borrow', borrow_link.resource.url)
 
         

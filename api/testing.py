@@ -273,12 +273,6 @@ class MockSharedCollectionAPI(SharedCollectionAPI):
     def fulfill(self, collection, client, loan, mechanism):
         return self._return_or_raise('fulfill')
 
-    def queue_place_hold(self, response):
-        self._queue('place-hold', response)
-
-    def place_hold(self, collection, client, pool):
-        return self._return_or_raise('place-hold')
-
     def queue_revoke_hold(self, response):
         self._queue('revoke-hold', response)
 

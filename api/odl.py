@@ -750,16 +750,16 @@ class ODLWithConsolidatedCopiesAPI(BaseCirculationAPI, BaseSharedCollectionAPI):
             self.update_hold_queue(loan.license_pool)
 
     def checkout_to_external_library(self, client, licensepool, hold=None):
-        return self._checkout(client, licensepool, hold)
+        try:
+            return self._checkout(client, licensepool, hold)
+        except NoAvailableCopies, e:
+            return self._place_hold(client, licensepool)
 
     def checkin_from_external_library(self, client, loan):
         self._checkin(loan)
 
     def fulfill_for_external_library(self, client, loan, mechanism):
         return self._fulfill(loan)
-
-    def place_hold_for_external_library(self, client, licensepool):
-        return self._place_hold(client, licensepool)
 
     def release_hold_from_external_library(self, client, hold):
         return self._release_hold(hold)
@@ -984,9 +984,6 @@ class SharedODLAPI(BaseCirculationAPI):
 
     TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 
-    CHECKOUT_URL = "%(base_url)s/%(identifier_type)s/%(identifier)s/borrow"
-    HOLD_URL = "%(base_url)s/%(identifier_type)s/%(identifier)s/place_hold"
-
     def __init__(self, _db, collection):
         if collection.protocol != self.NAME:
             raise ValueError(
@@ -1064,7 +1061,10 @@ class SharedODLAPI(BaseCirculationAPI):
                 raise NoAvailableCopies()
             checkout_url = checkout_links[0].get("href")
         else:
-            checkout_url = self.CHECKOUT_URL % dict(base_url=self.base_url, identifier_type=licensepool.identifier.type, identifier=licensepool.identifier.identifier)
+            borrow_links = [link for link in licensepool.identifier.links if link.rel == Hyperlink.BORROW]
+            if not borrow_links:
+                raise CannotLoan()
+            checkout_url = borrow_links[0].resource.url
         try:
             response = self._get(checkout_url, allowed_response_codes=["2xx", "3xx", "403"])
         except RemoteIntegrationException, e:
@@ -1085,15 +1085,32 @@ class SharedODLAPI(BaseCirculationAPI):
             raise CannotLoan()
         external_identifier = info_links[0].get("href")
 
-        return LoanInfo(
-            licensepool.collection,
-            licensepool.data_source.name,
-            licensepool.identifier.type,
-            licensepool.identifier.identifier,
-            start,
-            end,
-            external_identifier=external_identifier
-        )
+        if availability.get("status") == "available":
+            return LoanInfo(
+                licensepool.collection,
+                licensepool.data_source.name,
+                licensepool.identifier.type,
+                licensepool.identifier.identifier,
+                start,
+                end,
+                external_identifier=external_identifier
+            )
+        else:
+            # We tried to borrow this book but it wasn't available,
+            # so we got a hold.
+            position = entry.get("opds_holds", {}).get("position")
+            if position:
+                position = int(position)
+            return HoldInfo(
+                licensepool.collection,
+                licensepool.data_source.name,
+                licensepool.identifier.type,
+                licensepool.identifier.identifier,
+                start,
+                end,
+                hold_position=position,
+                external_identifier=external_identifier
+            )
 
     def checkin(self, patron, pin, licensepool):
         _db = Session.object_session(patron)
@@ -1188,56 +1205,8 @@ class SharedODLAPI(BaseCirculationAPI):
         )
 
     def place_hold(self, patron, pin, licensepool, notification_email_address):
-        _db = Session.object_session(patron)
-
-        loan = _db.query(Loan).filter(
-            Loan.patron==patron
-        ).filter(
-            Loan.license_pool_id==licensepool.id
-        )
-        if loan.count() > 0:
-            raise AlreadyCheckedOut()
-
-        hold = _db.query(Hold).filter(
-            Hold.patron==patron
-        ).filter(
-            Hold.license_pool_id==licensepool.id
-        )
-        if hold.count() > 0:
-            raise AlreadyOnHold()
-
-        hold_url = self.HOLD_URL % dict(base_url=self.base_url, identifier_type=licensepool.identifier.type, identifier=licensepool.identifier.identifier)
-        try:
-            response = self._get(hold_url)
-        except RemoteIntegrationException, e:
-            raise CannotHold()
-        feed = feedparser.parse(unicode(response.content))
-        entries = feed.get("entries")
-        if len(entries) < 1:
-            raise CannotHold()
-        entry = entries[0]
-        availability = entry.get("opds_availability", {})
-        if availability.get("status") not in ["reserved", "ready"]:
-            raise CannotHold()
-        start = datetime.datetime.strptime(availability.get("since"), self.TIME_FORMAT)
-        end = datetime.datetime.strptime(availability.get("until"), self.TIME_FORMAT)
-        position = entry.get("opds_holds", {}).get("position")
-        if position:
-            position = int(position)
-        # Get the loan base url from a link.
-        info_links = [link for link in entry.get("links") if link.get("rel") == "self"]
-        external_identifier = info_links[0].get("href")
-
-        return HoldInfo(
-            licensepool.collection,
-            licensepool.data_source.name,
-            licensepool.identifier.type,
-            licensepool.identifier.identifier,
-            start,
-            end,
-            hold_position=position,
-            external_identifier=external_identifier,
-        )
+        # Just try to check out the book. If it's not available, we'll get a hold.
+        return self.checkout(patron, pin, licensepool, None)
 
     def release_hold(self, patron, pin, licensepool):
         _db = Session.object_session(patron)

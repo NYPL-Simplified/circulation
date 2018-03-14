@@ -30,7 +30,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.sql.expression import or_
 from problem_details import *
 from util.patron import PatronUtility
-from api.opds import CirculationManagerAnnotator
+from api.opds import LibraryAnnotator
 
 import datetime
 import logging
@@ -733,7 +733,7 @@ class LibraryAuthenticator(object):
         # Add the same links that we would show in an OPDS feed, plus
         # some extra like 'registration' that are specific to Authentication
         # For OPDS.
-        for rel in (CirculationManagerAnnotator.CONFIGURATION_LINKS +
+        for rel in (LibraryAnnotator.CONFIGURATION_LINKS +
                     Configuration.AUTHENTICATION_FOR_OPDS_LINKS):
             value = ConfigurationSetting.for_library(rel, library).value
             if not value:

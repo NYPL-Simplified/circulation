@@ -56,6 +56,7 @@ from core.model import (
     Hold,
     DataSource,
     Edition,
+    Hyperlink,
     Identifier,
     Complaint,
     Library,
@@ -100,6 +101,7 @@ from api.adobe_vendor_id import (
     DeviceManagementProtocolController,
 )
 from api.odl import MockODLWithConsolidatedCopiesAPI
+from api.shared_collection import SharedCollectionAPI
 import base64
 import feedparser
 from core.opds import (
@@ -108,7 +110,7 @@ from core.opds import (
 from core.util.opds_writer import (    
     OPDSFeed,
 )
-from api.opds import CirculationManagerAnnotator
+from api.opds import LibraryAnnotator
 from api.annotations import AnnotationWriter
 from api.testing import (
     VendorIDTest,
@@ -311,15 +313,15 @@ class TestCirculationManager(CirculationControllerTest):
         manager.oauth_controller = object()
         manager.auth = object()
         manager.lending_policy = object()
+        manager.shared_collection_api = object()
 
         # But some fields are _not_ about to be reloaded
         index_controller = manager.index_controller
         
-        # The CirculationManager has a top-level lane, a CirculationAPI,
-        # and a SharedCollectionAPI for the default library, but no others.
+        # The CirculationManager has a top-level lane and a CirculationAPI,
+        # for the default library, but no others.
         eq_(1, len(manager.top_level_lanes))
         eq_(1, len(manager.circulation_apis))
-        eq_(1, len(manager.shared_collection_apis))
 
         # Now let's create a brand new library, never before seen.
         library = self._library()
@@ -338,9 +340,6 @@ class TestCirculationManager(CirculationControllerTest):
 
         # And a circulation API.
         assert library.id in manager.circulation_apis
-
-        # And a shared collection API.
-        assert library.id in manager.shared_collection_apis
 
         # The Authenticator has been reloaded with information about
         # how to authenticate patrons of the new library.
@@ -361,6 +360,10 @@ class TestCirculationManager(CirculationControllerTest):
         # So has the controller for the Device Management Protocol.
         assert isinstance(manager.adobe_device_management,
                           DeviceManagementProtocolController)
+
+        # So has the SharecCollectionAPI.
+        assert isinstance(manager.shared_collection_api,
+                          SharedCollectionAPI)
 
         # Controllers that don't depend on site configuration
         # have not been reloaded.
@@ -1836,7 +1839,7 @@ class TestWorkController(CirculationControllerTest):
     def test_permalink(self):
         with self.request_context_with_library("/"):
             response = self.manager.work_controller.permalink(self.identifier.type, self.identifier.identifier)
-            annotator = CirculationManagerAnnotator(None, None, self._default_library)
+            annotator = LibraryAnnotator(None, None, self._default_library)
             expect = etree.tostring(
                 AcquisitionFeed.single_entry(
                     self._db, self.english_1, annotator
@@ -2284,10 +2287,10 @@ class TestFeedController(CirculationControllerTest):
         SessionManager.refresh_materialized_views(self._db)
 
         # Set up configuration settings for links.
-        for rel, value in [(CirculationManagerAnnotator.TERMS_OF_SERVICE, "a"),
-                           (CirculationManagerAnnotator.PRIVACY_POLICY, "b"),
-                           (CirculationManagerAnnotator.COPYRIGHT, "c"),
-                           (CirculationManagerAnnotator.ABOUT, "d"),
+        for rel, value in [(LibraryAnnotator.TERMS_OF_SERVICE, "a"),
+                           (LibraryAnnotator.PRIVACY_POLICY, "b"),
+                           (LibraryAnnotator.COPYRIGHT, "c"),
+                           (LibraryAnnotator.ABOUT, "d"),
                            ]:
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
@@ -2306,10 +2309,10 @@ class TestFeedController(CirculationControllerTest):
             for i in links:
                 by_rel[i['rel']] = i['href']
 
-            eq_("a", by_rel[CirculationManagerAnnotator.TERMS_OF_SERVICE])
-            eq_("b", by_rel[CirculationManagerAnnotator.PRIVACY_POLICY])
-            eq_("c", by_rel[CirculationManagerAnnotator.COPYRIGHT])
-            eq_("d", by_rel[CirculationManagerAnnotator.ABOUT])
+            eq_("a", by_rel[LibraryAnnotator.TERMS_OF_SERVICE])
+            eq_("b", by_rel[LibraryAnnotator.PRIVACY_POLICY])
+            eq_("c", by_rel[LibraryAnnotator.COPYRIGHT])
+            eq_("d", by_rel[LibraryAnnotator.ABOUT])
 
     def test_multipage_feed(self):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
@@ -2424,8 +2427,7 @@ class TestFeedController(CirculationControllerTest):
 
     def test_crawlable_collection_feed(self):
         self._set_update_times()
-        not_in_library = self._collection()
-        with self.request_context_with_library("/?size=2"):
+        with self.app.test_request_context("/?size=2"):
             response = self.manager.opds_feeds.crawlable_collection_feed(
                 self._default_collection.name
             )
@@ -2434,14 +2436,38 @@ class TestFeedController(CirculationControllerTest):
             eq_([self.english_2.title, self.french_1.title],
                 [x['title'] for x in feed['entries']])
 
-        # The collection must exist and it must be associated
-        # with the request library.
-        for name in ['no such collection', not_in_library.name]:
-            with self.request_context_with_library("/?size=1"):
-                response = self.manager.opds_feeds.crawlable_collection_feed(
-                    name
-                )
-                eq_(response.uri, NO_SUCH_COLLECTION.uri)
+            # This is not a shared collection, so the entries only
+            # have open-access links.
+            for entry in feed["entries"]:
+                links = entry.get("links")
+                eq_(1, len(links))
+                eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, links[0].get("rel"))
+
+            # Shared collection with one book.
+            collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+            self.english_2.license_pools[0].collection = collection
+            self._db.flush()
+            SessionManager.refresh_materialized_views(self._db)
+            response = self.manager.opds_feeds.crawlable_collection_feed(
+                collection.name
+            )
+            feed = feedparser.parse(response.data)
+            eq_([self.english_2.title], [x['title'] for x in feed['entries']])
+            [entry] = feed.get("entries")
+            links = entry.get("links")
+            [borrow_link] = [link for link in links if link.get("rel") == Hyperlink.BORROW]
+            [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
+            pool = self.english_2.license_pools[0]
+            expected = "/collections/%s/%s/%s/borrow" % (urllib.quote(collection.name), urllib.quote(pool.identifier.type), urllib.quote(pool.identifier.identifier))
+            assert expected in borrow_link.get("href")
+            eq_(self.english_2.license_pools[0].identifier.links[0].resource.url, open_access_link.get("href"))
+
+        # The collection must exist.
+        with self.app.test_request_context("/?size=1"):
+            response = self.manager.opds_feeds.crawlable_collection_feed(
+                "no such collection"
+            )
+            eq_(response.uri, NO_SUCH_COLLECTION.uri)
 
 
     def test_crawlable_list_feed(self):
@@ -2817,7 +2843,7 @@ class TestSharedCollectionController(ControllerTest):
         [self.delivery_mechanism] = self.pool.delivery_mechanisms
 
     @contextmanager
-    def request_context_with_library_and_client(self, route, *args, **kwargs):
+    def request_context_with_client(self, route, *args, **kwargs):
         if 'client' in kwargs:
             client = kwargs.pop('client')
         else:
@@ -2828,32 +2854,28 @@ class TestSharedCollectionController(ControllerTest):
             headers = dict()
         headers['Authorization'] = "Bearer " + base64.b64encode(client.shared_secret)
         kwargs['headers'] = headers
-        with self.request_context_with_library(route, *args, **kwargs) as c:
+        with self.app.test_request_context(route, *args, **kwargs) as c:
             yield c
 
     def test_info(self):
-        with self.request_context_with_library("/", method="POST"):
+        with self.app.test_request_context("/", method="POST"):
             response = self.manager.shared_collection_controller.info(self.collection.name)
             eq_(200, response.status_code)
             assert response.headers.get("Content-Type").startswith("application/opds+json")
             links = json.loads(response.data).get("links")
             [register_link] = [link for link in links if link.get("rel") == "register"]
-            assert "/default/collections/%s/register" % self.collection.name in register_link.get("href")
+            assert "/collections/%s/register" % self.collection.name in register_link.get("href")
 
     def test_load_collection(self):
-        other_collection = self._collection()
-        with self.request_context_with_library("/"):
+        with self.app.test_request_context("/"):
             collection = self.manager.shared_collection_controller.load_collection(self._str)
-            eq_(NO_SUCH_COLLECTION, collection)
-
-            collection = self.manager.shared_collection_controller.load_collection(other_collection.name)
             eq_(NO_SUCH_COLLECTION, collection)
 
             collection = self.manager.shared_collection_controller.load_collection(self.collection.name)
             eq_(self.collection, collection)
 
     def test_register(self):
-        with self.request_context_with_library("/"):
+        with self.app.test_request_context("/"):
             api = self.app.manager.shared_collection_controller.shared_collection
             flask.request.form = ImmutableMultiDict([("url", "http://test")])
 
@@ -2897,7 +2919,7 @@ class TestSharedCollectionController(ControllerTest):
             self._db, Loan, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,
         )
-        with self.request_context_with_library_and_client("/"):
+        with self.request_context_with_client("/"):
             # This loan doesn't exist.
             response = self.manager.shared_collection_controller.loan_info(self.collection.name, 1234567)
             eq_(LOAN_NOT_FOUND, response)
@@ -2937,10 +2959,11 @@ class TestSharedCollectionController(ControllerTest):
 
         hold, ignore = create(
             self._db, Hold, license_pool=self.pool, integration_client=self.client,
+            start=now, end=tomorrow,
         )
 
         no_pool = self._identifier()
-        with self.request_context_with_library_and_client("/"):
+        with self.request_context_with_client("/"):
             response = self.manager.shared_collection_controller.borrow(self.collection.name, no_pool.type, no_pool.identifier, None)
             eq_(NO_LICENSES.uri, response.uri)
 
@@ -2973,6 +2996,7 @@ class TestSharedCollectionController(ControllerTest):
             until = availability.get("until")
             eq_(datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ"), since)
             eq_(datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ"), until)
+            eq_("available", availability.get("status"))
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
             assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
             [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
@@ -3005,6 +3029,7 @@ class TestSharedCollectionController(ControllerTest):
             availability = entry.get("opds_availability")
             since = availability.get("since")
             until = availability.get("until")
+            eq_("available", availability.get("status"))
             eq_(datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ"), since)
             eq_(datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ"), until)
             [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
@@ -3013,6 +3038,24 @@ class TestSharedCollectionController(ControllerTest):
             assert "/collections/%s/loans/%s/fulfill/%s" % (self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id) in fulfill_url
             [self_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "self"]
             assert "/collections/%s/loans/%s" % (self.collection.name, loan.id)
+
+            # Now try to borrow, but actually get a hold.
+            api.queue_borrow(hold)
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, None)
+            eq_(201, response.status_code)
+            feed = feedparser.parse(response.data)
+            [entry] = feed.get("entries")
+            availability = entry.get("opds_availability")
+            since = availability.get("since")
+            until = availability.get("until")
+            eq_(datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ"), since)
+            eq_(datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ"), until)
+            eq_("reserved", availability.get("status"))
+            [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
+            assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
+            eq_([], [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"])
+            [self_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "self"]
+            assert "/collections/%s/holds/%s" % (self.collection.name, hold.id)
 
     def test_revoke_loan(self):
         now = datetime.datetime.utcnow()
@@ -3034,7 +3077,7 @@ class TestSharedCollectionController(ControllerTest):
             self._db, Loan, license_pool=other_pool, integration_client=self.client,
         )
 
-        with self.request_context_with_library_and_client("/"):
+        with self.request_context_with_client("/"):
             response = self.manager.shared_collection_controller.revoke_loan(self.collection.name, other_pool_loan.id)
             eq_(LOAN_NOT_FOUND.uri, response.uri)
 
@@ -3070,7 +3113,7 @@ class TestSharedCollectionController(ControllerTest):
             self._db, Loan, license_pool=other_pool, integration_client=self.client,
         )
 
-        with self.request_context_with_library_and_client("/"):
+        with self.request_context_with_client("/"):
             response = self.manager.shared_collection_controller.fulfill(self.collection.name, other_pool_loan.id, None)
             eq_(LOAN_NOT_FOUND.uri, response.uri)
 
@@ -3125,45 +3168,6 @@ class TestSharedCollectionController(ControllerTest):
             eq_("Content", response.data)
             eq_("text/html", response.headers.get("Content-Type"))
 
-    def test_place_hold(self):
-        now = datetime.datetime.utcnow()
-        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
-        hold, ignore = create(
-            self._db, Hold, license_pool=self.pool, integration_client=self.client,
-            start=now, end=tomorrow,
-        )
-
-        no_pool = self._identifier()
-        with self.request_context_with_library_and_client("/"):
-            response = self.manager.shared_collection_controller.place_hold(self.collection.name, no_pool.type, no_pool.identifier)
-            eq_(NO_LICENSES.uri, response.uri)
-
-            api = self.app.manager.shared_collection_controller.shared_collection
-
-            api.queue_place_hold(AuthorizationFailedException())
-            response = self.manager.shared_collection_controller.place_hold(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier)
-            eq_(INVALID_CREDENTIALS.uri, response.uri)
-
-            api.queue_place_hold(CurrentlyAvailable())
-            response = self.manager.shared_collection_controller.place_hold(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier)
-            eq_(HOLD_FAILED.uri, response.uri)
-
-            api.queue_place_hold(hold)
-            response = self.manager.shared_collection_controller.place_hold(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier)
-            eq_(201, response.status_code)
-            feed = feedparser.parse(response.data)
-            [entry] = feed.get("entries")
-            availability = entry.get("opds_availability")
-            since = availability.get("since")
-            until = availability.get("until")
-            eq_(datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ"), since)
-            eq_(datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ"), until)
-            [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
-            assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
-            eq_([], [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"])
-            [self_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "self"]
-            assert "/collections/%s/holds/%s" % (self.collection.name, hold.id)
-
     def test_hold_info(self):
         now = datetime.datetime.utcnow()
         tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
@@ -3184,7 +3188,7 @@ class TestSharedCollectionController(ControllerTest):
             self._db, Hold, license_pool=self.pool, integration_client=self.client,
             start=now, end=tomorrow,
         )
-        with self.request_context_with_library_and_client("/"):
+        with self.request_context_with_client("/"):
             # This hold doesn't exist.
             response = self.manager.shared_collection_controller.hold_info(self.collection.name, 1234567)
             eq_(HOLD_NOT_FOUND, response)
@@ -3233,7 +3237,7 @@ class TestSharedCollectionController(ControllerTest):
             self._db, Hold, license_pool=other_pool, integration_client=self.client,
         )
 
-        with self.request_context_with_library_and_client("/"):
+        with self.request_context_with_client("/"):
             response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, other_pool_hold.id)
             eq_(HOLD_NOT_FOUND.uri, response.uri)
 

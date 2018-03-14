@@ -12,7 +12,6 @@ from core.model import (
     Collection,
     ConfigurationSetting,
     IntegrationClient,
-    Library,
     get_one,
 )
 from circulation_exceptions import *
@@ -27,14 +26,11 @@ class SharedCollectionAPI(object):
     collection types.
     """
 
-    def __init__(self, _db, library, api_map=None):
+    def __init__(self, _db, api_map=None):
         """Constructor.
 
         :param _db: A database session (probably a scoped session, which is
             why we can't derive it from `library`).
-
-        :param library: A Library object representing the library
-          whose circulation we're concerned with.
 
         :param api_map: A dictionary mapping Collection protocols to
            API classes that should be instantiated to deal with these
@@ -45,16 +41,15 @@ class SharedCollectionAPI(object):
            calls, we only instantiate one CirculationAPI per library,
            and keep them around as long as possible.
         """
-        # TODO: Should there be an analytics events for external libraries?
+        # TODO: Should there be analytics events for external libraries?
         self._db = _db
-        self.library_id = library.id
         api_map = api_map or self.default_api_map
 
         self.api_for_collection = {}
         self.initialization_exceptions = {}
 
         self.log = logging.getLogger("Shared Collection API")
-        for collection in library.collections:
+        for collection in _db.query(Collection):
             if collection.protocol in api_map:
                 api = None
                 try:
@@ -67,10 +62,6 @@ class SharedCollectionAPI(object):
                     self.initialization_exceptions[collection.id] = e
                 if api:
                     self.api_for_collection[collection.id] = api
-
-    @property
-    def library(self):
-        return Library.by_id(self._db, self.library_id)
 
     @property
     def default_api_map(self):
@@ -92,8 +83,8 @@ class SharedCollectionAPI(object):
         api = self.api_for_collection.get(collection.id)
         if not api:
             raise CirculationException(
-                _("Collection %(collection)s is not a shared collection for library %(library)s",
-                  collection=collection.name, library=self.library.name))
+                _("Collection %(collection)s is not a shared collection.",
+                  collection=collection.name))
         return api
 
     def register(self, collection, auth_document_url, do_get=HTTP.get_with_timeout):
@@ -194,11 +185,6 @@ class SharedCollectionAPI(object):
             __transaction.commit()
         return fulfillment
 
-    def place_hold(self, collection, client, pool):
-        api = self.api(collection)
-        self.check_client_authorization(collection, client)
-        return api.place_hold_for_external_library(client, pool)
-
     def revoke_hold(self, collection, client, hold):
         api = self.api(collection)
         self.check_client_authorization(collection, client)
@@ -239,8 +225,5 @@ class BaseSharedCollectionAPI(object):
     def fulfill_for_external_library(self, client, loan, mechanism):
         raise NotImplementedError()
         
-    def place_hold_for_external_library(self, client, pool):
-        raise NotImplementedError()
-
     def release_hold_from_external_library(self, client, hold):
         raise NotImplementedError()

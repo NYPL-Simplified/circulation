@@ -1053,6 +1053,7 @@ class CrawlableFacets(Facets):
     def order_by(cls):
         """Order the search results by last update time."""
         from core.model import MaterializedWorkWithGenre as work_model
+        # TODO: first_appearance is only necessary here if this is for a custom list.
         updated = func.greatest(work_model.availability_time, work_model.first_appearance, work_model.last_update_time)
         collection_id = work_model.collection_id
         work_id = work_model.works_id
@@ -1073,7 +1074,9 @@ class CrawlableCollectionBasedLane(DynamicLane):
         :param collections: A list of Collections. If none are specified,
             all Collections associated with `library` will be used.
         """
-        self.library_id = library.id
+        self.library_id = None
+        if library:
+            self.library_id = library.id
         self.collection_feed = False
         if collections:
             identifier = " / ".join(sorted([x.name for x in collections]))

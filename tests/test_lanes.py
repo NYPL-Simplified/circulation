@@ -801,10 +801,9 @@ class TestCrawlableCollectionBasedLane(DatabaseTest):
         eq_([x.id for x in library.collections], lane.collection_ids)
 
         # A lane for a collection not actually associated with a
-        # library. (A Library is still necessary to provide a point of
-        # reference for classes like Facets and CachedFeed.)
+        # library.
         lane = CrawlableCollectionBasedLane(
-            library, [other_collection, other_collection_2]
+            None, [other_collection, other_collection_2]
         )
         eq_(
             "Crawlable feed: %s / %s" % tuple(
@@ -814,7 +813,7 @@ class TestCrawlableCollectionBasedLane(DatabaseTest):
         )
         eq_(set([other_collection.id, other_collection_2.id]),
             set(lane.collection_ids))
-        eq_(library, lane.get_library(self._db))
+        eq_(None, lane.get_library(self._db))
 
     def test_bibliographic_filter_clause(self):
         # Normally, if collection_ids is empty it means there are no
