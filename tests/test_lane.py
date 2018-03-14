@@ -1909,10 +1909,6 @@ class TestWorkListGroups(DatabaseTest):
         lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
         lq_ro.quality = 0.1
         nonfiction = _w(title="Nonfiction", fiction=False)
-        self.add_to_materialized_view(
-            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
-             nonfiction]
-        )
 
         # One of these works (mq_sf) is a best-seller and also a staff
         # pick.
@@ -1956,6 +1952,11 @@ class TestWorkListGroups(DatabaseTest):
             parent=fiction
         )
         discredited_nonfiction.inherit_parent_restrictions = False
+
+        self.add_to_materialized_view(
+            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
+             nonfiction]
+        )
 
         def assert_contents(g, expect):
             """Assert that a generator yields the expected

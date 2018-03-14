@@ -1882,7 +1882,9 @@ class Lane(Base, WorkList):
         # There may already be a join against CustomListEntry, in the case 
         # of a Lane that inherits its parent's restrictions. To avoid
         # confusion, create a different join every time.
-        a_list = None
+        #
+        # Our ability to combine 'inherit parent restrictions' with
+        # CustomList restrictions is limited, but we do what we can.
         a_entry = None
         if must_be_featured or self.list_seen_in_previous_days:
             a_entry = aliased(CustomListEntry)
@@ -1896,9 +1898,9 @@ class Lane(Base, WorkList):
         clauses = []
         customlist_ids = None
         if self.list_datasource:
-            # Use a separate query to obtain the CustomList IDs of 
-            # all CustomLists from this DataSource. This is faster than
-            # using a subquery.
+            # Use a separate query to obtain the CustomList IDs of all
+            # CustomLists from this DataSource. This is significantly
+            # faster than just using the subquery as customlist_ids.
             customlist_ids = Select(
                 [CustomList.id],
                 CustomList.data_source_id==self.list_datasource.id
