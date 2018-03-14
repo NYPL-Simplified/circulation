@@ -1590,7 +1590,8 @@ class TestLane(DatabaseTest):
                 self._db, base_query, featured
             )
             
-            if lane.uses_customlists:
+            if (lane.uses_customlists and
+                (featured or lane.list_seen_in_previous_days)):
                 # bibliographic_filter_clause modifies the query (by
                 # calling customlist_filter_clauses).
                 assert base_query != new_query
@@ -1649,6 +1650,11 @@ class TestLane(DatabaseTest):
         )
         best_sellers_lane = self._lane()
         best_sellers_lane.customlists.append(best_sellers)
+
+        # The materialized view must be refreshed for the changes to
+        # list membership to take effect.
+        self.add_to_materialized_view([childrens_fiction, nonfiction])
+
         match_works(
             best_sellers_lane, [childrens_fiction], featured=False
         )
@@ -1672,21 +1678,27 @@ class TestLane(DatabaseTest):
         best_selling_classics = self._lane(parent=best_sellers_lane)
         best_selling_classics.customlists.append(all_time_classics)
         best_selling_classics.inherit_parent_restrictions = False
+
+        SessionManager.refresh_materialized_views(self._db)
         match_works(best_selling_classics, [childrens_fiction, nonfiction])
+
+        # NOTE: These tests have been commented out because we no
+        # longer support a lane based on lists that inherits from
+        # another lane based on lists.
 
         # When it inherits its parent's restrictions, only the
         # works that are on _both_ lists show up in the lane,
-        best_selling_classics.inherit_parent_restrictions = True
-        match_works(best_selling_classics, [childrens_fiction])
+        #best_selling_classics.inherit_parent_restrictions = True
+        #match_works(best_selling_classics, [childrens_fiction])
 
         # Other restrictions are inherited as well. Here, a title must
         # show up on both lists _and_ be a nonfiction book. There are
         # no titles that meet all three criteria.
-        best_sellers_lane.fiction = False
-        match_works(best_selling_classics, [])
+        #best_sellers_lane.fiction = False
+        #match_works(best_selling_classics, [])
 
-        best_sellers_lane.fiction = True
-        match_works(best_selling_classics, [childrens_fiction])       
+        #best_sellers_lane.fiction = True
+        #match_works(best_selling_classics, [childrens_fiction])
 
     def test_bibliographic_filter_clause_no_restrictions(self):
         """A lane that matches every single book has no bibliographic
@@ -1808,9 +1820,10 @@ class TestLane(DatabaseTest):
                 qu, must_be_featured=must_be_featured
             )
 
-            # The query comes out different than it goes in -- there's a
-            # new join against CustomList.
-            assert new_qu != qu
+            if must_be_featured or lane.list_seen_in_previous_days:
+                # The query comes out different than it goes in -- there's a
+                # new join against CustomListEntry.
+                assert new_qu != qu
 
             # Run the query and see what it matches.
             modified = new_qu.filter(and_(*clauses)).distinct(

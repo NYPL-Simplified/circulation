@@ -1910,6 +1910,8 @@ class Lane(Base, WorkList):
         else:
             customlist_ids = [x.id for x in self.customlists]
         if customlist_ids is not None:
+            if a_entry:
+                clauses.append(a_entry.list_id.in_(customlist_ids))
             clauses.append(work_model.list_id.in_(customlist_ids))
         if must_be_featured:
             clauses.append(a_entry.featured==True)
