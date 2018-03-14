@@ -7,6 +7,7 @@ import time
 import urllib
 
 from psycopg2.extras import NumericRange
+from sqlalchemy.sql.expression import Select
 
 from config import Configuration
 from flask_babel import lazy_gettext as _
@@ -1881,24 +1882,33 @@ class Lane(Base, WorkList):
         # There may already be a join against CustomListEntry, in the case 
         # of a Lane that inherits its parent's restrictions. To avoid
         # confusion, create a different join every time.
-        a_entry = aliased(CustomListEntry)
-        clause = a_entry.work_id==work_model.works_id
-        a_list = aliased(CustomListEntry.customlist)
-        if outer_join:
-            qu = qu.outerjoin(a_entry, clause)
-            qu = qu.outerjoin(a_list, a_entry.list_id==a_list.id)
-        else:
-            qu = qu.join(a_entry, clause)
-            qu = qu.join(a_list, a_entry.list_id==a_list.id)
+        a_list = None
+        a_entry = None
+        if must_be_featured or self.list_seen_in_previous_days:
+            a_entry = aliased(CustomListEntry)
+            clause = a_entry.work_id==work_model.works_id
+            if outer_join:
+                qu = qu.outerjoin(a_entry, clause)
+            else:
+                qu = qu.join(a_entry, clause)
 
         # Actually build the restriction clauses.
         clauses = []
+        customlist_ids = None
         if self.list_datasource:
-            clauses.append(a_list.data_source==self.list_datasource)
-        customlist_ids = [x.id for x in self.customlists]
-
-        if customlist_ids:
-            clauses.append(a_list.id.in_(customlist_ids))
+            # Use a separate query to obtain the CustomList IDs of 
+            # all CustomLists from this DataSource. This is faster than
+            # using a subquery.
+            customlist_ids = Select(
+                [CustomList.id],
+                CustomList.data_source_id==self.list_datasource.id
+            )
+            _db = Session.object_session(self)
+            customlist_ids = [x[0] for x in _db.execute(customlist_ids)]
+        else:
+            customlist_ids = [x.id for x in self.customlists]
+        if customlist_ids is not None:
+            clauses.append(work_model.list_id.in_(customlist_ids))
         if must_be_featured:
             clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
@@ -1906,9 +1916,6 @@ class Lane(Base, WorkList):
                 self.list_seen_in_previous_days
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)
-
-        if must_be_featured:
-            clauses.append(a_entry.featured==True)
             
         return qu, clauses
 
