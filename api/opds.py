@@ -766,6 +766,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 indirect_acquisitions.append(indirect_acquisition)
 
         if not indirect_acquisitions:
+            # If there's no way to actually get the book, cancel the creation
+            # of an OPDS entry altogether.
             raise UnfulfillableWork()
 
         borrow_link.extend(indirect_acquisitions)
@@ -1045,6 +1047,8 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
                 indirect_acquisitions.append(indirect_acquisition)
 
         if not indirect_acquisitions:
+            # If there's no way to actually get the book, cancel the creation
+            # of an OPDS entry altogether.
             raise UnfulfillableWork()
 
         borrow_link.extend(indirect_acquisitions)
