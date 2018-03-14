@@ -51,16 +51,16 @@ HOME=/var/www/circulation
 # Axis 360
 #
 */15 * * * * root core/bin/run axis_monitor >> /var/log/cron.log 2>&1
-*/15 * * * * root core/bin/run axis_reaper >> /var/log/cron.log 2>&1
+0 4 * * * root core/bin/run axis_reaper >> /var/log/cron.log 2>&1
 
 # Bibliotheca
 #
 */15 * * * * root core/bin/run bibliotheca_monitor >> /var/log/cron.log 2>&1
-*/15 * * * * root core/bin/run bibliotheca_circulation_sweep >> /var/log/cron.log 2>&1
+0 5 * * * root core/bin/run bibliotheca_circulation_sweep >> /var/log/cron.log 2>&1
 
 # Overdrive
 #
-*/15 * * * * root core/bin/run overdrive_monitor_full >> /var/log/cron.log 2>&1
+0 */4 * * * root core/bin/run overdrive_monitor_full >> /var/log/cron.log 2>&1
 */15 * * * * root core/bin/run overdrive_monitor_recent >> /var/log/cron.log 2>&1
 */15 * * * * root core/bin/run overdrive_reaper >> /var/log/cron.log 2>&1
 0 4 * * * root core/bin/run overdrive_format_sweep >> /var/log/cron.log 2>&1
@@ -91,3 +91,8 @@ HOME=/var/www/circulation
 0 6 * * * root core/bin/run odl_consolidated_copies_monitor >> /var/log/cron.log 2>&1
 0 */8 * * * root core/bin/run odl_hold_reaper >> /var/log/cron.log 2>&1
 0 6 * * * root core/bin/run shared_odl_import_monitor >> /var/log/cron.log 2>&1
+
+# Odilo
+#
+0 */4 * * * root core/bin/run odilo_monitor_full >> /var/log/cron.log 2>&1
+*/15 * * * * root core/bin/run odilo_monitor_recent >> /var/log/cron.log 2>&1
