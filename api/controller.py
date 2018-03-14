@@ -622,12 +622,17 @@ class OPDSFeedController(CirculationManagerController):
         pagination = load_pagination_from_request()
         if isinstance(pagination, ProblemDetail):
             return pagination
+        import time
+        a = time.time()
         feed = AcquisitionFeed.page(
             self._db, title, url, lane, annotator=annotator,
             facets=facets,
             pagination=pagination,
         )
-        return feed_response(feed.content)
+        content = feed_response(feed.content)
+        b = time.time()
+        logging.error("Generated feed for %s in %.2fsec", lane.full_identifier, b-a)
+        return content
 
     def crawlable_library_feed(self):
         """Build or retrieve a crawlable acquisition feed for the
