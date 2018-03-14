@@ -4666,7 +4666,7 @@ class TestLoans(DatabaseTest):
         loan.patron = None
         client = self._integration_client()
         loan.integration_client = client
-        eq_(self._default_library, loan.library)
+        eq_(None, loan.library)
 
         loan.integration_client = None
         eq_(None, loan.library)

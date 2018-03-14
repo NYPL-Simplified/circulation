@@ -815,10 +815,7 @@ class LoanAndHoldMixin(object):
         """Try to find the corresponding library for this Loan/Hold."""
         if self.patron:
             return self.patron.library
-        if self.integration_client:
-            # If this is a loan for a library outside this circulation manager,
-            # choose an arbitrary library from the collection.
-            return self.license_pool.collection.libraries[0]
+        # If this Loan/Hold belongs to a external patron, there may be no library.
         return None
 
 
