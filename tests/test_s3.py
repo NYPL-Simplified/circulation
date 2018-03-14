@@ -2,6 +2,10 @@ import os
 import datetime
 from PIL import Image
 from StringIO import StringIO
+from botocore.exceptions import (
+    BotoCoreError,
+    ClientError,
+)
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -19,7 +23,7 @@ from model import (
 )
 from s3 import (
     S3Uploader,
-    MockS3Pool,
+    MockS3Client,
 )
 from mirror import MirrorUploader
 from config import CannotLoadConfiguration
@@ -36,14 +40,23 @@ class S3UploaderTest(DatabaseTest):
         integration.password = 'password'
         return integration
 
-    def _uploader(self, pool_class=None, uploader_class=None, **settings):
+    def _uploader(self, client_class=None, uploader_class=None, **settings):
         """Create a simple S3Uploader."""
         integration = self._integration(**settings)
         uploader_class = uploader_class or S3Uploader
-        return uploader_class(integration, pool_class=pool_class)
+        return uploader_class(integration, client_class=client_class)
 
 
 class TestS3Uploader(S3UploaderTest):
+
+    def test_names(self):
+        # The NAME associated with this class must be the same as its
+        # key in the MirrorUploader implementation registry, and it's
+        # better if it's the same as the name of the external
+        # integration.
+        eq_(S3Uploader.NAME, ExternalIntegration.S3)
+        eq_(S3Uploader,
+            MirrorUploader.IMPLEMENTATION_REGISTRY[ExternalIntegration.S3])
 
     def test_instantiation(self):
         # If there is a configuration but it's misconfigured, an error
@@ -62,12 +75,11 @@ class TestS3Uploader(S3UploaderTest):
         uploader = MirrorUploader.implementation(integration)
         eq_(True, isinstance(uploader, S3Uploader))
 
-
-    def test_custom_pool_class(self):
-        """You can specify a pool class to use instead of tinys3.Pool."""
+    def test_custom_client_class(self):
+        """You can specify a client class to use instead of boto3.client."""
         integration = self._integration()
-        uploader = S3Uploader(integration, MockS3Pool)
-        assert isinstance(uploader.pool, MockS3Pool)
+        uploader = S3Uploader(integration, MockS3Client)
+        assert isinstance(uploader.client, MockS3Client)
 
     def test_get_bucket(self):
         buckets = {
@@ -209,29 +221,64 @@ class TestS3Uploader(S3UploaderTest):
         epub_rep = epub.resource.representation
         eq_(None, epub_rep.mirrored_at)
 
-        s3 = self._uploader(MockS3Pool)
+        s3 = self._uploader(MockS3Client)
         to_mirror = [
             cover.resource.representation, epub.resource.representation
         ]
         s3.mirror_batch(to_mirror)
-        [[filename1, data1, bucket1, media_type1, ignore1],
-         [filename2, data2, bucket2, media_type2, ignore2],] = s3.pool.uploads
+        [[data1, bucket1, key1, args1, ignore1],
+         [data2, bucket2, key2, args2, ignore2],] = s3.client.uploads
 
         # Both representations have been mirrored to their .mirror_urls
-        eq_("covers-go", bucket1)
-        eq_("here.png", filename1)
-        eq_(Representation.PNG_MEDIA_TYPE, media_type1)
         assert data1.startswith(b'\x89')
+        eq_("covers-go", bucket1)
+        eq_("here.png", key1)
+        eq_(Representation.PNG_MEDIA_TYPE, args1['ContentType'])
         assert (datetime.datetime.utcnow() - cover_rep.mirrored_at).seconds < 10
 
         # Since the epub_rep didn't have a .mirror_url, the .url was used
         # instead, and .mirror_url was set to .url.
         eq_(original_epub_location, epub_rep.mirror_url)
-        eq_("books.com", bucket2)
-        eq_("a-book.epub", filename2)
         eq_("i'm an epub", data2)
-        eq_(Representation.EPUB_MEDIA_TYPE, media_type2)
+        eq_("books.com", bucket2)
+        eq_("a-book.epub", key2)
+        eq_(Representation.EPUB_MEDIA_TYPE, args2['ContentType'])
         assert (datetime.datetime.utcnow() - epub_rep.mirrored_at).seconds < 10
+
+    def test_mirror_failure(self):
+        edition, pool = self._edition(with_license_pool=True)
+        original_epub_location = "https://books.com/a-book.epub"
+        epub, ignore = pool.add_link(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, original_epub_location,
+            edition.data_source, Representation.EPUB_MEDIA_TYPE,
+            content="i'm an epub"
+        )
+        epub_rep = epub.resource.representation
+
+        uploader = self._uploader(MockS3Client)
+
+        # A network failure is treated as a transient error.
+        uploader.client.fail_with = BotoCoreError()
+        uploader.mirror_one(epub_rep)
+        eq_(None, epub_rep.mirrored_at)
+        eq_(None, epub_rep.mirror_exception)
+
+        # An S3 credential failure is treated as a transient error.
+        response = dict(
+            Error=dict(
+                Code=401,
+                Message="Bad credentials",
+            )
+        )
+        uploader.client.fail_with = ClientError(response, "SomeOperation")
+        uploader.mirror_one(epub_rep)
+        eq_(None, epub_rep.mirrored_at)
+        eq_(None, epub_rep.mirror_exception)
+
+        # A bug in the code is not treated as a transient error --
+        # the exception propagates through.
+        uploader.client.fail_with = Exception("crash!")
+        assert_raises(Exception, uploader.mirror_one, epub_rep)
 
     def test_automatic_conversion_while_mirroring(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -250,12 +297,12 @@ class TestS3Uploader(S3UploaderTest):
             content=svg)
 
         # 'Upload' it to S3.
-        s3 = self._uploader(MockS3Pool)
+        s3 = self._uploader(MockS3Client)
         s3.mirror_one(hyperlink.resource.representation)
-        [[filename, data, bucket, media_type, ignore]] = s3.pool.uploads
+        [[data, bucket, key, args, ignore]] = s3.client.uploads
 
         # The thing that got uploaded was a PNG, not the original SVG
         # file.
-        eq_(Representation.PNG_MEDIA_TYPE, media_type)
+        eq_(Representation.PNG_MEDIA_TYPE, args['ContentType'])
         assert 'PNG' in data
         assert 'svg' not in data

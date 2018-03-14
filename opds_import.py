@@ -1508,7 +1508,7 @@ class OPDSImportMonitor(CollectionMonitor):
         return response.status_code, response.headers, response.content
 
     def _update_headers(self, headers):
-        dict(headers or {})
+        headers = dict(headers or {})
         if self.username and self.password and not 'Authorization' in headers:
             auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
             headers['Authorization'] = auth_header

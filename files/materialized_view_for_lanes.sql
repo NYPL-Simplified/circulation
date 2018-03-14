@@ -86,6 +86,9 @@ create index mv_works_for_lanes_by_random_fiction_audience_target_age on mv_work
 
 create index mv_works_for_lanes_by_modification on mv_works_for_lanes (last_update_time DESC, sort_author, sort_title, works_id);
 
+-- This index is useful when building feeds of recommended titles.
+create index mv_works_for_lanes_identifier_id on mv_works_for_lanes (identifier_id);
+
 -- We need three versions of each index:
 --- One that orders by sort_author, sort_title, and works_id
 --- One that orders by sort_title, sort_author, and works_id

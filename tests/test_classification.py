@@ -27,6 +27,7 @@ from classifier import (
     InterestLevelClassifier,
     Axis360AudienceClassifier,
     WorkClassifier,
+    Lowercased,
     fiction_genres,
     nonfiction_genres,
     GenreData,
@@ -34,6 +35,30 @@ from classifier import (
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
+
+
+class TestLowercased(object):
+
+    def test_constructor(self):
+
+        l = Lowercased("A string")
+
+        # A string is lowercased.
+        eq_("a string", l)
+
+        # A Lowercased object is returned rather than creating a new
+        # object.
+        assert Lowercased(l) is l
+
+        # A number such as a Dewey Decimal number is converted to a string.
+        eq_(u"301", Lowercased(301))
+
+        # A trailing period is removed.
+        l = Lowercased("A string.")
+        eq_("a string", l)
+
+        # The original value is still available.
+        eq_("A string.", l.original)
 
 
 class TestGenreData(object):

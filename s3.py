@@ -1,6 +1,10 @@
 import logging
 import os
-import tinys3
+import boto3
+from botocore.exceptions import (
+    BotoCoreError,
+    ClientError,
+)
 import urllib
 from flask_babel import lazy_gettext as _
 from nose.tools import set_trace
@@ -17,7 +21,7 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
-    NAME = u'Amazon S3'
+    NAME = ExternalIntegration.S3
 
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
@@ -34,18 +38,18 @@ class S3Uploader(MirrorUploader):
 
     SITEWIDE = True
 
-    def __init__(self, integration, pool_class=None):
+    def __init__(self, integration, client_class=None):
         """Instantiate an S3Uploader from an ExternalIntegration.
 
         :param integration: An ExternalIntegration
 
-        :param pool_class: Mock object (or class) to use (or instantiate)
-            instead of tinys3.Pool.
+        :param client_class: Mock object (or class) to use (or instantiate)
+            instead of boto3.client.
         """
-        if not pool_class:
-            pool_class = tinys3.Pool
+        if not client_class:
+            client_class = boto3.client
 
-        if callable(pool_class):
+        if callable(client_class):
             access_key = integration.username
             secret_key = integration.password
             if not (access_key and secret_key):
@@ -53,9 +57,13 @@ class S3Uploader(MirrorUploader):
                     'Cannot create S3Uploader without both'
                     ' access_key and secret_key.'
                 )
-            self.pool = pool_class(access_key, secret_key)
+            self.client = client_class(
+                's3',
+                aws_access_key_id=access_key, 
+                aws_secret_access_key=secret_key,
+            )
         else:
-            self.pool = pool_class
+            self.client = client_class
 
         # Transfer information about bucket names from the
         # ExternalIntegration to the S3Uploader object, so we don't
@@ -163,9 +171,6 @@ class S3Uploader(MirrorUploader):
 
     def mirror_batch(self, representations):
         """Mirror a bunch of Representations at once."""
-        filehandles = []
-        requests = []
-        representations_by_response_url = dict()
         for representation in representations:
             if not representation.mirror_url:
                 representation.mirror_url = representation.url
@@ -173,24 +178,17 @@ class S3Uploader(MirrorUploader):
             bucket, filename = self.bucket_and_filename(
                 representation.mirror_url
             )
-            response_url = self.url(bucket, filename)
-            representations_by_response_url[response_url] = (
-                representation)
             media_type = representation.external_media_type
-            fh = representation.external_content()
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
-            filehandles.append(fh)
-            request = self.pool.upload(
-                remote_filename, fh, bucket=bucket,
-                content_type=media_type
-            )
-            requests.append(request)
-        # Do the upload.
-
-        def process_response(response):
-            representation = representations_by_response_url[response.url]
-            if response.status_code == 200:
+            fh = representation.external_content()
+            try:
+                self.client.upload_fileobj(
+                    Fileobj=fh,
+                    Bucket=bucket,
+                    Key=remote_filename,
+                    ExtraArgs=dict(ContentType=media_type)
+                )
                 source = representation.local_content_path
                 if representation.url != representation.mirror_url:
                     source = representation.url
@@ -200,31 +198,23 @@ class S3Uploader(MirrorUploader):
                 else:
                     logging.info("MIRRORED %s", representation.mirror_url)
                 representation.set_as_mirrored()
-            else:
-                representation.mirrored_at = None
-                representation.mirror_exception = "Status code %d: %s" % (
-                    response.status_code, response.content)
-
-        try:
-            for response in self.pool.as_completed(requests):
-                process_response(response)
-        except ConnectionError, e:
-            # This is a transient error; we can just try again.
-            logging.error("S3 connection error: %r", e, exc_info=e)
-            pass
-        except HTTPError, e:
-            # Probably also a transient error. In any case
-            # there's nothing we can do about it but try again.
-            logging.error("S3 HTTP error: %r", e, exc_info=e)
-            pass
-
-        # Close the filehandles
-        for fh in filehandles:
-            fh.close()
+            except (BotoCoreError, ClientError), e:
+                # BotoCoreError happens when there's a problem with
+                # the network transport. ClientError happens when
+                # there's a problem with the credentials. Either way,
+                # the best thing to do is treat this as a transient
+                # error and try again later. There's no scenario where
+                # giving up is the right move.
+                logging.error(
+                    "Error uploading %s: %r", representation.mirror_url,
+                    e, exc_info=e
+                )
+            finally:
+                fh.close()
 
 # MirrorUploader.implementation will instantiate an S3Uploader
-# for storage integrations with protocol 'S3'.
-MirrorUploader.IMPLEMENTATION_REGISTRY[ExternalIntegration.S3] = S3Uploader
+# for storage integrations with protocol 'Amazon S3'.
+MirrorUploader.IMPLEMENTATION_REGISTRY[S3Uploader.NAME] = S3Uploader
 
 
 class MockS3Uploader(S3Uploader):
@@ -253,34 +243,20 @@ class MockS3Uploader(S3Uploader):
                 representation.set_as_mirrored()
 
 
-class MockS3Response(object):
-    def __init__(self, url):
-        self.url = url
-        self.status_code = 200
-
-
-class MockS3Pool(object):
-    """This pool lets us test the real S3Uploader class with a mocked-up S3
-    pool.
+class MockS3Client(object):
+    """This pool lets us test the real S3Uploader class with a mocked-up
+    boto3 client.
     """
 
-    def __init__(self, access_key, secret_key):
-        self.access_key = access_key
-        self.secret_key = secret_key
+    def __init__(self, service, aws_access_key_id, aws_secret_access_key):
+        assert service == 's3'
+        self.access_key = aws_access_key_id
+        self.secret_key = aws_secret_access_key
         self.uploads = []
-        self.in_progress = []
-        self.n = 0
+        self.fail_with = None
 
-    def upload(self, remote_filename, fh, bucket=None, content_type=None,
-               **kwargs):
-        self.uploads.append((remote_filename, fh.read(), bucket, content_type,
-                             kwargs))
-        url = S3Uploader.url(bucket, remote_filename)
-        response = MockS3Response(url)
-        self.in_progress.append(response)
-        return response
-
-    def as_completed(self, requests):
-        for i in self.in_progress:
-            yield i
-        self.in_progress = []
+    def upload_fileobj(self, Fileobj, Bucket, Key, ExtraArgs=None, **kwargs):
+        if self.fail_with:
+            raise self.fail_with
+        self.uploads.append((Fileobj.read(), Bucket, Key, ExtraArgs, kwargs))
+        return None

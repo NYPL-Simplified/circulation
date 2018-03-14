@@ -1,4 +1,5 @@
 # Requirements for core
+boto3
 feedparser
 pillow
 psycopg2
@@ -8,7 +9,6 @@ nose
 lxml
 flask
 isbnlib
-tinys3>=0.1.12
 textblob
 rdflib
 elasticsearch==2.1.0
