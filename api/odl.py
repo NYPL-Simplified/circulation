@@ -1096,7 +1096,7 @@ class SharedODLAPI(BaseCirculationAPI):
                 end,
                 external_identifier=external_identifier
             )
-        else:
+        elif availability.get("status") in ["ready", "reserved"]:
             # We tried to borrow this book but it wasn't available,
             # so we got a hold.
             position = entry.get("opds_holds", {}).get("position")
@@ -1112,6 +1112,10 @@ class SharedODLAPI(BaseCirculationAPI):
                 hold_position=position,
                 external_identifier=external_identifier
             )
+        else:
+            # We didn't get an error, but something went wrong and we don't have a
+            # loan or hold either.
+            raise CannotLoan()
 
     def checkin(self, patron, pin, licensepool):
         _db = Session.object_session(patron)
