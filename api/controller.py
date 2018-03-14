@@ -1568,13 +1568,13 @@ class SharedCollectionController(CirculationManagerController):
         if isinstance(client, ProblemDetail):
             return client
         if identifier_type and identifier:
-            pools = self._db.query(LicensePool).join(LicensePool.collection).join(
+            pools = self._db.query(LicensePool).join(
                 LicensePool.identifier).filter(
                     Identifier.type==identifier_type
                 ).filter(
                     Identifier.identifier==identifier
                 ).filter(
-                    Collection.id==collection.id
+                    LicensePool.collection_id==collection.id
                 ).all()
             if not pools:
                 return NO_LICENSES.detailed(
