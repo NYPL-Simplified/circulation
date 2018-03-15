@@ -1889,18 +1889,7 @@ class Lane(Base, WorkList):
         # the materialized view.
         a_entry = aliased(CustomListEntry)
         clause = a_entry.work_id==work_model.works_id
-        if not already_filtered_customlist_on_materialized_view:
-            # The first time we join against CustomListEntry, the list
-            # we're talking about is the same one mentioned in the
-            # materialized view's list_id field. We only do the join
-            # in case we are filtering on some field not available in
-            # the materialized view, such as first_appearance.
-            #
-            # (Also, doing the join makes sure entries leave the lanes
-            # as soon as they are removed from the list, without
-            # needing to wait for the materialized view to be
-            # refreshed.)
-            clause = and_(clause, a_entry.list_id==work_model.list_id)
+        clause = and_(clause, a_entry.list_id==work_model.list_id)
         if outer_join:
             qu = qu.outerjoin(a_entry, clause)
         else:
