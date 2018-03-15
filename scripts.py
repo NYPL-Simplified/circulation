@@ -122,6 +122,8 @@ from api.opds_for_distributors import (
 from api.odl import (
     ODLBibliographicImporter,
     ODLBibliographicImportMonitor,
+    SharedODLImporter,
+    SharedODLImportMonitor,
 )
 from core.scripts import OPDSImportScript
 
@@ -1407,3 +1409,8 @@ class ODLBibliographicImportScript(OPDSImportScript):
     IMPORTER_CLASS = ODLBibliographicImporter
     MONITOR_CLASS = ODLBibliographicImportMonitor
     PROTOCOL = ODLBibliographicImporter.NAME
+
+class SharedODLImportScript(OPDSImportScript):
+    IMPORTER_CLASS = SharedODLImporter
+    MONITOR_CLASS = SharedODLImportMonitor
+    PROTOCOL = SharedODLImporter.NAME

@@ -18,6 +18,7 @@ from flask_sqlalchemy_session import (
     current_session,
     flask_scoped_session,
 )
+from werkzeug import ImmutableMultiDict
 
 from . import DatabaseTest
 from api.app import app, initialize_database
@@ -55,6 +56,7 @@ from core.model import (
     Hold,
     DataSource,
     Edition,
+    Hyperlink,
     Identifier,
     Complaint,
     Library,
@@ -66,6 +68,7 @@ from core.model import (
     PresentationCalculationPolicy,
     RightsStatus,
     Session,
+    IntegrationClient,
     get_one,
     get_one_or_create,
     create,
@@ -82,7 +85,8 @@ from core.user_profile import (
 )
 from core.util.problem_detail import ProblemDetail
 from core.util.http import RemoteIntegrationException
-from core.testing import DummyHTTPClient
+
+from core.testing import DummyHTTPClient, MockRequestsResponse
 
 from api.problem_details import *
 from api.circulation_exceptions import *
@@ -97,6 +101,7 @@ from api.adobe_vendor_id import (
     DeviceManagementProtocolController,
 )
 from api.odl import MockODLWithConsolidatedCopiesAPI
+from api.shared_collection import SharedCollectionAPI
 import base64
 import feedparser
 from core.opds import (
@@ -105,7 +110,7 @@ from core.opds import (
 from core.util.opds_writer import (    
     OPDSFeed,
 )
-from api.opds import CirculationManagerAnnotator
+from api.opds import LibraryAnnotator
 from api.annotations import AnnotationWriter
 from api.testing import (
     VendorIDTest,
@@ -117,7 +122,6 @@ import json
 import urllib
 from core.analytics import Analytics
 from core.util.authentication_for_opds import AuthenticationForOPDSDocument
-
 
 class ControllerTest(VendorIDTest):
     """A test that requires a functional app server."""
@@ -309,12 +313,13 @@ class TestCirculationManager(CirculationControllerTest):
         manager.oauth_controller = object()
         manager.auth = object()
         manager.lending_policy = object()
+        manager.shared_collection_api = object()
 
         # But some fields are _not_ about to be reloaded
         index_controller = manager.index_controller
         
-        # The CirculationManager has a top-level lane and a
-        # CirculationAPI for the default library, but no others.
+        # The CirculationManager has a top-level lane and a CirculationAPI,
+        # for the default library, but no others.
         eq_(1, len(manager.top_level_lanes))
         eq_(1, len(manager.circulation_apis))
 
@@ -355,6 +360,10 @@ class TestCirculationManager(CirculationControllerTest):
         # So has the controller for the Device Management Protocol.
         assert isinstance(manager.adobe_device_management,
                           DeviceManagementProtocolController)
+
+        # So has the SharecCollectionAPI.
+        assert isinstance(manager.shared_collection_api,
+                          SharedCollectionAPI)
 
         # Controllers that don't depend on site configuration
         # have not been reloaded.
@@ -1833,7 +1842,7 @@ class TestWorkController(CirculationControllerTest):
     def test_permalink(self):
         with self.request_context_with_library("/"):
             response = self.manager.work_controller.permalink(self.identifier.type, self.identifier.identifier)
-            annotator = CirculationManagerAnnotator(None, None, self._default_library)
+            annotator = LibraryAnnotator(None, None, self._default_library)
             expect = etree.tostring(
                 AcquisitionFeed.single_entry(
                     self._db, self.english_1, annotator
@@ -2281,10 +2290,10 @@ class TestFeedController(CirculationControllerTest):
         SessionManager.refresh_materialized_views(self._db)
 
         # Set up configuration settings for links.
-        for rel, value in [(CirculationManagerAnnotator.TERMS_OF_SERVICE, "a"),
-                           (CirculationManagerAnnotator.PRIVACY_POLICY, "b"),
-                           (CirculationManagerAnnotator.COPYRIGHT, "c"),
-                           (CirculationManagerAnnotator.ABOUT, "d"),
+        for rel, value in [(LibraryAnnotator.TERMS_OF_SERVICE, "a"),
+                           (LibraryAnnotator.PRIVACY_POLICY, "b"),
+                           (LibraryAnnotator.COPYRIGHT, "c"),
+                           (LibraryAnnotator.ABOUT, "d"),
                            ]:
             ConfigurationSetting.for_library(rel, self._default_library).value = value
 
@@ -2303,10 +2312,10 @@ class TestFeedController(CirculationControllerTest):
             for i in links:
                 by_rel[i['rel']] = i['href']
 
-            eq_("a", by_rel[CirculationManagerAnnotator.TERMS_OF_SERVICE])
-            eq_("b", by_rel[CirculationManagerAnnotator.PRIVACY_POLICY])
-            eq_("c", by_rel[CirculationManagerAnnotator.COPYRIGHT])
-            eq_("d", by_rel[CirculationManagerAnnotator.ABOUT])
+            eq_("a", by_rel[LibraryAnnotator.TERMS_OF_SERVICE])
+            eq_("b", by_rel[LibraryAnnotator.PRIVACY_POLICY])
+            eq_("c", by_rel[LibraryAnnotator.COPYRIGHT])
+            eq_("d", by_rel[LibraryAnnotator.ABOUT])
 
     def test_multipage_feed(self):
         self._work("fiction work", language="eng", fiction=True, with_open_access_download=True)
@@ -2421,8 +2430,7 @@ class TestFeedController(CirculationControllerTest):
 
     def test_crawlable_collection_feed(self):
         self._set_update_times()
-        not_in_library = self._collection()
-        with self.request_context_with_library("/?size=2"):
+        with self.app.test_request_context("/?size=2"):
             response = self.manager.opds_feeds.crawlable_collection_feed(
                 self._default_collection.name
             )
@@ -2431,14 +2439,38 @@ class TestFeedController(CirculationControllerTest):
             eq_([self.english_2.title, self.french_1.title],
                 [x['title'] for x in feed['entries']])
 
-        # The collection must exist and it must be associated
-        # with the request library.
-        for name in ['no such collection', not_in_library.name]:
-            with self.request_context_with_library("/?size=1"):
-                response = self.manager.opds_feeds.crawlable_collection_feed(
-                    name
-                )
-                eq_(response.uri, NO_SUCH_COLLECTION.uri)
+            # This is not a shared collection, so the entries only
+            # have open-access links.
+            for entry in feed["entries"]:
+                links = entry.get("links")
+                eq_(1, len(links))
+                eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, links[0].get("rel"))
+
+            # Shared collection with one book.
+            collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
+            self.english_2.license_pools[0].collection = collection
+            self._db.flush()
+            SessionManager.refresh_materialized_views(self._db)
+            response = self.manager.opds_feeds.crawlable_collection_feed(
+                collection.name
+            )
+            feed = feedparser.parse(response.data)
+            eq_([self.english_2.title], [x['title'] for x in feed['entries']])
+            [entry] = feed.get("entries")
+            links = entry.get("links")
+            [borrow_link] = [link for link in links if link.get("rel") == Hyperlink.BORROW]
+            [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
+            pool = self.english_2.license_pools[0]
+            expected = "/collections/%s/%s/%s/borrow" % (urllib.quote(collection.name), urllib.quote(pool.identifier.type), urllib.quote(pool.identifier.identifier))
+            assert expected in borrow_link.get("href")
+            eq_(self.english_2.license_pools[0].identifier.links[0].resource.url, open_access_link.get("href"))
+
+        # The collection must exist.
+        with self.app.test_request_context("/?size=1"):
+            response = self.manager.opds_feeds.crawlable_collection_feed(
+                "no such collection"
+            )
+            eq_(response.uri, NO_SUCH_COLLECTION.uri)
 
 
     def test_crawlable_list_feed(self):
@@ -2795,6 +2827,439 @@ class TestODLNotificationController(ControllerTest):
         with self.request_context_with_library("/", method="POST"):
             response = self.manager.odl_notification_controller.notify(loan.id)
             eq_(INVALID_LOAN_FOR_ODL_NOTIFICATION, response)
+
+class TestSharedCollectionController(ControllerTest):
+    """Test that other circ managers can register to borrow books
+    from a shared collection."""
+
+    def setup(self):
+        super(TestSharedCollectionController, self).setup(set_up_circulation_manager=False)
+        from api.odl import ODLWithConsolidatedCopiesAPI
+        self.collection = self._collection(protocol=ODLWithConsolidatedCopiesAPI.NAME)
+        self._default_library.collections = [self.collection]
+        self.client, ignore = IntegrationClient.register(self._db, "http://library.org")
+        self.app.manager = self.circulation_manager_setup(self._db)
+        self.work = self._work(
+            with_license_pool=True, collection=self.collection
+        )
+        self.pool = self.work.license_pools[0]
+        [self.delivery_mechanism] = self.pool.delivery_mechanisms
+
+    @contextmanager
+    def request_context_with_client(self, route, *args, **kwargs):
+        if 'client' in kwargs:
+            client = kwargs.pop('client')
+        else:
+            client = self.client
+        if 'headers' in kwargs:
+            headers = kwargs.pop('headers')
+        else:
+            headers = dict()
+        headers['Authorization'] = "Bearer " + base64.b64encode(client.shared_secret)
+        kwargs['headers'] = headers
+        with self.app.test_request_context(route, *args, **kwargs) as c:
+            yield c
+
+    def test_info(self):
+        with self.app.test_request_context("/", method="POST"):
+            response = self.manager.shared_collection_controller.info(self.collection.name)
+            eq_(200, response.status_code)
+            assert response.headers.get("Content-Type").startswith("application/opds+json")
+            links = json.loads(response.data).get("links")
+            [register_link] = [link for link in links if link.get("rel") == "register"]
+            assert "/collections/%s/register" % self.collection.name in register_link.get("href")
+
+    def test_load_collection(self):
+        with self.app.test_request_context("/"):
+            collection = self.manager.shared_collection_controller.load_collection(self._str)
+            eq_(NO_SUCH_COLLECTION, collection)
+
+            collection = self.manager.shared_collection_controller.load_collection(self.collection.name)
+            eq_(self.collection, collection)
+
+    def test_register(self):
+        with self.app.test_request_context("/"):
+            api = self.app.manager.shared_collection_controller.shared_collection
+            flask.request.form = ImmutableMultiDict([("url", "http://test")])
+
+            api.queue_register(InvalidInputException())
+            response = self.manager.shared_collection_controller.register(self.collection.name)
+            eq_(400, response.status_code)
+            eq_(INVALID_REGISTRATION.uri, response.uri)
+
+            api.queue_register(AuthorizationFailedException())
+            response = self.manager.shared_collection_controller.register(self.collection.name)
+            eq_(401, response.status_code)
+            eq_(INVALID_CREDENTIALS.uri, response.uri)
+
+            api.queue_register(RemoteInitiatedServerError("Error", "Service"))
+            response = self.manager.shared_collection_controller.register(self.collection.name)
+            eq_(502, response.status_code)
+            eq_(INTEGRATION_ERROR.uri, response.uri)
+
+            api.queue_register(dict(shared_secret="secret"))
+            response = self.manager.shared_collection_controller.register(self.collection.name)
+            eq_(200, response.status_code)
+            eq_("secret", json.loads(response.data).get("shared_secret"))
+
+    def test_loan_info(self):
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+
+        other_client, ignore = IntegrationClient.register(self._db, "http://otherlibrary")
+        other_client_loan, ignore = create(
+            self._db, Loan, license_pool=self.pool, integration_client=other_client,
+        )
+
+        ignore, other_pool = self._edition(
+            with_license_pool=True, collection=self._collection(),
+        )
+        other_pool_loan, ignore = create(
+            self._db, Loan, license_pool=other_pool, integration_client=self.client,
+        )
+
+        loan, ignore = create(
+            self._db, Loan, license_pool=self.pool, integration_client=self.client,
+            start=now, end=tomorrow,
+        )
+        with self.request_context_with_client("/"):
+            # This loan doesn't exist.
+            response = self.manager.shared_collection_controller.loan_info(self.collection.name, 1234567)
+            eq_(LOAN_NOT_FOUND, response)
+
+            # This loan belongs to a different library.
+            response = self.manager.shared_collection_controller.loan_info(self.collection.name, other_client_loan.id)
+            eq_(LOAN_NOT_FOUND, response)
+
+            # This loan's pool belongs to a different collection.
+            response = self.manager.shared_collection_controller.loan_info(self.collection.name, other_pool_loan.id)
+            eq_(LOAN_NOT_FOUND, response)
+
+            # This loan is ours.
+            response = self.manager.shared_collection_controller.loan_info(self.collection.name, loan.id)
+            eq_(200, response.status_code)
+            feed = feedparser.parse(response.data)
+            [entry] = feed.get("entries")
+            availability = entry.get("opds_availability")
+            since = availability.get("since")
+            until = availability.get("until")
+            eq_(datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ"), since)
+            eq_(datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ"), until)
+            [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
+            assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
+            [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
+            assert "/collections/%s/loans/%s/fulfill/%s" % (self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id) in fulfill_url
+            [self_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "self"]
+            assert "/collections/%s/loans/%s" % (self.collection.name, loan.id)
+
+    def test_borrow(self):
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        loan, ignore = create(
+            self._db, Loan, license_pool=self.pool, integration_client=self.client,
+            start=now, end=tomorrow,
+        )
+
+        hold, ignore = create(
+            self._db, Hold, license_pool=self.pool, integration_client=self.client,
+            start=now, end=tomorrow,
+        )
+
+        no_pool = self._identifier()
+        with self.request_context_with_client("/"):
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, no_pool.type, no_pool.identifier, None)
+            eq_(NO_LICENSES.uri, response.uri)
+
+            api = self.app.manager.shared_collection_controller.shared_collection
+
+            # Attempt to borrow without a previous hold.
+            api.queue_borrow(AuthorizationFailedException())
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, None)
+            eq_(INVALID_CREDENTIALS.uri, response.uri)
+
+            api.queue_borrow(CannotLoan())
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, None)
+            eq_(CHECKOUT_FAILED.uri, response.uri)
+
+            api.queue_borrow(NoAvailableCopies())
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, None)
+            eq_(NO_AVAILABLE_LICENSE.uri, response.uri)
+
+            api.queue_borrow(RemoteIntegrationException("error!", "service"))
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, None)
+            eq_(INTEGRATION_ERROR.uri, response.uri)
+
+            api.queue_borrow(loan)
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, None)
+            eq_(201, response.status_code)
+            feed = feedparser.parse(response.data)
+            [entry] = feed.get("entries")
+            availability = entry.get("opds_availability")
+            since = availability.get("since")
+            until = availability.get("until")
+            eq_(datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ"), since)
+            eq_(datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ"), until)
+            eq_("available", availability.get("status"))
+            [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
+            assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
+            [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
+            assert "/collections/%s/loans/%s/fulfill/%s" % (self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id) in fulfill_url
+            [self_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "self"]
+            assert "/collections/%s/loans/%s" % (self.collection.name, loan.id)
+
+            # Now try to borrow when we already have a previous hold.
+            api.queue_borrow(AuthorizationFailedException())
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, hold.id)
+            eq_(INVALID_CREDENTIALS.uri, response.uri)
+
+            api.queue_borrow(CannotLoan())
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, None, None, hold.id)
+            eq_(CHECKOUT_FAILED.uri, response.uri)
+
+            api.queue_borrow(NoAvailableCopies())
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, None, None, hold.id)
+            eq_(NO_AVAILABLE_LICENSE.uri, response.uri)
+
+            api.queue_borrow(RemoteIntegrationException("error!", "service"))
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, None, None, hold.id)
+            eq_(INTEGRATION_ERROR.uri, response.uri)
+
+            api.queue_borrow(loan)
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, None, None, hold.id)
+            eq_(201, response.status_code)
+            feed = feedparser.parse(response.data)
+            [entry] = feed.get("entries")
+            availability = entry.get("opds_availability")
+            since = availability.get("since")
+            until = availability.get("until")
+            eq_("available", availability.get("status"))
+            eq_(datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ"), since)
+            eq_(datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ"), until)
+            [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
+            assert "/collections/%s/loans/%s/revoke" % (self.collection.name, loan.id) in revoke_url
+            [fulfill_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"]
+            assert "/collections/%s/loans/%s/fulfill/%s" % (self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id) in fulfill_url
+            [self_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "self"]
+            assert "/collections/%s/loans/%s" % (self.collection.name, loan.id)
+
+            # Now try to borrow, but actually get a hold.
+            api.queue_borrow(hold)
+            response = self.manager.shared_collection_controller.borrow(self.collection.name, self.pool.identifier.type, self.pool.identifier.identifier, None)
+            eq_(201, response.status_code)
+            feed = feedparser.parse(response.data)
+            [entry] = feed.get("entries")
+            availability = entry.get("opds_availability")
+            since = availability.get("since")
+            until = availability.get("until")
+            eq_(datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ"), since)
+            eq_(datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ"), until)
+            eq_("reserved", availability.get("status"))
+            [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
+            assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
+            eq_([], [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"])
+            [self_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "self"]
+            assert "/collections/%s/holds/%s" % (self.collection.name, hold.id)
+
+    def test_revoke_loan(self):
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        loan, ignore = create(
+            self._db, Loan, license_pool=self.pool, integration_client=self.client,
+            start=now, end=tomorrow,
+        )
+
+        other_client, ignore = IntegrationClient.register(self._db, "http://otherlibrary")
+        other_client_loan, ignore = create(
+            self._db, Loan, license_pool=self.pool, integration_client=other_client,
+        )
+
+        ignore, other_pool = self._edition(
+            with_license_pool=True, collection=self._collection(),
+        )
+        other_pool_loan, ignore = create(
+            self._db, Loan, license_pool=other_pool, integration_client=self.client,
+        )
+
+        with self.request_context_with_client("/"):
+            response = self.manager.shared_collection_controller.revoke_loan(self.collection.name, other_pool_loan.id)
+            eq_(LOAN_NOT_FOUND.uri, response.uri)
+
+            response = self.manager.shared_collection_controller.revoke_loan(self.collection.name, other_client_loan.id)
+            eq_(LOAN_NOT_FOUND.uri, response.uri)
+
+            api = self.app.manager.shared_collection_controller.shared_collection
+
+            api.queue_revoke_loan(AuthorizationFailedException())
+            response = self.manager.shared_collection_controller.revoke_loan(self.collection.name, loan.id)
+            eq_(INVALID_CREDENTIALS.uri, response.uri)
+
+            api.queue_revoke_loan(CannotReturn())
+            response = self.manager.shared_collection_controller.revoke_loan(self.collection.name, loan.id)
+            eq_(COULD_NOT_MIRROR_TO_REMOTE.uri, response.uri)
+
+            api.queue_revoke_loan(NotCheckedOut())
+            response = self.manager.shared_collection_controller.revoke_loan(self.collection.name, loan.id)
+            eq_(NO_ACTIVE_LOAN.uri, response.uri)
+
+    def test_fulfill(self):
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        loan, ignore = create(
+            self._db, Loan, license_pool=self.pool, integration_client=self.client,
+            start=now, end=tomorrow,
+        )
+
+        ignore, other_pool = self._edition(
+            with_license_pool=True, collection=self._collection(),
+        )
+        other_pool_loan, ignore = create(
+            self._db, Loan, license_pool=other_pool, integration_client=self.client,
+        )
+
+        with self.request_context_with_client("/"):
+            response = self.manager.shared_collection_controller.fulfill(self.collection.name, other_pool_loan.id, None)
+            eq_(LOAN_NOT_FOUND.uri, response.uri)
+
+            api = self.app.manager.shared_collection_controller.shared_collection
+
+            # If the loan doesn't have a mechanism set, we need to specify one.
+            response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, None)
+            eq_(BAD_DELIVERY_MECHANISM.uri, response.uri)
+
+            loan.fulfillment = self.delivery_mechanism
+
+            api.queue_fulfill(AuthorizationFailedException())
+            response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, None)
+            eq_(INVALID_CREDENTIALS.uri, response.uri)
+
+            api.queue_fulfill(CannotFulfill())
+            response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, None)
+            eq_(CANNOT_FULFILL.uri, response.uri)
+
+            api.queue_fulfill(RemoteIntegrationException("error!", "service"))
+            response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id)
+            eq_(INTEGRATION_ERROR.uri, response.uri)
+
+            fulfillment_info = FulfillmentInfo(
+                self.collection,
+                self.pool.data_source.name,
+                self.pool.identifier.type,
+                self.pool.identifier.identifier,
+                "http://content", "text/html", None,
+                datetime.datetime.utcnow(),
+            )
+
+            api.queue_fulfill(fulfillment_info)
+            def do_get_error(url):
+                raise RemoteIntegrationException("error!", "service")
+            response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id, do_get=do_get_error)
+            eq_(INTEGRATION_ERROR.uri, response.uri)
+
+            api.queue_fulfill(fulfillment_info)
+            def do_get_success(url):
+                return MockRequestsResponse(200, content="Content")
+            response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id, do_get=do_get_success)
+            eq_(200, response.status_code)
+            eq_("Content", response.data)
+            eq_("text/html", response.headers.get("Content-Type"))
+
+            fulfillment_info.content_link = None
+            fulfillment_info.content = "Content"
+            api.queue_fulfill(fulfillment_info)
+            response = self.manager.shared_collection_controller.fulfill(self.collection.name, loan.id, self.delivery_mechanism.delivery_mechanism.id)
+            eq_(200, response.status_code)
+            eq_("Content", response.data)
+            eq_("text/html", response.headers.get("Content-Type"))
+
+    def test_hold_info(self):
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+
+        other_client, ignore = IntegrationClient.register(self._db, "http://otherlibrary")
+        other_client_hold, ignore = create(
+            self._db, Hold, license_pool=self.pool, integration_client=other_client,
+        )
+
+        ignore, other_pool = self._edition(
+            with_license_pool=True, collection=self._collection(),
+        )
+        other_pool_hold, ignore = create(
+            self._db, Hold, license_pool=other_pool, integration_client=self.client,
+        )
+
+        hold, ignore = create(
+            self._db, Hold, license_pool=self.pool, integration_client=self.client,
+            start=now, end=tomorrow,
+        )
+        with self.request_context_with_client("/"):
+            # This hold doesn't exist.
+            response = self.manager.shared_collection_controller.hold_info(self.collection.name, 1234567)
+            eq_(HOLD_NOT_FOUND, response)
+
+            # This hold belongs to a different library.
+            response = self.manager.shared_collection_controller.hold_info(self.collection.name, other_client_hold.id)
+            eq_(HOLD_NOT_FOUND, response)
+
+            # This hold's pool belongs to a different collection.
+            response = self.manager.shared_collection_controller.hold_info(self.collection.name, other_pool_hold.id)
+            eq_(HOLD_NOT_FOUND, response)
+
+            # This hold is ours.
+            response = self.manager.shared_collection_controller.hold_info(self.collection.name, hold.id)
+            eq_(200, response.status_code)
+            feed = feedparser.parse(response.data)
+            [entry] = feed.get("entries")
+            availability = entry.get("opds_availability")
+            since = availability.get("since")
+            until = availability.get("until")
+            eq_(datetime.datetime.strftime(now, "%Y-%m-%dT%H:%M:%SZ"), since)
+            eq_(datetime.datetime.strftime(tomorrow, "%Y-%m-%dT%H:%M:%SZ"), until)
+            [revoke_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "http://librarysimplified.org/terms/rel/revoke"]
+            assert "/collections/%s/holds/%s/revoke" % (self.collection.name, hold.id) in revoke_url
+            eq_([], [link.get("href") for link in entry.get("links") if link.get("rel") == "http://opds-spec.org/acquisition"])
+            [self_url] = [link.get("href") for link in entry.get("links") if link.get("rel") == "self"]
+            assert "/collections/%s/holds/%s" % (self.collection.name, hold.id)
+
+    def test_revoke_hold(self):
+        now = datetime.datetime.utcnow()
+        tomorrow = datetime.datetime.utcnow() + datetime.timedelta(days=1)
+        hold, ignore = create(
+            self._db, Hold, license_pool=self.pool, integration_client=self.client,
+            start=now, end=tomorrow,
+        )
+
+        other_client, ignore = IntegrationClient.register(self._db, "http://otherlibrary")
+        other_client_hold, ignore = create(
+            self._db, Hold, license_pool=self.pool, integration_client=other_client,
+        )
+
+        ignore, other_pool = self._edition(
+            with_license_pool=True, collection=self._collection(),
+        )
+        other_pool_hold, ignore = create(
+            self._db, Hold, license_pool=other_pool, integration_client=self.client,
+        )
+
+        with self.request_context_with_client("/"):
+            response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, other_pool_hold.id)
+            eq_(HOLD_NOT_FOUND.uri, response.uri)
+
+            response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, other_client_hold.id)
+            eq_(HOLD_NOT_FOUND.uri, response.uri)
+
+            api = self.app.manager.shared_collection_controller.shared_collection
+
+            api.queue_revoke_hold(AuthorizationFailedException())
+            response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, hold.id)
+            eq_(INVALID_CREDENTIALS.uri, response.uri)
+
+            api.queue_revoke_hold(CannotReleaseHold())
+            response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, hold.id)
+            eq_(CANNOT_RELEASE_HOLD.uri, response.uri)
+
+            api.queue_revoke_hold(NotOnHold())
+            response = self.manager.shared_collection_controller.revoke_hold(self.collection.name, hold.id)
+            eq_(NO_ACTIVE_HOLD.uri, response.uri)
 
 class TestProfileController(ControllerTest):
     """Test that a client can interact with the User Profile Management

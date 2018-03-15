@@ -1,6 +1,6 @@
 from nose.tools import set_trace
 
-from api.opds import CirculationManagerAnnotator
+from api.opds import LibraryAnnotator
 from core.opds import VerboseAnnotator
 from core.lane import Facets, Pagination
 from core.model import (
@@ -13,7 +13,7 @@ from core.model import (
 from core.opds import AcquisitionFeed
 from core.util.opds_writer import AtomFeed
 
-class AdminAnnotator(CirculationManagerAnnotator):
+class AdminAnnotator(LibraryAnnotator):
 
     def __init__(self, circulation, library, test_mode=False):
         super(AdminAnnotator, self).__init__(circulation, None, library, test_mode=test_mode)
