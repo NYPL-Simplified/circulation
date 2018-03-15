@@ -1837,46 +1837,46 @@ class TestLane(DatabaseTest):
             return _run(new_qu, clauses)
 
         # # Both lanes contain the work.
-        # eq_([work.id], results(gutenberg_list_lane))
-        # eq_([work.id], results(gutenberg_lists_lane))
+        eq_([work.id], results(gutenberg_list_lane))
+        eq_([work.id], results(gutenberg_lists_lane))
 
         # If there's another list with the same work on it, the
         # work only shows up once.
         gutenberg_list_2, ignore = self._customlist(num_entries=0)
         gutenberg_list_2_entry, ignore = gutenberg_list_2.add_entry(work)
         gutenberg_list_lane.customlists.append(gutenberg_list)
-        # eq_([work.id], results(gutenberg_list_lane))
+        eq_([work.id], results(gutenberg_list_lane))
 
-        # # This lane gets every work on a list associated with Overdrive.
-        # # There are no such lists, so the lane is empty.
-        # overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        # overdrive_lists_lane = self._lane()
-        # overdrive_lists_lane.list_datasource = overdrive
-        # eq_([], results(overdrive_lists_lane))
+        # This lane gets every work on a list associated with Overdrive.
+        # There are no such lists, so the lane is empty.
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+        overdrive_lists_lane = self._lane()
+        overdrive_lists_lane.list_datasource = overdrive
+        eq_([], results(overdrive_lists_lane))
 
-        # # It's possible to restrict a lane so that only works that are
-        # # _featured_ on a list show up. The work isn't featured, so it
-        # # doesn't show up.
-        # eq_([], results(must_be_featured=True))
+        # It's possible to restrict a lane so that only works that are
+        # _featured_ on a list show up. The work isn't featured, so it
+        # doesn't show up.
+        eq_([], results(must_be_featured=True))
 
-        # # Now it's featured, and it shows up.
-        # gutenberg_list_entry.featured = True
-        # eq_([work.id], results(must_be_featured=True))
+        # Now it's featured, and it shows up.
+        gutenberg_list_entry.featured = True
+        eq_([work.id], results(must_be_featured=True))
 
-        # # It's possible to restrict a lane to works that were seen on
-        # # a certain list in a given timeframe.
-        # now = datetime.datetime.utcnow()
-        # two_days_ago = now - datetime.timedelta(days=2)
-        # gutenberg_list_entry.most_recent_appearance = two_days_ago
+        # It's possible to restrict a lane to works that were seen on
+        # a certain list in a given timeframe.
+        now = datetime.datetime.utcnow()
+        two_days_ago = now - datetime.timedelta(days=2)
+        gutenberg_list_entry.most_recent_appearance = two_days_ago
 
-        # # The lane will only show works that were seen within the last
-        # # day. There are no such works.
-        # gutenberg_lists_lane.list_seen_in_previous_days = 1
-        # eq_([], results())
+        # The lane will only show works that were seen within the last
+        # day. There are no such works.
+        gutenberg_lists_lane.list_seen_in_previous_days = 1
+        eq_([], results())
 
-        # # Now it's been loosened to three days, and the work shows up.
-        # gutenberg_lists_lane.list_seen_in_previous_days = 3
-        # eq_([work.id], results())
+        # Now it's been loosened to three days, and the work shows up.
+        gutenberg_lists_lane.list_seen_in_previous_days = 3
+        eq_([work.id], results())
 
         # Now let's test what happens when we chain calls to this
         # method.
@@ -1901,20 +1901,19 @@ class TestLane(DatabaseTest):
             list_1_qu, 
         )
         both_lists_clauses = list_1_clauses + list_2_clauses
+
+        # The combined query matches the work that shows up on
+        # both lists.
         eq_([work.id], _run(both_lists_qu, both_lists_clauses))
         
-        # If we remove `work` from either list, it stops showing up
-        # in the combined query.
-        gutenberg_list.remove_entry(work)
-        SessionManager.refresh_materialized_views(self._db)
-        eq_([], _run(both_lists_qu, both_lists_clauses))
-        gutenberg_list.add_entry(work)
+        # If we remove `work` from either list, the combined query
+        # matches nothing. This works even though the materialized
+        # view has not been refreshed.
+        for l in [gutenberg_list, gutenberg_list_2]:
+            l.remove_entry(work)
+            eq_([], _run(both_lists_qu, both_lists_clauses))
+            l.add_entry(work)
 
-        gutenberg_list_2.remove_entry(work)
-        eq_([], _run(both_lists_qu, both_lists_clauses))
-        gutenberg_list_2.add_entry(work)
-        SessionManager.refresh_materialized_views(self._db)
-        
 
 class TestWorkListGroups(DatabaseTest):
     """Tests of WorkList.groups() and the helper methods."""

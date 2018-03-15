@@ -1882,27 +1882,29 @@ class Lane(Base, WorkList):
         already_filtered_customlist_on_materialized_view = getattr(
             qu, 'customlist_id_filtered', False
         )
-        if already_filtered_customlist_on_materialized_view:
-            set_trace()
 
         # We need to join against CustomListEntry if we have already
         # filtered against work_model.custom_list_id, or if we are
         # filtering against a CustomListEntry field not available in
         # the materialized view.
-        a_entry = None
-        if (must_be_featured or self.list_seen_in_previous_days
-            or already_filtered_customlist_on_materialized_view):
-            a_entry = aliased(CustomListEntry)
-            clause = a_entry.work_id==work_model.works_id
-            if not already_filtered_customlist_on_materialized_view:
-                # The first time we join against CustomListEntry, the
-                # list we're talking about is the same one mentioned
-                # in the materialized view's list_id field.
-                clause = and_(clause, a_entry.list_id==work_model.customlist_id)
-            if outer_join:
-                qu = qu.outerjoin(a_entry, clause)
-            else:
-                qu = qu.join(a_entry, clause)
+        a_entry = aliased(CustomListEntry)
+        clause = a_entry.work_id==work_model.works_id
+        if not already_filtered_customlist_on_materialized_view:
+            # The first time we join against CustomListEntry, the list
+            # we're talking about is the same one mentioned in the
+            # materialized view's list_id field. We only do the join
+            # in case we are filtering on some field not available in
+            # the materialized view, such as first_appearance.
+            #
+            # (Also, doing the join makes sure entries leave the lanes
+            # as soon as they are removed from the list, without
+            # needing to wait for the materialized view to be
+            # refreshed.)
+            clause = and_(clause, a_entry.list_id==work_model.list_id)
+        if outer_join:
+            qu = qu.outerjoin(a_entry, clause)
+        else:
+            qu = qu.join(a_entry, clause)
 
         # Actually build the restriction clauses.
         clauses = []
@@ -1921,13 +1923,12 @@ class Lane(Base, WorkList):
         else:
             customlist_ids = [x.id for x in self.customlists]
         if customlist_ids is not None:
-            if a_entry:
-                clauses.append(a_entry.list_id.in_(customlist_ids))
+            clauses.append(a_entry.list_id.in_(customlist_ids))
             if not already_filtered_customlist_on_materialized_view:
                 clauses.append(work_model.list_id.in_(customlist_ids))
-                # We've filtered the custom list ID once, we can't do
-                # it again -- if another list is involved we'll need
-                # to do a join.
+                # Now that we've put a restriction on the materialized
+                # view's list_id, we need to signal that no future
+                # call to this method should override it.
                 qu.customlist_id_filtered = True
         if must_be_featured:
             clauses.append(a_entry.featured==True)
