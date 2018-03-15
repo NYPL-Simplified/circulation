@@ -14,6 +14,8 @@ from log import (
     JSONFormatter,
     LogglyHandler,
     LogConfiguration,
+    SysLogger,
+    Loggly,
 )
 from model import (
     ExternalIntegration,
@@ -89,11 +91,11 @@ class TestLogConfiguration(DatabaseTest):
             goal=ExternalIntegration.LOGGING_GOAL
         )
         ConfigurationSetting.sitewide(self._db, config.LOG_LEVEL).value = config.ERROR
-        internal.setting(cls.LOG_FORMAT).value = cls.TEXT_LOG_FORMAT
+        internal.setting(SysLogger.LOG_FORMAT).value = SysLogger.TEXT_LOG_FORMAT
         ConfigurationSetting.sitewide(self._db, config.DATABASE_LOG_LEVEL).value = config.DEBUG
         ConfigurationSetting.sitewide(self._db, config.LOG_APP_NAME).value = "test app"
         template = "%(filename)s:%(message)s"
-        internal.setting(cls.LOG_MESSAGE_TEMPLATE).value = template
+        internal.setting(SysLogger.LOG_MESSAGE_TEMPLATE).value = template
         internal_log_level, database_log_level, handlers = m(
             self._db, testing=False
         )
@@ -116,25 +118,25 @@ class TestLogConfiguration(DatabaseTest):
         )
         eq_(cls.INFO, internal_log_level)
         eq_(cls.WARN, database_log_level)
-        eq_(cls.DEFAULT_MESSAGE_TEMPLATE, handler.formatter._fmt)
+        eq_(SysLogger.DEFAULT_MESSAGE_TEMPLATE, handler.formatter._fmt)
 
     def test_defaults(self):
         cls = LogConfiguration
-        template = cls.DEFAULT_MESSAGE_TEMPLATE
+        template = SysLogger.DEFAULT_MESSAGE_TEMPLATE
 
         # Normally the default log level is INFO and log messages are
         # emitted in JSON format.
         eq_(
-            (cls.INFO, cls.JSON_LOG_FORMAT, cls.WARN,
-             cls.DEFAULT_MESSAGE_TEMPLATE),
+            (cls.INFO, SysLogger.JSON_LOG_FORMAT, cls.WARN,
+             SysLogger.DEFAULT_MESSAGE_TEMPLATE),
             cls._defaults(testing=False)
         )
 
         # When we're running unit tests, the default log level is INFO
         # and log messages are emitted in text format.
         eq_(
-            (cls.INFO, cls.TEXT_LOG_FORMAT, cls.WARN,
-             cls.DEFAULT_MESSAGE_TEMPLATE),
+            (cls.INFO, SysLogger.TEXT_LOG_FORMAT, cls.WARN,
+             SysLogger.DEFAULT_MESSAGE_TEMPLATE),
             cls._defaults(testing=True)
         )
 
@@ -145,7 +147,7 @@ class TestLogConfiguration(DatabaseTest):
         # Configure it for text output.
         template = '%(filename)s:%(message)s'
         LogConfiguration.set_formatter(
-            handler, LogConfiguration.TEXT_LOG_FORMAT, template,
+            handler, SysLogger.TEXT_LOG_FORMAT, template,
             "some app"
         )
         formatter = handler.formatter
@@ -155,7 +157,7 @@ class TestLogConfiguration(DatabaseTest):
         # Configure a similar handler for JSON output.
         handler = logging.StreamHandler()
         LogConfiguration.set_formatter(
-            handler, LogConfiguration.JSON_LOG_FORMAT, template, None
+            handler, SysLogger.JSON_LOG_FORMAT, template, None
         )
         formatter = handler.formatter
         assert isinstance(formatter, JSONFormatter)
@@ -178,19 +180,19 @@ class TestLogConfiguration(DatabaseTest):
         """Turn an appropriate ExternalIntegration into a LogglyHandler."""
 
         integration = self.loggly_integration()
-        handler = LogConfiguration.loggly_handler(integration)
+        handler = Loggly.loggly_handler(integration)
         assert isinstance(handler, LogglyHandler)
         eq_("http://example.com/a_token/", handler.url)
 
         # Remove the loggly handler's .url, and the default URL will
         # be used.
         integration.url = None
-        handler = LogConfiguration.loggly_handler(integration)
-        eq_(LogConfiguration.DEFAULT_LOGGLY_URL % dict(token="a_token"),
+        handler = Loggly.loggly_handler(integration)
+        eq_(Loggly.DEFAULT_LOGGLY_URL % dict(token="a_token"),
             handler.url)
 
     def test_interpolate_loggly_url(self):
-        m = LogConfiguration._interpolate_loggly_url
+        m = Loggly._interpolate_loggly_url
 
         # We support two string interpolation techniques for combining
         # a token with a URL.
