@@ -1909,16 +1909,13 @@ class Lane(Base, WorkList):
         clauses = []
         customlist_ids = None
         if self.list_datasource:
-            # Use a separate query to obtain the CustomList IDs of all
+            # Use a subquery to obtain the CustomList IDs of all
             # CustomLists from this DataSource. This is significantly
-            # faster than just using the subquery as customlist_ids
-            # or adding a join against CustomList.
+            # simpler than adding a join against CustomList.
             customlist_ids = Select(
                 [CustomList.id],
                 CustomList.data_source_id==self.list_datasource.id
             )
-            _db = Session.object_session(self)
-            customlist_ids = [x[0] for x in _db.execute(customlist_ids)]
         else:
             customlist_ids = [x.id for x in self.customlists]
         if customlist_ids is not None:
