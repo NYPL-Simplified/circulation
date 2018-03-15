@@ -1924,7 +1924,8 @@ class Lane(Base, WorkList):
                 clauses.append(work_model.list_id.in_(customlist_ids))
                 # Now that we've put a restriction on the materialized
                 # view's list_id, we need to signal that no future
-                # call to this method should override it this restriction.
+                # call to this method should put a restriction on the
+                # same field.
                 #
                 # Future calls will apply their restrictions
                 # solely by restricting CustomListEntry.list_id,

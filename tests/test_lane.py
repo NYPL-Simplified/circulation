@@ -1681,10 +1681,6 @@ class TestLane(DatabaseTest):
         SessionManager.refresh_materialized_views(self._db)
         match_works(best_selling_classics, [childrens_fiction, nonfiction])
 
-        # NOTE: These tests have been commented out because we no
-        # longer support a lane based on lists that inherits from
-        # another lane based on lists.
-
         # When it inherits its parent's restrictions, only the
         # works that are on _both_ lists show up in the lane,
         best_selling_classics.inherit_parent_restrictions = True
