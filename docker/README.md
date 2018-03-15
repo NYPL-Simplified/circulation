@@ -120,6 +120,14 @@ You must run this command with the `--no-cache` option or the code in the contai
 
 That's it! Run your containers as detailed in [the Quickstart documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Quickstart-with-Docker). Keep in mind that you may need to run migrations or configuration if you are using an existing version of the database.
 
+### > local testing with docker-compose
+
+The entirety of the setup described in [the Quickstart documentation](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Quickstart-with-Docker) can be run at once using `version=$YOUR_DESIRED_BRANCH_OR_COMMIT docker-compose up`. This can be great for locally testing feature branches and/or the success of new Docker builds.
+
+[This reference](https://docs.docker.com/compose/reference/up/) has a lot of fantastic information about options and settings for `docker-compose up`, but `-d` will run the containers in the background. [`docker-compose run`](https://docs.docker.com/compose/reference/run/) allows you to run the application with commands and settings other than those set in the Dockerfiles, to further support testing.
+
+If you're using Docker for Mac, keep an eye on the size of your /Users/courteneyervin/Library/Containers/com.docker.docker/Data/com.docker.driver.amd64-linux/Docker.qcow2 file, which can get quite large during local testing. Regularly deleting it will remove all existing containers but also avoid slowdowns from its ballooning size.
+
 ## Additional Configuration
 
 If you would like to use different tools to handle deployment for the LS Circulation Manager, you are more than welcome to do so! We would love to support more deployment configurations; feel free to contribute any changes you may make to [the official Docker build repository](https://github.com/NYPL-Simplified/circulation-docker)!
