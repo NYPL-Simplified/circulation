@@ -1812,11 +1812,7 @@ class TestLane(DatabaseTest):
         def _run(qu, clauses):
             # Run a query with certain clauses and pick out the 
             # work IDs returned.
-            from core.model import dump_query
-            modified = qu.filter(and_(*clauses)).distinct(
-                work_model.works_id
-            )
-            print dump_query(modified)
+            modified = qu.filter(and_(*clauses))
             return [x.works_id for x in modified]
 
         def results(lane=gutenberg_lists_lane, must_be_featured=False):
