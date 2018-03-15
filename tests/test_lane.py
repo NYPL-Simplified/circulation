@@ -1876,16 +1876,16 @@ class TestLane(DatabaseTest):
         # Now let's test what happens when we chain calls to this
         # method.
         gutenberg_list_2_lane = self._lane()
+        gutenberg_list_2_lane.customlists.append(gutenberg_list_2)
 
         # These two lines aren't necessary for the test but they
         # illustrate how this would happen in a real scenario -- When
         # determining which works belong in the child lane,
         # customlist_filter_clauses() will be called on the parent
-        # lane and then on the child.
+        # lane and then on the child. We only want books that are
+        # on _both_ gutenberg_list and gutenberg_list_2.
         gutenberg_list_2_lane.parent = gutenberg_list_lane
         gutenberg_list_2_lane.inherit_parent_restrictions = True
-
-        gutenberg_list_2_lane.customlists.append(gutenberg_list_2)
 
         qu = self._db.query(work_model)
         list_1_qu, list_1_clauses = gutenberg_list_lane.customlist_filter_clauses(qu)
