@@ -1712,6 +1712,11 @@ class TestLane(DatabaseTest):
         )
         best_sellers_lane = self._lane()
         best_sellers_lane.customlists.append(best_sellers)
+
+        # The materialized view must be refreshed for the changes to
+        # list membership to take effect.
+        self.add_to_materialized_view([childrens_fiction, nonfiction])
+
         match_works(
             best_sellers_lane, [childrens_fiction], featured=False
         )
@@ -1735,6 +1740,8 @@ class TestLane(DatabaseTest):
         best_selling_classics = self._lane(parent=best_sellers_lane)
         best_selling_classics.customlists.append(all_time_classics)
         best_selling_classics.inherit_parent_restrictions = False
+
+        SessionManager.refresh_materialized_views(self._db)
         match_works(best_selling_classics, [childrens_fiction, nonfiction])
 
         # When it inherits its parent's restrictions, only the
@@ -1749,7 +1756,7 @@ class TestLane(DatabaseTest):
         match_works(best_selling_classics, [])
 
         best_sellers_lane.fiction = True
-        match_works(best_selling_classics, [childrens_fiction])       
+        match_works(best_selling_classics, [childrens_fiction])
 
     def test_bibliographic_filter_clause_no_restrictions(self):
         """A lane that matches every single book has no bibliographic
@@ -1864,22 +1871,24 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_datasource = gutenberg
         self.add_to_materialized_view([work])
 
+        from model import MaterializedWorkWithGenre as work_model
+        def _run(qu, clauses):
+            # Run a query with certain clauses and pick out the 
+            # work IDs returned.
+            modified = qu.filter(and_(*clauses))
+            return [x.works_id for x in modified]
+
         def results(lane=gutenberg_lists_lane, must_be_featured=False):
-            from model import MaterializedWorkWithGenre as work_model
             qu = self._db.query(work_model)
             new_qu, clauses = lane.customlist_filter_clauses(
                 qu, must_be_featured=must_be_featured
             )
 
-            # The query comes out different than it goes in -- there's a
-            # new join against CustomList.
-            assert new_qu != qu
-
-            # Run the query and see what it matches.
-            modified = new_qu.filter(and_(*clauses)).distinct(
-                work_model.works_id
-            )
-            return [x.works_id for x in modified]
+            if must_be_featured or lane.list_seen_in_previous_days:
+                # The query comes out different than it goes in -- there's a
+                # new join against CustomListEntry.
+                assert new_qu != qu
+            return _run(new_qu, clauses)
 
         # Both lanes contain the work.
         eq_([work.id], results(gutenberg_list_lane))
@@ -1922,6 +1931,50 @@ class TestLane(DatabaseTest):
         # Now it's been loosened to three days, and the work shows up.
         gutenberg_lists_lane.list_seen_in_previous_days = 3
         eq_([work.id], results())
+
+        # Now let's test what happens when we chain calls to this
+        # method.
+        gutenberg_list_2_lane = self._lane()
+        gutenberg_list_2_lane.customlists.append(gutenberg_list_2)
+
+        # These two lines aren't necessary for the test but they
+        # illustrate how this would happen in a real scenario -- When
+        # determining which works belong in the child lane,
+        # customlist_filter_clauses() will be called on the parent
+        # lane and then on the child. We only want books that are
+        # on _both_ gutenberg_list and gutenberg_list_2.
+        gutenberg_list_2_lane.parent = gutenberg_list_lane
+        gutenberg_list_2_lane.inherit_parent_restrictions = True
+
+        qu = self._db.query(work_model)
+        list_1_qu, list_1_clauses = gutenberg_list_lane.customlist_filter_clauses(qu)
+
+        # The query has been modified to indicate that we are filtering
+        # on the materialized view's customlist_id field.
+        eq_(True, list_1_qu.customlist_id_filtered)
+        eq_([work.id], [x.works_id for x in list_1_qu])
+
+        # Now call customlist_filter_clauses again so that the query
+        # must only match books on _both_ lists. This simulates
+        # what happens when the second lane is a child of the first,
+        # and inherits its restrictions.
+        both_lists_qu, list_2_clauses = gutenberg_list_2_lane.customlist_filter_clauses(
+            list_1_qu, 
+        )
+        both_lists_clauses = list_1_clauses + list_2_clauses
+
+        # The combined query matches the work that shows up on
+        # both lists.
+        eq_([work.id], _run(both_lists_qu, both_lists_clauses))
+        
+        # If we remove `work` from either list, the combined query
+        # matches nothing. This works even though the materialized
+        # view has not been refreshed.
+        for l in [gutenberg_list, gutenberg_list_2]:
+            l.remove_entry(work)
+            eq_([], _run(both_lists_qu, both_lists_clauses))
+            l.add_entry(work)
+
 
 class TestWorkListGroups(DatabaseTest):
     """Tests of WorkList.groups() and the helper methods."""
@@ -1972,10 +2025,6 @@ class TestWorkListGroups(DatabaseTest):
         lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
         lq_ro.quality = 0.1
         nonfiction = _w(title="Nonfiction", fiction=False)
-        self.add_to_materialized_view(
-            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
-             nonfiction]
-        )
 
         # One of these works (mq_sf) is a best-seller and also a staff
         # pick.
@@ -2019,6 +2068,11 @@ class TestWorkListGroups(DatabaseTest):
             parent=fiction
         )
         discredited_nonfiction.inherit_parent_restrictions = False
+
+        self.add_to_materialized_view(
+            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
+             nonfiction]
+        )
 
         def assert_contents(g, expect):
             """Assert that a generator yields the expected

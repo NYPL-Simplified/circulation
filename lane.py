@@ -7,6 +7,7 @@ import time
 import urllib
 
 from psycopg2.extras import NumericRange
+from sqlalchemy.sql.expression import Select
 
 from config import Configuration
 from flask_babel import lazy_gettext as _
@@ -1885,27 +1886,58 @@ class Lane(Base, WorkList):
             # CustomList.
             return qu, []
 
-        # There may already be a join against CustomListEntry, in the case 
-        # of a Lane that inherits its parent's restrictions. To avoid
-        # confusion, create a different join every time.
+        already_filtered_customlist_on_materialized_view = getattr(
+            qu, 'customlist_id_filtered', False
+        )
+
+        # We will be joining against CustomListEntry at least once, to
+        # run filters on fields like `featured` not found in the
+        # materialized view. For a lane derived from the intersection
+        # of two or more custom lists, we may be joining
+        # CustomListEntry multiple times. To avoid confusion, we make
+        # a new alias for the table every time.
         a_entry = aliased(CustomListEntry)
         clause = a_entry.work_id==work_model.works_id
-        a_list = aliased(CustomListEntry.customlist)
+        if not already_filtered_customlist_on_materialized_view:
+            # Since this is the first join, we're treating
+            # work_model.list_id as a stand-in for CustomListEntry.list_id,
+            # which means we should force them to be the same when joining
+            # the view to the table.
+            #
+            # For subsequent joins, this won't apply -- we want to
+            # match a _different_ list's entry for the same work.
+            clause = and_(clause, a_entry.list_id==work_model.list_id)
         if outer_join:
             qu = qu.outerjoin(a_entry, clause)
-            qu = qu.outerjoin(a_list, a_entry.list_id==a_list.id)
         else:
             qu = qu.join(a_entry, clause)
-            qu = qu.join(a_list, a_entry.list_id==a_list.id)
 
         # Actually build the restriction clauses.
         clauses = []
+        customlist_ids = None
         if self.list_datasource:
-            clauses.append(a_list.data_source==self.list_datasource)
-        customlist_ids = [x.id for x in self.customlists]
-
-        if customlist_ids:
-            clauses.append(a_list.id.in_(customlist_ids))
+            # Use a subquery to obtain the CustomList IDs of all
+            # CustomLists from this DataSource. This is significantly
+            # simpler than adding a join against CustomList.
+            customlist_ids = Select(
+                [CustomList.id],
+                CustomList.data_source_id==self.list_datasource.id
+            )
+        else:
+            customlist_ids = [x.id for x in self.customlists]
+        if customlist_ids is not None:
+            clauses.append(a_entry.list_id.in_(customlist_ids))
+            if not already_filtered_customlist_on_materialized_view:
+                clauses.append(work_model.list_id.in_(customlist_ids))
+                # Now that we've put a restriction on the materialized
+                # view's list_id, we need to signal that no future
+                # call to this method should put a restriction on the
+                # same field.
+                #
+                # Future calls will apply their restrictions
+                # solely by restricting CustomListEntry.list_id,
+                # as above.
+                qu.customlist_id_filtered = True
         if must_be_featured:
             clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
@@ -1913,9 +1945,6 @@ class Lane(Base, WorkList):
                 self.list_seen_in_previous_days
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)
-
-        if must_be_featured:
-            clauses.append(a_entry.featured==True)
             
         return qu, clauses
 

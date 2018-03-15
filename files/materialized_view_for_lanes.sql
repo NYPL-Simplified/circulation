@@ -71,8 +71,8 @@ create index mv_works_for_lanes_by_availability on mv_works_for_lanes (availabil
 -- Create an index on everything, sorted by 'last update time' (the thing used by crawlable feeds).
 create index mv_works_for_lanes_by_recently_updated on mv_works_for_lanes (GREATEST(availability_time, first_appearance, last_update_time) DESC, collection_id, works_id);
 
--- This index quickly cuts down the number of rows considered when generating a crawlable feed for a custom list.
-create index mv_works_for_lanes_list_and_collection_id on mv_works_for_lanes (list_id, collection_id);
+-- This index quickly cuts down the number of rows considered when generating feeds for a custom list or the intersection of multiple custom lists.
+create index mv_works_for_lanes_list_id_collection_id_language_medium on mv_works_for_lanes (list_id, collection_id, language, medium);
 
 -- Create indexes that are helpful in running the query to find featured works.
 

@@ -9712,6 +9712,10 @@ class CustomListEntry(Base):
                 _db.delete(entry)
         _db.commit
 
+# This index dramatically speeds up queries against the materialized
+# view that use custom list membership as a way to cut down on the
+# number of entries returned.
+Index("ix_customlistentries_work_id_list_id", CustomListEntry.work_id, CustomListEntry.list_id)
 
 class Complaint(Base):
     """A complaint about a LicensePool (or, potentially, something else)."""
