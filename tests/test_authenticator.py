@@ -56,7 +56,7 @@ from api.authenticator import (
 )
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
-from api.opds import CirculationManagerAnnotator
+from api.opds import LibraryAnnotator
 
 from api.config import (
     CannotLoadConfiguration,
@@ -988,12 +988,12 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         
         # Set up configuration settings for links.
         link_config = {
-            CirculationManagerAnnotator.TERMS_OF_SERVICE: "http://terms",
-            CirculationManagerAnnotator.PRIVACY_POLICY: "http://privacy",
-            CirculationManagerAnnotator.COPYRIGHT: "http://copyright",
-            CirculationManagerAnnotator.ABOUT: "http://about",
-            CirculationManagerAnnotator.LICENSE: "http://license/",
-            CirculationManagerAnnotator.REGISTER: "custom-registration-hook://library/",
+            LibraryAnnotator.TERMS_OF_SERVICE: "http://terms",
+            LibraryAnnotator.PRIVACY_POLICY: "http://privacy",
+            LibraryAnnotator.COPYRIGHT: "http://copyright",
+            LibraryAnnotator.ABOUT: "http://about",
+            LibraryAnnotator.LICENSE: "http://license/",
+            LibraryAnnotator.REGISTER: "custom-registration-hook://library/",
             Configuration.LOGO: "image data",
         }
 

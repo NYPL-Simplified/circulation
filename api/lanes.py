@@ -1054,6 +1054,7 @@ class CrawlableFacets(Facets):
     def order_by(cls):
         """Order the search results by last update time."""
         from core.model import MaterializedWorkWithGenre as work_model
+        # TODO: first_appearance is only necessary here if this is for a custom list.
         updated = func.greatest(work_model.availability_time, work_model.first_appearance, work_model.last_update_time)
         collection_id = work_model.collection_id
         work_id = work_model.works_id
@@ -1063,6 +1064,9 @@ class CrawlableFacets(Facets):
 
 class CrawlableCollectionBasedLane(DynamicLane):
 
+    LIBRARY_ROUTE = "crawlable_library_feed"
+    COLLECTION_ROUTE = "crawlable_collection_feed"
+
     def __init__(self, library, collections=None):
         """Create a lane that finds all books in the given collections.
 
@@ -1071,9 +1075,15 @@ class CrawlableCollectionBasedLane(DynamicLane):
         :param collections: A list of Collections. If none are specified,
             all Collections associated with `library` will be used.
         """
-        self.library_id = library.id
+        self.library_id = None
+        if library:
+            self.library_id = library.id
+        self.collection_feed = False
         if collections:
             identifier = " / ".join(sorted([x.name for x in collections]))
+            if len(collections) == 1:
+                self.collection_feed = True
+                self.collection_name = collections[0].name
         else:
             identifier = library.name
             collections = library.collections
@@ -1098,9 +1108,21 @@ class CrawlableCollectionBasedLane(DynamicLane):
                 _db, qu, featured
             )
 
+    @property
+    def url_arguments(self):
+        if not self.collection_feed:
+            return self.LIBRARY_ROUTE, dict()
+        else:
+            kwargs = dict(
+                collection_name=self.collection_name,
+            )
+            return self.COLLECTION_ROUTE, kwargs
+
 
 class CrawlableCustomListBasedLane(DynamicLane):
     """A lane that consists of all works in a single CustomList."""
+
+    ROUTE = "crawlable_list_feed"
 
     uses_customlists = True
 
@@ -1123,3 +1145,10 @@ class CrawlableCustomListBasedLane(DynamicLane):
         else:
             clause = customlist_clause
         return qu, clause
+
+    @property
+    def url_arguments(self):
+        kwargs = dict(
+            list_name=self.customlists[0].name,
+        )
+        return self.ROUTE, kwargs

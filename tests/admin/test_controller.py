@@ -76,6 +76,8 @@ from api.clever import CleverAuthenticationAPI
 
 from api.novelist import NoveListAPI
 
+from api.odl import SharedODLAPI
+
 from api.google_analytics_provider import GoogleAnalyticsProvider
 from core.local_analytics_provider import LocalAnalyticsProvider
 
@@ -4552,7 +4554,7 @@ class TestSettingsController(AdminControllerTest):
         service = get_one(self._db, ExternalIntegration, id=discovery_service.id)
         eq_(None, service)
 
-    def test_library_registrations_get(self):
+    def test_discovery_service_library_registrations_get(self):
         discovery_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.OPDS_REGISTRATION,
@@ -4576,7 +4578,7 @@ class TestSettingsController(AdminControllerTest):
         discovery_service.libraries = [succeeded, failed, unregistered]
 
         with self.app.test_request_context("/", method="GET"):
-            response = self.manager.admin_settings_controller.library_registrations()
+            response = self.manager.admin_settings_controller.discovery_service_library_registrations()
 
             serviceInfo = response.get("library_registrations")
             eq_(1, len(serviceInfo))
@@ -4589,12 +4591,12 @@ class TestSettingsController(AdminControllerTest):
             ]
             eq_(expected, libraryInfo)
 
-    def test_library_registrations_post_errors(self):
+    def test_discovery_service_library_registrations_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", "1234"),
             ])
-            response = self.manager.admin_settings_controller.library_registrations()
+            response = self.manager.admin_settings_controller.discovery_service_library_registrations()
             eq_(MISSING_SERVICE, response)
 
         discovery_service, ignore = create(
@@ -4609,7 +4611,7 @@ class TestSettingsController(AdminControllerTest):
                 ("integration_id", discovery_service.id),
                 ("library_short_name", "not-a-library"),
             ])
-            response = self.manager.admin_settings_controller.library_registrations()
+            response = self.manager.admin_settings_controller.discovery_service_library_registrations()
             eq_(NO_SUCH_LIBRARY, response)
 
         library = self._default_library
@@ -4622,9 +4624,9 @@ class TestSettingsController(AdminControllerTest):
             feed = '<feed></feed>'
             self.responses.append(MockRequestsResponse(200, content=feed))
 
-            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request)
+            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The discovery service did not return OPDS.", response.detail)
+            eq_("The service at registry url did not return OPDS.", response.detail)
             eq_([discovery_service.url], self.requests)
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
@@ -4638,14 +4640,14 @@ class TestSettingsController(AdminControllerTest):
             headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
-            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request)
+            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The discovery service did not provide a register link.", response.detail)
+            eq_("The service at registry url did not provide a register link.", response.detail)
             eq_([discovery_service.url], self.requests[1:])
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
 
-    def test_library_registrations_post_success(self):
+    def test_discovery_service_library_registrations_post_success(self):
         discovery_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.OPDS_REGISTRATION,
@@ -4665,7 +4667,7 @@ class TestSettingsController(AdminControllerTest):
             headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
-            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request)
+            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
             
             eq_(200, response.status_code)
             eq_(["registry url", "register url"], self.requests)
@@ -4702,7 +4704,7 @@ class TestSettingsController(AdminControllerTest):
             headers = { 'Content-Type': 'application/opds+json' }
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
-            response = self.manager.admin_settings_controller.library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
+            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
             
             eq_(200, response.status_code)
             eq_(["registry url", "register url"], self.requests[2:])
@@ -4717,6 +4719,137 @@ class TestSettingsController(AdminControllerTest):
             # The registration status is the same.
             eq_("success", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
+
+    def test_collection_library_registrations_get(self):
+        collection = self._default_collection
+        succeeded, ignore = create(
+            self._db, Library, name="Library 1", short_name="L1",
+        )
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-status", succeeded, collection.external_integration,
+            ).value = "success"
+        failed, ignore = create(
+            self._db, Library, name="Library 2", short_name="L2",
+        )
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "library-registration-status", failed, collection.external_integration,
+            ).value = "failure"
+        unregistered, ignore = create(
+            self._db, Library, name="Library 3", short_name="L3",
+        )
+        collection.libraries = [succeeded, failed, unregistered]
+
+        with self.app.test_request_context("/", method="GET"):
+            response = self.manager.admin_settings_controller.collection_library_registrations()
+
+            serviceInfo = response.get("library_registrations")
+            eq_(1, len(serviceInfo))
+            eq_(collection.id, serviceInfo[0].get("id"))
+
+            libraryInfo = serviceInfo[0].get("libraries")
+            expected = [
+                dict(short_name=succeeded.short_name, status="success"),
+                dict(short_name=failed.short_name, status="failure"),
+            ]
+            eq_(expected, libraryInfo)
+
+    def test_collection_library_registrations_post_errors(self):
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("collection_id", "1234"),
+            ])
+            response = self.manager.admin_settings_controller.collection_library_registrations()
+            eq_(MISSING_COLLECTION, response)
+
+        collection = self._collection()
+        collection.external_account_id = "collection url"
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("collection_id", collection.id),
+                ("library_short_name", "not-a-library"),
+            ])
+            response = self.manager.admin_settings_controller.collection_library_registrations()
+            eq_(COLLECTION_DOES_NOT_SUPPORT_REGISTRATION, response)
+
+        collection.protocol = SharedODLAPI.NAME
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("collection_id", collection.id),
+                ("library_short_name", "not-a-library"),
+            ])
+            response = self.manager.admin_settings_controller.collection_library_registrations()
+            eq_(NO_SUCH_LIBRARY, response)
+
+        library = self._default_library
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("collection_id", collection.id),
+                ("library_short_name", library.short_name),
+            ])
+            feed = '<feed></feed>'
+            self.responses.append(MockRequestsResponse(200, content=feed))
+
+            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
+            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
+            eq_("The service at collection url did not return OPDS.", response.detail)
+            eq_([collection.external_account_id], self.requests)
+            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, "library-registration-status", library, collection.external_integration).value)
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("collection_id", collection.id),
+                ("library_short_name", library.short_name),
+            ])
+            feed = '<feed></feed>'
+            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
+            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
+
+            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
+            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
+            eq_("The service at collection url did not provide a register link.", response.detail)
+            eq_([collection.external_account_id], self.requests[1:])
+            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, "library-registration-status", library, collection.external_integration).value)
+
+    def test_collection_library_registrations_post_success(self):
+        collection = self._collection(protocol=SharedODLAPI.NAME)
+        collection.external_account_id = "collection url"
+
+        library = self._default_library
+
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("collection_id", collection.id),
+                ("library_short_name", library.short_name),
+            ])
+            # Generate a key in advance so we can mock the collection's encrypted response.
+            key = RSA.generate(2048)
+            public_key = key.publickey().exportKey()
+            encryptor = PKCS1_OAEP.new(key)
+
+            secret = base64.b64encode(encryptor.encrypt("secret"))
+            registration = json.dumps(dict(metadata=dict(shared_secret=secret)))
+            self.responses.append(MockRequestsResponse(200, content=registration))
+            feed = '<feed><link rel="register" href="register url"/></feed>'
+            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
+            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
+
+            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
+            
+            eq_(200, response.status_code)
+            eq_(["collection url", "register url"], self.requests)
+
+            # The shared secret was saved.
+            eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, ExternalIntegration.PASSWORD, library, collection.external_integration).value)
+
+            # The registration status was recorded.
+            eq_("success", ConfigurationSetting.for_library_and_externalintegration(
+                    self._db, "library-registration-status", library, collection.external_integration).value)
 
     def test_sitewide_registration_post_errors(self):
         def assert_remote_integration_error(response, message=None):
