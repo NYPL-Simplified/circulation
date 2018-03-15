@@ -1879,16 +1879,26 @@ class Lane(Base, WorkList):
             # CustomList.
             return qu, []
 
-        # There may already be a join against CustomListEntry, in the case 
-        # of a Lane that inherits its parent's restrictions. To avoid
-        # confusion, create a different join every time.
-        #
-        # Our ability to combine 'inherit parent restrictions' with
-        # CustomList restrictions is limited, but we do what we can.
+        already_filtered_customlist_on_materialized_view = getattr(
+            qu, 'customlist_id_filtered', False
+        )
+        if already_filtered_customlist_on_materialized_view:
+            set_trace()
+
+        # We need to join against CustomListEntry if we have already
+        # filtered against work_model.custom_list_id, or if we are
+        # filtering against a CustomListEntry field not available in
+        # the materialized view.
         a_entry = None
-        if must_be_featured or self.list_seen_in_previous_days:
+        if (must_be_featured or self.list_seen_in_previous_days
+            or already_filtered_customlist_on_materialized_view):
             a_entry = aliased(CustomListEntry)
             clause = a_entry.work_id==work_model.works_id
+            if not already_filtered_customlist_on_materialized_view:
+                # The first time we join against CustomListEntry, the
+                # list we're talking about is the same one mentioned
+                # in the materialized view's list_id field.
+                clause = and_(clause, a_entry.list_id==work_model.customlist_id)
             if outer_join:
                 qu = qu.outerjoin(a_entry, clause)
             else:
@@ -1900,7 +1910,8 @@ class Lane(Base, WorkList):
         if self.list_datasource:
             # Use a separate query to obtain the CustomList IDs of all
             # CustomLists from this DataSource. This is significantly
-            # faster than just using the subquery as customlist_ids.
+            # faster than just using the subquery as customlist_ids
+            # or adding a join against CustomList.
             customlist_ids = Select(
                 [CustomList.id],
                 CustomList.data_source_id==self.list_datasource.id
@@ -1912,7 +1923,12 @@ class Lane(Base, WorkList):
         if customlist_ids is not None:
             if a_entry:
                 clauses.append(a_entry.list_id.in_(customlist_ids))
-            clauses.append(work_model.list_id.in_(customlist_ids))
+            if not already_filtered_customlist_on_materialized_view:
+                clauses.append(work_model.list_id.in_(customlist_ids))
+                # We've filtered the custom list ID once, we can't do
+                # it again -- if another list is involved we'll need
+                # to do a join.
+                qu.customlist_id_filtered = True
         if must_be_featured:
             clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
