@@ -1891,7 +1891,15 @@ class Lane(Base, WorkList):
         # a new alias for the table every time.
         a_entry = aliased(CustomListEntry)
         clause = a_entry.work_id==work_model.works_id
-        clause = and_(clause, a_entry.list_id==work_model.list_id)
+        if not already_filtered_customlist_on_materialized_view:
+            # Since this is the first join, we're treating
+            # work_model.list_id as a stand-in for CustomListEntry.list_id,
+            # which means we should force them to be the same when joining
+            # the view to the table.
+            #
+            # For subsequent joins, this won't apply -- we want to
+            # match a _different_ list's entry for the same work.
+            clause = and_(clause, a_entry.list_id==work_model.list_id)
         if outer_join:
             qu = qu.outerjoin(a_entry, clause)
         else:

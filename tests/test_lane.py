@@ -1687,8 +1687,8 @@ class TestLane(DatabaseTest):
 
         # When it inherits its parent's restrictions, only the
         # works that are on _both_ lists show up in the lane,
-        #best_selling_classics.inherit_parent_restrictions = True
-        #match_works(best_selling_classics, [childrens_fiction])
+        best_selling_classics.inherit_parent_restrictions = True
+        match_works(best_selling_classics, [childrens_fiction])
 
         # Other restrictions are inherited as well. Here, a title must
         # show up on both lists _and_ be a nonfiction book. There are
