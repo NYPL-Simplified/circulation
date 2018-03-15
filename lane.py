@@ -1883,10 +1883,12 @@ class Lane(Base, WorkList):
             qu, 'customlist_id_filtered', False
         )
 
-        # We need to join against CustomListEntry if we have already
-        # filtered against work_model.custom_list_id, or if we are
-        # filtering against a CustomListEntry field not available in
-        # the materialized view.
+        # We will be joining against CustomListEntry at least once, to
+        # run filters on fields like `featured` not found in the
+        # materialized view. For a lane derived from the intersection
+        # of two or more custom lists, we may be joining
+        # CustomListEntry multiple times. To avoid confusion, we make
+        # a new alias for the table every time.
         a_entry = aliased(CustomListEntry)
         clause = a_entry.work_id==work_model.works_id
         clause = and_(clause, a_entry.list_id==work_model.list_id)
@@ -1917,7 +1919,11 @@ class Lane(Base, WorkList):
                 clauses.append(work_model.list_id.in_(customlist_ids))
                 # Now that we've put a restriction on the materialized
                 # view's list_id, we need to signal that no future
-                # call to this method should override it.
+                # call to this method should override it this restriction.
+                #
+                # Future calls will apply their restrictions
+                # solely by restricting CustomListEntry.list_id,
+                # as above.
                 qu.customlist_id_filtered = True
         if must_be_featured:
             clauses.append(a_entry.featured==True)

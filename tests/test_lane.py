@@ -1590,8 +1590,7 @@ class TestLane(DatabaseTest):
                 self._db, base_query, featured
             )
             
-            if (lane.uses_customlists and
-                (featured or lane.list_seen_in_previous_days)):
+            if lane.uses_customlists:
                 # bibliographic_filter_clause modifies the query (by
                 # calling customlist_filter_clauses).
                 assert base_query != new_query
