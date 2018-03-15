@@ -955,6 +955,10 @@ class TestWorkController(AdminControllerTest):
             eq_(1, len(list.entries))
             eq_(list, work.custom_list_entries[0].customlist)
             eq_(True, work.custom_list_entries[0].featured)
+
+            # The lane's size will be updated once the materialized
+            # views are refreshed.
+            SessionManager.refresh_materialized_views(self._db)
             eq_(1, lane.size)
 
         # Now remove the list.
@@ -1470,7 +1474,9 @@ class TestCustomListsController(AdminControllerTest):
                 set([entry.work for entry in list.entries]))
             eq_(new_collections, list.collections)
 
-        # The lane's estimated size has been updated.
+        # The lane's estimated size will be updated once the materialized
+        # views are refreshed.
+        SessionManager.refresh_materialized_views(self._db)
         eq_(2, lane.size)
 
     def test_custom_list_delete_success(self):
