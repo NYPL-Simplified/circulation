@@ -123,6 +123,46 @@ class TestFacets(DatabaseTest):
         expect = [['order', 'author', False], ['order', 'title', True]]
         eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
+    def test_facets_can_be_enabled_at_initialization(self):
+        enabled_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : [
+                Facets.ORDER_TITLE, Facets.ORDER_AUTHOR,
+            ],
+            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
+            Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
+        }
+        library = self._default_library
+        self._configure_facets(library, enabled_facets, {})
+        
+        # Create a new Facets object with these facets enabled,
+        # no matter the Configuration.
+        facets = Facets(
+            self._default_library,
+            Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
+            Facets.ORDER_TITLE, enabled_facets=enabled_facets
+        )
+        all_groups = list(facets.facet_groups)
+        expect = [['order', 'author', False], ['order', 'title', True]]
+        eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
+
+    def test_facets_dont_need_a_library(self):
+        enabled_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : [
+                Facets.ORDER_TITLE, Facets.ORDER_AUTHOR,
+            ],
+            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
+            Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
+        }
+
+        facets = Facets(
+            None,
+            Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
+            Facets.ORDER_TITLE, enabled_facets=enabled_facets
+        )
+        all_groups = list(facets.facet_groups)
+        expect = [['order', 'author', False], ['order', 'title', True]]
+        eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
+
     def test_order_facet_to_database_field(self):
         from model import MaterializedWorkWithGenre as mwg
         def fields(facet):
@@ -634,6 +674,23 @@ class TestWorkList(DatabaseTest):
         # The WorkList's child is the WorkList passed in to the constructor.
         eq_([child], wl.visible_children)
 
+    def test_initialize_without_library(self):
+        wl = WorkList()
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        romance, ignore = Genre.lookup(self._db, "Romance")
+
+        # Create a WorkList that's associated with two genres.
+        wl.initialize(None, genres=[sf, romance])
+        wl.collection_ids = [self._default_collection.id]
+
+        # There is no Library.
+        eq_(None, wl.get_library(self._db))
+
+        # The Genres associated with the WorkList are the ones passed
+        # in on the constructor.
+        eq_(set(wl.genre_ids),
+            set([x.id for x in [sf, romance]]))
+
     def test_top_level_for_library(self):
         """Test the ability to generate a top-level WorkList."""
         # These two top-level lanes should be children of the WorkList.
@@ -833,6 +890,12 @@ class TestWorkList(DatabaseTest):
         self._default_library.collections = []
         wl.initialize(self._default_library)
         eq_(0, wl.works(self._db).count())
+
+        # A WorkList can also have a collection with no library.
+        wl = WorkList()
+        wl.initialize(None)
+        wl.collection_ids = [self._default_collection.id]
+        eq_(2, wl.works(self._db).count())
 
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.

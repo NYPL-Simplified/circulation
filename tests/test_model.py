@@ -4616,6 +4616,20 @@ class TestLoans(DatabaseTest):
         eq_(loan, loan2)
         eq_(False, was_new)
 
+        # Make sure we can also loan this book to an IntegrationClient.
+        client = self._integration_client()
+        loan, was_new = pool.loan_to(client)
+        eq_(True, was_new)
+        eq_(client, loan.integration_client)
+        eq_(pool, loan.license_pool)
+
+        # Loaning the book to the same IntegrationClient twice creates two loans,
+        # since these loans could be on behalf of different patrons on the client.
+        loan2, was_new = pool.loan_to(client)
+        eq_(True, was_new)
+        eq_(client, loan2.integration_client)
+        eq_(pool, loan2.license_pool)
+        assert loan != loan2
 
     def test_work(self):
         """Test the attribute that finds the Work for a Loan or Hold."""
@@ -4641,6 +4655,26 @@ class TestLoans(DatabaseTest):
         pool.presentation_edition.work = None
         eq_(None, loan.work)
 
+    def test_library(self):
+        patron = self._patron()
+        work = self._work(with_license_pool=True)
+        pool = work.license_pools[0]
+
+        loan, is_new = pool.loan_to(patron)
+        eq_(self._default_library, loan.library)
+
+        loan.patron = None
+        client = self._integration_client()
+        loan.integration_client = client
+        eq_(None, loan.library)
+
+        loan.integration_client = None
+        eq_(None, loan.library)
+
+        patron.library = self._library()
+        loan.patron = patron
+        eq_(patron.library, loan.library)
+
 
 class TestHold(DatabaseTest):
 
@@ -4665,6 +4699,21 @@ class TestHold(DatabaseTest):
         # The patron has until `hold.end` to actually check out the book.
         eq_(later, hold.end)
         eq_(0, hold.position)
+
+        # Make sure we can also hold this book for an IntegrationClient.
+        client = self._integration_client()
+        hold, was_new = pool.on_hold_to(client)
+        eq_(True, was_new)
+        eq_(client, hold.integration_client)
+        eq_(pool, hold.license_pool)
+
+        # Holding the book twice for the same IntegrationClient creates two holds,
+        # since they might be for different patrons on the client.
+        hold2, was_new = pool.on_hold_to(client)
+        eq_(True, was_new)
+        eq_(client, hold2.integration_client)
+        eq_(pool, hold2.license_pool)
+        assert hold != hold2
 
     def test_holds_not_allowed(self):
         patron = self._patron()
@@ -7894,6 +7943,38 @@ class TestCollection(DatabaseTest):
         self.collection.default_loan_period_setting(library, audio).value = 606
         eq_(606, self.collection.default_loan_period(library, audio))
 
+        # Given an integration client rather than a library, use
+        # a sitewide integration setting rather than a library-specific
+        # setting.
+        client = self._integration_client()
+
+        # The default when no value is set.
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(client, ebook)
+        )
+
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(client, audio)
+        )
+
+        # Set a value, and it's used.
+        self.collection.default_loan_period_setting(client, ebook).value = 347
+        eq_(347, self.collection.default_loan_period(client))
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(client, audio)
+        )
+
+        self.collection.default_loan_period_setting(client, audio).value = 349
+        eq_(349, self.collection.default_loan_period(client, audio))
+
+        # The same value is used for other clients.
+        client2 = self._integration_client()
+        eq_(347, self.collection.default_loan_period(client))
+        eq_(349, self.collection.default_loan_period(client, audio))
+
     def test_default_reservation_period(self):
         library = self._default_library
         # The default when no value is set.
@@ -8199,7 +8280,6 @@ class TestCollection(DatabaseTest):
         pool.work = new_work
         eq_(0, len(list1.entries))
         eq_(1, len(list2.entries))
-
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
 

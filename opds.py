@@ -1140,9 +1140,8 @@ class AcquisitionFeed(OPDSFeed):
                 obj = loan
             elif hold:
                 obj = hold
-            library = obj.patron.library
             default_loan_period = datetime.timedelta(
-                collection.default_loan_period(library)
+                collection.default_loan_period(obj.library or obj.integration_client)
             )
         if loan:
             status = 'available'
