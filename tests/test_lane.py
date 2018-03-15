@@ -1831,7 +1831,7 @@ class TestLane(DatabaseTest):
                 assert new_qu != qu
             return _run(new_qu, clauses)
 
-        # # Both lanes contain the work.
+        # Both lanes contain the work.
         eq_([work.id], results(gutenberg_list_lane))
         eq_([work.id], results(gutenberg_lists_lane))
 
