@@ -53,7 +53,7 @@ class UTF8Formatter(logging.Formatter):
             data = data.encode("utf8")
         return data
 
-class SysLogger(object):
+class SysLogger():
 
     NAME = 'sysLog'
 
@@ -82,9 +82,27 @@ class SysLogger(object):
 
     SITEWIDE = True
 
-class Loggly(object):
+    @classmethod
+    def _defaults(cls, testing):
+        if testing:
+            internal_log_format = cls.TEXT_LOG_FORMAT
+        else:
+            internal_log_format = cls.JSON_LOG_FORMAT
+        message_template = cls.DEFAULT_MESSAGE_TEMPLATE
+
+        return (internal_log_format, message_template)
+
+    @classmethod
+    def _setSettings(cls, internal):
+        internal_sys_log_format = internal.setting(cls.LOG_FORMAT).value
+        internal_sys_message_template = internal.setting(cls.LOG_MESSAGE_TEMPLATE).value
+
+        return (internal_sys_log_format, internal_sys_message_template)
+
+class Loggly():
 
     NAME = 'loggly'
+    DEFAULT_LOGGLY_URL = "https://logs-01.loggly.com/inputs/%(token)s/tag/python/"
 
     USER = 'user'
     PASSWORD = 'password'
@@ -98,29 +116,51 @@ class Loggly(object):
 
     SITEWIDE = True
 
+    @classmethod
+    def loggly_handler(cls, externalintegration):
+        """Turn a Loggly ExternalIntegration into a log handler.
+        """
+        token = externalintegration.password
+        url = externalintegration.url or cls.DEFAULT_LOGGLY_URL
+        if not url:
+            raise CannotLoadConfiguration(
+                "Loggly integration configured but no URL provided."
+            )
+        try:
+            url = cls._interpolate_loggly_url(url, token)
+        except (TypeError, KeyError), e:
+            raise CannotLoadConfiguraiton(
+                "Cannot interpolate token %s into loggly URL %s" % (
+                    token, url,
+                )
+            )
+        return LogglyHandler(url)
+
+    @classmethod
+    def _interpolate_loggly_url(cls, url, token):
+        if '%s' in url:
+            return url % token
+        if '%(' in url:
+            return url % dict(token=token)
+
+        # Assume the token is already in the URL.
+        return url
+
+
 class LogConfiguration(object):
     """Configures the active Python logging handlers based on logging
     configuration from the database.
     """
-
-    DEFAULT_MESSAGE_TEMPLATE = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s"
-    DEFAULT_LOGGLY_URL = "https://logs-01.loggly.com/inputs/%(token)s/tag/python/"
 
     DEBUG = "DEBUG"
     INFO = "INFO"
     WARN = "WARN"
     ERROR = "ERROR"
 
-    JSON_LOG_FORMAT = 'json'
-    TEXT_LOG_FORMAT = 'text'
-
     # The default value to put into the 'app' field of JSON-format logs,
     # unless LOG_APP_NAME overrides it.
     DEFAULT_APP_NAME = 'simplified'
     LOG_APP_NAME = 'log_app'
-
-    LOG_FORMAT = 'log_format'
-    LOG_MESSAGE_TEMPLATE = 'message_template'
 
     # Settings for the integration with protocol=INTERNAL_LOGGING
     LOG_LEVEL = 'log_level'
@@ -241,17 +281,18 @@ class LogConfiguration(object):
             app_name = ConfigurationSetting.sitewide(_db, Configuration.LOG_APP_NAME).value or app_name
 
             if internal:
+                (internal_sys_log_format, internal_sys_message_template) = SysLogger._setSettings(internal)
                 internal_log_format = (
-                    internal.setting(cls.LOG_FORMAT).value
+                    internal_sys_log_format
                     or internal_log_format
                 )
                 message_template = (
-                    internal.setting(cls.LOG_MESSAGE_TEMPLATE).value
+                    internal_sys_message_template
                     or message_template
                 )
 
             if loggly:
-                handlers.append(cls.loggly_handler(loggly))
+                handlers.append(Loggly.loggly_handler(loggly))
 
         # handlers is either empty or it contains a loggly handler.
         # Let's also add a handler that logs to standard error.
@@ -267,14 +308,9 @@ class LogConfiguration(object):
     @classmethod
     def _defaults(cls, testing=False):
         """Return default log configuration values."""
-        if testing:
-            internal_log_level = cls.INFO
-            internal_log_format = cls.TEXT_LOG_FORMAT
-        else:
-            internal_log_level = cls.INFO
-            internal_log_format = cls.JSON_LOG_FORMAT
+        internal_log_level = cls.INFO
         database_log_level = cls.WARN
-        message_template = cls.DEFAULT_MESSAGE_TEMPLATE
+        (internal_log_format, message_template) = SysLogger._defaults(testing)
         return (internal_log_level, internal_log_format, database_log_level,
                 message_template)
 
@@ -284,39 +320,9 @@ class LogConfiguration(object):
         """Tell the given `handler` to format its log messages in a
         certain way.
         """
-        if (log_format==cls.JSON_LOG_FORMAT
+        if (log_format == SysLogger.JSON_LOG_FORMAT
             or isinstance(handler, LogglyHandler)):
             formatter = JSONFormatter(app_name)
         else:
             formatter = UTF8Formatter(message_template)
         handler.setFormatter(formatter)
-
-    @classmethod
-    def loggly_handler(cls, externalintegration):
-        """Turn a Loggly ExternalIntegration into a log handler.
-        """
-        token = externalintegration.password
-        url = externalintegration.url or cls.DEFAULT_LOGGLY_URL
-        if not url:
-            raise CannotLoadConfiguration(
-                "Loggly integration configured but no URL provided."
-            )
-        try:
-            url = cls._interpolate_loggly_url(url, token)
-        except (TypeError, KeyError), e:
-            raise CannotLoadConfiguraiton(
-                "Cannot interpolate token %s into loggly URL %s" % (
-                    token, url,
-                )
-            )
-        return LogglyHandler(url)
-
-    @classmethod
-    def _interpolate_loggly_url(cls, url, token):
-        if '%s' in url:
-            return url % token
-        if '%(' in url:
-            return url % dict(token=token)
-
-        # Assume the token is already in the URL.
-        return url
