@@ -172,7 +172,7 @@ class TestLogConfiguration(DatabaseTest):
         # Configure a handler for output to Loggly. In this case
         # the format and template are irrelevant.
         handler = LogglyHandler("no-such-url")
-        Loggly.set_formatter(handler, None, None, "some app")
+        Loggly.set_formatter(handler, "some app")
         formatter = handler.formatter
         assert isinstance(formatter, JSONFormatter)
         eq_("some app", formatter.app_name)
