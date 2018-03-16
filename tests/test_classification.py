@@ -1407,7 +1407,8 @@ class TestWorkClassifier(DatabaseTest):
         eq_(True, fiction)
 
     def test_staff_audience_overrides_others(self):
-        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        pool = self._licensepool(None, data_source_name=DataSource.AXIS_360)
+        license_source = pool.data_source
         staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         subject1 = self._subject(type="type1", identifier="subject1")
         subject1.audience = "Adult"
@@ -1418,13 +1419,13 @@ class TestWorkClassifier(DatabaseTest):
             identifier="Children"
         )
         classification1 = self._classification(
-            identifier=self.identifier, subject=subject1,
-            data_source=source, weight=10)
+            identifier=pool.identifier, subject=subject1,
+            data_source=license_source, weight=10)
         classification2 = self._classification(
-            identifier=self.identifier, subject=subject2,
-            data_source=source, weight=10)
+            identifier=pool.identifier, subject=subject2,
+            data_source=license_source, weight=10)
         classification3 = self._classification(
-            identifier=self.identifier, subject=subject3,
+            identifier=pool.identifier, subject=subject3,
             data_source=staff_source, weight=1)
         self.classifier.add(classification1)
         self.classifier.add(classification2)
