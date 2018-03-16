@@ -603,7 +603,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
         # It's been 'mirrored' to the appropriate S3 bucket.
-        assert book.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
+        assert book.mirror_url.startswith('https://s3.amazonaws.com/test.content.bucket/')
         expect = '/%s/%s.epub' % (
             edition.primary_identifier.identifier,
             edition.title
