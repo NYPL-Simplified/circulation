@@ -393,3 +393,10 @@ CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT = pd(
     title=_("Cannot show lane with hidden parent"),
     detail=_("You can only make a lane visible if its parent is already visible."),
 )
+
+COLLECTION_DOES_NOT_SUPPORT_REGISTRATION = pd(
+    "http://librarysimplified.org/terms/problem/collection-does-not-support-registration",
+    status_code=400,
+    title=_("The collection does not support registration"),
+    detail=_("The collection does not support registration."),
+)

@@ -258,6 +258,25 @@ class TestCirculationAPI(DatabaseTest):
         eq_(self.pool, hold.license_pool)
         eq_(self.patron, hold.patron)
 
+    def test_borrow_creates_hold_if_api_returns_hold_info(self):
+        # There are no available copies, but the remote API
+        # places a hold for us right away instead of raising
+        # an error.
+        holdinfo = HoldInfo(
+            self.pool.collection, self.pool.data_source,
+            self.identifier.type, self.identifier.identifier,
+            None, None, 10
+        )
+        self.remote.queue_checkout(holdinfo)
+
+        # As such, an attempt to borrow results in us actually
+        # placing a hold on the book.
+        loan, hold, is_new = self.borrow()
+        eq_(None, loan)
+        eq_(True, is_new)
+        eq_(self.pool, hold.license_pool)
+        eq_(self.patron, hold.patron)
+
     def test_hold_sends_analytics_event(self):
         self.remote.queue_checkout(NoAvailableCopies())
         holdinfo = HoldInfo(

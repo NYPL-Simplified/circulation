@@ -23,6 +23,7 @@ from core.model import (
     DataSource,
     ExternalIntegration,
     Library,
+    MaterializedWorkWithGenre,
 )
 
 from api.config import (
@@ -37,7 +38,8 @@ from api.lanes import (
     _lane_configuration_from_collection_sizes,
     load_lanes,
     ContributorLane,
-    CrawlableCustomListFacets,
+    CrawlableCollectionBasedLane,
+    CrawlableFacets,
     CrawlableCustomListBasedLane,
     RecommendationLane,
     RelatedBooksLane,
@@ -681,13 +683,13 @@ class TestContributorLane(LaneTest):
         )
         self.assert_works_queries(ya_lane, [children, ya])
 
-class TestCrawlableCustomListFacets(DatabaseTest):
+class TestCrawlableFacets(DatabaseTest):
 
     def test_default(self):
-        facets = CrawlableCustomListFacets.default(self._default_library)
-        eq_(CrawlableCustomListFacets.COLLECTION_FULL, facets.collection)
-        eq_(CrawlableCustomListFacets.AVAILABLE_ALL, facets.availability)
-        eq_(CrawlableCustomListFacets.ORDER_LAST_UPDATE, facets.order)
+        facets = CrawlableFacets.default(self._default_library)
+        eq_(CrawlableFacets.COLLECTION_FULL, facets.collection)
+        eq_(CrawlableFacets.AVAILABLE_ALL, facets.availability)
+        eq_(CrawlableFacets.ORDER_LAST_UPDATE, facets.order)
         eq_(False, facets.order_ascending)
         enabled_facets = facets.facets_enabled_at_init
         # There's only one enabled facets for each facet group.
@@ -695,7 +697,7 @@ class TestCrawlableCustomListFacets(DatabaseTest):
             eq_(1, len(group))
 
     def test_last_update_order_facet(self):
-        facets = CrawlableCustomListFacets.default(self._default_library)
+        facets = CrawlableFacets.default(self._default_library)
 
         w1 = self._work(with_license_pool=True)
         w2 = self._work(with_license_pool=True)
@@ -719,7 +721,26 @@ class TestCrawlableCustomListFacets(DatabaseTest):
         qu = facets.apply(self._db, qu)
         # w1 is first because it was added to the list more recently.
         eq_([w1.id, w2.id], [mw.works_id for mw in qu])
-        
+
+    def test_order_by(self):
+        """Crawlable feeds are always ordered by time updated and then by 
+        collection ID and work ID.
+        """
+        from core.model import MaterializedWorkWithGenre as mw
+        order_by, distinct = CrawlableFacets.order_by()
+
+        updated, collection_id, works_id = distinct
+        expect_func = 'greatest(mv_works_for_lanes.availability_time, mv_works_for_lanes.first_appearance, mv_works_for_lanes.last_update_time)'
+        eq_(expect_func, str(updated))
+        eq_(mw.collection_id, collection_id)
+        eq_(mw.works_id, works_id)
+
+        updated_desc, collection_id, works_id = order_by
+        eq_(expect_func + ' DESC', str(updated_desc))
+        eq_(mw.collection_id, collection_id)
+        eq_(mw.works_id, works_id)
+
+
 class TestCrawlableCustomListBasedLane(DatabaseTest):
 
     def test_initialize(self):
@@ -728,7 +749,7 @@ class TestCrawlableCustomListBasedLane(DatabaseTest):
         lane.initialize(self._default_library, list)
         eq_(self._default_library.id, lane.library_id)
         eq_([list], lane.customlists)
-        eq_(list.name, lane.display_name)
+        eq_("Crawlable feed: %s" % list.name, lane.display_name)
         eq_(None, lane.audiences)
         eq_(None, lane.languages)
         eq_(None, lane.media)
@@ -755,4 +776,84 @@ class TestCrawlableCustomListBasedLane(DatabaseTest):
         qu = qu.filter(clause)
 
         eq_([w2.id], [mw.works_id for mw in qu])
+
+    def test_url_arguments(self):
+        list, ignore = self._customlist()
+        lane = CrawlableCustomListBasedLane()
+        lane.initialize(self._default_library, list)
+        route, kwargs = lane.url_arguments
+        eq_(CrawlableCustomListBasedLane.ROUTE, route)
+        eq_(list.name, kwargs.get("list_name"))
         
+
+class TestCrawlableCollectionBasedLane(DatabaseTest):
+
+    def test_init(self):
+
+        library = self._default_library
+        default_collection = self._default_collection
+        other_collection = self._collection()
+        other_collection_2 = self._collection()
+
+        # A lane for all the collections associated with a library.
+        lane = CrawlableCollectionBasedLane(library)
+        eq_("Crawlable feed: %s" % library.name, lane.display_name)
+        eq_([x.id for x in library.collections], lane.collection_ids)
+
+        # A lane for a collection not actually associated with a
+        # library.
+        lane = CrawlableCollectionBasedLane(
+            None, [other_collection, other_collection_2]
+        )
+        eq_(
+            "Crawlable feed: %s / %s" % tuple(
+                sorted([other_collection.name, other_collection_2.name])
+            ),
+            lane.display_name
+        )
+        eq_(set([other_collection.id, other_collection_2.id]),
+            set(lane.collection_ids))
+        eq_(None, lane.get_library(self._db))
+
+    def test_bibliographic_filter_clause(self):
+        # Normally, if collection_ids is empty it means there are no
+        # restrictions on collection. However, in this case if
+        # collections_id is empty it means no titles should be
+        # returned.
+        collection = self._default_collection
+        self._default_library.collections = []
+        lane = CrawlableCollectionBasedLane(self._default_library)
+        eq_([], lane.collection_ids)
+
+        # This is managed by having bibliographic_filter_clause return None
+        # to short-circuit a query in progress.
+        eq_((None, None), lane.bibliographic_filter_clause(object(), object()))
+
+        # If collection_ids is not empty, then
+        # bibliographic_filter_clause passed through the query it's
+        # given without changing it.
+        lane.collection_ids = [self._default_collection.id]
+        qu = self._db.query(MaterializedWorkWithGenre)
+        qu2, clause = lane.bibliographic_filter_clause(self._db, qu)
+        eq_(qu, qu2)
+        eq_(None, clause)
+
+    def test_url_arguments(self):
+        library = self._default_library
+        other_collection = self._collection()
+
+        # A lane for all the collections associated with a library.
+        lane = CrawlableCollectionBasedLane(library)
+        route, kwargs = lane.url_arguments
+        eq_(CrawlableCollectionBasedLane.LIBRARY_ROUTE, route)
+        eq_(None, kwargs.get("collection_name"))
+
+        # A lane for a collection not actually associated with a
+        # library. (A Library is still necessary to provide a point of
+        # reference for classes like Facets and CachedFeed.)
+        lane = CrawlableCollectionBasedLane(
+            library, [other_collection]
+        )
+        route, kwargs = lane.url_arguments
+        eq_(CrawlableCollectionBasedLane.COLLECTION_ROUTE, route)
+        eq_(other_collection.name, kwargs.get("collection_name"))
