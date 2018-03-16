@@ -3090,10 +3090,12 @@ class WorkClassifier(object):
             [classification.subject.audience
              for classification in self.direct_from_license_source]
         )
-        if self.direct_from_license_source and not any(
+        if (self.direct_from_license_source
+            and not self.using_staff_audience
+            and not any(
                 audience in explicitly_indicated_audiences 
                 for audience in audiences_from_license_source
-        ):
+        )):
             # If this was erotica, or a book for children or young
             # adults, the distributor would have given some indication
             # of that fact. In the absense of any such indication, we
