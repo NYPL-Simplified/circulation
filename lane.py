@@ -7,6 +7,7 @@ import time
 import urllib
 
 from psycopg2.extras import NumericRange
+from sqlalchemy.sql.expression import Select
 
 from config import Configuration
 from flask_babel import lazy_gettext as _
@@ -100,6 +101,10 @@ class Facets(FacetConstants):
     def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None):
         """
+        :param library: The library's defaults will be used when creating the
+        facets. If library is None, collection, availability, order, and
+        enabled_facets must be specified.
+
         :param collection: This is not a Collection object; it's a value for
         the 'collection' facet, e.g. 'main' or 'featured'.
         """
@@ -117,7 +122,7 @@ class Facets(FacetConstants):
         )
         order = order or library.default_facet(self.ORDER_FACET_GROUP_NAME)
 
-        if (availability == self.AVAILABLE_ALL and not library.allow_holds):
+        if (availability == self.AVAILABLE_ALL and (library and not library.allow_holds)):
             # Under normal circumstances we would show all works, but
             # library configuration says to hide books that aren't
             # available.
@@ -424,9 +429,15 @@ class Pagination(object):
         return Pagination(0, cls.DEFAULT_SIZE)
 
     def __init__(self, offset=0, size=DEFAULT_SIZE):
+        """Constructor.
+
+        :param offset: Start pulling entries from the query at this index.
+        :param size: Pull no more than this number of entries from the query.
+        """
         self.offset = offset
         self.size = size
-        self.query_size = None
+        self.total_size = None
+        self.this_page_size = None
 
     def items(self):
         yield("after", self.offset)
@@ -456,18 +467,27 @@ class Pagination(object):
     def has_next_page(self):
         """Returns boolean reporting whether pagination is done for a query
 
-        This method only returns valid information _after_ self.apply
-        has been run on a query.
+        Either `total_size` or `this_page_size` must be set for this
+        method to be accurate.
         """
-        if self.query_size is None:
-            return True
-        if self.query_size==0:
-            return False
-        return self.offset + self.size < self.query_size
+        if self.total_size is not None:
+            # We know the total size of the result set, so we know
+            # whether or not there are more results.
+            return self.offset + self.size < self.total_size
+        if self.this_page_size is not None:
+            # We know the number of items on the current page. If this
+            # page was empty, we can assume there is no next page; if
+            # not, we can assume there is a next page. This is a little
+            # more conservative than checking whether we have a 'full'
+            # page.
+            return self.this_page_size > 0
+
+        # We don't know anything about this result set, so assume there is
+        # a next page.
+        return True
 
     def apply(self, qu):
         """Modify the given query with OFFSET and LIMIT."""
-        self.query_size = fast_query_count(qu)
         return qu.offset(self.offset).limit(self.size)
 
 
@@ -560,10 +580,13 @@ class WorkList(object):
         show up in relation to its siblings when it is the child of
         some other WorkList.
         """
-        self.library_id = library.id
-        self.collection_ids = [
-            collection.id for collection in library.all_collections
-        ]
+        self.library_id = None
+        self.collection_ids = []
+        if library:
+            self.library_id = library.id
+            self.collection_ids = [
+                collection.id for collection in library.all_collections
+            ]
         self.display_name = display_name
         if genres:
             self.genre_ids = [x.id for x in genres]
@@ -780,6 +803,13 @@ class WorkList(object):
             qu = qu.filter(
                 LicensePool.collection_id.in_(self.collection_ids)
             )
+            # Also apply the filter on the materialized view --
+            # this doesn't seem to do anything, but it's possible that
+            # applying the filter here might cause the database to use
+            # an index it wouldn't have otherwise used.
+            qu = qu.filter(
+                mw.collection_id.in_(self.collection_ids)
+            )
         qu = self.apply_filters(_db, qu, facets, pagination)
         if qu:
             qu = qu.options(
@@ -811,8 +841,9 @@ class WorkList(object):
         qu = _db.query(mw).join(
             LicensePool, mw.license_pool_id==LicensePool.id
         ).filter(
-            mw.works_id.in_(work_ids)
-        )
+            mw.works_id.in_(work_ids),
+            LicensePool.work_id.in_(work_ids),
+        ).enable_eagerloads(False)
         qu = self._lazy_load(qu)
         qu = self._defer_unused_fields(qu)
         qu = self.only_show_ready_deliverable_works(_db, qu)
@@ -928,8 +959,8 @@ class WorkList(object):
         Note that this assumes the query has an active join against
         LicensePool.
         """
-        from model import MaterializedWorkWithGenre as mwg
-        return self.get_library(_db).restrict_to_ready_deliverable_works(
+        from model import MaterializedWorkWithGenre as mwg, Collection
+        return Collection.restrict_to_ready_deliverable_works(
             query, mwg, show_suppressed=show_suppressed,
             collection_ids=self.collection_ids
         )
@@ -1855,27 +1886,58 @@ class Lane(Base, WorkList):
             # CustomList.
             return qu, []
 
-        # There may already be a join against CustomListEntry, in the case 
-        # of a Lane that inherits its parent's restrictions. To avoid
-        # confusion, create a different join every time.
+        already_filtered_customlist_on_materialized_view = getattr(
+            qu, 'customlist_id_filtered', False
+        )
+
+        # We will be joining against CustomListEntry at least once, to
+        # run filters on fields like `featured` not found in the
+        # materialized view. For a lane derived from the intersection
+        # of two or more custom lists, we may be joining
+        # CustomListEntry multiple times. To avoid confusion, we make
+        # a new alias for the table every time.
         a_entry = aliased(CustomListEntry)
         clause = a_entry.work_id==work_model.works_id
-        a_list = aliased(CustomListEntry.customlist)
+        if not already_filtered_customlist_on_materialized_view:
+            # Since this is the first join, we're treating
+            # work_model.list_id as a stand-in for CustomListEntry.list_id,
+            # which means we should force them to be the same when joining
+            # the view to the table.
+            #
+            # For subsequent joins, this won't apply -- we want to
+            # match a _different_ list's entry for the same work.
+            clause = and_(clause, a_entry.list_id==work_model.list_id)
         if outer_join:
             qu = qu.outerjoin(a_entry, clause)
-            qu = qu.outerjoin(a_list, a_entry.list_id==a_list.id)
         else:
             qu = qu.join(a_entry, clause)
-            qu = qu.join(a_list, a_entry.list_id==a_list.id)
 
         # Actually build the restriction clauses.
         clauses = []
+        customlist_ids = None
         if self.list_datasource:
-            clauses.append(a_list.data_source==self.list_datasource)
-        customlist_ids = [x.id for x in self.customlists]
-
-        if customlist_ids:
-            clauses.append(a_list.id.in_(customlist_ids))
+            # Use a subquery to obtain the CustomList IDs of all
+            # CustomLists from this DataSource. This is significantly
+            # simpler than adding a join against CustomList.
+            customlist_ids = Select(
+                [CustomList.id],
+                CustomList.data_source_id==self.list_datasource.id
+            )
+        else:
+            customlist_ids = [x.id for x in self.customlists]
+        if customlist_ids is not None:
+            clauses.append(a_entry.list_id.in_(customlist_ids))
+            if not already_filtered_customlist_on_materialized_view:
+                clauses.append(work_model.list_id.in_(customlist_ids))
+                # Now that we've put a restriction on the materialized
+                # view's list_id, we need to signal that no future
+                # call to this method should put a restriction on the
+                # same field.
+                #
+                # Future calls will apply their restrictions
+                # solely by restricting CustomListEntry.list_id,
+                # as above.
+                qu.customlist_id_filtered = True
         if must_be_featured:
             clauses.append(a_entry.featured==True)
         if self.list_seen_in_previous_days:
@@ -1883,9 +1945,6 @@ class Lane(Base, WorkList):
                 self.list_seen_in_previous_days
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)
-
-        if must_be_featured:
-            clauses.append(a_entry.featured==True)
             
         return qu, clauses
 

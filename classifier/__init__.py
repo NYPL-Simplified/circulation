@@ -856,6 +856,8 @@ class Lowercased(unicode):
         if isinstance(value, Lowercased):
             # Nothing to do.
             return value
+        if not isinstance(value, basestring):
+            value = unicode(value)
         new_value = value.lower()
         if new_value.endswith('.'):
             new_value = new_value[:-1]

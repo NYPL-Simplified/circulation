@@ -364,6 +364,7 @@ class BibliographicParser(Axis360Parser):
     DELIVERY_DATA_FOR_AXIS_FORMAT = {
         "Blio" : None,
         "Acoustik" : None,
+        "AxisNow": None,
         "ePub" : (Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
         "PDF" : (Representation.PDF_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM),
     }
@@ -523,7 +524,6 @@ class BibliographicParser(Axis360Parser):
             element, 'axis:annotation', ns
         )
         if description:
-            print description
             links.append(
                 LinkData(
                     rel=Hyperlink.DESCRIPTION,
@@ -582,7 +582,7 @@ class BibliographicParser(Axis360Parser):
             informal_name = format_tag.text
             seen_formats.append(informal_name)
             if informal_name not in self.DELIVERY_DATA_FOR_AXIS_FORMAT:
-                self.log.error("Unrecognized Axis format name for %s: %s" % (
+                self.log.warn("Unrecognized Axis format name for %s: %s" % (
                     identifier, informal_name
                 ))
             elif self.DELIVERY_DATA_FOR_AXIS_FORMAT.get(informal_name):

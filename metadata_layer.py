@@ -524,7 +524,7 @@ class MetaToModelUtility(object):
                 )
             )
             return
-            
+
         mirror = policy.mirror
         http_get = policy.http_get
 

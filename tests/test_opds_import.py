@@ -1428,10 +1428,10 @@ class TestMirroring(OPDSImporterTest):
         # The "crow" book was mirrored to a bucket corresponding to
         # the open-access content source, the default data source used
         # when no distributor was specified for a book.
-        url0 = 'http://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
-        url1 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url2 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url3 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
+        url0 = 'https://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg+ID/10441/The+Green+Mouse.epub.images'
+        url1 = u'https://s3.amazonaws.com/test.cover.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.png'
+        url2 = u'https://s3.amazonaws.com/test.cover.bucket/scaled/300/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.png'
+        url3 = 'https://s3.amazonaws.com/test.content.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/Johnny+Crow%27s+Party.epub.images'
         uploaded_urls = [x.mirror_url for x in s3.uploaded]
         eq_([url0, url1, url2, url3], uploaded_urls)
 
@@ -1797,23 +1797,25 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             import_class=OPDSImporter
         )
 
-        # By default, only an Accept header is added.
-        headers = {}
-        monitor._update_headers(headers)
-        eq_(['Accept'], headers.keys())
+        # _update_headers return a new dictionary. By default, only an
+        # Accept header is added.
+        headers = {'Some other': 'header'}
+        new_headers = monitor._update_headers(headers)
+        eq_(['Some other'], headers.keys())
+        eq_(['Some other', 'Accept'], new_headers.keys())
 
         # If the monitor has a username and password, an Authorization
         # header using HTTP Basic Authentication is also added.
         monitor.username = "a user"
         monitor.password = "a password"
         headers = {}
-        monitor._update_headers(headers)
-        assert headers['Authorization'].startswith('Basic')
+        new_headers = monitor._update_headers(headers)
+        assert new_headers['Authorization'].startswith('Basic')
 
         # However, if the Authorization and/or Accept headers have been
         # filled in by some other piece of code, _update_headers does
         # not touch them.
         expect = dict(Accept="text/html", Authorization="Bearer abc")
         headers = dict(expect)
-        monitor._update_headers(headers)
+        new_headers = monitor._update_headers(headers)
         eq_(headers, expect)

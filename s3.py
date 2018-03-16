@@ -1,6 +1,10 @@
 import logging
 import os
-import tinys3
+import boto3
+from botocore.exceptions import (
+    BotoCoreError,
+    ClientError,
+)
 import urllib
 from flask_babel import lazy_gettext as _
 from nose.tools import set_trace
@@ -17,35 +21,66 @@ from requests.exceptions import (
 
 class S3Uploader(MirrorUploader):
 
-    NAME = u'Amazon S3'
+    NAME = ExternalIntegration.S3
+
+    S3_HOSTNAME = "s3.amazonaws.com"
+    S3_BASE = "https://%s/" % S3_HOSTNAME
 
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
 
-    S3_HOSTNAME = "s3.amazonaws.com"
-    S3_BASE = "http://%s/" % S3_HOSTNAME
+    URL_TEMPLATE_KEY = u'bucket_name_transform'
+    URL_TEMPLATE_HTTP = u'http'
+    URL_TEMPLATE_HTTPS = u'https'
+    URL_TEMPLATE_DEFAULT = u'identity'
+
+    URL_TEMPLATES_BY_TEMPLATE = {
+        URL_TEMPLATE_HTTP: u'http://%(bucket)s/%(key)s',
+        URL_TEMPLATE_HTTPS: u'https://%(bucket)s/%(key)s',
+        URL_TEMPLATE_DEFAULT: S3_BASE + u'%(bucket)s/%(key)s',
+    }
 
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Access Key") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Secret Key") },
-        { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"), "optional": True },
-        { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"), "optional": True },
+        { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"), "optional": True,
+          "description" : _("All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
+        },
+        { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"), "optional": True,
+          "description" : _("All open-access books encountered will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
+        },
+        { "key": URL_TEMPLATE_KEY, "label": _("URL format"),
+          "type": "select",
+          "options" : [
+              { "key" : URL_TEMPLATE_DEFAULT,
+                "label": _("S3 Default: https://s3.amazonaws.com/{bucket}/{file}"),
+              },
+              { "key" : URL_TEMPLATE_HTTPS,
+                "label": _("HTTPS: https://{bucket}/{file}"),
+              },
+              { "key" : URL_TEMPLATE_HTTP,
+                "label": _("HTTP: http://{bucket}/{file}"),
+              },
+          ],
+          "default": URL_TEMPLATE_DEFAULT,
+          "description" : _("A file mirrored to S3 is available at <code>http://s3.amazonaws.com/{bucket}/{filename}</code>. If you've set up your DNS so that http:///[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. <p>If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.</p>")
+        },
     ]
 
     SITEWIDE = True
 
-    def __init__(self, integration, pool_class=None):
+    def __init__(self, integration, client_class=None):
         """Instantiate an S3Uploader from an ExternalIntegration.
 
         :param integration: An ExternalIntegration
 
-        :param pool_class: Mock object (or class) to use (or instantiate)
-            instead of tinys3.Pool.
+        :param client_class: Mock object (or class) to use (or instantiate)
+            instead of boto3.client.
         """
-        if not pool_class:
-            pool_class = tinys3.Pool
+        if not client_class:
+            client_class = boto3.client
 
-        if callable(pool_class):
+        if callable(client_class):
             access_key = integration.username
             secret_key = integration.password
             if not (access_key and secret_key):
@@ -53,9 +88,17 @@ class S3Uploader(MirrorUploader):
                     'Cannot create S3Uploader without both'
                     ' access_key and secret_key.'
                 )
-            self.pool = pool_class(access_key, secret_key)
+            self.client = client_class(
+                's3',
+                aws_access_key_id=access_key, 
+                aws_secret_access_key=secret_key,
+            )
         else:
-            self.pool = pool_class
+            self.client = client_class
+
+        self.url_transform = integration.setting(
+            self.URL_TEMPLATE_KEY).value_or_default(
+                self.URL_TEMPLATE_DEFAULT)
 
         # Transfer information about bucket names from the
         # ExternalIntegration to the S3Uploader object, so we don't
@@ -64,7 +107,6 @@ class S3Uploader(MirrorUploader):
         for setting in integration.settings:
             if setting.key.endswith('_bucket'):
                 self.buckets[setting.key] = setting.value
-
     def get_bucket(self, bucket_key):
         """Gets the bucket for a particular use based on the given key"""
         return self.buckets.get(bucket_key)
@@ -72,6 +114,10 @@ class S3Uploader(MirrorUploader):
     @classmethod
     def url(cls, bucket, path):
         """The URL to a resource on S3 identified by bucket and path."""
+        if isinstance(path, list):
+            # This is a list of key components that need to be quoted
+            # and assembled.
+            path = cls.key_join(path)
         if path.startswith('/'):
             path = path[1:]
         if bucket.startswith('http://') or bucket.startswith('https://'):
@@ -87,17 +133,15 @@ class S3Uploader(MirrorUploader):
         """The root URL to the S3 location of cover images for
         the given data source.
         """
+        parts = []
         if scaled_size:
-            path = "/scaled/%d/" % scaled_size
-        else:
-            path = "/"
+            parts.extend(["scaled", str(scaled_size)])
         if isinstance(data_source, str):
             data_source_name = data_source
         else:
             data_source_name = data_source.name
-        data_source_name = urllib.quote(data_source_name)
-        path += data_source_name + "/"
-        url = cls.url(bucket, path)
+        parts.append(data_source_name)
+        url = cls.url(bucket, parts)
         if not url.endswith('/'):
             url += '/'
         return url
@@ -111,6 +155,29 @@ class S3Uploader(MirrorUploader):
             raise NotImplementedError()
         return cls.url(bucket, '/')
 
+    @classmethod
+    def key_join(self, key):
+        """Quote the path portions of an S3 key while leaving the path
+        characters themselves alone.
+
+        :param key: Either a key, or a list of parts to be
+        assembled into a key.
+
+        :return: A bytestring that can be used as an S3 key.
+        """
+        if isinstance(key, basestring):
+            parts = key.split('/')
+        else:
+            parts = key
+        new_parts = []
+        for part in parts:
+            if isinstance(part, unicode):
+                part = part.encode("utf-8")
+            else:
+                part = str(part)
+            new_parts.append(urllib.quote_plus(part))
+        return b'/'.join(new_parts)
+
     def book_url(self, identifier, extension='.epub', open_access=True,
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
@@ -120,30 +187,27 @@ class S3Uploader(MirrorUploader):
         if not extension.startswith('.'):
             extension = '.' + extension
 
-        if title:
-            filename = "%s/%s" % (identifier.identifier, title)
-        else:
-            filename = identifier.identifier
-
-        args = [identifier.type, filename]
-        args = [urllib.quote(x.encode('utf-8')) for x in args]
+        parts = []
         if data_source:
-            args.insert(0, urllib.quote(data_source.name))
-            template = "%s/%s/%s%s"
+            parts.append(data_source.name)
+        parts.append(identifier.type)
+        if title:
+            # e.g. DataSource/ISBN/1234/Title.epub
+            parts.append(identifier.identifier)
+            filename = title
         else:
-            template = "%s/%s%s"
-
-        return root + template % tuple(args + [extension])
+            # e.g. DataSource/ISBN/1234.epub
+            filename = identifier.identifier
+        parts.append(filename + extension)
+        return root + self.key_join(parts)
 
     def cover_image_url(self, data_source, identifier, filename,
                         scaled_size=None):
         """The path to the hosted cover image for the given identifier."""
         bucket = self.get_bucket(self.BOOK_COVERS_BUCKET_KEY)
         root = self.cover_image_root(bucket, data_source, scaled_size)
-
-        args = [identifier.type, identifier.identifier, filename]
-        args = [urllib.quote(x) for x in args]
-        return root + "%s/%s/%s" % tuple(args)
+        parts = [identifier.type, identifier.identifier, filename]
+        return root + self.key_join(parts)
 
     @classmethod
     def bucket_and_filename(cls, url):
@@ -155,7 +219,23 @@ class S3Uploader(MirrorUploader):
         else:
             bucket = netloc
             filename = path[1:]
-        return bucket, filename
+        return bucket, urllib.unquote_plus(filename)
+
+    def final_mirror_url(self, bucket, key):
+        """Determine the URL to use as Representation.mirror_url, assuming
+        that it was successfully uploaded to the given `bucket` as `key`.
+
+        Depending on ExternalIntegration configuration this may 
+        be any of the following:
+
+        https://s3.amazonaws.com/{bucket}/{key}
+        http://{bucket}/{key}
+        https://{bucket}/{key}
+        """
+        templates = self.URL_TEMPLATES_BY_TEMPLATE
+        default = templates[self.URL_TEMPLATE_DEFAULT]
+        template = templates.get(self.url_transform, default)
+        return template % dict(bucket=bucket, key=self.key_join(key))
 
     def mirror_one(self, representation):
         """Mirror a single representation."""
@@ -163,34 +243,37 @@ class S3Uploader(MirrorUploader):
 
     def mirror_batch(self, representations):
         """Mirror a bunch of Representations at once."""
-        filehandles = []
-        requests = []
-        representations_by_response_url = dict()
         for representation in representations:
+            # TODO: It's strange that we're setting mirror_url to the
+            # original URL when the file hasn't been mirrored and that
+            # may not end up being the final URL. We should be able to
+            # simplify this.
             if not representation.mirror_url:
                 representation.mirror_url = representation.url
             # Turn the mirror URL into an s3.amazonaws.com URL.
             bucket, filename = self.bucket_and_filename(
                 representation.mirror_url
             )
-            response_url = self.url(bucket, filename)
-            representations_by_response_url[response_url] = (
-                representation)
             media_type = representation.external_media_type
-            fh = representation.external_content()
             bucket, remote_filename = self.bucket_and_filename(
                 representation.mirror_url)
-            filehandles.append(fh)
-            request = self.pool.upload(
-                remote_filename, fh, bucket=bucket,
-                content_type=media_type
-            )
-            requests.append(request)
-        # Do the upload.
+            fh = representation.external_content()
+            try:
+                result = self.client.upload_fileobj(
+                    Fileobj=fh,
+                    Bucket=bucket,
+                    Key=remote_filename,
+                    ExtraArgs=dict(ContentType=media_type)
+                )
 
-        def process_response(response):
-            representation = representations_by_response_url[response.url]
-            if response.status_code == 200:
+                # Since upload_fileobj completed without a problem, we
+                # know the file is available at
+                # https://s3.amazonaws.com/{bucket}/{remote_filename}. But
+                # that may not be the URL we want to store.
+                representation.mirror_url = self.final_mirror_url(
+                    bucket, remote_filename
+                )
+
                 source = representation.local_content_path
                 if representation.url != representation.mirror_url:
                     source = representation.url
@@ -200,31 +283,23 @@ class S3Uploader(MirrorUploader):
                 else:
                     logging.info("MIRRORED %s", representation.mirror_url)
                 representation.set_as_mirrored()
-            else:
-                representation.mirrored_at = None
-                representation.mirror_exception = "Status code %d: %s" % (
-                    response.status_code, response.content)
-
-        try:
-            for response in self.pool.as_completed(requests):
-                process_response(response)
-        except ConnectionError, e:
-            # This is a transient error; we can just try again.
-            logging.error("S3 connection error: %r", e, exc_info=e)
-            pass
-        except HTTPError, e:
-            # Probably also a transient error. In any case
-            # there's nothing we can do about it but try again.
-            logging.error("S3 HTTP error: %r", e, exc_info=e)
-            pass
-
-        # Close the filehandles
-        for fh in filehandles:
-            fh.close()
+            except (BotoCoreError, ClientError), e:
+                # BotoCoreError happens when there's a problem with
+                # the network transport. ClientError happens when
+                # there's a problem with the credentials. Either way,
+                # the best thing to do is treat this as a transient
+                # error and try again later. There's no scenario where
+                # giving up is the right move.
+                logging.error(
+                    "Error uploading %s: %r", representation.mirror_url,
+                    e, exc_info=e
+                )
+            finally:
+                fh.close()
 
 # MirrorUploader.implementation will instantiate an S3Uploader
-# for storage integrations with protocol 'S3'.
-MirrorUploader.IMPLEMENTATION_REGISTRY[ExternalIntegration.S3] = S3Uploader
+# for storage integrations with protocol 'Amazon S3'.
+MirrorUploader.IMPLEMENTATION_REGISTRY[S3Uploader.NAME] = S3Uploader
 
 
 class MockS3Uploader(S3Uploader):
@@ -253,34 +328,20 @@ class MockS3Uploader(S3Uploader):
                 representation.set_as_mirrored()
 
 
-class MockS3Response(object):
-    def __init__(self, url):
-        self.url = url
-        self.status_code = 200
-
-
-class MockS3Pool(object):
-    """This pool lets us test the real S3Uploader class with a mocked-up S3
-    pool.
+class MockS3Client(object):
+    """This pool lets us test the real S3Uploader class with a mocked-up
+    boto3 client.
     """
 
-    def __init__(self, access_key, secret_key):
-        self.access_key = access_key
-        self.secret_key = secret_key
+    def __init__(self, service, aws_access_key_id, aws_secret_access_key):
+        assert service == 's3'
+        self.access_key = aws_access_key_id
+        self.secret_key = aws_secret_access_key
         self.uploads = []
-        self.in_progress = []
-        self.n = 0
+        self.fail_with = None
 
-    def upload(self, remote_filename, fh, bucket=None, content_type=None,
-               **kwargs):
-        self.uploads.append((remote_filename, fh.read(), bucket, content_type,
-                             kwargs))
-        url = S3Uploader.url(bucket, remote_filename)
-        response = MockS3Response(url)
-        self.in_progress.append(response)
-        return response
-
-    def as_completed(self, requests):
-        for i in self.in_progress:
-            yield i
-        self.in_progress = []
+    def upload_fileobj(self, Fileobj, Bucket, Key, ExtraArgs=None, **kwargs):
+        if self.fail_with:
+            raise self.fail_with
+        self.uploads.append((Fileobj.read(), Bucket, Key, ExtraArgs, kwargs))
+        return None

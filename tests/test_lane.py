@@ -123,6 +123,46 @@ class TestFacets(DatabaseTest):
         expect = [['order', 'author', False], ['order', 'title', True]]
         eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
+    def test_facets_can_be_enabled_at_initialization(self):
+        enabled_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : [
+                Facets.ORDER_TITLE, Facets.ORDER_AUTHOR,
+            ],
+            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
+            Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
+        }
+        library = self._default_library
+        self._configure_facets(library, enabled_facets, {})
+        
+        # Create a new Facets object with these facets enabled,
+        # no matter the Configuration.
+        facets = Facets(
+            self._default_library,
+            Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
+            Facets.ORDER_TITLE, enabled_facets=enabled_facets
+        )
+        all_groups = list(facets.facet_groups)
+        expect = [['order', 'author', False], ['order', 'title', True]]
+        eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
+
+    def test_facets_dont_need_a_library(self):
+        enabled_facets = {
+            Facets.ORDER_FACET_GROUP_NAME : [
+                Facets.ORDER_TITLE, Facets.ORDER_AUTHOR,
+            ],
+            Facets.COLLECTION_FACET_GROUP_NAME : [Facets.COLLECTION_MAIN],
+            Facets.AVAILABILITY_FACET_GROUP_NAME : [Facets.AVAILABLE_OPEN_ACCESS]
+        }
+
+        facets = Facets(
+            None,
+            Facets.COLLECTION_MAIN, Facets.AVAILABLE_OPEN_ACCESS,
+            Facets.ORDER_TITLE, enabled_facets=enabled_facets
+        )
+        all_groups = list(facets.facet_groups)
+        expect = [['order', 'author', False], ['order', 'title', True]]
+        eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
+
     def test_order_facet_to_database_field(self):
         from model import MaterializedWorkWithGenre as mwg
         def fields(facet):
@@ -487,34 +527,65 @@ class TestFeaturedFacets(DatabaseTest):
 
 class TestPagination(DatabaseTest):
 
-    def test_has_next_page(self):
+    def test_has_next_page_total_size(self):
+        """Test the ability of Pagination.total_size to control whether there is a next page."""
         query = self._db.query(Work)
         pagination = Pagination(size=2)
 
-        # When the query is empty, pagination doesn't have a next page.
-        pagination.apply(query)
-        eq_(False, pagination.has_next_page)
-
-        # When there are more results in the query, it does.
-        for num in range(3):
-            # Create three works.
-            self._work()
+        # When total_size is not set, Pagination assumes there is a
+        # next page.
         pagination.apply(query)
         eq_(True, pagination.has_next_page)
 
-        # When we reach the end of results, there's no next page.
+        # Here, there is one more item on the next page.
+        pagination.total_size = 3
+        eq_(0, pagination.offset)
+        eq_(True, pagination.has_next_page)
+
+        # Here, the last item on this page is the last item in the dataset.
         pagination.offset = 1
         eq_(False, pagination.has_next_page)
 
-        # When the database is updated, pagination knows.
-        for num in range(3):
-            self._work()
+        # If we somehow go over the end of the dataset, there is no next page.
+        pagination.offset = 400
+        eq_(False, pagination.has_next_page)
+
+        # If both total_size and this_page_size are set, total_size
+        # takes precedence.
+        pagination.offset = 0
+        pagination.total_size = 100
+        pagination.this_page_size = 0
+        eq_(True, pagination.has_next_page)
+
+        pagination.total_size = 0
+        pagination.this_page_size = 10
+        eq_(False, pagination.has_next_page)
+
+    def test_has_next_page_this_page_size(self):
+        """Test the ability of Pagination.this_page_size to control whether there is a next page."""
+        query = self._db.query(Work)
+        pagination = Pagination(size=2)
+
+        # When this_page_size is not set, Pagination assumes there is a
+        # next page.
         pagination.apply(query)
         eq_(True, pagination.has_next_page)
 
-        # Even when the query ends at the same size as a page, all is well.
-        pagination.offset = 4
+        # Here, there is nothing on the current page. There is no next page.
+        pagination.this_page_size = 0
         eq_(False, pagination.has_next_page)
+
+        # If the page is full, we can be almost certain there is a next page.
+        pagination.this_page_size = 400
+        eq_(True, pagination.has_next_page)
+
+        # Here, there is one item on the current page. Even though the
+        # current page is not full (page size is 2), we assume for
+        # safety's sake that there is a next page. The cost of getting
+        # this wrong is low, compared to the cost of saying there is no
+        # next page when there actually is.
+        pagination.this_page_size = 1
+        eq_(True, pagination.has_next_page)
 
 
 class MockFeaturedWorks(object):
@@ -602,6 +673,23 @@ class TestWorkList(DatabaseTest):
 
         # The WorkList's child is the WorkList passed in to the constructor.
         eq_([child], wl.visible_children)
+
+    def test_initialize_without_library(self):
+        wl = WorkList()
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        romance, ignore = Genre.lookup(self._db, "Romance")
+
+        # Create a WorkList that's associated with two genres.
+        wl.initialize(None, genres=[sf, romance])
+        wl.collection_ids = [self._default_collection.id]
+
+        # There is no Library.
+        eq_(None, wl.get_library(self._db))
+
+        # The Genres associated with the WorkList are the ones passed
+        # in on the constructor.
+        eq_(set(wl.genre_ids),
+            set([x.id for x in [sf, romance]]))
 
     def test_top_level_for_library(self):
         """Test the ability to generate a top-level WorkList."""
@@ -802,6 +890,12 @@ class TestWorkList(DatabaseTest):
         self._default_library.collections = []
         wl.initialize(self._default_library)
         eq_(0, wl.works(self._db).count())
+
+        # A WorkList can also have a collection with no library.
+        wl = WorkList()
+        wl.initialize(None)
+        wl.collection_ids = [self._default_collection.id]
+        eq_(2, wl.works(self._db).count())
 
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.
@@ -1618,6 +1712,11 @@ class TestLane(DatabaseTest):
         )
         best_sellers_lane = self._lane()
         best_sellers_lane.customlists.append(best_sellers)
+
+        # The materialized view must be refreshed for the changes to
+        # list membership to take effect.
+        self.add_to_materialized_view([childrens_fiction, nonfiction])
+
         match_works(
             best_sellers_lane, [childrens_fiction], featured=False
         )
@@ -1641,6 +1740,8 @@ class TestLane(DatabaseTest):
         best_selling_classics = self._lane(parent=best_sellers_lane)
         best_selling_classics.customlists.append(all_time_classics)
         best_selling_classics.inherit_parent_restrictions = False
+
+        SessionManager.refresh_materialized_views(self._db)
         match_works(best_selling_classics, [childrens_fiction, nonfiction])
 
         # When it inherits its parent's restrictions, only the
@@ -1655,7 +1756,7 @@ class TestLane(DatabaseTest):
         match_works(best_selling_classics, [])
 
         best_sellers_lane.fiction = True
-        match_works(best_selling_classics, [childrens_fiction])       
+        match_works(best_selling_classics, [childrens_fiction])
 
     def test_bibliographic_filter_clause_no_restrictions(self):
         """A lane that matches every single book has no bibliographic
@@ -1770,22 +1871,24 @@ class TestLane(DatabaseTest):
         gutenberg_lists_lane.list_datasource = gutenberg
         self.add_to_materialized_view([work])
 
+        from model import MaterializedWorkWithGenre as work_model
+        def _run(qu, clauses):
+            # Run a query with certain clauses and pick out the 
+            # work IDs returned.
+            modified = qu.filter(and_(*clauses))
+            return [x.works_id for x in modified]
+
         def results(lane=gutenberg_lists_lane, must_be_featured=False):
-            from model import MaterializedWorkWithGenre as work_model
             qu = self._db.query(work_model)
             new_qu, clauses = lane.customlist_filter_clauses(
                 qu, must_be_featured=must_be_featured
             )
 
-            # The query comes out different than it goes in -- there's a
-            # new join against CustomList.
-            assert new_qu != qu
-
-            # Run the query and see what it matches.
-            modified = new_qu.filter(and_(*clauses)).distinct(
-                work_model.works_id
-            )
-            return [x.works_id for x in modified]
+            if must_be_featured or lane.list_seen_in_previous_days:
+                # The query comes out different than it goes in -- there's a
+                # new join against CustomListEntry.
+                assert new_qu != qu
+            return _run(new_qu, clauses)
 
         # Both lanes contain the work.
         eq_([work.id], results(gutenberg_list_lane))
@@ -1828,6 +1931,50 @@ class TestLane(DatabaseTest):
         # Now it's been loosened to three days, and the work shows up.
         gutenberg_lists_lane.list_seen_in_previous_days = 3
         eq_([work.id], results())
+
+        # Now let's test what happens when we chain calls to this
+        # method.
+        gutenberg_list_2_lane = self._lane()
+        gutenberg_list_2_lane.customlists.append(gutenberg_list_2)
+
+        # These two lines aren't necessary for the test but they
+        # illustrate how this would happen in a real scenario -- When
+        # determining which works belong in the child lane,
+        # customlist_filter_clauses() will be called on the parent
+        # lane and then on the child. We only want books that are
+        # on _both_ gutenberg_list and gutenberg_list_2.
+        gutenberg_list_2_lane.parent = gutenberg_list_lane
+        gutenberg_list_2_lane.inherit_parent_restrictions = True
+
+        qu = self._db.query(work_model)
+        list_1_qu, list_1_clauses = gutenberg_list_lane.customlist_filter_clauses(qu)
+
+        # The query has been modified to indicate that we are filtering
+        # on the materialized view's customlist_id field.
+        eq_(True, list_1_qu.customlist_id_filtered)
+        eq_([work.id], [x.works_id for x in list_1_qu])
+
+        # Now call customlist_filter_clauses again so that the query
+        # must only match books on _both_ lists. This simulates
+        # what happens when the second lane is a child of the first,
+        # and inherits its restrictions.
+        both_lists_qu, list_2_clauses = gutenberg_list_2_lane.customlist_filter_clauses(
+            list_1_qu, 
+        )
+        both_lists_clauses = list_1_clauses + list_2_clauses
+
+        # The combined query matches the work that shows up on
+        # both lists.
+        eq_([work.id], _run(both_lists_qu, both_lists_clauses))
+        
+        # If we remove `work` from either list, the combined query
+        # matches nothing. This works even though the materialized
+        # view has not been refreshed.
+        for l in [gutenberg_list, gutenberg_list_2]:
+            l.remove_entry(work)
+            eq_([], _run(both_lists_qu, both_lists_clauses))
+            l.add_entry(work)
+
 
 class TestWorkListGroups(DatabaseTest):
     """Tests of WorkList.groups() and the helper methods."""
@@ -1878,10 +2025,6 @@ class TestWorkListGroups(DatabaseTest):
         lq_ro = _w(title="LQ Romance", genre="Romance", fiction=True)
         lq_ro.quality = 0.1
         nonfiction = _w(title="Nonfiction", fiction=False)
-        self.add_to_materialized_view(
-            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
-             nonfiction]
-        )
 
         # One of these works (mq_sf) is a best-seller and also a staff
         # pick.
@@ -1925,6 +2068,11 @@ class TestWorkListGroups(DatabaseTest):
             parent=fiction
         )
         discredited_nonfiction.inherit_parent_restrictions = False
+
+        self.add_to_materialized_view(
+            [hq_sf, mq_sf, lq_sf, hq_ro, mq_ro, lq_ro, hq_litfic, lq_litfic,
+             nonfiction]
+        )
 
         def assert_contents(g, expect):
             """Assert that a generator yields the expected

@@ -33,6 +33,7 @@ from model import (
     Complaint, 
     ConfigurationSetting,
     Contributor, 
+    CoverageRecord,
     CustomList,
     DataSource,
     Edition,
@@ -70,6 +71,7 @@ from scripts import (
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
     RunMonitorScript,
+    RunThreadedCollectionCoverageProviderScript,
     RunWorkCoverageProviderScript,
     Script,
     ShowCollectionsScript,
@@ -81,6 +83,7 @@ from scripts import (
 from testing import(
     AlwaysSuccessfulBibliographicCoverageProvider,
     BrokenBibliographicCoverageProvider,
+    AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
 )
 from monitor import (
@@ -88,6 +91,9 @@ from monitor import (
 )
 from util.opds_writer import (
     OPDSFeed,
+)
+from util.worker_pools import (
+    DatabasePool,
 )
 
 
@@ -502,6 +508,67 @@ class TestRunCoverageProviderScript(DatabaseTest):
         eq_(datetime.datetime(2016, 5, 1), parsed.cutoff_time)
         eq_([identifier], parsed.identifiers)
         eq_(identifier.type, parsed.identifier_type)
+
+
+class TestRunThreadedCollectionCoverageProviderScript(DatabaseTest):
+
+    def test_run(self):
+        provider = AlwaysSuccessfulCollectionCoverageProvider
+        script = RunThreadedCollectionCoverageProviderScript(
+            provider, worker_size=2, _db=self._db
+        )
+
+        # If there are no collections for the provider, run does nothing.
+        # Pass a mock pool that will raise an error if it's used.
+        pool = object()
+        collection = self._collection(protocol=ExternalIntegration.ENKI)
+
+        # Run exits without a problem because the pool is never touched.
+        script.run(pool=pool)
+
+        # Create some identifiers that need coverage.
+        collection = self._collection()
+        ed1, lp1 = self._edition(collection=collection, with_license_pool=True)
+        ed2, lp2 = self._edition(collection=collection, with_license_pool=True)
+        ed3 = self._edition()
+
+        [id1, id2, id3] = [e.primary_identifier for e in (ed1, ed2, ed3)]
+
+        # Set a timestamp for the provider.
+        timestamp = Timestamp.stamp(
+            self._db, provider.SERVICE_NAME, collection
+        )
+        original_timestamp = timestamp.timestamp
+        self._db.commit()
+
+        pool = DatabasePool(2, script.session_factory)
+        script.run(pool=pool)
+        self._db.commit()
+
+        # The expected number of workers and jobs have been created.
+        eq_(2, len(pool.workers))
+        eq_(1, pool.job_total)
+
+        # All relevant identifiers have been given coverage.
+        source = DataSource.lookup(self._db, provider.DATA_SOURCE_NAME)
+        identifiers_missing_coverage = Identifier.missing_coverage_from(
+            self._db, provider.INPUT_IDENTIFIER_TYPES, source,
+        )
+        eq_([id3], identifiers_missing_coverage.all())
+
+        record1, was_registered1 = provider.register(id1)
+        record2, was_registered2 = provider.register(id2)
+        eq_(CoverageRecord.SUCCESS, record1.status)
+        eq_(CoverageRecord.SUCCESS, record2.status)
+        eq_((False, False), (was_registered1, was_registered2))
+
+
+        # The timestamp for the provider has been updated.
+        new_timestamp = Timestamp.value(
+            self._db, provider.SERVICE_NAME, collection
+        )
+        assert new_timestamp != original_timestamp
+        assert new_timestamp > original_timestamp
 
 
 class TestRunWorkCoverageProviderScript(DatabaseTest):

@@ -1508,7 +1508,7 @@ class OPDSImportMonitor(CollectionMonitor):
         return response.status_code, response.headers, response.content
 
     def _update_headers(self, headers):
-        dict(headers or {})
+        headers = dict(headers or {})
         if self.username and self.password and not 'Authorization' in headers:
             auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
             headers['Authorization'] = auth_header
@@ -1639,7 +1639,7 @@ class OPDSImportMonitor(CollectionMonitor):
         """
         self.log.info("Following next link: %s", url)
         get = do_get or self._get
-        status_code, content_type, feed = get(url, None)
+        status_code, content_type, feed = get(url, {})
 
         new_data = self.feed_contains_new_data(feed)
 

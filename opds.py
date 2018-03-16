@@ -577,6 +577,7 @@ class AcquisitionFeed(OPDSFeed):
             works = []
         else:
             works = works_q.all()
+            pagination.this_page_size = len(works)
         feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.
@@ -1139,9 +1140,8 @@ class AcquisitionFeed(OPDSFeed):
                 obj = loan
             elif hold:
                 obj = hold
-            library = obj.patron.library
             default_loan_period = datetime.timedelta(
-                collection.default_loan_period(library)
+                collection.default_loan_period(obj.library or obj.integration_client)
             )
         if loan:
             status = 'available'
