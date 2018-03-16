@@ -23,17 +23,48 @@ class S3Uploader(MirrorUploader):
 
     NAME = ExternalIntegration.S3
 
+    S3_HOSTNAME = "s3.amazonaws.com"
+    S3_BASE = "https://%s/" % S3_HOSTNAME
+
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
 
-    S3_HOSTNAME = "s3.amazonaws.com"
-    S3_BASE = "http://%s/" % S3_HOSTNAME
+    URL_TEMPLATE_KEY = u'bucket_name_transform'
+    URL_TEMPLATE_HTTP = u'http'
+    URL_TEMPLATE_HTTPS = u'https'
+    URL_TEMPLATE_DEFAULT = u'identity'
+
+    URL_TEMPLATES_BY_TEMPLATE = {
+        URL_TEMPLATE_HTTP: u'http://%(bucket)s/%(key)s',
+        URL_TEMPLATE_HTTPS: u'https://%(bucket)s/%(key)s',
+        URL_TEMPLATE_DEFAULT: S3_BASE + u'%(bucket)s/%(key)s',
+    }
 
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Access Key") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Secret Key") },
-        { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"), "optional": True },
-        { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"), "optional": True },
+        { "key": BOOK_COVERS_BUCKET_KEY, "label": _("Book Covers Bucket"), "optional": True,
+          "description" : _("All book cover images encountered will be mirrored to this S3 bucket. Large images will be scaled down, and the scaled-down copies will also be uploaded to this bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
+        },
+        { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"), "optional": True,
+          "description" : _("All open-access books encountered will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
+        },
+        { "key": URL_TEMPLATE_KEY, "label": _("URL format"),
+          "type": "select",
+          "options" : [
+              { "key" : URL_TEMPLATE_DEFAULT,
+                "label": _("S3 Default: https://s3.amazonaws.com/{bucket}/{file}"),
+              },
+              { "key" : URL_TEMPLATE_HTTPS,
+                "label": _("HTTPS: https://{bucket}/{file}"),
+              },
+              { "key" : URL_TEMPLATE_HTTP,
+                "label": _("HTTP: http://{bucket}/{file}"),
+              },
+          ],
+          "default": URL_TEMPLATE_DEFAULT,
+          "description" : _("A file mirrored to S3 is available at <code>http://s3.amazonaws.com/{bucket}/{filename}</code>. If you've set up your DNS so that http:///[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. <p>If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.</p>")
+        },
     ]
 
     SITEWIDE = True
@@ -65,6 +96,10 @@ class S3Uploader(MirrorUploader):
         else:
             self.client = client_class
 
+        self.url_transform = integration.setting(
+            self.URL_TEMPLATE_KEY).value_or_default(
+                self.URL_TEMPLATE_DEFAULT)
+
         # Transfer information about bucket names from the
         # ExternalIntegration to the S3Uploader object, so we don't
         # have to keep the ExternalIntegration around.
@@ -72,7 +107,6 @@ class S3Uploader(MirrorUploader):
         for setting in integration.settings:
             if setting.key.endswith('_bucket'):
                 self.buckets[setting.key] = setting.value
-
     def get_bucket(self, bucket_key):
         """Gets the bucket for a particular use based on the given key"""
         return self.buckets.get(bucket_key)
@@ -163,7 +197,23 @@ class S3Uploader(MirrorUploader):
         else:
             bucket = netloc
             filename = path[1:]
-        return bucket, filename
+        return bucket, urllib.unquote(filename)
+
+    def final_mirror_url(self, bucket, key):
+        """Determine the URL to use as Representation.mirror_url, assuming
+        that it was successfully uploaded to the given `bucket` as `key`.
+
+        Depending on ExternalIntegration configuration this may 
+        be any of the following:
+
+        https://s3.amazonaws.com/{bucket}/{key}
+        http://{bucket}/{key}
+        https://{bucket}/{key}
+        """
+        templates = self.URL_TEMPLATES_BY_TEMPLATE
+        default = templates[self.URL_TEMPLATE_DEFAULT]
+        template = templates.get(self.url_transform, default)
+        return template % dict(bucket=bucket, key=key)
 
     def mirror_one(self, representation):
         """Mirror a single representation."""
@@ -172,6 +222,10 @@ class S3Uploader(MirrorUploader):
     def mirror_batch(self, representations):
         """Mirror a bunch of Representations at once."""
         for representation in representations:
+            # TODO: It's strange that we're setting mirror_url to the
+            # original URL when the file hasn't been mirrored and that
+            # may not end up being the final URL. We should be able to
+            # simplify this.
             if not representation.mirror_url:
                 representation.mirror_url = representation.url
             # Turn the mirror URL into an s3.amazonaws.com URL.
@@ -183,12 +237,21 @@ class S3Uploader(MirrorUploader):
                 representation.mirror_url)
             fh = representation.external_content()
             try:
-                self.client.upload_fileobj(
+                result = self.client.upload_fileobj(
                     Fileobj=fh,
                     Bucket=bucket,
                     Key=remote_filename,
                     ExtraArgs=dict(ContentType=media_type)
                 )
+
+                # Since upload_fileobj completed without a problem, we
+                # know the file is available at
+                # https://s3.amazonaws.com/{bucket}/{remote_filename}. But
+                # that may not be the URL we want to store.
+                representation.mirror_url = self.final_mirror_url(
+                    bucket, remote_filename
+                )
+
                 source = representation.local_content_path
                 if representation.url != representation.mirror_url:
                     source = representation.url
