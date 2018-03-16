@@ -53,7 +53,24 @@ class UTF8Formatter(logging.Formatter):
             data = data.encode("utf8")
         return data
 
-class SysLogger():
+class Logger(object):
+
+    JSON_LOG_FORMAT = 'json'
+
+    @classmethod
+    def set_formatter(cls, handler, log_format, message_template,
+                      app_name):
+        """Tell the given `handler` to format its log messages in a
+        certain way.
+        """
+        if (log_format == cls.JSON_LOG_FORMAT
+            or isinstance(handler, LogglyHandler)):
+            formatter = JSONFormatter(app_name)
+        else:
+            formatter = UTF8Formatter(message_template)
+        handler.setFormatter(formatter)
+
+class SysLogger(Logger):
 
     NAME = 'sysLog'
 
@@ -61,6 +78,13 @@ class SysLogger():
 
     JSON_LOG_FORMAT = 'json'
     TEXT_LOG_FORMAT = 'text'
+
+    DEBUG = "DEBUG"
+    INFO = "INFO"
+    WARN = "WARN"
+    ERROR = "ERROR"
+
+    DEFAULT_APP_NAME = 'simplified'
 
     # Settings for the integration with protocol=INTERNAL_LOGGING
     LOG_FORMAT = 'log_format'
@@ -83,26 +107,61 @@ class SysLogger():
     SITEWIDE = True
 
     @classmethod
-    def _defaults(cls, testing):
+    def _defaults(cls, testing=False):
+        """Return default log configuration values."""
         if testing:
             internal_log_format = cls.TEXT_LOG_FORMAT
         else:
             internal_log_format = cls.JSON_LOG_FORMAT
         message_template = cls.DEFAULT_MESSAGE_TEMPLATE
-
-        return (internal_log_format, message_template)
+        internal_log_level = cls.INFO
+        database_log_level = cls.WARN
+        return (internal_log_level, internal_log_format, database_log_level,
+            message_template)
 
     @classmethod
-    def _setSettings(cls, internal):
-        internal_sys_log_format = internal.setting(cls.LOG_FORMAT).value
-        internal_sys_message_template = internal.setting(cls.LOG_MESSAGE_TEMPLATE).value
+    def from_configuration(cls, _db, testing=False):
+        from model import (ExternalIntegration, ConfigurationSetting)
+        (internal_log_level, internal_log_format, database_log_level,
+            message_template) = cls._defaults(testing)
+        app_name = cls.DEFAULT_APP_NAME
 
-        return (internal_sys_log_format, internal_sys_message_template)
+        if _db and not testing:
+            goal = ExternalIntegration.LOGGING_GOAL
+            internal = ExternalIntegration.lookup(
+                _db, ExternalIntegration.INTERNAL_LOGGING, goal
+            )
 
-class Loggly():
+            if internal:
+                internal_log_format = (
+                    internal.setting(cls.LOG_FORMAT).value
+                    or internal_log_format
+                )
+                message_template = (
+                    internal.setting(cls.LOG_MESSAGE_TEMPLATE).value
+                    or message_template
+                )
+
+                internal_log_level = (
+                    ConfigurationSetting.sitewide(_db, Configuration.LOG_LEVEL).value
+                    or internal_log_level
+                )
+                database_log_level = (
+                    ConfigurationSetting.sitewide(_db, Configuration.DATABASE_LOG_LEVEL).value
+                    or database_log_level
+                )
+                app_name = ConfigurationSetting.sitewide(_db, Configuration.LOG_APP_NAME).value or app_name
+
+        handler = logging.StreamHandler()
+        cls.set_formatter(handler, internal_log_format, message_template, app_name)
+
+        return (handler, internal_log_level, database_log_level)
+
+class Loggly(Logger):
 
     NAME = 'loggly'
     DEFAULT_LOGGLY_URL = "https://logs-01.loggly.com/inputs/%(token)s/tag/python/"
+    DEFAULT_MESSAGE_TEMPLATE = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s"
 
     USER = 'user'
     PASSWORD = 'password'
@@ -115,6 +174,29 @@ class Loggly():
     ]
 
     SITEWIDE = True
+
+    LOG_FORMAT = 'log_format'
+    LOG_MESSAGE_TEMPLATE = 'message_template'
+    DEFAULT_APP_NAME = 'simplified'
+
+    @classmethod
+    def from_configuration(cls, _db, testing=False):
+        loggly = None
+        from model import (ExternalIntegration, ConfigurationSetting)
+
+        app_name = cls.DEFAULT_APP_NAME
+        if _db and not testing:
+            goal = ExternalIntegration.LOGGING_GOAL
+            loggly = ExternalIntegration.lookup(
+                _db, ExternalIntegration.LOGGLY, goal
+            )
+            app_name = ConfigurationSetting.sitewide(_db, Configuration.LOG_APP_NAME).value or app_name
+
+        if loggly:
+            loggly = Loggly.loggly_handler(loggly)
+            cls.set_formatter(loggly, cls.LOG_FORMAT, cls.DEFAULT_MESSAGE_TEMPLATE, app_name)
+
+        return loggly
 
     @classmethod
     def loggly_handler(cls, externalintegration):
@@ -129,7 +211,7 @@ class Loggly():
         try:
             url = cls._interpolate_loggly_url(url, token)
         except (TypeError, KeyError), e:
-            raise CannotLoadConfiguraiton(
+            raise CannotLoadConfiguration(
                 "Cannot interpolate token %s into loggly URL %s" % (
                     token, url,
                 )
@@ -253,76 +335,12 @@ class LogConfiguration(object):
         logger.
         """
 
-        # Establish defaults, in case the database is not initialized or
-        # it is initialized but logging is not configured.
-        (internal_log_level, internal_log_format, database_log_level,
-         message_template) = cls._defaults(testing)
-
         handlers = []
-        from model import (ExternalIntegration, ConfigurationSetting)
-        app_name = cls.DEFAULT_APP_NAME
-        if _db and not testing:
-            goal = ExternalIntegration.LOGGING_GOAL
-            internal = ExternalIntegration.lookup(
-                _db, ExternalIntegration.INTERNAL_LOGGING, goal
-            )
-            loggly = ExternalIntegration.lookup(
-                _db, ExternalIntegration.LOGGLY, goal
-            )
 
-            internal_log_level = (
-                ConfigurationSetting.sitewide(_db, Configuration.LOG_LEVEL).value
-                or internal_log_level
-            )
-            database_log_level = (
-                ConfigurationSetting.sitewide(_db, Configuration.DATABASE_LOG_LEVEL).value
-                or database_log_level
-            )
-            app_name = ConfigurationSetting.sitewide(_db, Configuration.LOG_APP_NAME).value or app_name
-
-            if internal:
-                (internal_sys_log_format, internal_sys_message_template) = SysLogger._setSettings(internal)
-                internal_log_format = (
-                    internal_sys_log_format
-                    or internal_log_format
-                )
-                message_template = (
-                    internal_sys_message_template
-                    or message_template
-                )
-
-            if loggly:
-                handlers.append(Loggly.loggly_handler(loggly))
-
-        # handlers is either empty or it contains a loggly handler.
-        # Let's also add a handler that logs to standard error.
-        handlers.append(logging.StreamHandler())
-
-        for handler in handlers:
-            cls.set_formatter(
-                handler, internal_log_format, message_template, app_name
-            )
+        (sysLogglerHandler, internal_log_level, database_log_level) = SysLogger.from_configuration(_db, testing)
+        handlers.append(sysLogglerHandler)
+        loggly = Loggly.from_configuration(_db, testing)
+        if loggly:
+            handlers.append(loggly)
 
         return internal_log_level, database_log_level, handlers
-
-    @classmethod
-    def _defaults(cls, testing=False):
-        """Return default log configuration values."""
-        internal_log_level = cls.INFO
-        database_log_level = cls.WARN
-        (internal_log_format, message_template) = SysLogger._defaults(testing)
-        return (internal_log_level, internal_log_format, database_log_level,
-                message_template)
-
-    @classmethod
-    def set_formatter(cls, handler, log_format, message_template,
-                      app_name):
-        """Tell the given `handler` to format its log messages in a
-        certain way.
-        """
-        if (log_format == SysLogger.JSON_LOG_FORMAT
-            or isinstance(handler, LogglyHandler)):
-            formatter = JSONFormatter(app_name)
-        else:
-            formatter = UTF8Formatter(message_template)
-        handler.setFormatter(formatter)

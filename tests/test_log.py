@@ -16,6 +16,7 @@ from log import (
     LogConfiguration,
     SysLogger,
     Loggly,
+    Logger
 )
 from model import (
     ExternalIntegration,
@@ -121,7 +122,7 @@ class TestLogConfiguration(DatabaseTest):
         eq_(SysLogger.DEFAULT_MESSAGE_TEMPLATE, handler.formatter._fmt)
 
     def test_defaults(self):
-        cls = LogConfiguration
+        cls = SysLogger
         template = SysLogger.DEFAULT_MESSAGE_TEMPLATE
 
         # Normally the default log level is INFO and log messages are
@@ -146,7 +147,7 @@ class TestLogConfiguration(DatabaseTest):
 
         # Configure it for text output.
         template = '%(filename)s:%(message)s'
-        LogConfiguration.set_formatter(
+        Logger.set_formatter(
             handler, SysLogger.TEXT_LOG_FORMAT, template,
             "some app"
         )
@@ -156,7 +157,7 @@ class TestLogConfiguration(DatabaseTest):
 
         # Configure a similar handler for JSON output.
         handler = logging.StreamHandler()
-        LogConfiguration.set_formatter(
+        Logger.set_formatter(
             handler, SysLogger.JSON_LOG_FORMAT, template, None
         )
         formatter = handler.formatter
@@ -171,7 +172,7 @@ class TestLogConfiguration(DatabaseTest):
         # Configure a handler for output to Loggly. In this case
         # the format and template are irrelevant.
         handler = LogglyHandler("no-such-url")
-        LogConfiguration.set_formatter(handler, None, None, "some app")
+        Logger.set_formatter(handler, None, None, "some app")
         formatter = handler.formatter
         assert isinstance(formatter, JSONFormatter)
         eq_("some app", formatter.app_name)
