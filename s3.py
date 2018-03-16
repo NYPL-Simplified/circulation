@@ -114,6 +114,10 @@ class S3Uploader(MirrorUploader):
     @classmethod
     def url(cls, bucket, path):
         """The URL to a resource on S3 identified by bucket and path."""
+        if isinstance(path, list):
+            # This is a list of key components that need to be quoted
+            # and assembled.
+            path = cls.key_join(path)
         if path.startswith('/'):
             path = path[1:]
         if bucket.startswith('http://') or bucket.startswith('https://'):
@@ -129,17 +133,15 @@ class S3Uploader(MirrorUploader):
         """The root URL to the S3 location of cover images for
         the given data source.
         """
+        parts = []
         if scaled_size:
-            path = "/scaled/%d/" % scaled_size
-        else:
-            path = "/"
+            parts.extend(["scaled", str(scaled_size)])
         if isinstance(data_source, str):
             data_source_name = data_source
         else:
             data_source_name = data_source.name
-        data_source_name = urllib.quote(data_source_name)
-        path += data_source_name + "/"
-        url = cls.url(bucket, path)
+        parts.append(data_source_name)
+        url = cls.url(bucket, parts)
         if not url.endswith('/'):
             url += '/'
         return url
@@ -153,6 +155,29 @@ class S3Uploader(MirrorUploader):
             raise NotImplementedError()
         return cls.url(bucket, '/')
 
+    @classmethod
+    def key_join(self, key):
+        """Quote the path portions of an S3 key while leaving the path
+        characters themselves alone.
+
+        :param key: Either a key, or a list of parts to be
+        assembled into a key.
+
+        :return: A bytestring that can be used as an S3 key.
+        """
+        if isinstance(key, basestring):
+            parts = key.split('/')
+        else:
+            parts = key
+        new_parts = []
+        for part in parts:
+            if isinstance(part, unicode):
+                part = part.encode("utf-8")
+            else:
+                part = str(part)
+            new_parts.append(urllib.quote_plus(part))
+        return b'/'.join(new_parts)
+
     def book_url(self, identifier, extension='.epub', open_access=True,
                  data_source=None, title=None):
         """The path to the hosted EPUB file for the given identifier."""
@@ -162,30 +187,27 @@ class S3Uploader(MirrorUploader):
         if not extension.startswith('.'):
             extension = '.' + extension
 
-        if title:
-            filename = "%s/%s" % (identifier.identifier, title)
-        else:
-            filename = identifier.identifier
-
-        args = [identifier.type, filename]
-        args = [urllib.quote(x.encode('utf-8')) for x in args]
+        parts = []
         if data_source:
-            args.insert(0, urllib.quote(data_source.name))
-            template = "%s/%s/%s%s"
+            parts.append(data_source.name)
+        parts.append(identifier.type)
+        if title:
+            # e.g. DataSource/ISBN/1234/Title.epub
+            parts.append(identifier.identifier)
+            filename = title
         else:
-            template = "%s/%s%s"
-
-        return root + template % tuple(args + [extension])
+            # e.g. DataSource/ISBN/1234.epub
+            filename = identifier.identifier
+        parts.append(filename + extension)
+        return root + self.key_join(parts)
 
     def cover_image_url(self, data_source, identifier, filename,
                         scaled_size=None):
         """The path to the hosted cover image for the given identifier."""
         bucket = self.get_bucket(self.BOOK_COVERS_BUCKET_KEY)
         root = self.cover_image_root(bucket, data_source, scaled_size)
-
-        args = [identifier.type, identifier.identifier, filename]
-        args = [urllib.quote(x) for x in args]
-        return root + "%s/%s/%s" % tuple(args)
+        parts = [identifier.type, identifier.identifier, filename]
+        return root + self.key_join(parts)
 
     @classmethod
     def bucket_and_filename(cls, url):
@@ -197,7 +219,7 @@ class S3Uploader(MirrorUploader):
         else:
             bucket = netloc
             filename = path[1:]
-        return bucket, urllib.unquote(filename)
+        return bucket, urllib.unquote_plus(filename)
 
     def final_mirror_url(self, bucket, key):
         """Determine the URL to use as Representation.mirror_url, assuming
@@ -213,7 +235,7 @@ class S3Uploader(MirrorUploader):
         templates = self.URL_TEMPLATES_BY_TEMPLATE
         default = templates[self.URL_TEMPLATE_DEFAULT]
         template = templates.get(self.url_transform, default)
-        return template % dict(bucket=bucket, key=key)
+        return template % dict(bucket=bucket, key=self.key_join(key))
 
     def mirror_one(self, representation):
         """Mirror a single representation."""
