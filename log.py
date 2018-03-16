@@ -56,28 +56,9 @@ class UTF8Formatter(logging.Formatter):
 class Logger(object):
 
     JSON_LOG_FORMAT = 'json'
-
-    @classmethod
-    def set_formatter(cls, handler, log_format, message_template,
-                      app_name):
-        """Tell the given `handler` to format its log messages in a
-        certain way.
-        """
-        if (log_format == cls.JSON_LOG_FORMAT
-            or isinstance(handler, LogglyHandler)):
-            formatter = JSONFormatter(app_name)
-        else:
-            formatter = UTF8Formatter(message_template)
-        handler.setFormatter(formatter)
-
-class SysLogger(Logger):
-
-    NAME = 'sysLog'
+    TEXT_LOG_FORMAT = 'text'
 
     DEFAULT_MESSAGE_TEMPLATE = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s"
-
-    JSON_LOG_FORMAT = 'json'
-    TEXT_LOG_FORMAT = 'text'
 
     DEBUG = "DEBUG"
     INFO = "INFO"
@@ -90,17 +71,21 @@ class SysLogger(Logger):
     LOG_FORMAT = 'log_format'
     LOG_MESSAGE_TEMPLATE = 'message_template'
 
+class SysLogger(Logger):
+
+    NAME = 'sysLog'
+
     SETTINGS = [
         {
-            "key": LOG_FORMAT, "label": _("Log Format"), "type": "select",
+            "key": Logger.LOG_FORMAT, "label": _("Log Format"), "type": "select",
             "options": [
-                { "key": JSON_LOG_FORMAT, "label": _("json") },
-                { "key": TEXT_LOG_FORMAT, "label": _("text") }
+                { "key": Logger.JSON_LOG_FORMAT, "label": _("json") },
+                { "key": Logger.TEXT_LOG_FORMAT, "label": _("text") }
             ]
         },
         {
-            "key": LOG_MESSAGE_TEMPLATE, "label": _("template"),
-            "default": DEFAULT_MESSAGE_TEMPLATE
+            "key": Logger.LOG_MESSAGE_TEMPLATE, "label": _("template"),
+            "default": Logger.DEFAULT_MESSAGE_TEMPLATE
         }
     ]
 
@@ -141,7 +126,6 @@ class SysLogger(Logger):
                     internal.setting(cls.LOG_MESSAGE_TEMPLATE).value
                     or message_template
                 )
-
                 internal_log_level = (
                     ConfigurationSetting.sitewide(_db, Configuration.LOG_LEVEL).value
                     or internal_log_level
@@ -157,11 +141,21 @@ class SysLogger(Logger):
 
         return (handler, internal_log_level, database_log_level)
 
+    @classmethod
+    def set_formatter(cls, handler, log_format, message_template, app_name):
+        """Tell the given `handler` to format its log messages in a
+        certain way.
+        """
+        if (log_format == cls.JSON_LOG_FORMAT):
+            formatter = JSONFormatter(app_name)
+        else:
+            formatter = UTF8Formatter(message_template)
+        handler.setFormatter(formatter)
+
 class Loggly(Logger):
 
     NAME = 'loggly'
     DEFAULT_LOGGLY_URL = "https://logs-01.loggly.com/inputs/%(token)s/tag/python/"
-    DEFAULT_MESSAGE_TEMPLATE = "%(asctime)s:%(name)s:%(levelname)s:%(filename)s:%(message)s"
 
     USER = 'user'
     PASSWORD = 'password'
@@ -174,10 +168,6 @@ class Loggly(Logger):
     ]
 
     SITEWIDE = True
-
-    LOG_FORMAT = 'log_format'
-    LOG_MESSAGE_TEMPLATE = 'message_template'
-    DEFAULT_APP_NAME = 'simplified'
 
     @classmethod
     def from_configuration(cls, _db, testing=False):
@@ -228,6 +218,16 @@ class Loggly(Logger):
         # Assume the token is already in the URL.
         return url
 
+    @classmethod
+    def set_formatter(cls, handler, log_format, message_template, app_name):
+        """Tell the given `handler` to format its log messages in a
+        certain way.
+        """
+        if (isinstance(handler, LogglyHandler)):
+            formatter = JSONFormatter(app_name)
+        else:
+            formatter = UTF8Formatter(message_template)
+        handler.setFormatter(formatter)
 
 class LogConfiguration(object):
     """Configures the active Python logging handlers based on logging

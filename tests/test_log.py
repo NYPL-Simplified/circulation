@@ -147,7 +147,7 @@ class TestLogConfiguration(DatabaseTest):
 
         # Configure it for text output.
         template = '%(filename)s:%(message)s'
-        Logger.set_formatter(
+        SysLogger.set_formatter(
             handler, SysLogger.TEXT_LOG_FORMAT, template,
             "some app"
         )
@@ -157,7 +157,7 @@ class TestLogConfiguration(DatabaseTest):
 
         # Configure a similar handler for JSON output.
         handler = logging.StreamHandler()
-        Logger.set_formatter(
+        SysLogger.set_formatter(
             handler, SysLogger.JSON_LOG_FORMAT, template, None
         )
         formatter = handler.formatter
@@ -172,7 +172,7 @@ class TestLogConfiguration(DatabaseTest):
         # Configure a handler for output to Loggly. In this case
         # the format and template are irrelevant.
         handler = LogglyHandler("no-such-url")
-        Logger.set_formatter(handler, None, None, "some app")
+        Loggly.set_formatter(handler, None, None, "some app")
         formatter = handler.formatter
         assert isinstance(formatter, JSONFormatter)
         eq_("some app", formatter.app_name)
