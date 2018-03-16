@@ -160,8 +160,8 @@ class S3Uploader(MirrorUploader):
         """Quote the path portions of an S3 key while leaving the path
         characters themselves alone.
 
-        :param key: Either a key, or a list of parts that will eventually
-        make up a key.
+        :param key: Either a key, or a list of parts to be
+        assembled into a key.
 
         :return: A bytestring that can be used as an S3 key.
         """
