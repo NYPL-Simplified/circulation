@@ -613,7 +613,7 @@ class TestMetaToModelUtility(DatabaseTest):
         # make sure the mirrored link is safely on edition
         sorted_edition_links = sorted(pool.identifier.links, key=lambda x: x.rel)
         unmirrored_representation, mirrored_representation = [edlink.resource.representation for edlink in sorted_edition_links]
-        assert mirrored_representation.mirror_url.startswith('http://s3.amazonaws.com/test.content.bucket/')
+        assert mirrored_representation.mirror_url.startswith('https://s3.amazonaws.com/test.content.bucket/')
 
         # make sure the unmirrored link is safely on edition
         eq_('http://example.com/2', unmirrored_representation.url)
