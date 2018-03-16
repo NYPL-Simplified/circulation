@@ -116,6 +116,17 @@ class TestS3Uploader(S3UploaderTest):
     def test_final_mirror_url(self):
         # By default, the mirror URL is not modified.
         uploader = self._uploader()
+        eq_(S3Uploader.URL_TRANSFORM_IDENTITY, uploader.url_transform)
+        eq_(u'https://s3.amazonaws.com/bucket/key',
+            uploader.final_mirror_url("bucket", "key"))
+
+        uploader.url_transform = S3Uploader.URL_TRANSFORM_HTTP
+        eq_(u'http://bucket/key',
+            uploader.final_mirror_url("bucket", "key"))
+
+        uploader.url_transform = S3Uploader.URL_TRANSFORM_HTTPS
+        eq_(u'https://bucket/key',
+            uploader.final_mirror_url("bucket", "key"))
 
     def test_cover_image_root(self):
         bucket = u'test-book-covers-s3-bucket'
@@ -231,6 +242,15 @@ class TestS3Uploader(S3UploaderTest):
         eq_(None, epub_rep.mirrored_at)
 
         s3 = self._uploader(MockS3Client)
+
+        # Mock final_mirror_url so we can verify that it's called with
+        # the right arguments
+        def mock_final_mirror_url(bucket, key):
+            return "final_mirror_url was called with bucket %s, key %s" % (
+                bucket, key
+            )
+        s3.final_mirror_url = mock_final_mirror_url
+
         to_mirror = [
             cover.resource.representation, epub.resource.representation
         ]
@@ -246,8 +266,13 @@ class TestS3Uploader(S3UploaderTest):
         assert (datetime.datetime.utcnow() - cover_rep.mirrored_at).seconds < 10
 
         # Since the epub_rep didn't have a .mirror_url, the .url was used
-        # instead, and .mirror_url was set to .url.
-        eq_(original_epub_location, epub_rep.mirror_url)
+        # to determine which bucket to mirror to. The .mirror_url was then
+        # set to the result of calling final_mirror_url on the bucket
+        # and filename.
+        eq_(
+            u'final_mirror_url was called with bucket books.com, key a-book.epub',
+            epub_rep.mirror_url
+        )
         eq_("i'm an epub", data2)
         eq_("books.com", bucket2)
         eq_("a-book.epub", key2)
@@ -283,6 +308,11 @@ class TestS3Uploader(S3UploaderTest):
         uploader.mirror_one(epub_rep)
         eq_(None, epub_rep.mirrored_at)
         eq_(None, epub_rep.mirror_exception)
+
+        # Because the file was not successfully uploaded,
+        # final_mirror_url was never called and mirror_url is
+        # the same as the original URL.
+        eq_(epub_rep.url, epub_rep.mirror_url)
 
         # A bug in the code is not treated as a transient error --
         # the exception propagates through.

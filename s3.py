@@ -222,6 +222,10 @@ class S3Uploader(MirrorUploader):
     def mirror_batch(self, representations):
         """Mirror a bunch of Representations at once."""
         for representation in representations:
+            # TODO: It's strange that we're setting mirror_url to the
+            # original URL when the file hasn't been mirrored and that
+            # may not end up being the final URL. We should be able to
+            # simplify this.
             if not representation.mirror_url:
                 representation.mirror_url = representation.url
             # Turn the mirror URL into an s3.amazonaws.com URL.
