@@ -335,7 +335,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
 
         # The <entry> tag became a Metadata object.
-        metadata = values['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        metadata = values['urn:librarysimplified.org/terms/id/Gutenberg+ID/10441']
         eq_("The Green Mouse", metadata['title'])
         eq_("A Tale of Mousy Terror", metadata['subtitle'])
         eq_('en', metadata['language'])
@@ -372,13 +372,13 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(2, len(failures))
 
         # The first error message became a CoverageFailure.
-        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg+ID/10441']
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
 
         # The second error message became a CoverageFailure.
-        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg+ID/10557']
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
@@ -399,7 +399,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # We're going to do spot checks on a book and a periodical.
 
         # First, the book.
-        book_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/1022'
+        book_id = 'urn:librarysimplified.org/terms/id/Gutenberg+ID/1022'
         book = data[book_id]
         eq_(Edition.BOOK_MEDIUM, book['medium'])
 
@@ -430,7 +430,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
 
         # And now, the periodical.
-        periodical_id = 'urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441'
+        periodical_id = 'urn:librarysimplified.org/terms/id/Gutenberg+ID/10441'
         periodical = data[periodical_id]
         eq_(Edition.PERIODICAL_MEDIUM, periodical['medium'])
 
@@ -667,12 +667,12 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # The other entries became generic CoverageFailures due to the failure
         # of extract_metadata_from_elementtree.
-        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441']
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg+ID/10441']
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
 
-        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg%20ID/10557']
+        failure = failures['urn:librarysimplified.org/terms/id/Gutenberg+ID/10557']
         assert isinstance(failure, CoverageFailure)
         eq_(True, failure.transient)
         assert "Utter failure!" in failure.exception
@@ -1428,10 +1428,10 @@ class TestMirroring(OPDSImporterTest):
         # The "crow" book was mirrored to a bucket corresponding to
         # the open-access content source, the default data source used
         # when no distributor was specified for a book.
-        url0 = 'https://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
-        url1 = u'https://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url2 = u'https://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url3 = 'https://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
+        url0 = 'https://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg+ID/10441/The%20Green%20Mouse.epub.images'
+        url1 = u'https://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg+ID/10441/cover_10441_9.png'
+        url2 = u'https://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg+ID/10441/cover_10441_9.png'
+        url3 = 'https://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg+ID/10557/Johnny%20Crow%27s%20Party.epub.images'
         uploaded_urls = [x.mirror_url for x in s3.uploaded]
         eq_([url0, url1, url2, url3], uploaded_urls)
 
@@ -1752,7 +1752,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             sorted([x.status for x in coverage_records])
         )
     
-        identifier, ignore = Identifier.parse_urn(self._db, "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441")
+        identifier, ignore = Identifier.parse_urn(self._db, "urn:librarysimplified.org/terms/id/Gutenberg+ID/10441")
         failure = CoverageRecord.lookup(
             identifier, data_source,
             operation=CoverageRecord.IMPORT_OPERATION

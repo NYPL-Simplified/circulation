@@ -1,3 +1,4 @@
+# encoding: utf-8
 import os
 import datetime
 from PIL import Image
@@ -128,6 +129,12 @@ class TestS3Uploader(S3UploaderTest):
         eq_(u'https://bucket/key',
             uploader.final_mirror_url("bucket", "key"))
 
+    def test_key_join(self):
+        """Test the code used to build S3 keys from parts."""
+        parts = ["Gutenberg", "Gutenberg ID", 1234, "Die Flügelmaus.epub"]
+        eq_('Gutenberg/Gutenberg+ID/1234/Die+Fl%C3%BCgelmaus.epub', 
+            S3Uploader.key_join(parts))
+
     def test_cover_image_root(self):
         bucket = u'test-book-covers-s3-bucket'
         m = S3Uploader.cover_image_root
@@ -136,7 +143,7 @@ class TestS3Uploader(S3UploaderTest):
             self._db, DataSource.GUTENBERG_COVER_GENERATOR)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
 
-        eq_("https://s3.amazonaws.com/test-book-covers-s3-bucket/Gutenberg%20Illustrated/",
+        eq_("https://s3.amazonaws.com/test-book-covers-s3-bucket/Gutenberg+Illustrated/",
             m(bucket, gutenberg_illustrated))
         eq_("https://s3.amazonaws.com/test-book-covers-s3-bucket/Overdrive/",
             m(bucket, overdrive))
@@ -163,27 +170,27 @@ class TestS3Uploader(S3UploaderTest):
         uploader = self._uploader(**buckets)
         m = uploader.book_url
 
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK.epub',
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.epub',
             m(identifier))
 
         # The default extension is .epub, but a custom extension can
         # be specified.
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK.pdf', 
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.pdf', 
             m(identifier, extension='pdf'))
 
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK.pdf', 
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK.pdf', 
             m(identifier, extension='.pdf'))
 
         # If a data source is provided, the book is stored underneath the
         # data source.
         unglueit = DataSource.lookup(self._db, DataSource.UNGLUE_IT)
-        eq_(u'https://s3.amazonaws.com/thebooks/unglue.it/Gutenberg%20ID/ABOOK.epub',
+        eq_(u'https://s3.amazonaws.com/thebooks/unglue.it/Gutenberg+ID/ABOOK.epub',
             m(identifier, data_source=unglueit))
 
         # If a title is provided, the book's filename incorporates the
         # title, for the benefit of people who download the book onto
         # their hard drive.
-        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK/On%20Books.epub',
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg+ID/ABOOK/On+Books.epub',
             m(identifier, title="On Books"))
 
         # Non-open-access content can't be stored.
@@ -197,7 +204,7 @@ class TestS3Uploader(S3UploaderTest):
 
         unglueit = DataSource.lookup(self._db, DataSource.UNGLUE_IT)
         identifier = self._identifier(foreign_id="ABOOK")
-        eq_(u'https://s3.amazonaws.com/thecovers/scaled/601/unglue.it/Gutenberg%20ID/ABOOK/filename',
+        eq_(u'https://s3.amazonaws.com/thecovers/scaled/601/unglue.it/Gutenberg+ID/ABOOK/filename',
             m(unglueit, identifier, "filename", scaled_size=601))
 
     def test_bucket_and_filename(self):
