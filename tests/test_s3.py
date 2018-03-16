@@ -72,11 +72,11 @@ class TestS3Uploader(S3UploaderTest):
         # Otherwise, it builds just fine.
         integration.username = 'your-access-key'
         integration.password = 'your-secret-key'
-        integration.setting(S3Uploader.URL_TRANSFORM_KEY).value='a transform'
+        integration.setting(S3Uploader.URL_TEMPLATE_KEY).value='a transform'
         uploader = MirrorUploader.implementation(integration)
         eq_(True, isinstance(uploader, S3Uploader))
 
-        # The URL_TRANSFORM_KEY setting becomes the .url_transform
+        # The URL_TEMPLATE_KEY setting becomes the .url_transform
         # attribute on the S3Uploader object.
         eq_('a transform', uploader.url_transform)
 
@@ -116,15 +116,15 @@ class TestS3Uploader(S3UploaderTest):
     def test_final_mirror_url(self):
         # By default, the mirror URL is not modified.
         uploader = self._uploader()
-        eq_(S3Uploader.URL_TRANSFORM_IDENTITY, uploader.url_transform)
+        eq_(S3Uploader.URL_TEMPLATE_DEFAULT, uploader.url_transform)
         eq_(u'https://s3.amazonaws.com/bucket/key',
             uploader.final_mirror_url("bucket", "key"))
 
-        uploader.url_transform = S3Uploader.URL_TRANSFORM_HTTP
+        uploader.url_transform = S3Uploader.URL_TEMPLATE_HTTP
         eq_(u'http://bucket/key',
             uploader.final_mirror_url("bucket", "key"))
 
-        uploader.url_transform = S3Uploader.URL_TRANSFORM_HTTPS
+        uploader.url_transform = S3Uploader.URL_TEMPLATE_HTTPS
         eq_(u'https://bucket/key',
             uploader.final_mirror_url("bucket", "key"))
 

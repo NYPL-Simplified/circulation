@@ -29,15 +29,15 @@ class S3Uploader(MirrorUploader):
     BOOK_COVERS_BUCKET_KEY = u'book_covers_bucket'
     OA_CONTENT_BUCKET_KEY = u'open_access_content_bucket'
 
-    URL_TRANSFORM_KEY = u'bucket_name_transform'
-    URL_TRANSFORM_HTTP = u'http'
-    URL_TRANSFORM_HTTPS = u'https'
-    URL_TRANSFORM_IDENTITY = u'identity'
+    URL_TEMPLATE_KEY = u'bucket_name_transform'
+    URL_TEMPLATE_HTTP = u'http'
+    URL_TEMPLATE_HTTPS = u'https'
+    URL_TEMPLATE_DEFAULT = u'identity'
 
-    URL_TEMPLATES_BY_TRANSFORM = {
-        URL_TRANSFORM_HTTP: u'http://%(bucket)s/%(key)s',
-        URL_TRANSFORM_HTTPS: u'https://%(bucket)s/%(key)s',
-        URL_TRANSFORM_IDENTITY: S3_BASE + u'%(bucket)s/%(key)s',
+    URL_TEMPLATES_BY_TEMPLATE = {
+        URL_TEMPLATE_HTTP: u'http://%(bucket)s/%(key)s',
+        URL_TEMPLATE_HTTPS: u'https://%(bucket)s/%(key)s',
+        URL_TEMPLATE_DEFAULT: S3_BASE + u'%(bucket)s/%(key)s',
     }
 
     SETTINGS = [
@@ -49,21 +49,21 @@ class S3Uploader(MirrorUploader):
         { "key": OA_CONTENT_BUCKET_KEY, "label": _("Open Access Content Bucket"), "optional": True,
           "description" : _("All open-access books encountered will be uploaded to this S3 bucket. <p>The bucket must already exist&mdash;it will not be created automatically.</p>")
         },
-        { "key": URL_TRANSFORM_KEY, "label": _("Rewrite URLs to remove S3 domain?"),
+        { "key": URL_TEMPLATE_KEY, "label": _("URL format"),
           "type": "select",
           "options" : [
-              { "key" : URL_TRANSFORM_IDENTITY,
-                "label": _("No rewrite - Leave http://s3.amazonaws.com/{bucket}/ alone."),
+              { "key" : URL_TEMPLATE_DEFAULT,
+                "label": _("S3 Default: https://s3.amazonaws.com/{bucket}/{file}"),
               },
-              { "key" : URL_TRANSFORM_HTTPS,
-                "label": _("HTTPS rewrite: http://s3.amazonaws.com/{bucket}/ becomes https://{bucket}/"),
+              { "key" : URL_TEMPLATE_HTTPS,
+                "label": _("HTTPS: https://{bucket}/{file}"),
               },
-              { "key" : URL_TRANSFORM_HTTP,
-                "label": _("HTTP rewrite: http://s3.amazonaws.com/{bucket}/ becomes http://{bucket}/"),
+              { "key" : URL_TEMPLATE_HTTP,
+                "label": _("HTTP: http://{bucket}/{file}"),
               },
           ],
-          "default": URL_TRANSFORM_IDENTITY,
-          "description" : _("A file mirrored to S3 is available at <code>http://s3.amazonaws.com/{bucket}/{filename}</code>. If you've set up DNS to use the bucket name as a hostname that points to the S3 bucket, configure this S3 integration to automatically rewrite URLs to remove the S3 part of the domain. Users will see URLs that look like <code>http[s]://{bucket}/{filename}</code>.")
+          "default": URL_TEMPLATE_DEFAULT,
+          "description" : _("A file mirrored to S3 is available at <code>http://s3.amazonaws.com/{bucket}/{filename}</code>. If you've set up your DNS so that http:///[bucket]/ or https://[bucket]/ points to the appropriate S3 bucket, you can configure this S3 integration to shorten the URLs. <p>If you haven't set up your S3 buckets, don't change this from the default -- you'll get URLs that don't work.</p>")
         },
     ]
 
@@ -97,8 +97,8 @@ class S3Uploader(MirrorUploader):
             self.client = client_class
 
         self.url_transform = integration.setting(
-            self.URL_TRANSFORM_KEY).value_or_default(
-                self.URL_TRANSFORM_IDENTITY)
+            self.URL_TEMPLATE_KEY).value_or_default(
+                self.URL_TEMPLATE_DEFAULT)
 
         # Transfer information about bucket names from the
         # ExternalIntegration to the S3Uploader object, so we don't
@@ -210,8 +210,8 @@ class S3Uploader(MirrorUploader):
         http://{bucket}/{key}
         https://{bucket}/{key}
         """
-        templates = self.URL_TEMPLATES_BY_TRANSFORM
-        default = templates[self.URL_TRANSFORM_IDENTITY]
+        templates = self.URL_TEMPLATES_BY_TEMPLATE
+        default = templates[self.URL_TEMPLATE_DEFAULT]
         template = templates.get(self.url_transform, default)
         return template % dict(bucket=bucket, key=key)
 
