@@ -118,12 +118,12 @@ class TestS3Uploader(S3UploaderTest):
         # By default, the mirror URL is not modified.
         uploader = self._uploader()
         eq_(S3Uploader.URL_TEMPLATE_DEFAULT, uploader.url_transform)
-        eq_(u'https://s3.amazonaws.com/bucket/key',
-            uploader.final_mirror_url("bucket", "key"))
+        eq_(u'https://s3.amazonaws.com/bucket/the+key',
+            uploader.final_mirror_url("bucket", "the key"))
 
         uploader.url_transform = S3Uploader.URL_TEMPLATE_HTTP
-        eq_(u'http://bucket/key',
-            uploader.final_mirror_url("bucket", "key"))
+        eq_(u'http://bucket/the+k%C3%ABy',
+            uploader.final_mirror_url("bucket", "the këy"))
 
         uploader.url_transform = S3Uploader.URL_TEMPLATE_HTTPS
         eq_(u'https://bucket/key',
