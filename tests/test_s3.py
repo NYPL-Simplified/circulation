@@ -72,8 +72,13 @@ class TestS3Uploader(S3UploaderTest):
         # Otherwise, it builds just fine.
         integration.username = 'your-access-key'
         integration.password = 'your-secret-key'
+        integration.setting(S3Uploader.URL_TRANSFORM_KEY).value='a transform'
         uploader = MirrorUploader.implementation(integration)
         eq_(True, isinstance(uploader, S3Uploader))
+
+        # The URL_TRANSFORM_KEY setting becomes the .url_transform
+        # attribute on the S3Uploader object.
+        eq_('a transform', uploader.url_transform)
 
     def test_custom_client_class(self):
         """You can specify a client class to use instead of boto3.client."""
@@ -102,11 +107,15 @@ class TestS3Uploader(S3UploaderTest):
 
     def test_url(self):
         m = S3Uploader.url
-        eq_("http://s3.amazonaws.com/a-bucket/a-path", m("a-bucket", "a-path"))
-        eq_("http://s3.amazonaws.com/a-bucket/a-path", m("a-bucket", "/a-path"))
+        eq_("https://s3.amazonaws.com/a-bucket/a-path", m("a-bucket", "a-path"))
+        eq_("https://s3.amazonaws.com/a-bucket/a-path", m("a-bucket", "/a-path"))
         eq_("http://a-bucket.com/a-path", m("http://a-bucket.com/", "a-path"))
         eq_("https://a-bucket.com/a-path", 
             m("https://a-bucket.com/", "/a-path"))
+
+    def test_final_mirror_url(self):
+        # By default, the mirror URL is not modified.
+        uploader = self._uploader()
 
     def test_cover_image_root(self):
         bucket = u'test-book-covers-s3-bucket'
@@ -116,18 +125,18 @@ class TestS3Uploader(S3UploaderTest):
             self._db, DataSource.GUTENBERG_COVER_GENERATOR)
         overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
 
-        eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/Gutenberg%20Illustrated/",
+        eq_("https://s3.amazonaws.com/test-book-covers-s3-bucket/Gutenberg%20Illustrated/",
             m(bucket, gutenberg_illustrated))
-        eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/Overdrive/",
+        eq_("https://s3.amazonaws.com/test-book-covers-s3-bucket/Overdrive/",
             m(bucket, overdrive))
-        eq_("http://s3.amazonaws.com/test-book-covers-s3-bucket/scaled/300/Overdrive/",
+        eq_("https://s3.amazonaws.com/test-book-covers-s3-bucket/scaled/300/Overdrive/",
             m(bucket, overdrive, 300))
 
     def test_content_root(self):
         bucket = u'test-open-access-s3-bucket'
         m = S3Uploader.content_root
         eq_(
-            "http://s3.amazonaws.com/test-open-access-s3-bucket/",
+            "https://s3.amazonaws.com/test-open-access-s3-bucket/",
             m(bucket)
         )
 
@@ -143,27 +152,27 @@ class TestS3Uploader(S3UploaderTest):
         uploader = self._uploader(**buckets)
         m = uploader.book_url
 
-        eq_(u'http://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK.epub',
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK.epub',
             m(identifier))
 
         # The default extension is .epub, but a custom extension can
         # be specified.
-        eq_(u'http://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK.pdf', 
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK.pdf', 
             m(identifier, extension='pdf'))
 
-        eq_(u'http://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK.pdf', 
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK.pdf', 
             m(identifier, extension='.pdf'))
 
         # If a data source is provided, the book is stored underneath the
         # data source.
         unglueit = DataSource.lookup(self._db, DataSource.UNGLUE_IT)
-        eq_(u'http://s3.amazonaws.com/thebooks/unglue.it/Gutenberg%20ID/ABOOK.epub',
+        eq_(u'https://s3.amazonaws.com/thebooks/unglue.it/Gutenberg%20ID/ABOOK.epub',
             m(identifier, data_source=unglueit))
 
         # If a title is provided, the book's filename incorporates the
         # title, for the benefit of people who download the book onto
         # their hard drive.
-        eq_(u'http://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK/On%20Books.epub',
+        eq_(u'https://s3.amazonaws.com/thebooks/Gutenberg%20ID/ABOOK/On%20Books.epub',
             m(identifier, title="On Books"))
 
         # Non-open-access content can't be stored.
@@ -177,7 +186,7 @@ class TestS3Uploader(S3UploaderTest):
 
         unglueit = DataSource.lookup(self._db, DataSource.UNGLUE_IT)
         identifier = self._identifier(foreign_id="ABOOK")
-        eq_(u'http://s3.amazonaws.com/thecovers/scaled/601/unglue.it/Gutenberg%20ID/ABOOK/filename',
+        eq_(u'https://s3.amazonaws.com/thecovers/scaled/601/unglue.it/Gutenberg%20ID/ABOOK/filename',
             m(unglueit, identifier, "filename", scaled_size=601))
 
     def test_bucket_and_filename(self):
