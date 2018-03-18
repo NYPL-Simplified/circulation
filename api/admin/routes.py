@@ -45,6 +45,13 @@ def setup_admin(_db=None):
     app.secret_key = ConfigurationSetting.sitewide_secret(
         _db, Configuration.SECRET_KEY
     )
+    # Reload the flask session in case an admin was logged in
+    # when the app restarted. The session is initially loaded
+    # from the cookie before this function runs, but it creates a
+    # null session on the first request because the secret key
+    # isn't set yet.
+    if not flask.session:
+        flask.session = app.open_session(flask.request)
 
 
 def allows_admin_auth_setup(f):
