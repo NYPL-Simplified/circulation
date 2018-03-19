@@ -50,7 +50,7 @@ def setup_admin(_db=None):
     # from the cookie before this function runs, but it creates a
     # null session on the first request because the secret key
     # isn't set yet.
-    if not flask.session:
+    if not flask.session and flask.request:
         flask.session = app.open_session(flask.request)
 
 
