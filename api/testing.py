@@ -22,6 +22,9 @@ from api.circulation import (
     LoanInfo,
     HoldInfo,
 )
+from api.shared_collection import (
+    SharedCollectionAPI,
+)
 from api.config import (
     Configuration,
     temp_config,
@@ -229,3 +232,49 @@ class MockCirculationAPI(CirculationAPI):
             )
             self.remotes[source] = remote
         return self.remotes[source]
+
+class MockSharedCollectionAPI(SharedCollectionAPI):
+    def __init__(self, *args, **kwargs):
+        super(MockSharedCollectionAPI, self).__init__(*args, **kwargs)
+        self.responses = defaultdict(list)
+
+    def _queue(self, k, v):
+        self.responses[k].append(v)
+
+    def _return_or_raise(self, k):
+        self.log.debug(k)
+        l = self.responses[k]
+        v = l.pop(0)
+        if isinstance(v, Exception):
+            raise v
+        return v
+
+    def queue_register(self, response):
+        self._queue('register', response)
+
+    def register(self, collection, url):
+        return self._return_or_raise('register')
+
+    def queue_borrow(self, response):
+        self._queue('borrow', response)
+
+    def borrow(self, collection, client, pool, hold=None):
+        return self._return_or_raise('borrow')
+
+    def queue_revoke_loan(self, response):
+        self._queue('revoke-loan', response)
+
+    def revoke_loan(self, collection, client, loan):
+        return self._return_or_raise('revoke-loan')
+
+    def queue_fulfill(self, response):
+        self._queue('fulfill', response)
+
+    def fulfill(self, collection, client, loan, mechanism):
+        return self._return_or_raise('fulfill')
+
+    def queue_revoke_hold(self, response):
+        self._queue('revoke-hold', response)
+
+    def revoke_hold(self, collection, client, hold):
+        return self._return_or_raise('revoke-hold')

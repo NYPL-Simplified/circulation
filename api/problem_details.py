@@ -135,6 +135,20 @@ NO_ACTIVE_LOAN_OR_HOLD = pd(
       _("You can't do this without first borrowing this book or putting it on hold."),
 )
 
+LOAN_NOT_FOUND = pd(
+      "http://librarysimplified.org/terms/problem/loan-not-found",
+      404,
+      _("Loan not found."),
+      _("You don't have a loan with the provided id."),
+)
+
+HOLD_NOT_FOUND = pd(
+      "http://librarysimplified.org/terms/problem/hold-not-found",
+      404,
+      _("Hold not found."),
+      _("You don't have a hold with the provided id."),
+)
+
 COULD_NOT_MIRROR_TO_REMOTE = pd(
       "http://librarysimplified.org/terms/problem/cannot-mirror-to-remote",
       502,
@@ -294,4 +308,11 @@ INVALID_LOAN_FOR_ODL_NOTIFICATION = pd(
     status_code=400,
     title=_("Invalid loan for ODL notification"),
     detail=_("The ODL notification is for a loan that's not from an ODL collection."),
+)
+
+INVALID_REGISTRATION = pd(
+    "http://librarysimplified.org/terms/problem/cannot-register",
+    status_code=400,
+    title=_("Invalid registration"),
+    detail=_("You did not submit enough information to register with the collection."),
 )
