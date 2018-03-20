@@ -2407,15 +2407,20 @@ class TestFeedController(CirculationControllerTest):
     def _set_update_times(self):
         """Set the last update times so we can create a crawlable feed."""
         now = datetime.datetime.now()
-        self.english_2.last_update_time = (
-            now + datetime.timedelta(hours=2)
-        )
-        self.french_1.last_update_time = (
-            now + datetime.timedelta(hours=1)
-        )
-        self.english_1.last_update_time = (
-            now - datetime.timedelta(hours=1)
-        )
+
+        def _set(work, time):
+            """Set all fields used when calculating a work's update date for
+            purposes of the crawlable feed.
+            """
+            work.last_update_time = time
+            for lp in work.license_pools:
+                lp.availability_time = time
+        the_far_future = now + datetime.timedelta(hours=2)
+        the_future = now + datetime.timedelta(hours=1)
+        the_past = now - datetime.timedelta(hours=1)
+        _set(self.english_2, now + datetime.timedelta(hours=2))
+        _set(self.french_1, now + datetime.timedelta(hours=1))
+        _set(self.english_1, now - datetime.timedelta(hours=1))
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
