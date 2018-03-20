@@ -336,7 +336,8 @@ class CirculationManager(object):
                 )
             else:
                 self.log.warn("Adobe Vendor ID controller is disabled due to missing or incomplete configuration. This is probably nothing to worry about.")
-        self.adobe_vendor_id = new_adobe_vendor_id
+        if new_adobe_vendor_id:
+            self.adobe_vendor_id = new_adobe_vendor_id
 
         # But almost all libraries will have a Short Client Token
         # setup. We're not setting anything up here, but this is useful
