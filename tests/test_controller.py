@@ -399,6 +399,22 @@ class TestCirculationManager(CirculationControllerTest):
         assert isinstance(ex, CannotLoadConfiguration)
         assert ex.message.startswith("Short Client Token configuration is incomplete")
 
+    def test_setup_adobe_vendor_id_does_not_override_existing_configuration(self):
+        # Our circulation manager is perfectly happy with its Adobe Vendor ID
+        # configuration, which it got from one of its libraries.
+        obj = object()
+        self.manager.adobe_vendor_id = obj
+
+        # This library wants to set up an Adobe Vendor ID but it doesn't
+        # actually have one configured.
+        self.manager.setup_adobe_vendor_id(self._db, self._default_library)
+
+        # The sitewide Adobe Vendor ID configuration is not changed by
+        # the presence of another library that doesn't have a Vendor
+        # ID configuration.
+        eq_(obj, self.manager.adobe_vendor_id)
+
+
 class TestBaseController(CirculationControllerTest):
 
     def test_unscoped_session(self):
