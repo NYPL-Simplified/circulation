@@ -39,7 +39,7 @@ from core.external_search import (
 from core.facets import FacetConfig
 from core.log import LogConfiguration
 from core.lane import (
-    Facets, 
+    Facets,
     Pagination,
     Lane,
     WorkList,
@@ -74,7 +74,7 @@ from core.model import (
 from core.opds import (
     AcquisitionFeed,
 )
-from core.util.opds_writer import (    
+from core.util.opds_writer import (
      OPDSFeed,
 )
 from core.opensearch import OpenSearchDocument
@@ -109,7 +109,7 @@ from authenticator import (
     OAuthController,
 )
 from config import (
-    Configuration, 
+    Configuration,
     CannotLoadConfiguration,
 )
 
@@ -161,7 +161,7 @@ class CirculationManager(object):
         )
         self.setup_one_time_controllers()
         self.load_settings()
-        
+
     def reload_settings_if_changed(self):
         """If the site configuration has been updated, reload the
         CirculationManager's configuration from the database.
@@ -170,7 +170,7 @@ class CirculationManager(object):
         if last_update > self.site_configuration_last_update:
             self.load_settings()
             self.site_configuration_last_update = last_update
-        
+
     def load_settings(self):
         """Load all necessary configuration settings and external
         integrations from the database.
@@ -185,7 +185,7 @@ class CirculationManager(object):
         self.auth = Authenticator(self._db, self.analytics)
 
         self.setup_external_search()
-        
+
         # Track the Lane configuration for each library by mapping its
         # short name to the top-level lane.
         new_top_level_lanes = {}
@@ -195,7 +195,7 @@ class CirculationManager(object):
         new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = load_lanes(self._db, library)
-            
+
             new_top_level_lanes[library.id] = lanes
 
             new_circulation_apis[library.id] = self.setup_circulation(
@@ -220,7 +220,7 @@ class CirculationManager(object):
 
         self.setup_configuration_dependent_controllers()
         self.authentication_for_opds_documents = {}
-    
+
     @property
     def external_search(self):
         """Retrieve or create a connection to the search interface.
@@ -271,7 +271,7 @@ class CirculationManager(object):
             return search
 
     def setup_circulation(self, library, analytics):
-        """Set up the Circulation object."""        
+        """Set up the Circulation object."""
         if self.testing:
             cls = MockCirculationAPI
         else:
@@ -284,7 +284,7 @@ class CirculationManager(object):
         else:
             cls = SharedCollectionAPI
         return cls(self._db)
-        
+
     def setup_one_time_controllers(self):
         """Set up all the controllers that will be used by the web app.
 
@@ -305,14 +305,14 @@ class CirculationManager(object):
         self.shared_collection_controller = SharedCollectionController(self)
 
     def setup_configuration_dependent_controllers(self):
-        """Set up all the controllers that depend on the 
+        """Set up all the controllers that depend on the
         current site configuration.
 
         This method will be called fresh every time the site
         configuration changes.
         """
-        self.oauth_controller = OAuthController(self.auth)        
-        
+        self.oauth_controller = OAuthController(self.auth)
+
     def setup_adobe_vendor_id(self, _db, library):
         """If this Library has an Adobe Vendor ID integration,
         configure the controller for it.
@@ -418,7 +418,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         """Return the appropriate CirculationAPI for the request Library."""
         library_id = flask.request.library.id
         return self.manager.circulation_apis[library_id]
-    
+
     @property
     def shared_collection(self):
         """Return the appropriate SharedCollectionAPI for the request library."""
@@ -427,7 +427,7 @@ class CirculationManagerController(BaseCirculationManagerController):
     def load_lane(self, lane_identifier):
         """Turn user input into a Lane object."""
         library_id = flask.request.library.id
-        
+
         if lane_identifier is None:
             # Return the top-level lane.
             lane = self.manager.top_level_lanes[library_id]
@@ -442,7 +442,7 @@ class CirculationManagerController(BaseCirculationManagerController):
 
         if not lane:
             return NO_SUCH_LANE.detailed(
-                _("Lane %(lane_identifier)s does not exist or is not associated with library %(library_id)s", 
+                _("Lane %(lane_identifier)s does not exist or is not associated with library %(library_id)s",
                   lane_identifier=lane_identifier, library_id=library_id
                 )
             )
@@ -457,7 +457,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         # We know there is at least one LicensePool, and all LicensePools
         # for an Identifier have the same Work.
         return pools[0].work
-    
+
     def load_licensepools(self, library, identifier_type, identifier):
         """Turn user input into one or more LicensePool objects.
 
@@ -494,7 +494,7 @@ class CirculationManagerController(BaseCirculationManagerController):
         return license_pool
 
     def load_licensepooldelivery(self, pool, mechanism_id):
-        """Turn user input into a LicensePoolDeliveryMechanism object.""" 
+        """Turn user input into a LicensePoolDeliveryMechanism object."""
         mechanism = get_one(
             self._db, LicensePoolDeliveryMechanism,
             data_source=pool.data_source, identifier=pool.identifier,
@@ -518,7 +518,7 @@ class CirculationManagerController(BaseCirculationManagerController):
             return FORBIDDEN_BY_POLICY.detailed(
                 _("Library policy prohibits the placement of holds."),
                 status_code=403
-            )        
+            )
         return None
 
 
@@ -584,10 +584,10 @@ class IndexController(CirculationManagerController):
                     library_short_name=library_short_name,
                 )
             )
-    
+
         return redirect(
             self.cdn_url_for(
-                'acquisition_groups', 
+                'acquisition_groups',
                 library_short_name=library_short_name,
                 lane_identifier=root_lane.id,
             )
@@ -731,12 +731,12 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
 
-        # Run a search.    
+        # Run a search.
         this_url += "?q=" + urllib.quote(query.encode("utf8"))
         annotator = self.manager.annotator(lane)
         info = OpenSearchDocument.search_info(lane)
         opds_feed = AcquisitionFeed.search(
-            _db=self._db, title=info['name'], 
+            _db=self._db, title=info['name'],
             url=this_url, lane=lane, search_engine=self.manager.external_search,
             query=query, annotator=annotator, pagination=pagination,
         )
@@ -945,7 +945,7 @@ class LoanController(CirculationManagerController):
             # criteria.
             return problem_doc
         return best, mechanism
-    
+
     def fulfill(self, license_pool_id, mechanism_id=None, do_get=None):
         """Fulfill a book that has already been checked out.
 
@@ -960,7 +960,7 @@ class LoanController(CirculationManagerController):
         patron = flask.request.patron
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
-    
+
         # Turn source + identifier into a LicensePool.
         pool = self.load_licensepool(license_pool_id)
         if isinstance(pool, ProblemDetail):
@@ -972,7 +972,7 @@ class LoanController(CirculationManagerController):
             return NO_ACTIVE_LOAN.detailed(
                 _("You have no active loan for this title.")
             )
-        
+
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
         if mechanism_id:
@@ -981,7 +981,7 @@ class LoanController(CirculationManagerController):
             )
             if isinstance(mechanism, ProblemDetail):
                 return mechanism
-            
+
         if not mechanism:
             # See if the loan already has a mechanism set. We can use that.
             if loan and loan.fulfillment:
@@ -990,7 +990,7 @@ class LoanController(CirculationManagerController):
                 return BAD_DELIVERY_MECHANISM.detailed(
                     _("You must specify a delivery mechanism to fulfill this loan.")
                 )
-    
+
         try:
             fulfillment = self.circulation.fulfill(
                 patron, credential, loan.license_pool, mechanism
@@ -998,7 +998,7 @@ class LoanController(CirculationManagerController):
         except DeliveryMechanismConflict, e:
             return DELIVERY_CONFLICT.detailed(e.message)
         except NoActiveLoan, e:
-            return NO_ACTIVE_LOAN.detailed( 
+            return NO_ACTIVE_LOAN.detailed(
                     _('Can\'t fulfill loan because you have no active loan for this book.'),
                     status_code=e.status_code
             )
@@ -1117,7 +1117,7 @@ class LoanController(CirculationManagerController):
             hold, pool = self.get_patron_hold(patron, pools)
 
         if not loan and not hold:
-            return NO_ACTIVE_LOAN_OR_HOLD.detailed( 
+            return NO_ACTIVE_LOAN_OR_HOLD.detailed(
                 _('You have no active loan or hold for "%(title)s".', title=pool.work.title),
                 status_code=404
             )
@@ -1178,7 +1178,7 @@ class AnnotationController(CirculationManagerController):
         id_obj, ignore = Identifier.for_foreign_id(
             self._db, identifier_type, identifier)
         return self.container(identifier=id_obj, accept_post=False)
- 
+
     def detail(self, annotation_id):
         headers = dict()
         headers['Allow'] = 'GET,HEAD,OPTIONS,DELETE'
@@ -1358,13 +1358,13 @@ class WorkController(CirculationManagerController):
         if isinstance(pools, ProblemDetail):
             # Something went wrong.
             return pools
-    
+
         if flask.request.method == 'GET':
             # Return a list of valid URIs to use as the type of a problem detail
             # document.
             data = "\n".join(Complaint.VALID_TYPES)
             return Response(data, 200, {"Content-Type" : "text/uri-list"})
-    
+
         data = flask.request.data
         controller = ComplaintController()
         return controller.register(pools[0], data)
@@ -1422,7 +1422,7 @@ class ProfileController(CirculationManagerController):
         patron = self.authenticated_patron_from_request()
         storage = PatronProfileStorage(patron)
         return CoreProfileController(storage)
-        
+
     def protocol(self):
         """Handle a UPMP request."""
         controller = self._controller
@@ -1649,7 +1649,7 @@ class SharedCollectionController(CirculationManagerController):
             )
             if isinstance(mechanism, ProblemDetail):
                 return mechanism
-            
+
         if not mechanism:
             # See if the loan already has a mechanism set. We can use that.
             if loan and loan.fulfillment:

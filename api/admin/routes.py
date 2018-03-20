@@ -480,6 +480,20 @@ def sitewide_settings():
 def sitewide_setting(key):
     return app.manager.admin_settings_controller.sitewide_setting(key)
 
+@app.route("/admin/logging_services", methods=['GET', 'POST'])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def logging_services():
+    return app.manager.admin_settings_controller.logging_services()
+
+@app.route("/admin/logging_service/<key>", methods=["DELETE"])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def logging_service(key):
+    return app.manager.admin_settings_controller.logging_service(key)
+
 @app.route("/admin/discovery_service_library_registrations", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
 @requires_admin
