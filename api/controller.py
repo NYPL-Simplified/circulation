@@ -646,8 +646,7 @@ class OPDSFeedController(CirculationManagerController):
             facets=facets,
             pagination=pagination,
         )
-        content = feed_response(feed.content)
-        return content
+        return feed_response(feed.content)
 
     def crawlable_library_feed(self):
         """Build or retrieve a crawlable acquisition feed for the
