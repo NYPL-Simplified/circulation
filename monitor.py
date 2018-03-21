@@ -89,12 +89,9 @@ class Monitor(object):
     def __init__(self, _db, collection=None):
         self._db = _db
         cls = self.__class__
-        if self.SERVICE_NAME:
-            self.service_name = self.SERVICE_NAME
-        elif cls.SERVICE_NAME:
-            self.service_name = cls.SERVICE_NAME
-        else:
+        if not self.SERVICE_NAME and not cls.SERVICE_NAME:
             raise ValueError("%s must define SERVICE_NAME." % cls.__name__)
+        self.service_name = self.SERVICE_NAME
         self.interval_seconds = cls.INTERVAL_SECONDS
         self.keep_timestamp = cls.KEEP_TIMESTAMP
         default_start_time = cls.DEFAULT_START_TIME
