@@ -89,9 +89,12 @@ class Monitor(object):
     def __init__(self, _db, collection=None):
         self._db = _db
         cls = self.__class__
-        if not cls.SERVICE_NAME:
+        if self.SERVICE_NAME:
+            self.service_name = self.SERVICE_NAME
+        elif cls.SERVICE_NAME:
+            self.service_name = cls.SERVICE_NAME
+        else:
             raise ValueError("%s must define SERVICE_NAME." % cls.__name__)
-        self.service_name = cls.SERVICE_NAME
         self.interval_seconds = cls.INTERVAL_SECONDS
         self.keep_timestamp = cls.KEEP_TIMESTAMP
         default_start_time = cls.DEFAULT_START_TIME
@@ -649,17 +652,27 @@ class ReaperMonitor(Monitor):
 
     A subclass of ReaperMonitor MUST define values for the following
     constants:
-
-    TIMESTAMP_FIELD - The relevant time field, e.g. CachedFeed.timestamp.
-       The reaper will be more efficient if there's an index on this field.
+    MODEL_CLASS - The model class this monitor is reaping, e.g. Credential.
+    TIMESTAMP_FIELD - Within the model class, the DateTime field to be
+       used when deciding which rows to deleting,
+       e.g. 'expires'. The reaper will be more efficient if there's
+       an index on this field.
     MAX_AGE - A datetime.timedelta or number of days representing
         the time that must pass before an item can be safely deleted.
+
     """
+    MODEL_CLASS = None
     TIMESTAMP_FIELD = None
     MAX_AGE = None
-    BATCH_SIZE = 1000
 
     REGISTRY = []
+
+    def __init__(self, *args, **kwargs):
+        self.SERVICE_NAME = "Reaper for %s.%s" % (
+            self.MODEL_CLASS.__name__,
+            self.TIMESTAMP_FIELD
+        )
+        super(ReaperMonitor, self).__init__(*args, **kwargs)
 
     @property
     def cutoff(self):
@@ -672,32 +685,34 @@ class ReaperMonitor(Monitor):
         return datetime.datetime.utcnow() - max_age
 
     @property
+    def timestamp_field(self):
+        return getattr(self.MODEL_CLASS, self.TIMESTAMP_FIELD)
+
+    @property
     def where_clause(self):
         """A SQLAlchemy clause that identifies the database rows to be reaped.
         """
-        self.TIMESTAMP_FIELD < cutoff
+        return self.timestamp_field < self.cutoff
 
     def run_once(self, *args, **kwargs):
-        set_trace()
-        model_class = self.TIMESTAMP_FIELD.table
+        rows_deleted = self._db.query(self.MODEL_CLASS).filter(
+            self.where_clause).delete(synchronize_session=False)
+        self.log.info("Deleted %d row(s)", rows_deleted)
 
-        cutoff = self.cutoff
-        delete = model_class.delete().where(self.where_clause).limit(
-            BATCH_SIZE
-        )
-        result = self._db.execute(delete)
 
 # ReaperMonitors that do something specific.
 
 class CachedFeedReaper(ReaperMonitor):
     """Removed cached feeds older than thirty days."""
-    TIMESTAMP_FIELD = CachedFeed.timestamp
+    MODEL_CLASS = CachedFeed
+    TIMESTAMP_FIELD = 'timestamp'
     MAX_AGE = 30
 ReaperMonitor.REGISTRY.append(CachedFeedReaper)
 
 
 class CredentialReaper(ReaperMonitor):
     """Remove Credentials that expired more than a day ago."""
-    TIMESTAMP_FIELD = Credential.expires
+    MODEL_CLASS = Credential
+    TIMESTAMP_FIELD = 'expires'
     MAX_AGE = 1
 ReaperMonitor.REGISTRY.append(CredentialReaper)
