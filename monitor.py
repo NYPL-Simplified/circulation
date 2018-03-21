@@ -696,7 +696,7 @@ class ReaperMonitor(Monitor):
         self.log.info("Deleted %d row(s)", rows_deleted)
 
     def query(self):
-        returnself._db.query(self.MODEL_CLASS).filter(self.where_clause)
+        return self._db.query(self.MODEL_CLASS).filter(self.where_clause)
 
 # ReaperMonitors that do something specific.
 
