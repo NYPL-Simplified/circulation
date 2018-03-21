@@ -24,6 +24,9 @@ from core.testing import (
 from core.util.opds_writer import OPDSFeed
 
 from api.monitor import (
+    HoldReaper,
+    LoanlikeReaperMonitor,
+    LoanReaper,
     MWAuxiliaryMetadataMonitor,
     MWCollectionUpdateMonitor,
 )
@@ -358,3 +361,113 @@ class TestMWAuxiliaryMetadataMonitor(DatabaseTest):
                 operation=self.monitor.provider.operation
             )
             eq_(None, record)
+
+
+class TestLoanlikeReaperMonitor(DatabaseTest):
+    """Tests the loan and hold reapers."""
+
+    def test_reaping(self):
+        # This patron stopped using the circulation manager a long time
+        # ago.
+        inactive_patron = self._patron()
+
+        # This patron is still using the circulation manager.
+        current_patron = self._patron()
+
+        # We're going to give these patrons some loans and holds.
+        edition, open_access = self._edition(
+            with_license_pool=True, with_open_access_download=True)
+
+        not_open_access_1 = self._licensepool(edition,
+            open_access=False, data_source_name=DataSource.OVERDRIVE)
+        not_open_access_2 = self._licensepool(edition,
+            open_access=False, data_source_name=DataSource.BIBLIOTHECA)
+        not_open_access_3 = self._licensepool(edition,
+            open_access=False, data_source_name=DataSource.AXIS_360)
+        not_open_access_4 = self._licensepool(edition,
+            open_access=False, data_source_name=DataSource.ONECLICK)
+
+        now = datetime.datetime.utcnow()
+        a_long_time_ago = now - datetime.timedelta(days=1000)
+        not_very_long_ago = now - datetime.timedelta(days=60)
+        even_longer = now - datetime.timedelta(days=2000)
+        the_future = now + datetime.timedelta(days=1)
+
+        # This loan has expired.
+        not_open_access_1.loan_to(
+            inactive_patron, start=even_longer, end=a_long_time_ago
+        )
+
+        # This hold expired without ever becoming a loan (that we saw).
+        not_open_access_2.on_hold_to(
+            inactive_patron,
+            start=even_longer,
+            end=a_long_time_ago
+        )
+
+        # This hold has no end date and is older than a year.
+        not_open_access_3.on_hold_to(
+            inactive_patron, start=a_long_time_ago, end=None,
+        )
+
+        # This loan has no end date and is older than 90 days.
+        not_open_access_4.loan_to(
+            inactive_patron, start=a_long_time_ago, end=None,
+        )
+
+        # This loan has no end date, but it's for an open-access work.
+        open_access_loan, ignore = open_access.loan_to(
+            inactive_patron, start=a_long_time_ago, end=None,
+        )
+
+        # This loan has not expired yet.
+        not_open_access_1.loan_to(
+            current_patron, start=now, end=the_future
+        )
+
+        # This hold has not expired yet.
+        not_open_access_2.on_hold_to(
+            current_patron, start=now, end=the_future
+        )
+
+        # This loan has no end date but is pretty recent.
+        not_open_access_3.loan_to(
+            current_patron, start=not_very_long_ago, end=None
+        )
+
+        # This hold has no end date but is pretty recent.
+        not_open_access_4.on_hold_to(
+            current_patron, start=not_very_long_ago, end=None
+        )
+
+        eq_(3, len(inactive_patron.loans))
+        eq_(2, len(inactive_patron.holds))
+
+        eq_(2, len(current_patron.loans))
+        eq_(2, len(current_patron.holds))
+
+        # Now we fire up the loan reaper.
+        monitor = LoanReaper(self._db)
+        monitor.run()
+
+        # All of the inactive patron's loans have been reaped,
+        # except for the open-access loan, which will never be reaped.
+        #
+        # Holds are unaffected.
+        eq_([open_access_loan], inactive_patron.loans)
+        eq_(2, len(inactive_patron.holds))
+
+        # The active patron's loans and holds are unaffected, either
+        # because they have not expired or because they have no known
+        # expiration date and were created relatively recently.
+        eq_(2, len(current_patron.loans))
+        eq_(2, len(current_patron.holds))
+
+        # Now fire up the hold reaper.
+        monitor = HoldReaper(self._db)
+        monitor.run()
+
+        # All of the inactive patron's holds have been reaped.
+        # The active patron is unaffected.
+        eq_([], inactive_patron.holds)
+        eq_(2, len(current_patron.holds))

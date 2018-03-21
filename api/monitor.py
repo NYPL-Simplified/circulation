@@ -7,17 +7,23 @@ from lxml import etree
 from nose.tools import set_trace
 from StringIO import StringIO
 
-from sqlalchemy import or_
+from sqlalchemy import (
+    and_,
+    or_,
+)
 
 from core.monitor import (
     CollectionMonitor,
     EditionSweepMonitor,
+    ReaperMonitor,
 )
 from core.model import (
     DataSource,
     Edition,
+    Hold,
     Identifier,
     LicensePool,
+    Loan,
 )
 from core.opds_import import (
     MetadataWranglerOPDSLookup,
@@ -228,3 +234,49 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
         parsed_feed = feedparser.parse(feed)
         next_links = self.importer.extract_next_links(parsed_feed)
         return mapped_identifiers, next_links
+
+class LoanlikeReaperMonitor(ReaperMonitor):
+
+    @property
+    def where_clause(self):
+        """Find loans/holds that have either expired, or that were created a
+        long time ago and have no definite end date.
+        """
+        cls = self.MODEL_CLASS
+        end_field = getattr(cls, 'end')
+        start_field = getattr(cls, 'start')
+
+        now = datetime.datetime.utcnow()
+        expired = end_field < now
+        very_old_with_no_clear_end_date = and_(
+            start_field < self.cutoff,
+            end_field == None
+        )
+        return or_(expired, very_old_with_no_clear_end_date)
+
+
+class LoanReaper(LoanlikeReaperMonitor):
+    """Remove expired and abandoned loans from the database."""
+    MODEL_CLASS = Loan
+    MAX_AGE = 90
+
+    @property
+    def where_clause(self):
+        """We never want to reap Loans for open-access content -- that
+        'loan' is yours until you delete it.
+        """
+        subquery = self._db.query(Loan.id).join(Loan.license_pool).filter(
+            LicensePool.open_access==True
+        )
+        return and_(
+            super(LoanReaper, self).where_clause,
+            ~Loan.id.in_(subquery)
+        )
+ReaperMonitor.REGISTRY.append(LoanReaper)
+
+
+class HoldReaper(LoanlikeReaperMonitor):
+    """Remove expired and abandoned holds from the database."""
+    MODEL_CLASS = Hold
+    MAX_AGE = 365
+ReaperMonitor.REGISTRY.append(HoldReaper)

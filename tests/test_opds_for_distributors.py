@@ -185,7 +185,15 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         eq_(data_source.name, loan_info.data_source_name)
         eq_(Identifier.URI, loan_info.identifier_type)
         eq_(pool.identifier.identifier, loan_info.identifier)
-        eq_(None, loan_info.end_date)
+
+        # The loan's start date has been set to the current time.
+        now = datetime.datetime.utcnow()
+        assert (now - loan_info.start_date).seconds < 2
+
+        # The loan's end date is set to a date in the far future, to
+        # distinguish it from a truly indefinite open-access 'loan'.
+        the_far_future = now + datetime.timedelta(days=365*95)
+        assert (the_far_future - loan_info.end_date).seconds < 2
 
     def test_fulfill(self):
         patron = self._patron()
