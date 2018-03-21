@@ -692,10 +692,11 @@ class ReaperMonitor(Monitor):
         return self.timestamp_field < self.cutoff
 
     def run_once(self, *args, **kwargs):
-        rows_deleted = self._db.query(self.MODEL_CLASS).filter(
-            self.where_clause).delete(synchronize_session=False)
+        row_deleted = self.query().delete(synchronize_session=False)
         self.log.info("Deleted %d row(s)", rows_deleted)
 
+    def query(self):
+        returnself._db.query(self.MODEL_CLASS).filter(self.where_clause)
 
 # ReaperMonitors that do something specific.
 
