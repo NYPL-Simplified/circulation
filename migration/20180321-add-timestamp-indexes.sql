@@ -15,7 +15,7 @@
 	BEGIN
 	    create index ix_cachedfeeds_timestamp on cachedfeeds (timestamp);
 	EXCEPTION
-            WHEN duplicate_table THEN RAISE NOTICE 'Warning: ix_cachedfeed_timestamp already exists.';
+            WHEN duplicate_table THEN RAISE NOTICE 'Warning: ix_cachedfeeds_timestamp already exists.';
         END;
     END;
 END
