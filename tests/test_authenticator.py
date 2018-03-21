@@ -1606,6 +1606,15 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(True, provider.server_side_validation("a", None))
         
     def test_local_patron_lookup(self):
+        # This patron of another library looks just like the patron
+        # we're about to create, but will never be selected.
+        other_library = self._library()
+        other_library_patron = self._patron(
+            "patron1_ext_id", library=other_library
+        )
+        other_library_patron.authorization_identifier = "patron1_auth_id"
+        other_library_patron.username = "patron1"
+
         patron1 = self._patron("patron1_ext_id")
         patron1.authorization_identifier = "patron1_auth_id"
         patron1.username = "patron1"
