@@ -202,45 +202,79 @@ class RunMonitorScript(Script):
             ).run()
 
 
-class RunCollectionMonitorScript(Script):
-    """Run a CollectionMonitor on every Collection that comes through a
-    certain protocol.
+class RunMultipleMonitorsScript(Script):
+    """Run a number of monitors in sequence.
 
     Currently the Monitors are run one at a time. It should be
     possible to take a command-line argument that runs all the
     Monitors in batches, each in its own thread. Unfortunately, it's
-    tough to know in a given situation that the system configuration
-    and the Collection protocol are tough enough to handle this, and
-    won't be overloaded.
+    tough to know in a given situation that this won't overload the
+    system.
     """
-    def __init__(self, monitor_class, _db=None, **kwargs):
+
+    def __init__(self, _db=None, **kwargs):
         """Constructor.
         
-        :param monitor_class: A class object that derives from 
-            CollectionMonitor.
-        :param kwargs: Keyword arguments to pass into the `monitor_class`
-            constructor each time it's called.
+        :param kwargs: Keyword arguments to pass into the `monitors` method
+            when building the Monitor objects.
         """
-        super(RunCollectionMonitorScript, self).__init__(_db)
-        self.monitor_class = monitor_class
-        self.name = self.monitor_class.SERVICE_NAME
+        super(RunMultipleMonitorsScript, self).__init__(_db)
         self.kwargs = kwargs
-        
-    def do_run(self):
-        """Instantiate a Monitor for every appropriate Collection,
-        and run them, in order.
+
+    @property
+    def monitors(self):
+        """Find all the Monitors that need to be run.
+
+        :return: A list of Monitor objects.
         """
-        for monitor in self.monitor_class.all(self._db, **self.kwargs):
+        raise NotImplementedError()
+
+    def do_run(self, **kwargs):
+        """Run all appropriate monitors."""
+        for monitor in self.monitors:
             try:
                 monitor.run()
             except Exception, e:
                 # This is bad, but not so bad that we should give up trying
                 # to run the other Monitors.
+                if monitor.collection:
+                    collection_name = monitor.collection.name
+                else:
+                    collection_name = None
                 self.log.error(
                     "Error running monitor %s for collection %s: %s",
-                    self.name, monitor.collection.name,
-                    e, exc_info=e
+                    self.name, collection_name, e, exc_info=e
                 )
+
+
+class RunCollectionMonitorScript(RunMultipleMonitorsScript):
+    """Run a CollectionMonitor on every Collection that comes through a
+    certain protocol.
+    """
+    def __init__(self, monitor_class, _db=None, **kwargs):
+        """Constructor.
+
+        :param monitor_class: A class object that derives from
+            CollectionMonitor.
+        :param kwargs: Keyword arguments to pass into the `monitor_class`
+            constructor each time it's called.
+        """
+        super(RunCollectionMonitorScript, self).__init__(_db, **kwargs)
+        self.name = self.monitor_class.SERVICE_NAME
+
+    @property
+    def monitors(self):
+        return self.monitor_class.all(self._db, **self.kwargs):
+
+
+class RunReaperMonitorsScript(RunMultipleMonitorsScript):
+    """Run all the monitors found in ReaperMonitor.REGISTRY"""
+
+    name = "Run all reaper monitors"
+
+    @property
+    def monitors(self):
+        return [cls(self._db) for cls in ReaperMonitor.REGISTRY]
 
 
 class UpdateSearchIndexScript(RunMonitorScript):

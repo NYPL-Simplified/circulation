@@ -16,9 +16,11 @@ from coverage import CoverageFailure
 from model import (
     get_one,
     get_one_or_create,
+    CachedFeed,
     Collection,
     CollectionMissing,
     CoverageRecord,
+    Credential,
     Edition,
     ExternalIntegration,
     CustomListEntry,
@@ -478,9 +480,9 @@ class NotPresentationReadyWorkSweepMonitor(WorkSweepMonitor):
             NotPresentationReadyWorkSweepMonitor, self).item_query().filter(
                 not_presentation_ready
             )
+
     
-# Beneath this point are SweepMonitors that do something specific,
-# usually for repair purposes.
+# SweepMonitors that do something specific.
 
 class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
     """A Monitor that recalculates the OPDS entries for every
@@ -639,3 +641,63 @@ class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):
     
     def process_item(self, item):
         item.set_work()
+
+
+class ReaperMonitor(Monitor):
+    """A Monitor that deletes database rows that have expired but
+    have no other process to delete them.
+
+    A subclass of ReaperMonitor MUST define values for the following
+    constants:
+
+    TIMESTAMP_FIELD - The relevant time field, e.g. CachedFeed.timestamp.
+       The reaper will be more efficient if there's an index on this field.
+    MAX_AGE - A datetime.timedelta or number of days representing
+        the time that must pass before an item can be safely deleted.
+    """
+    TIMESTAMP_FIELD = None
+    MAX_AGE = None
+    BATCH_SIZE = 1000
+
+    REGISTRY = []
+
+    @property
+    def cutoff(self):
+        """Items with a timestamp earlier than this time will be reaped.
+        """
+        if isinstance(self.MAX_AGE, datetime.timedelta):
+            max_age = self.MAX_AGE
+        else:
+            max_age = datetime.timedelta(days=self.MAX_AGE)
+        return datetime.datetime.utcnow() - max_age
+
+    @property
+    def where_clause(self):
+        """A SQLAlchemy clause that identifies the database rows to be reaped.
+        """
+        self.TIMESTAMP_FIELD < cutoff
+
+    def run_once(self, *args, **kwargs):
+        set_trace()
+        model_class = self.TIMESTAMP_FIELD.table
+
+        cutoff = self.cutoff
+        delete = model_class.delete().where(self.where_clause).limit(
+            BATCH_SIZE
+        )
+        result = self._db.execute(delete)
+
+# ReaperMonitors that do something specific.
+
+class CachedFeedReaper(ReaperMonitor):
+    """Removed cached feeds older than thirty days."""
+    TIMESTAMP_FIELD = CachedFeed.timestamp
+    MAX_AGE = 30
+ReaperMonitor.REGISTRY.append(CachedFeedReaper)
+
+
+class CredentialReaper(ReaperMonitor):
+    """Remove Credentials that expired more than a day ago."""
+    TIMESTAMP_FIELD = Credential.expires
+    MAX_AGE = 1
+ReaperMonitor.REGISTRY.append(CredentialReaper)

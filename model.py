@@ -826,8 +826,8 @@ class Loan(Base, LoanAndHoldMixin):
     integration_client_id = Column(Integer, ForeignKey('integrationclients.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
     fulfillment_id = Column(Integer, ForeignKey('licensepooldeliveries.id'))
-    start = Column(DateTime)
-    end = Column(DateTime)
+    start = Column(DateTime, index=True)
+    end = Column(DateTime, index=True)
     # Some distributors (e.g. Feedbooks) may have an identifier that can
     # be used to check the status of a specific Loan.
     external_identifier = Column(Unicode, unique=True, nullable=True)
@@ -6499,7 +6499,7 @@ class CachedFeed(Base):
         nullable=True, index=True)
 
     # Every feed has a timestamp reflecting when it was created.
-    timestamp = Column(DateTime, nullable=True)
+    timestamp = Column(DateTime, nullable=True, index=True)
 
     # A feed is of a certain type--currently either 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
@@ -7931,7 +7931,7 @@ class Credential(Base):
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     type = Column(String(255), index=True)
     credential = Column(String)
-    expires = Column(DateTime)
+    expires = Column(DateTime, index=True)
 
     # One Credential can have many associated DRMDeviceIdentifiers.
     drm_device_identifiers = relationship(
