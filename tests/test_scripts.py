@@ -71,6 +71,8 @@ from scripts import (
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
     RunMonitorScript,
+    RunMultipleMonitorsScript,
+    RunReaperMonitorsScript,
     RunThreadedCollectionCoverageProviderScript,
     RunWorkCoverageProviderScript,
     Script,
@@ -87,7 +89,9 @@ from testing import(
     AlwaysSuccessfulWorkCoverageProvider,
 )
 from monitor import (
+    Monitor,
     CollectionMonitor,
+    ReaperMonitor,
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -262,6 +266,13 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
+class SuccessMonitor(Monitor):
+    """A simple Monitor that alway succeeds."""
+    SERVICE_NAME = "Success"
+    def run(self):
+        self.ran = True
+
+
 class OPDSCollectionMonitor(CollectionMonitor):
     """Mock Monitor for use in tests of Run*MonitorScript."""
     SERVICE_NAME = "Test Monitor"
@@ -280,6 +291,7 @@ class DoomedCollectionMonitor(CollectionMonitor):
     SERVICE_NAME = "Doomed Monitor"
     PROTOCOL = ExternalIntegration.OPDS_IMPORT
     def run_once(self, *args, **kwargs):
+        self.ran = True
         self.collection.doomed = True
         raise Exception("Doomed!")
         
@@ -300,10 +312,44 @@ class TestRunMonitorScript(DatabaseTest):
         for c in [c1, c2]:
             eq_("test value", c.ran_with_argument)
         
+
+class TestRunMultipleMonitorsScript(DatabaseTest):
+
+    def test_do_run(self):
+        m1 = SuccessMonitor(self._db)
+        m2 = DoomedCollectionMonitor(self._db, self._default_collection)
+        m3 = SuccessMonitor(self._db)
+
+        class MockScript(RunMultipleMonitorsScript):
+            name = "Run three monitors"
+            def monitors(self, **kwargs):
+                self.kwargs = kwargs
+                return [m1, m2, m3]
+
+        # Run the script.
+        script = MockScript(self._db, kwarg="value")
+        script.do_run()
+
+        # The kwarg we passed in to the MockScript constructor was
+        # propagated into the monitors() method.
+        eq_(dict(kwarg="value"), script.kwargs)
+
+        # All three monitors were run, even though the
+        # second one raised an exception.
+        eq_(True, m1.ran)
+        eq_(True, m2.ran)
+        eq_(True, m3.ran)
+
+        # The exception that crashed the second monitor was stored as
+        # .exception, in case we want to look at it.
+        eq_("Doomed!", m2.exception.message)
+        eq_(None, getattr(m1, 'exception', None))
+
         
 class TestRunCollectionMonitorScript(DatabaseTest):
 
-    def test_all(self):
+
+    def test_monitors(self):
         # Here we have three OPDS import Collections...
         o1 = self._collection()
         o2 = self._collection()
@@ -312,37 +358,31 @@ class TestRunCollectionMonitorScript(DatabaseTest):
         # ...and a Bibliotheca collection.
         b1 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
 
-        script = RunCollectionMonitorScript(
-            OPDSCollectionMonitor, self._db, test_argument="test value"
-        )
-        script.run()
+        script = RunCollectionMonitorScript(OPDSCollectionMonitor, self._db)
 
-        # Running the script instantiates an OPDSCollectionMonitor for
-        # every Collection and calls run_once() on each one. This
-        # propagates a value sent into the script constructor to the
-        # Collection object.
-        for i in [o1, o2, o3]:
-            eq_("test value", i.ran_with_argument)
+        # Calling monitors() instantiates an OPDSCollectionMonitor
+        # for every OPDS import collection. The Bibliotheca collection
+        # is unaffected.
+        monitors = script.monitors()
+        collections = [x.collection for x in monitors]
+        eq_(set(collections), set([o1, o2, o3]))
+        for i in monitors:
+            assert isinstance(monitor, OPDSCollectionMonitor)
 
-        # Nothing happened to the Bibliotheca collection.
-        assert not hasattr(b1, 'ran_with_argument')
 
-    def test_keep_going_on_failure(self):
-        # Here we have two Collections that are going to be run
-        # through a CollectionMonitor that always fails.
-        o1 = self._collection()
-        o2 = self._collection()
-        script = RunCollectionMonitorScript(
-            DoomedCollectionMonitor, self._db
-        )
-        script.run()
+class TestRunReaperMonitorsScript(DatabaseTest):
 
-        # Even though run_once() raised an exception, it didn't stop
-        # the script from calling run_once() again for the second
-        # collection.
-        assert(True, o1.doomed)
-        assert(True, o2.doomed)
-        
+    def test_monitors(self):
+        """This script instantiates a Monitor for every class in
+        ReaperMonitor.REGISTRY.
+        """
+        old_registry = ReaperMonitor.REGISTRY
+        ReaperMonitor.REGISTRY = [SuccessMonitor]
+        script = RunReaperMonitorsScript(self._db)
+        [monitor] = script.monitors()
+        assert isinstance(monitor, SuccessMonitor)
+        ReaperMonitor.REGISTRY = old_registry
+
 
 class TestPatronInputScript(DatabaseTest):
 

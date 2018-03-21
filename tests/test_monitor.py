@@ -15,8 +15,10 @@ from testing import (
 )
 
 from model import (
+    CachedFeed,
     Collection,
     CollectionMissing,
+    Credential,
     DataSource,
     ExternalIntegration,
     Identifier,
@@ -27,8 +29,10 @@ from model import (
 )
 
 from monitor import (
+    CachedFeedReaper,
     CollectionMonitor,
     CoverageProvidersFailed,
+    CredentialReaper,
     CustomListEntrySweepMonitor,
     CustomListEntryWorkUpdateMonitor,
     EditionSweepMonitor,
@@ -39,6 +43,7 @@ from monitor import (
     OPDSEntryCacheMonitor,
     PermanentWorkIDRefreshMonitor,
     PresentationReadyWorkSweepMonitor,
+    ReaperMonitor,
     SubjectAssignmentMonitor,
     SubjectSweepMonitor,
     SweepMonitor,
@@ -544,7 +549,7 @@ class TestWorkSweepMonitors(DatabaseTest):
         eq_([], Mock(self._db, collection=c1).item_query().all())
         eq_([w2], Mock(self._db, collection=c2).item_query().all())
 
-        
+
         
 class TestOPDSEntryCacheMonitor(DatabaseTest):
 
@@ -700,3 +705,63 @@ class TestCustomListEntryWorkUpdateMonitor(DatabaseTest):
         monitor = CustomListEntryWorkUpdateMonitor(self._db)
         monitor.process_item(entry)
         eq_(old_work, entry.work)
+
+
+class MockReaperMonitor(ReaperMonitor):
+    MODEL_CLASS = Timestamp
+    TIMESTAMP_FIELD = 'timestamp'
+
+
+class TestReaperMonitor(DatabaseTest):
+
+    def test_cutoff(self):
+        """Test that cutoff behaves correctly when given different values for
+        ReaperMonitor.MAX_AGE.
+        """
+        m = MockReaperMonitor(self._db)
+
+        # A number here means a number of days.
+        for value in [1, 1.5, -1]:
+            m.MAX_AGE = value
+            expect = datetime.datetime.utcnow() - datetime.timedelta(
+                days=value
+            )
+            assert (m.cutoff - expect).total_seconds() < 2
+
+        # But you can pass in a timedelta instead.
+        m.MAX_AGE = datetime.timedelta(seconds=99)
+        expect = datetime.datetime.utcnow() - m.MAX_AGE
+        assert (m.cutoff - expect).total_seconds() < 2
+
+    def test_specific_reapers(self):
+        eq_(CachedFeed.timestamp, CachedFeedReaper(self._db).timestamp_field)
+        eq_(30, CachedFeedReaper.MAX_AGE)
+        eq_(Credential.expires, CredentialReaper(self._db).timestamp_field)
+        eq_(1, CredentialReaper.MAX_AGE)
+
+    def test_where_clause(self):
+        m = CachedFeedReaper(self._db)
+        eq_("cachedfeeds.timestamp < :timestamp_1", str(m.where_clause))
+
+    def test_run_once(self):
+        # Create three Credentials.
+        expired = self._credential()
+        now = datetime.datetime.utcnow()
+        expired.expires = now - datetime.timedelta(
+            days=CredentialReaper.MAX_AGE + 1
+        )
+
+        active = self._credential()
+        active.expires = now - datetime.timedelta(
+            days=CredentialReaper.MAX_AGE - 1
+        )
+
+        eternal = self._credential()
+
+        m = CredentialReaper(self._db)
+        m.run_once()
+
+        # The expired credential has been reaped; the others
+        # are still in the database.
+        remaining = set(self._db.query(Credential).all())
+        eq_(set([active, eternal]), remaining)
