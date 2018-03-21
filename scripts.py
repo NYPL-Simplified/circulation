@@ -221,17 +221,16 @@ class RunMultipleMonitorsScript(Script):
         super(RunMultipleMonitorsScript, self).__init__(_db)
         self.kwargs = kwargs
 
-    @property
-    def monitors(self):
+    def monitors(self, **kwargs):
         """Find all the Monitors that need to be run.
 
         :return: A list of Monitor objects.
         """
         raise NotImplementedError()
 
-    def do_run(self, **kwargs):
+    def do_run(self):
         """Run all appropriate monitors."""
-        for monitor in self.monitors:
+        for monitor in self.monitors(**self.kwargs):
             try:
                 monitor.run()
             except Exception, e:
@@ -241,6 +240,7 @@ class RunMultipleMonitorsScript(Script):
                     collection_name = monitor.collection.name
                 else:
                     collection_name = None
+                monitor.exception = e
                 self.log.error(
                     "Error running monitor %s for collection %s: %s",
                     self.name, collection_name, e, exc_info=e
@@ -260,11 +260,11 @@ class RunCollectionMonitorScript(RunMultipleMonitorsScript):
             constructor each time it's called.
         """
         super(RunCollectionMonitorScript, self).__init__(_db, **kwargs)
+        self.monitor_class = monitor_class
         self.name = self.monitor_class.SERVICE_NAME
 
-    @property
-    def monitors(self):
-        return self.monitor_class.all(self._db, **self.kwargs):
+    def monitors(self, **kwargs):
+        return self.monitor_class.all(self._db, **kwargs)
 
 
 class RunReaperMonitorsScript(RunMultipleMonitorsScript):
@@ -272,9 +272,8 @@ class RunReaperMonitorsScript(RunMultipleMonitorsScript):
 
     name = "Run all reaper monitors"
 
-    @property
-    def monitors(self):
-        return [cls(self._db) for cls in ReaperMonitor.REGISTRY]
+    def monitors(self, **kwargs):
+        return [cls(self._db, **kwargs) for cls in ReaperMonitor.REGISTRY]
 
 
 class UpdateSearchIndexScript(RunMonitorScript):
