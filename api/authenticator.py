@@ -1645,7 +1645,8 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             # be resolved over there.
             clause = or_(Patron.authorization_identifier==username,
                          Patron.username==username)
-            qu = _db.query(Patron).filter(clause).limit(1)
+            qu = _db.query(Patron).filter(clause).filter(
+                Patron.library_id==self.library_id).limit(1)
             try:
                 patron = qu.one()
             except NoResultFound:
