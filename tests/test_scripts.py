@@ -72,6 +72,7 @@ from scripts import (
     RunCoverageProviderScript,
     RunMonitorScript,
     RunMultipleMonitorsScript,
+    RunReaperMonitorsScript,
     RunThreadedCollectionCoverageProviderScript,
     RunWorkCoverageProviderScript,
     Script,
@@ -90,6 +91,7 @@ from testing import(
 from monitor import (
     Monitor,
     CollectionMonitor,
+    ReaperMonitor,
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -264,6 +266,13 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
+class SuccessMonitor(Monitor):
+    """A simple Monitor that alway succeeds."""
+    SERVICE_NAME = "Success"
+    def run(self):
+        self.ran = True
+
+
 class OPDSCollectionMonitor(CollectionMonitor):
     """Mock Monitor for use in tests of Run*MonitorScript."""
     SERVICE_NAME = "Test Monitor"
@@ -307,14 +316,9 @@ class TestRunMonitorScript(DatabaseTest):
 class TestRunMultipleMonitorsScript(DatabaseTest):
 
     def test_do_run(self):
-        class MockMonitor(Monitor):
-            SERVICE_NAME = "Success"
-            def run(self):
-                self.ran = True
-
-        m1 = MockMonitor(self._db)
+        m1 = SuccessMonitor(self._db)
         m2 = DoomedCollectionMonitor(self._db, self._default_collection)
-        m3 = MockMonitor(self._db)
+        m3 = SuccessMonitor(self._db)
 
         class MockScript(RunMultipleMonitorsScript):
             name = "Run three monitors"
@@ -330,7 +334,7 @@ class TestRunMultipleMonitorsScript(DatabaseTest):
         # propagated into the monitors() method.
         eq_(dict(kwarg="value"), script.kwargs)
 
-        # All three MockMonitors were run, even though the
+        # All three monitors were run, even though the
         # second one raised an exception.
         eq_(True, m1.ran)
         eq_(True, m2.ran)
@@ -343,6 +347,7 @@ class TestRunMultipleMonitorsScript(DatabaseTest):
 
         
 class TestRunCollectionMonitorScript(DatabaseTest):
+
 
     def test_monitors(self):
         # Here we have three OPDS import Collections...
@@ -361,7 +366,23 @@ class TestRunCollectionMonitorScript(DatabaseTest):
         monitors = script.monitors()
         collections = [x.collection for x in monitors]
         eq_(set(collections), set([o1, o2, o3]))
-        
+        for i in monitors:
+            assert isinstance(monitor, OPDSCollectionMonitor)
+
+
+class TestRunReaperMonitorsScript(DatabaseTest):
+
+    def test_monitors(self):
+        """This script instantiates a Monitor for every class in
+        ReaperMonitor.REGISTRY.
+        """
+        old_registry = ReaperMonitor.REGISTRY
+        ReaperMonitor.REGISTRY = [SuccessMonitor]
+        script = RunReaperMonitorsScript(self._db)
+        [monitor] = script.monitors()
+        assert isinstance(monitor, SuccessMonitor)
+        ReaperMonitor.REGISTRY = old_registry
+
 
 class TestPatronInputScript(DatabaseTest):
 

@@ -77,6 +77,7 @@ from model import (
 from monitor import (
     SubjectAssignmentMonitor,
     CollectionMonitor,
+    ReaperMonitor,
 )
 from opds_import import (
     OPDSImportMonitor,
