@@ -144,22 +144,13 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
 
     def checkout(self, patron, pin, licensepool, internal_format):
         now = datetime.datetime.utcnow()
-
-        # This is not open-access content, but the loans are
-        # effectively of indefinite duration. To avoid confusing this
-        # with open-access content, grant a loan of 95 years duration.
-        #
-        # By this time, the US copyright on the work will have expired
-        # and it will be open-access content -- so something needs to
-        # change between now and then anyway.
-        the_far_future = now + datetime.timedelta(days=365*95)
         return LoanInfo(
             licensepool.collection,
             licensepool.data_source.name,
             licensepool.identifier.type,
             licensepool.identifier.identifier,
             start_date=now,
-            end_date=the_far_future,
+            end_date=None,
         )
 
     def fulfill(self, patron, pin, licensepool, internal_format):

@@ -376,7 +376,11 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
         """Verify that well-known source of truth protocols
         will be exempt from the reaper.
         """
-        for i in (ODLWithConsolidatedCopiesAPI.NAME, SharedODLAPI.NAME):
+        for i in (
+                ODLWithConsolidatedCopiesAPI.NAME,
+                SharedODLAPI.NAME,
+                ExternalIntegration.OPDS_FOR_DISTRIBUTORS,
+        ):
             assert i in LoanlikeReaperMonitor.SOURCE_OF_TRUTH_PROTOCOLS
 
 

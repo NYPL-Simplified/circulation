@@ -246,7 +246,8 @@ class LoanlikeReaperMonitor(ReaperMonitor):
 
     SOURCE_OF_TRUTH_PROTOCOLS = [
         ODLWithConsolidatedCopiesAPI.NAME,
-        SharedODLAPI.NAME
+        SharedODLAPI.NAME,
+        ExternalIntegration.OPDS_FOR_DISTRIBUTORS,
     ]
 
     @property

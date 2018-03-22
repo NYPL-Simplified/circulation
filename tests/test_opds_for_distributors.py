@@ -190,10 +190,8 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         now = datetime.datetime.utcnow()
         assert (now - loan_info.start_date).seconds < 2
 
-        # The loan's end date is set to a date in the far future, to
-        # distinguish it from a truly indefinite open-access 'loan'.
-        the_far_future = now + datetime.timedelta(days=365*95)
-        assert (the_far_future - loan_info.end_date).seconds < 2
+        # The loan is of indefinite duration.
+        eq_(None, loan_info.end_date)
 
     def test_fulfill(self):
         patron = self._patron()
