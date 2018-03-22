@@ -862,7 +862,7 @@ class TestSyncBookshelf(OverdriveAPITest):
         loans, holds = self.circulation.sync_bookshelf(patron, "dummy pin")
 
         eq_(4, len(loans))
-        eq_(loans, patron.loans)
+        eq_(set(loans), set(patron.loans))
         assert overdrive_loan not in patron.loans
 
     def test_sync_bookshelf_ignores_loans_from_other_sources(self):
