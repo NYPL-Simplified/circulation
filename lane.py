@@ -1948,6 +1948,17 @@ class Lane(Base, WorkList):
             
         return qu, clauses
 
+    def explain(self):
+        """Create a series of human-readable strings to explain a lane's settings."""
+        lines = []
+        lines.append("ID: %s" % self.id)
+        lines.append("Library: %s" % self.library.short_name)
+        if self.parent:
+            lines.append("Parent ID: %s (%s)" % (self.parent.id, self.parent.display_name))
+        lines.append("Priority: %s" % self.priority)
+        lines.append("Display name: %s" % self.display_name)
+        return lines
+
 Library.lanes = relationship("Lane", backref="library", foreign_keys=Lane.library_id, cascade='all, delete-orphan')
 DataSource.list_lanes = relationship("Lane", backref="_list_datasource", foreign_keys=Lane._list_datasource_id)
 DataSource.license_lanes = relationship("Lane", backref="license_datasource", foreign_keys=Lane.license_datasource_id)
