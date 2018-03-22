@@ -392,12 +392,89 @@ class TestLibraryAnnotator(VendorIDTest):
         # 'work' and that was wrong.
         assert '/host/permalink' in permalink
 
-    def get_parsed_feed(self, works, lane=None):
+    def test_annotate_work_entry(self):
+        lane = self._lane()
+
+        # Create a Work.
+        work = self._work(with_license_pool=True)
+        [pool] = work.license_pools
+        identifier = pool.identifier
+        edition = pool.presentation_edition
+
+        # Try building an entry for this Work with and without
+        # patron authentication turned on -- each setting is valid
+        # but will result in different links being available.
+        linksets = []
+        for auth in (True, False):
+            annotator = LibraryAnnotator(
+                None, lane, self._default_library, test_mode=True,
+                library_supports_patron_authentication=auth
+            )
+            feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
+            entry = feed._make_entry_xml(work, pool, edition, identifier)
+            annotator.annotate_work_entry(
+                work, pool, edition, identifier, feed, entry
+            )
+            parsed = feedparser.parse(etree.tostring(entry))
+            [entry_parsed] = parsed['entries']
+            linksets.append(set([x['rel'] for x in entry_parsed['links']]))
+        
+        with_auth, no_auth = linksets
+
+        # Some links are present no matter what.
+        for expect in [u'alternate', u'issues', u'related']:
+            assert expect in with_auth
+            assert expect in no_auth
+            
+        # Patron authentication allows for some additional links -- a
+        # link to borrow the book and a link to annotate the book.
+        for expect in [
+                u'http://www.w3.org/ns/oa#annotationservice', 
+                u'http://opds-spec.org/acquisition/borrow'
+        ]:
+            assert expect in with_auth
+            assert expect not in no_auth
+        
+    def test_annotate_feed(self):
+        lane = self._lane()
+        linksets = []
+        for auth in (True, False):
+            annotator = LibraryAnnotator(
+                None, lane, self._default_library, test_mode=True,
+                library_supports_patron_authentication=auth
+            )
+            feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
+            annotator.annotate_feed(feed, lane)
+            parsed = feedparser.parse(unicode(feed))
+            linksets.append([x['rel'] for x in parsed['feed']['links']])
+
+        with_auth, without_auth = linksets
+
+        # There's always a self link, a search link, and an auth
+        # document link.
+        for rel in (
+                'self', 'search', u'http://opds-spec.org/auth/document'
+        ):
+            assert link in with_auth
+            assert link in without_auth
+
+        # But there's only a bookshelf link and an annotation link
+        # when patron authentication is enabled.
+        for link in (
+                u'http://opds-spec.org/shelf',
+                u'http://www.w3.org/ns/oa#annotationservice'
+        ):
+            assert link in with_auth
+            assert link not in without_auth
+
+
+    def get_parsed_feed(self, works, lane=None, **kwargs):
         if not lane:
             lane = self._lane(display_name="Main Lane")
         feed = AcquisitionFeed(
             self._db, "test", "url", works,
-            LibraryAnnotator(None, lane, self._default_library, test_mode=True)
+            LibraryAnnotator(None, lane, self._default_library, test_mode=True,
+                             **kwargs)
         )
         return feedparser.parse(unicode(feed))
 
@@ -552,13 +629,20 @@ class TestLibraryAnnotator(VendorIDTest):
         work = self._work(with_open_access_download=True)
         identifier_str = work.license_pools[0].identifier.identifier
         uri_parts = ['/annotations', identifier_str]
-        rel_with_partials = {
-            'http://www.w3.org/ns/oa#annotationservice' : uri_parts
-        }
+        annotation_rel = 'http://www.w3.org/ns/oa#annotationservice'
+        rel_with_partials = { annotation_rel : uri_parts }
 
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries
         self.assert_link_on_entry(entry, partials_by_rel=rel_with_partials)
+
+        # If the library does not authenticate patrons, no link to the
+        # annotation service is provided.
+        feed = self.get_parsed_feed(
+            [work], library_supports_patron_authentication=False
+        )
+        [entry] = feed.entries
+        assert annotation_rel not in [x['rel'] for x in entry['links']]
 
     def test_work_entry_includes_updated(self):
         work = self._work(with_open_access_download=True)
@@ -902,7 +986,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # generic tag.
         del feed_tag.attrib[key]
         eq_(etree.tostring(feed_tag), etree.tostring(generic_tag))
-        
+
     def test_borrow_link_raises_unfulfillable_work(self):
         edition, pool = self._edition(with_license_pool=True)
         kindle_mechanism = pool.set_delivery_mechanism(
@@ -1041,6 +1125,20 @@ class TestLibraryAnnotator(VendorIDTest):
         assert "borrow" in borrow.attrib.get("href")
         eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
 
+        # If patron authentication is turned off for the library, then
+        # only open-access links are displayed.
+        annotator.patron_auth = False
+
+        [open_access] = annotator.acquisition_links(
+            loan1.license_pool, loan1, None, None, feed, loan1.license_pool.identifier)
+        eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
+
+        # This happens even when there are active holds in the
+        # database -- there is no way to distinguish one patron from
+        # another so the concept of a 'hold' is meaningless.
+        hold_links = annotator.acquisition_links(
+            hold.license_pool, None, hold, None, feed, hold.license_pool.identifier)
+        eq_([], hold_links)
 
 class TestSharedCollectionAnnotator(DatabaseTest):
     def setup(self):

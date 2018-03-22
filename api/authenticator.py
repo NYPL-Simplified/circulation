@@ -504,6 +504,13 @@ class LibraryAuthenticator(object):
         self.assert_ready_for_oauth()
 
     @property
+    def supports_patron_authentication(self):
+        """Does this library have any way of authenticating patrons at all?"""
+        if self.basic_auth_provider or self.oauth_providers_by_name:
+            return True
+        return False
+
+    @property
     def library(self):
         return Library.by_id(self._db, self.library_id)
         
