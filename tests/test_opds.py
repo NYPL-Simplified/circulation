@@ -418,23 +418,24 @@ class TestLibraryAnnotator(VendorIDTest):
             parsed = feedparser.parse(etree.tostring(entry))
             [entry_parsed] = parsed['entries']
             linksets.append(set([x['rel'] for x in entry_parsed['links']]))
-        
+
         with_auth, no_auth = linksets
 
         # Some links are present no matter what.
         for expect in [u'alternate', u'issues', u'related']:
             assert expect in with_auth
             assert expect in no_auth
-            
-        # Patron authentication allows for some additional links -- a
-        # link to borrow the book and a link to annotate the book.
+
+        # A library with patron authentication offers some additional
+        # links -- one to borrow the book and one to annotate the
+        # book.
         for expect in [
-                u'http://www.w3.org/ns/oa#annotationservice', 
+                u'http://www.w3.org/ns/oa#annotationservice',
                 u'http://opds-spec.org/acquisition/borrow'
         ]:
             assert expect in with_auth
             assert expect not in no_auth
-        
+
     def test_annotate_feed(self):
         lane = self._lane()
         linksets = []
@@ -455,17 +456,17 @@ class TestLibraryAnnotator(VendorIDTest):
         for rel in (
                 'self', 'search', u'http://opds-spec.org/auth/document'
         ):
-            assert link in with_auth
-            assert link in without_auth
+            assert rel in with_auth
+            assert rel in without_auth
 
         # But there's only a bookshelf link and an annotation link
         # when patron authentication is enabled.
-        for link in (
+        for rel in (
                 u'http://opds-spec.org/shelf',
                 u'http://www.w3.org/ns/oa#annotationservice'
         ):
-            assert link in with_auth
-            assert link not in without_auth
+            assert rel in with_auth
+            assert rel not in without_auth
 
 
     def get_parsed_feed(self, works, lane=None, **kwargs):

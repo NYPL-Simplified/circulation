@@ -732,7 +732,7 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
         # So will adding an OAuth provider.
         authenticator.oauth_providers_by_name[object()] = object()
-        eq_(True, authenticator.supports_patron_authentication)        
+        eq_(True, authenticator.supports_patron_authentication)
 
 
     def test_providers(self):
