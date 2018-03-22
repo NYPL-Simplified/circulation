@@ -170,12 +170,13 @@ class AdminController(object):
             )
         return None
 
-    def authenticated_admin_from_request(self):
+    def authenticated_admin_from_request(self, email=None):
         """Returns an authenticated admin or a problem detail."""
         if not self.auth:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        email = flask.session.get("admin_email")
+        email = email or flask.session.get("admin_email")
+
         if email:
             admin = get_one(self._db, Admin, email=email)
             if admin and self.auth.active_credentials(admin):
