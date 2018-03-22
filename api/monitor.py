@@ -18,8 +18,10 @@ from core.monitor import (
     ReaperMonitor,
 )
 from core.model import (
+    Collection,
     DataSource,
     Edition,
+    ExternalIntegration,
     Hold,
     Identifier,
     LicensePool,
@@ -31,6 +33,11 @@ from core.opds_import import (
     OPDSXMLParser,
 )
 from core.util.http import RemoteIntegrationException
+
+from odl import (
+    ODLWithConsolidatedCopiesAPI,
+    SharedODLAPI,
+)
 
 
 class MetadataWranglerCollectionMonitor(CollectionMonitor):
@@ -237,22 +244,40 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
 
 class LoanlikeReaperMonitor(ReaperMonitor):
 
+    SOURCE_OF_TRUTH_PROTOCOLS = [
+        ODLWithConsolidatedCopiesAPI.NAME,
+        SharedODLAPI.NAME
+    ]
+
     @property
     def where_clause(self):
-        """Find loans/holds that have either expired, or that were created a
-        long time ago and have no definite end date.
-        """
-        cls = self.MODEL_CLASS
-        end_field = getattr(cls, 'end')
-        start_field = getattr(cls, 'start')
+        """We never want to automatically reap loans or holds for situations
+        where the circulation manager is the source of truth. If we
+        delete something we shouldn't have, we won't be able to get
+        the 'real' information back.
 
-        now = datetime.datetime.utcnow()
-        expired = end_field < now
-        very_old_with_no_clear_end_date = and_(
-            start_field < self.cutoff,
-            end_field == None
+        This means loans of open-access content and loans from
+        collections based on a protocol found in
+        SOURCE_OF_TRUTH_PROTOCOLS.
+
+        Subclasses will append extra clauses to this filter.
+        """
+        source_of_truth = or_(
+            LicensePool.open_access==True,
+            ExternalIntegration.protocol.in_(
+                self.SOURCE_OF_TRUTH_PROTOCOLS
+            )
         )
-        return or_(expired, very_old_with_no_clear_end_date)
+
+        source_of_truth_subquery = self._db.query(self.MODEL_CLASS.id).join(
+            self.MODEL_CLASS.license_pool).join(
+                LicensePool.collection).join(
+                    ExternalIntegration, 
+                    Collection.external_integration_id==ExternalIntegration.id
+                ).filter(
+                    source_of_truth
+                )
+        return ~self.MODEL_CLASS.id.in_(source_of_truth_subquery)
 
 
 class LoanReaper(LoanlikeReaperMonitor):
@@ -262,21 +287,42 @@ class LoanReaper(LoanlikeReaperMonitor):
 
     @property
     def where_clause(self):
-        """We never want to reap Loans for open-access content -- that
-        'loan' is yours until you delete it.
+        """Find loans that have either expired, or that were created a long
+        time ago and have no definite end date.
         """
-        subquery = self._db.query(Loan.id).join(Loan.license_pool).filter(
-            LicensePool.open_access==True
+        start_field = self.MODEL_CLASS.start
+        end_field = self.MODEL_CLASS.end
+        superclause = super(LoanReaper, self).where_clause
+        now = datetime.datetime.utcnow()
+        expired = end_field < now
+        very_old_with_no_clear_end_date = and_(
+            start_field < self.cutoff,
+            end_field == None
         )
-        return and_(
-            super(LoanReaper, self).where_clause,
-            ~Loan.id.in_(subquery)
-        )
+        return and_(superclause, or_(expired, very_old_with_no_clear_end_date))
 ReaperMonitor.REGISTRY.append(LoanReaper)
 
 
 class HoldReaper(LoanlikeReaperMonitor):
-    """Remove expired and abandoned holds from the database."""
+    """Remove seemingly abandoned holds from the database."""
     MODEL_CLASS = Hold
     MAX_AGE = 365
+
+    @property
+    def where_clause(self):
+        """Find holds that were created a long time ago and either have
+        no end date or have an end date in the past.
+
+        The 'end date' for a hold is just an estimate, but if the estimate
+        is in the future it's better to keep the hold around.
+        """
+        start_field = self.MODEL_CLASS.start
+        end_field = self.MODEL_CLASS.end
+        superclause = super(HoldReaper, self).where_clause
+        end_date_in_past = end_field < datetime.datetime.utcnow()
+        probably_abandoned = and_(
+            start_field < self.cutoff,
+            or_(end_field == None, end_date_in_past)
+        )
+        return and_(superclause, probably_abandoned)
 ReaperMonitor.REGISTRY.append(HoldReaper)

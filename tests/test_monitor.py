@@ -1,4 +1,5 @@
 import datetime
+import random
 from nose.tools import (
     set_trace,
     eq_,
@@ -29,6 +30,11 @@ from api.monitor import (
     LoanReaper,
     MWAuxiliaryMetadataMonitor,
     MWCollectionUpdateMonitor,
+)
+
+from api.odl import (
+    ODLWithConsolidatedCopiesAPI,
+    SharedODLAPI,
 )
 
 
@@ -366,6 +372,14 @@ class TestMWAuxiliaryMetadataMonitor(DatabaseTest):
 class TestLoanlikeReaperMonitor(DatabaseTest):
     """Tests the loan and hold reapers."""
 
+    def test_source_of_truth_protocols(self):
+        """Verify that well-known source of truth protocols
+        will be exempt from the reaper.
+        """
+        for i in (ODLWithConsolidatedCopiesAPI.NAME, SharedODLAPI.NAME):
+            assert i in LoanlikeReaperMonitor.SOURCE_OF_TRUTH_PROTOCOLS
+
+
     def test_reaping(self):
         # This patron stopped using the circulation manager a long time
         # ago.
@@ -386,6 +400,28 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
             open_access=False, data_source_name=DataSource.AXIS_360)
         not_open_access_4 = self._licensepool(edition,
             open_access=False, data_source_name=DataSource.ONECLICK)
+
+        # Here's a collection that is the source of truth for its
+        # loans and holds, rather than mirroring loan and hold information
+        # from some remote source.
+        sot_collection = self._collection(
+            "Source of Truth",
+            protocol=random.choice(LoanReaper.SOURCE_OF_TRUTH_PROTOCOLS)
+        )
+
+        edition2 = self._edition(with_license_pool=False)
+
+        sot_lp1 = self._licensepool(
+            edition2, open_access=False,
+            data_source_name=DataSource.OVERDRIVE,
+            collection=sot_collection
+        )
+
+        sot_lp2 = self._licensepool(
+            edition2, open_access=False,
+            data_source_name=DataSource.BIBLIOTHECA,
+            collection=sot_collection
+        )
 
         now = datetime.datetime.utcnow()
         a_long_time_ago = now - datetime.timedelta(days=1000)
@@ -440,8 +476,19 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
             current_patron, start=not_very_long_ago, end=None
         )
 
-        eq_(3, len(inactive_patron.loans))
-        eq_(2, len(inactive_patron.holds))
+        # Reapers will not touch loans or holds from the
+        # source-of-truth collection, even ones that have 'obviously'
+        # expired.
+        sot_loan, ignore = sot_lp1.loan_to(
+            inactive_patron, start=a_long_time_ago, end=a_long_time_ago
+        )
+
+        sot_hold, ignore = sot_lp2.on_hold_to(
+            inactive_patron, start=a_long_time_ago, end=a_long_time_ago
+        )
+
+        eq_(4, len(inactive_patron.loans))
+        eq_(3, len(inactive_patron.holds))
 
         eq_(2, len(current_patron.loans))
         eq_(2, len(current_patron.holds))
@@ -451,11 +498,13 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
         monitor.run()
 
         # All of the inactive patron's loans have been reaped,
-        # except for the open-access loan, which will never be reaped.
+        # except for the loans for which the circulation manager is the
+        # source of truth (the SOT loan and the open-access loan),
+        # which will never be reaped.
         #
         # Holds are unaffected.
-        eq_([open_access_loan], inactive_patron.loans)
-        eq_(2, len(inactive_patron.holds))
+        eq_(set([open_access_loan, sot_loan]), set(inactive_patron.loans))
+        eq_(3, len(inactive_patron.holds))
 
         # The active patron's loans and holds are unaffected, either
         # because they have not expired or because they have no known
@@ -467,7 +516,8 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
         monitor = HoldReaper(self._db)
         monitor.run()
 
-        # All of the inactive patron's holds have been reaped.
+        # All of the inactive patron's holds have been reaped,
+        # except for the one from the source-of-truth collection.
         # The active patron is unaffected.
-        eq_([], inactive_patron.holds)
+        eq_([sot_hold], inactive_patron.holds)
         eq_(2, len(current_patron.holds))
