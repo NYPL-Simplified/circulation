@@ -44,6 +44,7 @@ from model import (
     Timestamp, 
     Work,
 )
+from lane import Lane
 from oneclick import MockOneClickAPI
 
 from scripts import (
@@ -53,6 +54,7 @@ from scripts import (
     CollectionInputScript,
     ConfigureCollectionScript,
     ConfigureIntegrationScript,
+    ConfigureLaneScript,
     ConfigureLibraryScript,
     ConfigureSiteScript,
     CustomListManagementScript,
@@ -78,6 +80,7 @@ from scripts import (
     Script,
     ShowCollectionsScript,
     ShowIntegrationsScript,
+    ShowLanesScript,
     ShowLibrariesScript,
     WorkClassificationScript,
     WorkProcessingScript,
@@ -1860,7 +1863,110 @@ class TestConfigureIntegrationScript(DatabaseTest):
 
         expect_output = "Configuration settings stored.\n" + "\n".join(integration.explain()) + "\n"
         eq_(expect_output, output.getvalue())
-       
+
+class TestShowLanesScript(DatabaseTest):
+
+    def test_with_no_lanes(self):
+        output = StringIO()
+        ShowLanesScript().do_run(self._db, output=output)
+        eq_("No lanes found.\n", output.getvalue())
+
+    def test_with_multiple_lanes(self):
+        l1 = self._lane()
+        l2 = self._lane()
+
+        # The output of this script is the result of running explain()
+        # on both lanes.
+        output = StringIO()
+        ShowLanesScript().do_run(self._db, output=output)
+        expect_1 = "\n".join(l1.explain())
+        expect_2 = "\n".join(l2.explain())
+        
+        eq_(expect_1 + "\n\n" + expect_2 + "\n\n", output.getvalue())
+
+        # We can tell the script to only list a single lane.
+        output = StringIO()
+        ShowLanesScript().do_run(
+            self._db,
+            cmd_args=["--id=%s" % l2.id],
+            output=output
+        )
+        eq_(expect_2 + "\n\n", output.getvalue())
+
+class TestConfigureLaneScript(DatabaseTest):
+    
+    def test_bad_arguments(self):
+        script = ConfigureLaneScript()
+
+        # No lane id but no library short name for creating it either.
+        assert_raises_regexp(
+            ValueError,
+            'Library short name is required to create a new lane',
+            script.do_run, self._db, []
+        )
+
+        # Try to create a lane for a nonexistent library.
+        assert_raises_regexp(
+            ValueError,
+            'No such library: "nosuchlibrary".',
+            script.do_run, self._db, [
+                "--library-short-name=nosuchlibrary"
+            ]
+        )
+
+
+    def test_create_lane(self):
+        script = ConfigureLaneScript()
+        parent = self._lane()
+
+        # Create a lane and set its attributes.
+        output = StringIO()
+        script.do_run(
+            self._db, ["--library-short-name=%s" % self._default_library.short_name,
+                       "--parent-id=%s" % parent.id,
+                       "--priority=3",
+                       "--display-name=NewLane",
+            ], output
+        )
+
+        # The lane was created and configured properly.
+        lane = get_one(self._db, Lane, display_name="NewLane")
+        eq_(self._default_library, lane.library)
+        eq_(parent, lane.parent)
+        eq_(3, lane.priority)
+
+        # The output explains the lane settings.
+        expect = ("Lane settings stored.\n"
+                  + "\n".join(lane.explain()) + "\n")
+        eq_(expect, output.getvalue())
+
+    def test_reconfigure_lane(self):
+        # The lane exists.
+        lane = self._lane(display_name="Name")
+        lane.priority = 3
+
+        parent = self._lane()
+
+        script = ConfigureLaneScript()
+        output = StringIO()
+
+        script.do_run(
+            self._db, [
+                "--id=%s" % lane.id,
+                "--priority=1",
+                "--parent-id=%s" % parent.id,
+            ],
+            output
+        )
+
+        # The lane has been changed.
+        eq_(1, lane.priority)
+        eq_(parent, lane.parent)
+        expect = ("Lane settings stored.\n"
+                  + "\n".join(lane.explain()) + "\n")
+        
+        eq_(expect, output.getvalue())
+
 
 class TestCollectionInputScript(DatabaseTest):
     """Test the ability to name collections on the command line."""
