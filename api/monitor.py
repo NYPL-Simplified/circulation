@@ -7,17 +7,25 @@ from lxml import etree
 from nose.tools import set_trace
 from StringIO import StringIO
 
-from sqlalchemy import or_
+from sqlalchemy import (
+    and_,
+    or_,
+)
 
 from core.monitor import (
     CollectionMonitor,
     EditionSweepMonitor,
+    ReaperMonitor,
 )
 from core.model import (
+    Collection,
     DataSource,
     Edition,
+    ExternalIntegration,
+    Hold,
     Identifier,
     LicensePool,
+    Loan,
 )
 from core.opds_import import (
     MetadataWranglerOPDSLookup,
@@ -25,6 +33,11 @@ from core.opds_import import (
     OPDSXMLParser,
 )
 from core.util.http import RemoteIntegrationException
+
+from odl import (
+    ODLWithConsolidatedCopiesAPI,
+    SharedODLAPI,
+)
 
 
 class MetadataWranglerCollectionMonitor(CollectionMonitor):
@@ -228,3 +241,89 @@ class MWAuxiliaryMetadataMonitor(MetadataWranglerCollectionMonitor):
         parsed_feed = feedparser.parse(feed)
         next_links = self.importer.extract_next_links(parsed_feed)
         return mapped_identifiers, next_links
+
+class LoanlikeReaperMonitor(ReaperMonitor):
+
+    SOURCE_OF_TRUTH_PROTOCOLS = [
+        ODLWithConsolidatedCopiesAPI.NAME,
+        SharedODLAPI.NAME,
+        ExternalIntegration.OPDS_FOR_DISTRIBUTORS,
+    ]
+
+    @property
+    def where_clause(self):
+        """We never want to automatically reap loans or holds for situations
+        where the circulation manager is the source of truth. If we
+        delete something we shouldn't have, we won't be able to get
+        the 'real' information back.
+
+        This means loans of open-access content and loans from
+        collections based on a protocol found in
+        SOURCE_OF_TRUTH_PROTOCOLS.
+
+        Subclasses will append extra clauses to this filter.
+        """
+        source_of_truth = or_(
+            LicensePool.open_access==True,
+            ExternalIntegration.protocol.in_(
+                self.SOURCE_OF_TRUTH_PROTOCOLS
+            )
+        )
+
+        source_of_truth_subquery = self._db.query(self.MODEL_CLASS.id).join(
+            self.MODEL_CLASS.license_pool).join(
+                LicensePool.collection).join(
+                    ExternalIntegration, 
+                    Collection.external_integration_id==ExternalIntegration.id
+                ).filter(
+                    source_of_truth
+                )
+        return ~self.MODEL_CLASS.id.in_(source_of_truth_subquery)
+
+
+class LoanReaper(LoanlikeReaperMonitor):
+    """Remove expired and abandoned loans from the database."""
+    MODEL_CLASS = Loan
+    MAX_AGE = 90
+
+    @property
+    def where_clause(self):
+        """Find loans that have either expired, or that were created a long
+        time ago and have no definite end date.
+        """
+        start_field = self.MODEL_CLASS.start
+        end_field = self.MODEL_CLASS.end
+        superclause = super(LoanReaper, self).where_clause
+        now = datetime.datetime.utcnow()
+        expired = end_field < now
+        very_old_with_no_clear_end_date = and_(
+            start_field < self.cutoff,
+            end_field == None
+        )
+        return and_(superclause, or_(expired, very_old_with_no_clear_end_date))
+ReaperMonitor.REGISTRY.append(LoanReaper)
+
+
+class HoldReaper(LoanlikeReaperMonitor):
+    """Remove seemingly abandoned holds from the database."""
+    MODEL_CLASS = Hold
+    MAX_AGE = 365
+
+    @property
+    def where_clause(self):
+        """Find holds that were created a long time ago and either have
+        no end date or have an end date in the past.
+
+        The 'end date' for a hold is just an estimate, but if the estimate
+        is in the future it's better to keep the hold around.
+        """
+        start_field = self.MODEL_CLASS.start
+        end_field = self.MODEL_CLASS.end
+        superclause = super(HoldReaper, self).where_clause
+        end_date_in_past = end_field < datetime.datetime.utcnow()
+        probably_abandoned = and_(
+            start_field < self.cutoff,
+            or_(end_field == None, end_date_in_past)
+        )
+        return and_(superclause, probably_abandoned)
+ReaperMonitor.REGISTRY.append(HoldReaper)
