@@ -44,7 +44,6 @@ from monitor import (
     PermanentWorkIDRefreshMonitor,
     PresentationReadyWorkSweepMonitor,
     ReaperMonitor,
-    SubjectAssignmentMonitor,
     SubjectSweepMonitor,
     SweepMonitor,
     WorkRandomnessUpdateMonitor,
