@@ -35,7 +35,7 @@ from flask_babel import lazy_gettext as _
 #  https://github.com/pallets/flask/issues/879
 #
 @app.before_first_request
-def initialize_circulation_manager(): 
+def initialize_circulation_manager():
     if os.environ.get('AUTOINITIALIZE') == "False":
         # It's the responsibility of the importing code to set app.manager
         # appropriately.
@@ -52,7 +52,7 @@ def monkeypatch_try_trigger_before_first_request_functions(self):
     """Called before each request and will ensure that it triggers
     the :attr:`before_first_request_funcs` and only exactly once per
     application instance (which means process usually).
-    
+
     :internal:
     """
     if self._got_first_request:
@@ -61,7 +61,7 @@ def monkeypatch_try_trigger_before_first_request_functions(self):
         if self._got_first_request:
             return
         for func in self.before_first_request_funcs:
-            func() 
+            func()
         self._got_first_request = True
 
 from flask import Flask
@@ -74,8 +74,8 @@ def get_locale():
 
 @app.teardown_request
 def shutdown_session(exception):
-    if (hasattr(app, 'manager') 
-        and hasattr(app.manager, '_db') 
+    if (hasattr(app, 'manager')
+        and hasattr(app.manager, '_db')
         and app.manager._db
     ):
         if exception:
@@ -336,7 +336,7 @@ def annotations_for_work(identifier_type, identifier):
     return app.manager.annotations.container_for_work(identifier_type, identifier)
 
 @library_route('/works/<identifier_type>/<path:identifier>/borrow', methods=['GET', 'PUT'])
-@library_route('/works/<identifier_type>/<path:identifier>/borrow/<mechanism_id>', 
+@library_route('/works/<identifier_type>/<path:identifier>/borrow/<mechanism_id>',
            methods=['GET', 'PUT'])
 @has_library
 @allows_patron_web
@@ -473,7 +473,7 @@ def adobe_drm_devices():
 @returns_problem_detail
 def adobe_drm_device(device_id):
     return app.manager.adobe_device_management.device_id_handler(device_id)
-    
+
 # Route that redirects to the authentication URL for an OAuth provider
 @library_route('/oauth_authenticate')
 @has_library

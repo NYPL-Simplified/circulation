@@ -718,6 +718,7 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(lane, ProblemDetail):
             return lane
         query = flask.request.args.get('q')
+        media = flask.request.args.get('media')
         library_short_name = flask.request.library.short_name
         this_url = self.url_for(
             'lane_search', lane_identifier=lane_identifier,
@@ -732,13 +733,17 @@ class OPDSFeedController(CirculationManagerController):
             return pagination
 
         # Run a search.
+        if media:
+            media_url = "&media=" + urllib.quote(media.encode("utf8"))
+        else:
+            media_url = ''
         this_url += "?q=" + urllib.quote(query.encode("utf8"))
         annotator = self.manager.annotator(lane)
         info = OpenSearchDocument.search_info(lane)
         opds_feed = AcquisitionFeed.search(
             _db=self._db, title=info['name'],
             url=this_url, lane=lane, search_engine=self.manager.external_search,
-            query=query, annotator=annotator, pagination=pagination,
+            query=query, media=media, annotator=annotator, pagination=pagination,
         )
         return feed_response(opds_feed)
 
