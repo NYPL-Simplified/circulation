@@ -18,5 +18,4 @@
             WHEN duplicate_table THEN RAISE NOTICE 'Warning: ix_cachedfeeds_timestamp already exists.';
         END;
     END;
-END
 $$;
