@@ -18,6 +18,7 @@ from core.monitor import (
     ReaperMonitor,
 )
 from core.model import (
+    Annotation,
     Collection,
     DataSource,
     Edition,
@@ -327,3 +328,42 @@ class HoldReaper(LoanlikeReaperMonitor):
         )
         return and_(superclause, probably_abandoned)
 ReaperMonitor.REGISTRY.append(HoldReaper)
+
+
+class IdlingAnnotationReaper(ReaperMonitor):
+    """Remove idling annotations for inactive loans."""
+
+    MODEL_CLASS = Annotation
+    TIMESTAMP_FIELD = 'timestamp'
+    MAX_AGE = 60
+
+    @property
+    def where_clause(self):
+        """The annotation must have motivation=IDLING, must be at least 60
+        days old (meaning there has been no attempt to read the book
+        for 60 days), and must not be associated with one of the
+        patron's active loans or holds.
+        """
+        superclause = super(IdlingAnnotationReaper, self).where_clause
+
+        restrictions = []
+        for t in Loan, Hold:
+            active_subquery = self._db.query(
+                Annotation.id
+            ).join(
+                t,
+                t.patron_id==Annotation.patron_id
+            ).join(
+                LicensePool,
+                and_(LicensePool.id==t.license_pool_id,
+                     LicensePool.identifier_id==Annotation.identifier_id)
+            )
+            restrictions.append(
+                ~Annotation.id.in_(active_subquery)
+            )
+        return and_(
+            superclause,
+            Annotation.motivation==Annotation.IDLING,
+            *restrictions
+        )
+ReaperMonitor.REGISTRY.append(IdlingAnnotationReaper)
