@@ -11,6 +11,7 @@ from . import (
 )
 
 from core.model import (
+    Annotation,
     Collection,
     CoverageRecord,
     DataSource,
@@ -26,6 +27,7 @@ from core.util.opds_writer import OPDSFeed
 
 from api.monitor import (
     HoldReaper,
+    IdlingAnnotationReaper,
     LoanlikeReaperMonitor,
     LoanReaper,
     MWAuxiliaryMetadataMonitor,
@@ -525,3 +527,64 @@ class TestLoanlikeReaperMonitor(DatabaseTest):
         # The active patron is unaffected.
         eq_([sot_hold], inactive_patron.holds)
         eq_(2, len(current_patron.holds))
+
+
+class TestIdlingAnnotationReaper(DatabaseTest):
+
+    def test_where_clause(self):
+
+        # Two books.
+        ignore, lp1 = self._edition(with_license_pool=True)
+        ignore, lp2 = self._edition(with_license_pool=True)
+
+        # Two patrons who sync their annotations.
+        p1 = self._patron()
+        p2 = self._patron()
+        for p in [p1, p2]:
+            p.synchronize_annotations = True
+        now = datetime.datetime.utcnow()
+        not_that_old = now - datetime.timedelta(days=59)
+        very_old = now - datetime.timedelta(days=61)
+
+        def _annotation(patron, pool, content, motivation=Annotation.IDLING,
+                        timestamp=very_old):
+            annotation, ignore = Annotation.get_one_or_create(
+                self._db,
+                patron=patron,
+                identifier=pool.identifier,
+                motivation=motivation,
+            )
+            annotation.timestamp = timestamp
+            annotation.content = content
+            return annotation
+
+        # The first patron will not be affected by the
+        # reaper. Although their annotations are very old, they have
+        # an active loan for one book and a hold on the other.
+        loan = lp1.loan_to(p1)
+        old_loan = _annotation(p1, lp1, "old loan")
+
+        hold = lp2.on_hold_to(p1)
+        old_hold = _annotation(p1, lp2, "old hold")
+
+        # The second patron has a very old annotation for the first
+        # book. This is the only annotation that will be affected by
+        # the reaper.
+        reapable = _annotation(p2, lp1, "abandoned")
+
+        # The second patron also has a very old non-idling annotation
+        # for the first book, which will not be reaped because only
+        # idling annotations are reaped.
+        not_idling = _annotation(
+            p2, lp1, "not idling", motivation="some other motivation"
+        )
+
+        # The second patron has a non-old idling annotation for the
+        # second book, which will not be reaped (even though there is
+        # no active loan or hold) because it's not old enough.
+        new_idling = _annotation(
+            p2, lp2, "recent", timestamp=not_that_old
+        )
+        reaper = IdlingAnnotationReaper(self._db)
+        qu = self._db.query(Annotation).filter(reaper.where_clause)
+        eq_([reapable], qu.all())
