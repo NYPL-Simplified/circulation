@@ -46,6 +46,7 @@ from model import (
     Identifier,
     LicensePool,
     Measurement,
+    Representation,
     Subject,
     RightsStatus,
 )
@@ -58,7 +59,7 @@ from util.opds_writer import (
     OPDSFeed,
     OPDSMessage,
 )
-from s3 import S3Uploader
+from mirror import MirrorUploader
 
 
 class AccessNotAuthenticated(Exception):
@@ -123,6 +124,7 @@ class MetadataWranglerOPDSLookup(SimplifiedOPDSLookup):
 
     PROTOCOL = ExternalIntegration.METADATA_WRANGLER
     NAME = _("Library Simplified Metadata Wrangler")
+    CARDINALITY = 1
 
     SETTINGS = [
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": "http://metadata.librarysimplified.org/" },
@@ -344,7 +346,9 @@ class OPDSImporter(object):
 
     NAME = ExternalIntegration.OPDS_IMPORT
     DESCRIPTION = _("Import books from a publicly-accessible OPDS feed.")
-    SETTINGS = [
+
+    # These settings are used by all OPDS-derived import methods.
+    BASE_SETTINGS = [
         {
             "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("URL"),
@@ -352,7 +356,24 @@ class OPDSImporter(object):
         {
             "key": Collection.DATA_SOURCE_NAME_SETTING,
             "label": _("Data source name"),
-        }
+        },
+    ]
+
+    # These settings are used by 'regular' OPDS but not by OPDS For
+    # Distributors, which has its own way of doing authentication.
+    SETTINGS = BASE_SETTINGS + [
+        {
+            "key": ExternalIntegration.USERNAME,
+            "label": _("Username"),
+            "optional": True,
+            "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the username here."),
+        },
+        {
+            "key": ExternalIntegration.PASSWORD,
+            "label": _("Password"),
+            "optional": True,
+            "description": _("If HTTP Basic authentication is required to access the OPDS feed (it usually isn't), enter the password here."),
+        },
     ]
 
     # Subclasses of OPDSImporter may define a different parser class that's
@@ -419,9 +440,19 @@ class OPDSImporter(object):
             # The Metadata Wrangler isn't configured, but we can import without it.
             self.log.warn("Metadata Wrangler integration couldn't be loaded, importing without it.")
             self.metadata_client = None
+
+        if collection and not mirror:
+            # If this Collection is configured to mirror the assets it
+            # discovers, this will create a MirrorUploader for that
+            # Collection. Otherwise, this will return None.
+            mirror = MirrorUploader.for_collection(collection)
         self.mirror = mirror
         self.content_modifier = content_modifier
-        self.http_get = http_get
+
+        # In general, we are cautious when mirroring resources so that
+        # we don't, e.g. accidentally get our IP banned from
+        # gutenberg.org.
+        self.http_get = http_get or Representation.cautious_http_get
         self.map_from_collection = map_from_collection
 
     @property
@@ -1418,6 +1449,7 @@ class OPDSImporter(object):
         series_position = attr.get('{http://schema.org/}position', None)
         return series_name, series_position
 
+
 class OPDSImportMonitor(CollectionMonitor):
 
     """Periodically monitor a Collection's OPDS archive feed and import
@@ -1450,14 +1482,16 @@ class OPDSImportMonitor(CollectionMonitor):
                 )
             )
 
-        data_source = collection.data_source
+        data_source = self.data_source(collection)
         if not data_source:
             raise ValueError(
                 "Collection %s has no associated data source." % collection.name
             )
 
-        self.feed_url = collection.external_account_id
+        self.feed_url = self.opds_url(collection)
         self.force_reimport = force_reimport
+        self.username = collection.external_integration.username
+        self.password = collection.external_integration.password
         self.importer = import_class(
             _db, collection=collection, **import_class_kwargs
         )
@@ -1468,18 +1502,42 @@ class OPDSImportMonitor(CollectionMonitor):
 
         Long timeout, raise error on anything but 2xx or 3xx.
         """
-        headers = dict(headers or {})
-
-        types = dict(
-            opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
-            atom="application/atom+xml",
-            xml="application/xml",
-            anything="*/*",
-        )
-        headers['Accept'] = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
+        headers = self._update_headers(headers)
         kwargs = dict(timeout=120, allowed_response_codes=['2xx', '3xx'])
         response = HTTP.get_with_timeout(url, headers=headers, **kwargs)
         return response.status_code, response.headers, response.content
+
+    def _update_headers(self, headers):
+        headers = dict(headers or {})
+        if self.username and self.password and not 'Authorization' in headers:
+            auth_header = "Basic %s" % base64.b64encode("%s:%s" % (self.username, self.password))
+            headers['Authorization'] = auth_header
+
+        if not 'Accept' in headers:
+            types = dict(
+                opds_acquisition=OPDSFeed.ACQUISITION_FEED_TYPE,
+                atom="application/atom+xml",
+                xml="application/xml",
+                anything="*/*",
+            )
+            headers['Accept'] = "%(opds_acquisition)s, %(atom)s;q=0.9, %(xml)s;q=0.8, %(anything)s;q=0.1" % types
+        return headers
+
+    def opds_url(self, collection):
+        """Returns the OPDS import URL for the given collection.
+
+        By default, this URL is stored as the external account ID, but
+        subclasses may override this.
+        """
+        return collection.external_account_id
+
+    def data_source(self, collection):
+        """Returns the data source name for the given collection.
+
+        By default, this URL is stored as a setting on the collection, but
+        subclasses may hard-code it.
+        """
+        return collection.data_source
 
     def feed_contains_new_data(self, feed):
         """Does the given feed contain any entries that haven't been imported
@@ -1581,7 +1639,7 @@ class OPDSImportMonitor(CollectionMonitor):
         """
         self.log.info("Following next link: %s", url)
         get = do_get or self._get
-        status_code, content_type, feed = get(url, None)
+        status_code, content_type, feed = get(url, {})
 
         new_data = self.feed_contains_new_data(feed)
 
@@ -1604,7 +1662,7 @@ class OPDSImportMonitor(CollectionMonitor):
         imported_editions, pools, works, failures = self.importer.import_from_feed(
             feed, even_if_no_author=True,
             immediately_presentation_ready = True,
-            feed_url=self.collection.external_account_id
+            feed_url=self.opds_url(self.collection)
         )
 
         # Create CoverageRecords for the successful imports.
@@ -1648,15 +1706,3 @@ class OPDSImportMonitor(CollectionMonitor):
             self.log.info("Importing next feed: %s", link)
             self.import_one_feed(feed)
             self._db.commit()
-
-
-class OPDSImporterWithS3Mirror(OPDSImporter):
-    """OPDS Importer that mirrors content to S3."""
-
-    def __init__(self, _db, collection, **kwargs):
-        kwargs = dict(kwargs)
-        if 'mirror' not in kwargs:
-            kwargs['mirror'] = S3Uploader.from_config(_db)
-        super(OPDSImporterWithS3Mirror, self).__init__(
-            _db, collection, **kwargs
-        )

@@ -1,3 +1,5 @@
+drop materialized view mv_works_for_lanes;
+
 -- Create the materialized view with no data.
 create materialized view mv_works_for_lanes
 as
@@ -52,27 +54,19 @@ as
   ORDER BY (editions.sort_title, editions.sort_author, licensepools.availability_time)
   WITH NO DATA;
 
--- Put an index on all foreign keys.
-create index ix_mv_works_for_lanes_works_id on mv_works_for_lanes (works_id);
-create index ix_mv_works_for_lanes_license_pool_id on mv_works_for_lanes (license_pool_id);
-create index ix_mv_works_for_lanes_workgenres_id on mv_works_for_lanes (workgenres_id);
-create index ix_mv_works_for_lanes_list_id on mv_works_for_lanes (list_id);
-create index ix_mv_works_for_lanes_list_edition_id on mv_works_for_lanes (list_edition_id);
-
 -- First create an index that allows work/genre lookup. It's unique and incorporates license_pool_id so that the materialized view can be refreshed CONCURRENTLY.
 -- NOTE: All fields mentioned here also need to be part of the primary key
 -- for the model object defined in model.py.
 create unique index mv_works_for_lanes_unique on mv_works_for_lanes (works_id, genre_id, list_id, list_edition_id, license_pool_id);
 
 -- Create an index on everything, sorted by descending availability time, so that sync feeds are fast.
--- TODO: This index might not be necessary anymore.
+
 create index mv_works_for_lanes_by_availability on mv_works_for_lanes (availability_time DESC, sort_author, sort_title, works_id);
 
--- Create an index on everything, sorted by 'last update time' (the thing used by crawlable feeds).
-create index mv_works_for_lanes_by_recently_updated on mv_works_for_lanes (GREATEST(availability_time, first_appearance, last_update_time) DESC, collection_id, works_id);
+-- Create an index on everything, sorted by the maximum of entry first appearance, license pool availability time, and work update time, so that crawlable feeds are fast.
 
--- This index quickly cuts down the number of rows considered when generating feeds for a custom list or the intersection of multiple custom lists.
-create index mv_works_for_lanes_list_id_collection_id_language_medium on mv_works_for_lanes (list_id, collection_id, language, medium);
+-- MIGRATION NOTE: We don't create mv_works_for_lanes_by_recently_updated here
+-- because it will be created in 20180307-replace-recently-updated-index.
 
 -- Create indexes that are helpful in running the query to find featured works.
 
@@ -85,9 +79,6 @@ create index mv_works_for_lanes_by_random_fiction_audience_target_age on mv_work
 -- Similarly, an index on everything, sorted by descending update time.
 
 create index mv_works_for_lanes_by_modification on mv_works_for_lanes (last_update_time DESC, sort_author, sort_title, works_id);
-
--- This index is useful when building feeds of recommended titles.
-create index mv_works_for_lanes_identifier_id on mv_works_for_lanes (identifier_id);
 
 -- We need three versions of each index:
 --- One that orders by sort_author, sort_title, and works_id
@@ -144,5 +135,6 @@ create index mv_works_for_lanes_ya_nonfiction_by_title on mv_works_for_lanes (so
 
 create index mv_works_for_lanes_ya_nonfiction_by_availability on mv_works_for_lanes (availability_time DESC, sort_author, sort_title, language, works_id) WHERE audience in ('Children', 'Young Adult') AND fiction = false;
 
--- The materialized view will be refreshed as part of initialization.
+-- Refresh the new materialized view.
+refresh materialized view mv_works_for_lanes;
 

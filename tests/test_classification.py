@@ -28,6 +28,7 @@ from classifier import (
     Axis360AudienceClassifier,
     Lowercased,
     WorkClassifier,
+    Lowercased,
     fiction_genres,
     nonfiction_genres,
     GenreData,
@@ -35,6 +36,30 @@ from classifier import (
 
 genres = dict()
 GenreData.populate(globals(), genres, fiction_genres, nonfiction_genres)
+
+
+class TestLowercased(object):
+
+    def test_constructor(self):
+
+        l = Lowercased("A string")
+
+        # A string is lowercased.
+        eq_("a string", l)
+
+        # A Lowercased object is returned rather than creating a new
+        # object.
+        assert Lowercased(l) is l
+
+        # A number such as a Dewey Decimal number is converted to a string.
+        eq_(u"301", Lowercased(301))
+
+        # A trailing period is removed.
+        l = Lowercased("A string.")
+        eq_("a string", l)
+
+        # The original value is still available.
+        eq_("A string.", l.original)
 
 
 class TestGenreData(object):
@@ -1394,7 +1419,8 @@ class TestWorkClassifier(DatabaseTest):
         eq_(True, fiction)
 
     def test_staff_audience_overrides_others(self):
-        source = DataSource.lookup(self._db, DataSource.AXIS_360)
+        pool = self._licensepool(None, data_source_name=DataSource.AXIS_360)
+        license_source = pool.data_source
         staff_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         subject1 = self._subject(type="type1", identifier="subject1")
         subject1.audience = "Adult"
@@ -1405,13 +1431,13 @@ class TestWorkClassifier(DatabaseTest):
             identifier="Children"
         )
         classification1 = self._classification(
-            identifier=self.identifier, subject=subject1,
-            data_source=source, weight=10)
+            identifier=pool.identifier, subject=subject1,
+            data_source=license_source, weight=10)
         classification2 = self._classification(
-            identifier=self.identifier, subject=subject2,
-            data_source=source, weight=10)
+            identifier=pool.identifier, subject=subject2,
+            data_source=license_source, weight=10)
         classification3 = self._classification(
-            identifier=self.identifier, subject=subject3,
+            identifier=pool.identifier, subject=subject3,
             data_source=staff_source, weight=1)
         self.classifier.add(classification1)
         self.classifier.add(classification2)

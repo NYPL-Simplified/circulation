@@ -33,6 +33,7 @@ from model import (
     Complaint, 
     ConfigurationSetting,
     Contributor, 
+    CoverageRecord,
     CustomList,
     DataSource,
     Edition,
@@ -43,6 +44,7 @@ from model import (
     Timestamp, 
     Work,
 )
+from lane import Lane
 from oneclick import MockOneClickAPI
 
 from scripts import (
@@ -52,6 +54,7 @@ from scripts import (
     CollectionInputScript,
     ConfigureCollectionScript,
     ConfigureIntegrationScript,
+    ConfigureLaneScript,
     ConfigureLibraryScript,
     ConfigureSiteScript,
     CustomListManagementScript,
@@ -70,10 +73,14 @@ from scripts import (
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
     RunMonitorScript,
+    RunMultipleMonitorsScript,
+    RunReaperMonitorsScript,
+    RunThreadedCollectionCoverageProviderScript,
     RunWorkCoverageProviderScript,
     Script,
     ShowCollectionsScript,
     ShowIntegrationsScript,
+    ShowLanesScript,
     ShowLibrariesScript,
     WorkClassificationScript,
     WorkProcessingScript,
@@ -81,13 +88,19 @@ from scripts import (
 from testing import(
     AlwaysSuccessfulBibliographicCoverageProvider,
     BrokenBibliographicCoverageProvider,
+    AlwaysSuccessfulCollectionCoverageProvider,
     AlwaysSuccessfulWorkCoverageProvider,
 )
 from monitor import (
+    Monitor,
     CollectionMonitor,
+    ReaperMonitor,
 )
 from util.opds_writer import (
     OPDSFeed,
+)
+from util.worker_pools import (
+    DatabasePool,
 )
 
 
@@ -256,6 +269,13 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
+class SuccessMonitor(Monitor):
+    """A simple Monitor that alway succeeds."""
+    SERVICE_NAME = "Success"
+    def run(self):
+        self.ran = True
+
+
 class OPDSCollectionMonitor(CollectionMonitor):
     """Mock Monitor for use in tests of Run*MonitorScript."""
     SERVICE_NAME = "Test Monitor"
@@ -274,6 +294,7 @@ class DoomedCollectionMonitor(CollectionMonitor):
     SERVICE_NAME = "Doomed Monitor"
     PROTOCOL = ExternalIntegration.OPDS_IMPORT
     def run_once(self, *args, **kwargs):
+        self.ran = True
         self.collection.doomed = True
         raise Exception("Doomed!")
         
@@ -294,10 +315,44 @@ class TestRunMonitorScript(DatabaseTest):
         for c in [c1, c2]:
             eq_("test value", c.ran_with_argument)
         
+
+class TestRunMultipleMonitorsScript(DatabaseTest):
+
+    def test_do_run(self):
+        m1 = SuccessMonitor(self._db)
+        m2 = DoomedCollectionMonitor(self._db, self._default_collection)
+        m3 = SuccessMonitor(self._db)
+
+        class MockScript(RunMultipleMonitorsScript):
+            name = "Run three monitors"
+            def monitors(self, **kwargs):
+                self.kwargs = kwargs
+                return [m1, m2, m3]
+
+        # Run the script.
+        script = MockScript(self._db, kwarg="value")
+        script.do_run()
+
+        # The kwarg we passed in to the MockScript constructor was
+        # propagated into the monitors() method.
+        eq_(dict(kwarg="value"), script.kwargs)
+
+        # All three monitors were run, even though the
+        # second one raised an exception.
+        eq_(True, m1.ran)
+        eq_(True, m2.ran)
+        eq_(True, m3.ran)
+
+        # The exception that crashed the second monitor was stored as
+        # .exception, in case we want to look at it.
+        eq_("Doomed!", m2.exception.message)
+        eq_(None, getattr(m1, 'exception', None))
+
         
 class TestRunCollectionMonitorScript(DatabaseTest):
 
-    def test_all(self):
+
+    def test_monitors(self):
         # Here we have three OPDS import Collections...
         o1 = self._collection()
         o2 = self._collection()
@@ -306,37 +361,31 @@ class TestRunCollectionMonitorScript(DatabaseTest):
         # ...and a Bibliotheca collection.
         b1 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
 
-        script = RunCollectionMonitorScript(
-            OPDSCollectionMonitor, self._db, test_argument="test value"
-        )
-        script.run()
+        script = RunCollectionMonitorScript(OPDSCollectionMonitor, self._db)
 
-        # Running the script instantiates an OPDSCollectionMonitor for
-        # every Collection and calls run_once() on each one. This
-        # propagates a value sent into the script constructor to the
-        # Collection object.
-        for i in [o1, o2, o3]:
-            eq_("test value", i.ran_with_argument)
+        # Calling monitors() instantiates an OPDSCollectionMonitor
+        # for every OPDS import collection. The Bibliotheca collection
+        # is unaffected.
+        monitors = script.monitors()
+        collections = [x.collection for x in monitors]
+        eq_(set(collections), set([o1, o2, o3]))
+        for i in monitors:
+            assert isinstance(monitor, OPDSCollectionMonitor)
 
-        # Nothing happened to the Bibliotheca collection.
-        assert not hasattr(b1, 'ran_with_argument')
 
-    def test_keep_going_on_failure(self):
-        # Here we have two Collections that are going to be run
-        # through a CollectionMonitor that always fails.
-        o1 = self._collection()
-        o2 = self._collection()
-        script = RunCollectionMonitorScript(
-            DoomedCollectionMonitor, self._db
-        )
-        script.run()
+class TestRunReaperMonitorsScript(DatabaseTest):
 
-        # Even though run_once() raised an exception, it didn't stop
-        # the script from calling run_once() again for the second
-        # collection.
-        assert(True, o1.doomed)
-        assert(True, o2.doomed)
-        
+    def test_monitors(self):
+        """This script instantiates a Monitor for every class in
+        ReaperMonitor.REGISTRY.
+        """
+        old_registry = ReaperMonitor.REGISTRY
+        ReaperMonitor.REGISTRY = [SuccessMonitor]
+        script = RunReaperMonitorsScript(self._db)
+        [monitor] = script.monitors()
+        assert isinstance(monitor, SuccessMonitor)
+        ReaperMonitor.REGISTRY = old_registry
+
 
 class TestPatronInputScript(DatabaseTest):
 
@@ -502,6 +551,67 @@ class TestRunCoverageProviderScript(DatabaseTest):
         eq_(datetime.datetime(2016, 5, 1), parsed.cutoff_time)
         eq_([identifier], parsed.identifiers)
         eq_(identifier.type, parsed.identifier_type)
+
+
+class TestRunThreadedCollectionCoverageProviderScript(DatabaseTest):
+
+    def test_run(self):
+        provider = AlwaysSuccessfulCollectionCoverageProvider
+        script = RunThreadedCollectionCoverageProviderScript(
+            provider, worker_size=2, _db=self._db
+        )
+
+        # If there are no collections for the provider, run does nothing.
+        # Pass a mock pool that will raise an error if it's used.
+        pool = object()
+        collection = self._collection(protocol=ExternalIntegration.ENKI)
+
+        # Run exits without a problem because the pool is never touched.
+        script.run(pool=pool)
+
+        # Create some identifiers that need coverage.
+        collection = self._collection()
+        ed1, lp1 = self._edition(collection=collection, with_license_pool=True)
+        ed2, lp2 = self._edition(collection=collection, with_license_pool=True)
+        ed3 = self._edition()
+
+        [id1, id2, id3] = [e.primary_identifier for e in (ed1, ed2, ed3)]
+
+        # Set a timestamp for the provider.
+        timestamp = Timestamp.stamp(
+            self._db, provider.SERVICE_NAME, collection
+        )
+        original_timestamp = timestamp.timestamp
+        self._db.commit()
+
+        pool = DatabasePool(2, script.session_factory)
+        script.run(pool=pool)
+        self._db.commit()
+
+        # The expected number of workers and jobs have been created.
+        eq_(2, len(pool.workers))
+        eq_(1, pool.job_total)
+
+        # All relevant identifiers have been given coverage.
+        source = DataSource.lookup(self._db, provider.DATA_SOURCE_NAME)
+        identifiers_missing_coverage = Identifier.missing_coverage_from(
+            self._db, provider.INPUT_IDENTIFIER_TYPES, source,
+        )
+        eq_([id3], identifiers_missing_coverage.all())
+
+        record1, was_registered1 = provider.register(id1)
+        record2, was_registered2 = provider.register(id2)
+        eq_(CoverageRecord.SUCCESS, record1.status)
+        eq_(CoverageRecord.SUCCESS, record2.status)
+        eq_((False, False), (was_registered1, was_registered2))
+
+
+        # The timestamp for the provider has been updated.
+        new_timestamp = Timestamp.value(
+            self._db, provider.SERVICE_NAME, collection
+        )
+        assert new_timestamp != original_timestamp
+        assert new_timestamp > original_timestamp
 
 
 class TestRunWorkCoverageProviderScript(DatabaseTest):
@@ -1753,7 +1863,110 @@ class TestConfigureIntegrationScript(DatabaseTest):
 
         expect_output = "Configuration settings stored.\n" + "\n".join(integration.explain()) + "\n"
         eq_(expect_output, output.getvalue())
-       
+
+class TestShowLanesScript(DatabaseTest):
+
+    def test_with_no_lanes(self):
+        output = StringIO()
+        ShowLanesScript().do_run(self._db, output=output)
+        eq_("No lanes found.\n", output.getvalue())
+
+    def test_with_multiple_lanes(self):
+        l1 = self._lane()
+        l2 = self._lane()
+
+        # The output of this script is the result of running explain()
+        # on both lanes.
+        output = StringIO()
+        ShowLanesScript().do_run(self._db, output=output)
+        expect_1 = "\n".join(l1.explain())
+        expect_2 = "\n".join(l2.explain())
+        
+        eq_(expect_1 + "\n\n" + expect_2 + "\n\n", output.getvalue())
+
+        # We can tell the script to only list a single lane.
+        output = StringIO()
+        ShowLanesScript().do_run(
+            self._db,
+            cmd_args=["--id=%s" % l2.id],
+            output=output
+        )
+        eq_(expect_2 + "\n\n", output.getvalue())
+
+class TestConfigureLaneScript(DatabaseTest):
+    
+    def test_bad_arguments(self):
+        script = ConfigureLaneScript()
+
+        # No lane id but no library short name for creating it either.
+        assert_raises_regexp(
+            ValueError,
+            'Library short name is required to create a new lane',
+            script.do_run, self._db, []
+        )
+
+        # Try to create a lane for a nonexistent library.
+        assert_raises_regexp(
+            ValueError,
+            'No such library: "nosuchlibrary".',
+            script.do_run, self._db, [
+                "--library-short-name=nosuchlibrary"
+            ]
+        )
+
+
+    def test_create_lane(self):
+        script = ConfigureLaneScript()
+        parent = self._lane()
+
+        # Create a lane and set its attributes.
+        output = StringIO()
+        script.do_run(
+            self._db, ["--library-short-name=%s" % self._default_library.short_name,
+                       "--parent-id=%s" % parent.id,
+                       "--priority=3",
+                       "--display-name=NewLane",
+            ], output
+        )
+
+        # The lane was created and configured properly.
+        lane = get_one(self._db, Lane, display_name="NewLane")
+        eq_(self._default_library, lane.library)
+        eq_(parent, lane.parent)
+        eq_(3, lane.priority)
+
+        # The output explains the lane settings.
+        expect = ("Lane settings stored.\n"
+                  + "\n".join(lane.explain()) + "\n")
+        eq_(expect, output.getvalue())
+
+    def test_reconfigure_lane(self):
+        # The lane exists.
+        lane = self._lane(display_name="Name")
+        lane.priority = 3
+
+        parent = self._lane()
+
+        script = ConfigureLaneScript()
+        output = StringIO()
+
+        script.do_run(
+            self._db, [
+                "--id=%s" % lane.id,
+                "--priority=1",
+                "--parent-id=%s" % parent.id,
+            ],
+            output
+        )
+
+        # The lane has been changed.
+        eq_(1, lane.priority)
+        eq_(parent, lane.parent)
+        expect = ("Lane settings stored.\n"
+                  + "\n".join(lane.explain()) + "\n")
+        
+        eq_(expect, output.getvalue())
+
 
 class TestCollectionInputScript(DatabaseTest):
     """Test the ability to name collections on the command line."""

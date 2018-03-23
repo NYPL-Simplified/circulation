@@ -50,7 +50,7 @@ from metadata_layer import (
     ReplacementPolicy,
     SubjectData,
 )
-from s3 import DummyS3Uploader
+from s3 import MockS3Uploader
 from coverage import (
     BaseCoverageProvider,
     BibliographicCoverageProvider,
@@ -213,10 +213,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         assert (datetime.datetime.utcnow() - value).total_seconds() < 1
 
         # run_once was called twice: once to exclude items that have
-        # any coverage record whatsoever (ALL_STATUSES), and again to
+        # any coverage record whatsoever (PREVIOUSLY_ATTEMPTED), and again to
         # exclude only items that have coverage records that indicate
         # success or persistent failure (DEFAULT_COUNT_AS_COVERED).
-        eq_([CoverageRecord.ALL_STATUSES,
+        eq_([CoverageRecord.PREVIOUSLY_ATTEMPTED,
              CoverageRecord.DEFAULT_COUNT_AS_COVERED], provider.run_once_calls)
         
     def test_run_once(self):
@@ -421,7 +421,10 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         record.timestamp = cutoff
         eq_(False, provider.should_update(record))
 
-    
+        # If coverage is only 'registered', we should update.
+        record.status = CoverageRecord.REGISTERED
+        eq_(True, provider.should_update(record))
+
 
 class TestIdentifierCoverageProvider(CoverageProviderTest):
 
@@ -1284,7 +1287,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         )
         
         # ..and will then be uploaded to this 'mirror'.
-        mirror = DummyS3Uploader()
+        mirror = MockS3Uploader()
 
         class Tripwire(PresentationCalculationPolicy):
             # This class sets a variable if one of its properties is

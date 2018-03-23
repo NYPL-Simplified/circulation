@@ -19,6 +19,7 @@ import os
 import random
 import re
 import requests
+from threading import RLock
 import time
 import traceback
 import urllib
@@ -54,6 +55,7 @@ from sqlalchemy.orm import (
     sessionmaker,
     synonym,
 )
+from sqlalchemy.orm.base import NO_VALUE
 from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound,
@@ -120,6 +122,7 @@ from util import (
     MetadataSimilarity,
     TitleProcessor,
 )
+from mirror import MirrorUploader
 from util.http import (
     HTTP,
     RemoteIntegrationException,
@@ -331,9 +334,19 @@ class SessionManager(object):
         return create_engine(url, echo=DEBUG)
 
     @classmethod
-    def sessionmaker(cls, url=None):
-        engine = cls.engine(url)
-        return sessionmaker(bind=engine)
+    def sessionmaker(cls, url=None, session=None):
+        if not (url or session):
+            url = Configuration.database_url()
+        if url:
+            bind_obj = cls.engine(url)
+        elif session:
+            bind_obj = session.get_bind()
+            if not os.environ.get('TESTING'):
+                # If a factory is being created from a session in test mode,
+                # use the same Connection for all of the tests so objects can
+                # be accessed. Otherwise, bind against an Engine object.
+                bind_obj = bind_obj.engine
+        return sessionmaker(bind=bind_obj)
 
     @classmethod
     def initialize(cls, url, create_materialized_work_class=True):
@@ -401,9 +414,19 @@ class SessionManager(object):
                 __table__ = Table(
                     cls.MATERIALIZED_VIEW_LANES,
                     Base.metadata,
-                    Column('works_id', Integer, primary_key=True),
-                    Column('workgenres_id', Integer, primary_key=True),
-                    Column('license_pool_id', Integer, ForeignKey('licensepools.id')),
+                    Column('works_id', Integer, primary_key=True, index=True),
+                    Column('workgenres_id', Integer, primary_key=True, index=True),
+                    Column('list_id', Integer, ForeignKey('customlists.id'),
+                           primary_key=True, index=True),
+                    Column(
+                        'list_edition_id', Integer, ForeignKey('editions.id'),
+                        primary_key=True, index=True
+                    ),
+                    Column(
+                        'license_pool_id', Integer,
+                        ForeignKey('licensepools.id'), primary_key=True,
+                        index=True
+                    ),
                     autoload=True,
                     autoload_with=engine
                 )
@@ -787,15 +810,24 @@ class LoanAndHoldMixin(object):
             return license_pool.presentation_edition.work
         return None
 
+    @property
+    def library(self):
+        """Try to find the corresponding library for this Loan/Hold."""
+        if self.patron:
+            return self.patron.library
+        # If this Loan/Hold belongs to a external patron, there may be no library.
+        return None
+
 
 class Loan(Base, LoanAndHoldMixin):
     __tablename__ = 'loans'
     id = Column(Integer, primary_key=True)
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
+    integration_client_id = Column(Integer, ForeignKey('integrationclients.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
     fulfillment_id = Column(Integer, ForeignKey('licensepooldeliveries.id'))
-    start = Column(DateTime)
-    end = Column(DateTime)
+    start = Column(DateTime, index=True)
+    end = Column(DateTime, index=True)
     # Some distributors (e.g. Feedbooks) may have an identifier that can
     # be used to check the status of a specific Loan.
     external_identifier = Column(Unicode, unique=True, nullable=True)
@@ -820,10 +852,12 @@ class Hold(Base, LoanAndHoldMixin):
     __tablename__ = 'holds'
     id = Column(Integer, primary_key=True)
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
+    integration_client_id = Column(Integer, ForeignKey('integrationclients.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
     start = Column(DateTime, index=True)
     end = Column(DateTime, index=True)
     position = Column(Integer, index=True)
+    external_identifier = Column(Unicode, unique=True, nullable=True)
 
     @classmethod
     def _calculate_until(
@@ -882,8 +916,9 @@ class Hold(Base, LoanAndHoldMixin):
         this--the library's license might expire and then you'll
         _never_ get the book.)
         """
-        if self.end:
-            # Whew, the server provided its own estimate.
+        if self.end and self.end > datetime.datetime.utcnow():
+            # The license source provided their own estimate, and it's
+            # not obviously wrong, so use it.
             return self.end
 
         if default_reservation_period is None:
@@ -1255,6 +1290,9 @@ class BaseCoverageRecord(object):
     REGISTERED = u'registered'
 
     ALL_STATUSES = [REGISTERED, SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
+
+    # Count coverage as attempted if the record is not 'registered'.
+    PREVIOUSLY_ATTEMPTED = [SUCCESS, TRANSIENT_FAILURE, PERSISTENT_FAILURE]
 
     # By default, count coverage as present if it ended in
     # success or in persistent failure. Do not count coverage
@@ -2380,8 +2418,13 @@ class Identifier(Base):
             collection_id = collection.id
         else:
             collection_id = None
+
+        data_source_id = None
+        if coverage_data_source:
+            data_source_id = coverage_data_source.id
+
         clause = and_(Identifier.id==CoverageRecord.identifier_id,
-                      CoverageRecord.data_source==coverage_data_source,
+                      CoverageRecord.data_source_id==data_source_id,
                       CoverageRecord.operation==operation,
                       CoverageRecord.collection_id==collection_id
         )
@@ -2397,7 +2440,6 @@ class Identifier(Base):
             qu = qu.filter(Identifier.id.in_([x.id for x in identifiers]))
 
         return qu
-
 
     def opds_entry(self):
         """Create an OPDS entry using only resources directly
@@ -4206,7 +4248,7 @@ class Work(Base):
         return q
 
     @classmethod
-    def from_identifiers(cls, _db, identifiers, base_query=None):
+    def from_identifiers(cls, _db, identifiers, base_query=None, identifier_id_field=Identifier.id):
         """Returns all of the works that have one or more license_pools
         associated with either an identifier in the given list or an
         identifier considered equivalent to one of those listed
@@ -4225,7 +4267,7 @@ class Work(Base):
             Identifier.id, levels=1, threshold=0.999)
         identifier_ids_subquery = identifier_ids_subquery.where(Identifier.id.in_(identifier_ids))
 
-        query = base_query.filter(Identifier.id.in_(identifier_ids_subquery))
+        query = base_query.filter(identifier_id_field.in_(identifier_ids_subquery))
         return query
 
     @classmethod
@@ -5397,7 +5439,7 @@ class LicensePoolDeliveryMechanism(Base):
 
     @classmethod
     def set(cls, data_source, identifier, content_type, drm_scheme, rights_uri,
-            resource=None):
+            resource=None, autocommit=True):
         """Register the fact that a distributor makes a title available in a
         certain format.
 
@@ -5410,32 +5452,45 @@ class LicensePoolDeliveryMechanism(Base):
             title.
         :param resource: A Resource representing the book itself in
             a freely redistributable form.
+        :param autocommit: Commit the database session immediately if
+            anything changes in the database. If you're already inside
+            a nested transaction, pass in False here to avoid
+            committing prematurely, but understand that if a
+            LicensePool's open-access status changes as a result of
+            calling this method, the change may not be properly
+            reflected in LicensePool.open_access.
         """
         _db = Session.object_session(data_source)
         delivery_mechanism, ignore = DeliveryMechanism.lookup(
             _db, content_type, drm_scheme
         )
         rights_status = RightsStatus.lookup(_db, rights_uri)
-        lpdm, ignore = get_one_or_create(
+        lpdm, dirty = get_one_or_create(
             _db, LicensePoolDeliveryMechanism,
             identifier=identifier,
             data_source=data_source,
             delivery_mechanism=delivery_mechanism,
             resource=resource
         )
-        lpdm.rights_status = rights_status
+        if not lpdm.rights_status or rights_status.uri != RightsStatus.UNKNOWN:
+            # We have better information available about the
+            # rights status of this delivery mechanism.
+            lpdm.rights_status = rights_status
+            dirty = True
 
-        # TODO: We need to explicitly commit here so that
-        # LicensePool.delivery_mechanisms gets updated. It would be
-        # better if we didn't have to do this, but I haven't been able
-        # to get LicensePool.delivery_mechanisms to notice that it's
-        # out of date.
-        _db.commit()
+        if dirty:
+            # TODO: We need to explicitly commit here so that
+            # LicensePool.delivery_mechanisms gets updated. It would be
+            # better if we didn't have to do this, but I haven't been able
+            # to get LicensePool.delivery_mechanisms to notice that it's
+            # out of date.
+            if autocommit:
+                _db.commit()
 
-        # Creating or modifying a LPDM might change the open-access status
-        # of all LicensePools for that DataSource/Identifier.
-        for pool in lpdm.license_pools:
-            pool.set_open_access_status()
+            # Creating or modifying a LPDM might change the open-access status
+            # of all LicensePools for that DataSource/Identifier.
+            for pool in lpdm.license_pools:
+                pool.set_open_access_status()
         return lpdm
 
     @property
@@ -5443,6 +5498,47 @@ class LicensePoolDeliveryMechanism(Base):
         """Is this an open-access delivery mechanism?"""
         return (self.rights_status
                 and self.rights_status.uri in RightsStatus.OPEN_ACCESS)
+
+    def compatible_with(self, other):
+        """Can a single loan be fulfilled with both this
+        LicensePoolDeliveryMechanism and the given one?
+
+        :param other: A LicensePoolDeliveryMechanism.
+        """
+        if not isinstance(other, LicensePoolDeliveryMechanism):
+            return False
+
+        if other.id==self.id:
+            # They two LicensePoolDeliveryMechanisms are the same object.
+            return True
+
+        # The two LicensePoolDeliveryMechanisms must be different ways
+        # of getting the same book from the same source.
+        if other.identifier_id != self.identifier_id:
+            return False
+        if other.data_source_id != self.data_source_id:
+            return False
+
+        if other.delivery_mechanism_id == self.delivery_mechanism_id:
+            # We have two LicensePoolDeliveryMechanisms for the same
+            # underlying delivery mechanism. This can happen when an
+            # open-access book gets its content mirrored to two
+            # different places.
+            return True
+
+        # If the DeliveryMechanisms themselves are compatible, then the
+        # LicensePoolDeliveryMechanisms are compatible.
+        #
+        # In practice, this means that either the two
+        # DeliveryMechanisms are the same or that one of them is a
+        # streaming mechanism.
+        open_access_rules = self.is_open_access and other.is_open_access
+        return (
+            other.delivery_mechanism
+            and self.delivery_mechanism.compatible_with(
+                other.delivery_mechanism, open_access_rules
+            )
+        )
 
     def delete(self):
         """Delete a LicensePoolDeliveryMechanism."""
@@ -5520,8 +5616,9 @@ class Hyperlink(Base):
 
     # TODO: Is this the appropriate relation?
     DRM_ENCRYPTED_DOWNLOAD = u"http://opds-spec.org/acquisition/"
+    BORROW = u"http://opds-spec.org/acquisition/borrow"
 
-    CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD, GENERIC_OPDS_ACQUISITION]
+    CIRCULATION_ALLOWED = [OPEN_ACCESS_DOWNLOAD, DRM_ENCRYPTED_DOWNLOAD, BORROW, GENERIC_OPDS_ACQUISITION]
     METADATA_ALLOWED = [CANONICAL, IMAGE, THUMBNAIL_IMAGE, ILLUSTRATION, REVIEW,
         DESCRIPTION, SHORT_DESCRIPTION, AUTHOR, ALTERNATE, SAMPLE]
     MIRRORED = [OPEN_ACCESS_DOWNLOAD, IMAGE, THUMBNAIL_IMAGE]
@@ -5873,7 +5970,7 @@ class Genre(Base, HasFullTableCache):
     """
     __tablename__ = 'genres'
     id = Column(Integer, primary_key=True)
-    name = Column(Unicode)
+    name = Column(Unicode, unique=True, index=True)
 
     # One Genre may have affinity with many Subjects.
     subjects = relationship("Subject", backref="genre")
@@ -6405,7 +6502,7 @@ class CachedFeed(Base):
         nullable=True, index=True)
 
     # Every feed has a timestamp reflecting when it was created.
-    timestamp = Column(DateTime, nullable=True)
+    timestamp = Column(DateTime, nullable=True, index=True)
 
     # A feed is of a certain type--currently either 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
@@ -6621,7 +6718,7 @@ class LicensePool(Base):
 
     open_access = Column(Boolean, index=True)
     last_checked = Column(DateTime, index=True)
-    licenses_owned = Column(Integer,default=0)
+    licenses_owned = Column(Integer, default=0, index=True)
     licenses_available = Column(Integer,default=0, index=True)
     licenses_reserved = Column(Integer,default=0)
     patrons_in_hold_queue = Column(Integer,default=0)
@@ -7219,27 +7316,42 @@ class LicensePool(Base):
         )
         return message, tuple(args)
 
-    def loan_to(self, patron, start=None, end=None, fulfillment=None, external_identifier=None):
-        _db = Session.object_session(patron)
+    def loan_to(self, patron_or_client, start=None, end=None, fulfillment=None, external_identifier=None):
+        _db = Session.object_session(patron_or_client)
         kwargs = dict(start=start or datetime.datetime.utcnow(),
                       end=end)
-        loan, is_new = get_one_or_create(
-            _db, Loan, patron=patron, license_pool=self,
-            create_method_kwargs=kwargs)
+        if isinstance(patron_or_client, Patron):
+            loan, is_new = get_one_or_create(
+                _db, Loan, patron=patron_or_client, license_pool=self,
+                create_method_kwargs=kwargs)
+        else:
+            # An IntegrationClient can have multiple loans, so this always creates
+            # a new loan rather than returning an existing loan.
+            loan, is_new = create(
+                _db, Loan, integration_client=patron_or_client, license_pool=self,
+                create_method_kwargs=kwargs)
         if fulfillment:
             loan.fulfillment = fulfillment
         if external_identifier:
             loan.external_identifier = external_identifier
         return loan, is_new
 
-    def on_hold_to(self, patron, start=None, end=None, position=None):
-        _db = Session.object_session(patron)
-        if not patron.library.allow_holds:
+    def on_hold_to(self, patron_or_client, start=None, end=None, position=None, external_identifier=None):
+        _db = Session.object_session(patron_or_client)
+        if isinstance(patron_or_client, Patron) and not patron_or_client.library.allow_holds:
             raise PolicyException("Holds are disabled for this library.")
         start = start or datetime.datetime.utcnow()
-        hold, new = get_one_or_create(
-            _db, Hold, patron=patron, license_pool=self)
+        if isinstance(patron_or_client, Patron):
+            hold, new = get_one_or_create(
+                _db, Hold, patron=patron_or_client, license_pool=self)
+        else:
+            # An IntegrationClient can have multiple holds, so this always creates
+            # a new hold rather than returning an existing loan.
+            hold, new = create(
+                _db, Hold, integration_client=patron_or_client, license_pool=self)
         hold.update(start, end, position)
+        if external_identifier:
+            hold.external_identifier = external_identifier
         return hold, new
 
     @classmethod
@@ -7822,7 +7934,7 @@ class Credential(Base):
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     type = Column(String(255), index=True)
     credential = Column(String)
-    expires = Column(DateTime)
+    expires = Column(DateTime, index=True)
 
     # One Credential can have many associated DRMDeviceIdentifiers.
     drm_device_identifiers = relationship(
@@ -8158,6 +8270,9 @@ class Representation(Base):
         AUDIOBOOK_MANIFEST_MEDIA_TYPE: "audiobook-manifest",
         SCORM_MEDIA_TYPE: "zip"
     }
+
+    COMMON_EBOOK_EXTENSIONS = ['.epub', '.pdf']
+    COMMON_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif']
 
     # Invert FILE_EXTENSIONS and add some extra guesses.
     MEDIA_TYPE_FOR_EXTENSION = {
@@ -8657,6 +8772,111 @@ class Representation(Base):
         headers['User-Agent'] = cls.BROWSER_USER_AGENT
         return cls.simple_http_get(url, headers, **kwargs)
 
+    @classmethod
+    def cautious_http_get(cls, url, headers, **kwargs):
+        """Examine the URL we're about to GET, possibly going so far as to
+        perform a HEAD request, to avoid making a request (or
+        following a redirect) to a site known to cause problems.
+
+        The motivating case is that unglue.it contains gutenberg.org
+        links that appear to be direct links to EPUBs, but 1) they're
+        not direct links to EPUBs, and 2) automated requests to
+        gutenberg.org quickly result in IP bans. So we don't make those
+        requests.
+        """
+        do_not_access = kwargs.pop(
+            'do_not_access', cls.AVOID_WHEN_CAUTIOUS_DOMAINS
+        )
+        check_for_redirect = kwargs.pop(
+            'check_for_redirect', cls.EXERCISE_CAUTION_DOMAINS
+        )
+        do_get = kwargs.pop('do_get', cls.simple_http_get)
+        head_client = kwargs.pop('cautious_head_client', requests.head)
+
+        if cls.get_would_be_useful(
+                url, headers, do_not_access, check_for_redirect,
+                head_client
+        ):
+            # Go ahead and make the GET request.
+            return do_get(url, headers, **kwargs)
+        else:
+            logging.info(
+                "Declining to make non-useful HTTP request to %s", url
+            )
+            # 417 Expectation Failed - "... if the server is a proxy,
+            # the server has unambiguous evidence that the request
+            # could not be met by the next-hop server."
+            #
+            # Not quite accurate, but I think it's the closest match
+            # to "the HTTP client decided to not even make your
+            # request".
+            return (
+                417,
+                {"content-type" :
+                 "application/vnd.librarysimplified-did-not-make-request"},
+                "Cautiously decided not to make a GET request to %s" % url
+            )
+
+    # Sites known to host both free books and redirects to a domain in
+    # AVOID_WHEN_CAUTIOUS_DOMAINS.
+    EXERCISE_CAUTION_DOMAINS = ['unglue.it']
+
+    # Sites that cause problems for us if we make automated
+    # HTTP requests to them while trying to find free books.
+    AVOID_WHEN_CAUTIOUS_DOMAINS = ['gutenberg.org', 'books.google.com']
+
+    @classmethod
+    def get_would_be_useful(
+            cls, url, headers, do_not_access=None, check_for_redirect=None,
+            head_client=None
+    ):
+        """Determine whether making a GET request to a given URL is likely to
+        have a useful result.
+
+        :param URL: URL under consideration.
+        :param headers: Headers that would be sent with the GET request.
+        :param do_not_access: Domains to which GET requests are not useful.
+        :param check_for_redirect: Domains to which we should make a HEAD
+            request, in case they redirect to a `do_not_access` domain.
+        :param head_client: Function for making the HEAD request, if 
+            one becomes necessary. Should return requests.Response or a mock.
+        """
+        do_not_access = do_not_access or cls.AVOID_WHEN_CAUTIOUS_DOMAINS
+        check_for_redirect = check_for_redirect or cls.EXERCISE_CAUTION_DOMAINS
+        head_client = head_client or requests.head
+
+        def has_domain(domain, check_against):
+            """Is the given `domain` in `check_against`, 
+            or maybe a subdomain of one of the domains in `check_against`?
+            """
+            return any(domain == x or domain.endswith('.' + x)
+                       for x in check_against)
+
+        netloc = urlparse.urlparse(url).netloc
+        if has_domain(netloc, do_not_access):
+            # The link points directly to a domain we don't want to
+            # access.
+            return False
+
+        if not has_domain(netloc, check_for_redirect):
+            # We trust this domain not to redirect to a domain we don't
+            # want to access.
+            return True
+
+        # We might be fine, or we might get redirected to a domain we
+        # don't want to access. Make a HEAD request to see what
+        # happens.
+        head_response = head_client(url, headers=headers)
+        if head_response.status_code / 100 != 3:
+            # It's not a redirect. Go ahead and make the GET request.
+            return True
+
+        # Yes, it's a redirect. Does it redirect to a 
+        # domain we don't want to access?
+        location = head_response.headers.get('location', '')
+        netloc = urlparse.urlparse(location).netloc
+        return not has_domain(netloc, do_not_access)
+
     @property
     def is_image(self):
         return self.media_type and self.media_type.startswith("image/")
@@ -9132,6 +9352,40 @@ class DeliveryMechanism(Base, HasFullTableCache):
 
         return None
 
+    def compatible_with(self, other, open_access_rules=False):
+        """Can a single loan be fulfilled with both this delivery mechanism
+        and the given one?
+
+        :param other: A DeliveryMechanism
+
+        :param open_access: If this is True, the rules for open-access
+            fulfillment will be applied. If not, the stricted rules
+            for commercial fulfillment will be applied.
+        """
+        if not isinstance(other, DeliveryMechanism):
+            return False
+
+        if self.id == other.id:
+            # The two DeliveryMechanisms are the same.
+            return True
+
+        # Streaming delivery mechanisms can be used even when a
+        # license pool is locked into a non-streaming delivery
+        # mechanism.
+        if self.is_streaming or other.is_streaming:
+            return True
+
+        # For an open-access book, loans are not locked to delivery
+        # mechanisms, so as long as neither delivery mechanism has
+        # DRM, they're compatible.
+        if (open_access_rules and self.drm_scheme==self.NO_DRM
+            and other.drm_scheme==self.NO_DRM):
+            return True
+
+        # For non-open-access books, locking a license pool to a
+        # non-streaming delivery mechanism prohibits the use of any
+        # other non-streaming delivery mechanism.
+        return False
 
 Index("ix_deliverymechanisms_drm_scheme_content_type",
       DeliveryMechanism.drm_scheme,
@@ -9161,7 +9415,7 @@ class CustomList(Base):
 
     __table_args__ = (
         UniqueConstraint('data_source_id', 'foreign_identifier'),
-        UniqueConstraint('data_source_id', 'name', 'library_id'),
+        UniqueConstraint('name', 'library_id'),
     )
 
     # TODO: It should be possible to associate a CustomList with an
@@ -9185,17 +9439,21 @@ class CustomList(Base):
         return _db.query(CustomList).filter(CustomList.data_source_id.in_(ids))
 
     @classmethod
-    def find(cls, _db, source, foreign_identifier_or_name, library=None):
+    def find(cls, _db, foreign_identifier_or_name, data_source=None, library=None):
         """Finds a foreign list in the database by its foreign_identifier
         or its name.
         """
-        source_name = source
-        if isinstance(source, DataSource):
-            source_name = source.name
+        source_name = data_source
+        if isinstance(data_source, DataSource):
+            source_name = data_source.name
         foreign_identifier = unicode(foreign_identifier_or_name)
 
-        qu = _db.query(cls).join(CustomList.data_source).filter(
-            DataSource.name==unicode(source_name),
+        qu = _db.query(cls)
+        if source_name:
+            qu = qu.join(CustomList.data_source).filter(
+                DataSource.name==unicode(source_name))
+
+        qu = qu.filter(
             or_(CustomList.foreign_identifier==foreign_identifier,
                 CustomList.name==foreign_identifier))
         if library:
@@ -9228,7 +9486,7 @@ class CustomList(Base):
         if isinstance(work_or_edition, Work):
             edition = work_or_edition.presentation_edition
 
-        existing = list(self.entries_for_work(edition))
+        existing = list(self.entries_for_work(work_or_edition))
         if existing:
             was_new = False
             entry = existing[0]
@@ -9264,11 +9522,7 @@ class CustomList(Base):
         """
         _db = Session.object_session(self)
 
-        edition = work_or_edition
-        if isinstance(work_or_edition, Work):
-            edition = work_or_edition.presentation_edition
-
-        existing_entries = list(self.entries_for_work(edition))
+        existing_entries = list(self.entries_for_work(work_or_edition))
         for entry in existing_entries:
             _db.delete(entry)
 
@@ -9280,15 +9534,35 @@ class CustomList(Base):
         """Find all of the entries in the list representing a particular
         Edition or Work.
         """
-        edition = work_or_edition
         if isinstance(work_or_edition, Work):
+            work = work_or_edition
             edition = work_or_edition.presentation_edition
+        else:
+            edition = work_or_edition
+            work = edition.work
 
-        equivalents = edition.equivalent_editions().all()
+        equivalent_ids = [x.id for x in edition.equivalent_editions()]
 
-        for entry in self.entries:
-            if entry.edition in equivalents:
-                yield entry
+        _db = Session.object_session(work_or_edition)
+        clauses = []
+        if equivalent_ids:
+            clauses.append(CustomListEntry.edition_id.in_(equivalent_ids))
+        if work:
+            clauses.append(CustomListEntry.work==work)
+        if len(clauses) == 0:
+            # This shouldn't happen, but if it does, there can be
+            # no matching results.
+            return _db.query(CustomListEntry).filter(False)
+        elif len(clauses) == 1:
+            clause = clauses[0]
+        else:
+            clause = or_(*clauses)
+
+        qu = _db.query(CustomListEntry).filter(
+            CustomListEntry.customlist==self).filter(
+                clause
+            )
+        return qu
 
 
 class CustomListEntry(Base):
@@ -9370,6 +9644,7 @@ class CustomListEntry(Base):
         """Combines any number of equivalent entries into a single entry
         and updates the edition being used to represent the Work.
         """
+        work = None
         if not equivalent_entries:
             # There are no entries to compare against. Leave it be.
             return
@@ -9419,7 +9694,10 @@ class CustomListEntry(Base):
                 self.annotation = annotations[0]
 
         # Reset the entry's edition to be the Work's presentation edition.
-        best_edition = work.presentation_edition
+        if work:
+            best_edition = work.presentation_edition
+        else:
+            best_edition = None
         if work and not best_edition:
             work.calculate_presentation()
             best_edition = work.presentation_edition
@@ -9437,6 +9715,10 @@ class CustomListEntry(Base):
                 _db.delete(entry)
         _db.commit
 
+# This index dramatically speeds up queries against the materialized
+# view that use custom list membership as a way to cut down on the
+# number of entries returned.
+Index("ix_customlistentries_work_id_list_id", CustomListEntry.work_id, CustomListEntry.list_id)
 
 class Complaint(Base):
     """A complaint about a LicensePool (or, potentially, something else)."""
@@ -9765,7 +10047,7 @@ class Library(Base, HasFullTableCache):
         return self.setting(key)
 
     def restrict_to_ready_deliverable_works(
-        self, query, work_model, show_suppressed=False, collection_ids=None
+        self, query, work_model, collection_ids=None, show_suppressed=False,
     ):
         """Restrict a query to show only presentation-ready works present in
         an appropriate collection which the default client can
@@ -9779,50 +10061,16 @@ class Library(Base, HasFullTableCache):
         :param work_model: Either Work or one of the MaterializedWork
         materialized view classes.
 
-        :param show_suppressed: Include titles that have nothing but
-        suppressed LicensePools.
-
         :param collection_ids: Only include titles in the given
         collections.
+
+        :param show_suppressed: Include titles that have nothing but
+        suppressed LicensePools.
         """
         collection_ids = collection_ids or [x.id for x in self.all_collections]
-        # Only find presentation-ready works.
-        #
-        # Such works are automatically filtered out of
-        # the materialized view, but we need to filter them out of Work.
-        if work_model == Work:
-            query = query.filter(
-                work_model.presentation_ready == True,
-            )
-
-        # Only find books that have some kind of DeliveryMechanism.
-        LPDM = LicensePoolDeliveryMechanism
-        exists_clause = exists().where(
-            and_(LicensePool.data_source_id==LPDM.data_source_id,
-                LicensePool.identifier_id==LPDM.identifier_id)
-        )
-        query = query.filter(exists_clause)
-
-        # Only find books with unsuppressed LicensePools.
-        if not show_suppressed:
-            query = query.filter(LicensePool.suppressed==False)
-
-        # Only find books with available licenses.
-        query = query.filter(
-                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
-        )
-
-        # Only find books in an appropriate collection.
-        query = query.filter(
-            LicensePool.collection_id.in_(collection_ids)
-        )
-
-        # If we don't allow holds, hide any books with no available copies.
-        if not self.allow_holds:
-            query = query.filter(
-                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
-            )
-        return query
+        return Collection.restrict_to_ready_deliverable_works(
+            query, work_model, collection_ids=collection_ids, show_suppressed=show_suppressed,
+            allow_holds=self.allow_holds)
 
     def estimated_holdings_by_language(self, include_open_access=True):
         """Estimate how many titles this library has in various languages.
@@ -10004,7 +10252,7 @@ class ExternalIntegration(Base, HasFullTableCache):
 
     # These integrations are associated with external services such as
     # S3 that provide access to book covers.
-    STORAGE_GOAL = u'storage'
+    STORAGE_GOAL = MirrorUploader.STORAGE_GOAL
 
     # These integrations are associated with external services like
     # Cloudfront or other CDNs that mirror and/or cache certain domains.
@@ -10040,17 +10288,20 @@ class ExternalIntegration(Base, HasFullTableCache):
     ONE_CLICK = RB_DIGITAL
     OPDS_FOR_DISTRIBUTORS = u'OPDS for Distributors'
     ENKI = DataSource.ENKI
+    FEEDBOOKS = DataSource.FEEDBOOKS
+    MANUAL = DataSource.MANUAL
 
-    # These protocols are only used on the Content Server when mirroring
+    # These protocols were used on the Content Server when mirroring
     # content from a given directory or directly from Project
-    # Gutenberg, respectively. These protocols aren't intended for use
-    # with LicensePools on the Circulation Manager.
-    DIRECTORY_IMPORT = u'Directory Import'
+    # Gutenberg, respectively. DIRECTORY_IMPORT was replaced by
+    # MANUAL.  GUTENBERG has yet to be replaced, but will eventually
+    # be moved into LICENSE_PROTOCOLS.
+    DIRECTORY_IMPORT = "Directory Import"
     GUTENBERG = DataSource.GUTENBERG
 
     LICENSE_PROTOCOLS = [
         OPDS_IMPORT, OVERDRIVE, ODILO, BIBLIOTHECA, AXIS_360, RB_DIGITAL,
-        DIRECTORY_IMPORT, GUTENBERG, ENKI,
+        GUTENBERG, ENKI, MANUAL
     ]
 
     # Some integrations with LICENSE_GOAL imply that the data and
@@ -10074,7 +10325,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     CONTENT_SERVER = u'Content Server'
 
     # Integrations with STORAGE_GOAL
-    S3 = u'S3'
+    S3 = u'Amazon S3'
 
     # Integrations with CDN_GOAL
     CDN = u'CDN'
@@ -10137,6 +10388,13 @@ class ExternalIntegration(Base, HasFullTableCache):
     settings = relationship(
         "ConfigurationSetting", backref="external_integration",
         lazy="joined", cascade="all, delete-orphan",
+    )
+
+    # An ExternalIntegration may be used by many Collections
+    # to mirror book covers or other files.
+    mirror_for = relationship(
+        "Collection", backref="mirror_integration",
+        foreign_keys='Collection.mirror_integration_id',
     )
 
     def __repr__(self):
@@ -10542,6 +10800,14 @@ class Collection(Base, HasFullTableCache):
     # external_account_id.
     parent_id = Column(Integer, ForeignKey('collections.id'), index=True)
 
+    # Some Collections use an ExternalIntegration to mirror books and
+    # cover images they discover. Such a collection should use an
+    # ExternalIntegration to set up its mirroring technique, and keep
+    # a reference to that ExternalIntegration here.
+    mirror_integration_id = Column(
+        Integer, ForeignKey('externalintegrations.id'), nullable=True
+    )
+
     # A collection may have many child collections. For example,
     # An Overdrive collection may have many children corresponding
     # to Overdrive Advantage collections.
@@ -10576,6 +10842,16 @@ class Collection(Base, HasFullTableCache):
     coverage_records = relationship(
         "CoverageRecord", backref="collection",
         cascade="all"
+    )
+
+    # A collection may be associated with one or more custom lists.
+    # When a new license pool is added to the collection, it will
+    # also be added to the list. Admins can remove items from the
+    # the list and they won't be added back, so the list doesn't
+    # necessarily match the collection.
+    customlists = relationship(
+        "CustomList", secondary=lambda: collections_customlists,
+        backref="collections"
     )
 
     _cache = HasFullTableCache.RESET
@@ -10713,11 +10989,14 @@ class Collection(Base, HasFullTableCache):
             key = self.AUDIOBOOK_LOAN_DURATION_KEY
         else:
             key = self.EBOOK_LOAN_DURATION_KEY
-        return (
-            ConfigurationSetting.for_library_and_externalintegration(
-                _db, key, library, self.external_integration
+        if isinstance(library, Library):
+            return (
+                ConfigurationSetting.for_library_and_externalintegration(
+                    _db, key, library, self.external_integration
+                )
             )
-        )
+        elif isinstance(library, IntegrationClient):
+            return self.external_integration.setting(key)
 
 
     DEFAULT_RESERVATION_PERIOD_KEY = 'default_reservation_period'
@@ -11033,6 +11312,70 @@ class Collection(Base, HasFullTableCache):
 
         return isbns
 
+    @classmethod
+    def restrict_to_ready_deliverable_works(
+        cls, query, work_model, collection_ids=None, show_suppressed=False,
+        allow_holds=True,
+    ):
+        """Restrict a query to show only presentation-ready works present in
+        an appropriate collection which the default client can
+        fulfill.
+
+        Note that this assumes the query has an active join against
+        LicensePool.
+
+        :param query: The query to restrict.
+
+        :param work_model: Either Work or one of the MaterializedWork
+        materialized view classes.
+
+        :param show_suppressed: Include titles that have nothing but
+        suppressed LicensePools.
+
+        :param collection_ids: Only include titles in the given
+        collections.
+
+        :param allow_holds: If false, pools with no available copies
+        will be hidden.
+        """
+        # Only find presentation-ready works.
+        #
+        # Such works are automatically filtered out of
+        # the materialized view, but we need to filter them out of Work.
+        if work_model == Work:
+            query = query.filter(
+                work_model.presentation_ready == True,
+            )
+
+        # Only find books that have some kind of DeliveryMechanism.
+        LPDM = LicensePoolDeliveryMechanism
+        exists_clause = exists().where(
+            and_(LicensePool.data_source_id==LPDM.data_source_id,
+                LicensePool.identifier_id==LPDM.identifier_id)
+        )
+        query = query.filter(exists_clause)
+
+        # Only find books with unsuppressed LicensePools.
+        if not show_suppressed:
+            query = query.filter(LicensePool.suppressed==False)
+
+        # Only find books with available licenses.
+        query = query.filter(
+                or_(LicensePool.licenses_owned > 0, LicensePool.open_access)
+        )
+
+        # Only find books in an appropriate collection.
+        query = query.filter(
+            LicensePool.collection_id.in_(collection_ids)
+        )
+
+        # If we don't allow holds, hide any books with no available copies.
+        if not allow_holds:
+            query = query.filter(
+                or_(LicensePool.licenses_available > 0, LicensePool.open_access)
+            )
+        return query
+
 
 collections_libraries = Table(
     'collections_libraries', Base.metadata,
@@ -11086,6 +11429,39 @@ mapper(
     )
 )
 
+collections_customlists = Table(
+    'collections_customlists', Base.metadata,
+    Column(
+        'collection_id', Integer, ForeignKey('collections.id'),
+        index=True, nullable=False,
+    ),
+    Column(
+        'customlist_id', Integer, ForeignKey('customlists.id'),
+        index=True, nullable=False,
+    ),
+    UniqueConstraint('collection_id', 'customlist_id'),
+)
+
+# When a pool gets a work and a presentation edition for the first time,
+# the work should be added to any custom lists associated with the pool's
+# collection.
+# In some cases, the work may be generated before the presentation edition.
+# Then we need to add it when the work gets a presentation edition.
+@event.listens_for(LicensePool.work_id, 'set')
+@event.listens_for(Work.presentation_edition_id, 'set')
+def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initiator):
+    if isinstance(pool_or_work, LicensePool):
+        work = pool_or_work.work
+        pools = [pool_or_work]
+    else:
+        work = pool_or_work
+        pools = work.license_pools
+
+    if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
+        for pool in pools:
+            for list in pool.collection.customlists:
+                list.add_entry(work, featured=True)
+
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.
 
@@ -11104,6 +11480,9 @@ class IntegrationClient(Base):
 
     created = Column(DateTime)
     last_accessed = Column(DateTime)
+
+    loans = relationship('Loan', backref='integration_client')
+    holds = relationship('Hold', backref='integration_client')
 
     def __repr__(self):
         return (u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
@@ -11181,6 +11560,7 @@ def tuple_to_numericrange(t):
         return None
     return NumericRange(t[0], t[1], '[]')
 
+site_configuration_has_changed_lock = RLock()
 def site_configuration_has_changed(_db, timeout=1):
     """Call this whenever you want to indicate that the site configuration
     has changed and needs to be reloaded.
@@ -11196,6 +11576,20 @@ def site_configuration_has_changed(_db, timeout=1):
     number of seconds since the last site configuration change was
     recorded.
     """
+    has_lock = site_configuration_has_changed_lock.acquire(blocking=False)
+    if not has_lock:
+        # Another thread is updating site configuration right now.
+        # There is no need to do anything--the timestamp will still be
+        # accurate.
+        return
+
+    try:
+        _site_configuration_has_changed(_db, timeout)
+    finally:
+        site_configuration_has_changed_lock.release()
+
+def _site_configuration_has_changed(_db, timeout=1):
+    """Actually changes the timestamp on the site configuration."""
     now = datetime.datetime.utcnow()
     last_update = Configuration._site_configuration_last_update()
     if not last_update or (now - last_update).total_seconds() > timeout:
@@ -11210,11 +11604,12 @@ def site_configuration_has_changed(_db, timeout=1):
 
         # Update the timestamp.
         now = datetime.datetime.utcnow()
-        sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL;"
+        earlier = now-datetime.timedelta(seconds=timeout)
+        sql = "UPDATE timestamps SET timestamp=:timestamp WHERE service=:service AND collection_id IS NULL AND timestamp<=:earlier;"
         _db.execute(
             text(sql),
             dict(service=Configuration.SITE_CONFIGURATION_CHANGED,
-                 timestamp=now)
+                 timestamp=now, earlier=earlier)
         )
 
         # Update the Configuration's record of when the configuration

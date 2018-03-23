@@ -37,17 +37,20 @@ from sqlalchemy.orm.exc import (
     NoResultFound,
     MultipleResultsFound,
 )
-from sqlalchemy.orm.session import Session
+from sqlalchemy.orm import Session
 
 from app_server import ComplaintController
 from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
+from coverage import CollectionCoverageProviderJob
 from lane import Lane
 from metadata_layer import ReplacementPolicy
 from model import (
+    create,
     get_one,
     get_one_or_create,
     production_session,
+    BaseCoverageRecord,
     CachedFeed,
     Collection,
     Complaint,
@@ -74,6 +77,7 @@ from model import (
 )
 from monitor import (
     CollectionMonitor,
+    ReaperMonitor,
 )
 from opds_import import (
     OPDSImportMonitor,
@@ -83,11 +87,16 @@ from oneclick import (
     OneClickBibliographicCoverageProvider,
 )
 from overdrive import OverdriveBibliographicCoverageProvider
+from util import fast_query_count
 from util.opds_writer import OPDSFeed
 from util.personal_names import (
     contributor_name_match_ratio, 
     display_name_to_sort_name, 
     is_corporate_name
+)
+from util.worker_pools import (
+    DatabaseWorker,
+    DatabasePool,
 )
 
 from bibliotheca import (
@@ -194,45 +203,78 @@ class RunMonitorScript(Script):
             ).run()
 
 
-class RunCollectionMonitorScript(Script):
-    """Run a CollectionMonitor on every Collection that comes through a
-    certain protocol.
+class RunMultipleMonitorsScript(Script):
+    """Run a number of monitors in sequence.
 
     Currently the Monitors are run one at a time. It should be
     possible to take a command-line argument that runs all the
     Monitors in batches, each in its own thread. Unfortunately, it's
-    tough to know in a given situation that the system configuration
-    and the Collection protocol are tough enough to handle this, and
-    won't be overloaded.
+    tough to know in a given situation that this won't overload the
+    system.
     """
-    def __init__(self, monitor_class, _db=None, **kwargs):
+
+    def __init__(self, _db=None, **kwargs):
         """Constructor.
         
-        :param monitor_class: A class object that derives from 
-            CollectionMonitor.
-        :param kwargs: Keyword arguments to pass into the `monitor_class`
-            constructor each time it's called.
+        :param kwargs: Keyword arguments to pass into the `monitors` method
+            when building the Monitor objects.
         """
-        super(RunCollectionMonitorScript, self).__init__(_db)
-        self.monitor_class = monitor_class
-        self.name = self.monitor_class.SERVICE_NAME
+        super(RunMultipleMonitorsScript, self).__init__(_db)
         self.kwargs = kwargs
-        
-    def do_run(self):
-        """Instantiate a Monitor for every appropriate Collection,
-        and run them, in order.
+
+    def monitors(self, **kwargs):
+        """Find all the Monitors that need to be run.
+
+        :return: A list of Monitor objects.
         """
-        for monitor in self.monitor_class.all(self._db, **self.kwargs):
+        raise NotImplementedError()
+
+    def do_run(self):
+        """Run all appropriate monitors."""
+        for monitor in self.monitors(**self.kwargs):
             try:
                 monitor.run()
             except Exception, e:
                 # This is bad, but not so bad that we should give up trying
                 # to run the other Monitors.
+                if monitor.collection:
+                    collection_name = monitor.collection.name
+                else:
+                    collection_name = None
+                monitor.exception = e
                 self.log.error(
                     "Error running monitor %s for collection %s: %s",
-                    self.name, monitor.collection.name,
-                    e, exc_info=e
+                    self.name, collection_name, e, exc_info=e
                 )
+
+
+class RunCollectionMonitorScript(RunMultipleMonitorsScript):
+    """Run a CollectionMonitor on every Collection that comes through a
+    certain protocol.
+    """
+    def __init__(self, monitor_class, _db=None, **kwargs):
+        """Constructor.
+
+        :param monitor_class: A class object that derives from
+            CollectionMonitor.
+        :param kwargs: Keyword arguments to pass into the `monitor_class`
+            constructor each time it's called.
+        """
+        super(RunCollectionMonitorScript, self).__init__(_db, **kwargs)
+        self.monitor_class = monitor_class
+        self.name = self.monitor_class.SERVICE_NAME
+
+    def monitors(self, **kwargs):
+        return self.monitor_class.all(self._db, **kwargs)
+
+
+class RunReaperMonitorsScript(RunMultipleMonitorsScript):
+    """Run all the monitors found in ReaperMonitor.REGISTRY"""
+
+    name = "Run all reaper monitors"
+
+    def monitors(self, **kwargs):
+        return [cls(self._db, **kwargs) for cls in ReaperMonitor.REGISTRY]
 
 
 class UpdateSearchIndexScript(RunMonitorScript):
@@ -253,7 +295,8 @@ class UpdateSearchIndexScript(RunMonitorScript):
 
 class RunCoverageProvidersScript(Script):
     """Alternate between multiple coverage providers."""
-    def __init__(self, providers):
+    def __init__(self, providers, _db=None):
+        super(RunCoverageProvidersScript, self).__init__(_db=_db)
         self.providers = []
         for i in providers:
             if callable(i):
@@ -291,10 +334,74 @@ class RunCollectionCoverageProviderScript(RunCoverageProvidersScript):
         providers = providers or list()
         if provider_class:
             providers += self.get_providers(_db, provider_class, **kwargs)
-        super(RunCollectionCoverageProviderScript, self).__init__(providers)
+        super(RunCollectionCoverageProviderScript, self).__init__(providers, _db=_db)
 
     def get_providers(self, _db, provider_class, **kwargs):
         return list(provider_class.all(_db, **kwargs))
+
+
+class RunThreadedCollectionCoverageProviderScript(Script):
+    """Run coverage providers in multiple threads."""
+
+    DEFAULT_WORKER_SIZE = 5
+
+    def __init__(self, provider_class, worker_size=None, _db=None,
+        **provider_kwargs
+    ):
+        super(RunThreadedCollectionCoverageProviderScript, self).__init__(_db)
+
+        self.worker_size = worker_size or self.DEFAULT_WORKER_SIZE
+        self.session_factory = SessionManager.sessionmaker(session=self._db)
+
+        # Use a database from the factory.
+        if not _db:
+            # Close the new, autogenerated database session.
+            self._session.close()
+        self._session = self.session_factory()
+
+        self.provider_class = provider_class
+        self.provider_kwargs = provider_kwargs
+
+    def run(self, pool=None):
+        """Runs a CollectionCoverageProvider with multiple threads and
+        updates the timestamp accordingly.
+
+        :param pool: A DatabasePool (or other) object for use in testing
+        environments.
+        """
+        collections = self.provider_class.collections(self._db)
+        if not collections:
+            return
+
+        for collection in collections:
+            provider = self.provider_class(collection, **self.provider_kwargs)
+            with (
+                pool or DatabasePool(self.worker_size, self.session_factory)
+            ) as job_queue:
+                query_size, batch_size = self.get_query_and_batch_sizes(
+                    provider
+                )
+                # Without a commit, the query to count which items need
+                # coverage hangs in the database, blocking the threads.
+                self._db.commit()
+
+                offset = 0
+                while offset < query_size:
+                    job = CollectionCoverageProviderJob(
+                        collection, self.provider_class, offset,
+                        **self.provider_kwargs
+                    )
+                    job_queue.put(job)
+                    offset += batch_size
+
+            # Now that all the work is done, update the timestamp.
+            provider.update_timestamp()
+
+    def get_query_and_batch_sizes(self, provider):
+        qu = provider.items_that_need_coverage(
+            count_as_covered=BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
+        )
+        return fast_query_count(qu), provider.batch_size
 
 
 class RunWorkCoverageProviderScript(RunCollectionCoverageProviderScript):
@@ -1268,6 +1375,116 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         output.write("\n")
 
         
+class ShowLanesScript(Script):
+    """Show information about the lanes on a server."""
+    
+    name = "List the lanes on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--id',
+            help='Only display information for the lane with the given ID',
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.id:
+            id = args.id
+            lane = get_one(_db, Lane, id=id)
+            if lane:
+                lanes = [lane]
+            else:
+                output.write(
+                    "Could not locate lane with id: %s" % id
+                )
+                lanes = []
+        else:
+            lanes = _db.query(Lane).order_by(Lane.id).all()
+        if not lanes:
+            output.write("No lanes found.\n")
+        for lane in lanes:
+            output.write(
+                "\n".join(
+                    lane.explain()
+                )
+            )
+            output.write("\n\n")
+
+class ConfigureLaneScript(ConfigurationSettingScript):
+    """Create a lane or change its settings."""
+    name = "Change a lane's settings"
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None):
+        parser = cls.arg_parser(_db)
+        return parser.parse_known_args(cmd_args)[0]
+    
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--id',
+            help='ID of the lane, if editing an existing lane.',
+        )
+        parser.add_argument(
+            '--library-short-name',
+            help='Short name of the library for this lane. Possible values: %s' % cls._library_names(_db),
+        )
+        parser.add_argument(
+            '--parent-id',
+            help="The ID of this lane's parent lane",
+        )
+        parser.add_argument(
+            '--priority',
+            help="The lane's priority",
+        )
+        parser.add_argument(
+            '--display-name',
+            help='The lane name that will be displayed to patrons.',
+        )
+        return parser
+
+    @classmethod
+    def _library_names(self, _db):
+        """Return a string that lists known library names."""
+        library_names = [x.short_name for x in _db.query(
+            Library).order_by(Library.short_name)
+        ]
+        if library_names:
+            return '"' + '", "'.join(library_names) + '"'
+        return ""
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+
+        # Find or create the lane
+        id = args.id
+        lane = get_one(_db, Lane, id=id)
+        if not lane:
+            if args.library_short_name:
+                library = get_one(_db, Library, short_name=args.library_short_name)
+                if not library:
+                    raise ValueError("No such library: \"%s\"." % args.library_short_name)
+                lane, is_new = create(_db, Lane, library=library)
+            else:
+                raise ValueError("Library short name is required to create a new lane.")
+
+        if args.parent_id:
+            lane.parent_id = args.parent_id
+        if args.priority:
+            lane.priority = args.priority
+        if args.display_name:
+            lane.display_name = args.display_name
+        site_configuration_has_changed(_db)
+        _db.commit()
+        output.write("Lane settings stored.\n")
+        output.write("\n".join(lane.explain()))
+        output.write("\n")
+
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
 
@@ -1602,7 +1819,14 @@ class OPDSImportScript(CollectionInputScript):
     IMPORTER_CLASS = OPDSImporter
     MONITOR_CLASS = OPDSImportMonitor
     PROTOCOL = ExternalIntegration.OPDS_IMPORT
-    
+
+    def __init__(self, _db=None, importer_class=None, monitor_class=None, 
+                 protocol=None, *args, **kwargs):
+        super(OPDSImportScript, self).__init__(_db, *args, **kwargs)
+        self.importer_class = importer_class or self.IMPORTER_CLASS
+        self.monitor_class = monitor_class or self.MONITOR_CLASS
+        self.protocol = protocol or self.PROTOCOL
+
     @classmethod
     def arg_parser(cls):
         parser = CollectionInputScript.arg_parser()
@@ -1615,13 +1839,13 @@ class OPDSImportScript(CollectionInputScript):
     
     def do_run(self, cmd_args=None):
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
-        collections = parsed.collections or Collection.by_protocol(self._db, self.PROTOCOL)
+        collections = parsed.collections or Collection.by_protocol(self._db, self.protocol)
         for collection in collections:
             self.run_monitor(collection, force=parsed.force)
 
     def run_monitor(self, collection, force=None):
-        monitor = self.MONITOR_CLASS(
-            self._db, collection, import_class=self.IMPORTER_CLASS,
+        monitor = self.monitor_class(
+            self._db, collection, import_class=self.importer_class,
             force_reimport=force
         )
         monitor.run()

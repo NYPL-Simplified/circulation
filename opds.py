@@ -77,7 +77,7 @@ class Annotator(object):
 
     @classmethod
     def annotate_work_entry(cls, work, active_license_pool, edition, 
-                            identifier, feed, entry):
+                            identifier, feed, entry, updated=None):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
         """
@@ -89,6 +89,11 @@ class Annotator(object):
                 **kwargs
             )
             entry.extend([data_source_tag])
+
+        if not updated and work.last_update_time:
+            updated = work.last_update_time
+        if updated:
+            entry.extend([AtomFeed.updated(AtomFeed._strftime(updated))])
 
     @classmethod
     def annotate_feed(cls, feed, lane):
@@ -572,6 +577,7 @@ class AcquisitionFeed(OPDSFeed):
             works = []
         else:
             works = works_q.all()
+            pagination.this_page_size = len(works)
         feed = cls(_db, title, url, works, annotator)
 
         # Add URLs to change faceted views of the collection.
@@ -916,9 +922,6 @@ class AcquisitionFeed(OPDSFeed):
         if content:
             entry.extend([AtomFeed.summary(content, type=content_type)])
 
-        entry.extend([
-            AtomFeed.updated(AtomFeed._strftime(datetime.datetime.utcnow())),
-        ])
 
         permanent_work_id_tag = AtomFeed.makeelement("{%s}pwid" % AtomFeed.SIMPLIFIED_NS)
         permanent_work_id_tag.text = edition.permanent_work_id
@@ -1137,9 +1140,8 @@ class AcquisitionFeed(OPDSFeed):
                 obj = loan
             elif hold:
                 obj = hold
-            library = obj.patron.library
             default_loan_period = datetime.timedelta(
-                collection.default_loan_period(library)
+                collection.default_loan_period(obj.library or obj.integration_client)
             )
         if loan:
             status = 'available'
@@ -1179,9 +1181,34 @@ class AcquisitionFeed(OPDSFeed):
             return tags
 
 
-        holds_kw = dict(total=str(license_pool.patrons_in_hold_queue or 0))
-        if hold and hold.position:
-            holds_kw['position'] = str(hold.position)
+        holds_kw = dict()
+        total = license_pool.patrons_in_hold_queue or 0
+
+        if hold:
+            if hold.position is None:
+                # This shouldn't happen, but if it does, assume we're last
+                # in the list.
+                position = total
+            else:
+                position = hold.position
+
+            if position > 0:
+                holds_kw['position'] = str(position)
+            if position > total:
+                # The patron's hold position appears larger than the total
+                # number of holds. This happens frequently because the
+                # number of holds and a given patron's hold position are
+                # updated by different processes. Don't propagate this
+                # appearance to the client.
+                total = position
+            elif position == 0 and total == 0:
+                # The book is reserved for this patron but they're not
+                # counted as having it on hold. This is the only case
+                # where we know that the total number of holds is
+                # *greater* than the hold position.
+                total = 1
+        holds_kw['total'] = str(total)
+
         holds = AtomFeed.makeelement("{%s}holds" % AtomFeed.OPDS_NS, **holds_kw)
         tags.append(holds)
 

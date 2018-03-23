@@ -109,6 +109,8 @@ from . import (
     DummyHTTPClient,
 )
 
+from testing import MockRequestsResponse
+
 from mock_analytics_provider import MockAnalyticsProvider
 
 class TestSessionManager(DatabaseTest):
@@ -915,7 +917,14 @@ class TestGenre(DatabaseTest):
         # No exception.
         eq_(drama, drama2)
         eq_(False, is_new)
-        
+
+    def test_name_is_unique(self):
+        g1, ignore = Genre.lookup(self._db, "A Genre", autocreate=True)
+        g2, ignore = Genre.lookup(self._db, "A Genre", autocreate=True)
+        eq_(g1, g2)
+
+        assert_raises(IntegrityError, create, self._db, Genre, name="A Genre")
+
     def test_default_fiction(self):
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         nonfiction, ignore = Genre.lookup(self._db, "History")
@@ -2443,6 +2452,107 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         eq_(lpdm2.delivery_mechanism, lpdm.delivery_mechanism)
         assert lpdm2.resource != lpdm.resource
 
+    def test_compatible_with(self):
+        """Test the rules about which LicensePoolDeliveryMechanisms are
+        mutually compatible and which are mutually exclusive.
+        """
+
+        edition, pool = self._edition(with_license_pool=True,
+                                      with_open_access_download=True)
+        [mech] = pool.delivery_mechanisms
+
+        # Test the simple cases.
+        eq_(False, mech.compatible_with(None))
+        eq_(False, mech.compatible_with("Not a LicensePoolDeliveryMechanism"))
+        eq_(True, mech.compatible_with(mech))
+
+        # Now let's set up a scenario that works and then see how it fails.
+        self._add_generic_delivery_mechanism(pool)
+
+        # This book has two different LicensePoolDeliveryMechanisms
+        # with the same underlying DeliveryMechanism. They're
+        # compatible.
+        [mech1, mech2] = pool.delivery_mechanisms
+        assert mech1.id != mech2.id
+        eq_(mech1.delivery_mechanism, mech2.delivery_mechanism)
+        eq_(True, mech1.compatible_with(mech2))
+
+        # The LicensePoolDeliveryMechanisms must identify the same
+        # book from the same data source.
+        mech1.data_source_id = self._id
+        eq_(False, mech1.compatible_with(mech2))
+
+        mech1.data_source_id = mech2.data_source_id
+        mech1.identifier_id = self._id
+        eq_(False, mech1.compatible_with(mech2))
+        mech1.identifier_id = mech2.identifier_id
+
+        # The underlying delivery mechanisms don't have to be exactly
+        # the same, but they must be compatible.
+        pdf_adobe, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.PDF_MEDIA_TYPE,
+            DeliveryMechanism.ADOBE_DRM
+        )
+        mech1.delivery_mechanism = pdf_adobe
+        self._db.commit()
+        eq_(False, mech1.compatible_with(mech2))
+
+        streaming, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
+            DeliveryMechanism.STREAMING_DRM
+        )
+        mech1.delivery_mechanism = streaming
+        self._db.commit()
+        eq_(True, mech1.compatible_with(mech2))
+
+    def test_compatible_with_calls_compatible_with_on_deliverymechanism(self):
+        # Create two LicensePoolDeliveryMechanisms with different
+        # media types.
+        edition, pool = self._edition(with_license_pool=True,
+                                      with_open_access_download=True)
+        self._add_generic_delivery_mechanism(pool)
+        [mech1, mech2] = pool.delivery_mechanisms
+        mech2.delivery_mechanism, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.PDF_MEDIA_TYPE, DeliveryMechanism.NO_DRM
+        )
+        self._db.commit()
+
+        eq_(True, mech1.is_open_access)
+        eq_(False, mech2.is_open_access)
+
+        # Determining whether the mechanisms are compatible requires
+        # calling compatible_with on the first mechanism's
+        # DeliveryMechanism, passing in the second DeliveryMechanism
+        # plus the answer to 'are both LicensePoolDeliveryMechanisms
+        # open-access?'
+        class Mock(object):
+            called_with = None
+            @classmethod
+            def compatible_with(cls, other, open_access):
+                cls.called_with = (other, open_access)
+                return True
+        mech1.delivery_mechanism.compatible_with = Mock.compatible_with
+
+        # Call compatible_with, and the mock method is called with the
+        # second DeliveryMechanism and (since one of the
+        # LicensePoolDeliveryMechanisms is not open-access) the value
+        # False.
+        mech1.compatible_with(mech2)
+        eq_(
+            (mech2.delivery_mechanism, False),
+            Mock.called_with
+        )
+
+        # If both LicensePoolDeliveryMechanisms are open-access,
+        # True is passed in instead, so that
+        # DeliveryMechanism.compatible_with() applies the less strict
+        # compatibility rules for open-access fulfillment.
+        mech2.set_rights_status(RightsStatus.GENERIC_OPEN_ACCESS)
+        mech1.compatible_with(mech2)
+        eq_(
+            (mech2.delivery_mechanism, True),
+            Mock.called_with
+        )
 
 class TestWork(DatabaseTest):
 
@@ -2470,8 +2580,9 @@ class TestWork(DatabaseTest):
             lp3, complaint_type, "blah", "blah"
         )
 
-        eq_([complaint1, complaint2], work.complaints)
-        assert complaint3 not in work.complaints
+        # Only the first two complaints show up in work.complaints.
+        eq_(sorted([complaint1.id, complaint2.id]),
+            sorted([x.id for x in work.complaints]))
 
     def test_all_identifier_ids(self):
         work = self._work(with_license_pool=True)
@@ -2538,6 +2649,19 @@ class TestWork(DatabaseTest):
         result = Work.from_identifiers(self._db, identifiers, base_query=qu).all()
         # Because the work's license_pool isn't suppressed, it isn't returned.
         eq_([], result)
+
+        # It's possible to filter a field other than Identifier.id.
+        # Here, we filter based on the value of
+        # mv_works_for_lanes.identifier_id.
+        from model import MaterializedWorkWithGenre as mw
+        qu = self._db.query(mw)
+        m = lambda: Work.from_identifiers(
+            self._db, [lp.identifier], base_query=qu,
+            identifier_id_field=mw.identifier_id
+        ).all()
+        eq_([], m())
+        self.add_to_materialized_view([work, ignored_work])
+        eq_([work.id], [x.works_id for x in m()])
 
     def test_calculate_presentation(self):
         # Test that:
@@ -4492,6 +4616,20 @@ class TestLoans(DatabaseTest):
         eq_(loan, loan2)
         eq_(False, was_new)
 
+        # Make sure we can also loan this book to an IntegrationClient.
+        client = self._integration_client()
+        loan, was_new = pool.loan_to(client)
+        eq_(True, was_new)
+        eq_(client, loan.integration_client)
+        eq_(pool, loan.license_pool)
+
+        # Loaning the book to the same IntegrationClient twice creates two loans,
+        # since these loans could be on behalf of different patrons on the client.
+        loan2, was_new = pool.loan_to(client)
+        eq_(True, was_new)
+        eq_(client, loan2.integration_client)
+        eq_(pool, loan2.license_pool)
+        assert loan != loan2
 
     def test_work(self):
         """Test the attribute that finds the Work for a Loan or Hold."""
@@ -4517,6 +4655,26 @@ class TestLoans(DatabaseTest):
         pool.presentation_edition.work = None
         eq_(None, loan.work)
 
+    def test_library(self):
+        patron = self._patron()
+        work = self._work(with_license_pool=True)
+        pool = work.license_pools[0]
+
+        loan, is_new = pool.loan_to(patron)
+        eq_(self._default_library, loan.library)
+
+        loan.patron = None
+        client = self._integration_client()
+        loan.integration_client = client
+        eq_(None, loan.library)
+
+        loan.integration_client = None
+        eq_(None, loan.library)
+
+        patron.library = self._library()
+        loan.patron = patron
+        eq_(patron.library, loan.library)
+
 
 class TestHold(DatabaseTest):
 
@@ -4541,6 +4699,21 @@ class TestHold(DatabaseTest):
         # The patron has until `hold.end` to actually check out the book.
         eq_(later, hold.end)
         eq_(0, hold.position)
+
+        # Make sure we can also hold this book for an IntegrationClient.
+        client = self._integration_client()
+        hold, was_new = pool.on_hold_to(client)
+        eq_(True, was_new)
+        eq_(client, hold.integration_client)
+        eq_(pool, hold.license_pool)
+
+        # Holding the book twice for the same IntegrationClient creates two holds,
+        # since they might be for different patrons on the client.
+        hold2, was_new = pool.on_hold_to(client)
+        eq_(True, was_new)
+        eq_(client, hold2.integration_client)
+        eq_(pool, hold2.license_pool)
+        assert hold != hold2
 
     def test_holds_not_allowed(self):
         patron = self._patron()
@@ -4608,6 +4781,42 @@ class TestHold(DatabaseTest):
         e = Hold._calculate_until(
             start, 10, 0, default_loan, default_reservation)
         eq_(e, None)
+
+    def test_vendor_hold_end_value_takes_precedence_over_calculated_value(self):
+        """If the vendor has provided an estimated availability time,
+        that is used in preference to the availability time we
+        calculate.
+        """
+        now = datetime.datetime.utcnow()
+        tomorrow = now + datetime.timedelta(days=1)
+
+        patron = self._patron()
+        pool = self._licensepool(edition=None)
+        hold, is_new = pool.on_hold_to(patron)
+        hold.position = 1
+        hold.end = tomorrow
+        
+        default_loan = datetime.timedelta(days=1)
+        default_reservation = datetime.timedelta(days=2)
+        eq_(tomorrow, hold.until(default_loan, default_reservation))
+
+        calculated_value = hold._calculate_until(
+            now, hold.position, pool.licenses_available,
+            default_loan, default_reservation
+        )
+
+        # If the vendor value is not in the future, it's ignored
+        # and the calculated value is used instead.
+        def assert_calculated_value_used():
+            result = hold.until(default_loan, default_reservation)
+            assert (result-calculated_value).seconds < 5
+        hold.end = now
+        assert_calculated_value_used()
+
+        # The calculated value is also used there is no
+        # vendor-provided value.
+        hold.end = None
+        assert_calculated_value_used()
 
 class TestAnnotation(DatabaseTest):
     def test_set_inactive(self):
@@ -5076,19 +5285,142 @@ class TestRepresentation(DatabaseTest):
         assert thumbnail != hyperlink.resource.representation
         eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
 
+    def test_cautious_http_get(self):
+
+        h = DummyHTTPClient()
+        h.queue_response(200, content="yay")
+
+        # If the domain is obviously safe, the GET request goes through,
+        # with no HEAD request being made.
+        m = Representation.cautious_http_get
+        status, headers, content = m(
+            "http://safe.org/", {}, do_not_access=['unsafe.org'],
+            do_get=h.do_get, cautious_head_client=object()
+        )
+        eq_(200, status)
+        eq_("yay", content)
+
+        # If the domain is obviously unsafe, no GET request or HEAD
+        # request is made.
+        status, headers, content = m(
+            "http://unsafe.org/", {}, do_not_access=['unsafe.org'],
+            do_get=object(), cautious_head_client=object()
+        )
+        eq_(417, status)
+        eq_("Cautiously decided not to make a GET request to http://unsafe.org/",
+            content)
+
+        # If the domain is potentially unsafe, a HEAD request is made,
+        # and the answer depends on its outcome.
+
+        # Here, the HEAD request redirects to a prohibited site.
+        def mock_redirect(*args, **kwargs):
+            return MockRequestsResponse(
+                301, dict(location="http://unsafe.org/")
+            )
+        status, headers, content = m(
+            "http://caution.org/", {},
+            do_not_access=['unsafe.org'],
+            check_for_redirect=['caution.org'],
+            do_get=object(), cautious_head_client=mock_redirect
+        )
+        eq_(417, status)
+        eq_("application/vnd.librarysimplified-did-not-make-request",
+            headers['content-type'])
+        eq_("Cautiously decided not to make a GET request to http://caution.org/",
+            content)
+
+        # Here, the HEAD request redirects to an allowed site.
+        h.queue_response(200, content="good content")
+        def mock_redirect(*args, **kwargs):
+            return MockRequestsResponse(
+                301, dict(location="http://safe.org/")
+            )
+        status, headers, content = m(
+            "http://caution.org/", {},
+            do_not_access=['unsafe.org'],
+            check_for_redirect=['caution.org'],
+            do_get=h.do_get, cautious_head_client=mock_redirect
+        )
+        eq_(200, status)
+        eq_("good content", content)
+
+    def test_get_would_be_useful(self):
+        """Test the method that determines whether a GET request will go (or
+        redirect) to a site we don't to make requests to.
+        """
+        safe = Representation.get_would_be_useful
+
+        # If get_would_be_useful tries to use this object to make a HEAD
+        # request, the test will blow up.
+        fake_head = object()
+
+        # Most sites are safe with no HEAD request necessary.
+        eq_(True, safe("http://www.safe-site.org/book.epub", {},
+                       head_client=fake_head))
+
+        # gutenberg.org is problematic, no HEAD request necessary.
+        eq_(False, safe("http://www.gutenberg.org/book.epub", {},
+                        head_client=fake_head))
+
+        # do_not_access controls which domains should always be
+        # considered unsafe.
+        eq_(
+            False, safe(
+                "http://www.safe-site.org/book.epub", {},
+                do_not_access=['safe-site.org'], head_client=fake_head
+            )
+        )
+        eq_(
+            True, safe(
+                "http://www.gutenberg.org/book.epub", {},
+                do_not_access=['safe-site.org'], head_client=fake_head
+            )
+        )
+
+        # Domain match is based on a subdomain match, not a substring
+        # match.
+        eq_(True, safe("http://www.not-unsafe-site.org/book.epub", {},
+                       do_not_access=['unsafe-site.org'],
+                       head_client=fake_head))
+
+        # Some domains (unglue.it) are known to make surprise
+        # redirects to unsafe domains. For these, we must make a HEAD
+        # request to check.
+
+        def bad_redirect(*args, **kwargs):
+            return MockRequestsResponse(
+                301, dict(
+                    location="http://www.gutenberg.org/a-book.html"
+                )
+            )
+        eq_(False, safe("http://www.unglue.it/book", {},
+                        head_client=bad_redirect))
+
+        def good_redirect(*args, **kwargs):
+            return MockRequestsResponse(
+                301,
+                dict(location="http://www.some-other-site.org/a-book.epub")
+            )
+        eq_(
+            True,
+            safe("http://www.unglue.it/book", {}, head_client=good_redirect)
+        )
+
+        def not_a_redirect(*args, **kwargs):
+            return MockRequestsResponse(200)
+        eq_(True, safe("http://www.unglue.it/book", {},
+                       head_client=not_a_redirect))
+
+        # The `check_for_redirect` argument controls which domains are
+        # checked using HEAD requests. Here, we customise it to check
+        # a site other than unglue.it.
+        eq_(False, safe("http://www.questionable-site.org/book.epub", {},
+                        check_for_redirect=['questionable-site.org'],
+                        head_client=bad_redirect))
+
 
 class TestCoverResource(DatabaseTest):
-
-    def sample_cover_path(self, name):
-        base_path = os.path.split(__file__)[0]
-        resource_path = os.path.join(base_path, "files", "covers")
-        sample_cover_path = os.path.join(resource_path, name)
-        return sample_cover_path
-
-    def sample_cover_representation(self, name):
-        sample_cover_path = self.sample_cover_path(name)
-        return self._representation(
-            media_type="image/png", content=open(sample_cover_path).read())[0]
 
     def test_set_cover(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -5481,6 +5813,42 @@ class TestCoverResource(DatabaseTest):
 
 class TestDeliveryMechanism(DatabaseTest):
 
+    def setup(self):
+        super(TestDeliveryMechanism, self).setup()
+        self.epub_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
+        self.epub_adobe_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
+        self.overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
+
+    def test_implicit_medium(self):
+        eq_(Edition.BOOK_MEDIUM, self.epub_no_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.epub_adobe_drm.implicit_medium)
+        eq_(Edition.BOOK_MEDIUM, self.overdrive_streaming_text.implicit_medium)
+
+    def test_is_media_type(self):
+        eq_(False, DeliveryMechanism.is_media_type(None))
+        eq_(True, DeliveryMechanism.is_media_type(Representation.EPUB_MEDIA_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.KINDLE_CONTENT_TYPE))
+        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE))
+
+    def test_is_streaming(self):
+        eq_(False, self.epub_no_drm.is_streaming)
+        eq_(False, self.epub_adobe_drm.is_streaming)
+        eq_(True, self.overdrive_streaming_text.is_streaming)
+
+    def test_drm_scheme_media_type(self):
+        eq_(None, self.epub_no_drm.drm_scheme_media_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, self.epub_adobe_drm.drm_scheme_media_type)
+        eq_(None, self.overdrive_streaming_text.drm_scheme_media_type)
+
+    def test_content_type_media_type(self):
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_no_drm.content_type_media_type)
+        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
+        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
+            self.overdrive_streaming_text.content_type_media_type)
+
     def test_default_fulfillable(self):
         mechanism, is_new = DeliveryMechanism.lookup(
             self._db, Representation.EPUB_MEDIA_TYPE, 
@@ -5503,6 +5871,55 @@ class TestDeliveryMechanism(DatabaseTest):
         mech = lpmech.delivery_mechanism
         eq_(Representation.EPUB_MEDIA_TYPE, mech.content_type)
         eq_(mech.NO_DRM, mech.drm_scheme)
+
+    def test_compatible_with(self):
+        """Test the rules about which DeliveryMechanisms are
+        mutually compatible and which are mutually exclusive.
+        """
+        epub_adobe, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE,
+            DeliveryMechanism.ADOBE_DRM
+        )
+
+        pdf_adobe, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.PDF_MEDIA_TYPE,
+            DeliveryMechanism.ADOBE_DRM
+        )
+
+        epub_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.EPUB_MEDIA_TYPE,
+            DeliveryMechanism.NO_DRM
+        )
+
+        pdf_no_drm, ignore = DeliveryMechanism.lookup(
+            self._db, Representation.PDF_MEDIA_TYPE,
+            DeliveryMechanism.NO_DRM
+        )
+
+        streaming, ignore = DeliveryMechanism.lookup(
+            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE,
+            DeliveryMechanism.STREAMING_DRM
+        )
+
+        # A non-streaming DeliveryMechanism is compatible only with
+        # itself or a streaming mechanism.
+        eq_(False, epub_adobe.compatible_with(None))
+        eq_(False, epub_adobe.compatible_with("Not a DeliveryMechanism"))
+        eq_(False, epub_adobe.compatible_with(epub_no_drm))
+        eq_(False, epub_adobe.compatible_with(pdf_adobe))
+        eq_(False, epub_no_drm.compatible_with(pdf_no_drm))
+        eq_(True, epub_adobe.compatible_with(epub_adobe))
+        eq_(True, epub_adobe.compatible_with(streaming))
+
+        # A streaming mechanism is compatible with anything.
+        eq_(True, streaming.compatible_with(epub_adobe))
+        eq_(True, streaming.compatible_with(pdf_adobe))
+        eq_(True, streaming.compatible_with(epub_no_drm))
+
+        # Rules are slightly different for open-access books: books
+        # in any format are compatible so long as they have no DRM.
+        eq_(True, epub_no_drm.compatible_with(pdf_no_drm, True))
+        eq_(False, epub_no_drm.compatible_with(pdf_adobe, True))
 
 
 class TestRightsStatus(DatabaseTest):
@@ -6355,72 +6772,37 @@ class TestComplaint(DatabaseTest):
         assert abs(datetime.datetime.utcnow() - complaint.resolved).seconds < 3
 
 
-class TestDeliveryMechanism(DatabaseTest):
-
-    def setup(self):
-        super(TestDeliveryMechanism, self).setup()
-        self.epub_no_drm, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.NO_DRM)
-        self.epub_adobe_drm, ignore = DeliveryMechanism.lookup(
-            self._db, Representation.EPUB_MEDIA_TYPE, DeliveryMechanism.ADOBE_DRM)
-        self.overdrive_streaming_text, ignore = DeliveryMechanism.lookup(
-            self._db, DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM)
-
-    def test_implicit_medium(self):
-        eq_(Edition.BOOK_MEDIUM, self.epub_no_drm.implicit_medium)
-        eq_(Edition.BOOK_MEDIUM, self.epub_adobe_drm.implicit_medium)
-        eq_(Edition.BOOK_MEDIUM, self.overdrive_streaming_text.implicit_medium)
-
-    def test_is_media_type(self):
-        eq_(False, DeliveryMechanism.is_media_type(None))
-        eq_(True, DeliveryMechanism.is_media_type(Representation.EPUB_MEDIA_TYPE))
-        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.KINDLE_CONTENT_TYPE))
-        eq_(False, DeliveryMechanism.is_media_type(DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE))
-
-    def test_is_streaming(self):
-        eq_(False, self.epub_no_drm.is_streaming)
-        eq_(False, self.epub_adobe_drm.is_streaming)
-        eq_(True, self.overdrive_streaming_text.is_streaming)
-
-    def test_drm_scheme_media_type(self):
-        eq_(None, self.epub_no_drm.drm_scheme_media_type)
-        eq_(DeliveryMechanism.ADOBE_DRM, self.epub_adobe_drm.drm_scheme_media_type)
-        eq_(None, self.overdrive_streaming_text.drm_scheme_media_type)
-
-    def test_content_type_media_type(self):
-        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_no_drm.content_type_media_type)
-        eq_(Representation.EPUB_MEDIA_TYPE, self.epub_adobe_drm.content_type_media_type)
-        eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
-            self.overdrive_streaming_text.content_type_media_type)
-
-
 class TestCustomList(DatabaseTest):
 
     def test_find(self):
         source = DataSource.lookup(self._db, DataSource.NYT)
         # When there's no CustomList to find, nothing is returned.
-        result = CustomList.find(self._db, source, 'my-list')
+        result = CustomList.find(self._db, 'my-list', source)
         eq_(None, result)
 
         custom_list = self._customlist(
             foreign_identifier='a-list', name='My List', num_entries=0
         )[0]
         # A CustomList can be found by its foreign_identifier.
-        result = CustomList.find(self._db, source, 'a-list')
+        result = CustomList.find(self._db, 'a-list', source)
         eq_(custom_list, result)
 
         # Or its name.
-        result = CustomList.find(self._db, source.name, 'My List')
+        result = CustomList.find(self._db, 'My List', source.name)
+        eq_(custom_list, result)
+
+        # The list can also be found by name without a data source.
+        result = CustomList.find(self._db, 'My List')
         eq_(custom_list, result)
 
         # By default, we only find lists with no associated Library.
         # If we look for a list from a library, there isn't one.
-        result = CustomList.find(self._db, source, 'My List', library=self._default_library)
+        result = CustomList.find(self._db, 'My List', source, library=self._default_library)
         eq_(None, result)
 
         # If we add the Library to the list, it's returned.
         custom_list.library = self._default_library
-        result = CustomList.find(self._db, source, 'My List', library=self._default_library)
+        result = CustomList.find(self._db, 'My List', source, library=self._default_library)
         eq_(custom_list, result)
         
 
@@ -6505,6 +6887,12 @@ class TestCustomList(DatabaseTest):
         eq_(equivalent, workless_entry.edition)
         # And/or add a .work if one is newly available.
         eq_(lp.work, equivalent_entry.work)
+
+        # Adding a non-equivalent edition for the same work will not create multiple entries.
+        not_equivalent, lp = self._edition(with_open_access_download=True)
+        not_equivalent.work = work
+        not_equivalent_entry, is_new = custom_list.add_entry(not_equivalent)
+        eq_(False, is_new)
 
     def test_remove_entry(self):
         custom_list, editions = self._customlist(num_entries=3)
@@ -7555,6 +7943,38 @@ class TestCollection(DatabaseTest):
         self.collection.default_loan_period_setting(library, audio).value = 606
         eq_(606, self.collection.default_loan_period(library, audio))
 
+        # Given an integration client rather than a library, use
+        # a sitewide integration setting rather than a library-specific
+        # setting.
+        client = self._integration_client()
+
+        # The default when no value is set.
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(client, ebook)
+        )
+
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(client, audio)
+        )
+
+        # Set a value, and it's used.
+        self.collection.default_loan_period_setting(client, ebook).value = 347
+        eq_(347, self.collection.default_loan_period(client))
+        eq_(
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            self.collection.default_loan_period(client, audio)
+        )
+
+        self.collection.default_loan_period_setting(client, audio).value = 349
+        eq_(349, self.collection.default_loan_period(client, audio))
+
+        # The same value is used for other clients.
+        client2 = self._integration_client()
+        eq_(347, self.collection.default_loan_period(client))
+        eq_(349, self.collection.default_loan_period(client, audio))
+
     def test_default_reservation_period(self):
         library = self._default_library
         # The default when no value is set.
@@ -7821,6 +8241,45 @@ class TestCollection(DatabaseTest):
         updated_isbns = self.collection.isbns_updated_since(self._db, timestamp)
         assert_isbns([i1], updated_isbns)
 
+    def test_custom_lists(self):
+        # A Collection can be associated with one or more CustomLists.
+        list1, ignore = get_one_or_create(self._db, CustomList, name=self._str)
+        list2, ignore = get_one_or_create(self._db, CustomList, name=self._str)
+        self.collection.customlists = [list1, list2]
+        eq_(0, len(list1.entries))
+        eq_(0, len(list2.entries))
+
+        # When a new pool is added to the collection and its presentation edition is
+        # calculated for the first time, it's automatically added to the lists.
+        work = self._work(collection=self.collection, with_license_pool=True)
+        eq_(1, len(list1.entries))
+        eq_(1, len(list2.entries))
+        eq_(work, list1.entries[0].work)
+        eq_(work, list2.entries[0].work)
+
+        # Now remove it from one of the lists. If its presentation edition changes
+        # again or its pool changes works, it's not added back.
+        self._db.delete(list1.entries[0])
+        self._db.commit()
+        eq_(0, len(list1.entries))
+        eq_(1, len(list2.entries))
+
+        pool = work.license_pools[0]
+        identifier = pool.identifier
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        staff_edition, ignore = Edition.for_foreign_id(
+            self._db, staff_data_source,
+            identifier.type, identifier.identifier)
+
+        staff_edition.title = self._str
+        work.calculate_presentation()
+        eq_(0, len(list1.entries))
+        eq_(1, len(list2.entries))
+
+        new_work = self._work(collection=self.collection)
+        pool.work = new_work
+        eq_(0, len(list1.entries))
+        eq_(1, len(list2.entries))
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
 
@@ -7984,6 +8443,47 @@ class TestMaterializedViews(DatabaseTest):
         # associated with the license pool, we would expect it to be
         # the data source ID of the license pool.
         eq_(pool.data_source.id, mwg.data_source_id)
+
+    def test_work_on_same_list_twice(self):
+        # Here's the NYT best-seller list.
+        cl, ignore = self._customlist(num_entries=0)
+
+        # Here are two Editions containing data from the NYT
+        # best-seller list.
+        now = datetime.datetime.utcnow()
+        earlier = now - datetime.timedelta(seconds=3600)
+        edition1 = self._edition()
+        entry1, ignore = cl.add_entry(edition1, first_appearance=earlier)
+
+        edition2 = self._edition()
+        entry2, ignore = cl.add_entry(edition2, first_appearance=now)
+
+        # In a shocking turn of events, we've determined that the two
+        # editions are slight title variants of the same work.
+        romance, ignore = Genre.lookup(self._db, "Romance")
+        work = self._work(with_license_pool=True, genre=romance)
+        entry1.work = work
+        entry2.work = work
+        self._db.commit()
+
+        # The materialized view can handle this revelation
+        # and stores the two list entries in different rows.
+        SessionManager.refresh_materialized_views(self._db)
+        from model import MaterializedWorkWithGenre as mw
+        [o1, o2] = self._db.query(mw).order_by(mw.list_edition_id)
+
+        # Both MaterializedWorkWithGenre objects are on the same
+        # list, associated with the same work, the same genre,
+        # and the same presentation edition.
+        for o in (o1, o2):
+            eq_(cl.id, o.list_id)
+            eq_(work.id, o.works_id)
+            eq_(romance.id, o.genre_id)
+            eq_(work.presentation_edition.id, o.editions_id)
+
+        # But they are associated with different list editions.
+        eq_(edition1.id, o1.list_edition_id)
+        eq_(edition2.id, o2.list_edition_id)
 
 
 class TestAdmin(DatabaseTest):

@@ -165,6 +165,27 @@ class TestBaseAnnotator(DatabaseTest):
         eq_(Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE],
             contributor.attrib[role_attrib])
 
+    def test_annotate_work_entry_adds_distributor_and_updated(self):
+        work = self._work(with_license_pool=True, 
+                          with_open_access_download=True)
+        work.last_update_time = datetime.datetime(2018, 2, 5, 7, 39, 49, 580651)
+        [pool] = work.license_pools
+
+        entry = []
+        Annotator.annotate_work_entry(work, pool, None, None, None, entry)
+        eq_(2, len(entry))
+        [distributor, updated] = entry
+        assert 'ProviderName="Gutenberg"' in etree.tostring(distributor)
+        assert 'updated' in etree.tostring(updated)
+        assert '2018-02-05' in etree.tostring(updated)
+
+        entry = []
+        Annotator.annotate_work_entry(work, None, None, None, None, entry,
+                                      updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651))
+        eq_(1, len(entry))
+        [updated] = entry
+        assert 'updated' in etree.tostring(updated)
+        assert '2017-01-02' in etree.tostring(updated)
 
 class TestAnnotators(DatabaseTest):
 
@@ -1250,6 +1271,78 @@ class TestOPDS(DatabaseTest):
 
 
 class TestAcquisitionFeed(DatabaseTest):
+
+    def test_license_tags_no_loan_or_hold(self):
+        edition, pool = self._edition(with_license_pool=True)
+        availability, holds, copies = AcquisitionFeed.license_tags(
+            pool, None, None
+        )
+        eq_(dict(status='available'), availability.attrib)
+        eq_(dict(total='0'), holds.attrib)
+        eq_(dict(total='1', available='1'), copies.attrib)
+
+    def test_license_tags_hold_position(self):
+        # When a book is placed on hold, it typically takes a while
+        # for the LicensePool to be updated with the new number of
+        # holds. This test verifies the normal and exceptional
+        # behavior used to generate the opds:holds tag in different
+        # scenarios.
+        edition, pool = self._edition(with_license_pool=True)
+        patron = self._patron()
+
+        # If the patron's hold position is less than the total number
+        # of holds+reserves, that total is used as opds:total.
+        pool.patrons_in_hold_queue = 3
+        hold, is_new = pool.on_hold_to(patron, position=1)
+
+        availability, holds, copies = AcquisitionFeed.license_tags(
+            pool, None, hold
+        )
+        eq_('1', holds.attrib['position'])
+        eq_('3', holds.attrib['total'])
+
+        # If the patron's hold position is missing, we assume they
+        # are last in the list.
+        hold.position = None
+        availability, holds, copies = AcquisitionFeed.license_tags(
+            pool, None, hold
+        )
+        eq_('3', holds.attrib['position'])
+        eq_('3', holds.attrib['total'])
+
+        # If the patron's current hold position is greater than the
+        # total recorded number of holds+reserves, their position will
+        # be used as the value of opds:total.
+        hold.position = 5
+        availability, holds, copies = AcquisitionFeed.license_tags(
+            pool, None, hold
+        )
+        eq_('5', holds.attrib['position'])
+        eq_('5', holds.attrib['total'])
+
+        # A patron earlier in the holds queue may see a different
+        # total number of holds, but that's fine -- it doesn't matter
+        # very much to that person the precise number of people behind
+        # them in the queue.
+        hold.position = 4
+        availability, holds, copies = AcquisitionFeed.license_tags(
+            pool, None, hold
+        )
+        eq_('4', holds.attrib['position'])
+        eq_('4', holds.attrib['total'])
+
+        # If the patron's hold position is zero (because the book is
+        # reserved to them), we do not represent them as having a hold
+        # position (so no opds:position), but they still count towards
+        # opds:total in the case where the LicensePool's information
+        # is out of date.
+        hold.position = 0
+        pool.patrons_in_hold_queue = 0
+        availability, holds, copies = AcquisitionFeed.license_tags(
+            pool, None, hold
+        )
+        assert 'position' not in holds.attrib
+        eq_('1', holds.attrib['total'])
 
     def test_single_entry(self):
 

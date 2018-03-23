@@ -24,7 +24,6 @@ from opds_import import (
     AccessNotAuthenticated,
     MetadataWranglerOPDSLookup,
     OPDSImporter,
-    OPDSImporterWithS3Mirror,
     OPDSImportMonitor,
     OPDSXMLParser,
     SimplifiedOPDSLookup,
@@ -54,7 +53,10 @@ from model import (
 )
 from coverage import CoverageFailure
 
-from s3 import DummyS3Uploader
+from s3 import (
+    S3Uploader,
+    MockS3Uploader,
+)
 from testing import DummyHTTPClient
 
 
@@ -197,6 +199,17 @@ class OPDSImporterTest(DatabaseTest):
         
 
 class TestOPDSImporter(OPDSImporterTest):
+
+    def test_constructor(self):
+        # The default way of making HTTP requests is with
+        # Representation.cautious_http_get.
+        importer = OPDSImporter(self._db, collection=None)
+        eq_(Representation.cautious_http_get, importer.http_get)
+
+        # But you can pass in anything you want.
+        do_get = object()
+        importer = OPDSImporter(self._db, collection=None, http_get=do_get)
+        eq_(do_get, importer.http_get)
 
     def test_data_source_autocreated(self):
         name = "New data source " + self._str
@@ -1287,7 +1300,31 @@ class TestCombine(object):
         eq_(dict(a=dict(b=[True, False])),
             OPDSImporter.combine(a_is_true, a_is_false))
         
-class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
+class TestMirroring(OPDSImporterTest):
+
+    def test_importer_gets_appropriate_mirror_for_collection(self):
+
+        # The default collection is not configured to mirror the
+        # resources it finds.
+        collection = self._default_collection
+        importer = OPDSImporter(self._db, collection=collection)
+        eq_(None, importer.mirror)
+
+        # Let's configure a mirror integration for it.
+        integration = self._external_integration(
+            ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL,
+            username="username", password="password",
+            settings = {S3Uploader.BOOK_COVERS_BUCKET_KEY : "some-covers"}
+        )
+        collection.mirror_integration = integration
+
+        # Now an OPDSImporter created for this collection has an
+        # appropriately configured MirrorUploader associated with it.
+        importer = OPDSImporter(self._db, collection=collection)
+        mirror = importer.mirror
+        assert isinstance(mirror, S3Uploader)
+        eq_("some-covers",
+            mirror.get_bucket(S3Uploader.BOOK_COVERS_BUCKET_KEY))
 
     def test_resources_are_mirrored_on_import(self):
 
@@ -1314,7 +1351,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
 
-        s3 = DummyS3Uploader()
+        s3 = MockS3Uploader()
 
         importer = OPDSImporter(
             self._db, collection=self._default_collection,
@@ -1391,10 +1428,10 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
         # The "crow" book was mirrored to a bucket corresponding to
         # the open-access content source, the default data source used
         # when no distributor was specified for a book.
-        url0 = 'http://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg%20ID/10441/The%20Green%20Mouse.epub.images'
-        url1 = u'http://s3.amazonaws.com/test.cover.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url2 = u'http://s3.amazonaws.com/test.cover.bucket/scaled/300/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10441/cover_10441_9.png'
-        url3 = 'http://s3.amazonaws.com/test.content.bucket/Library%20Simplified%20Open%20Access%20Content%20Server/Gutenberg%20ID/10557/Johnny%20Crow%27s%20Party.epub.images'
+        url0 = 'https://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg+ID/10441/The+Green+Mouse.epub.images'
+        url1 = u'https://s3.amazonaws.com/test.cover.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.png'
+        url2 = u'https://s3.amazonaws.com/test.cover.bucket/scaled/300/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.png'
+        url3 = 'https://s3.amazonaws.com/test.content.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/Johnny+Crow%27s+Party.epub.images'
         uploaded_urls = [x.mirror_url for x in s3.uploaded]
         eq_([url0, url1, url2, url3], uploaded_urls)
 
@@ -1474,7 +1511,7 @@ class TestOPDSImporterWithS3Mirror(OPDSImporterTest):
             200, content=svg, media_type=Representation.SVG_MEDIA_TYPE
         )
 
-        s3 = DummyS3Uploader()
+        s3 = MockS3Uploader()
 
         importer = OPDSImporter(
             self._db, collection=None,
@@ -1533,6 +1570,20 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             self._default_collection,
             OPDSImporter,
         )
+
+    def test_hook_methods(self):
+        """By default, the OPDS URL and data source used by the importer 
+        come from the collection configuration.
+        """
+        monitor = OPDSImportMonitor(
+            self._db, self._default_collection,
+            import_class=OPDSImporter,
+        )
+        eq_(self._default_collection.external_account_id,
+            monitor.opds_url(self._default_collection))
+
+        eq_(self._default_collection.data_source,
+            monitor.data_source(self._default_collection))
         
     def test_feed_contains_new_data(self):
         feed = self.content_server_mini_feed
@@ -1738,3 +1789,33 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         # Feeds are imported in reverse order
         eq_(["last page", "second page", "first page"], monitor.imports)
+
+    def test_update_headers(self):
+        """Test the _update_headers helper method."""
+        monitor = OPDSImportMonitor(
+            self._db, collection=self._default_collection,
+            import_class=OPDSImporter
+        )
+
+        # _update_headers return a new dictionary. By default, only an
+        # Accept header is added.
+        headers = {'Some other': 'header'}
+        new_headers = monitor._update_headers(headers)
+        eq_(['Some other'], headers.keys())
+        eq_(['Some other', 'Accept'], new_headers.keys())
+
+        # If the monitor has a username and password, an Authorization
+        # header using HTTP Basic Authentication is also added.
+        monitor.username = "a user"
+        monitor.password = "a password"
+        headers = {}
+        new_headers = monitor._update_headers(headers)
+        assert new_headers['Authorization'].startswith('Basic')
+
+        # However, if the Authorization and/or Accept headers have been
+        # filled in by some other piece of code, _update_headers does
+        # not touch them.
+        expect = dict(Accept="text/html", Authorization="Bearer abc")
+        headers = dict(expect)
+        new_headers = monitor._update_headers(headers)
+        eq_(headers, expect)

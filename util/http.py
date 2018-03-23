@@ -315,9 +315,10 @@ class HTTP(object):
         """
 
         allowed_response_codes = allowed_response_codes or ['2xx', '3xx']
+        allowed_response_codes = map(str, allowed_response_codes)
         code = response.status_code
         series = cls.series(code)
-        if code in allowed_response_codes or series in allowed_response_codes:
+        if str(code) in allowed_response_codes or series in allowed_response_codes:
             # Whether or not it looks like there's been a problem,
             # we've been told to let this response code through.
             return response
