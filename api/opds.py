@@ -199,7 +199,7 @@ class CirculationManagerAnnotator(Annotator):
         if can_borrow:
             # Borrowing a book gives you an OPDS entry that gives you
             # fulfillment links.
-            if set_mechanism_at_borrow:
+            if set_mechanism_at_borrow and active_license_pool:
                 # The ebook distributor requires that the delivery
                 # mechanism be set at the point of checkout. This means
                 # a separate borrow link for each mechanism.
@@ -211,7 +211,7 @@ class CirculationManagerAnnotator(Annotator):
                             active_hold
                         )
                     )
-            else:
+            elif active_license_pool:
                 # The ebook distributor does not require that the
                 # delivery mechanism be set at the point of
                 # checkout. This means a single borrow link with
@@ -278,7 +278,7 @@ class CirculationManagerAnnotator(Annotator):
         # If this is an open-access book, add an open-access link for
         # every delivery mechanism with an associated resource.
         open_access_links = []
-        if active_license_pool.open_access:
+        if active_license_pool and active_license_pool.open_access:
             for lpdm in active_license_pool.delivery_mechanisms:
                 if lpdm.resource:
                     open_access_links.append(self.open_access_link(lpdm))
@@ -710,7 +710,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
                           feed, identifier):
         api = None
-        if self.circulation:
+        if self.circulation and active_license_pool:
             api = self.circulation.api_for_license_pool(active_license_pool)
         if api:
             set_mechanism_at_borrow = (
