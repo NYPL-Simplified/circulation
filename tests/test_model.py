@@ -3117,6 +3117,28 @@ class TestWork(DatabaseTest):
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
+    def test_different_language_means_different_work(self):
+        """There are two open-access LicensePools for the same book in
+        different languages. The author and title information is the
+        same, so the books have the same permanent work ID, but since
+        they are in different languages they become separate works.
+        """
+        title = 'Siddhartha'
+        author = ['Herman Hesse']
+        edition1, lp1 = self._edition(
+            title=title, authors=author, language='eng', with_license_pool=True,
+            with_open_access_download=True
+        )
+        w1 = lp1.calculate_work()
+        edition2, lp2 = self._edition(
+            title=title, authors=author, language='ger', with_license_pool=True,
+            with_open_access_download=True
+        )
+        w2 = lp2.calculate_work()
+        for l in (lp1, lp2):
+            eq_(False, l.superceded)
+        assert w1 != w2
+
     def test_reject_covers(self):
         edition, lp = self._edition(with_open_access_download=True)
 
@@ -4025,7 +4047,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         expect_open_access_work, open_access_work_is_new = (
             Work.open_access_for_permanent_work_id(
-                self._db, "abcd", Edition.BOOK_MEDIUM
+                self._db, "abcd", Edition.BOOK_MEDIUM, 'eng'
             )
         )
         eq_(expect_open_access_work, abcd_open_access.work)
@@ -4059,7 +4081,7 @@ class TestWorkConsolidation(DatabaseTest):
         commercial_work = abcd_commercial.work
         eq_((commercial_work, False), abcd_commercial.calculate_work())
 
-    def test_calculate_work_fixes_book_grouped_with_audiobook(self):
+    def test_calculate_work_fixes_incorrectly_grouped_books(self):
         # Here's a Work with an open-access edition of "abcd".
         work = self._work(with_license_pool=True)
         [book] = work.license_pools
@@ -4074,9 +4096,17 @@ class TestWorkConsolidation(DatabaseTest):
         audiobook.presentation_edition.permanent_work_id = "abcd"
         work.license_pools.append(audiobook)
 
+        # And the Work _also_ contains an open-access book of "abcd"
+        # in a different language.
+        edition, spanish = self._edition(with_license_pool=True)
+        spanish.open_access = True
+        spanish.presentation_edition.language='spa'
+        spanish.presentation_edition.permanent_work_id = "abcd"
+        work.license_pools.append(spanish)
+
         def mock_pwid(debug=False):
             return "abcd"
-        for lp in [book, audiobook]:
+        for lp in [book, audiobook, spanish]:
             lp.presentation_edition.calculate_permanent_work_id = mock_pwid
 
         # We can fix this by calling calculate_work() on one of the
@@ -4098,7 +4128,7 @@ class TestWorkConsolidation(DatabaseTest):
         # book-type LicensePools for that title going forward.
         expect_book_work, book_work_is_new = (
             Work.open_access_for_permanent_work_id(
-                self._db, "abcd", Edition.BOOK_MEDIUM
+                self._db, "abcd", Edition.BOOK_MEDIUM, 'eng'
             )
         )
         eq_(expect_book_work, book.work)
@@ -4108,10 +4138,21 @@ class TestWorkConsolidation(DatabaseTest):
         # forward.
         expect_audiobook_work, audiobook_work_is_new = (
             Work.open_access_for_permanent_work_id(
-                self._db, "abcd", Edition.AUDIO_MEDIUM
+                self._db, "abcd", Edition.AUDIO_MEDIUM, 'eng'
             )
         )
         eq_(expect_audiobook_work, audiobook.work)
+
+        # The Spanish book has been given the Work that will be used
+        # for all Spanish LicensePools for that title going forward.
+        expect_spanish_work, spanish_work_is_new = (
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.BOOK_MEDIUM, 'spa'
+            )
+        )
+        eq_(expect_spanish_work, spanish.work)
+        eq_('spa', expect_spanish_work.language)
+
 
     def test_calculate_work_detaches_licensepool_with_no_title(self):
         # Here's a Work with an open-access edition of "abcd".
@@ -4190,9 +4231,47 @@ class TestWorkConsolidation(DatabaseTest):
             work.pwids)
 
     def test_open_access_for_permanent_work_id_no_licensepools(self):
+        # There are no LicensePools, which short-circuilts
+        # open_access_for_permanent_work_id.
         eq_(
             (None, False), Work.open_access_for_permanent_work_id(
-                self._db, "No such permanent work ID", Edition.BOOK_MEDIUM
+                self._db, "No such permanent work ID", Edition.BOOK_MEDIUM,
+                "eng"
+            )
+        )
+
+        # Now it works.
+        w = self._work(
+            language="eng", with_license_pool=True,
+            with_open_access_download=True
+        )
+        w.presentation_edition.permanent_work_id = "permid"
+        eq_(
+            (w, False), Work.open_access_for_permanent_work_id(
+                self._db, "permid", Edition.BOOK_MEDIUM,
+                "eng"
+            )
+        )
+
+        # But the language, medium, and permanent ID must all match.
+        eq_(
+            (None, False), Work.open_access_for_permanent_work_id(
+                self._db, "permid", Edition.BOOK_MEDIUM,
+                "spa"
+            )
+        )
+
+        eq_(
+            (None, False), Work.open_access_for_permanent_work_id(
+                self._db, "differentid", Edition.BOOK_MEDIUM,
+                "eng"
+            )
+        )
+
+        eq_(
+            (None, False), Work.open_access_for_permanent_work_id(
+                self._db, "differentid", Edition.AUDIO_MEDIUM,
+                "eng"
             )
         )
 
@@ -4263,7 +4342,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # open_access_for_permanent_work_id creates the Work.
         work, is_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd", Edition.BOOK_MEDIUM
+            self._db, "abcd", Edition.BOOK_MEDIUM, edition.language
         )
         eq_([lp], work.license_pools)
         eq_(True, is_new)
@@ -4303,7 +4382,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Let's fix these problems.
         work1.make_exclusive_open_access_for_permanent_work_id(
-            "abcd", Edition.BOOK_MEDIUM
+            "abcd", Edition.BOOK_MEDIUM, abcd.language
         )
 
         # The open-access "abcd" book is now the only LicensePool
@@ -4339,7 +4418,7 @@ class TestWorkConsolidation(DatabaseTest):
             pool.presentation_edition.permanent_work_id = None
 
         work.make_exclusive_open_access_for_permanent_work_id(
-            None, Edition.BOOK_MEDIUM
+            None, Edition.BOOK_MEDIUM, edition.language
         )
 
         # Since a LicensePool with no PWID cannot have an associated Work,
@@ -4440,13 +4519,13 @@ class TestWorkConsolidation(DatabaseTest):
         # first one. (The first work is chosen because it represents
         # two LicensePools for 'abcd', not just one.)
         abcd_work, abcd_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd", Edition.BOOK_MEDIUM
+            self._db, "abcd", Edition.BOOK_MEDIUM, abcd.language
         )
         efgh_work, efgh_new = Work.open_access_for_permanent_work_id(
-            self._db, "efgh", Edition.BOOK_MEDIUM
+            self._db, "efgh", Edition.BOOK_MEDIUM, efgh.language
         )
         ijkl_work, ijkl_new = Work.open_access_for_permanent_work_id(
-            self._db, "ijkl", Edition.BOOK_MEDIUM
+            self._db, "ijkl", Edition.BOOK_MEDIUM, ijkl.language
         )
 
         # We've got three different works here. The 'abcd' work is the
