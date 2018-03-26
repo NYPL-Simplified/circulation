@@ -4071,7 +4071,9 @@ class Work(Base):
         # Work.
         licensepools_for_work = Counter()
         for lp in qu:
-            if lp.work and not licensepools_for_work[lp.work]:
+            if (lp.work
+                and lp.work.language in (None, language)
+                and not licensepools_for_work[lp.work]):
                 licensepools_for_work[lp.work] = len(lp.work.license_pools)
 
         work = None
