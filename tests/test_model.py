@@ -4306,7 +4306,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Work.open_access_for_permanent_work_id can resolve this problem.
         work, is_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd", Edition.BOOK_MEDIUM
+            self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         )
 
         # Work #3 still exists and its license pool was not affected.
@@ -4330,7 +4330,7 @@ class TestWorkConsolidation(DatabaseTest):
         # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
         eq_((w2, False), Work.open_access_for_permanent_work_id(
-            self._db, "abcd", Edition.BOOK_MEDIUM
+            self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         ))
 
     def test_open_access_for_permanent_work_id_can_create_work(self):
@@ -4382,7 +4382,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Let's fix these problems.
         work1.make_exclusive_open_access_for_permanent_work_id(
-            "abcd", Edition.BOOK_MEDIUM, abcd.language
+            "abcd", Edition.BOOK_MEDIUM, "eng",
         )
 
         # The open-access "abcd" book is now the only LicensePool
@@ -4519,13 +4519,13 @@ class TestWorkConsolidation(DatabaseTest):
         # first one. (The first work is chosen because it represents
         # two LicensePools for 'abcd', not just one.)
         abcd_work, abcd_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd", Edition.BOOK_MEDIUM, abcd.language
+            self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         )
         efgh_work, efgh_new = Work.open_access_for_permanent_work_id(
-            self._db, "efgh", Edition.BOOK_MEDIUM, efgh.language
+            self._db, "efgh", Edition.BOOK_MEDIUM, "eng"
         )
         ijkl_work, ijkl_new = Work.open_access_for_permanent_work_id(
-            self._db, "ijkl", Edition.BOOK_MEDIUM, ijkl.language
+            self._db, "ijkl", Edition.BOOK_MEDIUM, "eng"
         )
 
         # We've got three different works here. The 'abcd' work is the
@@ -4596,7 +4596,7 @@ class TestWorkConsolidation(DatabaseTest):
             ValueError,
             "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
             Work.open_access_for_permanent_work_id, self._db, "abcd",
-            Edition.BOOK_MEDIUM
+            Edition.BOOK_MEDIUM, efgh_1.presentation_edition.language,
         )
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
