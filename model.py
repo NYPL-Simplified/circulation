@@ -4036,6 +4036,39 @@ class Work(Base):
         return qu.filter(Subject.checked==False).distinct()
 
     @classmethod
+    def _potential_open_access_works_for_permanent_work_id(
+            cls, _db, pwid, medium, language
+    ):
+        """Find all Works that might be suitable for use as the
+        canonical open-access Work for the given `pwid`, `medium`,
+        and `language`.
+
+        :return: A 2-tuple (pools, counts_by_work). `pools` represents
+        all affected LicensePools; `counts_by_work is a Counter
+        tallying the number of LicensePools associated with a given
+        work.
+        """
+        licensepools_for_work = Counter()
+        qu = _db.query(LicensePool).join(
+            LicensePool.presentation_edition).filter(
+                LicensePool.open_access==True
+            ).filter(
+                Edition.permanent_work_id==pwid
+            ).filter(
+                Edition.medium==medium
+            ).filter(
+                Edition.language==language
+            )
+
+        pools = qu.all()
+        for lp in pools:
+            if (lp.work
+                and lp.work.language in (None, language)
+                and not licensepools_for_work[lp.work]):
+                licensepools_for_work[lp.work] = len(lp.work.license_pools)
+        return pools, licensepools_for_work
+
+    @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid, medium, language):
         """Find or create the Work encompassing all open-access LicensePools
         whose presentation Editions have the given permanent work ID,
@@ -4048,33 +4081,13 @@ class Work(Base):
         """
         is_new = False
 
-        # Find all open-access LicensePools whose presentation
-        # Editions have the given permanent work ID, medium,
-        # and language.
-        qu = _db.query(LicensePool).join(
-            LicensePool.presentation_edition).filter(
-                Edition.permanent_work_id==pwid
-            ).filter(
-                LicensePool.open_access==True
-            ).filter(
-                Edition.medium==medium
-            ).filter(
-                Edition.language==language
-            )
-
-        licensepools = qu.all()
+        licensepools, licensepools_for_work = cls._potential_open_access_works_for_permanent_work_id(
+            _db, pwid, medium, language
+        )
         if not licensepools:
-            # There are no LicensePools for this PWID. Do nothing.
+            # There is no work for this PWID/medium/language combination
+            # because no LicensePools offer it.
             return None, is_new
-
-        # Tally up how many LicensePools are associated with each
-        # Work.
-        licensepools_for_work = Counter()
-        for lp in qu:
-            if (lp.work
-                and lp.work.language in (None, language)
-                and not licensepools_for_work[lp.work]):
-                licensepools_for_work[lp.work] = len(lp.work.license_pools)
 
         work = None
         if len(licensepools_for_work) == 0:
@@ -4112,7 +4125,8 @@ class Work(Base):
 
         # At this point we have one, and only one, Work for this
         # permanent work ID. Assign it to every LicensePool whose
-        # presentation Edition has that permanent work ID.
+        # presentation Edition has that permanent work ID/medium/language
+        # combination.
         for lp in licensepools:
             lp.work = work
         return work, is_new
