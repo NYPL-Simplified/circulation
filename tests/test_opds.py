@@ -436,6 +436,32 @@ class TestLibraryAnnotator(VendorIDTest):
             assert expect in with_auth
             assert expect not in no_auth
 
+        # We can also build an entry for a work with no license pool,
+        # but it will have no borrow link.
+        work = self._work(with_license_pool=False)
+        edition = work.presentation_edition
+        identifier = edition.primary_identifier
+
+        annotator = LibraryAnnotator(
+            None, lane, self._default_library, test_mode=True,
+            library_supports_patron_authentication=True
+        )
+        feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
+        entry = feed._make_entry_xml(work, None, edition, identifier)
+        annotator.annotate_work_entry(
+            work, None, edition, identifier, feed, entry
+        )
+        parsed = feedparser.parse(etree.tostring(entry))
+        [entry_parsed] = parsed['entries']
+        links = set([x['rel'] for x in entry_parsed['links']])
+
+        # These links are still present.
+        for expect in [u'alternate', u'issues', u'related', u'http://www.w3.org/ns/oa#annotationservice']:
+            assert expect in links
+
+        # But the borrow link is gone.
+        assert u'http://opds-spec.org/acquisition/borrow' not in links
+
     def test_annotate_feed(self):
         lane = self._lane()
         linksets = []
