@@ -4596,7 +4596,7 @@ class TestWorkConsolidation(DatabaseTest):
             ValueError,
             "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
             Work.open_access_for_permanent_work_id, self._db, "abcd",
-            Edition.BOOK_MEDIUM, efgh_1.presentation_edition.language,
+            Edition.BOOK_MEDIUM, "eng"
         )
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
