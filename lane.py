@@ -1037,7 +1037,7 @@ class WorkList(object):
         """By default, a WorkList is searchable."""
         return self
 
-    def search(self, _db, query, media, search_client, pagination=None):
+    def search(self, _db, query, search_client, media=None, pagination=None, languages=None):
         """Find works in this WorkList that match a search query."""
         if not pagination:
             pagination = Pagination(
@@ -1052,6 +1052,9 @@ class WorkList(object):
         else:
             media = [media]
 
+        if not languages:
+            languages = self.languages
+
         if self.target_age:
             target_age = numericrange_to_tuple(self.target_age)
         else:
@@ -1065,7 +1068,7 @@ class WorkList(object):
                     library=self.get_library(_db),
                     query_string=query,
                     media=media,
-                    languages=self.languages,
+                    languages=languages,
                     fiction=self.fiction,
                     audiences=self.audiences,
                     target_age=target_age,
@@ -1775,15 +1778,15 @@ class Lane(Base, WorkList):
                            if x == self or x.inherit_parent_restrictions]
         return self._groups_for_lanes(_db, relevant_lanes, queryable_lanes)
 
-    def search(self, _db, query, search_client, pagination=None):
+    def search(self, _db, query, search_client, media=None, pagination=None, languages=None):
         """Find works in this lane that also match a search query.
         """
         target = self.search_target
 
         if target == self:
-            return super(Lane, self).search(_db, query, search_client, pagination)
+            return super(Lane, self).search(_db, query, search_client, media, pagination, languages)
         else:
-            return target.search(_db, query, search_client, pagination)
+            return target.search(_db, query, search_client, media, pagination, languages)
 
     def bibliographic_filter_clause(self, _db, qu, featured, outer_join=False):
         """Create an AND clause that restricts a query to find

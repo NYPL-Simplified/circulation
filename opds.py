@@ -625,11 +625,11 @@ class AcquisitionFeed(OPDSFeed):
 
 
     @classmethod
-    def search(cls, _db, title, url, lane, search_engine, query, media, pagination=None,
-               annotator=None
+    def search(cls, _db, title, url, lane, search_engine, query, media=None, pagination=None,
+               annotator=None, languages=None
     ):
         results = lane.search(
-            _db, query, media, search_engine, pagination=pagination
+            _db, query, search_engine, media, pagination=pagination, languages=languages
         )
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())

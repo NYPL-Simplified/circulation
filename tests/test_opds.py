@@ -15,7 +15,7 @@ from . import (
 
 from psycopg2.extras import NumericRange
 from config import (
-    Configuration, 
+    Configuration,
     temp_config,
 )
 from model import (
@@ -40,7 +40,7 @@ from lane import (
     WorkList,
 )
 
-from opds import (    
+from opds import (
     AcquisitionFeed,
     Annotator,
     LookupAcquisitionFeed,
@@ -52,7 +52,7 @@ from opds import (
     TestUnfulfillableAnnotator
 )
 
-from util.opds_writer import (    
+from util.opds_writer import (
     AtomFeed,
     OPDSFeed,
     OPDSMessage,
@@ -76,7 +76,7 @@ from flask_babel import lazy_gettext as _
 class TestBaseAnnotator(DatabaseTest):
 
     def test_active_licensepool_for_ignores_superceded_licensepools(self):
-        work = self._work(with_license_pool=True, 
+        work = self._work(with_license_pool=True,
                           with_open_access_download=True)
         [pool1] = work.license_pools
         edition, pool2 = self._edition(with_license_pool=True)
@@ -119,7 +119,7 @@ class TestBaseAnnotator(DatabaseTest):
         pool1.open_access = True
         eq_(pool1, Annotator.active_licensepool_for(work))
         pool1.open_access = False
-        
+
         # pool2 is open-access but has no usable download. The other
         # pool wins.
         pool2.open_access = True
@@ -166,7 +166,7 @@ class TestBaseAnnotator(DatabaseTest):
             contributor.attrib[role_attrib])
 
     def test_annotate_work_entry_adds_distributor_and_updated(self):
-        work = self._work(with_license_pool=True, 
+        work = self._work(with_license_pool=True,
                           with_open_access_download=True)
         work.last_update_time = datetime.datetime(2018, 2, 5, 7, 39, 49, 580651)
         [pool] = work.license_pools
@@ -260,8 +260,8 @@ class TestAnnotators(DatabaseTest):
         author_tag = VerboseAnnotator.detailed_author(c)
 
         tag_string = etree.tostring(author_tag)
-        assert "<name>Givenname Familyname</" in tag_string        
-        assert "<simplified:sort_name>Familyname, Givenname</" in tag_string        
+        assert "<name>Givenname Familyname</" in tag_string
+        assert "<simplified:sort_name>Familyname, Givenname</" in tag_string
         assert "<simplified:wikipedia_name>Givenname Familyname (Author)</" in tag_string
         assert "<schema:sameas>http://viaf.org/viaf/100</" in tag_string
         assert "<schema:sameas>http://id.loc.gov/authorities/names/n100</"
@@ -316,7 +316,7 @@ class TestAnnotators(DatabaseTest):
 
         for annotator in Annotator, VerboseAnnotator:
             tags = Annotator.authors(
-                work, work.license_pools[0], edition, 
+                work, work.license_pools[0], edition,
                 edition.primary_identifier
             )
             # We made two <author> tags and one <contributor>
@@ -462,7 +462,7 @@ class TestOPDS(DatabaseTest):
         self.conf = WorkList()
         self.conf.initialize(
             self._default_library,
-            children=[self.fiction, self.fantasy, self.history, self.ya, 
+            children=[self.fiction, self.fantasy, self.history, self.ya,
                       self.romance]
         )
 
@@ -476,7 +476,7 @@ class TestOPDS(DatabaseTest):
         eq_(etree.tostring(a), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="text/html"><ns0:indirectAcquisition xmlns:ns0="http://opds-spec.org/2010/catalog" type="text/plain"><ns0:indirectAcquisition type="application/pdf"/></ns0:indirectAcquisition></link>' % href)
 
         # A direct acquisition link.
-        b = m(rel, href, ["application/epub"])    
+        b = m(rel, href, ["application/epub"])
         eq_(etree.tostring(b), '<link href="%s" rel="http://opds-spec.org/acquisition/borrow" type="application/epub"/>' % href)
 
     def test_group_uri(self):
@@ -534,7 +534,7 @@ class TestOPDS(DatabaseTest):
         u = unicode(feed)
         parsed = feedparser.parse(u)
         entry = parsed['entries'][0]
-        eq_(work.presentation_edition.permanent_work_id, 
+        eq_(work.presentation_edition.permanent_work_id,
             entry['simplified_pwid'])
 
     def test_lane_feed_contains_facet_links(self):
@@ -547,7 +547,7 @@ class TestOPDS(DatabaseTest):
             self._db, "title", "http://the-url.com/",
             lane, TestAnnotator, facets=facets
         )
-        
+
         u = unicode(cached_feed.content)
         parsed = feedparser.parse(u)
         by_title = parsed['feed']
@@ -555,7 +555,7 @@ class TestOPDS(DatabaseTest):
         [self_link] = self.links(by_title, 'self')
         eq_("http://the-url.com/", self_link['href'])
         facet_links = self.links(by_title, AcquisitionFeed.FACET_REL)
-        
+
         library = self._default_library
         order_facets = library.enabled_facets(
             Facets.ORDER_FACET_GROUP_NAME
@@ -565,13 +565,13 @@ class TestOPDS(DatabaseTest):
         )
         collection_facets = library.enabled_facets(
             Facets.COLLECTION_FACET_GROUP_NAME
-        )        
+        )
 
         def link_for_facets(facets):
             return [x for x in facet_links if facets.query_string in x['href']]
 
         facets = Facets(library, None, None, None)
-        for i1, i2, new_facets, selected in facets.facet_groups:            
+        for i1, i2, new_facets, selected in facets.facet_groups:
             links = link_for_facets(new_facets)
             if selected:
                 # This facet set is already selected, so it should
@@ -794,11 +794,11 @@ class TestOPDS(DatabaseTest):
 
         scheme = "http://librarysimplified.org/terms/fiction/"
 
-        eq_([(scheme+'Nonfiction', 'Nonfiction')], 
+        eq_([(scheme+'Nonfiction', 'Nonfiction')],
             [(x['term'], x['label']) for x in entries[0]['tags']
              if x['scheme'] == scheme]
         )
-        eq_([(scheme+'Fiction', 'Fiction')], 
+        eq_([(scheme+'Fiction', 'Fiction')],
             [(x['term'], x['label']) for x in entries[1]['tags']
              if x['scheme'] == scheme]
         )
@@ -914,7 +914,7 @@ class TestOPDS(DatabaseTest):
     def test_page_feed(self):
         """Test the ability to create a paginated feed of works for a given
         lane.
-        """       
+        """
         lane = self.contemporary_romance
         work1 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
         work2 = self._work(genre=Contemporary_Romance, with_open_access_download=True)
@@ -925,7 +925,7 @@ class TestOPDS(DatabaseTest):
 
         def make_page(pagination):
             return AcquisitionFeed.page(
-                self._db, "test", self._url, lane, TestAnnotator, 
+                self._db, "test", self._url, lane, TestAnnotator,
                 pagination=pagination
             )
         cached_works = make_page(pagination)
@@ -999,7 +999,7 @@ class TestOPDS(DatabaseTest):
 
         def make_page(pagination):
             return AcquisitionFeed.page(
-                self._db, "test", self._url, lane, TestAnnotator, 
+                self._db, "test", self._url, lane, TestAnnotator,
                 pagination=pagination
             )
         cached_works = make_page(pagination)
@@ -1070,17 +1070,17 @@ class TestOPDS(DatabaseTest):
         annotator = TestAnnotatorWithGroup()
 
         cached_groups = AcquisitionFeed.groups(
-            self._db, "test", self._url, self.fantasy, annotator, 
+            self._db, "test", self._url, self.fantasy, annotator,
             force_refresh=True
         )
         parsed = feedparser.parse(cached_groups.content)
-            
+
         # There are four entries in three lanes.
         e1, e2, e3, e4 = parsed['entries']
 
         # Each entry has one and only one link.
         [l1], [l2], [l3], [l4] = [x['links'] for x in parsed['entries']]
-            
+
         # Those links are 'collection' links that classify the
         # works under their subgenres.
         assert all([l['rel'] == 'collection' for l in (l1, l2)])
@@ -1181,7 +1181,7 @@ class TestOPDS(DatabaseTest):
 
         def make_page(pagination):
             return AcquisitionFeed.search(
-                self._db, "test", self._url, fantasy_lane, search_client, 
+                self._db, "test", self._url, fantasy_lane, search_client,
                 "fantasy",
                 pagination=pagination,
                 annotator=TestAnnotator,
@@ -1236,7 +1236,7 @@ class TestOPDS(DatabaseTest):
 
         def make_page():
             return AcquisitionFeed.page(
-                self._db, "test", self._url, fantasy_lane, TestAnnotator, 
+                self._db, "test", self._url, fantasy_lane, TestAnnotator,
                 pagination=Pagination.default()
             )
 
@@ -1250,17 +1250,17 @@ class TestOPDS(DatabaseTest):
         old_timestamp = cached1.timestamp
 
         work2 = self._work(
-            title="A Brand New Title", 
+            title="A Brand New Title",
             genre=Epic_Fantasy, with_open_access_download=True
-        )        
+        )
         self.add_to_materialized_view([work2], True)
 
-        # The new work does not show up in the feed because 
+        # The new work does not show up in the feed because
         # we get the old cached version.
         cached2 = make_page()
         assert work2.title not in cached2.content
         assert cached2.timestamp == old_timestamp
-            
+
         # Change the policy to disable caching, and we get
         # a brand new page with the new work.
         policy.value = "0"
@@ -1381,7 +1381,7 @@ class TestAcquisitionFeed(DatabaseTest):
         assert expected in etree.tostring(entry)
 
     def test_entry_cache_adds_missing_drm_namespace(self):
-        
+
         work = self._work(with_open_access_download=True)
 
         # This work's OPDS entry was created with a namespace map
@@ -1407,7 +1407,7 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>',
             etree.tostring(entry)
         )
-        
+
     def test_error_when_work_has_no_identifier(self):
         """We cannot create an OPDS entry for a Work that cannot be associated
         with an Identifier.
@@ -1445,7 +1445,7 @@ class TestAcquisitionFeed(DatabaseTest):
         )
         entry = feed.create_entry(work)
         eq_(None, entry)
-        
+
     def test_cache_usage(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(
@@ -1466,7 +1466,7 @@ class TestAcquisitionFeed(DatabaseTest):
         [pool] = work.license_pools
         xml = etree.fromstring(work.simple_opds_entry)
         Annotator.annotate_work_entry(
-            work, pool, pool.presentation_edition, pool.identifier, feed, 
+            work, pool, pool.presentation_edition, pool.identifier, feed,
             xml
         )
         eq_(etree.tostring(xml), etree.tostring(entry))
@@ -1480,7 +1480,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # If we pass in force_create, a new OPDS entry is created
         # and the cache is updated.
         entry = feed.create_entry(work, force_create=True)
-        entry_string = etree.tostring(entry) 
+        entry_string = etree.tostring(entry)
         assert entry_string != tiny_entry
         assert work.simple_opds_entry != tiny_entry
 
@@ -1488,7 +1488,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # through `Annotator.annotate_work_entry`.
         full_entry = etree.fromstring(work.simple_opds_entry)
         Annotator.annotate_work_entry(
-            work, pool, pool.presentation_edition, pool.identifier, feed, 
+            work, pool, pool.presentation_edition, pool.identifier, feed,
             full_entry
         )
         eq_(entry_string, etree.tostring(full_entry))
@@ -1516,7 +1516,7 @@ class TestAcquisitionFeed(DatabaseTest):
             self._db, work, TestUnfulfillableAnnotator
         )
         expect = AcquisitionFeed.error_message(
-            pool.identifier, 403, 
+            pool.identifier, 403,
             "I know about this work but can offer no way of fulfilling it."
         )
         eq_(expect, entry)
@@ -1625,10 +1625,10 @@ class TestLookupAcquisitionFeed(DatabaseTest):
     def test_unfilfullable_work(self):
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
-        feed, entry = self.entry(pool.identifier, work, 
+        feed, entry = self.entry(pool.identifier, work,
                                  TestUnfulfillableAnnotator)
         expect = AcquisitionFeed.error_message(
-            pool.identifier, 403, 
+            pool.identifier, 403,
             "I know about this work but can offer no way of fulfilling it."
         )
         eq_(expect, entry)
