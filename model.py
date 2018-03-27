@@ -4065,7 +4065,7 @@ class Work(Base):
                 and lp.work.language in (None, language)
                 and not affected_licensepools_for_work[lp.work]):
                 affected_licensepools_for_work[lp.work] = len(
-                    [x for x in pools if x.work == lp.work and lp in pools]
+                    [x for x in pools if x.work == lp.work]
                 )
         return pools, affected_licensepools_for_work
 

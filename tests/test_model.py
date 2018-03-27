@@ -4371,7 +4371,6 @@ class TestWorkConsolidation(DatabaseTest):
         for lp in [lp1, lp2]:
             w1.license_pools.append(lp)
             lp.open_access = True
-        self._db.commit()
 
         def m():
             return Work._potential_open_access_works_for_permanent_work_id(
@@ -4384,7 +4383,7 @@ class TestWorkConsolidation(DatabaseTest):
         # associated with the same Work.
         poolset = set([lp1, lp2])
         eq_(poolset, pools)
-        eq_({work : 2}, counts)
+        eq_({w1 : 2}, counts)
 
         # Since the work was just created, it has no presentation
         # edition and thus no language. If the presentation edition
@@ -4392,7 +4391,7 @@ class TestWorkConsolidation(DatabaseTest):
         w1.presentation_edition = e1
         pools, counts = m()
         eq_(poolset, pools)
-        eq_({work : 2}, counts)
+        eq_({w1 : 2}, counts)
 
         # If the Work's language is set to a language that _conflicts_
         # with the language passed in to
@@ -4414,7 +4413,7 @@ class TestWorkConsolidation(DatabaseTest):
             # LicensePools for its Work.
             pools, counts = m()
             eq_(set([lp2]), pools)
-            eq_({work:1}, counts)
+            eq_({w1 : 1}, counts)
 
         # It has to be open-access.
         lp1.open_access = False
