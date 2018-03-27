@@ -4293,9 +4293,11 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Due to an error, it turns out both Works are providing the
         # exact same book.
-        lp1.presentation_edition.permanent_work_id="abcd"
-        lp2.presentation_edition.permanent_work_id="abcd"
-        lp3.presentation_edition.permanent_work_id="abcd"
+        def mock_pwid(debug=False):
+            return "abcd"
+        for lp in [lp1, lp2, lp3]:
+            lp.presentation_edition.permanent_work_id="abcd"
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid
 
         # We've also got Work #3, which provides a commercial license
         # for that book.
@@ -4329,6 +4331,8 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
+        _db = self._db
+        Work.open_access_for_permanent_work_id(_db, "abcd", Edition.BOOK_MEDIUM, "eng")
         eq_((w2, False), Work.open_access_for_permanent_work_id(
             self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         ))
