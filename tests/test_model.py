@@ -4367,14 +4367,17 @@ class TestWorkConsolidation(DatabaseTest):
         )
         e2.permanent_work_id = "pwid"
 
-        work = Work()
+        w1 = Work()
         for lp in [lp1, lp2]:
-            work.license_pools.append(lp)
+            w1.license_pools.append(lp)
             lp.open_access = True
         self._db.commit()
 
-        m = Work._potential_open_access_works_for_permanent_work_id
-        pools, counts = m(self._db, "pwid", Edition.BOOK_MEDIUM, "eng")
+        def m():
+            return Work._potential_open_access_works_for_permanent_work_id(
+                self._db, "pwid", Edition.BOOK_MEDIUM, "eng"
+            )
+        pools, counts = m()
 
         # Both LicensePools show up in the list of LicensePools that
         # should be grouped together, and both LicensePools are
@@ -4386,8 +4389,8 @@ class TestWorkConsolidation(DatabaseTest):
         # Since the work was just created, it has no presentation
         # edition and thus no language. If the presentation edition
         # were set, the result would be the same.
-        work.presentation_edition = e1
-        pools, counts = m(self._db, "pwid", Edition.BOOK_MEDIUM, "eng")
+        w1.presentation_edition = e1
+        pools, counts = m()
         eq_(poolset, pools)
         eq_({work : 2}, counts)
 
@@ -4397,11 +4400,11 @@ class TestWorkConsolidation(DatabaseTest):
         # does not show up in `counts`, indicating that a new Work
         # needs to be created to hold books in the given language.
         wrong_language = self._edition(language="fin")
-        work.presentation_edition = wrong_language
-        pools, counts = m(self._db, "pwid", Edition.BOOK_MEDIUM, "eng")
+        w1.presentation_edition = wrong_language
+        pools, counts = m()
         eq_(poolset, pools)
         eq_({}, counts)
-        work.presentation_edition = None
+        w1.presentation_edition = None
 
         # Now let's see what changes to a LicensePool will cause it
         # not to be eligible in the first place.
@@ -4409,7 +4412,7 @@ class TestWorkConsolidation(DatabaseTest):
             # A LicensePool that is not eligible will not show up in
             # the set and will not be counted towards the total of eligible
             # LicensePools for its Work.
-            pools, counts = m(self._db, "pwid", Edition.BOOK_MEDIUM, "eng")
+            pools, counts = m()
             eq_(set([lp2]), pools)
             eq_({work:1}, counts)
 
@@ -4433,6 +4436,22 @@ class TestWorkConsolidation(DatabaseTest):
         e1.language = "another language"
         assert_lp1_missing()
         e1.language = 'eng'
+
+        # Finally, let's see what happens when there are two Works where
+        # there should be one.
+        w2 = Work()
+        w2.license_pools.append(lp2)
+        pools, counts = m()
+
+        # This work is irrelevant and will not show up at all.
+        w3 = Work()
+
+        # Both Works have one associated LicensePool, so they have
+        # equal claim to being 'the' Work for this work
+        # ID/language/medium. The calling code will have to sort it
+        # out.
+        eq_(poolset, pools)
+        eq_({w1: 1, w2: 1}, counts)
 
     def test_make_exclusive_open_access_for_permanent_work_id(self):
         # Here's a work containing an open-access LicensePool for
