@@ -1049,11 +1049,12 @@ class WorkList(object):
 
         if not media:
             media = self.media
-        else:
+        elif isinstance(media, basestring):
             media = [media]
 
-        if not languages:
-            languages = self.languages
+        default_languages = languages
+        if self.languages:
+            default_languages = self.languages
 
         if self.target_age:
             target_age = numericrange_to_tuple(self.target_age)
@@ -1068,7 +1069,7 @@ class WorkList(object):
                     library=self.get_library(_db),
                     query_string=query,
                     media=media,
-                    languages=languages,
+                    languages=default_languages,
                     fiction=self.fiction,
                     audiences=self.audiences,
                     target_age=target_age,

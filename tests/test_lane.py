@@ -1265,15 +1265,16 @@ class TestWorkList(DatabaseTest):
         eq_(work.id, result.works_id)
 
         # Test that language and media are passed in
-        languages = ["fr"]
-        media = 'audiobook'
+        languages = ["fre"]
+        media = ['audiobook']
         results = wl.search(
             self._db, work.title, search_client, media, pagination, languages
         )
         [query, second_query] = search_client.queries
         [fixed, kw] = second_query
-        eq_(languages, kw['languages'])
-        eq_([media], kw['media'])
+        # lane languages should take preference over user entered languages
+        eq_(["eng", "spa"], kw['languages'])
+        eq_(media, kw['media'])
 
 
 class TestLane(DatabaseTest):
