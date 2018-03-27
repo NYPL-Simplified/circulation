@@ -74,6 +74,7 @@ from core.model import (
 from core.opds import (
     AcquisitionFeed,
 )
+from core.util import LanguageCodes
 from core.util.opds_writer import (
      OPDSFeed,
 )
@@ -732,7 +733,9 @@ class OPDSFeedController(CirculationManagerController):
         language_header = flask.request.headers.get("Accept-Language")
         if language_header:
             languages = parse_header(language_header)
-            languages = map(lambda x: str(x), languages)
+            languages = map(str, languages)
+            languages = map(LanguageCodes.iso_639_2_for_locale, languages)
+            languages = [l for l in languages if l]
         else:
             languages = None
 
@@ -745,7 +748,12 @@ class OPDSFeedController(CirculationManagerController):
             media_url = "&media=" + urllib.quote(media.encode("utf8"))
         else:
             media_url = ''
-        this_url += "?q=" + urllib.quote(query.encode("utf8")) + media_url
+        if languages:
+            languages_url = "&" + urllib.urlencode(dict(language=languages), doseq=True)
+        else:
+            languages_url = ''
+
+        this_url += "?q=" + urllib.quote(query.encode("utf8")) + media_url + languages_url
         annotator = self.manager.annotator(lane)
         info = OpenSearchDocument.search_info(lane)
         opds_feed = AcquisitionFeed.search(
