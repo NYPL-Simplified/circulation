@@ -178,13 +178,13 @@ class TestLaneCreation(DatabaseTest):
         fiction, nonfiction, children = small.sublanes
         eq_([], tiny.sublanes)
         eq_("Fiction", fiction.display_name)
-        eq_("Nonfiction", fiction.display_name)
-        eq_("Children & Young Adult", fiction.display_name)
+        eq_("Nonfiction", nonfiction.display_name)
+        eq_("Children & Young Adult", children.display_name)
 
     def test_create_lane_for_small_collection(self):
         languages = ['eng', 'spa', 'chi']
         create_lane_for_small_collection(
-            self._db, self._default_library, languages
+            self._db, self._default_library, None, languages
         )
         [lane] = self._db.query(Lane).filter(Lane.parent_id==None).all()
 
@@ -249,16 +249,14 @@ class TestLaneCreation(DatabaseTest):
         # a top-level lane for each small collection, and a lane
         # for everything left over.
         eq_(set(['Fiction', "Nonfiction", "Young Adult Fiction", "Young Adult Nonfiction",
-                 "Children and Middle Grade", u'español', 'Chinese', 'Other Languages']),
+                 "Children and Middle Grade", u'World Languages']),
             set([x.display_name for x in lanes])
         )
 
         [english_fiction_lane] = [x for x in lanes if x.display_name == 'Fiction']
         eq_(0, english_fiction_lane.priority)
-        [chinese_lane] = [x for x in lanes if x.display_name == 'Chinese']
-        eq_(6, chinese_lane.priority)
-        [other_lane] = [x for x in lanes if x.display_name == 'Other Languages']
-        eq_(7, other_lane.priority)
+        [world] = [x for x in lanes if x.display_name == 'World Languages']
+        eq_(5, world.priority)
 
     def test_lane_configuration_from_collection_sizes(self):
 
