@@ -4383,7 +4383,7 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(poolset, pools)
         eq_({work : 2}, counts)
 
-        # Since the work was just created it has no presentation
+        # Since the work was just created, it has no presentation
         # edition and thus no language. If the presentation edition
         # were set, the result would be the same.
         work.presentation_edition = e1
@@ -4404,12 +4404,15 @@ class TestWorkConsolidation(DatabaseTest):
         work.presentation_edition = None
 
         # Now let's see what changes to a LicensePool will cause it
-        # not to be counted in the first place.
+        # not to be eligible in the first place.
         def assert_lp1_missing():
+            # A LicensePool that is not eligible will not show up in
+            # the set and will not be counted towards the total of eligible
+            # LicensePools for its Work.
             pools, counts = m(self._db, "pwid", Edition.BOOK_MEDIUM, "eng")
             eq_(set([lp2]), pools)
             eq_({work:1}, counts)
-        
+
         # It has to be open-access.
         lp1.open_access = False
         assert_lp1_missing()
@@ -4417,15 +4420,15 @@ class TestWorkConsolidation(DatabaseTest):
 
         # The presentation edition's permanent work ID must match
         # what's passed into the helper method.
-        e1.pwid = "another pwid"
+        e1.permanent_work_id = "another pwid"
         assert_lp1_missing()
-        e1.pwid = "pwid"
+        e1.permanent_work_id = "pwid"
 
         # The medium must also match.
-        e1.medium = "another medium"
+        e1.medium = Edition.AUDIO_MEDIUM
         assert_lp1_missing()
         e1.medium = Edition.BOOK_MEDIUM
-        
+
         # The language must also match.
         e1.language = "another language"
         assert_lp1_missing()
