@@ -4043,12 +4043,12 @@ class Work(Base):
         canonical open-access Work for the given `pwid`, `medium`,
         and `language`.
 
-        :return: A 2-tuple (pools, counts_by_work). `pools` represents
-        all affected LicensePools; `counts_by_work is a Counter
-        tallying the number of LicensePools associated with a given
-        work.
+        :return: A 2-tuple (pools, counts_by_work). `pools` is a set
+        containing all affected LicensePools; `counts_by_work is a
+        Counter tallying the number of affected LicensePools
+        associated with a given work.
         """
-        licensepools_for_work = Counter()
+        affected_licensepools_for_work = Counter()
         qu = _db.query(LicensePool).join(
             LicensePool.presentation_edition).filter(
                 LicensePool.open_access==True
@@ -4059,14 +4059,15 @@ class Work(Base):
             ).filter(
                 Edition.language==language
             )
-
-        pools = qu.all()
+        pools = set(qu.all())
         for lp in pools:
             if (lp.work
                 and lp.work.language in (None, language)
-                and not licensepools_for_work[lp.work]):
-                licensepools_for_work[lp.work] = len(lp.work.license_pools)
-        return pools, licensepools_for_work
+                and not affected_licensepools_for_work[lp.work]):
+                affected_licensepools_for_work[lp.work] = len(
+                    [x for x in pools if x.work == lp.work and lp in pools]
+                )
+        return pools, affected_licensepools_for_work
 
     @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid, medium, language):

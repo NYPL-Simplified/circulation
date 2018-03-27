@@ -4347,6 +4347,90 @@ class TestWorkConsolidation(DatabaseTest):
         eq_([lp], work.license_pools)
         eq_(True, is_new)
 
+    def test_potential_open_access_works_for_permanent_work_id(self):
+        """Test of the _potential_open_access_works_for_permanent_work_id
+        helper method.
+        """
+
+        # Here are two editions of the same book with the same PWID.
+        title = 'Siddhartha'
+        author = ['Herman Hesse']
+        e1, lp1 = self._edition(
+            data_source_name=DataSource.STANDARD_EBOOKS,
+            title=title, authors=author, language='eng', with_license_pool=True,
+        )
+        e1.permanent_work_id = "pwid"
+
+        e2, lp2 = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            title=title, authors=author, language='eng', with_license_pool=True,
+        )
+        e2.permanent_work_id = "pwid"
+
+        work = Work()
+        for lp in [lp1, lp2]:
+            work.license_pools.append(lp)
+            lp.open_access = True
+        self._db.commit()
+
+        m = Work._potential_open_access_works_for_permanent_work_id
+        pools, counts = m(self._db, "pwid", Edition.BOOK_MEDIUM, "eng")
+
+        # Both LicensePools show up in the list of LicensePools that
+        # should be grouped together, and both LicensePools are
+        # associated with the same Work.
+        poolset = set([lp1, lp2])
+        eq_(poolset, pools)
+        eq_({work : 2}, counts)
+
+        # Since the work was just created it has no presentation
+        # edition and thus no language. If the presentation edition
+        # were set, the result would be the same.
+        work.presentation_edition = e1
+        pools, counts = m(self._db, "pwid", Edition.BOOK_MEDIUM, "eng")
+        eq_(poolset, pools)
+        eq_({work : 2}, counts)
+
+        # If the Work's language is set to a language that _conflicts_
+        # with the language passed in to
+        # _potential_open_access_works_for_permanent_work_id, the Work
+        # does not show up in `counts`, indicating that a new Work
+        # needs to be created to hold books in the given language.
+        wrong_language = self._edition(language="fin")
+        work.presentation_edition = wrong_language
+        pools, counts = m(self._db, "pwid", Edition.BOOK_MEDIUM, "eng")
+        eq_(poolset, pools)
+        eq_({}, counts)
+        work.presentation_edition = None
+
+        # Now let's see what changes to a LicensePool will cause it
+        # not to be counted in the first place.
+        def assert_lp1_missing():
+            pools, counts = m(self._db, "pwid", Edition.BOOK_MEDIUM, "eng")
+            eq_(set([lp2]), pools)
+            eq_({work:1}, counts)
+        
+        # It has to be open-access.
+        lp1.open_access = False
+        assert_lp1_missing()
+        lp1.open_access = True
+
+        # The presentation edition's permanent work ID must match
+        # what's passed into the helper method.
+        e1.pwid = "another pwid"
+        assert_lp1_missing()
+        e1.pwid = "pwid"
+
+        # The medium must also match.
+        e1.medium = "another medium"
+        assert_lp1_missing()
+        e1.medium = Edition.BOOK_MEDIUM
+        
+        # The language must also match.
+        e1.language = "another language"
+        assert_lp1_missing()
+        e1.language = 'eng'
+
     def test_make_exclusive_open_access_for_permanent_work_id(self):
         # Here's a work containing an open-access LicensePool for
         # literary work "abcd".
