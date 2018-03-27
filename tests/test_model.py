@@ -4293,9 +4293,11 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Due to an error, it turns out both Works are providing the
         # exact same book.
-        lp1.presentation_edition.permanent_work_id="abcd"
-        lp2.presentation_edition.permanent_work_id="abcd"
-        lp3.presentation_edition.permanent_work_id="abcd"
+        def mock_pwid(debug=False):
+            return "abcd"
+        for lp in [lp1, lp2, lp3]:
+            lp.presentation_edition.permanent_work_id="abcd"
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid
 
         # We've also got Work #3, which provides a commercial license
         # for that book.
@@ -4329,6 +4331,8 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
+        _db = self._db
+        Work.open_access_for_permanent_work_id(_db, "abcd", Edition.BOOK_MEDIUM, "eng")
         eq_((w2, False), Work.open_access_for_permanent_work_id(
             self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         ))
@@ -4346,6 +4350,128 @@ class TestWorkConsolidation(DatabaseTest):
         )
         eq_([lp], work.license_pools)
         eq_(True, is_new)
+
+    def test_potential_open_access_works_for_permanent_work_id(self):
+        """Test of the _potential_open_access_works_for_permanent_work_id
+        helper method.
+        """
+
+        # Here are two editions of the same book with the same PWID.
+        title = 'Siddhartha'
+        author = ['Herman Hesse']
+        e1, lp1 = self._edition(
+            data_source_name=DataSource.STANDARD_EBOOKS,
+            title=title, authors=author, language='eng', with_license_pool=True,
+        )
+        e1.permanent_work_id = "pwid"
+
+        e2, lp2 = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            title=title, authors=author, language='eng', with_license_pool=True,
+        )
+        e2.permanent_work_id = "pwid"
+
+        w1 = Work()
+        for lp in [lp1, lp2]:
+            w1.license_pools.append(lp)
+            lp.open_access = True
+
+        def m():
+            return Work._potential_open_access_works_for_permanent_work_id(
+                self._db, "pwid", Edition.BOOK_MEDIUM, "eng"
+            )
+        pools, counts = m()
+
+        # Both LicensePools show up in the list of LicensePools that
+        # should be grouped together, and both LicensePools are
+        # associated with the same Work.
+        poolset = set([lp1, lp2])
+        eq_(poolset, pools)
+        eq_({w1 : 2}, counts)
+
+        # Since the work was just created, it has no presentation
+        # edition and thus no language. If the presentation edition
+        # were set, the result would be the same.
+        w1.presentation_edition = e1
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({w1 : 2}, counts)
+
+        # If the Work's presentation edition has information that
+        # _conflicts_ with the information passed in to
+        # _potential_open_access_works_for_permanent_work_id, the Work
+        # does not show up in `counts`, indicating that a new Work
+        # should to be created to hold those books.
+        bad_pe = self._edition()
+        bad_pe.permanent_work_id='pwid'
+        w1.presentation_edition = bad_pe
+
+        bad_pe.language = 'fin'
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({}, counts)
+        bad_pe.language = 'eng'
+
+        bad_pe.medium = Edition.AUDIO_MEDIUM
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({}, counts)
+        bad_pe.medium = Edition.BOOK_MEDIUM
+
+        bad_pe.permanent_work_id = "Some other ID"
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({}, counts)
+        bad_pe.permanent_work_id = "pwid"
+
+        w1.presentation_edition = None
+
+        # Now let's see what changes to a LicensePool will cause it
+        # not to be eligible in the first place.
+        def assert_lp1_missing():
+            # A LicensePool that is not eligible will not show up in
+            # the set and will not be counted towards the total of eligible
+            # LicensePools for its Work.
+            pools, counts = m()
+            eq_(set([lp2]), pools)
+            eq_({w1 : 1}, counts)
+
+        # It has to be open-access.
+        lp1.open_access = False
+        assert_lp1_missing()
+        lp1.open_access = True
+
+        # The presentation edition's permanent work ID must match
+        # what's passed into the helper method.
+        e1.permanent_work_id = "another pwid"
+        assert_lp1_missing()
+        e1.permanent_work_id = "pwid"
+
+        # The medium must also match.
+        e1.medium = Edition.AUDIO_MEDIUM
+        assert_lp1_missing()
+        e1.medium = Edition.BOOK_MEDIUM
+
+        # The language must also match.
+        e1.language = "another language"
+        assert_lp1_missing()
+        e1.language = 'eng'
+
+        # Finally, let's see what happens when there are two Works where
+        # there should be one.
+        w2 = Work()
+        w2.license_pools.append(lp2)
+        pools, counts = m()
+
+        # This work is irrelevant and will not show up at all.
+        w3 = Work()
+
+        # Both Works have one associated LicensePool, so they have
+        # equal claim to being 'the' Work for this work
+        # ID/language/medium. The calling code will have to sort it
+        # out.
+        eq_(poolset, pools)
+        eq_({w1: 1, w2: 1}, counts)
 
     def test_make_exclusive_open_access_for_permanent_work_id(self):
         # Here's a work containing an open-access LicensePool for
@@ -4548,9 +4674,9 @@ class TestWorkConsolidation(DatabaseTest):
         eq_([efgh], efgh_work.license_pools)
         eq_(3, len(abcd_work.license_pools))
 
-    def test_open_access_for_permanent_work_id_avoids_infinite_loop(self):
+    def test_open_access_for_permanent_work_untangles_tangled_works(self):
 
-        # Here's are three works for the books "abcd", "efgh", and "ijkl".
+        # Here are three works for the books "abcd", "efgh", and "ijkl".
         abcd_work = self._work(with_license_pool=True, 
                                with_open_access_download=True)
         [abcd_1] = abcd_work.license_pools
@@ -4565,15 +4691,20 @@ class TestWorkConsolidation(DatabaseTest):
         #
         # (This is pretty much impossible, but bear with me...)
 
-        edition, abcd_2 = self._edition(
+        abcd_edition, abcd_2 = self._edition(
             with_license_pool=True, with_open_access_download=True
         )
         efgh_work.license_pools.append(abcd_2)
 
-        edition, efgh_2 = self._edition(
+        efgh_edition, efgh_2 = self._edition(
             with_license_pool=True, with_open_access_download=True
         )
         abcd_work.license_pools.append(efgh_2)
+
+        # Both Works have a presentation edition that indicates the
+        # permanent work ID is 'abcd'.
+        abcd_work.presentation_edition = efgh_edition
+        efgh_work.presentation_edition = efgh_edition
 
         def mock_pwid_abcd(debug=False):
             return "abcd"
@@ -4589,15 +4720,37 @@ class TestWorkConsolidation(DatabaseTest):
             lp.presentation_edition.calculate_permanent_work_id = mock_pwid_efgh
             lp.presentation_edition.permanent_work_id = 'efgh'
 
-        # Calling Work.open_access_for_permanent_work_id() raises an
-        # exception. We can't untangle the loop (for now) but at least
-        # it doesn't put us into an infinite loop.
-        assert_raises_regexp(
-            ValueError,
-            "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
-            Work.open_access_for_permanent_work_id, self._db, "abcd",
-            Edition.BOOK_MEDIUM, "eng"
+        # Calling Work.open_access_for_permanent_work_id() creates a
+        # new work that contains both 'abcd' LicensePools.
+        abcd_new, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         )
+        eq_(True, is_new)
+        eq_(set([abcd_1, abcd_2]), set(abcd_new.license_pools))
+
+        # The old abcd_work now contains only the 'efgh' LicensePool
+        # that didn't fit.
+        eq_([efgh_2], abcd_work.license_pools)
+
+        # We now have two works with 'efgh' LicensePools: abcd_work
+        # and efgh_work. Calling
+        # Work.open_access_for_permanent_work_id on 'efgh' will
+        # consolidate the two LicensePools into one of the Works
+        # (which one is nondeterministic).
+        efgh_new, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "efgh", Edition.BOOK_MEDIUM, "eng"
+        )
+        eq_(False, is_new)
+        eq_(set([efgh_1, efgh_2]), set(efgh_new.license_pools))
+        assert efgh_new in (abcd_work, efgh_work)
+
+        # The Work that was not chosen for consolidation now has no
+        # LicensePools.
+        if efgh_new is abcd_work:
+            other = efgh_work
+        else:
+            other = abcd_work
+        eq_([], other.license_pools)
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
         # Here's a work with an open-access LicensePool.
