@@ -107,23 +107,24 @@ def create_default_lanes(_db, library):
 
     The database will have the following top-level lanes for
     each large-collection:
-    'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction',
-    'Young Adult Nonfiction', and 'Children'.
+    'Adult Fiction', 'Adult Nonfiction', 'Young Adult',
+    and 'Children'.
     Each lane contains additional sublanes.
     If an NYT integration is configured, there will also be a
     'Best Sellers' top-level lane.
 
-    The database will also have a top-level lane named after each
-    small-collection language. Each such sublane contains "Adult
-    Fiction", "Adult Nonfiction", and "Children/YA" sublanes.
-
-    Finally the database includes an "Other Languages" top-level lane
-    which covers all other languages known to the collection.
+    If there are any small- or tiny-collection languages, the database
+    will also have a top-level lane called 'World Languages'. The
+    'World Languages' lane will have a sublane for every small- and
+    tiny-collection languages. The small-collection languages will
+    have "Adult Fiction", "Adult Nonfiction", and "Children/YA"
+    sublanes; the tiny-collection languages will not have any sublanes.
 
     If run on a Library that already has Lane configuration, this can
     be an extremely destructive method. All new Lanes will be visible
     and all Lanes based on CustomLists (but not the CustomLists
     themselves) will be destroyed.
+
     """
     # Delete existing lanes.
     for lane in _db.query(Lane).filter(Lane.library_id==library.id):
@@ -146,12 +147,7 @@ def create_default_lanes(_db, library):
     for language in large:
         priority = create_lanes_for_large_collection(_db, library, language, priority=priority)
 
-    for language in small:
-        priority = create_lane_for_small_collection(_db, library, language, priority=priority)
-
-    other_languages_lane = create_lane_for_tiny_collections(
-        _db, library, tiny, priority=priority
-    )
+    create_world_languages_lane(_db, library, small, tiny, priority)
 
 def lane_from_genres(_db, library, genres, display_name=None,
                      exclude_genres=None, priority=0, audiences=None, **extra_args):
@@ -634,7 +630,55 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
 
     return priority
 
-def create_lane_for_small_collection(_db, library, languages, priority=0):
+def create_world_languages_lane(
+        _db, library, small_languages, tiny_languages, priority=0,
+):
+    """Create a lane called 'World Languages' whose sublanes represent
+    the non-large language collections available to this library.
+    """
+    if not small_languages and not tiny_languages:
+        # All the languages on this system have large collections, so
+        # there is no need for a 'World Languages' lane.
+        return priority
+
+    complete_language_set = set()
+    for list in (small_languages, tiny_languages):
+        for languageset in list:
+            if isinstance(languageset, basestring):
+                complete_language_set.add(languageset)
+            else:
+                complete_language_set.update(languageset)
+
+
+    world_languages, ignore = create(
+        _db, Lane, library=library,
+        display_name="World Languages",
+        fiction=None,
+        priority=priority,
+        languages=complete_language_set,
+        media=[Edition.BOOK_MEDIUM],
+        genres=[]
+    )
+    priority += 1
+
+    language_priority = 0
+    for small in small_languages:
+        # Create a lane (with sublanes) for each small collection.
+        language_priority = create_lane_for_small_collection(
+            _db, library, world_languages, small, language_priority
+        )
+    for tiny in tiny_languages:
+        # Create a lane (no sublanes) for each tiny collection.
+        language_priority = create_lane_for_tiny_collection(
+            _db, library, world_languages, tiny, language_priority
+        )
+    return priority
+
+def create_lane_for_small_collection(_db, library, parent, languages, priority=0):
+    """Create a lane (with sublanes) for a small collection based on language.
+
+    :param parent: The parent of the new lane.
+    """
     if isinstance(languages, basestring):
         languages = [languages]
 
@@ -682,6 +726,7 @@ def create_lane_for_small_collection(_db, library, languages, priority=0):
     lane, ignore = create(
         _db, Lane, library=library,
         display_name=language_identifier,
+        parent=parent,
         sublanes=[adult_fiction, adult_nonfiction, ya_children],
         priority=priority,
         **common_args
@@ -689,43 +734,29 @@ def create_lane_for_small_collection(_db, library, languages, priority=0):
     priority += 1
     return priority
 
-def create_lane_for_tiny_collections(_db, library, languages, priority=0):
-    language_lanes = []
+def create_lane_for_tiny_collection(_db, library, parent, languages, priority=0):
+    """Create a single lane for a tiny collection based on language.
 
+    :param parent: The parent of the new lane.
+    """
     if not languages:
         return None
 
     if isinstance(languages, basestring):
         languages = [languages]
 
-    sublane_priority = 0
-    common_args = dict(media=[Edition.BOOK_MEDIUM])
-    for language_set in languages:
-        name = LanguageCodes.name_for_languageset(language_set)
-        language_lane, ignore = create(
-            _db, Lane, library=library,
-            display_name=name,
-            genres=[],
-            fiction=None,
-            priority=sublane_priority,
-            languages=[language_set],
-            **common_args
-        )
-        sublane_priority += 1
-        language_lanes.append(language_lane)
-
-    lane, ignore = create(
-        _db, Lane, library=library, 
-        display_name="Other Languages", 
-        sublanes=language_lanes,
+    name = LanguageCodes.name_for_languageset(languages)
+    language_lane, ignore = create(
+        _db, Lane, library=library,
+        display_name=name,
+        parent=parent,
         genres=[],
+        media=[Edition.BOOK_MEDIUM],
         fiction=None,
-        languages=languages,
         priority=priority,
-        **common_args
+        languages=languages,
     )
-    priority += 1
-    return priority
+    return priority + 1
 
 
 class DynamicLane(WorkList):

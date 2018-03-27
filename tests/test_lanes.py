@@ -34,7 +34,8 @@ from api.lanes import (
     create_default_lanes,
     create_lanes_for_large_collection,
     create_lane_for_small_collection,
-    create_lane_for_tiny_collections,
+    create_lane_for_tiny_collection,
+    create_world_languages_lane,
     _lane_configuration_from_collection_sizes,
     load_lanes,
     ContributorLane,
@@ -135,6 +136,50 @@ class TestLaneCreation(DatabaseTest):
         nyt_data_source = DataSource.lookup(self._db, DataSource.NYT)
         eq_(nyt_data_source, lanes[0].list_datasource)
 
+    def test_create_world_languages_lane(self):
+        # If there are no small or tiny collections, calling
+        # create_world_languages_lane does not create any lanes or change
+        # the priority.
+        new_priority = create_world_languages_lane(
+            self._db, self._default_library, [], [], priority=10
+        )
+        eq_(10, new_priority)
+        eq_([], self._db.query(Lane).all())
+
+        # If there are lanes to be created, create_world_languages_lane
+        # creates them.
+        new_priority = create_world_languages_lane(
+            self._db, self._default_library,
+            ["eng"], [["spa", "fre"]], priority=10
+        )
+
+        # priority has been incremented to make room for the newly
+        # created lane.
+        eq_(11, new_priority)
+
+        # One new top-level lane has been created. It contains books
+        # from all three languages mentioned in its children.
+        top_level = self._db.query(Lane).filter(Lane.parent==None).one()
+        eq_("World Languages", top_level.display_name)
+        eq_(set(['spa', 'fre', 'eng']), top_level.languages)
+
+        # It has two children -- one for the small English collection and
+        # one for the tiny Spanish/French collection.,
+        small, tiny = top_level.sublanes
+        eq_(u'English', small.display_name)
+        eq_([u'eng'], small.languages)
+
+        eq_(u'espa\xf1ol/fran\xe7ais', tiny.display_name)
+        eq_([u'spa', u'fre'], tiny.languages)
+
+        # The tiny collection has no sublanes, but the small one has
+        # three.  These lanes are tested in more detail in
+        # test_create_lane_for_small_collection.
+        fiction, nonfiction, children = small.sublanes
+        eq_([], tiny.sublanes)
+        eq_("Fiction", fiction.display_name)
+        eq_("Nonfiction", fiction.display_name)
+        eq_("Children & Young Adult", fiction.display_name)
 
     def test_create_lane_for_small_collection(self):
         languages = ['eng', 'spa', 'chi']
@@ -163,27 +208,19 @@ class TestLaneCreation(DatabaseTest):
             [x.fiction for x in sublanes]
         )
 
-    def test_lane_for_other_languages(self):
-        # If no tiny languages are configured, the other languages lane
-        # doesn't show up.
-        create_lane_for_tiny_collections(self._db, self._default_library, [])
-        eq_(0, self._db.query(Lane).filter(Lane.parent_id==None).count())
-
-
-        create_lane_for_tiny_collections(self._db, self._default_library, ['ger', 'fre', 'ita'])
-        [lane] = self._db.query(Lane).filter(Lane.parent_id==None).all()
+    def test_lane_for_tiny_collection(self):
+        parent = self._lane()
+        new_priority = create_lane_for_tiny_collection(
+            self._db, self._default_library, parent, 'ger',
+            priority=3
+        )
+        eq_(4, new_priority)
+        lane = self._db.query(Lane).filter(Lane.parent==parent).one()
         eq_([Edition.BOOK_MEDIUM], lane.media)
-        eq_(['ger', 'fre', 'ita'], lane.languages)
-        eq_("Other Languages", lane.display_name)
-        eq_(
-            ['Deutsch', u'français', 'Italiano'],
-            [x.display_name for x in lane.visible_children]
-        )
-        eq_([['ger'], ['fre'], ['ita']],
-            [x.languages for x in lane.visible_children]
-        )
-        for child in lane.visible_children:
-            eq_([Edition.BOOK_MEDIUM], child.media)
+        eq_(parent, lane.parent)
+        eq_(['ger'], lane.languages)
+        eq_(u'Deutsch', lane.display_name)
+        eq_([], lane.children)
 
     def test_create_default_lanes(self):
         library = self._default_library
