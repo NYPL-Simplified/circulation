@@ -4393,16 +4393,33 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(poolset, pools)
         eq_({w1 : 2}, counts)
 
-        # If the Work's language is set to a language that _conflicts_
-        # with the language passed in to
+        # If the Work's presentation edition has information that
+        # _conflicts_ with the information passed in to
         # _potential_open_access_works_for_permanent_work_id, the Work
         # does not show up in `counts`, indicating that a new Work
-        # needs to be created to hold books in the given language.
-        wrong_language = self._edition(language="fin")
-        w1.presentation_edition = wrong_language
+        # should to be created to hold those books.
+        bad_pe = self._edition()
+        bad_pe.permanent_work_id='pwid'
+        w1.presentation_edition = bad_pe
+
+        bad_pe.language = 'fin'
         pools, counts = m()
         eq_(poolset, pools)
         eq_({}, counts)
+        bad_pe.language = 'eng'
+
+        bad_pe.medium = Edition.AUDIO_MEDIUM
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({}, counts)
+        bad_pe.medium = Edition.BOOK_MEDIUM
+
+        bad_pe.permanent_work_id = "Some other ID"
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({}, counts)
+        bad_pe.permanent_work_id = "pwid"
+
         w1.presentation_edition = None
 
         # Now let's see what changes to a LicensePool will cause it

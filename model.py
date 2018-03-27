@@ -4048,7 +4048,6 @@ class Work(Base):
         Counter tallying the number of affected LicensePools
         associated with a given work.
         """
-        affected_licensepools_for_work = Counter()
         qu = _db.query(LicensePool).join(
             LicensePool.presentation_edition).filter(
                 LicensePool.open_access==True
@@ -4060,13 +4059,30 @@ class Work(Base):
                 Edition.language==language
             )
         pools = set(qu.all())
+
+        # Build the Counter of Works that are eligible to represent
+        # this pwid/medium/language combination.
+        affected_licensepools_for_work = Counter()
         for lp in pools:
-            if (lp.work
-                and lp.work.language in (None, language)
-                and not affected_licensepools_for_work[lp.work]):
-                affected_licensepools_for_work[lp.work] = len(
-                    [x for x in pools if x.work == lp.work]
-                )
+            work = lp.work
+            if not lp.work:
+                continue
+            if affected_licensepools_for_work[lp.work]:
+                # We already got this information earlier in the loop.
+                continue
+            pe = work.presentation_edition
+            if pe and (
+                    pe.language != language or pe.medium != medium
+                    or pe.permanent_work_id != pwid
+            ):
+                # This Work's presentation edition doesn't match
+                # this LicensePool's presentation edition.
+                # It would be better to create a brand new Work and
+                # remove this LicensePool from its current Work.
+                continue
+            affected_licensepools_for_work[lp.work] = len(
+                [x for x in pools if x.work == lp.work]
+            )
         return pools, affected_licensepools_for_work
 
     @classmethod
