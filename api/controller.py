@@ -140,7 +140,7 @@ from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 from services import ServiceStatus
 from core.analytics import Analytics
-from accept_types import (parse_header, get_best_match)
+from accept_types import parse_header
 
 class CirculationManager(object):
 
@@ -729,8 +729,12 @@ class OPDSFeedController(CirculationManagerController):
             # Send the search form
             return OpenSearchDocument.for_lane(lane, this_url)
 
-        languages = parse_header(flask.request.headers.get("Accept-Language"))
-        languages = map(lambda x: str(x), languages)
+        language_header = flask.request.headers.get("Accept-Language")
+        if language_header:
+            languages = parse_header(language_header)
+            languages = map(lambda x: str(x), languages)
+        else:
+            languages = None
 
         pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
         if isinstance(pagination, ProblemDetail):
