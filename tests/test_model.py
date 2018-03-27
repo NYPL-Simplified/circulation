@@ -4670,9 +4670,9 @@ class TestWorkConsolidation(DatabaseTest):
         eq_([efgh], efgh_work.license_pools)
         eq_(3, len(abcd_work.license_pools))
 
-    def test_open_access_for_permanent_work_id_avoids_infinite_loop(self):
+    def test_open_access_for_permanent_work_untangles_tangled_works(self):
 
-        # Here's are three works for the books "abcd", "efgh", and "ijkl".
+        # Here are three works for the books "abcd", "efgh", and "ijkl".
         abcd_work = self._work(with_license_pool=True, 
                                with_open_access_download=True)
         [abcd_1] = abcd_work.license_pools
@@ -4687,15 +4687,20 @@ class TestWorkConsolidation(DatabaseTest):
         #
         # (This is pretty much impossible, but bear with me...)
 
-        edition, abcd_2 = self._edition(
+        abcd_edition, abcd_2 = self._edition(
             with_license_pool=True, with_open_access_download=True
         )
         efgh_work.license_pools.append(abcd_2)
 
-        edition, efgh_2 = self._edition(
+        efgh_edition, efgh_2 = self._edition(
             with_license_pool=True, with_open_access_download=True
         )
         abcd_work.license_pools.append(efgh_2)
+
+        # Both Works have a presentation edition that indicates the
+        # permanent work ID is 'abcd'.
+        abcd_work.presentation_edition = efgh_edition
+        efgh_work.presentation_edition = efgh_edition
 
         def mock_pwid_abcd(debug=False):
             return "abcd"
@@ -4711,15 +4716,37 @@ class TestWorkConsolidation(DatabaseTest):
             lp.presentation_edition.calculate_permanent_work_id = mock_pwid_efgh
             lp.presentation_edition.permanent_work_id = 'efgh'
 
-        # Calling Work.open_access_for_permanent_work_id() raises an
-        # exception. We can't untangle the loop (for now) but at least
-        # it doesn't put us into an infinite loop.
-        assert_raises_regexp(
-            ValueError,
-            "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
-            Work.open_access_for_permanent_work_id, self._db, "abcd",
-            Edition.BOOK_MEDIUM, "eng"
+        # Calling Work.open_access_for_permanent_work_id() creates a
+        # new work that contains both 'abcd' LicensePools.
+        abcd_new, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         )
+        eq_(True, is_new)
+        eq_(set([abcd_1, abcd_2]), set(abcd_new.license_pools))
+
+        # The old abcd_work now contains only the 'efgh' LicensePool
+        # that didn't fit.
+        eq_([efgh_2], abcd_work.license_pools)
+
+        # We now have two works with 'efgh' LicensePools: abcd_work
+        # and efgh_work. Calling
+        # Work.open_access_for_permanent_work_id on 'efgh' will
+        # consolidate the two LicensePools into one of the Works
+        # (which one is nondeterministic).
+        efgh_new, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "efgh", Edition.BOOK_MEDIUM, "eng"
+        )
+        eq_(False, is_new)
+        eq_(set([efgh_1, efgh_2]), set(efgh_new.license_pools))
+        assert efgh_new in (abcd_work, efgh_work)
+
+        # The Work that was not chosen for consolidation now has no
+        # LicensePools.
+        if efgh_new is abcd_work:
+            other = efgh_work
+        else:
+            other = abcd_work
+        eq_([], other.license_pools)
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
         # Here's a work with an open-access LicensePool.
