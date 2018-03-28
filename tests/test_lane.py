@@ -1987,6 +1987,29 @@ class TestLane(DatabaseTest):
             eq_([], _run(both_lists_qu, both_lists_clauses))
             l.add_entry(work)
 
+    def test_explain(self):
+        parent = self._lane(display_name="Parent")
+        parent.priority = 1
+        child = self._lane(parent=parent, display_name="Child")
+        child.priority = 2
+        data = parent.explain()
+        eq_(['ID: %s' % parent.id,
+             'Library: %s' % self._default_library.short_name,
+             'Priority: 1',
+             'Display name: Parent',
+        ],
+            data
+        )
+
+        data = child.explain()
+        eq_(['ID: %s' % child.id,
+             'Library: %s' % self._default_library.short_name,
+             'Parent ID: %s (Parent)' % parent.id,
+             'Priority: 2',
+             'Display name: Child',
+        ],
+            data
+        )
 
 class TestWorkListGroups(DatabaseTest):
     """Tests of WorkList.groups() and the helper methods."""

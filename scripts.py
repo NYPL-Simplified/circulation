@@ -46,6 +46,7 @@ from coverage import CollectionCoverageProviderJob
 from lane import Lane
 from metadata_layer import ReplacementPolicy
 from model import (
+    create,
     get_one,
     get_one_or_create,
     production_session,
@@ -75,7 +76,6 @@ from model import (
     site_configuration_has_changed,
 )
 from monitor import (
-    SubjectAssignmentMonitor,
     CollectionMonitor,
     ReaperMonitor,
 )
@@ -1375,6 +1375,116 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         output.write("\n")
 
         
+class ShowLanesScript(Script):
+    """Show information about the lanes on a server."""
+    
+    name = "List the lanes on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--id',
+            help='Only display information for the lane with the given ID',
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.id:
+            id = args.id
+            lane = get_one(_db, Lane, id=id)
+            if lane:
+                lanes = [lane]
+            else:
+                output.write(
+                    "Could not locate lane with id: %s" % id
+                )
+                lanes = []
+        else:
+            lanes = _db.query(Lane).order_by(Lane.id).all()
+        if not lanes:
+            output.write("No lanes found.\n")
+        for lane in lanes:
+            output.write(
+                "\n".join(
+                    lane.explain()
+                )
+            )
+            output.write("\n\n")
+
+class ConfigureLaneScript(ConfigurationSettingScript):
+    """Create a lane or change its settings."""
+    name = "Change a lane's settings"
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None):
+        parser = cls.arg_parser(_db)
+        return parser.parse_known_args(cmd_args)[0]
+    
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--id',
+            help='ID of the lane, if editing an existing lane.',
+        )
+        parser.add_argument(
+            '--library-short-name',
+            help='Short name of the library for this lane. Possible values: %s' % cls._library_names(_db),
+        )
+        parser.add_argument(
+            '--parent-id',
+            help="The ID of this lane's parent lane",
+        )
+        parser.add_argument(
+            '--priority',
+            help="The lane's priority",
+        )
+        parser.add_argument(
+            '--display-name',
+            help='The lane name that will be displayed to patrons.',
+        )
+        return parser
+
+    @classmethod
+    def _library_names(self, _db):
+        """Return a string that lists known library names."""
+        library_names = [x.short_name for x in _db.query(
+            Library).order_by(Library.short_name)
+        ]
+        if library_names:
+            return '"' + '", "'.join(library_names) + '"'
+        return ""
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+
+        # Find or create the lane
+        id = args.id
+        lane = get_one(_db, Lane, id=id)
+        if not lane:
+            if args.library_short_name:
+                library = get_one(_db, Library, short_name=args.library_short_name)
+                if not library:
+                    raise ValueError("No such library: \"%s\"." % args.library_short_name)
+                lane, is_new = create(_db, Lane, library=library)
+            else:
+                raise ValueError("Library short name is required to create a new lane.")
+
+        if args.parent_id:
+            lane.parent_id = args.parent_id
+        if args.priority:
+            lane.priority = args.priority
+        if args.display_name:
+            lane.display_name = args.display_name
+        site_configuration_has_changed(_db)
+        _db.commit()
+        output.write("Lane settings stored.\n")
+        output.write("\n".join(lane.explain()))
+        output.write("\n")
+
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
 
@@ -2773,15 +2883,6 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.output.write(
             "I would now expect you to be able to find %d works.\n" % mv_works_count
         )
-
-class SubjectAssignmentScript(SubjectInputScript):
-
-    def do_run(self):
-        args = self.parse_command_line(self._db)
-        monitor = SubjectAssignmentMonitor(
-            self._db, args.subject_type, args.subject_filter
-        )
-        monitor.run()
 
 
 class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
