@@ -2409,16 +2409,21 @@ class TestFeedController(CirculationControllerTest):
                 for link in links:
                     counter[link['title']] += 1
 
-            # In default_config, the two top-level lanes are "English"
-            # (a language in SMALL_COLLECTION_LANGUAGES) and "Other
-            # Languages" (which covers TINY_COLLECTION_LANGUAGES).
+            # In default_config, there are no LARGE_COLLECTION_LANGUAGES,
+            # so the sole top-level lane is "World Languages", which covers the
+            # SMALL and TINY_COLLECTION_LANGUAGES.
+            #
+            # Since there is only one top-level lane, its sublanes --
+            # English, French, and "all" are used in the top-level
+            # groups feed.
             #
             # There are several English works, but we're cut off at
-            # two due to FEATURED_LANE_SIZE. There is one "Other
-            # Languages" work - the French work created when this test
+            # two due to FEATURED_LANE_SIZE. There is one French
+            # work -- the one work created when this test
             # was initialized.
             eq_(2, counter['English'])
-            eq_(1, counter['Other Languages'])
+            eq_(1, counter[u'fran\xe7ais'])
+            eq_(2, counter['All World Languages'])
 
     def _set_update_times(self):
         """Set the last update times so we can create a crawlable feed."""
