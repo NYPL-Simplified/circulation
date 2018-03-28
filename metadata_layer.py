@@ -2037,6 +2037,16 @@ class MARCExtractor(object):
         return name
 
     @classmethod
+    def parse_year(self, value):
+        """Handle a publication year that may not be in the right format."""
+        for format in ("%Y", "%Y."):
+            try:
+                return datetime.datetime.strptime(value, format)
+            except ValueError:
+                continue
+        return None
+
+    @classmethod
     def parse(cls, file, data_source_name):
         reader = MARCReader(file)
         metadata_records = []
@@ -2045,7 +2055,7 @@ class MARCExtractor(object):
             title = record.title()
             if title.endswith(' /'):
                 title = title[:-len(' /')]
-            issued_year = datetime.datetime.strptime(record.pubyear(), "%Y.")
+            issued_year = cls.parse_year(record.pubyear())
             publisher = record.publisher()
             if publisher.endswith(','):
                 publisher = publisher[:-1]
