@@ -4033,7 +4033,57 @@ class Work(Base):
             LicensePool.identifier).join(
                 Identifier.classifications).join(
                     Classification.subject)
-        return qu.filter(Subject.checked==False).distinct()
+        return qu.filter(Subject.checked==False).order_by(Subject.id)
+
+    @classmethod
+    def _potential_open_access_works_for_permanent_work_id(
+            cls, _db, pwid, medium, language
+    ):
+        """Find all Works that might be suitable for use as the
+        canonical open-access Work for the given `pwid`, `medium`,
+        and `language`.
+
+        :return: A 2-tuple (pools, counts_by_work). `pools` is a set
+        containing all affected LicensePools; `counts_by_work is a
+        Counter tallying the number of affected LicensePools
+        associated with a given work.
+        """
+        qu = _db.query(LicensePool).join(
+            LicensePool.presentation_edition).filter(
+                LicensePool.open_access==True
+            ).filter(
+                Edition.permanent_work_id==pwid
+            ).filter(
+                Edition.medium==medium
+            ).filter(
+                Edition.language==language
+            )
+        pools = set(qu.all())
+
+        # Build the Counter of Works that are eligible to represent
+        # this pwid/medium/language combination.
+        affected_licensepools_for_work = Counter()
+        for lp in pools:
+            work = lp.work
+            if not lp.work:
+                continue
+            if affected_licensepools_for_work[lp.work]:
+                # We already got this information earlier in the loop.
+                continue
+            pe = work.presentation_edition
+            if pe and (
+                    pe.language != language or pe.medium != medium
+                    or pe.permanent_work_id != pwid
+            ):
+                # This Work's presentation edition doesn't match
+                # this LicensePool's presentation edition.
+                # It would be better to create a brand new Work and
+                # remove this LicensePool from its current Work.
+                continue
+            affected_licensepools_for_work[lp.work] = len(
+                [x for x in pools if x.work == lp.work]
+            )
+        return pools, affected_licensepools_for_work
 
     @classmethod
     def open_access_for_permanent_work_id(cls, _db, pwid, medium, language):
@@ -4048,31 +4098,13 @@ class Work(Base):
         """
         is_new = False
 
-        # Find all open-access LicensePools whose presentation
-        # Editions have the given permanent work ID, medium,
-        # and language.
-        qu = _db.query(LicensePool).join(
-            LicensePool.presentation_edition).filter(
-                Edition.permanent_work_id==pwid
-            ).filter(
-                LicensePool.open_access==True
-            ).filter(
-                Edition.medium==medium
-            ).filter(
-                Edition.language==language
-            )
-
-        licensepools = qu.all()
+        licensepools, licensepools_for_work = cls._potential_open_access_works_for_permanent_work_id(
+            _db, pwid, medium, language
+        )
         if not licensepools:
-            # There are no LicensePools for this PWID. Do nothing.
+            # There is no work for this PWID/medium/language combination
+            # because no LicensePools offer it.
             return None, is_new
-
-        # Tally up how many LicensePools are associated with each
-        # Work.
-        licensepools_for_work = Counter()
-        for lp in qu:
-            if lp.work and lp.work.language == language and not licensepools_for_work[lp.work]:
-                licensepools_for_work[lp.work] = len(lp.work.license_pools)
 
         work = None
         if len(licensepools_for_work) == 0:
@@ -4110,7 +4142,8 @@ class Work(Base):
 
         # At this point we have one, and only one, Work for this
         # permanent work ID. Assign it to every LicensePool whose
-        # presentation Edition has that permanent work ID.
+        # presentation Edition has that permanent work ID/medium/language
+        # combination.
         for lp in licensepools:
             lp.work = work
         return work, is_new
@@ -6319,33 +6352,36 @@ class Subject(Base):
             genre, was_new = Genre.lookup(_db, genredata.name, True)
         else:
             genre = None
+
+        # Create a shorthand way of referring to this Subject in log
+        # messages.
+        parts = [self.type, self.identifier, self.name]
+        shorthand = ":".join(x for x in parts if x)
+
         if genre != self.genre:
             log.info(
-                "%s:%s genre %r=>%r", self.type, self.identifier,
-                self.genre, genre
+                "%s genre %r=>%r", shorthand, self.genre, genre
             )
         self.genre = genre
 
         if audience:
             if self.audience != audience:
                 log.info(
-                    "%s:%s audience %s=>%s", self.type, self.identifier,
-                    self.audience, audience
+                    "%s audience %s=>%s", shorthand, self.audience, audience
                 )
         self.audience = audience
 
         if fiction is not None:
             if self.fiction != fiction:
                 log.info(
-                    "%s:%s fiction %s=>%s", self.type, self.identifier,
-                    self.fiction, fiction
+                    "%s fiction %s=>%s", shorthand, self.fiction, fiction
                 )
         self.fiction = fiction
 
         if (numericrange_to_tuple(self.target_age) != target_age and 
             not (not self.target_age and not target_age)):
             log.info(
-                "%s:%s target_age %r=>%r", self.type, self.identifier,
+                "%s target_age %r=>%r", shorthand,
                 self.target_age, tuple_to_numericrange(target_age)
             )
         self.target_age = tuple_to_numericrange(target_age)

@@ -26,6 +26,7 @@ from classifier import (
     AgeOrGradeClassifier,
     InterestLevelClassifier,
     Axis360AudienceClassifier,
+    Lowercased,
     WorkClassifier,
     Lowercased,
     fiction_genres,
@@ -156,6 +157,16 @@ class TestClassifier(object):
         m = SetsNameForOneIdentifier.scrub_identifier_and_name
         eq_(("A", "USE THIS NAME!"), m("A", "name a"))
         eq_(("B", "NAME B"), m("B", "name b"))
+
+    def test_scrub_identifier(self):
+        m = Classifier.scrub_identifier
+        eq_(None, m(None))
+        eq_(Lowercased("Foo"), m("Foo"))
+
+    def test_scrub_name(self):
+        m = Classifier.scrub_name
+        eq_(None, m(None))
+        eq_(Lowercased("Foo"), m("Foo"))
 
 
 class TestClassifierLookup(object):
@@ -352,7 +363,7 @@ class TestDewey(object):
         young_adult = Classifier.AUDIENCE_YOUNG_ADULT
 
         def aud(identifier):
-            return DDC.audience(DDC.scrub_identifier(identifier), None)
+            return DDC.audience(*DDC.scrub_identifier(identifier))
 
         eq_(child, aud("JB"))
         eq_(child, aud("J300"))
@@ -368,7 +379,7 @@ class TestDewey(object):
     def test_is_fiction(self):
 
         def fic(identifier):
-            return DDC.is_fiction(DDC.scrub_identifier(identifier), None)
+            return DDC.is_fiction(*DDC.scrub_identifier(identifier))
 
         eq_(True, fic("FIC"))
         eq_(True, fic("E"))
@@ -383,7 +394,8 @@ class TestDewey(object):
 
     def test_classification(self):
         def c(identifier):
-            i = DDC.scrub_identifier(identifier)
+            i, name = DDC.scrub_identifier(identifier)
+            eq_(name, None)
             return DDC.genre(i, None)
 
         eq_(classifier.Folklore, c("398"))
