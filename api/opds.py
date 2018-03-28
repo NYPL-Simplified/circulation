@@ -199,7 +199,7 @@ class CirculationManagerAnnotator(Annotator):
         if can_borrow:
             # Borrowing a book gives you an OPDS entry that gives you
             # fulfillment links.
-            if set_mechanism_at_borrow:
+            if set_mechanism_at_borrow and active_license_pool:
                 # The ebook distributor requires that the delivery
                 # mechanism be set at the point of checkout. This means
                 # a separate borrow link for each mechanism.
@@ -211,7 +211,7 @@ class CirculationManagerAnnotator(Annotator):
                             active_hold
                         )
                     )
-            else:
+            elif active_license_pool:
                 # The ebook distributor does not require that the
                 # delivery mechanism be set at the point of
                 # checkout. This means a single borrow link with
@@ -278,7 +278,7 @@ class CirculationManagerAnnotator(Annotator):
         # If this is an open-access book, add an open-access link for
         # every delivery mechanism with an associated resource.
         open_access_links = []
-        if active_license_pool.open_access:
+        if active_license_pool and active_license_pool.open_access:
             for lpdm in active_license_pool.delivery_mechanisms:
                 if lpdm.resource:
                     open_access_links.append(self.open_access_link(lpdm))
@@ -338,8 +338,17 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                  active_fulfillments_by_work={},
                  facet_view='feed',
                  test_mode=False,
-                 top_level_title="All Books"
+                 top_level_title="All Books",
+                 library_supports_patron_authentication = True
     ):
+        """Constructor.
+
+        :param library_supports_patron_authentication: A boolean
+          indicating whether or not this library authenticates its
+          patrons (and, thus, can distinguish between one patron and
+          another). If this is false, links that imply the library can
+          distinguish between patrons will not be included.
+        """
         super(LibraryAnnotator, self).__init__(lane, active_loans_by_work=active_loans_by_work,
                                                active_holds_by_work=active_holds_by_work,
                                                active_fulfillments_by_work=active_fulfillments_by_work,
@@ -351,6 +360,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         self.facet_view = facet_view
         self._adobe_id_tags = {}
         self._top_level_title = top_level_title
+        self.patron_auth = library_supports_patron_authentication
 
     def top_level_title(self):
         return self._top_level_title
@@ -515,18 +525,19 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             )
 
         # Add a link to get a patron's annotations for this book.
-        feed.add_link_to_entry(
-            entry,
-            rel="http://www.w3.org/ns/oa#annotationService",
-            type=AnnotationWriter.CONTENT_TYPE,
-            href=self.url_for(
-                'annotations_for_work',
-                identifier_type=identifier.type,
-                identifier=identifier.identifier,
-                library_short_name=self.library.short_name,
-                _external=True
+        if self.patron_auth:
+            feed.add_link_to_entry(
+                entry,
+                rel="http://www.w3.org/ns/oa#annotationService",
+                type=AnnotationWriter.CONTENT_TYPE,
+                href=self.url_for(
+                    'annotations_for_work',
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier,
+                    library_short_name=self.library.short_name,
+                    _external=True
+                )
             )
-        )
 
     @classmethod
     def related_books_available(cls, work, library):
@@ -625,7 +636,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             self.add_patron(feed)
         else:
             # No patron is authenticated. Show them how to
-            # authenticate.
+            # authenticate (or that authentication is not supported).
             self.add_authentication_document_link(feed)
         
         # Add a 'search' link if the lane is searchable.
@@ -643,17 +654,20 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             )
             feed.add_link_to_feed(feed.feed, **search_link)
 
-        shelf_link = dict(
-            rel="http://opds-spec.org/shelf",
-            type=OPDSFeed.ACQUISITION_FEED_TYPE,
-            href=self.url_for('active_loans', library_short_name=self.library.short_name, _external=True))
-        feed.add_link_to_feed(feed.feed, **shelf_link)
+        if self.patron_auth:
+            # Since this library authenticates patrons it can offer
+            # a bookshelf and an annotation service.
+            shelf_link = dict(
+                rel="http://opds-spec.org/shelf",
+                type=OPDSFeed.ACQUISITION_FEED_TYPE,
+                href=self.url_for('active_loans', library_short_name=self.library.short_name, _external=True))
+            feed.add_link_to_feed(feed.feed, **shelf_link)
 
-        annotations_link = dict(
-            rel="http://www.w3.org/ns/oa#annotationService",
-            type=AnnotationWriter.CONTENT_TYPE,
-            href=self.url_for('annotations', library_short_name=self.library.short_name, _external=True))
-        feed.add_link_to_feed(feed.feed, **annotations_link)
+            annotations_link = dict(
+                rel="http://www.w3.org/ns/oa#annotationService",
+                type=AnnotationWriter.CONTENT_TYPE,
+                href=self.url_for('annotations', library_short_name=self.library.short_name, _external=True))
+            feed.add_link_to_feed(feed.feed, **annotations_link)
 
         if lane and lane.uses_customlists and len(lane.customlists) == 1:
             crawlable_url = self.url_for(
@@ -696,7 +710,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
                           feed, identifier):
         api = None
-        if self.circulation:
+        if self.circulation and active_license_pool:
             api = self.circulation.api_for_license_pool(active_license_pool)
         if api:
             set_mechanism_at_borrow = (
@@ -714,6 +728,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         )
 
     def revoke_link(self, active_license_pool, active_loan, active_hold):
+        if not self.patron_auth:
+            return
         url = self.url_for(
             'revoke_loan_or_hold',
             license_pool_id=active_license_pool.id,
@@ -725,6 +741,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
     def borrow_link(self, identifier,
                     borrow_mechanism, fulfillment_mechanisms, active_hold=None):
+        if not self.patron_auth:
+            return
         if borrow_mechanism:
             # Following this link will both borrow the book and set
             # its delivery mechanism.
@@ -778,6 +796,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
         This link may include tags from the OPDS Extensions for DRM.
         """
+        if not self.patron_auth:
+            return
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
             logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
             delivery_mechanism = delivery_mechanism.delivery_mechanism
@@ -826,7 +846,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         register a device with the DRM server that manages this loan.
         :param delivery_mechanism: A DeliveryMechanism
         """        
-        if not active_loan or not delivery_mechanism:
+        if not active_loan or not delivery_mechanism or not self.patron_auth:
             return []
         
         if delivery_mechanism.drm_scheme == DeliveryMechanism.ADOBE_DRM:
@@ -900,6 +920,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return cached
         
     def add_patron(self, feed_obj):
+        if not self.patron_auth:
+            return
         patron_details = {}
         if self.patron.username:
             patron_details["{%s}username" % OPDSFeed.SIMPLIFIED_NS] = self.patron.username
@@ -914,6 +936,9 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         manager's Authentication for OPDS document
         for the current library.
         """
+        # Even if self.patron_auth is false, we include this link,
+        # because this document is the one that explains there is no
+        # patron authentication at this library.
         feed_obj.add_link_to_feed(
             feed_obj.feed,
             rel='http://opds-spec.org/auth/document',
@@ -922,6 +947,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                 library_short_name=self.library.short_name, _external=True
             )
         )
+
 
 class SharedCollectionAnnotator(CirculationManagerAnnotator):
 

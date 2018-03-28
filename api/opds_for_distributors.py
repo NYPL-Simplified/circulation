@@ -143,12 +143,13 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
             pass
 
     def checkout(self, patron, pin, licensepool, internal_format):
+        now = datetime.datetime.utcnow()
         return LoanInfo(
             licensepool.collection,
             licensepool.data_source.name,
             licensepool.identifier.type,
             licensepool.identifier.identifier,
-            start_date=datetime.datetime.now(),
+            start_date=now,
             end_date=None,
         )
 
