@@ -165,7 +165,7 @@ class TestLaneCreation(DatabaseTest):
 
         # It has two children -- one for the small English collection and
         # one for the tiny Spanish/French collection.,
-        small, tiny = top_level.sublanes
+        small, tiny = top_level.visible_children
         eq_(u'English', small.display_name)
         eq_([u'eng'], small.languages)
 
