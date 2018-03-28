@@ -107,8 +107,8 @@ def create_default_lanes(_db, library):
 
     The database will have the following top-level lanes for
     each large-collection:
-    'Adult Fiction', 'Adult Nonfiction', 'Young Adult',
-    and 'Children'.
+    'Adult Fiction', 'Adult Nonfiction', 'Young Adult Fiction',
+    'Young Adult Nonfiction', and 'Children'.
     Each lane contains additional sublanes.
     If an NYT integration is configured, there will also be a
     'Best Sellers' top-level lane.
