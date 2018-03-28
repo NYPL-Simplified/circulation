@@ -1049,7 +1049,7 @@ class WorkList(object):
 
         if not media:
             media = self.media
-        elif isinstance(media, basestring):
+        if isinstance(media, basestring):
             media = [media]
 
         default_languages = languages
