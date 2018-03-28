@@ -8,19 +8,27 @@ package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
 
 from core.scripts import IdentifierInputScript
+from core.model import (
+    Collection,
+    ExternalIntegration,
+)
 from api.overdrive import OverdriveAPI
 
 class OverdriveRawCirculationScript(IdentifierInputScript):
     def run(self):
-        overdrive = OverdriveAPI(self._db)
         args = self.parse_command_line(self._db)
-        for identifier in args.identifiers:
-            book_id, (status_code, headers, content) = overdrive.circulation_lookup(
-                  identifier.identifier
-            )
-            data = json.loads(content)
-            print json.dumps(data, sort_keys=True, indent=4,
-                             separators=(',', ': '))
-            print
+        for collection in Collection.by_protocol(
+
+            self._db, ExternalIntegration.OVERDRIVE
+        ):
+            overdrive = OverdriveAPI(self._db, collection)
+            for identifier in args.identifiers:
+                book_id, (status_code, headers, content) = overdrive.circulation_lookup(
+                    identifier.identifier
+                )
+                data = json.loads(content)
+                print json.dumps(data, sort_keys=True, indent=4,
+                                 separators=(',', ': '))
+                print
 
 OverdriveRawCirculationScript().run()
