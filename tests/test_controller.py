@@ -2611,7 +2611,13 @@ class TestFeedController(CirculationControllerTest):
             entries = feed['entries']
             eq_(1, len(entries))
 
-        with self.request_context_with_library("/?q=t&size=1&media=audiobooks",
+        with self.request_context_with_library("/?q=t&size=1&media=audio"):
+            response = self.manager.opds_feeds.search(None)
+
+            assert(isinstance(response, ProblemDetail))
+            eq_(response.detail, "Media type None is not valid.")
+
+        with self.request_context_with_library("/?q=t&size=1&media=http://bib.schema.org/Audiobook",
             headers={ "Accept-Language": ["en-us"] }):
 
             old_search = AcquisitionFeed.search
@@ -2620,7 +2626,7 @@ class TestFeedController(CirculationControllerTest):
             response = self.manager.opds_feeds.search(None)
             (s, args) = self.called_with
 
-            eq_(args["media"], "audiobooks")
+            eq_(args["media"], Edition.AUDIO_MEDIUM)
             eq_(args["languages"], ["eng"])
 
             AcquisitionFeed.search = old_search

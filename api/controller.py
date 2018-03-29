@@ -58,6 +58,7 @@ from core.model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
+    Edition,
     ExternalIntegration,
     Hold,
     Identifier,
@@ -750,15 +751,22 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
 
+        if media:
+            media = Edition.additional_type_to_medium.get(media, None)
+            if not media:
+                return INVALID_INPUT.detailed(
+                    _("Media type %s is not valid.") % media
+                )
+
         # Run a search.
         if media:
             media_url = "&media=" + urllib.quote(media.encode("utf8"))
         else:
-            media_url = ''
+            media_url = ""
         if languages:
             languages_url = "&" + urllib.urlencode(dict(language=languages), doseq=True)
         else:
-            languages_url = ''
+            languages_url = ""
 
         this_url += "?q=" + urllib.quote(query.encode("utf8")) + media_url + languages_url
         annotator = self.manager.annotator(lane)
