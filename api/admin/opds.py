@@ -38,7 +38,7 @@ class AdminAnnotator(LibraryAnnotator):
                 identifier=identifier.identifier, _external=True)
         )
 
-        if active_license_pool.suppressed:
+        if active_license_pool and active_license_pool.suppressed:
             feed.add_link_to_entry(
                 entry,
                 rel="http://librarysimplified.org/terms/rel/restore",
