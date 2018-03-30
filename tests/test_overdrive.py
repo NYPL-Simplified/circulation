@@ -1,6 +1,6 @@
 # encoding: utf-8
 from nose.tools import (
-    set_trace, eq_,
+    set_trace, eq_, ok_,
     assert_raises,
 )
 import pkgutil
@@ -567,6 +567,8 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         self.api.queue_response(200, content=availability)
         self.api.queue_response(200, content=bibliographic)
+        self.api.queue_response(200, content=availability)
+        self.api.queue_response(200, content=bibliographic)
 
         # Now we're ready. When we call update_licensepool, the
         # OverdriveAPI will retrieve the availability information,
@@ -593,6 +595,19 @@ class TestOverdriveAPI(OverdriveAPITest):
             and x.data_source.name == DataSource.OVERDRIVE
         ]
         eq_(1, len(coverage))
+
+        # Call update_licensepool on an identifier that is missing a work and make
+        # sure that it provides bibliographic coverage in that case.
+        self._db.delete(pool.work)
+        self._db.commit()
+        pool, is_new = LicensePool.for_foreign_id(
+            self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, identifier.identifier,
+            collection=self.collection
+        )
+        ok_(not pool.work)
+        pool, was_new, changed = self.api.update_licensepool(identifier.identifier)
+        eq_(False, was_new)
+        eq_(True, pool.work.presentation_ready)
 
     def test_update_new_licensepool(self):
         data, raw = self.sample_json("overdrive_availability_information.json")
