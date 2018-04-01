@@ -5,7 +5,7 @@ from admin_authentication_provider import AdminAuthenticationProvider
 from problem_details import GOOGLE_OAUTH_FAILURE
 from oauth2client import client as GoogleClient
 from flask_babel import lazy_gettext as _
-from core.model import ExternalIntegration
+from core.model import ExternalIntegration, Admin, get_one
 
 class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
@@ -14,6 +14,7 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
                     "<p>To use this integration, visit <a target='_blank' href='https://console.developers.google.com/apis/dashboard'>the Google developer console.</a> " +
                     "Create a project, click 'Create Credentials' in the left sidebar, and select 'OAuth client ID'. " +
                     "If you get a warning about the consent screen, click 'Configure consent screen' and enter your library name as the product name. Save the consent screen information.</p>" +
+                    "<p>Choose 'Web Application' as the application type.</p>" +
                     "<p>Leave 'Authorized JavaScript origins' blank, but under 'Authorized redirect URIs', add the url of your circulation manager followed by '/admin/GoogleAuth/callback', e.g. 'http://mycircmanager.org/admin/GoogleAuth/callback'.</p>" +
                     "<p>Click create, and you'll get a popup with your new client ID and secret. Copy these values and enter them in the form below.</p>"),
     DOMAINS = "domains"
@@ -24,10 +25,15 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
         { "key": DOMAINS,
           "label": _("Allowed Domains"),
-          "description": _("Admins must have an email address from one of these domains to sign in."),
+          "optional": True,
+          "description": _("Admins must have an email address from one of these domains to sign in. If no domains are specified, admins must be created individually in the 'Individual Admins' section before they can sign in with Google."),
           "type": "list" },
     ]
     SITEWIDE = True
+
+    TEMPLATE = """
+<a href=%(auth_uri)s>Sign In With Google</a>
+"""
 
     def __init__(self, integration, redirect_uri, test_mode=False):
         super(GoogleOAuthAdminAuthenticationProvider, self).__init__(integration)
@@ -55,6 +61,9 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
             return json.loads(self.integration.setting(self.DOMAINS).value)
         return []
 
+    def sign_in_template(self, redirect_url):
+        return self.TEMPLATE % dict(auth_uri = self.auth_uri(redirect_url))
+
     def auth_uri(self, redirect_url):
         return self.client.step1_get_authorize_url(state=redirect_url)
 
@@ -76,6 +85,7 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
             return dict(
                 email=credentials.id_token.get('email'),
                 credentials=credentials.to_json(),
+                type=self.NAME,
             ), redirect_url
 
     def google_error_problem_detail(self, error):
@@ -98,6 +108,17 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
             return not oauth_credentials.access_token_expired
         return False
 
+    def staff_email(self, _db, email):
+        if not self.domains:
+            # If no domains are configured, the admin must already exist in the database.
+            admin = get_one(_db, Admin, email=email)
+            if admin:
+                return True
+            return False
+
+        staff_domains = self.domains
+        domain = email[email.index('@')+1:]
+        return domain.lower() in [staff_domain.lower() for staff_domain in staff_domains]
 
 class DummyGoogleClient(object):
     """Mock Google OAuth client for testing"""
