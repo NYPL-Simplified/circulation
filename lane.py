@@ -1050,7 +1050,7 @@ class WorkList(object):
         if not media:
             media = self.media
         elif media is Edition.ALL_MEDIUM:
-            media = Edition.medium_to_additional_type.keys()
+            media = None
         if isinstance(media, basestring):
             media = [media]
 
