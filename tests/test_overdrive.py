@@ -567,8 +567,6 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         self.api.queue_response(200, content=availability)
         self.api.queue_response(200, content=bibliographic)
-        self.api.queue_response(200, content=availability)
-        self.api.queue_response(200, content=bibliographic)
 
         # Now we're ready. When we call update_licensepool, the
         # OverdriveAPI will retrieve the availability information,
@@ -605,6 +603,8 @@ class TestOverdriveAPI(OverdriveAPITest):
             collection=self.collection
         )
         ok_(not pool.work)
+        self.api.queue_response(200, content=availability)
+        self.api.queue_response(200, content=bibliographic)
         pool, was_new, changed = self.api.update_licensepool(identifier.identifier)
         eq_(False, was_new)
         eq_(True, pool.work.presentation_ready)
