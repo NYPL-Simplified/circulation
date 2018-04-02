@@ -2,7 +2,7 @@ import json
 from nose.tools import set_trace
 
 from admin_authentication_provider import AdminAuthenticationProvider
-from problem_details import GOOGLE_OAUTH_FAILURE
+from problem_details import GOOGLE_OAUTH_FAILURE, INVALID_ADMIN_CREDENTIALS
 from oauth2client import client as GoogleClient
 from flask_babel import lazy_gettext as _
 from core.model import ExternalIntegration, Admin, get_one
@@ -67,7 +67,7 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
     def auth_uri(self, redirect_url):
         return self.client.step1_get_authorize_url(state=redirect_url)
 
-    def callback(self, request={}):
+    def callback(self, _db, request={}):
         """Google OAuth sign-in flow"""
 
         # The Google OAuth client sometimes hits the callback with an error.
@@ -82,8 +82,11 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
                 credentials = self.client.step2_exchange(auth_code)
             except GoogleClient.FlowExchangeError, e:
                 return self.google_error_problem_detail(e.message), None
+            email = credentials.id_token.get('email')
+            if not self.staff_email(_db, email):
+                return INVALID_ADMIN_CREDENTIALS, None
             return dict(
-                email=credentials.id_token.get('email'),
+                email=email,
                 credentials=credentials.to_json(),
                 type=self.NAME,
             ), redirect_url

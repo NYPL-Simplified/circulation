@@ -1006,13 +1006,13 @@ class TestSignInController(AdminControllerTest):
             })
         )
 
-    def test_auth_providers(self):
+    def test_admin_auth_providers(self):
         with self.app.test_request_context('/admin'):
             ctrl = self.manager.admin_sign_in_controller
 
             # An admin exists, but they have no password and there's
             # no auth service set up.
-            eq_([], ctrl.auth_providers)
+            eq_([], ctrl.admin_auth_providers)
 
             # The auth service exists.
             create(
@@ -1020,29 +1020,29 @@ class TestSignInController(AdminControllerTest):
                 protocol=ExternalIntegration.GOOGLE_OAUTH,
                 goal=ExternalIntegration.ADMIN_AUTH_GOAL
             )
-            eq_(1, len(ctrl.auth_providers))
-            eq_(GoogleOAuthAdminAuthenticationProvider.NAME, ctrl.auth_providers[0].NAME)
+            eq_(1, len(ctrl.admin_auth_providers))
+            eq_(GoogleOAuthAdminAuthenticationProvider.NAME, ctrl.admin_auth_providers[0].NAME)
 
             # Here's another admin with a password.
             pw_admin, ignore = create(self._db, Admin, email="pw@nypl.org")
             pw_admin.password = "password"
-            eq_(2, len(ctrl.auth_providers))
+            eq_(2, len(ctrl.admin_auth_providers))
             eq_(set([GoogleOAuthAdminAuthenticationProvider.NAME, PasswordAdminAuthenticationProvider.NAME]),
-                set([provider.NAME for provider in ctrl.auth_providers]))
+                set([provider.NAME for provider in ctrl.admin_auth_providers]))
 
             # Only an admin with a password.
             self._db.delete(self.admin)
-            eq_(2, len(ctrl.auth_providers))
+            eq_(2, len(ctrl.admin_auth_providers))
             eq_(set([GoogleOAuthAdminAuthenticationProvider.NAME, PasswordAdminAuthenticationProvider.NAME]),
-                set([provider.NAME for provider in ctrl.auth_providers]))
+                set([provider.NAME for provider in ctrl.admin_auth_providers]))
 
             # No admins. Someone new could still log in with google if domains are
             # configured.
             self._db.delete(pw_admin)
-            eq_(1, len(ctrl.auth_providers))
-            eq_(GoogleOAuthAdminAuthenticationProvider.NAME, ctrl.auth_providers[0].NAME)
+            eq_(1, len(ctrl.admin_auth_providers))
+            eq_(GoogleOAuthAdminAuthenticationProvider.NAME, ctrl.admin_auth_providers[0].NAME)
 
-    def test_auth_provider(self):
+    def test_admin_auth_provider(self):
         with self.app.test_request_context('/admin'):
             ctrl = self.manager.admin_sign_in_controller
 
@@ -1053,11 +1053,11 @@ class TestSignInController(AdminControllerTest):
             )
 
             # We can find a google auth provider.
-            auth = ctrl.auth_provider(GoogleOAuthAdminAuthenticationProvider.NAME)
+            auth = ctrl.admin_auth_provider(GoogleOAuthAdminAuthenticationProvider.NAME)
             assert isinstance(auth, GoogleOAuthAdminAuthenticationProvider)
 
             # But not a password auth provider, since no admin has a password.
-            auth = ctrl.auth_provider(PasswordAdminAuthenticationProvider.NAME)
+            auth = ctrl.admin_auth_provider(PasswordAdminAuthenticationProvider.NAME)
             eq_(None, auth)
 
             # Here's another admin with a password.
@@ -1065,9 +1065,9 @@ class TestSignInController(AdminControllerTest):
             pw_admin.password = "password"
 
             # Now we can find both auth providers.
-            auth = ctrl.auth_provider(GoogleOAuthAdminAuthenticationProvider.NAME)
+            auth = ctrl.admin_auth_provider(GoogleOAuthAdminAuthenticationProvider.NAME)
             assert isinstance(auth, GoogleOAuthAdminAuthenticationProvider)
-            auth = ctrl.auth_provider(PasswordAdminAuthenticationProvider.NAME)
+            auth = ctrl.admin_auth_provider(PasswordAdminAuthenticationProvider.NAME)
             assert isinstance(auth, PasswordAdminAuthenticationProvider)
 
     def test_authenticated_admin_from_request(self):

@@ -156,7 +156,7 @@ class AdminController(object):
         self.cdn_url_for = self.manager.cdn_url_for
 
     @property
-    def auth_providers(self):
+    def admin_auth_providers(self):
         auth_providers = []
         auth_service = ExternalIntegration.admin_authentication(self._db)
         if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
@@ -171,17 +171,17 @@ class AdminController(object):
             ))
         return auth_providers
 
-    def auth_provider(self, type):
+    def admin_auth_provider(self, type):
         # Return an auth provider with the given type.
         # If no auth provider has this type, return None.
-        for provider in self.auth_providers:
+        for provider in self.admin_auth_providers:
             if provider.NAME == type:
                 return provider
         return None
 
     def authenticated_admin_from_request(self, email=None, type=None):
         """Returns an authenticated admin or a problem detail."""
-        if not self.auth_providers:
+        if not self.admin_auth_providers:
             return ADMIN_AUTH_NOT_CONFIGURED
 
         email = email or flask.session.get("admin_email")
@@ -189,7 +189,7 @@ class AdminController(object):
 
         if email and type:
             admin = get_one(self._db, Admin, email=email)
-            auth = self.auth_provider(type)
+            auth = self.admin_auth_provider(type)
             if not auth:
                 return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
             if admin and auth.active_credentials(admin):
@@ -250,7 +250,7 @@ class AdminController(object):
 
 class ViewController(AdminController):
     def __call__(self, collection, book, path=None):
-        setting_up = (self.auth_providers == [])
+        setting_up = (self.admin_auth_providers == [])
         if not setting_up:
             admin = self.authenticated_admin_from_request()
             if isinstance(admin, ProblemDetail):
@@ -316,14 +316,14 @@ class SignInController(AdminController):
 
     def sign_in(self):
         """Redirects admin if they're signed in, or shows the sign in page."""
-        if not self.auth_providers:
+        if not self.admin_auth_providers:
             return ADMIN_AUTH_NOT_CONFIGURED
 
         admin = self.authenticated_admin_from_request()
 
         if isinstance(admin, ProblemDetail):
             redirect_url = flask.request.args.get("redirect")
-            auth_provider_html = [auth.sign_in_template(redirect_url) for auth in self.auth_providers]
+            auth_provider_html = [auth.sign_in_template(redirect_url) for auth in self.admin_auth_providers]
             auth_provider_html = "<br/><hr/>or<br/><br/>".join(auth_provider_html)
             html = self.SIGN_IN_TEMPLATE % dict(
                 auth_provider_html=auth_provider_html
@@ -337,28 +337,25 @@ class SignInController(AdminController):
     def redirect_after_google_sign_in(self):
         """Uses the Google OAuth client to determine admin details upon
         callback. Barring error, redirects to the provided redirect url.."""
-        if not self.auth_providers:
+        if not self.admin_auth_providers:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        auth = self.auth_provider(GoogleOAuthAdminAuthenticationProvider.NAME)
+        auth = self.admin_auth_provider(GoogleOAuthAdminAuthenticationProvider.NAME)
         if not auth:
             return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
 
-        admin_details, redirect_url = auth.callback(flask.request.args)
+        admin_details, redirect_url = auth.callback(self._db, flask.request.args)
         if isinstance(admin_details, ProblemDetail):
             return self.error_response(admin_details)
 
-        if not auth.staff_email(self._db, admin_details['email']):
-            return self.error_response(INVALID_ADMIN_CREDENTIALS)
-        else:
-            admin = self.authenticated_admin(admin_details)
-            return redirect(redirect_url, Response=Response)
+        admin = self.authenticated_admin(admin_details)
+        return redirect(redirect_url, Response=Response)
 
     def password_sign_in(self):
-        if not self.auth_providers:
+        if not self.admin_auth_providers:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        auth = self.auth_provider(PasswordAdminAuthenticationProvider.NAME)
+        auth = self.admin_auth_provider(PasswordAdminAuthenticationProvider.NAME)
         if not auth:
             return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
 
