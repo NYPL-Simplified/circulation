@@ -1266,15 +1266,25 @@ class TestWorkList(DatabaseTest):
 
         # Test that language and media are passed in
         languages = ["fre"]
-        media = ['audiobook']
+        media = ["audiobook"]
         results = wl.search(
             self._db, work.title, search_client, media, pagination, languages
         )
         [query, second_query] = search_client.queries
         [fixed, kw] = second_query
         # lane languages should take preference over user entered languages
-        eq_(["eng", "spa"], kw['languages'])
-        eq_(media, kw['media'])
+        eq_(["eng", "spa"], kw["languages"])
+        eq_(media, kw["media"])
+
+        # pass all media
+        media = Edition.ALL_MEDIUM
+        all_media =  [u"Image", u"Book", u"Video", u"Periodical", u"Music", u"Audio", u"Courseware"]
+        results = wl.search(
+            self._db, work.title, search_client, media, pagination, languages
+        )
+        [query, second_query, third_query] = search_client.queries
+        [fixed, kw] = third_query
+        eq_(all_media, kw["media"])
 
 
 class TestLane(DatabaseTest):
