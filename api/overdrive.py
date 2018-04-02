@@ -815,11 +815,12 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             self._db, DataSource.OVERDRIVE, Identifier.OVERDRIVE_ID, book_id,
             collection=self.collection
         )
-        if is_new:
-            # This is the first time we've seen this book. Make sure its
-            # identifier has bibliographic coverage.
+        if is_new or not license_pool.work:
+            # Either this is the first time we've seen this book or its doesn't
+            # have an associated work. Make sure its identifier has bibliographic coverage.
             self.overdrive_bibliographic_coverage_provider.ensure_coverage(
-                license_pool.identifier
+                license_pool.identifier,
+                force=True
             )
 
         return self.update_licensepool_with_book_info(
