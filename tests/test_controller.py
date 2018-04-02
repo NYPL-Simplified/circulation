@@ -2611,8 +2611,6 @@ class TestFeedController(CirculationControllerTest):
             entries = feed['entries']
             eq_(1, len(entries))
 
-            eq_(args["media"], Edition.ALL_MEDIUM)
-
         with self.request_context_with_library("/?q=t&size=1&media=audio"):
             response = self.manager.opds_feeds.search(None)
 
