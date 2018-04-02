@@ -58,6 +58,7 @@ from core.model import (
     CustomList,
     DataSource,
     DeliveryMechanism,
+    Edition,
     ExternalIntegration,
     Hold,
     Identifier,
@@ -74,6 +75,7 @@ from core.model import (
 from core.opds import (
     AcquisitionFeed,
 )
+from core.util import LanguageCodes
 from core.util.opds_writer import (
      OPDSFeed,
 )
@@ -140,6 +142,7 @@ from base_controller import BaseCirculationManagerController
 from testing import MockCirculationAPI, MockSharedCollectionAPI
 from services import ServiceStatus
 from core.analytics import Analytics
+from accept_types import parse_header
 
 class CirculationManager(object):
 
@@ -725,6 +728,7 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(lane, ProblemDetail):
             return lane
         query = flask.request.args.get('q')
+        media = flask.request.args.get('media')
         library_short_name = flask.request.library.short_name
         this_url = self.url_for(
             'lane_search', lane_identifier=lane_identifier,
@@ -734,18 +738,47 @@ class OPDSFeedController(CirculationManagerController):
             # Send the search form
             return OpenSearchDocument.for_lane(lane, this_url)
 
+        language_header = flask.request.headers.get("Accept-Language")
+        if language_header:
+            languages = parse_header(language_header)
+            languages = map(str, languages)
+            languages = map(LanguageCodes.iso_639_2_for_locale, languages)
+            languages = [l for l in languages if l]
+        else:
+            languages = None
+
         pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
         if isinstance(pagination, ProblemDetail):
             return pagination
 
+        if media:
+            media = Edition.additional_type_to_medium.get(media, None)
+            if not media:
+                return INVALID_INPUT.detailed(
+                    _("Media type %s is not valid.") % media
+                )
+
         # Run a search.
-        this_url += "?q=" + urllib.quote(query.encode("utf8"))
+        if media:
+            media_url = "&media=" + urllib.quote(media.encode("utf8"))
+        else:
+            media_url = ""
+        if languages:
+            languages_url = "&" + urllib.urlencode(dict(language=languages), doseq=True)
+        else:
+            languages_url = ""
+
+        if not media:
+            media = Edition.ALL_MEDIUM
+
+        this_url += "?q=" + urllib.quote(query.encode("utf8")) + media_url + languages_url
         annotator = self.manager.annotator(lane)
         info = OpenSearchDocument.search_info(lane)
         opds_feed = AcquisitionFeed.search(
             _db=self._db, title=info['name'],
             url=this_url, lane=lane, search_engine=self.manager.external_search,
-            query=query, annotator=annotator, pagination=pagination,
+            query=query, media=media, annotator=annotator, pagination=pagination,
+            languages=languages
         )
         return feed_response(opds_feed)
 
