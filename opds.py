@@ -54,7 +54,7 @@ from lane import (
 )
 from util.opds_writer import (
     AtomFeed,
-    OPDSFeed, 
+    OPDSFeed,
     OPDSMessage,
 )
 
@@ -76,7 +76,7 @@ class Annotator(object):
     opds_cache_field = Work.simple_opds_entry.name
 
     @classmethod
-    def annotate_work_entry(cls, work, active_license_pool, edition, 
+    def annotate_work_entry(cls, work, active_license_pool, edition,
                             identifier, feed, entry, updated=None):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
@@ -265,7 +265,7 @@ class Annotator(object):
     def content(cls, work):
         """Return an HTML summary of this work."""
         summary = ""
-        if work: 
+        if work:
             if work.summary_text != None:
                 summary = work.summary_text
             elif work.summary and work.summary.content:
@@ -291,7 +291,7 @@ class Annotator(object):
     @classmethod
     def lane_url(cls, lane):
         raise NotImplementedError()
-    
+
     @classmethod
     def feed_url(cls, lane, facets=None, pagination=None):
         raise NotImplementedError()
@@ -501,10 +501,10 @@ class AcquisitionFeed(OPDSFeed):
                 # We are looking at the groups feed for (e.g.)
                 # "Science Fiction", and we're seeing a book
                 # that is featured within "Science Fiction" itself
-                # rather than one of the sublanes. 
+                # rather than one of the sublanes.
                 #
                 # We want to assign this work to a group called "All
-                # Science Fiction" and point its 'group URI' to 
+                # Science Fiction" and point its 'group URI' to
                 # the linear feed of the "Science Fiction" lane
                 # (as opposed to the groups feed, which is where we
                 # are now).
@@ -596,7 +596,7 @@ class AcquisitionFeed(OPDSFeed):
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
         cls.add_breadcrumb_links(feed, lane, annotator)
-        
+
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
@@ -625,11 +625,11 @@ class AcquisitionFeed(OPDSFeed):
 
 
     @classmethod
-    def search(cls, _db, title, url, lane, search_engine, query, pagination=None,
-               annotator=None
+    def search(cls, _db, title, url, lane, search_engine, query, media=None, pagination=None,
+               annotator=None, languages=None
     ):
         results = lane.search(
-            _db, query, search_engine, pagination=pagination
+            _db, query, search_engine, media, pagination=pagination, languages=languages
         )
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
@@ -705,7 +705,7 @@ class AcquisitionFeed(OPDSFeed):
 
     GROUPED_MAX_AGE_POLICY = Configuration.GROUPED_MAX_AGE_POLICY
     DEFAULT_GROUPED_MAX_AGE = CACHE_FOREVER
-            
+
     @classmethod
     def grouped_max_age(cls, _db):
         "The maximum cache time for a grouped acquisition feed."
@@ -728,7 +728,7 @@ class AcquisitionFeed(OPDSFeed):
         if value is None:
             value = cls.DEFAULT_NONGROUPED_MAX_AGE
         return value
-            
+
     def __init__(self, _db, title, url, works, annotator=None,
                  precomposed_entries=[]):
         """Turn a list of works, messages, and precomposed <opds> entries
@@ -817,7 +817,7 @@ class AcquisitionFeed(OPDSFeed):
                 work,
             )
             return self.error_message(
-                identifier, 
+                identifier,
                 403,
                 "I know about this work but can offer no way of fulfilling it."
             )
@@ -848,7 +848,7 @@ class AcquisitionFeed(OPDSFeed):
 
         self.annotator.annotate_work_entry(
             work, license_pool, edition, identifier, self, xml)
-            
+
         group_uri, group_title = self.annotator.group_uri(
             work, license_pool, identifier)
         if group_uri:
@@ -885,7 +885,7 @@ class AcquisitionFeed(OPDSFeed):
                 elif url.endswith(".gif"):
                     image_type = "image/gif"
                 links.append(AtomFeed.link(rel=rel, href=url, type=image_type))
-           
+
 
         permalink = self.annotator.permalink_for(work, license_pool, identifier)
         content = self.annotator.content(work)
@@ -987,7 +987,7 @@ class AcquisitionFeed(OPDSFeed):
         # it can't be used to extract this information. However, these
         # tags are consistent with the OPDS spec.
         issued = edition.issued or edition.published
-        if (isinstance(issued, datetime.datetime) 
+        if (isinstance(issued, datetime.datetime)
             or isinstance(issued, datetime.date)):
             issued_already = False
             if isinstance(issued, datetime.datetime):
@@ -1016,7 +1016,7 @@ class AcquisitionFeed(OPDSFeed):
             breadcrumbs.append(
                 AtomFeed.link(title=annotator.top_level_title(), href=root_url)
             )
-            
+
             # Add links for all visible ancestors that aren't root
             for ancestor in reversed(list(lane.parentage)):
                 lane_url = annotator.lane_url(ancestor)
@@ -1094,7 +1094,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def acquisition_link(cls, rel, href, types):
-        if types:            
+        if types:
             initial_type = types[0]
             indirect_types = types[1:]
         else:
@@ -1279,7 +1279,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         elif identifier.work != work:
             error_status = 500
             error_message = 'I tried to generate an OPDS entry for the identifier "%s" using a Work not associated with that identifier.' % identifier.urn
-           
+
         if error_status:
             return self.error_message(identifier, error_status, error_message)
 
@@ -1384,7 +1384,7 @@ class TestAnnotatorWithGroup(TestAnnotator):
 
     def group_uri_for_lane(self, lane):
         if lane:
-            return ("http://groups/%s" % lane.display_name, 
+            return ("http://groups/%s" % lane.display_name,
                     "Groups of %s" % lane.display_name)
         else:
             return "http://groups/", "Top-level groups"

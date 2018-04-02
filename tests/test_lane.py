@@ -53,7 +53,7 @@ class TestFacets(DatabaseTest):
             library.enabled_facets_setting(key).value = json.dumps(values)
         for key, value in default.items():
             library.default_facet_setting(key).value = value
-    
+
     def test_facet_groups(self):
 
         facets = Facets(
@@ -89,7 +89,7 @@ class TestFacets(DatabaseTest):
         self._configure_facets(
             library, test_enabled_facets, test_default_facets
         )
-            
+
         facets = Facets(self._default_library,
                         None, None, Facets.ORDER_TITLE)
         all_groups = list(facets.facet_groups)
@@ -111,7 +111,7 @@ class TestFacets(DatabaseTest):
         }
         library = self._default_library
         self._configure_facets(library, enabled_facets, {})
-        
+
         # Create a new Facets object with these facets enabled,
         # no matter the Configuration.
         facets = Facets(
@@ -133,7 +133,7 @@ class TestFacets(DatabaseTest):
         }
         library = self._default_library
         self._configure_facets(library, enabled_facets, {})
-        
+
         # Create a new Facets object with these facets enabled,
         # no matter the Configuration.
         facets = Facets(
@@ -200,7 +200,7 @@ class TestFacets(DatabaseTest):
         def order(facet, ascending=None):
             f = Facets(
                 self._default_library,
-                collection=Facets.COLLECTION_FULL, 
+                collection=Facets.COLLECTION_FULL,
                 availability=Facets.AVAILABLE_ALL,
                 order=facet,
                 order_ascending=ascending,
@@ -213,11 +213,11 @@ class TestFacets(DatabaseTest):
                 assert(a[i].compare(b[i]))
 
         expect = [m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_AUTHOR, True)  
+        actual = order(Facets.ORDER_AUTHOR, True)
         compare(expect, actual)
 
         expect = [m.sort_author.desc(), m.sort_title.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_AUTHOR, False)  
+        actual = order(Facets.ORDER_AUTHOR, False)
         compare(expect, actual)
 
         expect = [m.sort_title.asc(), m.sort_author.asc(), m.works_id.asc()]
@@ -234,7 +234,7 @@ class TestFacets(DatabaseTest):
         compare(expect, actual)
 
         expect = [m.availability_time.desc(), m.sort_author.asc(), m.sort_title.asc(), m.works_id.asc()]
-        actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)  
+        actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)
         compare(expect, actual)
 
 class TestFacetsApply(DatabaseTest):
@@ -246,7 +246,7 @@ class TestFacetsApply(DatabaseTest):
         open_access_high = self._work(with_open_access_download=True)
         open_access_high.quality = 0.8
         open_access_high.random = 0.2
-        
+
         # A low-quality open-access work.
         open_access_low = self._work(with_open_access_download=True)
         open_access_low.quality = 0.2
@@ -275,7 +275,7 @@ class TestFacetsApply(DatabaseTest):
         licensed_p2.licenses_owned = 1
         licensed_p2.licenses_available = 1
         licensed_low.random = 0.1
-        
+
         self.add_to_materialized_view([open_access_high, open_access_low,
                                        licensed_high, licensed_low])
 
@@ -283,7 +283,7 @@ class TestFacetsApply(DatabaseTest):
         qu = self._db.query(mwg).join(
             LicensePool, mwg.license_pool_id==LicensePool.id
         )
-        def facetify(collection=Facets.COLLECTION_FULL, 
+        def facetify(collection=Facets.COLLECTION_FULL,
                      available=Facets.AVAILABLE_ALL,
                      order=Facets.ORDER_TITLE
         ):
@@ -331,12 +331,12 @@ class TestFacetsApply(DatabaseTest):
         assert licensed_low not in featured_collection
 
         title_order = facetify(order=Facets.ORDER_TITLE)
-        eq_([open_access_high.id, open_access_low.id, licensed_high.id, 
+        eq_([open_access_high.id, open_access_low.id, licensed_high.id,
              licensed_low.id],
             [x.works_id for x in title_order])
 
         random_order = facetify(order=Facets.ORDER_RANDOM)
-        eq_([licensed_low.id, open_access_high.id, licensed_high.id, 
+        eq_([licensed_low.id, open_access_high.id, licensed_high.id,
              open_access_low.id],
             [x.works_id for x in random_order])
 
@@ -344,7 +344,7 @@ class TestFacetsApply(DatabaseTest):
 class TestFeaturedFacets(DatabaseTest):
 
     def test_quality_calculation(self):
-        
+
         minimum_featured_quality = 0.6
 
         # Create a number of works that fall into various quality tiers.
@@ -369,7 +369,7 @@ class TestFeaturedFacets(DatabaseTest):
             with_open_access_download=True
         )
         decent_open_access.quality = 0.3
-    
+
         awful_open_access = self._work(
             title="Awful open access", with_license_pool=True,
             with_open_access_download=True
@@ -406,7 +406,7 @@ class TestFeaturedFacets(DatabaseTest):
         qu = self._db.query(
             work_model, quality_field
         ).join(
-            LicensePool, 
+            LicensePool,
             LicensePool.id==work_model.license_pool_id
         ).outerjoin(
             CustomListEntry, CustomListEntry.work_id==work_model.works_id
@@ -443,7 +443,7 @@ class TestFeaturedFacets(DatabaseTest):
         no_list_facets = FeaturedFacets(minimum_featured_quality, False)
         quality_field = no_list_facets.quality_tier_field().label("tier")
         no_list_qu = self._db.query(work_model, quality_field).join(
-            LicensePool, 
+            LicensePool,
             LicensePool.id==work_model.license_pool_id
         )
 
@@ -473,7 +473,7 @@ class TestFeaturedFacets(DatabaseTest):
         )
         high_quality_high_random.quality = 0.7
         high_quality_high_random.random = 1
-        
+
         low_quality = self._work(
             title="Low quality, high random", with_license_pool=True
         )
@@ -663,7 +663,7 @@ class TestWorkList(DatabaseTest):
 
         # The Collections associated with the WorkList are those associated
         # with the Library.
-        eq_(set(wl.collection_ids), 
+        eq_(set(wl.collection_ids),
             set([x.id for x in self._default_library.collections]))
 
         # The Genres associated with the WorkList are the ones passed
@@ -745,7 +745,7 @@ class TestWorkList(DatabaseTest):
         eq_(u'', wl.audience_key)
 
         # Specific audiences.
-        wl.audiences = [Classifier.AUDIENCE_CHILDREN, 
+        wl.audiences = [Classifier.AUDIENCE_CHILDREN,
                         Classifier.AUDIENCE_YOUNG_ADULT]
         eq_(u'Children,Young+Adult', wl.audience_key)
 
@@ -805,7 +805,7 @@ class TestWorkList(DatabaseTest):
         # above.
         wl = WorkList()
         wl.initialize(self._default_library, children=[child1, child2])
-        
+
         # Calling groups() on the parent WorkList returns three
         # 2-tuples; one for each work featured by one of its children
         # WorkLists. Note that the same work appears twice, through two
@@ -837,7 +837,7 @@ class TestWorkList(DatabaseTest):
 
         # We created a FeaturedFacets object and passed it in to works().
         [(facets, pagination, featured)] = wl.works_calls
-        eq_(self._default_library.minimum_featured_quality, 
+        eq_(self._default_library.minimum_featured_quality,
             facets.minimum_featured_quality)
         eq_(featured, facets.uses_customlists)
 
@@ -914,7 +914,7 @@ class TestWorkList(DatabaseTest):
         eq_(w2_mv.sort_title, w2.sort_title)
 
         # Works are returned in the order we ask for.
-        for ordering in ([w1, w2], [w2, w1]):            
+        for ordering in ([w1, w2], [w2, w1]):
             ids = [x.id for x in ordering]
             mv_works = wl.works_for_specific_ids(self._db, ids)
             eq_(ids, [x.works_id for x in mv_works])
@@ -964,10 +964,10 @@ class TestWorkList(DatabaseTest):
         original_qu = self._db.query(work_model)
         wl = MockWorkList()
         final_qu = wl.apply_filters(
-            self._db, original_qu, MockFacets(), 
+            self._db, original_qu, MockFacets(),
             MockPagination()
         )
-        
+
         # The hook methods were called with the right arguments.
         eq_(called['only_show_ready_deliverable_works'], True)
         eq_(called['apply_bibliographic_filters'], True)
@@ -1069,7 +1069,7 @@ class TestWorkList(DatabaseTest):
             eq_(expect_titles, actual_titles)
 
         worklist_has_books(
-            [english_sf], 
+            [english_sf],
             languages=["eng"], genre_ids=[sf.id], media=[Edition.BOOK_MEDIUM]
         )
 
@@ -1078,7 +1078,7 @@ class TestWorkList(DatabaseTest):
         worklist_has_books([], languages=["spa"], genre_ids=[sf.id])
         worklist_has_books([], languages=["eng"], genre_ids=[romance.id])
         worklist_has_books(
-            [], 
+            [],
             languages=["eng"], genre_ids=[sf.id], media=[Edition.AUDIO_MEDIUM]
         )
 
@@ -1092,7 +1092,7 @@ class TestWorkList(DatabaseTest):
             with_license_pool=True,
             with_open_access_download=True,
         )
-        eq_(DataSource.GUTENBERG, 
+        eq_(DataSource.GUTENBERG,
             gutenberg_children.license_pools[0].data_source.name)
 
         # _work() will not create a test Gutenberg book for children
@@ -1119,7 +1119,7 @@ class TestWorkList(DatabaseTest):
         )
 
         def for_audiences(*audiences):
-            """Invoke WorkList.apply_audience_clauses using the given 
+            """Invoke WorkList.apply_audience_clauses using the given
             `audiences`, and return all the matching Work objects.
             """
             wl = WorkList()
@@ -1135,18 +1135,18 @@ class TestWorkList(DatabaseTest):
 
         # The Gutenberg "children's" book is filtered out because it we have
         # no guarantee it is actually suitable for children.
-        eq_([non_gutenberg_children.id], 
+        eq_([non_gutenberg_children.id],
             for_audiences(Classifier.AUDIENCE_CHILDREN))
 
         # This can sometimes lead to unexpected results, but the whole
         # thing is a hack and needs to be improved anyway.
-        eq_([non_gutenberg_children.id], 
-            for_audiences(Classifier.AUDIENCE_ADULT, 
+        eq_([non_gutenberg_children.id],
+            for_audiences(Classifier.AUDIENCE_ADULT,
                           Classifier.AUDIENCE_CHILDREN))
 
         # If no particular audiences are specified, no books are filtered.
-        eq_(set([gutenberg_adult.id, gutenberg_children.id, 
-                 non_gutenberg_children.id]), 
+        eq_(set([gutenberg_adult.id, gutenberg_children.id,
+                 non_gutenberg_children.id]),
             set(for_audiences()))
 
     def test_random_sample(self):
@@ -1202,10 +1202,10 @@ class TestWorkList(DatabaseTest):
         # half.
         samples = [WorkList.random_sample(qu, 2, 0.5) for x in range(5)]
         eq_(
-            [set([i4, i3]), 
-             set([i1, i2]), 
-             set([i3, i2]), 
-             set([i1, i2]), 
+            [set([i4, i3]),
+             set([i1, i2]),
+             set([i3, i2]),
+             set([i1, i2]),
              set([i3, i4])],
             [set(x) for x in samples]
         )
@@ -1241,7 +1241,7 @@ class TestWorkList(DatabaseTest):
         # Do a search within the list.
         pagination = Pagination(offset=0, size=1)
         results = wl.search(
-            self._db, work.title, search_client, pagination
+            self._db, work.title, search_client, pagination=pagination,
         )
 
         # The List configuration was passed on to the search client
@@ -1257,12 +1257,33 @@ class TestWorkList(DatabaseTest):
         eq_(wl.genre_ids, kw['in_any_of_these_genres'])
         eq_(1, kw['size'])
         eq_(0, kw['offset'])
-        
+
         # The single search result was converted to a MaterializedWorkWithGenre.
         [result] = results
         from model import MaterializedWorkWithGenre as mwg
         assert isinstance(result, mwg)
         eq_(work.id, result.works_id)
+
+        # Test that language and media are passed in
+        languages = ["fre"]
+        media = ["audiobook"]
+        results = wl.search(
+            self._db, work.title, search_client, media, pagination, languages
+        )
+        [query, second_query] = search_client.queries
+        [fixed, kw] = second_query
+        # lane languages should take preference over user entered languages
+        eq_(["eng", "spa"], kw["languages"])
+        eq_(media, kw["media"])
+
+        # pass all media
+        media = Edition.ALL_MEDIUM
+        results = wl.search(
+            self._db, work.title, search_client, media, pagination, languages
+        )
+        [query, second_query, third_query] = search_client.queries
+        [fixed, kw] = third_query
+        eq_(None, kw["media"])
 
 
 class TestLane(DatabaseTest):
@@ -1281,7 +1302,7 @@ class TestLane(DatabaseTest):
 
     def test_update_size(self):
         # One work in two subgenres of fiction.
-        work = self._work(fiction=True, with_license_pool=True, 
+        work = self._work(fiction=True, with_license_pool=True,
                           genre="Science Fiction")
         romance, ignore = Genre.lookup(self._db, "Romance")
         work.genres.append(romance)
@@ -1336,9 +1357,9 @@ class TestLane(DatabaseTest):
 
         eq_(
             "%s / %s / %s" % (
-                lane.library.short_name, lane.display_name, 
+                lane.library.short_name, lane.display_name,
                 child_lane.display_name
-            ), 
+            ),
             child_lane.full_identifier
         )
 
@@ -1415,9 +1436,9 @@ class TestLane(DatabaseTest):
         def doomed():
             lane.audiences = [Classifier.AUDIENCE_CHILDREN]
         assert_raises_regexp(
-            ValueError, 
+            ValueError,
             "Cannot modify Lane.audiences when Lane.target_age is set", doomed
-        ) 
+        )
 
         # Setting target_age to None leaves preexisting .audiences in place.
         lane.target_age = None
@@ -1455,11 +1476,11 @@ class TestLane(DatabaseTest):
         # restrictions from its parent.
         child = self._lane(parent=lane)
         child.inherit_parent_restrictions = True
-        eq_(True, child.uses_customlists)        
+        eq_(True, child.uses_customlists)
 
     def test_genre_ids(self):
         # By default, when you add a genre to a lane, you are saying
-        # that Works classified under it and all its subgenres should 
+        # that Works classified under it and all its subgenres should
         # show up in the lane.
         fantasy = self._lane()
         fantasy.add_genre("Fantasy")
@@ -1468,7 +1489,7 @@ class TestLane(DatabaseTest):
         # subgenres.
         expect = [
             Genre.lookup(self._db, genre)[0].id for genre in [
-                "Fantasy", "Epic Fantasy","Historical Fantasy", 
+                "Fantasy", "Epic Fantasy","Historical Fantasy",
                 "Urban Fantasy"
             ]
         ]
@@ -1492,7 +1513,7 @@ class TestLane(DatabaseTest):
         fantasy.lane_genres = []
         fantasy.add_genre("Space Opera")
         fantasy.add_genre("Science Fiction", inclusive=False, recursive=True)
-        
+
         # That eliminates everything.
         eq_(set([]), fantasy.genre_ids)
 
@@ -1605,10 +1626,10 @@ class TestLane(DatabaseTest):
         pagination = Pagination(offset=0, size=1)
 
         results = lane.search(
-            self._db, work.title, search_client, pagination
+            self._db, work.title, search_client, pagination=pagination
         )
         target_results = lane.search_target.search(
-            self._db, work.title, search_client, pagination
+            self._db, work.title, search_client, pagination=pagination
         )
         eq_(results, target_results)
 
@@ -1621,10 +1642,10 @@ class TestLane(DatabaseTest):
         # This still works if the lane is its own search_target.
         lane.root_for_patron_type = ["A"]
         results = lane.search(
-            self._db, work.title, search_client, pagination
+            self._db, work.title, search_client, pagination=pagination
         )
         target_results = lane.search_target.search(
-            self._db, work.title, search_client, pagination
+            self._db, work.title, search_client, pagination=pagination
         )
         eq_(results, target_results)
 
@@ -1633,14 +1654,14 @@ class TestLane(DatabaseTest):
         # Create some works that will or won't show up in various
         # lanes.
         childrens_fiction = self._work(
-            fiction=True, with_license_pool=True, 
+            fiction=True, with_license_pool=True,
             audience=Classifier.AUDIENCE_CHILDREN
         )
         nonfiction = self._work(fiction=False, with_license_pool=True)
         childrens_fiction.target_age = tuple_to_numericrange((8,8))
         self.add_to_materialized_view([childrens_fiction, nonfiction])
 
-        def match_works(lane, works, featured=False, 
+        def match_works(lane, works, featured=False,
                         expect_bibliographic_filter=True):
             """Verify that calling apply_bibliographic_filters to the given
             lane yields the given list of works.
@@ -1652,7 +1673,7 @@ class TestLane(DatabaseTest):
             new_query, bibliographic_clause = lane.bibliographic_filter_clause(
                 self._db, base_query, featured
             )
-            
+
             if lane.uses_customlists:
                 # bibliographic_filter_clause modifies the query (by
                 # calling customlist_filter_clauses).
@@ -1695,7 +1716,7 @@ class TestLane(DatabaseTest):
 
         both_lane = self._lane()
         both_lane.fiction = None
-        match_works(both_lane, [childrens_fiction, nonfiction], 
+        match_works(both_lane, [childrens_fiction, nonfiction],
                     expect_bibliographic_filter=False)
 
         # A lane may include a target age range.
@@ -1766,7 +1787,7 @@ class TestLane(DatabaseTest):
         from model import MaterializedWorkWithGenre as work_model
         qu = self._db.query(work_model)
         eq_(
-            (qu, None), 
+            (qu, None),
             lane.bibliographic_filter_clause(self._db, qu, False, False)
         )
 
@@ -1797,7 +1818,7 @@ class TestLane(DatabaseTest):
         """Standalone test of age_range_filter_clauses().
         """
         def filtered(lane):
-            """Build a query that applies the given lane's age filter to the 
+            """Build a query that applies the given lane's age filter to the
             works table.
             """
             from model import MaterializedWorkWithGenre as work_model
@@ -1808,7 +1829,7 @@ class TestLane(DatabaseTest):
             return [x.works_id for x in qu]
 
         adult = self._work(
-            title="For adults", 
+            title="For adults",
             audience=Classifier.AUDIENCE_ADULT,
             with_license_pool=True,
         )
@@ -1841,7 +1862,7 @@ class TestLane(DatabaseTest):
 
     def test_customlist_filter_clauses(self):
         """Standalone test of apply_customlist_filter.
-        
+
         Some of this code is also tested by test_apply_custom_filters.
         """
 
@@ -1873,7 +1894,7 @@ class TestLane(DatabaseTest):
 
         from model import MaterializedWorkWithGenre as work_model
         def _run(qu, clauses):
-            # Run a query with certain clauses and pick out the 
+            # Run a query with certain clauses and pick out the
             # work IDs returned.
             modified = qu.filter(and_(*clauses))
             return [x.works_id for x in modified]
@@ -1959,14 +1980,14 @@ class TestLane(DatabaseTest):
         # what happens when the second lane is a child of the first,
         # and inherits its restrictions.
         both_lists_qu, list_2_clauses = gutenberg_list_2_lane.customlist_filter_clauses(
-            list_1_qu, 
+            list_1_qu,
         )
         both_lists_clauses = list_1_clauses + list_2_clauses
 
         # The combined query matches the work that shows up on
         # both lists.
         eq_([work.id], _run(both_lists_qu, both_lists_clauses))
-        
+
         # If we remove `work` from either list, the combined query
         # matches nothing. This works even though the materialized
         # view has not been refreshed.
@@ -2116,7 +2137,7 @@ class TestWorkListGroups(DatabaseTest):
                 eq_(
                     expect_item, actual_item,
                     "Mismatch in position %d: Expected %r, got %r.\nOverall, expected:\n%r\nGot:\n%r:" %
-                    (i, expect_item, actual_item, 
+                    (i, expect_item, actual_item,
                      expect, actual)
                 )
 
@@ -2185,7 +2206,7 @@ class TestWorkListGroups(DatabaseTest):
                 ),
                 [(nonfiction, discredited_nonfiction)]
             )
-        
+
         # If we make the lanes thirstier for content, we see slightly
         # different behavior.
         library.setting(library.FEATURED_LANE_SIZE).value = "3"
@@ -2348,7 +2369,7 @@ class TestWorkListGroups(DatabaseTest):
         e = Mock("e")
         f = Mock("f")
 
-        def fill(lane, additional_needed, unused_by_tier, used_by_tier, 
+        def fill(lane, additional_needed, unused_by_tier, used_by_tier,
               used_works=[]):
             mws = []
             used_ids = set([x.works_id for x in used_works])
@@ -2392,7 +2413,7 @@ class TestWorkListGroups(DatabaseTest):
 
     def test_restrict_query_to_window(self):
         lane = self._lane()
-        
+
         from model import MaterializedWorkWithGenre as work_model
         query = self._db.query(work_model).filter(work_model.fiction==True)
         target_size = 10
@@ -2401,7 +2422,7 @@ class TestWorkListGroups(DatabaseTest):
         # _restrict_query_to_window does nothing.
         lane.size = 1
         eq_(
-            query, 
+            query,
             lane._restrict_query_to_window(query, target_size)
         )
 
@@ -2417,7 +2438,7 @@ class TestWorkListGroups(DatabaseTest):
         expect_lower = 0.606
         expect_upper = 0.658
         args = dict(mv=work_model.__table__.name, lower=expect_lower,
-                    upper=expect_upper) 
+                    upper=expect_upper)
 
         assert '%(mv)s.fiction =' % args in sql
         expect_upper_range = '%(mv)s.random <= %(upper)s' % args

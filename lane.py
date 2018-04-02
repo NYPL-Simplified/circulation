@@ -97,7 +97,7 @@ class Facets(FacetConstants):
             availability=cls.AVAILABLE_ALL,
             order=cls.ORDER_AUTHOR
         )
-    
+
     def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None):
         """
@@ -142,8 +142,8 @@ class Facets(FacetConstants):
     def navigate(self, collection=None, availability=None, order=None):
         """Create a slightly different Facets object from this one."""
         return Facets(self.library,
-                      collection or self.collection, 
-                      availability or self.availability, 
+                      collection or self.collection,
+                      availability or self.availability,
                       order or self.order,
                       enabled_facets=self.facets_enabled_at_init)
 
@@ -151,7 +151,7 @@ class Facets(FacetConstants):
         if self.order:
             yield (self.ORDER_FACET_GROUP_NAME, self.order)
         if self.availability:
-            yield (self.AVAILABILITY_FACET_GROUP_NAME,  self.availability)        
+            yield (self.AVAILABILITY_FACET_GROUP_NAME,  self.availability)
         if self.collection:
             yield (self.COLLECTION_FACET_GROUP_NAME, self.collection)
 
@@ -192,7 +192,7 @@ class Facets(FacetConstants):
 
     @property
     def facet_groups(self):
-        """Yield a list of 4-tuples 
+        """Yield a list of 4-tuples
         (facet group, facet value, new Facets object, selected)
         for use in building OPDS facets.
         """
@@ -304,7 +304,7 @@ class Facets(FacetConstants):
         default_sort_order = [
             work_model.sort_author, work_model.sort_title, work_id
         ]
-    
+
         primary_order_by = self.order_facet_to_database_field(self.order)
         if primary_order_by is not None:
             # Promote the field designated by the sort facet to the top of
@@ -400,7 +400,7 @@ class FeaturedFacets(object):
         # All else being equal, it's better if a book is available
         # now.
         available_now = case(
-            [(or_(LicensePool.licenses_available > 0, 
+            [(or_(LicensePool.licenses_available > 0,
                   LicensePool.open_access==True), 1)],
             else_=0
         )
@@ -546,7 +546,7 @@ class WorkList(object):
         )
         return wl
 
-    def initialize(self, library, display_name=None, genres=None, 
+    def initialize(self, library, display_name=None, genres=None,
                    audiences=None, languages=None, media=None,
                    children=None, priority=None):
         """Initialize with basic data.
@@ -554,7 +554,7 @@ class WorkList(object):
         This is not a constructor, to avoid conflicts with `Lane`, an
         ORM object that subclasses this object but does not use this
         initialization code.
-        
+
         :param library: Only Works available in this Library will be
         included in lists.
 
@@ -814,7 +814,7 @@ class WorkList(object):
         if qu:
             qu = qu.options(
                 contains_eager(mw.license_pool),
-                # TODO: Strictly speaking, these joinedload calls are 
+                # TODO: Strictly speaking, these joinedload calls are
                 # only needed by the circulation manager. This code could
                 # be moved to circulation and everyone else who uses this
                 # would be a little faster. (But right now there is no one
@@ -1009,7 +1009,7 @@ class WorkList(object):
 
     @classmethod
     def _lazy_load(cls, qu):
-        """Avoid eager loading of objects that are contained in the 
+        """Avoid eager loading of objects that are contained in the
         materialized view.
         """
         from model import MaterializedWorkWithGenre as work_model
@@ -1037,7 +1037,7 @@ class WorkList(object):
         """By default, a WorkList is searchable."""
         return self
 
-    def search(self, _db, query, search_client, pagination=None):
+    def search(self, _db, query, search_client, media=None, pagination=None, languages=None):
         """Find works in this WorkList that match a search query."""
         if not pagination:
             pagination = Pagination(
@@ -1046,6 +1046,17 @@ class WorkList(object):
 
         # Get the search results from Elasticsearch.
         results = None
+
+        if not media:
+            media = self.media
+        elif media is Edition.ALL_MEDIUM:
+            media = None
+        if isinstance(media, basestring):
+            media = [media]
+
+        default_languages = languages
+        if self.languages:
+            default_languages = self.languages
 
         if self.target_age:
             target_age = numericrange_to_tuple(self.target_age)
@@ -1059,8 +1070,8 @@ class WorkList(object):
                 docs = search_client.query_works(
                     library=self.get_library(_db),
                     query_string=query,
-                    media=self.media,
-                    languages=self.languages,
+                    media=media,
+                    languages=default_languages,
                     fiction=self.fiction,
                     audiences=self.audiences,
                     target_age=target_age,
@@ -1161,7 +1172,7 @@ class WorkList(object):
                     yield x
 
     def _featured_works_with_lanes(self, _db, lanes):
-        """Find a sequence of works that can be used to 
+        """Find a sequence of works that can be used to
         populate this lane's grouped acquisition feed.
 
         :param lanes: Classify MaterializedWorkWithGenre objects
@@ -1266,7 +1277,7 @@ class WorkList(object):
                 mws = by_tier[tier]
                 random.shuffle(mws)
                 for mw in mws:
-                    if (by_tier is unused_by_tier 
+                    if (by_tier is unused_by_tier
                         and mw.works_id in previously_used):
                         # We initially thought this work was unused,
                         # and put it in the 'unused' bucket, but then
@@ -1344,7 +1355,7 @@ class Lane(Base, WorkList):
 
     # A lane may have one parent lane and many sublanes.
     sublanes = relationship(
-        "Lane", 
+        "Lane",
         backref=backref("parent", remote_side = [id]),
     )
 
@@ -1583,10 +1594,10 @@ class Lane(Base, WorkList):
         """
         if self.customlists or self.list_datasource:
             return True
-        if (self.parent and self.inherit_parent_restrictions 
+        if (self.parent and self.inherit_parent_restrictions
             and self.parent.uses_customlists):
             return True
-        return False        
+        return False
 
     def update_size(self, _db):
         """Update the stored estimate of the number of Works in this Lane."""
@@ -1637,7 +1648,7 @@ class Lane(Base, WorkList):
             # Fantasy' is included but 'Fantasy' and its subgenres are
             # excluded.
             logging.error(
-                "Lane %s has a self-negating set of genre IDs.", 
+                "Lane %s has a self-negating set of genre IDs.",
                 self.full_identifier
             )
         return genre_ids
@@ -1658,7 +1669,7 @@ class Lane(Base, WorkList):
 
         return _db.query(Lane).outerjoin(Lane.customlists).filter(
             or_(data_source_matches, specific_link)
-        )            
+        )
 
     def add_genre(self, genre, inclusive=True, recursive=True):
         """Create a new LaneGenre for the given genre and
@@ -1770,15 +1781,15 @@ class Lane(Base, WorkList):
                            if x == self or x.inherit_parent_restrictions]
         return self._groups_for_lanes(_db, relevant_lanes, queryable_lanes)
 
-    def search(self, _db, query, search_client, pagination=None):
+    def search(self, _db, query, search_client, media=None, pagination=None, languages=None):
         """Find works in this lane that also match a search query.
         """
         target = self.search_target
 
         if target == self:
-            return super(Lane, self).search(_db, query, search_client, pagination)
+            return super(Lane, self).search(_db, query, search_client, media, pagination, languages)
         else:
-            return target.search(_db, query, search_client, pagination)
+            return target.search(_db, query, search_client, media, pagination, languages)
 
     def bibliographic_filter_clause(self, _db, qu, featured, outer_join=False):
         """Create an AND clause that restricts a query to find
@@ -1844,7 +1855,7 @@ class Lane(Base, WorkList):
         from model import MaterializedWorkWithGenre as work_model
         if self.target_age == None:
             return []
-            
+
         if (Classifier.AUDIENCE_ADULT in self.audiences
             or Classifier.AUDIENCE_ADULTS_ONLY in self.audiences):
             # Books for adults don't have target ages. If we're including
@@ -1945,7 +1956,7 @@ class Lane(Base, WorkList):
                 self.list_seen_in_previous_days
             )
             clauses.append(a_entry.most_recent_appearance >=cutoff)
-            
+
         return qu, clauses
 
     def explain(self):
