@@ -768,6 +768,9 @@ class OPDSFeedController(CirculationManagerController):
         else:
             languages_url = ""
 
+        if not media:
+            media = Edition.ALL_MEDIUM
+
         this_url += "?q=" + urllib.quote(query.encode("utf8")) + media_url + languages_url
         annotator = self.manager.annotator(lane)
         info = OpenSearchDocument.search_info(lane)
