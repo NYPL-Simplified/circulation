@@ -19,6 +19,7 @@ py-bcrypt
 Flask-Babel
 money
 pymarc
+accept-types
 
 # Ensure that we support SNI-based SSL
 ndg-httpsclient

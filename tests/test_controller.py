@@ -107,7 +107,7 @@ import feedparser
 from core.opds import (
     AcquisitionFeed,
 )
-from core.util.opds_writer import (    
+from core.util.opds_writer import (
     OPDSFeed,
 )
 from api.opds import LibraryAnnotator
@@ -136,12 +136,12 @@ class ControllerTest(VendorIDTest):
     valid_credentials = dict(
         username="unittestuser", password="unittestpassword"
     )
-            
+
     def setup(self, _db=None, set_up_circulation_manager=True):
         super(ControllerTest, self).setup()
         _db = _db or self._db
         self.app = app
-        
+
         # PRESERVE_CONTEXT_ON_EXCEPTION needs to be off in tests
         # to prevent one test failure from breaking later tests as well.
         # When used with flask's test_request_context, exceptions
@@ -155,7 +155,7 @@ class ControllerTest(VendorIDTest):
         }
         base_url = ConfigurationSetting.sitewide(_db, Configuration.BASE_URL_KEY)
         base_url.value = u'http://test-circulation-manager/'
-        
+
         # NOTE: Any reference to self._default_library below this
         # point in this method will cause the tests in
         # TestScopedSession to hang.
@@ -164,13 +164,13 @@ class ControllerTest(VendorIDTest):
 
     def circulation_manager_setup(self, _db):
         """Set up initial Library arrangements for this test.
-        
+
         Most tests only need one library: self._default_library.
         Other tests need a different library (e.g. one created using the
         scoped database session), or more than one library. For that
         reason we call out to a helper method to create some number of
         libraries, then initialize each one.
-        
+
         NOTE: Any reference to self._default_library within this
         method will cause the tests in TestScopedSession to hang.
 
@@ -191,12 +191,12 @@ class ControllerTest(VendorIDTest):
             for library in self.libraries
         ]
         self.default_patrons = {}
-        
+
         # The first library created is used as the default -- more of the
         # time this is the same as self._default_library.
         self.library = self.libraries[0]
         self.collection = self.collections[0]
-        
+
         for library in self.libraries:
             self.library_setup(library)
 
@@ -241,7 +241,7 @@ class ControllerTest(VendorIDTest):
             )
         )
         self.default_patrons[library] = default_patron
-                
+
         # Create a simple authentication integration for this library,
         # unless it already has a way to authenticate patrons
         # (in which case we would just screw things up).
@@ -264,7 +264,7 @@ class ControllerTest(VendorIDTest):
         ]:
             ConfigurationSetting.for_library(k, library).value = json.dumps(v)
         create_default_lanes(_db, library)
-            
+
     def make_default_libraries(self, _db):
         return [self._default_library]
 
@@ -289,7 +289,7 @@ class CirculationControllerTest(ControllerTest):
     BOOKS = [
         ["english_1", "Quite British", "John Bull", "eng", True],
     ]
-    
+
     def setup(self):
         super(CirculationControllerTest, self).setup()
         for (variable_name, title, author, language, fiction) in self.BOOKS:
@@ -317,7 +317,7 @@ class TestCirculationManager(CirculationControllerTest):
 
         # But some fields are _not_ about to be reloaded
         index_controller = manager.index_controller
-        
+
         # The CirculationManager has a top-level lane and a CirculationAPI,
         # for the default library, but no others.
         eq_(1, len(manager.top_level_lanes))
@@ -334,7 +334,7 @@ class TestCirculationManager(CirculationControllerTest):
 
         # Then reload the CirculationManager...
         self.manager.load_settings()
-        
+
         # Now the new library has a top-level lane.
         assert library.id in manager.top_level_lanes
 
@@ -347,13 +347,13 @@ class TestCirculationManager(CirculationControllerTest):
             manager.auth.library_authenticators[library.short_name],
             LibraryAuthenticator
         )
-        
+
         # The ExternalSearch object has been reset.
         assert isinstance(manager.external_search, DummyExternalSearchIndex)
-        
+
         # So has the lending policy.
         assert isinstance(manager.lending_policy, dict)
-        
+
         # The OAuth controller has been recreated.
         assert isinstance(manager.oauth_controller, OAuthController)
 
@@ -408,6 +408,22 @@ class TestCirculationManager(CirculationControllerTest):
         assert isinstance(ex, CannotLoadConfiguration)
         assert ex.message.startswith("Short Client Token configuration is incomplete")
 
+    def test_setup_adobe_vendor_id_does_not_override_existing_configuration(self):
+        # Our circulation manager is perfectly happy with its Adobe Vendor ID
+        # configuration, which it got from one of its libraries.
+        obj = object()
+        self.manager.adobe_vendor_id = obj
+
+        # This library wants to set up an Adobe Vendor ID but it doesn't
+        # actually have one configured.
+        self.manager.setup_adobe_vendor_id(self._db, self._default_library)
+
+        # The sitewide Adobe Vendor ID configuration is not changed by
+        # the presence of another library that doesn't have a Vendor
+        # ID configuration.
+        eq_(obj, self.manager.adobe_vendor_id)
+
+
 class TestBaseController(CirculationControllerTest):
 
     def test_unscoped_session(self):
@@ -453,7 +469,7 @@ class TestBaseController(CirculationControllerTest):
 
     def test_authentication_sends_proper_headers(self):
 
-        # Make sure the realm header has quotes around the realm name.  
+        # Make sure the realm header has quotes around the realm name.
         # Without quotes, some iOS versions don't recognize the header value.
 
         base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY)
@@ -580,12 +596,12 @@ class TestBaseController(CirculationControllerTest):
         # multiple ways of getting a book with the same media type and
         # DRM scheme) we pick one arbitrarily.
         new_lpdm, is_new = create(
-            self._db, 
+            self._db,
             LicensePoolDeliveryMechanism,
             identifier=licensepool.identifier,
             data_source=licensepool.data_source,
             delivery_mechanism=lpdm.delivery_mechanism,
-        )        
+        )
         eq_(True, is_new)
 
         eq_(new_lpdm.delivery_mechanism, lpdm.delivery_mechanism)
@@ -595,7 +611,7 @@ class TestBaseController(CirculationControllerTest):
             licensepool, lpdm.delivery_mechanism.id
         )
 
-        # We don't know which LicensePoolDeliveryMechanism this is, 
+        # We don't know which LicensePoolDeliveryMechanism this is,
         # but we know it's one of the matches.
         eq_(underlying_mechanism, delivery.delivery_mechanism)
 
@@ -642,8 +658,8 @@ class TestBaseController(CirculationControllerTest):
 
             self.manager.lending_policy = load_lending_policy(
                 {
-                    "60": {"audiences": ["Children"]}, 
-                    "152": {"audiences": ["Children"]}, 
+                    "60": {"audiences": ["Children"]},
+                    "152": {"audiences": ["Children"]},
                     "62": {"audiences": ["Children"]}
                 }
             )
@@ -671,7 +687,7 @@ class TestBaseController(CirculationControllerTest):
             expect_default = Library.default(self._db)
             eq_(expect_default, value)
             eq_(expect_default, flask.request.library)
-            
+
     def test_library_for_request_reloads_settings_if_necessary(self):
 
         # We're about to change the shortname of the default library.
@@ -691,19 +707,19 @@ class TestBaseController(CirculationControllerTest):
 
         # Bypass the 1-second timeout and make sure the site knows
         # the configuration has actually changed.
-        model.site_configuration_has_changed(self._db, timeout=0)        
-        
+        model.site_configuration_has_changed(self._db, timeout=0)
+
         # Just making the change and calling
         # site_configuration_has_changed was not enough to update the
         # CirculationManager's settings.
         assert new_name not in self.manager.auth.library_authenticators
-        
+
         # But the first time we make a request that calls the library
         # by its new name, those settings are reloaded.
         with self.app.test_request_context("/"):
             value = self.controller.library_for_request(new_name)
             eq_(self._default_library, value)
-                
+
             # An assertion that would have failed before works now.
             assert new_name in self.manager.auth.library_authenticators
 
@@ -724,7 +740,7 @@ class FullLaneSetupTest(CirculationControllerTest):
         ]:
             ConfigurationSetting.for_library(k, library).value = json.dumps(v)
         create_default_lanes(self._db, library)
-    
+
     def test_load_lane(self):
         with self.request_context_with_library("/"):
             eq_(self.manager.d_top_level_lane,
@@ -753,10 +769,10 @@ class FullLaneSetupTest(CirculationControllerTest):
             no_such_lane = self.controller.load_lane('eng', 'No such lane')
             eq_("No such lane: No such lane", no_such_lane.detail)
 
-            
+
 
 class TestIndexController(CirculationControllerTest):
-    
+
     def test_simple_redirect(self):
         with self.app.test_request_context('/'):
             flask.request.library = self.library
@@ -783,7 +799,7 @@ class TestIndexController(CirculationControllerTest):
             "/", headers=dict(Authorization=self.valid_auth)):
             response = self.manager.index_controller()
             eq_(302, response.status_code)
-            eq_("http://cdn/default/groups/%s" % root_1.id, 
+            eq_("http://cdn/default/groups/%s" % root_1.id,
                 response.headers['location'])
 
         self.default_patron.external_type = "2"
@@ -871,7 +887,7 @@ class TestMultipleLibraries(CirculationControllerTest):
         collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
         library.collections.append(collection)
         return collection
-        
+
     def test_authentication(self):
         """It's possible to authenticate with multiple libraries and make a
         request that runs in the context of each different library.
@@ -887,7 +903,7 @@ class TestMultipleLibraries(CirculationControllerTest):
                 response = self.manager.index_controller()
                 eq_("http://cdn/%s/groups/" % library.short_name,
                     response.headers['location'])
-            
+
 class TestLoanController(CirculationControllerTest):
     def setup(self):
         super(TestLoanController, self).setup()
@@ -961,7 +977,7 @@ class TestLoanController(CirculationControllerTest):
             # The loan has yet to be fulfilled.
             eq_(None, loan.fulfillment)
 
-            # We've been given an OPDS feed with one entry, which tells us how 
+            # We've been given an OPDS feed with one entry, which tells us how
             # to fulfill the license.
             eq_(201, response.status_code)
             feed = feedparser.parse(response.get_data())
@@ -969,7 +985,7 @@ class TestLoanController(CirculationControllerTest):
             fulfillment_links = [x['href'] for x in entry['links']
                                 if x['rel'] == OPDSFeed.ACQUISITION_REL]
             [mech1, mech2] = sorted(
-                self.pool.delivery_mechanisms, 
+                self.pool.delivery_mechanisms,
                 key=lambda x: x.delivery_mechanism.default_client_can_fulfill
             )
 
@@ -1067,7 +1083,7 @@ class TestLoanController(CirculationControllerTest):
             # The loan has yet to be fulfilled.
             eq_(None, loan.fulfillment)
 
-            # We've been given an OPDS feed with two delivery mechanisms, which tell us how 
+            # We've been given an OPDS feed with two delivery mechanisms, which tell us how
             # to fulfill the license.
             eq_(201, response.status_code)
             feed = feedparser.parse(response.get_data())
@@ -1075,7 +1091,7 @@ class TestLoanController(CirculationControllerTest):
             fulfillment_links = [x['href'] for x in entry['links']
                                 if x['rel'] == OPDSFeed.ACQUISITION_REL]
             [mech1, mech2] = sorted(
-                pool.delivery_mechanisms, 
+                pool.delivery_mechanisms,
                 key=lambda x: x.delivery_mechanism.is_streaming
             )
 
@@ -1110,7 +1126,7 @@ class TestLoanController(CirculationControllerTest):
             opds_entries = feedparser.parse(response.response[0])['entries']
             eq_(1, len(opds_entries))
             links = opds_entries[0]['links']
-        
+
             # The entry includes one fulfill link.
             fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
             eq_(1, len(fulfill_links))
@@ -1169,7 +1185,7 @@ class TestLoanController(CirculationControllerTest):
             opds_entries = feedparser.parse(response.response[0])['entries']
             eq_(1, len(opds_entries))
             links = opds_entries[0]['links']
-        
+
             fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
             eq_(1, len(fulfill_links))
 
@@ -1185,7 +1201,7 @@ class TestLoanController(CirculationControllerTest):
                 self.identifier.type, self.identifier.identifier,
                 -100
             )
-            eq_(BAD_DELIVERY_MECHANISM, response) 
+            eq_(BAD_DELIVERY_MECHANISM, response)
 
     def test_borrow_creates_hold_when_no_available_copies(self):
         threem_edition, pool = self._edition(
@@ -1220,13 +1236,13 @@ class TestLoanController(CirculationControllerTest):
             response = self.manager.loans.borrow(
                 pool.identifier.type, pool.identifier.identifier)
             eq_(201, response.status_code)
-            
+
             # A hold has been created for this license pool.
             hold = get_one(self._db, Hold, license_pool=pool)
             assert hold != None
 
     def test_borrow_creates_local_hold_if_remote_hold_exists(self):
-        """We try to check out a book, but turns out we already have it 
+        """We try to check out a book, but turns out we already have it
         on hold.
         """
         threem_edition, pool = self._edition(
@@ -1324,7 +1340,7 @@ class TestLoanController(CirculationControllerTest):
              response = self.manager.loans.revoke(self.pool.id)
 
              eq_(200, response.status_code)
-             
+
     def test_revoke_hold(self):
          with self.request_context_with_library(
                  "/", headers=dict(Authorization=self.valid_auth)):
@@ -1387,7 +1403,7 @@ class TestLoanController(CirculationControllerTest):
             patron.fines = Decimal("12345678.90")
             response = self.manager.loans.borrow(
                 pool.identifier.type, pool.identifier.identifier)
-                
+
             eq_(403, response.status_code)
             eq_(OUTSTANDING_FINES.uri, response.uri)
             assert "$12345678.90 outstanding" in response.detail
@@ -1409,7 +1425,7 @@ class TestLoanController(CirculationControllerTest):
             )
             response = self.manager.loans.borrow(
                 pool.identifier.type, pool.identifier.identifier)
-                
+
             eq_(201, response.status_code)
 
     def test_3m_cant_revoke_hold_if_reserved(self):
@@ -1463,7 +1479,7 @@ class TestLoanController(CirculationControllerTest):
         )
         bibliotheca_pool.licenses_available = 0
         bibliotheca_pool.open_access = False
-        
+
         self.manager.d_circulation.add_remote_loan(
             overdrive_pool.collection, overdrive_pool.data_source,
             overdrive_pool.identifier.type,
@@ -1493,7 +1509,7 @@ class TestLoanController(CirculationControllerTest):
 
             eq_(overdrive_entry['opds_availability']['status'], 'available')
             eq_(bibliotheca_entry['opds_availability']['status'], 'ready')
-            
+
             overdrive_links = overdrive_entry['links']
             fulfill_link = [x for x in overdrive_links if x['rel'] == 'http://opds-spec.org/acquisition'][0]['href']
             revoke_link = [x for x in overdrive_links if x['rel'] == OPDSFeed.REVOKE_LOAN_REL][0]['href']
@@ -1640,7 +1656,7 @@ class TestAnnotationController(CirculationControllerTest):
             self.pool.loan_to(patron)
             response = self.manager.annotations.container()
             eq_(200, response.status_code)
-            
+
             annotations = self._db.query(Annotation).filter(Annotation.patron==patron).all()
             eq_(1, len(annotations))
             annotation = annotations[0]
@@ -1770,7 +1786,7 @@ class TestWorkController(CirculationControllerTest):
 
         contributor = self.edition.contributions[0].contributor
         contributor.display_name = name = 'John Bull'
-        
+
         # Similarly if the pagination data is bad.
         with self.request_context_with_library('/?size=abc'):
             response = self.manager.work_controller.contributor(name, None, None)
@@ -1780,7 +1796,7 @@ class TestWorkController(CirculationControllerTest):
         with self.request_context_with_library('/?order=nosuchorder'):
             response = self.manager.work_controller.contributor(name, None, None)
             eq_(400, response.status_code)
-        
+
         # If the work has a contributor, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library('/'):
@@ -1873,7 +1889,7 @@ class TestWorkController(CirculationControllerTest):
         args = [self.identifier.type,
                 self.identifier.identifier]
         kwargs = dict(novelist_api=mock_api)
-        
+
         # We get a 400 response if the pagination data is bad.
         with self.request_context_with_library('/?size=abc'):
             response = self.manager.work_controller.recommendations(
@@ -1900,7 +1916,7 @@ class TestWorkController(CirculationControllerTest):
         eq_('Recommended Books', feed['feed']['title'])
         eq_(0, len(feed['entries']))
 
-       
+
         # Delete the cache and prep a recommendation result.
         [cached_empty_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_empty_feed)
@@ -2178,7 +2194,7 @@ class TestWorkController(CirculationControllerTest):
         with self.request_context_with_library('/?order=nosuchorder'):
             response = self.manager.work_controller.series(series_name, None, None)
             eq_(400, response.status_code)
-            
+
         # If the work is in a series, a feed is returned.
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library('/'):
@@ -2202,7 +2218,7 @@ class TestWorkController(CirculationControllerTest):
         # Delete the cache
         [cached_feed] = self._db.query(CachedFeed).all()
         self._db.delete(cached_feed)
-        
+
         # Facets work.
         SessionManager.refresh_materialized_views(self._db)
         with self.request_context_with_library("/?order=title"):
@@ -2285,7 +2301,7 @@ class TestFeedController(CirculationControllerTest):
         ["english_2", "Totally American", "Uncle Sam", "eng", False],
         ["french_1", u"Très Français", "Marianne", "fre", False],
     ]
-    
+
     def test_feed(self):
         SessionManager.refresh_materialized_views(self._db)
 
@@ -2326,7 +2342,7 @@ class TestFeedController(CirculationControllerTest):
 
             feed = feedparser.parse(response.data)
             entries = feed['entries']
-            
+
             eq_(1, len(entries))
 
             links = feed['feed']['links']
@@ -2351,7 +2367,7 @@ class TestFeedController(CirculationControllerTest):
             )
             eq_(400, response.status_code)
             eq_(
-                "http://librarysimplified.org/terms/problem/invalid-input", 
+                "http://librarysimplified.org/terms/problem/invalid-input",
                 response.uri
             )
 
@@ -2362,9 +2378,9 @@ class TestFeedController(CirculationControllerTest):
             )
             eq_(400, response.status_code)
             eq_(
-                "http://librarysimplified.org/terms/problem/invalid-input", 
+                "http://librarysimplified.org/terms/problem/invalid-input",
                 response.uri
-            )            
+            )
 
     def test_groups(self):
         ConfigurationSetting.sitewide(
@@ -2372,7 +2388,7 @@ class TestFeedController(CirculationControllerTest):
         library = self._default_library
         library.setting(library.MINIMUM_FEATURED_QUALITY).value = 0
         library.setting(library.FEATURED_LANE_SIZE).value = 2
-        
+
         SessionManager.refresh_materialized_views(self._db)
 
         # Initial setup gave us two English works and a French work.
@@ -2380,7 +2396,7 @@ class TestFeedController(CirculationControllerTest):
         # the groups lane cuts off at FEATURED_LANE_SIZE.
         for i in range(2):
             self._work("english work %i" % i, language="eng", fiction=True, with_open_access_download=True)
-        
+
         with self.request_context_with_library("/"):
             response = self.manager.opds_feeds.groups(None)
 
@@ -2393,29 +2409,39 @@ class TestFeedController(CirculationControllerTest):
                 for link in links:
                     counter[link['title']] += 1
 
-            # In default_config, the two top-level lanes are "English"
-            # (a language in SMALL_COLLECTION_LANGUAGES) and "Other
-            # Languages" (which covers TINY_COLLECTION_LANGUAGES).
+            # In default_config, there are no LARGE_COLLECTION_LANGUAGES,
+            # so the sole top-level lane is "World Languages", which covers the
+            # SMALL and TINY_COLLECTION_LANGUAGES.
+            #
+            # Since there is only one top-level lane, its sublanes --
+            # English, French, and "all" are used in the top-level
+            # groups feed.
             #
             # There are several English works, but we're cut off at
-            # two due to FEATURED_LANE_SIZE. There is one "Other
-            # Languages" work - the French work created when this test
+            # two due to FEATURED_LANE_SIZE. There is one French
+            # work -- the one work created when this test
             # was initialized.
             eq_(2, counter['English'])
-            eq_(1, counter['Other Languages'])
+            eq_(1, counter[u'fran\xe7ais'])
+            eq_(2, counter['All World Languages'])
 
     def _set_update_times(self):
         """Set the last update times so we can create a crawlable feed."""
         now = datetime.datetime.now()
-        self.english_2.last_update_time = (
-            now + datetime.timedelta(hours=2)
-        )
-        self.french_1.last_update_time = (
-            now + datetime.timedelta(hours=1)
-        )
-        self.english_1.last_update_time = (
-            now - datetime.timedelta(hours=1)
-        )
+
+        def _set(work, time):
+            """Set all fields used when calculating a work's update date for
+            purposes of the crawlable feed.
+            """
+            work.last_update_time = time
+            for lp in work.license_pools:
+                lp.availability_time = time
+        the_far_future = now + datetime.timedelta(hours=2)
+        the_future = now + datetime.timedelta(hours=1)
+        the_past = now - datetime.timedelta(hours=1)
+        _set(self.english_2, now + datetime.timedelta(hours=2))
+        _set(self.french_1, now + datetime.timedelta(hours=1))
+        _set(self.english_1, now - datetime.timedelta(hours=1))
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
@@ -2544,6 +2570,10 @@ class TestFeedController(CirculationControllerTest):
             [entry] = entries
             eq_(self.english_2.title, entry.title)
 
+
+    def mock_search(self, *args, **kwargs):
+        self.called_with = (args, kwargs)
+
     def test_search(self):
         # Update the index for two works.
         # english_1 is "Quite British" by John Bull
@@ -2586,6 +2616,26 @@ class TestFeedController(CirculationControllerTest):
             entries = feed['entries']
             eq_(1, len(entries))
 
+        with self.request_context_with_library("/?q=t&size=1&media=audio"):
+            response = self.manager.opds_feeds.search(None)
+
+            assert(isinstance(response, ProblemDetail))
+            eq_(response.detail, "Media type None is not valid.")
+
+        with self.request_context_with_library("/?q=t&size=1&media=http://bib.schema.org/Audiobook",
+            headers={ "Accept-Language": ["en-us"] }):
+
+            old_search = AcquisitionFeed.search
+            AcquisitionFeed.search = self.mock_search
+
+            response = self.manager.opds_feeds.search(None)
+            (s, args) = self.called_with
+
+            eq_(args["media"], Edition.AUDIO_MEDIUM)
+            eq_(args["languages"], ["eng"])
+
+            AcquisitionFeed.search = old_search
+
 
 class TestAnalyticsController(CirculationControllerTest):
     def setup(self):
@@ -2609,7 +2659,7 @@ class TestAnalyticsController(CirculationControllerTest):
         with self.request_context_with_library("/"):
             response = self.manager.analytics_controller.track_event(self.identifier.type, self.identifier.identifier, "open_book")
             eq_(200, response.status_code)
-            
+
             circulation_event = get_one(
                 self._db, CirculationEvent,
                 type="open_book",
@@ -2638,7 +2688,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         # Now the controller is enabled and we can use it in this
         # test.
         self.controller = self.manager.adobe_device_management
-        
+
     def _create_credential(self):
         """Associate a credential with the default patron which
         can have Adobe device identifiers associated with it,
@@ -2648,9 +2698,9 @@ class TestDeviceManagementProtocolController(ControllerTest):
             AuthdataUtility.ADOBE_ACCOUNT_ID_PATRON_IDENTIFIER,
             self.default_patron
         )
-    
+
     def test_link_template_header(self):
-        """Test the value of the Link-Template header used in 
+        """Test the value of the Link-Template header used in
         device_id_list_handler.
         """
         with self.request_context_with_library("/"):
@@ -2670,7 +2720,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
         assert isinstance(result, ProblemDetail)
         eq_(INVALID_CREDENTIALS.uri, result.uri)
         eq_("No authenticated patron", result.detail)
-            
+
     def test_device_id_list_handler_post_success(self):
         # The patron has no credentials, and thus no registered devices.
         eq_([], self.default_patron.credentials)
@@ -2703,7 +2753,7 @@ class TestDeviceManagementProtocolController(ControllerTest):
             self.controller.authenticated_patron_from_request()
             response = self.controller.device_id_list_handler()
             eq_(200, response.status_code)
-            
+
             # We got a list of device IDs.
             eq_(self.controller.DEVICE_ID_LIST_MEDIA_TYPE,
                 response.headers['Content-Type'])
@@ -3274,7 +3324,7 @@ class TestProfileController(ControllerTest):
         self.other_patron = self._patron()
         self.other_patron.synchronize_annotations = False
         self.auth = dict(Authorization=self.valid_auth)
-        
+
     def test_get(self):
         """Verify that a patron can see their own profile."""
         with self.request_context_with_library(
@@ -3311,7 +3361,7 @@ class TestProfileController(ControllerTest):
             assert_raises(ValueError,  Annotation.get_one_or_create,
                 self._db, patron=request_patron, identifier=identifier
             )
-            
+
             # But by sending a PUT request...
             response = self.manager.profiles.protocol()
 
@@ -3320,13 +3370,13 @@ class TestProfileController(ControllerTest):
 
             # The other patron is unaffected.
             eq_(False, self.other_patron.synchronize_annotations)
-            
+
         # Now we can create an annotation for the patron who enabled
         # annotation sync.
         annotation = Annotation.get_one_or_create(
             self._db, patron=request_patron, identifier=identifier)
         eq_(1, len(request_patron.annotations))
-        
+
         # But if we make another request and change their
         # synchronize_annotations field to False...
         payload['settings'][ProfileStorage.SYNCHRONIZE_ANNOTATIONS] = False
@@ -3378,7 +3428,7 @@ class TestScopedSession(ControllerTest):
         super(TestScopedSession, self).setup(
             app._db, set_up_circulation_manager=False
         )
-        
+
     def make_default_libraries(self, _db):
         libraries = []
         for i in range(2):
@@ -3397,7 +3447,7 @@ class TestScopedSession(ControllerTest):
         collection.create_external_integration(ExternalIntegration.OPDS_IMPORT)
         library.collections.append(collection)
         return collection
-        
+
     @contextmanager
     def test_request_context_and_transaction(self, *args):
         """Run a simulated Flask request in a transaction that gets rolled
@@ -3457,7 +3507,7 @@ class TestScopedSession(ControllerTest):
             flask.request.library = self._default_library
             response = self.app.manager.index_controller()
             eq_(302, response.status_code)
-            
+
         # Once we exit the context of the Flask request, the
         # transaction is rolled back. The Identifier never actually
         # enters the database.

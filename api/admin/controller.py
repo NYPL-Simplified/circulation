@@ -54,8 +54,9 @@ from core.model import (
     WorkGenre,
 )
 from core.lane import Lane
+from core.log import (LogConfiguration, SysLogger, Loggly)
 from core.util.problem_detail import (
-    ProblemDetail, 
+    ProblemDetail,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
 )
 from core.mirror import MirrorUploader
@@ -67,7 +68,7 @@ from core.util import (
 )
 
 from api.config import (
-    Configuration, 
+    Configuration,
     CannotLoadConfiguration
 )
 from api.lanes import create_default_lanes
@@ -79,7 +80,7 @@ from api.controller import CirculationManagerController
 from api.coverage import MetadataWranglerCollectionRegistrar
 from core.app_server import entry_response
 from core.app_server import (
-    entry_response, 
+    entry_response,
     feed_response,
     load_pagination_from_request
 )
@@ -155,29 +156,43 @@ class AdminController(object):
         self.cdn_url_for = self.manager.cdn_url_for
 
     @property
-    def auth(self):
+    def admin_auth_providers(self):
+        auth_providers = []
         auth_service = ExternalIntegration.admin_authentication(self._db)
         if auth_service and auth_service.protocol == ExternalIntegration.GOOGLE_OAUTH:
-            return GoogleOAuthAdminAuthenticationProvider(
+            auth_providers.append(GoogleOAuthAdminAuthenticationProvider(
                 auth_service,
                 self.url_for('google_auth_callback'),
                 test_mode=self.manager.testing,
-            )
-        elif Admin.with_password(self._db).count() != 0:
-            return PasswordAdminAuthenticationProvider(
+            ))
+        if Admin.with_password(self._db).count() != 0:
+            auth_providers.append(PasswordAdminAuthenticationProvider(
                 auth_service,
-            )
+            ))
+        return auth_providers
+
+    def admin_auth_provider(self, type):
+        # Return an auth provider with the given type.
+        # If no auth provider has this type, return None.
+        for provider in self.admin_auth_providers:
+            if provider.NAME == type:
+                return provider
         return None
 
-    def authenticated_admin_from_request(self):
+    def authenticated_admin_from_request(self, email=None, type=None):
         """Returns an authenticated admin or a problem detail."""
-        if not self.auth:
+        if not self.admin_auth_providers:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        email = flask.session.get("admin_email")
-        if email:
+        email = email or flask.session.get("admin_email")
+        type = type or flask.session.get("auth_type")
+
+        if email and type:
             admin = get_one(self._db, Admin, email=email)
-            if admin and self.auth.active_credentials(admin):
+            auth = self.admin_auth_provider(type)
+            if not auth:
+                return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
+            if admin and auth.active_credentials(admin):
                 return admin
         return INVALID_ADMIN_CREDENTIALS
 
@@ -194,6 +209,7 @@ class AdminController(object):
 
         # Set up the admin's flask session.
         flask.session["admin_email"] = admin_details.get("email")
+        flask.session["auth_type"] = admin_details.get("type")
 
         # A permanent session expires after a fixed time, rather than
         # when the user closes the browser.
@@ -230,11 +246,11 @@ class AdminController(object):
     def generate_csrf_token(self):
         """Generate a random CSRF token."""
         return base64.b64encode(os.urandom(24))
-        
+
 
 class ViewController(AdminController):
     def __call__(self, collection, book, path=None):
-        setting_up = (self.auth == None)
+        setting_up = (self.admin_auth_providers == [])
         if not setting_up:
             admin = self.authenticated_admin_from_request()
             if isinstance(admin, ProblemDetail):
@@ -277,7 +293,7 @@ class ViewController(AdminController):
         # until the user closes the browser window.
         response.set_cookie("csrf_token", csrf_token, httponly=True)
         return response
-        
+
 
 class SignInController(AdminController):
 
@@ -289,86 +305,66 @@ class SignInController(AdminController):
 </body>
 </html>"""
 
-    PASSWORD_SIGN_IN_TEMPLATE = """<!DOCTYPE HTML>
+    SIGN_IN_TEMPLATE = """<!DOCTYPE HTML>
 <html lang="en">
 <head><meta charset="utf8"></head>
-</body>
-<form action="%(password_sign_in_url)s" method="post">
-<input type="hidden" name="redirect" value="%(redirect)s"/>
-<label>Email <input type="text" name="email" /></label>
-<label>Password <input type="password" name="password" /></label>
-<button type="submit">Sign In</button>
-</form>
+<body>
+%(auth_provider_html)s
 </body>
 </html>"""
 
 
     def sign_in(self):
-        """Redirects admin if they're signed in."""
-        if not self.auth:
+        """Redirects admin if they're signed in, or shows the sign in page."""
+        if not self.admin_auth_providers:
             return ADMIN_AUTH_NOT_CONFIGURED
 
         admin = self.authenticated_admin_from_request()
 
         if isinstance(admin, ProblemDetail):
             redirect_url = flask.request.args.get("redirect")
-            return redirect(self.auth.auth_uri(redirect_url), Response=Response)
+            auth_provider_html = [auth.sign_in_template(redirect_url) for auth in self.admin_auth_providers]
+            auth_provider_html = "<br/><hr/>or<br/><br/>".join(auth_provider_html)
+            html = self.SIGN_IN_TEMPLATE % dict(
+                auth_provider_html=auth_provider_html
+            )
+            headers = dict()
+            headers['Content-Type'] = "text/html"
+            return Response(html, 200, headers)
         elif admin:
             return redirect(flask.request.args.get("redirect"), Response=Response)
 
     def redirect_after_google_sign_in(self):
         """Uses the Google OAuth client to determine admin details upon
         callback. Barring error, redirects to the provided redirect url.."""
-        if not self.auth:
+        if not self.admin_auth_providers:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        if not isinstance(self.auth, GoogleOAuthAdminAuthenticationProvider):
+        auth = self.admin_auth_provider(GoogleOAuthAdminAuthenticationProvider.NAME)
+        if not auth:
             return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
 
-        admin_details, redirect_url = self.auth.callback(flask.request.args)
+        admin_details, redirect_url = auth.callback(self._db, flask.request.args)
         if isinstance(admin_details, ProblemDetail):
             return self.error_response(admin_details)
 
-        if not self.staff_email(admin_details['email']):
-            return self.error_response(INVALID_ADMIN_CREDENTIALS)
-        else:
-            admin = self.authenticated_admin(admin_details)
-            return redirect(redirect_url, Response=Response)
-
-    
-    def staff_email(self, email):
-        """Checks the domain of an email address against the admin-authorized
-        domain"""
-        if not self.auth or not self.auth.domains:
-            return False
-
-        staff_domains = self.auth.domains
-        domain = email[email.index('@')+1:]
-        return domain.lower() in [staff_domain.lower() for staff_domain in staff_domains]
+        admin = self.authenticated_admin(admin_details)
+        return redirect(redirect_url, Response=Response)
 
     def password_sign_in(self):
-        if not self.auth:
+        if not self.admin_auth_providers:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        if not isinstance(self.auth, PasswordAdminAuthenticationProvider):
+        auth = self.admin_auth_provider(PasswordAdminAuthenticationProvider.NAME)
+        if not auth:
             return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
 
-        if flask.request.method == 'GET':
-            html = self.PASSWORD_SIGN_IN_TEMPLATE % dict(
-                password_sign_in_url=self.url_for("password_auth"),
-                redirect=flask.request.args.get("redirect"),
-            )
-            headers = dict()
-            headers['Content-Type'] = "text/html"
-            return Response(html, 200, headers)
-
-        admin_details, redirect_url = self.auth.sign_in(self._db, flask.request.form)
+        admin_details, redirect_url = auth.sign_in(self._db, flask.request.form)
         if isinstance(admin_details, ProblemDetail):
             return self.error_response(INVALID_ADMIN_CREDENTIALS)
 
         admin = self.authenticated_admin(admin_details)
         return redirect(redirect_url, Response=Response)
-
 
     def error_response(self, problem_detail):
         """Returns a problem detail as an HTML response"""
@@ -384,7 +380,7 @@ class WorkController(CirculationManagerController):
 
     def details(self, identifier_type, identifier):
         """Return an OPDS entry with detailed information for admins.
-        
+
         This includes relevant links for editing the book.
         """
 
@@ -398,11 +394,11 @@ class WorkController(CirculationManagerController):
         return entry_response(
             AcquisitionFeed.single_entry(self._db, work, annotator), cache_for=0,
         )
-        
+
     def complaints(self, identifier_type, identifier):
         """Return detailed complaint information for admins."""
-        
-        
+
+
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
@@ -415,7 +411,7 @@ class WorkController(CirculationManagerController):
             },
             "complaints": counter
         })
-        
+
         return response
 
     def roles(self):
@@ -797,7 +793,7 @@ class WorkController(CirculationManagerController):
 
     def edit_classifications(self, identifier_type, identifier):
         """Edit a work's audience, target age, fiction status, and genres."""
-        
+
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
@@ -816,8 +812,8 @@ class WorkController(CirculationManagerController):
         old_genre_classifications = old_classifications \
             .filter(Subject.genre_id != None)
         old_staff_genres = [
-            c.subject.genre.name 
-            for c in old_genre_classifications 
+            c.subject.genre.name
+            for c in old_genre_classifications
             if c.subject.genre
         ]
         old_computed_genres = [
@@ -930,7 +926,7 @@ class WorkController(CirculationManagerController):
                     subject_identifier=SimplifiedGenreClassifier.NONE,
                     weight=WorkController.STAFF_WEIGHT
                 )
-            else: 
+            else:
                 # otherwise delete existing NONE genre classification
                 none_classifications = self._db \
                     .query(Classification) \
@@ -1015,7 +1011,7 @@ class WorkController(CirculationManagerController):
 
             return Response(unicode(_("Success")), 200)
 
-    
+
 class FeedController(CirculationManagerController):
 
     def complaints(self):
@@ -1361,7 +1357,7 @@ class DashboardController(CirculationManagerController):
                 )
             )
         ).alias()
-        
+
 
         active_loans_or_holds_patron_count_query = select(
             [func.count(distinct(active_patrons.c.id))]
@@ -1473,7 +1469,7 @@ class DashboardController(CirculationManagerController):
         default = str(datetime.today()).split(" ")[0]
         date = flask.request.args.get("date", default)
         next_date = datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)
-            
+
         query = self._db.query(
                 CirculationEvent, Identifier, Work, Edition
             ) \
@@ -1488,7 +1484,7 @@ class DashboardController(CirculationManagerController):
             .options(lazyload(Identifier.licensed_through)) \
             .options(lazyload(Work.license_pools))
         results = query.all()
-        
+
         work_ids = map(lambda result: result[2].id, results)
 
         subquery = self._db \
@@ -1504,7 +1500,7 @@ class DashboardController(CirculationManagerController):
         genres = dict(genre_query.all())
 
         header = [
-            "time", "event", "identifier", "identifier_type", "title", "author", 
+            "time", "event", "identifier", "identifier_type", "title", "author",
             "fiction", "audience", "publisher", "language", "target_age", "genres"
         ]
 
@@ -1807,7 +1803,7 @@ class SettingsController(CirculationManagerController):
             result = self._set_integration_setting(integration, setting)
             if isinstance(result, ProblemDetail):
                 return result
-                
+
         if not protocol.get("sitewide"):
             integration.libraries = []
 
@@ -1830,6 +1826,31 @@ class SettingsController(CirculationManagerController):
             return MISSING_SERVICE
         self._db.delete(integration)
         return Response(unicode(_("Deleted")), 200)
+
+    def _sitewide_settings_controller(self, configuration_object):
+        if flask.request.method == 'GET':
+            settings = []
+            for s in configuration_object.SITEWIDE_SETTINGS:
+                setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
+                if setting.value:
+                    settings += [{ "key": setting.key, "value": setting.value }]
+
+            return dict(
+                settings=settings,
+                all_settings=configuration_object.SITEWIDE_SETTINGS,
+            )
+
+        key = flask.request.form.get("key")
+        if not key:
+            return MISSING_SITEWIDE_SETTING_KEY
+
+        value = flask.request.form.get("value")
+        if not value:
+            return MISSING_SITEWIDE_SETTING_VALUE
+
+        setting = ConfigurationSetting.sitewide(self._db, key)
+        setting.value = value
+        return Response(unicode(setting.key), 200)
 
     def collections(self):
         provider_apis = [OPDSImporter,
@@ -1913,7 +1934,7 @@ class SettingsController(CirculationManagerController):
                 collection_with_name = get_one(self._db, Collection, name=name)
                 if collection_with_name:
                     return COLLECTION_NAME_ALREADY_IN_USE
-                
+
         else:
             if protocol:
                 collection, is_new = get_one_or_create(self._db, Collection, name=name)
@@ -2334,29 +2355,7 @@ class SettingsController(CirculationManagerController):
         )
 
     def sitewide_settings(self):
-        if flask.request.method == 'GET':
-            settings = []
-            for s in Configuration.SITEWIDE_SETTINGS:
-                setting = ConfigurationSetting.sitewide(self._db, s.get("key"))
-                if setting.value:
-                    settings += [{ "key": setting.key, "value": setting.value }]
-
-            return dict(
-                settings=settings,
-                all_settings=Configuration.SITEWIDE_SETTINGS,
-            )
-
-        key = flask.request.form.get("key")
-        if not key:
-            return MISSING_SITEWIDE_SETTING_KEY
-
-        value = flask.request.form.get("value")
-        if not value:
-            return MISSING_SITEWIDE_SETTING_VALUE
-
-        setting = ConfigurationSetting.sitewide(self._db, key)
-        setting.value = value
-        return Response(unicode(setting.key), 200)
+        return self._sitewide_settings_controller(Configuration)
 
     def sitewide_setting(self, key):
         if flask.request.method == "DELETE":
@@ -2364,8 +2363,21 @@ class SettingsController(CirculationManagerController):
             setting.value = None
             return Response(unicode(_("Deleted")), 200)
 
+    def logging_services(self):
+        detail = _("You tried to create a new logging service, but a logging service is already configured.")
+        return self._manage_sitewide_service(
+            ExternalIntegration.LOGGING_GOAL,
+            [Loggly, SysLogger],
+            'logging_services', detail
+        )
+
+    def logging_service(self, service_id):
+        return self._delete_integration(
+            service_id, ExternalIntegration.LOGGING_GOAL
+        )
+
     def metadata_services(
-            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, 
+            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
             key=None
     ):
         provider_apis = [NYTBestSellerAPI,
@@ -2648,7 +2660,7 @@ class SettingsController(CirculationManagerController):
         )
 
     def _manage_sitewide_service(
-            self, goal, provider_apis, service_key_name, 
+            self, goal, provider_apis, service_key_name,
             multiple_sitewide_services_detail, protocol_name_attr='NAME'
     ):
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr=protocol_name_attr)
@@ -2804,7 +2816,7 @@ class SettingsController(CirculationManagerController):
             service_id, ExternalIntegration.DISCOVERY_GOAL
         )
 
-    def discovery_service_library_registrations(self, do_get=HTTP.debuggable_get, 
+    def discovery_service_library_registrations(self, do_get=HTTP.debuggable_get,
                               do_post=HTTP.debuggable_post, key=None):
         LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
         SUCCESS = u"success"
@@ -2924,7 +2936,7 @@ class SettingsController(CirculationManagerController):
         self._db.commit()
 
         auth_document_url = self.url_for(
-            "authentication_document", 
+            "authentication_document",
             library_short_name=library.short_name
         )
         # Allow 401 so we can provide a more useful error message.
@@ -2942,7 +2954,7 @@ class SettingsController(CirculationManagerController):
             else:
                 return INTEGRATION_ERROR.detailed(
                     _("Remote service returned: \"%(problem)s\"", problem=response.content))
-            
+
         catalog = json.loads(response.content)
 
         # Since we generated a public key, the catalog should provide credentials

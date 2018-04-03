@@ -66,7 +66,6 @@ from scripts import (
     DirectoryImportScript,
     InstanceInitializationScript,
     LanguageListScript,
-    LoanReaperScript,
 )
 
 class TestAdobeAccountIDResetScript(DatabaseTest):
@@ -262,105 +261,6 @@ class TestInstanceInitializationScript(DatabaseTest):
             secret_keys.one().value,
             ConfigurationSetting.sitewide_secret(self._db, Configuration.SECRET_KEY)
         )
-
-
-class TestLoanReaperScript(DatabaseTest):
-
-    def test_reaping(self):
-
-        # This patron stopped using the circulation manager a long time
-        # ago.
-        inactive_patron = self._patron()
-
-        # This patron is still using the circulation manager.
-        current_patron = self._patron()
-        
-        # We're going to give these patrons some loans and holds.
-        edition, open_access = self._edition(
-            with_license_pool=True, with_open_access_download=True)
-
-        not_open_access_1 = self._licensepool(edition,
-            open_access=False, data_source_name=DataSource.OVERDRIVE)
-        not_open_access_2 = self._licensepool(edition,
-            open_access=False, data_source_name=DataSource.BIBLIOTHECA)
-        not_open_access_3 = self._licensepool(edition,
-            open_access=False, data_source_name=DataSource.AXIS_360)
-        not_open_access_4 = self._licensepool(edition,
-            open_access=False, data_source_name=DataSource.ONECLICK)
-
-        now = datetime.datetime.utcnow()
-        a_long_time_ago = now - datetime.timedelta(days=1000)
-        not_very_long_ago = now - datetime.timedelta(days=60)
-        even_longer = now - datetime.timedelta(days=2000)
-        the_future = now + datetime.timedelta(days=1)
-        
-        # This loan has expired.
-        not_open_access_1.loan_to(
-            inactive_patron, start=even_longer, end=a_long_time_ago
-        )
-        
-        # This hold expired without ever becoming a loan (that we saw).
-        not_open_access_2.on_hold_to(
-            inactive_patron,
-            start=even_longer,
-            end=a_long_time_ago
-        )
-        
-        # This hold has no end date and is older than a year.
-        not_open_access_3.on_hold_to(
-            inactive_patron, start=a_long_time_ago, end=None,
-        )
-        
-        # This loan has no end date and is older than 90 days.
-        not_open_access_4.loan_to(
-            inactive_patron, start=a_long_time_ago, end=None,
-        )
-        
-        # This loan has no end date, but it's for an open-access work.
-        open_access_loan, ignore = open_access.loan_to(
-            inactive_patron, start=a_long_time_ago, end=None,
-        )
-
-        # This loan has not expired yet.
-        not_open_access_1.loan_to(
-            current_patron, start=now, end=the_future
-        )
-        
-        # This hold has not expired yet.
-        not_open_access_2.on_hold_to(
-            current_patron, start=now, end=the_future
-        )
-
-        # This loan has no end date but is pretty recent.
-        not_open_access_3.loan_to(
-            current_patron, start=not_very_long_ago, end=None
-        )
-
-        # This hold has no end date but is pretty recent.
-        not_open_access_4.on_hold_to(
-            current_patron, start=not_very_long_ago, end=None
-        )
-        
-        eq_(3, len(inactive_patron.loans))
-        eq_(2, len(inactive_patron.holds))
-
-        eq_(2, len(current_patron.loans))
-        eq_(2, len(current_patron.holds))
-
-        # Now we fire up the loan reaper.
-        script = LoanReaperScript(self._db)
-        script.do_run()
-
-        # All of the inactive patron's loans and holds have been reaped,
-        # except for the open-access loan, which will never be reaped.
-        eq_([open_access_loan], inactive_patron.loans)
-        eq_([], inactive_patron.holds)
-
-        # The active patron's loans and holds are unaffected, either
-        # because they have not expired or because they have no known
-        # expiration date and were created relatively recently.
-        eq_(2, len(current_patron.loans))
-        eq_(2, len(current_patron.holds))
 
 
 class TestLanguageListScript(DatabaseTest):
@@ -666,14 +566,14 @@ class TestDirectoryImportScript(DatabaseTest):
         # thumbnail.
         eq_("A book", work.title)
         assert work.cover_full_url.endswith(
-            '/test.cover.bucket/Gutenberg/Gutenberg%20ID/1003/1003.jpg'
+            '/test.cover.bucket/Gutenberg/Gutenberg+ID/1003/1003.jpg'
         )
         assert work.cover_thumbnail_url.endswith(
-            '/test.cover.bucket/scaled/300/Gutenberg/Gutenberg%20ID/1003/1003.png'
+            '/test.cover.bucket/scaled/300/Gutenberg/Gutenberg+ID/1003/1003.png'
         )
         [pool] = work.license_pools
         assert pool.open_access_download_url.endswith(
-            '/test.content.bucket/Gutenberg/Gutenberg%20ID/1003/A%20book.epub'
+            '/test.content.bucket/Gutenberg/Gutenberg+ID/1003/A+book.epub'
         )
 
         eq_(RightsStatus.CC0, 
@@ -826,7 +726,7 @@ class TestDirectoryImportScript(DatabaseTest):
         [link] = circulation.links
         eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
         assert link.href.endswith(
-            '/test.content.bucket/Gutenberg/Gutenberg%20ID/2345/Name%20of%20book.epub'
+            '/test.content.bucket/Gutenberg/Gutenberg+ID/2345/Name+of+book.epub'
         )
         eq_(Representation.EPUB_MEDIA_TYPE, link.media_type)
         eq_("I'm an EPUB.", link.content)
@@ -868,7 +768,7 @@ class TestDirectoryImportScript(DatabaseTest):
         link = script.load_cover_link(*args)
         eq_(Hyperlink.IMAGE, link.rel)
         assert link.href.endswith(
-            '/test.cover.bucket/Gutenberg/Gutenberg%20ID/2345/2345.jpg'
+            '/test.cover.bucket/Gutenberg/Gutenberg+ID/2345/2345.jpg'
         )
         eq_(Representation.JPEG_MEDIA_TYPE, link.media_type)
         eq_("I'm an image.", link.content)

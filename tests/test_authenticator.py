@@ -711,7 +711,30 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             library=self._default_library,
             oauth_providers=[oauth]
         )
-        
+
+    def test_supports_patron_authentication(self):
+        authenticator = LibraryAuthenticator.from_config(
+            self._db, self._default_library
+        )
+
+        # This LibraryAuthenticator does not actually support patron
+        # authentication because it has no auth providers.
+        #
+        # (This isn't necessarily a deal breaker, but most libraries
+        # do authenticate their patrons.)
+        eq_(False, authenticator.supports_patron_authentication)
+
+        # Adding a basic auth provider will make it start supporting
+        # patron authentication.
+        authenticator.basic_auth_provider = object()
+        eq_(True, authenticator.supports_patron_authentication)
+        authenticator.basic_auth_provider = None
+
+        # So will adding an OAuth provider.
+        authenticator.oauth_providers_by_name[object()] = object()
+        eq_(True, authenticator.supports_patron_authentication)
+
+
     def test_providers(self):
         integration = self._external_integration(self._str)
         basic = MockBasicAuthenticationProvider(
@@ -1606,6 +1629,15 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(True, provider.server_side_validation("a", None))
         
     def test_local_patron_lookup(self):
+        # This patron of another library looks just like the patron
+        # we're about to create, but will never be selected.
+        other_library = self._library()
+        other_library_patron = self._patron(
+            "patron1_ext_id", library=other_library
+        )
+        other_library_patron.authorization_identifier = "patron1_auth_id"
+        other_library_patron.username = "patron1"
+
         patron1 = self._patron("patron1_ext_id")
         patron1.authorization_identifier = "patron1_auth_id"
         patron1.username = "patron1"

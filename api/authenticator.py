@@ -504,6 +504,13 @@ class LibraryAuthenticator(object):
         self.assert_ready_for_oauth()
 
     @property
+    def supports_patron_authentication(self):
+        """Does this library have any way of authenticating patrons at all?"""
+        if self.basic_auth_provider or self.oauth_providers_by_name:
+            return True
+        return False
+
+    @property
     def library(self):
         return Library.by_id(self._db, self.library_id)
         
@@ -1645,7 +1652,8 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             # be resolved over there.
             clause = or_(Patron.authorization_identifier==username,
                          Patron.username==username)
-            qu = _db.query(Patron).filter(clause).limit(1)
+            qu = _db.query(Patron).filter(clause).filter(
+                Patron.library_id==self.library_id).limit(1)
             try:
                 patron = qu.one()
             except NoResultFound:

@@ -36,6 +36,9 @@ from datetime import timedelta
 # the admin will have to log in again.
 app.permanent_session_lifetime = timedelta(hours=9)
 
+app.admin_email = None
+app.admin_auth_type = None
+
 @app.before_first_request
 def setup_admin(_db=None):
     if getattr(app, 'manager', None) is not None:
@@ -45,19 +48,25 @@ def setup_admin(_db=None):
     app.secret_key = ConfigurationSetting.sitewide_secret(
         _db, Configuration.SECRET_KEY
     )
-    # Reload the flask session in case an admin was logged in
-    # when the app restarted. The session is initially loaded
-    # from the cookie before this function runs, but it creates a
-    # null session on the first request because the secret key
-    # isn't set yet.
+    # If an admin was logged in when the app restarted and
+    # makes the first request, the flask session is loaded
+    # before this method. Since the secret key isn't set yet
+    # it ends up being a NullSession. We can't replace
+    # the flask session object, but we can create a new
+    # session object in order to extract the admin's email
+    # and store it for later.
     if not flask.session and flask.request:
-        flask.session = app.open_session(flask.request)
-
+        temp_session = app.open_session(flask.request)
+        email = temp_session.get("admin_email")
+        type = temp_session.get("auth_type")
+        if email and type:
+            app.admin_email = email
+            app.admin_auth_type = type
 
 def allows_admin_auth_setup(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        setting_up = (app.manager.admin_sign_in_controller.auth == None)
+        setting_up = (app.manager.admin_sign_in_controller.auth_providers == [])
         return f(*args, setting_up=setting_up, **kwargs)
     return decorated
 
@@ -77,7 +86,7 @@ def requires_admin(f):
             setting_up = False
 
         if not setting_up:
-            admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
+            admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request(app.admin_email, app.admin_auth_type)
             if isinstance(admin, ProblemDetail):
                 return app.manager.admin_sign_in_controller.error_response(admin)
             elif isinstance(admin, Response):
@@ -117,7 +126,7 @@ def returns_json_or_response_or_problem_detail(f):
 def google_auth_callback():
     return app.manager.admin_sign_in_controller.redirect_after_google_sign_in()
 
-@app.route("/admin/sign_in_with_password", methods=["GET", "POST"])
+@app.route("/admin/sign_in_with_password", methods=["POST"])
 @returns_problem_detail
 def password_auth():
     return app.manager.admin_sign_in_controller.password_sign_in()
@@ -479,6 +488,20 @@ def sitewide_settings():
 @requires_csrf_token
 def sitewide_setting(key):
     return app.manager.admin_settings_controller.sitewide_setting(key)
+
+@app.route("/admin/logging_services", methods=['GET', 'POST'])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def logging_services():
+    return app.manager.admin_settings_controller.logging_services()
+
+@app.route("/admin/logging_service/<key>", methods=["DELETE"])
+@returns_json_or_response_or_problem_detail
+@requires_admin
+@requires_csrf_token
+def logging_service(key):
+    return app.manager.admin_settings_controller.logging_service(key)
 
 @app.route("/admin/discovery_service_library_registrations", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
