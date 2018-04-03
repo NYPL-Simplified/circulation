@@ -707,7 +707,7 @@ class Patron(Base):
     def can_borrow(self, work, policy):
         """Return true if the given policy allows this patron to borrow the
         given work.
-        
+
         This will return False when the policy for this patron's
         .external_type prevents access to this book's audience.
         """
@@ -787,7 +787,7 @@ class PatronProfileStorage(ProfileStorage):
 
     def update(self, settable, full):
         """Bring the Patron's status up-to-date with the given document.
-        
+
         Right now this means making sure Patron.synchronize_annotations
         is up to date.
         """
@@ -1419,7 +1419,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             identifier = edition_or_identifier.primary_identifier
         else:
             raise ValueError(
-                "Cannot look up a coverage record for %r." % edition) 
+                "Cannot look up a coverage record for %r." % edition)
 
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
@@ -1661,9 +1661,9 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
 
         # The SELECT part of the INSERT...SELECT query.
         new_records = _db.query(
-            Work.id.label('work_id'), 
+            Work.id.label('work_id'),
             literal(operation, type_=String(255)).label('operation'),
-            literal(timestamp, type_=DateTime).label('timestamp'), 
+            literal(timestamp, type_=DateTime).label('timestamp'),
             literal(status, type_=BaseCoverageRecord.status_enum).label('status')
         ).select_from(
             Work
@@ -2997,6 +2997,7 @@ class Edition(Base):
     # A Project Gutenberg text was likely `published` long before being `issued`.
     published = Column(Date)
 
+    ALL_MEDIUM = object()
     BOOK_MEDIUM = u"Book"
     PERIODICAL_MEDIUM = u"Periodical"
     AUDIO_MEDIUM = u"Audio"
@@ -5581,7 +5582,7 @@ class LicensePoolDeliveryMechanism(Base):
         _db = Session.object_session(self)
         pools = list(self.license_pools)
         _db.delete(self)
-        
+
         # TODO: We need to explicitly commit here so that
         # LicensePool.delivery_mechanisms gets updated. It would be
         # better if we didn't have to do this, but I haven't been able
@@ -6378,7 +6379,7 @@ class Subject(Base):
                 )
         self.fiction = fiction
 
-        if (numericrange_to_tuple(self.target_age) != target_age and 
+        if (numericrange_to_tuple(self.target_age) != target_age and
             not (not self.target_age and not target_age)):
             log.info(
                 "%s target_age %r=>%r", shorthand,
@@ -6689,7 +6690,7 @@ class CachedFeed(Base):
         else:
             length = "No content"
         return "<CachedFeed #%s %s %s %s %s %s %s >" % (
-            self.id, self.lane_id, self.type, 
+            self.id, self.lane_id, self.type,
             self.facets, self.pagination,
             self.timestamp, length
         )
@@ -6775,7 +6776,7 @@ class LicensePool(Base):
     )
 
     delivery_mechanisms = relationship(
-        "LicensePoolDeliveryMechanism", 
+        "LicensePoolDeliveryMechanism",
         primaryjoin="and_(LicensePool.data_source_id==LicensePoolDeliveryMechanism.data_source_id, LicensePool.identifier_id==LicensePoolDeliveryMechanism.identifier_id)",
         foreign_keys=(data_source_id, identifier_id),
         uselist=True,
@@ -8880,7 +8881,7 @@ class Representation(Base):
         :param do_not_access: Domains to which GET requests are not useful.
         :param check_for_redirect: Domains to which we should make a HEAD
             request, in case they redirect to a `do_not_access` domain.
-        :param head_client: Function for making the HEAD request, if 
+        :param head_client: Function for making the HEAD request, if
             one becomes necessary. Should return requests.Response or a mock.
         """
         do_not_access = do_not_access or cls.AVOID_WHEN_CAUTIOUS_DOMAINS
@@ -8888,7 +8889,7 @@ class Representation(Base):
         head_client = head_client or requests.head
 
         def has_domain(domain, check_against):
-            """Is the given `domain` in `check_against`, 
+            """Is the given `domain` in `check_against`,
             or maybe a subdomain of one of the domains in `check_against`?
             """
             return any(domain == x or domain.endswith('.' + x)
@@ -8913,7 +8914,7 @@ class Representation(Base):
             # It's not a redirect. Go ahead and make the GET request.
             return True
 
-        # Yes, it's a redirect. Does it redirect to a 
+        # Yes, it's a redirect. Does it redirect to a
         # domain we don't want to access?
         location = head_response.headers.get('location', '')
         netloc = urlparse.urlparse(location).netloc
@@ -9535,7 +9536,6 @@ class CustomList(Base):
             if len(existing) > 1:
                 entry.update(_db, equivalent_entries=existing[1:])
             entry.edition = edition
-            _db.commit()
         else:
             entry, was_new = get_one_or_create(
                 _db, CustomListEntry,
@@ -11012,7 +11012,7 @@ class Collection(Base, HasFullTableCache):
     AUDIOBOOK_LOAN_DURATION_KEY = 'audio_loan_duration'
     EBOOK_LOAN_DURATION_KEY = 'ebook_loan_duration'
     STANDARD_DEFAULT_LOAN_PERIOD = 21
-        
+
     def default_loan_period(self, library, medium=Edition.BOOK_MEDIUM):
         """Until we hear otherwise from the license provider, we assume
         that someone who borrows a non-open-access item from this
@@ -11688,7 +11688,7 @@ def licensepool_collection_change(target, value, oldvalue, initiator):
 
 @event.listens_for(LicensePool.licenses_owned, 'set')
 def licenses_owned_change(target, value, oldvalue, initiator):
-    """A Work may need to have its search document re-indexed if one of 
+    """A Work may need to have its search document re-indexed if one of
     its LicensePools changes the number of licenses_owned to or from zero.
     """
     work = target.work
@@ -11706,7 +11706,7 @@ def licenses_owned_change(target, value, oldvalue, initiator):
 
 @event.listens_for(LicensePool.open_access, 'set')
 def licensepool_open_access_change(target, value, oldvalue, initiator):
-    """A Work may need to have its search document re-indexed if one of 
+    """A Work may need to have its search document re-indexed if one of
     its LicensePools changes its open-access status.
 
     This shouldn't ever happen.
@@ -11726,7 +11726,7 @@ def directly_modified(obj):
     return Session.object_session(obj).is_modified(
         obj, include_collections=False
     )
-            
+
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the
 # configuration it gets from the database. These hooks will call
