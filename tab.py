@@ -96,15 +96,15 @@ class MediumTab(Tab):
         """Modify a query against the mv_works_for_lanes materialized view
         to match only items with the right medium.
         """
-        from core.model import MaterializedWorkForLane as mv
-        return qu.filter(mv.edition==cls.INTERNAL_NAME)
+        from model import MaterializedWorkWithGenre as mv
+        return qu.filter(mv.medium==cls.INTERNAL_NAME)
 
     @classmethod
     def modified_search_arguments(cls, **kwargs):
         """Modify a set of arguments to ExternalSearch.query_works to find
         only items with the given medium.
         """
-        kwargs['media'] = [self.INTERNAL_NAME]
+        kwargs['media'] = [cls.INTERNAL_NAME]
         return kwargs
 
 
