@@ -1077,7 +1077,7 @@ class WorkList(object):
             # These arguments to query_works might be modified by
             # a tab.
             kwargs = dict(
-                media=self.media,
+                media=media,
                 languages=default_languages,
                 fiction=self.fiction,
                 audiences=self.audiences,
