@@ -140,7 +140,7 @@ from sqlalchemy.dialects.postgresql import (
     INT4RANGE,
 )
 
-DEBUG = False
+DEBUG = True
 
 def production_session():
     url = Configuration.database_url()
