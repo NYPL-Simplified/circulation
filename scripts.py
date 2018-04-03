@@ -722,7 +722,7 @@ class LaneSweeperScript(LibraryInputScript):
                     l = self._db.merge(l)
                 if self.should_process_lane(l):
                     self.process_lane(l)
-                    # self._db.commit()
+                    self._db.commit()
                 for sublane in l.children:
                     new_queue.append(sublane)
             queue = new_queue
