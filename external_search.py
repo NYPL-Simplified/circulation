@@ -263,7 +263,7 @@ class ExternalSearchIndex(object):
         return base_works_index
 
     def query_works(self, library, query_string, media, languages, fiction, audiences,
-                    target_age, in_any_of_these_genres=[], fields=None, size=30, offset=0):
+                    target_age, in_any_of_these_genres=[], fields=None, size=30, offset=0, tab=None):
         if not self.works_alias:
             return []
 

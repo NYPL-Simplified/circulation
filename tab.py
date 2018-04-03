@@ -23,6 +23,7 @@ class Tab(object):
     TABS = []
     DEFAULT_ENABLED = []
     DISPLAY_TITLES = {}
+    INTERNAL_NAMES = []
 
     @classmethod
     def register(cls, tab_class, display_title, default_enabled=False):
@@ -40,6 +41,11 @@ class Tab(object):
             raise ValueError(
                 "Tab class %s must define INTERNAL_NAME." % tab_class.__name__
             )
+        if value in cls.INTERNAL_NAMES:
+            raise ValueError(
+                "Duplicate tab internal name: %s" % value
+            )
+        cls.INTERNAL_NAMES.append(value)
         cls.TABS.append(tab_class)
         if default_enabled:
             cls.DEFAULT_ENABLED.append(tab_class)
@@ -74,7 +80,7 @@ class MediumTab(Tab):
     """
 
     @classmethod
-    def modified_materialized_view_query(cls, qu):
+    def apply(cls, qu):
         """Modify a query against the mv_works_for_lanes materialized view
         to match only items with the right medium.
         """
@@ -83,10 +89,9 @@ class MediumTab(Tab):
 
     @classmethod
     def modified_search_arguments(cls, **kwargs):
-        """Modify a set of arguments to ExternalSearch.make_filter to find
+        """Modify a set of arguments to ExternalSearch.query_works to find
         only items with the given medium.
         """
-        kwargs = dict(kwargs)
         kwargs['media'] = [self.INTERNAL_NAME]
         return kwargs
 
@@ -97,4 +102,4 @@ Tab.register(EbooksTab, "Books", default_enabled=True)
 
 class AudiobooksTab(MediumTab):
     INTERNAL_NAME = "Audio"
-Tab.register(EbooksTab, "Audiobooks")
+Tab.register(AudiobooksTab, "Audiobooks")

@@ -140,7 +140,7 @@ from sqlalchemy.dialects.postgresql import (
     INT4RANGE,
 )
 
-DEBUG = True
+DEBUG = False
 
 def production_session():
     url = Configuration.database_url()
@@ -6576,7 +6576,7 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
-              force_refresh=False, max_age=None):
+              force_refresh=False, max_age=None, tab=None):
         from opds import AcquisitionFeed
         from lane import Lane, WorkList
         if max_age is None:
@@ -6592,10 +6592,15 @@ class CachedFeed(Base):
             max_age = datetime.timedelta(seconds=max_age)
         if lane and isinstance(lane, Lane):
             lane_id = lane.id
-            unique_key = None
+            if tab:
+                unique_key = tab.INTERNAL_NAME
+            else:
+                unique_key = None
         else:
             lane_id = None
             unique_key = "%s-%s-%s" % (lane.display_name, lane.language_key, lane.audience_key)
+            if tab:
+                unique_key += '-' + tab.INTERNAL_NAME
         work = None
         if lane:
             work = getattr(lane, 'work', None)
