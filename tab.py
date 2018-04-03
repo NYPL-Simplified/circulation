@@ -1,3 +1,5 @@
+from nose.tools import set_trace
+
 class Tab(object):
 
     """A Tab is a top-level entry point into a library's Lane structure
@@ -36,7 +38,7 @@ class Tab(object):
         :param default_enabled: New libraries should have this tab
             enabled by default.
         """
-        value = getattr(tab_class, 'INTERNAL_NAME')
+        value = getattr(tab_class, 'INTERNAL_NAME', None)
         if not value:
             raise ValueError(
                 "Tab class %s must define INTERNAL_NAME." % tab_class.__name__
@@ -50,6 +52,16 @@ class Tab(object):
         if default_enabled:
             cls.DEFAULT_ENABLED.append(tab_class)
         cls.DISPLAY_TITLES[tab_class] = display_title
+
+    @classmethod
+    def unregister(cls, tab_class):
+        """Undo a subclass's registration.
+
+        Only used in tests.
+        """
+        cls.TABS.remove(tab_class)
+        cls.INTERNAL_NAMES.remove(tab_class.INTERNAL_NAME)
+        del cls.DISPLAY_TITLES[tab_class]
 
     @classmethod
     def modified_materialized_view_query(cls, qu):
