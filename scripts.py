@@ -1870,34 +1870,43 @@ class RefreshMaterializedViewsScript(Script):
             concurrently = ''
         else:
             concurrently = 'CONCURRENTLY'
-        # Initialize database
+
+        # Initialize the default database session. We can't use this
+        # session to run the VACUUM commands, because it wraps
+        # everything in a big transaction, and VACUUM can't be
+        # executed within a transaction block. But we will use it at
+        # the end, to recalculate the sizes of lanes.
         db = self._db
-        for view_name in SessionManager.MATERIALIZED_VIEWS.keys():
-            a = time.time()
-            db.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
-            b = time.time()
-            print "%s refreshed in %.2f sec." % (view_name, b-a)
 
-        # Recalculate the sizes of lanes.
-        for lane in db.query(Lane):
-            lane.update_size(db)
-            print "Size of %s: %s" % (lane.full_identifier, lane.size)
-
-        # Close out this session because we're about to create another one.
-        db.commit()
-        db.close()
-
-        # The normal database connection (which we want almost all the
-        # time) wraps everything in a big transaction, but VACUUM
-        # can't be executed within a transaction block. So create a
-        # separate connection that uses autocommit.
         url = Configuration.database_url()
         engine = create_engine(url, isolation_level="AUTOCOMMIT")
         engine.autocommit = True
         a = time.time()
         engine.execute("VACUUM (VERBOSE, ANALYZE)")
         b = time.time()
-        print "Vacuumed in %.2f sec." % (b-a)
+        self.log.info("Database vacuumed in %.2f sec." % (b-a))
+
+        for view_name in SessionManager.MATERIALIZED_VIEWS.keys():
+            a = time.time()
+            engine.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
+            b = time.time()
+            self.log.info("%s refreshed in %.2f sec.", view_name, b-a)
+
+            # Vacuum the materialized view immediately after
+            # refreshing it.
+            a = time.time()
+            engine.execute("VACUUM ANALYZE %s" % view_name)
+            b = time.time()
+            self.log.info("%s vacuumed in %.2f sec", view_name, b-a)
+
+        # Recalculate the sizes of lanes.
+        for lane in db.query(Lane):
+            lane.update_size(db)
+            self.log.info(
+                "Size of lane %s calculated as %s",
+                lane.full_identifier, lane.size
+            )
+        db.commit()
 
 
 class DatabaseMigrationScript(Script):
