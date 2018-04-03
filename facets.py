@@ -106,6 +106,30 @@ class FacetConstants(object):
     }
 
 
+class TabFacetConstants(object):
+    """Constants for the 'tab' facet group associated with lists of
+    search results and the top-level grouped feeds.
+
+    We use 'tab' vocabulary because SimplyE renders this facet group
+    as a set of tabs.
+    """
+    # These are the same values as constants from Edition, and are
+    # used as stand-ins for those constants; we can't use those
+    # constants here because of circular import problems.
+    BOOK_TAB = 'Book'
+    AUDIOBOOK_TAB = 'Audio'
+    TABS = [BOOK_TAB, AUDIOBOOK_TAB]
+
+    # Configuration.
+    GROUP_NAME = "tabs"
+
+    DEFAULT_VALUE = [BOOK_TAB]
+    DISPLAY_TITLES = {
+        BOOK_TAB : "Ebooks",
+        AUDIOBOOK_TAB : "Audiobooks",
+    }
+
+
 class FacetConfig(object):
     """A class that implements the facet-related methods of
     Library, and allows modifications to the enabled

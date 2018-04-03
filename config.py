@@ -9,7 +9,10 @@ from util import LanguageCodes
 from sqlalchemy.engine.url import make_url
 from flask_babel import lazy_gettext as _
 
-from facets import FacetConstants
+from facets import (
+    FacetConstants,
+    TabFacetConstants,
+)
 from sqlalchemy.exc import ArgumentError
 
 class CannotLoadConfiguration(Exception):
@@ -195,6 +198,17 @@ class Configuration(object):
                 { "key": "false", "label": _("Disable holds") },
             ],
             "default": "true",
+        },
+        { "key": ENABLED_FACETS_KEY_PREFIX + TabFacetConstants.GROUP_NAME,
+          "label": _("Enabled tabs"),
+          "description": _("Patrons will see the selected tabs at the top level and in search results."),
+          "type": "list",
+          "options": [
+              { "key": facet,
+                "label": TabFacetConstants.DISPLAY_TITLES.get(facet) }
+              for facet in TabFacetConstants.TABS
+          ],
+          "default": TabFacetConstants.DEFAULT_VALUE
         },
         {
             "key": FEATURED_LANE_SIZE,
