@@ -9531,7 +9531,6 @@ class CustomList(Base):
             if len(existing) > 1:
                 entry.update(_db, equivalent_entries=existing[1:])
             entry.edition = edition
-            _db.commit()
         else:
             entry, was_new = get_one_or_create(
                 _db, CustomListEntry,
