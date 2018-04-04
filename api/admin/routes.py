@@ -66,7 +66,7 @@ def setup_admin(_db=None):
 def allows_admin_auth_setup(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        setting_up = (app.manager.admin_sign_in_controller.auth_providers == [])
+        setting_up = (app.manager.admin_sign_in_controller.admin_auth_providers == [])
         return f(*args, setting_up=setting_up, **kwargs)
     return decorated
 
