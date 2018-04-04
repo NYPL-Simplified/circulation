@@ -179,7 +179,7 @@ class TestViewController(AdminControllerTest):
             html = response.response[0]
             assert 'csrfToken: "%s"' % token in html
             assert token in response.headers.get('Set-Cookie')
-            
+
     def test_show_circ_events_download(self):
         # The local analytics provider isn't configured yet.
         with self.app.test_request_context('/admin'):
@@ -329,7 +329,7 @@ class TestWorkController(AdminControllerTest):
         def staff_edition_count():
             return self._db.query(Edition) \
                 .filter(
-                    Edition.data_source == staff_data_source, 
+                    Edition.data_source == staff_data_source,
                     Edition.primary_identifier_id == self.english_1.presentation_edition.primary_identifier.id
                 ) \
                 .count()
@@ -530,8 +530,8 @@ class TestWorkController(AdminControllerTest):
                 Subject.genre_id != None
             )
         staff_genres = [
-            c.subject.genre.name 
-            for c in genre_classifications 
+            c.subject.genre.name
+            for c in genre_classifications
             if c.subject.genre
         ]
         eq_(staff_genres, [])
@@ -582,7 +582,7 @@ class TestWorkController(AdminControllerTest):
                 lp.identifier.type, lp.identifier.identifier
             )
             eq_(response.status_code, 200)
-            
+
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
 
         eq_(sorted(new_genre_names), sorted(requested_genres))
@@ -678,7 +678,7 @@ class TestWorkController(AdminControllerTest):
 
         new_genre_names = [work_genre.genre.name for work_genre in work.work_genres]
         eq_(sorted(new_genre_names), sorted(previous_genres))
-        eq_(True, work.fiction)        
+        eq_(True, work.fiction)
 
         # change to nonfiction with nonfiction genres and new target age
         with self.request_context_with_library("/"):
@@ -751,7 +751,7 @@ class TestWorkController(AdminControllerTest):
             )
 
             # Both LicensePools are unsuppressed, even though one of them
-            # has a LicensePool-specific complaint.            
+            # has a LicensePool-specific complaint.
             eq_(200, response.status_code)
             eq_(False, lp.suppressed)
             eq_(False, broken_lp.suppressed)
@@ -840,7 +840,7 @@ class TestWorkController(AdminControllerTest):
             type1,
             "complaint2 source",
             "complaint2 detail")
-        
+
         SessionManager.refresh_materialized_views(self._db)
         [lp] = work.license_pools
 
@@ -886,13 +886,13 @@ class TestWorkController(AdminControllerTest):
         subject3.genre = None
         source = DataSource.lookup(self._db, DataSource.AXIS_360)
         classification1 = self._classification(
-            identifier=identifier, subject=subject1, 
+            identifier=identifier, subject=subject1,
             data_source=source, weight=1)
         classification2 = self._classification(
-            identifier=identifier, subject=subject2, 
+            identifier=identifier, subject=subject2,
             data_source=source, weight=3)
         classification3 = self._classification(
-            identifier=identifier, subject=subject3, 
+            identifier=identifier, subject=subject3,
             data_source=source, weight=2)
 
         SessionManager.refresh_materialized_views(self._db)
@@ -905,7 +905,7 @@ class TestWorkController(AdminControllerTest):
             eq_(response['book']['identifier'], lp.identifier.identifier)
 
             expected_results = [classification2, classification3, classification1]
-            eq_(len(response['classifications']), len(expected_results))            
+            eq_(len(response['classifications']), len(expected_results))
             for i, classification in enumerate(expected_results):
                 subject = classification.subject
                 source = classification.data_source
@@ -1238,7 +1238,7 @@ class TestSignInController(AdminControllerTest):
         with self.app.test_request_context('/admin/GoogleOAuth/callback?code=1234&state=foo'):
             response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
             eq_(401, response.status_code)
-        
+
         # Redirects to the state parameter if the admin email is valid.
         auth_integration.set_setting("domains", json.dumps(["nypl.org"]))
         with self.app.test_request_context('/admin/GoogleOAuth/callback?code=1234&state=foo'):
@@ -1286,7 +1286,7 @@ class TestSignInController(AdminControllerTest):
             ])
             response = self.manager.admin_sign_in_controller.password_sign_in()
             eq_(401, response.status_code)
-        
+
         # Redirects if the admin email/password combination is valid.
         with self.app.test_request_context('/admin/sign_in_with_password', method='POST'):
             flask.request.form = MultiDict([
@@ -1305,7 +1305,7 @@ class TestFeedController(AdminControllerTest):
         type = iter(Complaint.VALID_TYPES)
         type1 = next(type)
         type2 = next(type)
-        
+
         work1 = self._work(
             "fiction work with complaint 1",
             language="eng",
@@ -1357,14 +1357,14 @@ class TestFeedController(AdminControllerTest):
     def test_genres(self):
         with self.app.test_request_context("/"):
             response = self.manager.admin_feed_controller.genres()
-            
+
             for name in genres:
                 top = "Fiction" if genres[name].is_fiction else "Nonfiction"
                 eq_(response[top][name], dict({
                     "name": name,
                     "parents": [parent.name for parent in genres[name].parents],
                     "subgenres": [subgenre.name for subgenre in genres[name].subgenres]
-                }))        
+                }))
 
 class TestCustomListsController(AdminControllerTest):
     def test_custom_lists_get(self):
@@ -1505,6 +1505,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(edition.permanent_work_id, entry.get("pwid"))
             eq_(edition.title, entry.get("title"))
             eq_(2, len(entry.get("authors")))
+            eq_(Edition.medium_to_additional_type(Edition.BOOK_MEDIUM), entry.get("medium"))
             eq_(set([c1.display_name, c2.display_name]),
                 set(entry.get("authors")))
             eq_(1, len(response.get("collections")))
@@ -1543,7 +1544,7 @@ class TestCustomListsController(AdminControllerTest):
         c2.libraries = [self._default_library]
         list.collections = [c1]
         new_collections = [c2]
-        
+
         with self.request_context_with_library("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", str(list.id)),
@@ -1787,7 +1788,7 @@ class TestLanesController(AdminControllerTest):
 
         lane = self._lane("old name")
         lane.customlists += [list1]
-        
+
         with self.request_context_with_library("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", str(lane.id)),
@@ -2022,7 +2023,7 @@ class TestDashboardController(AdminControllerTest):
             eq_(2, patron_data.get('with_active_loans_or_holds'))
             eq_(1, patron_data.get('loans'))
             eq_(1, patron_data.get('holds'))
-            
+
     def test_stats_inventory(self):
         with self.app.test_request_context("/"):
 
@@ -2043,7 +2044,7 @@ class TestDashboardController(AdminControllerTest):
             pool2.open_access = False
             pool2.licenses_owned = 10
             pool2.licenses_available = 0
-            
+
             edition3, pool3 = self._edition(with_license_pool=True, with_open_access_download=False)
             pool3.open_access = False
             pool3.licenses_owned = 5
@@ -2305,7 +2306,7 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-        
+
     def test_libraries_post_create(self):
         class TestFileUpload(StringIO):
             headers = { "Content-Type": "image/png" }
@@ -2408,7 +2409,7 @@ class TestSettingsController(AdminControllerTest):
 
         # The library-wide settings were updated.
         def val(x):
-            return ConfigurationSetting.for_library(x, library).value 
+            return ConfigurationSetting.for_library(x, library).value
         eq_("https://library.library/", val(Configuration.WEBSITE_URL))
         eq_("email@example.com", val(Configuration.DEFAULT_NOTIFICATION_EMAIL_ADDRESS))
         eq_("20", val(Configuration.FEATURED_LANE_SIZE))
@@ -2421,10 +2422,10 @@ class TestSettingsController(AdminControllerTest):
         )
 
         # The library-wide logo was not updated and has been left alone.
-        eq_("A tiny image", 
+        eq_("A tiny image",
             ConfigurationSetting.for_library(Configuration.LOGO, library).value
         )
-        
+
     def test_library_delete(self):
         library, ignore = get_one_or_create(self._db, Library)
 
@@ -2460,7 +2461,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             protocols = response.get('protocols')
             for protocol in protocols:
-                assert all([s.get('key') != 'mirror_integration_id' 
+                assert all([s.get('key') != 'mirror_integration_id'
                             for s in protocol['settings']])
 
         # When storage integrations are configured, each protocol will
@@ -2984,7 +2985,7 @@ class TestSettingsController(AdminControllerTest):
                 ("url", "http://rb/"),
                 ("libraries", json.dumps([
                     {
-                        "short_name": "L1", 
+                        "short_name": "L1",
                         "ebook_loan_duration": "14",
                         "audio_loan_duration": "12"
                     }
@@ -3053,7 +3054,7 @@ class TestSettingsController(AdminControllerTest):
             # are supported by the admin interface.
             eq_(sorted([p.get("name") for p in response.get("protocols")]),
                 sorted(ExternalIntegration.ADMIN_AUTH_PROTOCOLS))
-        
+
     def test_admin_auth_services_get_with_google_oauth_service(self):
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -3109,7 +3110,7 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
-        
+
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Google OAuth"),
@@ -3275,7 +3276,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(SimpleAuthenticationProvider.__module__, protocols[0].get("name"))
             assert "settings" in protocols[0]
             assert "library_settings" in protocols[0]
-        
+
     def test_patron_auth_services_get_with_simple_auth_service(self):
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -3318,7 +3319,7 @@ class TestSettingsController(AdminControllerTest):
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
             eq_("^(u)", library.get(AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION))
-        
+
     def test_patron_auth_services_get_with_millenium_auth_service(self):
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -3443,7 +3444,7 @@ class TestSettingsController(AdminControllerTest):
             (B.PASSWORD_KEYBOARD, B.DEFAULT_KEYBOARD),
         ]
 
-            
+
     def test_patron_auth_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -3526,7 +3527,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        
+
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
@@ -3792,7 +3793,7 @@ class TestSettingsController(AdminControllerTest):
             protocols = response.get("protocols")
             assert NoveListAPI.NAME in [p.get("label") for p in protocols]
             assert "settings" in protocols[0]
-        
+
     def test_metadata_services_get_with_one_service(self):
         novelist_service, ignore = create(
             self._db, ExternalIntegration,
@@ -3819,7 +3820,7 @@ class TestSettingsController(AdminControllerTest):
             eq_("user", service.get("settings").get(ExternalIntegration.USERNAME))
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
-        
+
     def test_metadata_services_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
@@ -3982,7 +3983,7 @@ class TestSettingsController(AdminControllerTest):
             protocols = response.get("protocols")
             assert GoogleAnalyticsProvider.NAME in [p.get("label") for p in protocols]
             assert "settings" in protocols[0]
-        
+
     def test_analytics_services_get_with_one_service(self):
         ga_service, ignore = create(
             self._db, ExternalIntegration,
@@ -4010,7 +4011,7 @@ class TestSettingsController(AdminControllerTest):
             [library] = service.get("libraries")
             eq_(self._default_library.short_name, library.get("short_name"))
             eq_("trackingid", library.get(GoogleAnalyticsProvider.TRACKING_ID))
-        
+
         self._db.delete(ga_service)
 
         local_service, ignore = create(
@@ -4207,7 +4208,7 @@ class TestSettingsController(AdminControllerTest):
             protocols = response.get("protocols")
             assert ExternalIntegration.CDN in [p.get("name") for p in protocols]
             assert "settings" in protocols[0]
-        
+
     def test_cdn_services_get_with_one_service(self):
         cdn_service, ignore = create(
             self._db, ExternalIntegration,
@@ -4338,7 +4339,7 @@ class TestSettingsController(AdminControllerTest):
             protocols = response.get("protocols")
             assert ExternalIntegration.ELASTICSEARCH in [p.get("name") for p in protocols]
             assert "settings" in protocols[0]
-        
+
     def test_search_services_get_with_one_service(self):
         search_service, ignore = create(
             self._db, ExternalIntegration,
@@ -4531,7 +4532,7 @@ class TestSettingsController(AdminControllerTest):
             assert "settings" in protocols[0]
             eq_(ExternalIntegration.OPDS_REGISTRATION, service.get("protocol"))
             eq_("https://libraryregistry.librarysimplified.org", service.get("settings").get(ExternalIntegration.URL))
-        
+
     def test_discovery_services_get_with_one_service(self):
         discovery_service, ignore = create(
             self._db, ExternalIntegration,
@@ -4761,7 +4762,7 @@ class TestSettingsController(AdminControllerTest):
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
             response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            
+
             eq_(200, response.status_code)
             eq_(["registry url", "register url"], self.requests)
 
@@ -4798,7 +4799,7 @@ class TestSettingsController(AdminControllerTest):
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
             response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
-            
+
             eq_(200, response.status_code)
             eq_(["registry url", "register url"], self.requests[2:])
 
@@ -4932,7 +4933,7 @@ class TestSettingsController(AdminControllerTest):
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
             response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
-            
+
             eq_(200, response.status_code)
             eq_(["collection url", "register url"], self.requests)
 
