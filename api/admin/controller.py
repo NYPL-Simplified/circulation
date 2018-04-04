@@ -1716,7 +1716,10 @@ class SettingsController(CirculationManagerController):
         for service in self._db.query(ExternalIntegration).filter(
             ExternalIntegration.goal==goal):
 
-            [protocol] = [p for p in protocols if p.get("name") == service.protocol]
+            candidates = [p for p in protocols if p.get("name") == service.protocol]
+            if not candidates:
+                continue
+            protocol = candidates[0]
             libraries = []
             if not protocol.get("sitewide"):
                 for library in service.libraries:
