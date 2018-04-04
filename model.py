@@ -6665,7 +6665,8 @@ class CachedFeed(Base):
                 )
                 return cls.fetch(
                     _db, lane, CachedFeed.PAGE_TYPE, facets, pagination,
-                    annotator, force_refresh, max_age=None
+                    annotator, force_refresh, max_age=None,
+                    entrypoint=entrypoint
                 )
         else:
             # This feed is cheap enough to generate on the fly.
