@@ -457,7 +457,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def groups(cls, _db, title, url, lane, annotator,
-               cache_type=None, force_refresh=False, tab=None):
+               cache_type=None, force_refresh=False, entrypoint=None):
         """The acquisition feed for 'featured' items from a given lane's
         sublanes, organized into per-lane groups.
 
@@ -475,12 +475,12 @@ class AcquisitionFeed(OPDSFeed):
                 pagination=None,
                 annotator=annotator,
                 force_refresh=force_refresh,
-                tab=tab
+                tab=entrypoint
             )
             if usable:
                 return cached
 
-        works_and_lanes = lane.groups(_db, tab=tab)
+        works_and_lanes = lane.groups(_db, entrypoint=entrypoint)
         if not works_and_lanes:
             # We did not find enough works for a groups feed.
             # Instead we need to display a flat feed--the
@@ -541,7 +541,7 @@ class AcquisitionFeed(OPDSFeed):
     @classmethod
     def page(cls, _db, title, url, lane, annotator,
              cache_type=None, facets=None, pagination=None,
-             force_refresh=False, tab=None
+             force_refresh=False, entrypoint=None
     ):
         """Create a feed representing one page of works from a given lane.
 
@@ -568,12 +568,12 @@ class AcquisitionFeed(OPDSFeed):
                 pagination=pagination,
                 annotator=annotator,
                 force_refresh=force_refresh,
-                tab=tab
+                tab=entrypoint
             )
             if usable:
                 return cached
 
-        works_q = lane.works(_db, facets, pagination, tab=tab)
+        works_q = lane.works(_db, facets, pagination, entrypoint=entrypoint)
         if not works_q:
             # The Lane believes that creating this feed is a bad idea.
             works = []

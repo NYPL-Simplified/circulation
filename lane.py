@@ -676,7 +676,7 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def groups(self, _db, tab=None, include_sublanes=True):
+    def groups(self, _db, entrypoint=None, include_sublanes=True):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped acquisition feed for the WorkList.
 
@@ -689,7 +689,7 @@ class WorkList(object):
         if not include_sublanes:
             # We only need to find featured works for this lane,
             # not this lane plus its sublanes.
-            for work in self.featured_works(_db, tab):
+            for work in self.featured_works(_db, entrypoint):
                 yield work, self
             return
 
@@ -720,11 +720,11 @@ class WorkList(object):
         # for any children that are Lanes, and call groups()
         # recursively for any children that are not.
         for work, worklist in self._groups_for_lanes(
-                _db, relevant_children, relevant_lanes, tab
+                _db, relevant_children, relevant_lanes, entrypoint
         ):
             yield work, worklist
 
-    def featured_works(self, _db, tab=None):
+    def featured_works(self, _db, entrypoint=None):
         """Find a random sample of featured books.
 
         Used when building a grouped OPDS feed for this WorkList's parent.
@@ -744,7 +744,7 @@ class WorkList(object):
             library.minimum_featured_quality,
             self.uses_customlists
         )
-        query = self.works(_db, facets=facets, tab=tab)
+        query = self.works(_db, facets=facets, entrypoint=entrypoint)
         if not query:
             # works() may return None, indicating that the whole
             # thing is a bad idea and the query should not even be
@@ -762,7 +762,7 @@ class WorkList(object):
                 work_ids.add(work.works_id)
         return works
 
-    def works(self, _db, facets=None, pagination=None, include_quality_tier=False, tab=None):
+    def works(self, _db, facets=None, pagination=None, include_quality_tier=False, entrypoint=None):
         """Create a query against a materialized view that finds Work-like
         objects corresponding to all the Works that belong in this
         WorkList.
@@ -813,7 +813,7 @@ class WorkList(object):
             qu = qu.filter(
                 mw.collection_id.in_(self.collection_ids)
             )
-        qu = self.apply_filters(_db, qu, facets, pagination, tab=tab)
+        qu = self.apply_filters(_db, qu, facets, pagination, entrypoint=entrypoint)
         if qu:
             qu = qu.options(
                 contains_eager(mw.license_pool),
@@ -868,7 +868,7 @@ class WorkList(object):
         )
         return results
 
-    def apply_filters(self, _db, qu, facets, pagination, featured=False, tab=None):
+    def apply_filters(self, _db, qu, facets, pagination, featured=False, entrypoint=None):
         """Apply common WorkList filters to a query. Also apply any
         subclass-specific filters defined by
         bibliographic_filter_clause().
@@ -1044,7 +1044,7 @@ class WorkList(object):
         """By default, a WorkList is searchable."""
         return self
 
-    def search(self, _db, query, search_client, media=None, pagination=None, languages=None, tab=None):
+    def search(self, _db, query, search_client, media=None, pagination=None, languages=None, entrypoint=None):
         """Find works in this WorkList that match a search query."""
         if not pagination:
             pagination = Pagination(
@@ -1117,7 +1117,7 @@ class WorkList(object):
 
         return results
 
-    def _groups_for_lanes(self, _db, relevant_lanes, queryable_lanes, tab=None):
+    def _groups_for_lanes(self, _db, relevant_lanes, queryable_lanes, entrypoint=None):
 
         library = self.get_library(_db)
         target_size = library.featured_lane_size
@@ -1130,7 +1130,7 @@ class WorkList(object):
         queryable_lane_set = set(queryable_lanes)
 
         work_quality_tier_lane = list(
-            self._featured_works_with_lanes(_db, queryable_lanes, tab=tab)
+            self._featured_works_with_lanes(_db, queryable_lanes, entrypoint=entrypoint)
         )
 
         def _done_with_lane(lane):
@@ -1192,7 +1192,7 @@ class WorkList(object):
                 for x in lane.groups(_db, include_sublanes=False):
                     yield x
 
-    def _featured_works_with_lanes(self, _db, lanes, tab=None):
+    def _featured_works_with_lanes(self, _db, lanes, entrypoint=None):
         """Find a sequence of works that can be used to 
         populate this lane's grouped acquisition feed.
 
@@ -1217,11 +1217,11 @@ class WorkList(object):
         # Pull a window of works for every lane we were given.
         for lane in lanes:
             for mw, quality_tier in lane.works_in_window(
-                    _db, facets, target_size, tab=tab
+                    _db, facets, target_size, entrypoint=entrypoint
             ):
                 yield mw, quality_tier, lane
 
-    def works_in_window(self, _db, facets, target_size, tab=None):
+    def works_in_window(self, _db, facets, target_size, entrypoint=None):
         """Find all MaterializedWorkWithGenre objects within a randomly
         selected window of values for the `random` field.
 
@@ -1234,7 +1234,7 @@ class WorkList(object):
         from model import MaterializedWorkWithGenre
         work_model = MaterializedWorkWithGenre
 
-        lane_query = self.works(_db, facets=facets, tab=tab)
+        lane_query = self.works(_db, facets=facets, entrypoint=entrypoint)
 
         # Make sure this query finds a number of works proportinal
         # to the expected size of the lane.
@@ -1779,7 +1779,7 @@ class Lane(Base, WorkList):
             end = start + 0.001
         return start, end
 
-    def groups(self, _db, include_sublanes=True, tab=None):
+    def groups(self, _db, include_sublanes=True, entrypoint=None):
         """Return a list of (MaterializedWorkWithGenre, Lane) 2-tuples
         describing a sequence of featured items for this lane and
         (optionally) its children.
@@ -1801,7 +1801,7 @@ class Lane(Base, WorkList):
         queryable_lanes = [x for x in relevant_lanes
                            if x == self or x.inherit_parent_restrictions]
         return self._groups_for_lanes(
-            _db, relevant_lanes, queryable_lanes, tab=tab
+            _db, relevant_lanes, queryable_lanes, entrypoint=entrypoint
         )
 
     def search(self, _db, query, search_client, media=None, pagination=None, languages=None):
