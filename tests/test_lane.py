@@ -17,6 +17,11 @@ from sqlalchemy import (
 
 from classifier import Classifier
 
+from entrypoint import (
+    EbooksEntryPoint,
+    AudiobooksEntryPoint,
+)
+
 from external_search import (
     DummyExternalSearchIndex,
 )
@@ -2361,7 +2366,31 @@ class TestWorkListGroups(DatabaseTest):
             ]
         )
 
-        # Now instead of relying on the 'Fiction' lane, make a
+        # Let's see how entry points affect the feeds.
+        #
+
+        # There are no audiobooks in the system, so passing in the
+        # AudiobooksEntryPoint excludes everything.
+        eq_([], list(fiction.groups(self._db, entrypoint=AudiobooksEntryPoint)))
+
+        # Here's an entry point that ignores everything except one
+        # specific book.
+        class LQRomanceEntryPoint(object):
+            @classmethod
+            def apply(cls, qu):
+                from model import MaterializedWorkWithGenre as mv
+                return qu.filter(mv.sort_title=='LQ Romance')
+        assert_contents(
+            fiction.groups(self._db, entrypoint=LQRomanceEntryPoint),
+            [
+                # The single recognized book shows up in both lands
+                # that can show it.
+                (lq_ro, romance_lane),
+                (lq_ro, fiction),
+            ]
+        )
+
+        # Now, instead of relying on the 'Fiction' lane, make a
         # WorkList containing two different lanes, and call groups() on
         # the WorkList.
 
@@ -2371,7 +2400,7 @@ class TestWorkListGroups(DatabaseTest):
             visible = True
             priority = 2
 
-            def groups(self, _db, include_sublanes):
+            def groups(self, _db, include_sublanes, entrypoint=None):
                 yield lq_litfic, self
 
         mock = MockWorkList()

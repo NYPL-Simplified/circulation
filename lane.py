@@ -676,7 +676,7 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def groups(self, _db, entrypoint=None, include_sublanes=True):
+    def groups(self, _db, include_sublanes=True, entrypoint=None):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped acquisition feed for the WorkList.
 
@@ -1118,7 +1118,6 @@ class WorkList(object):
         return results
 
     def _groups_for_lanes(self, _db, relevant_lanes, queryable_lanes, entrypoint=None):
-        set_trace()
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
@@ -1189,7 +1188,9 @@ class WorkList(object):
                 # likely because this 'lane' is a WorkList and not a
                 # Lane at all. Do a whole separate query and plug it
                 # in at this point.
-                for x in lane.groups(_db, include_sublanes=False):
+                for x in lane.groups(
+                        _db, include_sublanes=False, entrypoint=entrypoint
+                ):
                     yield x
 
     def _featured_works_with_lanes(self, _db, lanes, entrypoint=None):
