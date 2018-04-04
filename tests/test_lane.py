@@ -825,6 +825,7 @@ class TestWorkList(DatabaseTest):
         propagated to the methods called by groups().
         """
         class MockWorkList(WorkList):
+
             def featured_works(self, _db, entrypoint):
                 self.featured_called_with = entrypoint
                 return []
@@ -836,10 +837,10 @@ class TestWorkList(DatabaseTest):
         mock = MockWorkList()
         mock.initialize(library=self._default_library)
         entrypoint = object()
-        [x for x in mock.groups(self._db, entrypoint)]
+        [x for x in mock.groups(self._db, entrypoint=entrypoint)]
         eq_(entrypoint, mock.groups_called_with)
 
-        [x for x in mock.groups(self._db, entrypoint, include_sublanes=False)]
+        [x for x in mock.groups(self._db, entrypoint=entrypoint, include_sublanes=False)]
         eq_(entrypoint, mock.featured_called_with)
 
     def test_featured_works(self):

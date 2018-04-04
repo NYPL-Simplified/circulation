@@ -689,7 +689,7 @@ class WorkList(object):
         if not include_sublanes:
             # We only need to find featured works for this lane,
             # not this lane plus its sublanes.
-            for work in self.featured_works(_db, entrypoint):
+            for work in self.featured_works(_db, entrypoint=entrypoint):
                 yield work, self
             return
 
@@ -720,7 +720,7 @@ class WorkList(object):
         # for any children that are Lanes, and call groups()
         # recursively for any children that are not.
         for work, worklist in self._groups_for_lanes(
-                _db, relevant_children, relevant_lanes, entrypoint
+                _db, relevant_children, relevant_lanes, entrypoint=entrypoint
         ):
             yield work, worklist
 
