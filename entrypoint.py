@@ -29,40 +29,40 @@ class EntryPoint(object):
     INTERNAL_NAMES = []
 
     @classmethod
-    def register(cls, entry point_class, display_title, default_enabled=False):
+    def register(cls, entrypoint_class, display_title, default_enabled=False):
         """Register the given subclass with the master registry
         kept in the EntryPoint class.
 
-        :param entry point_class: A subclass of EntryPoint.
+        :param entrypoint_class: A subclass of EntryPoint.
         :param display_title: The title to use when displaying this entry point
             to patrons.
         :param default_enabled: New libraries should have this entry point
             enabled by default.
         """
-        value = getattr(entry point_class, 'INTERNAL_NAME', None)
+        value = getattr(entrypoint_class, 'INTERNAL_NAME', None)
         if not value:
             raise ValueError(
-                "EntryPoint class %s must define INTERNAL_NAME." % entry point_class.__name__
+                "EntryPoint class %s must define INTERNAL_NAME." % entrypoint_class.__name__
             )
         if value in cls.INTERNAL_NAMES:
             raise ValueError(
                 "Duplicate entry point internal name: %s" % value
             )
         cls.INTERNAL_NAMES.append(value)
-        cls.ENTRY_POINTS.append(entry point_class)
+        cls.ENTRY_POINTS.append(entrypoint_class)
         if default_enabled:
-            cls.DEFAULT_ENABLED.append(entry point_class)
-        cls.DISPLAY_TITLES[entry point_class] = display_title
+            cls.DEFAULT_ENABLED.append(entrypoint_class)
+        cls.DISPLAY_TITLES[entrypoint_class] = display_title
 
     @classmethod
-    def unregister(cls, entry point_class):
+    def unregister(cls, entrypoint_class):
         """Undo a subclass's registration.
 
         Only used in tests.
         """
-        cls.ENTRY_POINTS.remove(entry point_class)
-        cls.INTERNAL_NAMES.remove(entry point_class.INTERNAL_NAME)
-        del cls.DISPLAY_TITLES[entry point_class]
+        cls.ENTRY_POINTS.remove(entrypoint_class)
+        cls.INTERNAL_NAMES.remove(entrypoint_class.INTERNAL_NAME)
+        del cls.DISPLAY_TITLES[entrypoint_class]
 
     @classmethod
     def modified_materialized_view_query(cls, qu):

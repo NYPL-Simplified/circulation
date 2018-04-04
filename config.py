@@ -198,16 +198,16 @@ class Configuration(object):
             ],
             "default": "true",
         },
-        { "key": Entrypoint.ENABLED_SETTING,
+        { "key": EntryPoint.ENABLED_SETTING,
           "label": _("Enabled entry points"),
           "description": _("Patrons will see the selected entry points at the top level and in search results."),
           "type": "list",
           "options": [
               { "key": entrypoint.INTERNAL_NAME,
-                "label": Entrypoint.DISPLAY_TITLES.get(entrypoint) }
-              for entrypoint in Entrypoint.ENTRY_POINTS
+                "label": EntryPoint.DISPLAY_TITLES.get(entrypoint) }
+              for entrypoint in EntryPoint.ENTRY_POINTS
           ],
-          "default": [x.INTERNAL_NAME for x in Entrypoint.DEFAULT_ENABLED],
+          "default": [x.INTERNAL_NAME for x in EntryPoint.DEFAULT_ENABLED],
         },
         {
             "key": FEATURED_LANE_SIZE,

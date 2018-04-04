@@ -815,6 +815,28 @@ class TestWorkList(DatabaseTest):
         eq_((w2, child2), wwl2)
         eq_((w1, child2), wwl3)
 
+    def test_groups_propagates_entrypoint(self):
+        """Verify that the EntryPoint passed into groups() is
+        propagated to the methods called by groups().
+        """
+        class MockWorkList(WorkList):
+            def featured_works(self, _db, entrypoint):
+                self.featured_called_with = entrypoint
+                return []
+
+            def _groups_for_lanes(self, _db, relevant_children, relevant_lanes, entrypoint):
+                self.groups_called_with = entrypoint
+                return []
+
+        mock = MockWorkList()
+        mock.initialize(library=self._default_library)
+        entrypoint = object()
+        [x for x in mock.groups(self._db, entrypoint)]
+        eq_(entrypoint, mock.groups_called_with)
+
+        [x for x in mock.groups(self._db, entrypoint, include_sublanes=False)]
+        eq_(entrypoint, mock.featured_called_with)
+
     def test_featured_works(self):
         wl = MockWorks()
         self._default_library.setting(Library.FEATURED_LANE_SIZE).value = "10"
