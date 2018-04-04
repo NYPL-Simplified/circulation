@@ -7,7 +7,7 @@ from nose.tools import (
 from model import (
     Edition,
 )
-from entry point import (
+from entrypoint import (
     EntryPoint,
     EbooksEntryPoint,
     AudiobooksEntryPoint,
@@ -74,8 +74,8 @@ class TestMediumEntryPoint(DatabaseTest):
         qu = self._db.query(MaterializedWorkWithGenre)
 
         # The default entry points filter out the video.
-        for entry point in EbooksEntryPoint, AudiobooksEntryPoint:
-            modified = entry point.apply(qu)
+        for entrypoint in EbooksEntryPoint, AudiobooksEntryPoint:
+            modified = entrypoint.apply(qu)
             eq_([], modified.all())
 
         # But the video entry point includes it.
