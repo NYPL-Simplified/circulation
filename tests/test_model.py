@@ -41,6 +41,7 @@ from config import (
 
 from entrypoint import AudiobooksEntryPoint
 
+import lane
 from lane import (
     Facets,
     Pagination,
