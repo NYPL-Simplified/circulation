@@ -10,7 +10,7 @@ from sqlalchemy.engine.url import make_url
 from flask_babel import lazy_gettext as _
 
 from facets import FacetConstants
-from tab import Tab
+from entrypoint import EntryPoint
 
 from sqlalchemy.exc import ArgumentError
 
@@ -198,16 +198,16 @@ class Configuration(object):
             ],
             "default": "true",
         },
-        { "key": Tab.ENABLED_SETTING,
-          "label": _("Enabled tabs"),
-          "description": _("Patrons will see the selected tabs at the top level and in search results."),
+        { "key": Entrypoint.ENABLED_SETTING,
+          "label": _("Enabled entry points"),
+          "description": _("Patrons will see the selected entry points at the top level and in search results."),
           "type": "list",
           "options": [
-              { "key": tab.INTERNAL_NAME,
-                "label": Tab.DISPLAY_TITLES.get(tab) }
-              for tab in Tab.TABS
+              { "key": entrypoint.INTERNAL_NAME,
+                "label": Entrypoint.DISPLAY_TITLES.get(entrypoint) }
+              for entrypoint in Entrypoint.ENTRY_POINTS
           ],
-          "default": [x.INTERNAL_NAME for x in Tab.DEFAULT_ENABLED],
+          "default": [x.INTERNAL_NAME for x in Entrypoint.DEFAULT_ENABLED],
         },
         {
             "key": FEATURED_LANE_SIZE,

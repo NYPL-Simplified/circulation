@@ -680,7 +680,7 @@ class WorkList(object):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped acquisition feed for the WorkList.
 
-        :param tab: A Tab to use to restrict the works on view.
+        :param entrypoint: An EntryPoint to use to restrict the works on view.
 
         :yield: A sequence of (Work, WorkList) 2-tuples, with each
         WorkList representing the child WorkList in which the Work is
@@ -775,7 +775,7 @@ class WorkList(object):
            constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
-        :param tab: A Tab to use to restrict the works on view.
+        :param entrypoint: An EntryPoint to use to restrict the works on view.
         :return: A Query, or None if the WorkList is deemed to be a
            bad idea in the first place.
         """
@@ -902,8 +902,8 @@ class WorkList(object):
         if pagination:
             qu = pagination.apply(qu)
 
-        if tab:
-            qu = tab.apply(qu)
+        if entrypoint:
+            qu = entrypoint.apply(qu)
 
         return qu
 
@@ -1075,7 +1075,7 @@ class WorkList(object):
             a = time.time()
 
             # These arguments to query_works might be modified by
-            # a tab.
+            # an entrypoint.
             kwargs = dict(
                 media=media,
                 languages=default_languages,
@@ -1084,11 +1084,11 @@ class WorkList(object):
                 target_age=target_age,
                 in_any_of_these_genres=self.genre_ids,
             )
-            if tab:
-                kwargs = tab.modified_search_arguments(**args)
+            if entrypoint:
+                kwargs = entrypoint.modified_search_arguments(**args)
 
             # These arguments to query_works cannot be modified by
-            # a tab.
+            # an entrypoint.
             kwargs.update(
                 dict(
                     library=self.get_library(_db),
@@ -1193,7 +1193,7 @@ class WorkList(object):
                     yield x
 
     def _featured_works_with_lanes(self, _db, lanes, entrypoint=None):
-        """Find a sequence of works that can be used to 
+        """Find a sequence of works that can be used to
         populate this lane's grouped acquisition feed.
 
         :param lanes: Classify MaterializedWorkWithGenre objects

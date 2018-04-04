@@ -51,7 +51,7 @@ class TestEntryPoint(object):
             ValueError, "Duplicate entry point internal name: a name",
             EntryPoint.register, *args
         )
-        
+
         EntryPoint.unregister(Mock)
 
         # Test successful registration as a default-enabled entry point.

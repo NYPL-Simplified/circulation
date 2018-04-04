@@ -475,7 +475,7 @@ class AcquisitionFeed(OPDSFeed):
                 pagination=None,
                 annotator=annotator,
                 force_refresh=force_refresh,
-                tab=entrypoint
+                entrypoint=entrypoint
             )
             if usable:
                 return cached
@@ -568,7 +568,7 @@ class AcquisitionFeed(OPDSFeed):
                 pagination=pagination,
                 annotator=annotator,
                 force_refresh=force_refresh,
-                tab=entrypoint
+                entrypoint=entrypoint
             )
             if usable:
                 return cached

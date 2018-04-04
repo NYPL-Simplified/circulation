@@ -629,8 +629,8 @@ class MockWorks(WorkList):
         """Set the next return value for works()."""
         self._works.append(works)
 
-    def works(self, _db, facets=None, pagination=None, featured=False, tab=None):
-        self.works_calls.append((facets, pagination, featured, tab))
+    def works(self, _db, facets=None, pagination=None, featured=False, entrypoint=None):
+        self.works_calls.append((facets, pagination, featured, entrypoint))
         try:
             return self._works.pop(0)
         except IndexError:
@@ -832,16 +832,16 @@ class TestWorkList(DatabaseTest):
 
         # We asked for 10 works, the query returned two, but there was
         # a duplicate, so we ended up with one.
-        mock_tab = object()
-        featured = wl.featured_works(self._db, mock_tab)
+        mock_entrypoint = object()
+        featured = wl.featured_works(self._db, mock_entrypoint)
         eq_([w1], featured)
 
         # We created a FeaturedFacets object and passed it in to works().
-        [(facets, pagination, featured, tab)] = wl.works_calls
+        [(facets, pagination, featured, entrypoint)] = wl.works_calls
         eq_(self._default_library.minimum_featured_quality,
             facets.minimum_featured_quality)
         eq_(featured, facets.uses_customlists)
-        eq_(mock_tab, tab)
+        eq_(mock_entrypoint, entrypoint)
 
         # We then called random_sample() on the results.
         [(query, target_size)] = wl.random_sample_calls
@@ -2294,17 +2294,17 @@ class TestWorkListGroups(DatabaseTest):
             def __init__(self, mock_works):
                 self.mock_works = mock_works
 
-            def works_in_window(self, _db, facets, target_size, tab):
-                self.called_with = [_db, facets, target_size, tab]
+            def works_in_window(self, _db, facets, target_size, entrypoint):
+                self.called_with = [_db, facets, target_size, entrypoint]
                 return [self.mock_works]
 
         mock1 = Mock(("mw1","quality1"))
         mock2 = Mock(("mw2","quality2"))
 
         lane = self._lane()
-        mock_tab = object()
+        mock_entrypoint = object()
         results = lane._featured_works_with_lanes(
-            self._db, [mock1, mock2], mock_tab
+            self._db, [mock1, mock2], mock_entrypoint
         )
 
         # The results of works_in_window were annotated with the
@@ -2315,7 +2315,7 @@ class TestWorkListGroups(DatabaseTest):
         # Each Mock's works_in_window was called with the same
         # arguments.
         eq_(mock1.called_with, mock2.called_with)
-        _db, facets, target_size, tab = mock1.called_with
+        _db, facets, target_size, entrypoint = mock1.called_with
 
         # Those arguments came from the configuration of the Library
         # associated with the (non-mock) Lane on which _groups_query
@@ -2323,7 +2323,7 @@ class TestWorkListGroups(DatabaseTest):
         eq_(self._db, _db)
         eq_(lane.library.minimum_featured_quality, facets.minimum_featured_quality)
         eq_(lane.library.featured_lane_size, target_size)
-        eq_(mock_tab, tab)
+        eq_(mock_entrypoint, entrypoint)
 
     def test_featured_window(self):
         lane = self._lane()
