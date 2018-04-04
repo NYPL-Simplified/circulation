@@ -1085,7 +1085,7 @@ class WorkList(object):
                 in_any_of_these_genres=self.genre_ids,
             )
             if entrypoint:
-                kwargs = entrypoint.modified_search_arguments(**args)
+                kwargs = entrypoint.modified_search_arguments(**kwargs)
 
             # These arguments to query_works cannot be modified by
             # an entrypoint.
@@ -1118,7 +1118,7 @@ class WorkList(object):
         return results
 
     def _groups_for_lanes(self, _db, relevant_lanes, queryable_lanes, entrypoint=None):
-
+        set_trace()
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 

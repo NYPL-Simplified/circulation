@@ -854,8 +854,7 @@ class TestWorkList(DatabaseTest):
 
         # We asked for 10 works, the query returned two, but there was
         # a duplicate, so we ended up with one.
-        mock_entrypoint = object()
-        featured = wl.featured_works(self._db, mock_entrypoint)
+        featured = wl.featured_works(self._db)
         eq_([w1], featured)
 
         # We created a FeaturedFacets object and passed it in to works().
@@ -870,10 +869,31 @@ class TestWorkList(DatabaseTest):
         eq_([w1, w1], query)
         eq_(self._default_library.featured_lane_size, target_size)
 
-    def test_featured_works_propagates_entrypoint(self):
-        """Verify that the EntryPoint passed into featured_works() is
-        propagated to the methods called by featured_works().
+    def test_methods_that_call_works_propagate_entrypoint(self):
+        """Verify that the EntryPoint passed into featured_works() and
+        works_in_window() is propagated when those methods call works().
         """
+        class Mock(WorkList):
+            def works(self, _db, *args, **kwargs):
+                self.works_called_with = kwargs['entrypoint']
+                # This query won't work, but we need to return some
+                # kind of query so works_in_window can complete.
+                return _db.query(Work)
+
+            def _restrict_query_to_window(self, query, target_size):
+                return query
+
+        wl = Mock()
+        wl.initialize(library=self._default_library)
+        entrypoint = object()
+
+        wl.featured_works(self._db, entrypoint=entrypoint)
+        eq_(entrypoint, wl.works_called_with)
+
+        wl.works_called_with = None
+        wl.works_in_window(self._db, None, 10, entrypoint=entrypoint)
+        eq_(entrypoint, wl.works_called_with)
+
 
     def test_works(self):
         """Verify that WorkList.works() correctly locates works
@@ -926,6 +946,19 @@ class TestWorkList(DatabaseTest):
         wl.collection_ids = [self._default_collection.id]
         eq_(2, wl.works(self._db).count())
 
+    def test_works_propagates_entrypoint(self):
+        """Verify that the EntryPoint passed into works() is
+        propagated to the methods called by works().
+        """
+        class Mock(WorkList):
+            def apply_filters(self, *args, **kwargs):
+                self.apply_filters_called_with = kwargs['entrypoint']
+        wl = Mock()
+        wl.initialize(self._default_library)
+        entrypoint = object()
+        wl.works(self._db, entrypoint=entrypoint)
+        eq_(entrypoint, wl.apply_filters_called_with)
+
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.
         w1 = self._work(with_license_pool=True)
@@ -956,11 +989,6 @@ class TestWorkList(DatabaseTest):
         for lpdm in w2.license_pools[0].delivery_mechanisms:
             self._db.delete(lpdm)
         eq_([], wl.works_for_specific_ids(self._db, [w2.id]))
-
-    def test_works_propagates_entrypoint(self):
-        """Verify that the EntryPoint passed into works() is
-        propagated to the methods called by works().
-        """
 
     def test_apply_filters(self):
 
@@ -1024,7 +1052,18 @@ class TestWorkList(DatabaseTest):
 
         # If an EntryPoint is passed into apply_filters, the query
         # is passed into the EntryPoint's apply() method.
-        # TODO
+        class MockEntryPoint(object):
+            def apply(self, qu):
+                self.called_with = qu
+                return qu
+        entrypoint = MockEntryPoint()
+        wl.apply_filters(
+            self._db, original_qu, None, None, entrypoint=entrypoint
+        )
+        # The query was modified by the time it was passed in, so it's
+        # not the same as original_qu, but all we need to check is that
+        # _some_ query was passed in.
+        assert isinstance(qu, type(original_qu))
 
     def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
         class MockWorkList(WorkList):
@@ -1322,10 +1361,25 @@ class TestWorkList(DatabaseTest):
         [fixed, kw] = third_query
         eq_(None, kw["media"])
 
-        # If an EntryPoint is passed into search, a subset of search
-        # arguments are passed into the EntryPoint's
-        # modified_search_arguments() method.
-        # TODO.
+        # If an EntryPoint is passed into search(), a subset of search
+        # arguments are passed into EntryPoint.modified_search_arguments().
+        class MockEntryPoint(object):
+            def modified_search_arguments(self, **kwargs):
+                self.called_with = dict(kwargs)
+                return kwargs
+        entrypoint = MockEntryPoint()
+        wl.search(self._db, work.title, search_client, entrypoint=entrypoint)
+
+        # Arguments relevant to the EntryPoint's view of the
+        # collection were passed in...
+        for i in ['audiences', 'fiction', 'in_any_of_these_genres', 'languages', 'media', 'target_age']:
+            assert i in entrypoint.called_with
+
+        # Arguments pertaining to the search query or result
+        # navigation were not.
+        for i in ['size', 'query_string', 'offset']:
+            assert i not in entrypoint.called_with
+
 
 class TestLane(DatabaseTest):
 
@@ -2062,7 +2116,19 @@ class TestLane(DatabaseTest):
         )
 
     def test_groups_propagates_entrypoint(self):
-        pass
+        """Lane.groups propagates a received EntryPoint into
+        _groups_for_lanes.
+        """
+        def mock(self, _db, relevant_lanes, queryable_lanes, entrypoint):
+            self.called_with = entrypoint
+            return []
+        old_value = Lane._groups_for_lanes
+        Lane._groups_for_lanes = mock
+        lane = self._lane()
+        entrypoint = object()
+        lane.groups(self._db, entrypoint=entrypoint)
+        eq_(entrypoint, lane.called_with)
+        Lane._groups_for_lanes = old_value
 
 
 class TestWorkListGroups(DatabaseTest):
@@ -2328,7 +2394,16 @@ class TestWorkListGroups(DatabaseTest):
         )
 
     def test_groups_for_lanes_propagates_entrypoint(self):
-        pass
+        class Mock(WorkList):
+            def _featured_works_with_lanes(self, *args, **kwargs):
+                self.featured_called_with = kwargs['entrypoint']
+                return []
+
+        wl = Mock()
+        wl.initialize(library=self._default_library)
+        entrypoint = object()
+        groups = list(wl._groups_for_lanes(self._db, [], [], entrypoint))
+        eq_(entrypoint, wl.featured_called_with)
 
     def test_featured_works_with_lanes(self):
         """_featured_works_with_lanes calls works_in_window on every lane
@@ -2371,9 +2446,6 @@ class TestWorkListGroups(DatabaseTest):
         eq_(lane.library.featured_lane_size, target_size)
         eq_(mock_entrypoint, entrypoint)
 
-    def test_featured_works_with_lanes_propagates_entrypoint(self):
-        pass
-
     def test_featured_window(self):
         lane = self._lane()
 
@@ -2407,8 +2479,6 @@ class TestWorkListGroups(DatabaseTest):
         start, end = lane.featured_window(10)
         assert end == start + 0.001
 
-    def test_works_in_window_propagates_entrypoint(self):
-        pass
 
     def test_fill_parent_lane(self):
 
