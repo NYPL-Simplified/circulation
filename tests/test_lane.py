@@ -870,6 +870,11 @@ class TestWorkList(DatabaseTest):
         eq_([w1, w1], query)
         eq_(self._default_library.featured_lane_size, target_size)
 
+    def test_featured_works_propagates_entrypoint(self):
+        """Verify that the EntryPoint passed into featured_works() is
+        propagated to the methods called by featured_works().
+        """
+
     def test_works(self):
         """Verify that WorkList.works() correctly locates works
         that match the criteria specified by apply_filters().
@@ -952,6 +957,11 @@ class TestWorkList(DatabaseTest):
             self._db.delete(lpdm)
         eq_([], wl.works_for_specific_ids(self._db, [w2.id]))
 
+    def test_works_propagates_entrypoint(self):
+        """Verify that the EntryPoint passed into works() is
+        propagated to the methods called by works().
+        """
+
     def test_apply_filters(self):
 
         called = dict()
@@ -1012,6 +1022,9 @@ class TestWorkList(DatabaseTest):
         assert 'facets.apply' not in called
         assert 'pagination.apply' not in called
 
+        # If an EntryPoint is passed into apply_filters, the query
+        # is passed into the EntryPoint's apply() method.
+        # TODO
 
     def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
         class MockWorkList(WorkList):
@@ -1309,6 +1322,10 @@ class TestWorkList(DatabaseTest):
         [fixed, kw] = third_query
         eq_(None, kw["media"])
 
+        # If an EntryPoint is passed into search, a subset of search
+        # arguments are passed into the EntryPoint's
+        # modified_search_arguments() method.
+        # TODO.
 
 class TestLane(DatabaseTest):
 
@@ -2044,6 +2061,10 @@ class TestLane(DatabaseTest):
             data
         )
 
+    def test_groups_propagates_entrypoint(self):
+        pass
+
+
 class TestWorkListGroups(DatabaseTest):
     """Tests of WorkList.groups() and the helper methods."""
 
@@ -2306,6 +2327,9 @@ class TestWorkListGroups(DatabaseTest):
             ]
         )
 
+    def test_groups_for_lanes_propagates_entrypoint(self):
+        pass
+
     def test_featured_works_with_lanes(self):
         """_featured_works_with_lanes calls works_in_window on every lane
         pass in to it.
@@ -2347,6 +2371,9 @@ class TestWorkListGroups(DatabaseTest):
         eq_(lane.library.featured_lane_size, target_size)
         eq_(mock_entrypoint, entrypoint)
 
+    def test_featured_works_with_lanes_propagates_entrypoint(self):
+        pass
+
     def test_featured_window(self):
         lane = self._lane()
 
@@ -2380,6 +2407,8 @@ class TestWorkListGroups(DatabaseTest):
         start, end = lane.featured_window(10)
         assert end == start + 0.001
 
+    def test_works_in_window_propagates_entrypoint(self):
+        pass
 
     def test_fill_parent_lane(self):
 
