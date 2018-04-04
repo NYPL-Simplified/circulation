@@ -2383,7 +2383,7 @@ class TestWorkListGroups(DatabaseTest):
         assert_contents(
             fiction.groups(self._db, entrypoint=LQRomanceEntryPoint),
             [
-                # The single recognized book shows up in both lands
+                # The single recognized book shows up in both lanes
                 # that can show it.
                 (lq_ro, romance_lane),
                 (lq_ro, fiction),
