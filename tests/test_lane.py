@@ -868,7 +868,6 @@ class TestWorkList(DatabaseTest):
         eq_(self._default_library.minimum_featured_quality,
             facets.minimum_featured_quality)
         eq_(featured, facets.uses_customlists)
-        eq_(mock_entrypoint, entrypoint)
 
         # We then called random_sample() on the results.
         [(query, target_size)] = wl.random_sample_calls
@@ -1069,7 +1068,7 @@ class TestWorkList(DatabaseTest):
         # The query was modified by the time it was passed in, so it's
         # not the same as original_qu, but all we need to check is that
         # _some_ query was passed in.
-        assert isinstance(qu, type(original_qu))
+        assert isinstance(entrypoint.called_with, type(original_qu))
 
     def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
         class MockWorkList(WorkList):

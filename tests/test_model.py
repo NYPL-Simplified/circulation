@@ -7400,7 +7400,7 @@ class TestCachedFeed(DatabaseTest):
         eq_("aworklist-eng,spa-Children-" + AudiobooksEntryPoint.INTERNAL_NAME,
             feed.unique_key)
 
-    def test_fetch_group_feeds():
+    def test_fetch_group_feeds(self):
         # Group feeds don't need to worry about facets or pagination,
         # but they have their own complications.
 
@@ -7416,9 +7416,8 @@ class TestCachedFeed(DatabaseTest):
         eq_(False, usable)
 
         # Group-type feeds are too expensive to generate, so when
-        # asked to produce one we panicked and prepared a page-type
-        # feed instead.
-        eq_(page, feed.type)
+        # asked to produce one we prepared a page-type feed instead.
+        eq_(CachedFeed.PAGE_TYPE, feed.type)
         eq_(lane, feed.lane)
         eq_(None, feed.unique_key)
         eq_("", feed.facets)
