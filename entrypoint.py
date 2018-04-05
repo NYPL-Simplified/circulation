@@ -26,7 +26,7 @@ class EntryPoint(object):
     ENTRY_POINTS = []
     DEFAULT_ENABLED = []
     DISPLAY_TITLES = {}
-    INTERNAL_NAMES = []
+    BY_INTERNAL_NAME = {}
 
     @classmethod
     def register(cls, entrypoint_class, display_title, default_enabled=False):
@@ -44,7 +44,7 @@ class EntryPoint(object):
             raise ValueError(
                 "EntryPoint class %s must define INTERNAL_NAME." % entrypoint_class.__name__
             )
-        if value in cls.INTERNAL_NAMES:
+        if value in cls.BY_INTERNAL_NAME:
             raise ValueError(
                 "Duplicate entry point internal name: %s" % value
             )
@@ -53,7 +53,7 @@ class EntryPoint(object):
                 "Duplicate entry point display name: %s" % display_title
             )            
         cls.DISPLAY_TITLES[entrypoint_class] = display_title
-        cls.INTERNAL_NAMES.append(value)
+        cls.BY_INTERNAL_NAME[value] = entrypoint_class
         cls.ENTRY_POINTS.append(entrypoint_class)
         if default_enabled:
             cls.DEFAULT_ENABLED.append(entrypoint_class)
@@ -66,7 +66,7 @@ class EntryPoint(object):
         Only used in tests.
         """
         cls.ENTRY_POINTS.remove(entrypoint_class)
-        cls.INTERNAL_NAMES.remove(entrypoint_class.INTERNAL_NAME)
+        del cls.BY_INTERNAL_NAME[entrypoint_class.INTERNAL_NAME]
         del cls.DISPLAY_TITLES[entrypoint_class]
 
     @classmethod

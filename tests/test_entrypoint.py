@@ -1,4 +1,5 @@
 from testing import DatabaseTest
+import json
 from nose.tools import (
     assert_raises_regexp,
     eq_,
@@ -102,3 +103,28 @@ class TestMediumEntryPoint(DatabaseTest):
         new_kwargs = Mock.modified_search_arguments(**kwargs)
         eq_(dict(media=[Mock.INTERNAL_NAME], other_argument="unaffected"),
             new_kwargs)
+
+
+class TestLibrary(DatabaseTest):
+    """Test a Library's interaction with EntryPoints."""
+
+    def test_enabled_entrypoints(self):
+        l = self._default_library
+
+        setting = l.setting(EntryPoint.ENABLED_SETTING)
+
+        # When the value is not set, the default is used.
+        eq_(EntryPoint.DEFAULT_ENABLED, list(l.entrypoints))
+        setting.value = None
+        eq_(EntryPoint.DEFAULT_ENABLED, list(l.entrypoints))
+
+        # Names that don't correspond to registered entry points are
+        # ignored. Names that do are looked up.
+        setting.value = json.dumps(
+            ["no such entry point", AudiobooksEntryPoint.INTERNAL_NAME]
+        )
+        eq_([AudiobooksEntryPoint], list(l.entrypoints))
+
+        # An empty list is a valid value.
+        setting.value = json.dumps([])
+        eq_([], list(l.entrypoints))

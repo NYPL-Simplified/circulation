@@ -114,6 +114,7 @@ from classifier import (
     GenreData,
     WorkClassifier,
 )
+from entrypoint import EntryPoint
 from facets import FacetConstants
 from user_profile import ProfileStorage
 from util import (
@@ -10070,6 +10071,22 @@ class Library(Base, HasFullTableCache):
         if value is None:
             value = 15
         return value
+
+    @property
+    def entrypoints(self):
+        """The EntryPoints enabled for this library."""
+        values = self.setting(EntryPoint.ENABLED_SETTING).json_value
+        if values is None:
+            # No decision has been made about enabled EntryPoints.
+            for cls in EntryPoint.DEFAULT_ENABLED:
+                yield cls
+        else:
+            # It's okay for `values` to be an empty list--that means
+            # the library wants to only use lanes, no entry points.
+            for v in values:
+                cls = EntryPoint.BY_INTERNAL_NAME.get(v)
+                if cls:
+                    yield cls
 
     def enabled_facets(self, group_name):
         """Look up the enabled facets for a given facet group."""
