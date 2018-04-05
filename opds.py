@@ -301,7 +301,7 @@ class Annotator(object):
         raise NotImplementedError()
 
     @classmethod
-    def search_url(cls, lane, query, pagination):
+    def search_url(cls, lane, query, pagination, entrypoint=None):
         raise NotImplementedError()
 
     @classmethod
@@ -608,6 +608,55 @@ class AcquisitionFeed(OPDSFeed):
         return content
 
     @classmethod
+    def facet_link(cls, href, title, facet_group_name, is_active):
+        """Build a set of attributes for a facet link.
+
+        :param href: Destination of the link.
+        :param title: Human-readable description of the facet.
+        :param facet_group_name: The facet group to which the facet belongs,
+           e.g. "Sort By".
+        :param is_active: True if this is the client's currently
+           selected facet.
+
+        :return: A dictionary of attributes, suitable for passing as
+            keyword arguments into OPDSFeed.add_link_to_feed.
+        """
+        args = dict(href=href, title=title)
+        args['rel'] = cls.FACET_REL
+        args['{%s}facetGroup' % AtomFeed.OPDS_NS] = facet_group_name
+        if is_active:
+            args['{%s}activeFacet' % AtomFeed.OPDS_NS] = "true"
+        return args
+
+    def add_entrypoint_links(self, feed, url_generator, entrypoints,
+                             selected_entrypoint):
+        """Add links to a feed forming an OPDS facet group for a set of
+        EntryPoints.
+
+        :param url_generator: A callable that returns the entry point
+            URL when passed an EntryPoint.
+        :param entrypoints: A list of all EntryPoints in the facet group.
+        :param selected_entrypoint: The current EntryPoint, if selected.
+        """
+        group_name = "Start here"
+        for entrypoint in entrypoints:
+            url = url_generator(entrypoint)
+
+            display_title = EntryPoint.DISPLAY_TITLES.get(entrypoint)
+            if not display_title:
+                # Shouldn't happen.
+                continue
+            selected = entrypoint is selected_entrypoint
+            link = cls.facet_link(url, display_title, "", selected)
+
+            # Unlike a normal facet group, every item in the entry
+            # point facet group also has a tiny icon (TBD) and a
+            # special attribute marking it as an entry point.
+            
+
+            self.add_link_to_feed(feed, **link)
+
+    @classmethod
     def add_breadcrumb_links(self, feed, lane, annotator):
         # Add "up" link and breadcrumbs
         top_level_title = annotator.top_level_title() or "Collection Home"
@@ -628,24 +677,47 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def search(cls, _db, title, url, lane, search_engine, query, media=None, pagination=None,
-               annotator=None, languages=None
+               annotator=None, languages=None, entrypoint=None
     ):
         results = lane.search(
-            _db, query, search_engine, media, pagination=pagination, languages=languages
+            _db, query, search_engine, media, pagination=pagination, languages=languages, entrypoint=entrypoint
         )
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
 
+        # The first page of a feed of search results may have links to
+        # alternate entry points into the search results.
+        if pagination_offset == 0:
+            library = lane.get_library(_db)
+            entrypoints = library.entrypoints
+            default_entrypoint = None
+            if entrypoints:
+                default_entrypoint = entrypoints[0]
+            if entrypoint in (None, default_entrypoint):
+                # It looks like the client has not yet chosen an entry point.
+                # Give them the option to choose one.
+                for entrypoint in entrypoints:
+                    entrypoint_url = annotator.search_url(
+                        lane, query, entrypoint=entrypoint
+                    )
+                    AcquisitionFeed.add_entrypoint_link(
+                        feed=opds_feed.feed,
+                        href=entrypoint_url,
+                    )
+
         if len(results) > 0:
             # There are works in this list. Add a 'next' link.
-            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="next", href=annotator.search_url(lane, query, pagination.next_page))
+            next_url = annotator.search_url(lane, query, pagination.next_page, entrypoint=entrypoint)
+            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="next", href=next_url)
 
         if pagination.offset > 0:
-            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="first", href=annotator.search_url(lane, query, pagination.first_page))
+            first_url = annotator.search_url(lane, query, pagination.first_page, entrypoint=entrypoint)
+            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="first", href=first_url)
 
         previous_page = pagination.previous_page
         if previous_page:
-            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="previous", href=annotator.search_url(lane, query, previous_page))
+            previous_url = annotator.search_url(lane, query, previous_page, entrypoint=entrypoint)
+            AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="previous", href=previous_url)
 
         # Add "up" link and breadcrumbs
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=str(lane.display_name))
@@ -686,19 +758,14 @@ class AcquisitionFeed(OPDSFeed):
         return OPDSMessage(identifier.urn, error_status, error_message)
 
     @classmethod
-    def facet_links(self, annotator, facets):
+    def facet_links(cls, annotator, facets):
         for group, value, new_facets, selected, in facets.facet_groups:
             url = annotator.facet_url(new_facets)
             if not url:
                 continue
             group_title = str(Facets.GROUP_DISPLAY_TITLES[group])
             facet_title = str(Facets.FACET_DISPLAY_TITLES[value])
-            link = dict(href=url, title=facet_title)
-            link['rel'] = self.FACET_REL
-            link['{%s}facetGroup' % AtomFeed.OPDS_NS] = group_title
-            if selected:
-                link['{%s}activeFacet' % AtomFeed.OPDS_NS] = "true"
-            yield link
+            yield cls.facet_link(url, facet_title, group_title, selected)
 
     CACHE_FOREVER = 'forever'
 
@@ -1336,7 +1403,7 @@ class TestAnnotator(Annotator):
         return base
 
     @classmethod
-    def search_url(cls, lane, query, pagination):
+    def search_url(cls, lane, query, pagination, entrypoint=None):
         if isinstance(lane, Lane):
             base = "http://%s/" % lane.url_name
         else:
@@ -1344,6 +1411,9 @@ class TestAnnotator(Annotator):
         sep = '?'
         if pagination:
             base += sep + pagination.query_string
+            sep = '&'
+        if entrypoint:
+            base += sep + "entrypoint=" + entrypoint.INTERNAL_NAME
         return base
 
     @classmethod
