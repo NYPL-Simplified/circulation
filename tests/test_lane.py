@@ -1749,6 +1749,35 @@ class TestLane(DatabaseTest):
         )
         eq_(results, target_results)
 
+    def test_search_propagates_entrypoint(self):
+        """Lane.search propagates entrypoint when calling search() on
+        its search target.
+        """
+        class Mock(object):
+            def search(self, *args, **kwargs):
+                self.called_with = kwargs['entrypoint']
+        mock = Mock()
+        lane = self._lane()
+
+        old_lane_search_target = Lane.search_target
+        old_wl_search = WorkList.search
+        Lane.search_target = mock
+        entrypoint = object()
+        lane.search(self._db, "query", None, entrypoint=entrypoint)
+        eq_(entrypoint, mock.called_with)
+
+        # Now try the case where a lane is its own search target.  The
+        # entrypoint is propagated to the WorkList.search().
+        mock.called_with = None
+        Lane.search_target = lane
+        WorkList.search = mock.search
+        lane.search(self._db, "query", None, entrypoint=entrypoint)
+        eq_(entrypoint, mock.called_with)
+
+        # Restore methods that were mocked.
+        Lane.search_target = old_lane_search_target
+        WorkList.search = old_wl_search
+
     def test_bibliographic_filter_clause(self):
 
         # Create some works that will or won't show up in various

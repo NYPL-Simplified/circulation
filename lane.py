@@ -1805,15 +1805,15 @@ class Lane(Base, WorkList):
             _db, relevant_lanes, queryable_lanes, entrypoint=entrypoint
         )
 
-    def search(self, _db, query, search_client, media=None, pagination=None, languages=None):
+    def search(self, _db, query, search_client, media=None, pagination=None, languages=None, entrypoint=None):
         """Find works in this lane that also match a search query.
         """
         target = self.search_target
 
         if target == self:
-            return super(Lane, self).search(_db, query, search_client, media, pagination, languages)
+            return super(Lane, self).search(_db, query, search_client, media, pagination, languages, entrypoint=entrypoint)
         else:
-            return target.search(_db, query, search_client, media, pagination, languages)
+            return target.search(_db, query, search_client, media, pagination, languages, entrypoint=entrypoint)
 
     def bibliographic_filter_clause(self, _db, qu, featured, outer_join=False):
         """Create an AND clause that restricts a query to find
