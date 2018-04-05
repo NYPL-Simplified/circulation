@@ -993,11 +993,14 @@ class SeriesLane(DynamicLane):
     def apply_filters(self, _db, qu, facets, pagination, featured=False):
         if not self.series:
             return None
-        from core.model import MaterializedWorkWithGenre as mw
-        qu = qu.filter(mw.series==self.series)
+        # We could filter on MaterializedWorkWithGenre.series, but
+        # there's no index on that field, so it would cause a table
+        # scan. Instead we add a join to Edition and filter on the
+        # field there, where it is indexed.
+        qu = qu.join(LicensePool.presentation_edition)
+        qu = qu.filter(Edition.series==self.series)
         return super(SeriesLane, self).apply_filters(
             _db, qu, facets, pagination, featured)
-
 
 class ContributorLane(DynamicLane):
     """A lane of Works written by a particular contributor"""
