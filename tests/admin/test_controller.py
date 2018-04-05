@@ -2155,6 +2155,19 @@ class TestSettingsController(AdminControllerTest):
         eq_('my label', result['name'])
         assert 'cardinality' not in result
 
+    def test_get_integration_info(self):
+        """Test the _get_integration_info helper method."""
+        m = self.manager.admin_settings_controller._get_integration_info
+
+        # Test the case where there are integrations in the database
+        # with the given goal, but none of them match the
+        # configuration.
+        goal = self._str
+        integration = self._external_integration(
+            protocol="a protocol", goal=goal
+        )
+        eq_([], m(goal, [dict(name="some other protocol")]))
+
     def test_create_integration(self):
         """Test the _create_integration helper method."""
 
