@@ -48,6 +48,11 @@ class EntryPoint(object):
             raise ValueError(
                 "Duplicate entry point internal name: %s" % value
             )
+        if display_title in cls.DISPLAY_TITLES.values():
+            raise ValueError(
+                "Duplicate entry point display name: %s" % display_title
+            )            
+        cls.DISPLAY_TITLES[entrypoint_class] = display_title
         cls.INTERNAL_NAMES.append(value)
         cls.ENTRY_POINTS.append(entrypoint_class)
         if default_enabled:

@@ -58,6 +58,16 @@ class TestEntryPoint(object):
         EntryPoint.register(*args, default_enabled=True)
         assert Mock in EntryPoint.DEFAULT_ENABLED
 
+        # Can't register two different entry points with the same
+        # display name.
+        class Mock2(object):
+            INTERNAL_NAME = "mock2"
+
+        assert_raises_regexp(
+            ValueError, "Duplicate entry point display name: Mock!",
+            EntryPoint.register, Mock2, "Mock!"
+        )
+
 
 class TestMediumEntryPoint(DatabaseTest):
 
