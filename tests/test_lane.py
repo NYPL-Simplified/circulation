@@ -661,7 +661,7 @@ class TestWorkList(DatabaseTest):
         # Create a WorkList that's associated with a Library, two genres,
         # and a child WorkList.
         wl.initialize(self._default_library, children=[child],
-                      genres=[sf, romance])
+                      genres=[sf, romance], entrypoints=[1,2,3])
 
         # Access the Library.
         eq_(self._default_library, wl.get_library(self._db))
@@ -678,6 +678,10 @@ class TestWorkList(DatabaseTest):
 
         # The WorkList's child is the WorkList passed in to the constructor.
         eq_([child], wl.visible_children)
+
+        # The Worklist's .entrypoints is whatever was passed in
+        # to the constructor.
+        eq_([1,2,3], wl.entrypoints)
 
     def test_initialize_without_library(self):
         wl = WorkList()
@@ -1484,6 +1488,10 @@ class TestLane(DatabaseTest):
     def test_display_name_for_all(self):
         lane = self._lane("Fantasy / Science Fiction")
         eq_("All Fantasy / Science Fiction", lane.display_name_for_all)
+
+    def test_entrypoints(self):
+        """Currently a Lane can never have entrypoints."""
+        eq_([], self._lane().entrypoints)
 
     def test_affected_by_customlist(self):
 
