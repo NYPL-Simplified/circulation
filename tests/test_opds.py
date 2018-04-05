@@ -18,6 +18,12 @@ from config import (
     Configuration,
     temp_config,
 )
+from entrypoint import (
+    AudiobooksEntryPoint,
+    EbooksEntryPoint,
+    EntryPoint,
+)
+from facets import FacetConstants
 from model import (
     CachedFeed,
     ConfigurationSetting,
@@ -32,6 +38,8 @@ from model import (
     Subject,
     Work,
 )
+
+from facets import FacetConstants
 
 from lane import (
     Facets,
@@ -1271,6 +1279,99 @@ class TestOPDS(DatabaseTest):
 
 
 class TestAcquisitionFeed(DatabaseTest):
+
+    def test_add_entrypoint_links(self):
+        """Verify that add_entrypoint_links calls _entrypoint_link
+        on every EntryPoint passed in.
+        """
+        m = AcquisitionFeed.add_entrypoint_links
+
+        old_entrypoint_link = AcquisitionFeed._entrypoint_link
+        class Mock(object):
+            attrs = dict(href="the response")
+
+            def __init__(self):
+                self.calls = []
+
+            def __call__(self, *args):
+                self.calls.append(args)
+                return self.attrs
+
+        mock = Mock()
+        AcquisitionFeed._entrypoint_link = mock
+
+        feed = etree.fromstring("<feed/>")
+        entrypoints = [AudiobooksEntryPoint, EbooksEntryPoint]
+        url_generator = object()
+        AcquisitionFeed.add_entrypoint_links(
+            feed, url_generator, entrypoints, EbooksEntryPoint,
+            "Some entry points"
+        )
+
+        # Two different calls were made to the mock method.
+        c1, c2 = mock.calls
+
+        # The first entry point is not selected.
+        eq_(c1,
+            (url_generator, AudiobooksEntryPoint, EbooksEntryPoint, True, "Some entry points")
+        )
+        # The second one is selected.
+        eq_(c2,
+            (url_generator, EbooksEntryPoint, EbooksEntryPoint, False, "Some entry points")
+        )
+
+        # Two identical <link> tags were added to the <feed> tag, one
+        # for each call to the mock method.
+        l1, l2 = list(feed.iterchildren())
+        for l in l1, l2:
+            eq_("link", l.tag)
+            eq_(mock.attrs, l.attrib)
+
+    def test_entrypoint_link(self):
+        """Test the _entrypoint_link method's ability to create
+        attributes for <link> tags.
+        """
+        m = AcquisitionFeed._entrypoint_link
+        def g(entrypoint, is_default):
+            """A mock URL generator."""
+            return "%s - %s" % (entrypoint.INTERNAL_NAME, is_default)
+
+        # If the entry point is not registered, None is returned.
+        eq_(None, m(g, object(), object(), True, "group"))
+
+        # Now make a real set of link attributes.
+        l = m(g, AudiobooksEntryPoint, AudiobooksEntryPoint, False, "Grupe")
+
+        # The link is identified as belonging to an entry point-type
+        # facet group.
+        eq_(l['rel'], AcquisitionFeed.FACET_REL)
+        eq_(l['{http://librarysimplified.org/terms/}facetGroupType'],
+            FacetConstants.ENTRY_POINT_REL)
+        eq_('Grupe', l['{http://opds-spec.org/2010/catalog}facetGroup'])
+
+        # This facet is the active one in the group.
+        eq_('true', l['{http://opds-spec.org/2010/catalog}activeFacet'])
+
+        # The URL generator was invoked to create the href.
+        eq_(l['href'], g(AudiobooksEntryPoint, False))
+
+        # The facet title identifies it as a way to look at audiobooks.
+        eq_(EntryPoint.DISPLAY_TITLES[AudiobooksEntryPoint], l['title'])
+
+        # Now try some variants.
+
+        # Here, the entry point is the default one.
+        l = m(g, AudiobooksEntryPoint, AudiobooksEntryPoint, True, "Grupe")
+
+        # This may affect the URL generated for the facet link.
+        eq_(l['href'], g(AudiobooksEntryPoint, True))
+
+        # Here, the entry point for which we're generating the link is
+        # not the selected one -- EbooksEntryPoint is.
+        l = m(g, AudiobooksEntryPoint, EbooksEntryPoint, True, "Grupe")
+
+        # This means the 'activeFacet' attribute is not present.
+        assert '{http://opds-spec.org/2010/catalog}activeFacet' not in l
 
     def test_license_tags_no_loan_or_hold(self):
         edition, pool = self._edition(with_license_pool=True)

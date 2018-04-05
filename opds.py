@@ -30,6 +30,8 @@ from lxml import builder, etree
 from cdn import cdnify
 from config import Configuration
 from classifier import Classifier
+from entrypoint import EntryPoint
+from facets import FacetConstants
 from model import (
     BaseMaterializedWork,
     CachedFeed,
@@ -641,38 +643,52 @@ class AcquisitionFeed(OPDSFeed):
             args['{%s}activeFacet' % AtomFeed.OPDS_NS] = "true"
         return args
 
-    def add_entrypoint_links(self, feed, url_generator, entrypoints,
-                             selected_entrypoint):
+    @classmethod
+    def add_entrypoint_links(cls, feed, url_generator, entrypoints,
+                             selected_entrypoint, group_name='Start here'):
         """Add links to a feed forming an OPDS facet group for a set of
         EntryPoints.
 
+        :param feed: A lxml Tag object.
         :param url_generator: A callable that returns the entry point
             URL when passed an EntryPoint.
         :param entrypoints: A list of all EntryPoints in the facet group.
         :param selected_entrypoint: The current EntryPoint, if selected.
         """
-        group_name = "Start here"
         is_default = True
         for entrypoint in entrypoints:
-            url = url_generator(entrypoint, is_default)
+            link = cls._entrypoint_link(
+                url_generator, entrypoint, selected_entrypoint, is_default,
+                group_name
+            )
+            if link:
+                cls.add_link_to_feed(feed, **link)
+                is_default = False
 
-            display_title = EntryPoint.DISPLAY_TITLES.get(entrypoint)
-            if not display_title:
-                # Shouldn't happen.
-                continue
-            selected = entrypoint is selected_entrypoint
-            link = cls.facet_link(url, display_title, "", selected)
+    @classmethod
+    def _entrypoint_link(
+            cls, url_generator, entrypoint, selected_entrypoint,
+            is_default, group_name
+    ):
+        """Create arguments for add_link_to_feed for an EntryPoint link.
+        """
+        display_title = EntryPoint.DISPLAY_TITLES.get(entrypoint)
+        if not display_title:
+            # Shouldn't happen.
+            return
 
-            # Unlike a normal facet group, every link in this facet
-            # group has an additional attribute marking it as an entry
-            # point.
-            #
-            # In OPDS 2 this can become an additional rel value,
-            # removing the need for a custom attribute.
-            link['{%s}facetGroupType' % AtomFeed.SIMPLIFIED_NS] = 'http://librarysimplified.org/rel/entrypoint'
+        url = url_generator(entrypoint, is_default)
+        is_selected = entrypoint is selected_entrypoint
+        link = cls.facet_link(url, display_title, group_name, is_selected)
 
-            self.add_link_to_feed(feed, **link)
-            is_default = False
+        # Unlike a normal facet group, every link in this facet
+        # group has an additional attribute marking it as an entry
+        # point.
+        #
+        # In OPDS 2 this can become an additional rel value,
+        # removing the need for a custom attribute.
+        link['{%s}facetGroupType' % AtomFeed.SIMPLIFIED_NS] = FacetConstants.ENTRY_POINT_REL
+        return link
 
     @classmethod
     def add_breadcrumb_links(self, feed, lane, annotator):
@@ -705,7 +721,7 @@ class AcquisitionFeed(OPDSFeed):
 
         # The first page of a feed of search results may link to
         # alternate entry points into those results.
-        if pagination_offset == 0 and lane.entrypoints:
+        if lane.entrypoints and (not pagination or pagination.offset == 0):
             def make_link(ep, is_default):
                 if is_default:
                     ep = None
