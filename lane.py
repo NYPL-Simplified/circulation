@@ -548,7 +548,7 @@ class WorkList(object):
 
     def initialize(self, library, display_name=None, genres=None,
                    audiences=None, languages=None, media=None,
-                   children=None, priority=None):
+                   children=None, priority=None, entrypoints=None):
         """Initialize with basic data.
 
         This is not a constructor, to avoid conflicts with `Lane`, an
@@ -579,6 +579,9 @@ class WorkList(object):
         :param priority: A number indicating where this WorkList should
         show up in relation to its siblings when it is the child of
         some other WorkList.
+
+        :param entrypoints: A list of EntryPoint objects representing
+        different facets of this WorkList.
         """
         self.library_id = None
         self.collection_ids = []
@@ -604,6 +607,11 @@ class WorkList(object):
 
         self.children = children or []
         self.priority = priority or 0
+
+        if entrypoints:
+            self.entrypoints = list(entrypoints)
+        else:
+            self.entrypoints = []
 
     def get_library(self, _db):
         """Find the Library object associated with this WorkList."""
@@ -1514,6 +1522,11 @@ class Lane(Base, WorkList):
         i.e. how many times do we have to follow .parent before we get None?
         """
         return len(list(self.parentage))
+
+    @property
+    def entrypoints(self):
+        """Lanes cannot currently have EntryPoints."""
+        return []
 
     @hybrid_property
     def visible(self):

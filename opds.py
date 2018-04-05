@@ -297,7 +297,7 @@ class Annotator(object):
         raise NotImplementedError()
 
     @classmethod
-    def groups_url(cls, lane):
+    def groups_url(cls, lane, entrypoint=None):
         raise NotImplementedError()
 
     @classmethod
@@ -529,6 +529,19 @@ class AcquisitionFeed(OPDSFeed):
         all_works = annotator.sort_works_for_groups_feed(all_works)
         feed = AcquisitionFeed(_db, title, url, all_works, annotator)
 
+        # A grouped feed may link to alternate entry points into
+        # the data.
+        if lane.entrypoints:
+            def make_link(ep, is_default):
+                if is_default:
+                    # No need to clutter up the URL with the default
+                    # entry point.
+                    ep = None
+                return annotator.groups_url(lane, entrypoint=ep)
+            self.add_entrypoint_links(
+                feed, make_link, lane.entrypoints, entrypoint
+            )
+
         cls.add_breadcrumb_links(feed, lane, annotator)
         annotator.annotate_feed(feed, lane)
 
@@ -639,8 +652,9 @@ class AcquisitionFeed(OPDSFeed):
         :param selected_entrypoint: The current EntryPoint, if selected.
         """
         group_name = "Start here"
+        is_default = True
         for entrypoint in entrypoints:
-            url = url_generator(entrypoint)
+            url = url_generator(entrypoint, is_default)
 
             display_title = EntryPoint.DISPLAY_TITLES.get(entrypoint)
             if not display_title:
@@ -649,12 +663,16 @@ class AcquisitionFeed(OPDSFeed):
             selected = entrypoint is selected_entrypoint
             link = cls.facet_link(url, display_title, "", selected)
 
-            # Unlike a normal facet group, every item in the entry
-            # point facet group also has a tiny icon (TBD) and a
-            # special attribute marking it as an entry point.
-            
+            # Unlike a normal facet group, every link in this facet
+            # group has an additional attribute marking it as an entry
+            # point.
+            #
+            # In OPDS 2 this can become an additional rel value,
+            # removing the need for a custom attribute.
+            link['{%s}facetGroupType' % AtomFeed.SIMPLIFIED_NS] = 'http://librarysimplified.org/rel/entrypoint'
 
             self.add_link_to_feed(feed, **link)
+            is_default = False
 
     @classmethod
     def add_breadcrumb_links(self, feed, lane, annotator):
@@ -685,25 +703,18 @@ class AcquisitionFeed(OPDSFeed):
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
 
-        # The first page of a feed of search results may have links to
-        # alternate entry points into the search results.
-        if pagination_offset == 0:
-            library = lane.get_library(_db)
-            entrypoints = library.entrypoints
-            default_entrypoint = None
-            if entrypoints:
-                default_entrypoint = entrypoints[0]
-            if entrypoint in (None, default_entrypoint):
-                # It looks like the client has not yet chosen an entry point.
-                # Give them the option to choose one.
-                for entrypoint in entrypoints:
-                    entrypoint_url = annotator.search_url(
-                        lane, query, entrypoint=entrypoint
-                    )
-                    AcquisitionFeed.add_entrypoint_link(
-                        feed=opds_feed.feed,
-                        href=entrypoint_url,
-                    )
+        # The first page of a feed of search results may link to
+        # alternate entry points into those results.
+        if pagination_offset == 0 and lane.entrypoints:
+            def make_link(ep, is_default):
+                if is_default:
+                    ep = None
+                return annotator.search_url(
+                    lane, query, pagination, entrypoint=ep
+                )
+            self.add_entrypoint_links(
+                feed, make_link, lane.entrypoints, entrypoint
+            )
 
         if len(results) > 0:
             # There are works in this list. Add a 'next' link.
@@ -1417,12 +1428,16 @@ class TestAnnotator(Annotator):
         return base
 
     @classmethod
-    def groups_url(cls, lane):
+    def groups_url(cls, lane, entrypoint=None):
         if lane and isinstance(lane, Lane):
             identifier = lane.id
         else:
             identifier = ""
-        return "http://groups/%s" % identifier
+        if entrypoint:
+            entrypoint = '&' + entrypoint
+        else:
+            entrypoint = ''
+        return "http://groups/%s%s" % (identifier, entrypoint)
 
     @classmethod
     def default_lane_url(cls):
