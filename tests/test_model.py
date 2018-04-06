@@ -7355,13 +7355,6 @@ class TestCachedFeed(DatabaseTest):
         eq_("", feed.pagination)
         eq_("", feed.facets)
 
-        # If an EntryPoint is provided, the EntryPoint's internal name
-        # is used as the unique key.
-        audio, usable = m(self._db, lane, page, None, None, annotator,
-                          entrypoint=AudiobooksEntryPoint)
-        eq_(AudiobooksEntryPoint.INTERNAL_NAME, audio.unique_key)
-
-
         # Now let's introduce some pagination and facet information.
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
@@ -7388,17 +7381,9 @@ class TestCachedFeed(DatabaseTest):
             self._db, worklist, page, None, None, annotator
         )
         # The unique key incorporates the WorkList's display name,
-        # its languages, and its audiences.
+        # its languages, its audiences, and the currently selected
+        # EntryPoint.
         eq_("aworklist-eng,spa-Children", feed.unique_key)
-
-        # If an EntryPoint is employed, the unique key also incorporates
-        # The EntryPoint's internal name.
-        feed, fresh = m(
-            self._db, worklist, page, None, None, annotator,
-            entrypoint=AudiobooksEntryPoint
-        )
-        eq_("aworklist-eng,spa-Children-" + AudiobooksEntryPoint.INTERNAL_NAME,
-            feed.unique_key)
 
     def test_fetch_group_feeds(self):
         # Group feeds don't need to worry about facets or pagination,
