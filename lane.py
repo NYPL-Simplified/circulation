@@ -111,7 +111,7 @@ class FacetsWithEntryPoint(FacetConstants):
         """
         return "&".join("=".join(x) for x in sorted(self.items()))
 
-    def apply(self, qu):
+    def apply(self, _db, qu):
         if self.entrypoint:
             qu = self.entrypoint.apply(qu)
         return qu
@@ -192,7 +192,7 @@ class Facets(FacetsWithEntryPoint):
                       availability or self.availability,
                       order or self.order,
                       enabled_facets=self.facets_enabled_at_init,
-                      entrypoint or self.entrypoint
+                      entrypoint=(entrypoint or self.entrypoint)
         )
 
     def items(self):
@@ -304,7 +304,7 @@ class Facets(FacetsWithEntryPoint):
         matches works that fit the given facets, and the query is
         ordered appropriately.
         """
-        qu = super(Facets, self).apply(qu)
+        qu = super(Facets, self).apply(_db, qu)
         from model import MaterializedWorkWithGenre as work_model
         if self.availability == self.AVAILABLE_NOW:
             availability_clause = or_(
@@ -387,7 +387,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
     AcquisitionFeed.groups().
     """
 
-    def __init__(self, minimum_featured_quality=None, uses_customlists=None,
+    def __init__(self, minimum_featured_quality=None, uses_customlists=False,
                  entrypoint=None):
         """Set up an object that finds featured books in a given
         WorkList.
@@ -417,7 +417,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         this will work.
         """
         from model import MaterializedWorkWithGenre as work_model
-        qu = super(FeaturedFacets, self).apply(qu)
+        qu = super(FeaturedFacets, self).apply(_db, qu)
         quality = self.quality_tier_field()
         qu = qu.order_by(
             quality.desc(), work_model.random.desc(), work_model.works_id
@@ -754,7 +754,7 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def groups(self, _db, include_sublanes=True, facets):
+    def groups(self, _db, include_sublanes=True, facets=None):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped acquisition feed for the WorkList.
 
@@ -1295,6 +1295,7 @@ class WorkList(object):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
+        facets = facets or FeaturedFacets()
         facets = facets.navigate(
             library.minimum_featured_quality,
             self.uses_customlists
