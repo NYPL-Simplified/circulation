@@ -299,7 +299,7 @@ class Annotator(object):
         raise NotImplementedError()
 
     @classmethod
-    def groups_url(cls, lane, entrypoint=None):
+    def groups_url(cls, lane, facets=None):
         raise NotImplementedError()
 
     @classmethod
@@ -540,7 +540,9 @@ class AcquisitionFeed(OPDSFeed):
                     # No need to clutter up the URL with the default
                     # entry point.
                     ep = None
-                return annotator.groups_url(lane, entrypoint=ep)
+                return annotator.groups_url(
+                    lane, facets=FacetsWithEntryPoint(ep)
+                )
             self.add_entrypoint_links(
                 feed, make_link, lane.entrypoints, facets.entrypoint
             )
@@ -677,7 +679,8 @@ class AcquisitionFeed(OPDSFeed):
             cls, url_generator, entrypoint, selected_entrypoint,
             is_default, group_name
     ):
-        """Create arguments for add_link_to_feed for an EntryPoint link.
+        """Create arguments for add_link_to_feed for a link that navigates
+        between EntryPoints.
         """
         display_title = EntryPoint.DISPLAY_TITLES.get(entrypoint)
         if not display_title:
@@ -734,7 +737,7 @@ class AcquisitionFeed(OPDSFeed):
                 if is_default:
                     ep = None
                 return annotator.search_url(
-                    lane, query, pagination, entrypoint=ep
+                    lane, query, pagination, facets=FacetsWithEntryPoint(ep)
                 )
             self.add_entrypoint_links(
                 feed, make_link, lane.entrypoints, facets
@@ -1446,7 +1449,7 @@ class TestAnnotator(Annotator):
         return base
 
     @classmethod
-    def search_url(cls, lane, query, pagination, entrypoint=None):
+    def search_url(cls, lane, query, pagination, facets=None):
         if isinstance(lane, Lane):
             base = "http://%s/" % lane.url_name
         else:
@@ -1455,21 +1458,22 @@ class TestAnnotator(Annotator):
         if pagination:
             base += sep + pagination.query_string
             sep = '&'
-        if entrypoint:
-            base += sep + "entrypoint=" + entrypoint.INTERNAL_NAME
+        if facets:
+            base += sep + facets.query_string
         return base
 
     @classmethod
-    def groups_url(cls, lane, entrypoint=None):
+    def groups_url(cls, lane, facets=None):
         if lane and isinstance(lane, Lane):
             identifier = lane.id
         else:
             identifier = ""
-        if entrypoint:
-            entrypoint = '&' + entrypoint
+        if facets:
+            facet_string = '&' + facets.query_string
         else:
-            entrypoint = ''
-        return "http://groups/%s%s" % (identifier, entrypoint)
+            facet_string = ''
+
+        return "http://groups/%s%s" % (identifier, facet_string)
 
     @classmethod
     def default_lane_url(cls):
