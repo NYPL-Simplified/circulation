@@ -52,6 +52,7 @@ from lane import (
     Facets,
     Lane,
     Pagination,
+    SearchFacets,
     WorkList,
 )
 from util.opds_writer import (

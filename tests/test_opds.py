@@ -1298,6 +1298,7 @@ class TestAcquisitionFeed(DatabaseTest):
                 return self.attrs
 
         mock = Mock()
+        old_entrypoint_link = AcquisitionFeed._entrypoint_link
         AcquisitionFeed._entrypoint_link = mock
 
         feed = etree.fromstring("<feed/>")
@@ -1326,6 +1327,7 @@ class TestAcquisitionFeed(DatabaseTest):
         for l in l1, l2:
             eq_("link", l.tag)
             eq_(mock.attrs, l.attrib)
+        AcquisitionFeed._entrypoint_link = old_entrypoint_link
 
     def test_entrypoint_link(self):
         """Test the _entrypoint_link method's ability to create

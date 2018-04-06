@@ -6593,6 +6593,7 @@ class CachedFeed(Base):
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
 
+        unique_key = None
         if lane and isinstance(lane, Lane):
             lane_id = lane.id
         else:
