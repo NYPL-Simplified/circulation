@@ -476,7 +476,7 @@ class AcquisitionFeed(OPDSFeed):
                 _db,
                 lane=lane,
                 type=cache_type,
-                facets=None,
+                facets=facets,
                 pagination=None,
                 annotator=annotator,
                 force_refresh=force_refresh,
@@ -497,6 +497,7 @@ class AcquisitionFeed(OPDSFeed):
                 _db, title, url, lane, annotator,
                 cache_type=cache_type,
                 force_refresh=force_refresh,
+                facets=facets,
             )
             return cached
 
