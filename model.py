@@ -6593,18 +6593,11 @@ class CachedFeed(Base):
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
 
-        entrypoint = facets.entrypoint
         if lane and isinstance(lane, Lane):
             lane_id = lane.id
-            if entrypoint:
-                unique_key = entrypoint.INTERNAL_NAME
-            else:
-                unique_key = None
         else:
             lane_id = None
             unique_key = "%s-%s-%s" % (lane.display_name, lane.language_key, lane.audience_key)
-            if entrypoint:
-                unique_key += '-' + entrypoint.INTERNAL_NAME
         work = None
         if lane:
             work = getattr(lane, 'work', None)
@@ -6669,7 +6662,7 @@ class CachedFeed(Base):
                 return cls.fetch(
                     _db, lane, CachedFeed.PAGE_TYPE, facets, pagination,
                     annotator, force_refresh, max_age=None,
-                    entrypoint=entrypoint
+                    facets=facets
                 )
         else:
             # This feed is cheap enough to generate on the fly.
