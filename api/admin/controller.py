@@ -1168,6 +1168,7 @@ class CustomListsController(CirculationManagerController):
                     entries.append(dict(pwid=entry.edition.permanent_work_id,
                                         title=entry.edition.title,
                                         authors=[author.display_name for author in entry.edition.author_contributors],
+                                        medium=Edition.medium_to_additional_type.get(entry.edition.medium, None),
                     ))
             collections = []
             for collection in list.collections:
