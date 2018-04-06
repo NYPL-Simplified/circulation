@@ -546,7 +546,7 @@ class AcquisitionFeed(OPDSFeed):
                 return annotator.groups_url(
                     lane, facets=FacetsWithEntryPoint(ep)
                 )
-            self.add_entrypoint_links(
+            cls.add_entrypoint_links(
                 feed, make_link, lane.entrypoints, facets.entrypoint
             )
 
@@ -735,6 +735,7 @@ class AcquisitionFeed(OPDSFeed):
                annotator=None, languages=None, facets=None
     ):
         facets = facets or SearchFacets()
+        pagination = pagination or Pagination.default()
         results = lane.search(
             _db, query, search_engine, media, pagination=pagination, languages=languages, facets=facets
         )
@@ -750,8 +751,8 @@ class AcquisitionFeed(OPDSFeed):
                 return annotator.search_url(
                     lane, query, pagination, facets=FacetsWithEntryPoint(ep)
                 )
-            self.add_entrypoint_links(
-                feed, make_link, lane.entrypoints, facets
+            cls.add_entrypoint_links(
+                opds_feed, make_link, lane.entrypoints, facets.entrypoint
             )
 
         if len(results) > 0:
@@ -1480,7 +1481,7 @@ class TestAnnotator(Annotator):
         else:
             identifier = ""
         if facets:
-            facet_string = '&' + facets.query_string
+            facet_string = '?' + facets.query_string
         else:
             facet_string = ''
 
