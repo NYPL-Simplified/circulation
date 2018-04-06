@@ -350,6 +350,31 @@ class TestFacetsApply(DatabaseTest):
 
 class TestFeaturedFacets(DatabaseTest):
 
+    def test_navigate(self):
+        """Test the ability of navigate() to move between slight
+        variations of a FeaturedFacets object.
+        """
+        entrypoint = EntryPoint.EbooksEntryPoint
+        f = FeaturedFacets(1, True, entrypoint)
+
+        different_entrypoing = f.navigate_to(
+            entrypoint=EntryPoint.AudiobooksEntryPoint
+        )
+        eq_(1, different_quality.minimum_featured_quality)
+        eq_(True, different_quality.uses_customlists)
+        eq_(EntryPoint.AudiobooksEntryPoint, different_quality.entrypoint)
+
+        different_quality = f.navigate_to(minimum_featured_quality=2)
+        eq_(2, different_quality.minimum_featured_quality)
+        eq_(True, different_quality.uses_customlists)
+        eq_(entrypoint, different_quality.entrypoint)
+
+        not_a_list = f.navigate_to(uses_customlist)
+        eq_(1, not_a_list.minimum_featured_quality)
+        eq_(False, not_a_list.uses_customlists)
+        eq_(entrypoint, not_a_list.entrypoint)
+
+
     def test_quality_calculation(self):
 
         minimum_featured_quality = 0.6
@@ -2481,6 +2506,34 @@ class TestWorkListGroups(DatabaseTest):
         facets = FeaturedFacets()
         groups = list(wl._groups_for_lanes(self._db, [], [], facets))
         eq_(facets, wl.featured_called_with)
+
+    def test_featured_works_propagates_facets(self):
+        """featured_works uses facets when it calls works().
+        """
+        class Mock(WorkList):
+            def works(self, _db, facets):
+                self.works_called_with = facets
+                return []
+
+        wl = Mock()
+        wl.initialize(library=self._default_library)
+        facets = FeaturedFacets(
+            minimum_featured_quality = object(),
+            uses_customlists = object(),
+            entrypoint=AudiobooksEntryPoint
+        )
+        groups = list(wl.featured_works(self._db, facets))
+
+        # The Facets object passed in to Works is based on the object
+        # we passed in, but it's not the same. The entry point has
+        # been preserverd, but the worklist's uses_customlists and
+        # the library's minimum_featured_quality have replaced the
+        # fake values set earlier.
+        facets2 = wl.works_called_with
+        eq_(facets.entrypoint, facets2.entrypoint)
+        eq_(self._default_library.minimum_featured_quality,
+            facets2.minimum_featured_quality)
+        eq_(wl.uses_customlists, facets2.uses_customlists)
 
     def test_featured_works_with_lanes(self):
         """_featured_works_with_lanes calls works_in_window on every lane

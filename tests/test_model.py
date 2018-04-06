@@ -7381,8 +7381,7 @@ class TestCachedFeed(DatabaseTest):
             self._db, worklist, page, None, None, annotator
         )
         # The unique key incorporates the WorkList's display name,
-        # its languages, its audiences, and the currently selected
-        # EntryPoint.
+        # its languages, and its audiences.
         eq_("aworklist-eng,spa-Children", feed.unique_key)
 
     def test_fetch_group_feeds(self):

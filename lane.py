@@ -120,12 +120,14 @@ class FacetsWithEntryPoint(FacetConstants):
 class Facets(FacetsWithEntryPoint):
     """A full-fledged facet class that supports complex navigation between
     multiple facet groups.
-    
-    This is only used in paginated OPDS feeds.
+
+    Despite the generic name, this is only used in 'page' type OPDS
+    feeds that list all the works in some WorkList.
 
     The currently selected EntryPoint (if any) is propagated through
     all generated URLs, but no functionality is provided for
     navigating _between_ EntryPoints.
+
     """
 
     @classmethod
@@ -826,7 +828,7 @@ class WorkList(object):
             library.minimum_featured_quality,
             self.uses_customlists
         )
-        
+
         query = self.works(_db, facets=facets)
         if not query:
             # works() may return None, indicating that the whole
@@ -1125,7 +1127,7 @@ class WorkList(object):
 
     def search(self, _db, query, search_client, media=None, pagination=None, languages=None, facets=None):
         """Find works in this WorkList that match a search query.
-        
+
         :param facets: A faceting object, probably a SearchFacets.
         """
         if not pagination:
