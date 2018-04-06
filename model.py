@@ -6578,7 +6578,7 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
-              force_refresh=False, max_age=None, entrypoint=None):
+              force_refresh=False, max_age=None):
         from opds import AcquisitionFeed
         from lane import Lane, WorkList
         if max_age is None:
@@ -6592,6 +6592,8 @@ class CachedFeed(Base):
                 max_age = 0
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
+
+        entrypoint = facets.entrypoint
         if lane and isinstance(lane, Lane):
             lane_id = lane.id
             if entrypoint:

@@ -4,7 +4,7 @@ class FacetConstants(object):
 
     # A special constant, basically an additional rel, indicating that
     # an OPDS facet group represents different entry points into a
-    # collection.
+    # WorkList.
     ENTRY_POINT_REL = 'http://librarysimplified.org/terms/rel/entrypoint'
 
     # Subset the collection, roughly, by quality.

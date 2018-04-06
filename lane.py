@@ -87,7 +87,46 @@ from sqlalchemy.dialects.postgresql import (
     INT4RANGE,
 )
 
-class Facets(FacetConstants):
+class FacetsWithEntryPoint(FacetConstants):
+    """Basic Facets class that knows how to filter a query based on a
+    selected EntryPoint.
+    """
+    def __init__(self, entrypoint=None):
+        """Prepare a query to focus on a specific EntryPoint.
+
+        :param entrypoint: An EntryPoint (optional).
+        """
+        self.entrypoint = entrypoint
+
+    def items(self):
+        """Yields a 2-tuple for every active facet setting."""
+        if self.entrypoint:
+            yield (self.ENTRY_POINT_FACET_GROUP_NAME,
+                   self.entrypoint.INTERNAL_NAME)
+
+    @property
+    def query_string(self):
+        """A query string fragment that propagates all active facet
+        settings.
+        """
+        return "&".join("=".join(x) for x in sorted(self.items()))
+
+    def apply(self, qu):
+        if self.entrypoint:
+            qu = self.entrypoint.apply(qu)
+        return qu
+
+
+class Facets(FacetsWithEntryPoint):
+    """A full-fledged facet class that supports complex navigation between
+    multiple facet groups.
+    
+    This is only used in paginated OPDS feeds.
+
+    The currently selected EntryPoint (if any) is propagated through
+    all generated URLs, but no functionality is provided for
+    navigating _between_ EntryPoints.
+    """
 
     @classmethod
     def default(cls, library):
@@ -99,15 +138,21 @@ class Facets(FacetConstants):
         )
 
     def __init__(self, library, collection, availability, order,
-                 order_ascending=None, enabled_facets=None):
-        """
+                 order_ascending=None, enabled_facets=None, entrypoint=None):
+        """Constructor.
+
         :param library: The library's defaults will be used when creating the
         facets. If library is None, collection, availability, order, and
         enabled_facets must be specified.
 
         :param collection: This is not a Collection object; it's a value for
         the 'collection' facet, e.g. 'main' or 'featured'.
+
+        :param entrypoint: An EntryPoint class. The 'entry point'
+        facet group is configured on a per-WorkList basis rather than
+        a per-library basis.
         """
+        super(Facets, self).__init__(entrypoint)
         if order_ascending is None:
             if order == self.ORDER_ADDED_TO_COLLECTION:
                 order_ascending = self.ORDER_DESCENDING
@@ -139,13 +184,16 @@ class Facets(FacetConstants):
         self.order_ascending = order_ascending
         self.facets_enabled_at_init = enabled_facets
 
-    def navigate(self, collection=None, availability=None, order=None):
+    def navigate(self, collection=None, availability=None, order=None,
+                 entrypoint=None):
         """Create a slightly different Facets object from this one."""
         return Facets(self.library,
                       collection or self.collection,
                       availability or self.availability,
                       order or self.order,
-                      enabled_facets=self.facets_enabled_at_init)
+                      enabled_facets=self.facets_enabled_at_init,
+                      entrypoint or self.entrypoint
+        )
 
     def items(self):
         if self.order:
@@ -156,13 +204,12 @@ class Facets(FacetConstants):
             yield (self.COLLECTION_FACET_GROUP_NAME, self.collection)
 
     @property
-    def query_string(self):
-        return "&".join("=".join(x) for x in sorted(self.items()))
-
-    @property
     def enabled_facets(self):
         """Yield a 3-tuple of lists (order, availability, collection)
         representing facet values enabled via initialization or Configuration
+
+        The 'entry point' facet group is handled separately, since it
+        is not always used.
         """
         if self.facets_enabled_at_init:
             # When this Facets object was initialized, a list of enabled
@@ -195,6 +242,9 @@ class Facets(FacetConstants):
         """Yield a list of 4-tuples
         (facet group, facet value, new Facets object, selected)
         for use in building OPDS facets.
+
+        This does not yield anything for the 'entry point' facet group,
+        which must be handled separately.
         """
 
         order_facets, availability_facets, collection_facets = self.enabled_facets
@@ -254,6 +304,7 @@ class Facets(FacetConstants):
         matches works that fit the given facets, and the query is
         ordered appropriately.
         """
+        qu = super(Facets, self).apply(qu)
         from model import MaterializedWorkWithGenre as work_model
         if self.availability == self.AVAILABLE_NOW:
             availability_clause = or_(
@@ -327,22 +378,35 @@ class Facets(FacetConstants):
         return order_by_sorted, order_by
 
 
-class FeaturedFacets(object):
+class FeaturedFacets(FacetsWithEntryPoint):
 
-    """A Facets-like object that configures a query so that the 'most
+    """A simple faceting object that configures a query so that the 'most
     featurable' items are at the front.
 
-    The only method of Facets implemented is apply(), and there is no
-    way to navigate to or from this Facets object. It's just a
-    convenient thing to pass into Lane.works().
+    This is mainly a convenient thing to pass into
+    AcquisitionFeed.groups().
     """
 
-    def __init__(self, minimum_featured_quality, uses_customlists):
+    def __init__(self, minimum_featured_quality=None, uses_customlists=None,
+                 entrypoint=None):
         """Set up an object that finds featured books in a given
         WorkList.
         """
+        super(FeaturedFacets, self).__init__(entrypoint)
         self.minimum_featured_quality = minimum_featured_quality
         self.uses_customlists = uses_customlists
+
+    def navigate(self, minimum_featured_quality=None, uses_customlists=None,
+                 entrypoint=None):
+        """Create a slightly different FeaturedFacets object based on this
+        one.
+        """
+        minimum_featured_quality = minimum_featured_quality or self.minimum_featured_quality
+        uses_customlists = uses_customlists or self.uses_customlists
+        entrypoint = entrypoint or self.entrypoint
+        return FeaturedFacets(
+            minimum_featured_quality, uses_customlists, entrypoint
+        )
 
     def apply(self, _db, qu):
         """Order a query by quality tier, and then randomly.
@@ -353,6 +417,7 @@ class FeaturedFacets(object):
         this will work.
         """
         from model import MaterializedWorkWithGenre as work_model
+        qu = super(FeaturedFacets, self).apply(qu)
         quality = self.quality_tier_field()
         qu = qu.order_by(
             quality.desc(), work_model.random.desc(), work_model.works_id
@@ -416,6 +481,11 @@ class FeaturedFacets(object):
         tier = tier.label("quality_tier")
         self._quality_tier_field = tier
         return self._quality_tier_field
+
+
+# Apart from a selectable entry point, search queries don't support
+# faceted navigation, so we can use the base class.
+SearchFacets = FacetsWithEntryPoint
 
 
 class Pagination(object):
@@ -581,7 +651,7 @@ class WorkList(object):
         some other WorkList.
 
         :param entrypoints: A list of EntryPoint objects representing
-        different facets of this WorkList.
+        different ways of slicing up this WorkList.
         """
         self.library_id = None
         self.collection_ids = []
@@ -684,11 +754,12 @@ class WorkList(object):
             key += ','.join(audiences)
         return key
 
-    def groups(self, _db, include_sublanes=True, entrypoint=None):
+    def groups(self, _db, include_sublanes=True, facets):
         """Extract a list of samples from each child of this WorkList.  This
         can be used to create a grouped acquisition feed for the WorkList.
 
-        :param entrypoint: An EntryPoint to use to restrict the works on view.
+        :param facets: A FeaturedFacets object, presumably a FeaturedFacets,
+        that may restrict the works on view.
 
         :yield: A sequence of (Work, WorkList) 2-tuples, with each
         WorkList representing the child WorkList in which the Work is
@@ -697,7 +768,7 @@ class WorkList(object):
         if not include_sublanes:
             # We only need to find featured works for this lane,
             # not this lane plus its sublanes.
-            for work in self.featured_works(_db, entrypoint=entrypoint):
+            for work in self.featured_works(_db, facets=facets):
                 yield work, self
             return
 
@@ -728,14 +799,16 @@ class WorkList(object):
         # for any children that are Lanes, and call groups()
         # recursively for any children that are not.
         for work, worklist in self._groups_for_lanes(
-                _db, relevant_children, relevant_lanes, entrypoint=entrypoint
+                _db, relevant_children, relevant_lanes, facets=facets
         ):
             yield work, worklist
 
-    def featured_works(self, _db, entrypoint=None):
+    def featured_works(self, _db, facets=None):
         """Find a random sample of featured books.
 
         Used when building a grouped OPDS feed for this WorkList's parent.
+
+        :param facets: A FeaturedFacets object.
 
         :return: A list of MaterializedWorkWithGenre objects.  Under
         no circumstances will a single work show up multiple times in
@@ -748,11 +821,13 @@ class WorkList(object):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
-        facets = FeaturedFacets(
+        facets = facets or FeaturedFacets()
+        facets = facets.navigate(
             library.minimum_featured_quality,
             self.uses_customlists
         )
-        query = self.works(_db, facets=facets, entrypoint=entrypoint)
+        
+        query = self.works(_db, facets=facets)
         if not query:
             # works() may return None, indicating that the whole
             # thing is a bad idea and the query should not even be
@@ -770,7 +845,7 @@ class WorkList(object):
                 work_ids.add(work.works_id)
         return works
 
-    def works(self, _db, facets=None, pagination=None, include_quality_tier=False, entrypoint=None):
+    def works(self, _db, facets=None, pagination=None, include_quality_tier=False):
         """Create a query against a materialized view that finds Work-like
         objects corresponding to all the Works that belong in this
         WorkList.
@@ -783,7 +858,6 @@ class WorkList(object):
            constraints on WorkList membership.
         :param pagination: A Pagination object indicating which part of
            the WorkList the caller is looking at.
-        :param entrypoint: An EntryPoint to use to restrict the works on view.
         :return: A Query, or None if the WorkList is deemed to be a
            bad idea in the first place.
         """
@@ -821,7 +895,7 @@ class WorkList(object):
             qu = qu.filter(
                 mw.collection_id.in_(self.collection_ids)
             )
-        qu = self.apply_filters(_db, qu, facets, pagination, entrypoint=entrypoint)
+        qu = self.apply_filters(_db, qu, facets, pagination)
         if qu:
             qu = qu.options(
                 contains_eager(mw.license_pool),
@@ -876,7 +950,7 @@ class WorkList(object):
         )
         return results
 
-    def apply_filters(self, _db, qu, facets, pagination, featured=False, entrypoint=None):
+    def apply_filters(self, _db, qu, facets, pagination, featured=False):
         """Apply common WorkList filters to a query. Also apply any
         subclass-specific filters defined by
         bibliographic_filter_clause().
@@ -909,9 +983,6 @@ class WorkList(object):
 
         if pagination:
             qu = pagination.apply(qu)
-
-        if entrypoint:
-            qu = entrypoint.apply(qu)
 
         return qu
 
@@ -1052,8 +1123,11 @@ class WorkList(object):
         """By default, a WorkList is searchable."""
         return self
 
-    def search(self, _db, query, search_client, media=None, pagination=None, languages=None, entrypoint=None):
-        """Find works in this WorkList that match a search query."""
+    def search(self, _db, query, search_client, media=None, pagination=None, languages=None, facets=None):
+        """Find works in this WorkList that match a search query.
+        
+        :param facets: A faceting object, probably a SearchFacets.
+        """
         if not pagination:
             pagination = Pagination(
                 offset=0, size=Pagination.DEFAULT_SEARCH_SIZE
@@ -1083,7 +1157,7 @@ class WorkList(object):
             a = time.time()
 
             # These arguments to query_works might be modified by
-            # an entrypoint.
+            # the facets in play.
             kwargs = dict(
                 media=media,
                 languages=default_languages,
@@ -1092,11 +1166,11 @@ class WorkList(object):
                 target_age=target_age,
                 in_any_of_these_genres=self.genre_ids,
             )
-            if entrypoint:
-                kwargs = entrypoint.modified_search_arguments(**kwargs)
+            if facets and facets.entrypoint:
+                kwargs = facets.entrypoint.modified_search_arguments(**kwargs)
 
             # These arguments to query_works cannot be modified by
-            # an entrypoint.
+            # the facets in play.
             kwargs.update(
                 dict(
                     library=self.get_library(_db),
@@ -1125,7 +1199,7 @@ class WorkList(object):
 
         return results
 
-    def _groups_for_lanes(self, _db, relevant_lanes, queryable_lanes, entrypoint=None):
+    def _groups_for_lanes(self, _db, relevant_lanes, queryable_lanes, facets=None):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
@@ -1137,7 +1211,7 @@ class WorkList(object):
         queryable_lane_set = set(queryable_lanes)
 
         work_quality_tier_lane = list(
-            self._featured_works_with_lanes(_db, queryable_lanes, entrypoint=entrypoint)
+            self._featured_works_with_lanes(_db, queryable_lanes, facets=facets)
         )
 
         def _done_with_lane(lane):
@@ -1197,17 +1271,19 @@ class WorkList(object):
                 # Lane at all. Do a whole separate query and plug it
                 # in at this point.
                 for x in lane.groups(
-                        _db, include_sublanes=False, entrypoint=entrypoint
+                    _db, include_sublanes=False, facets=facets
                 ):
                     yield x
 
-    def _featured_works_with_lanes(self, _db, lanes, entrypoint=None):
+    def _featured_works_with_lanes(self, _db, lanes, facets):
         """Find a sequence of works that can be used to
         populate this lane's grouped acquisition feed.
 
         :param lanes: Classify MaterializedWorkWithGenre objects
         as belonging to one of these lanes (presumably sublanes
         of `self`).
+
+        :param facets: A faceting object, presumably a FeaturedFacets
 
         :yield: A sequence of (MaterializedWorkWithGenre,
         quality_tier, Lane) 3-tuples.
@@ -1219,18 +1295,19 @@ class WorkList(object):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
-        facets = FeaturedFacets(
+        facets = facets.navigate(
             library.minimum_featured_quality,
             self.uses_customlists
         )
+
         # Pull a window of works for every lane we were given.
         for lane in lanes:
             for mw, quality_tier in lane.works_in_window(
-                    _db, facets, target_size, entrypoint=entrypoint
+                    _db, facets, target_size
             ):
                 yield mw, quality_tier, lane
 
-    def works_in_window(self, _db, facets, target_size, entrypoint=None):
+    def works_in_window(self, _db, facets, target_size):
         """Find all MaterializedWorkWithGenre objects within a randomly
         selected window of values for the `random` field.
 
@@ -1243,7 +1320,7 @@ class WorkList(object):
         from model import MaterializedWorkWithGenre
         work_model = MaterializedWorkWithGenre
 
-        lane_query = self.works(_db, facets=facets, entrypoint=entrypoint)
+        lane_query = self.works(_db, facets=facets)
 
         # Make sure this query finds a number of works proportinal
         # to the expected size of the lane.
@@ -1793,10 +1870,12 @@ class Lane(Base, WorkList):
             end = start + 0.001
         return start, end
 
-    def groups(self, _db, include_sublanes=True, entrypoint=None):
+    def groups(self, _db, include_sublanes=True, facets=None):
         """Return a list of (MaterializedWorkWithGenre, Lane) 2-tuples
         describing a sequence of featured items for this lane and
         (optionally) its children.
+
+        :param facets: A FeaturedFacets object.
         """
         clauses = []
         library = self.get_library(_db)
@@ -1815,18 +1894,20 @@ class Lane(Base, WorkList):
         queryable_lanes = [x for x in relevant_lanes
                            if x == self or x.inherit_parent_restrictions]
         return self._groups_for_lanes(
-            _db, relevant_lanes, queryable_lanes, entrypoint=entrypoint
+            _db, relevant_lanes, queryable_lanes, facets=facets
         )
 
-    def search(self, _db, query, search_client, media=None, pagination=None, languages=None, entrypoint=None):
+    def search(self, _db, query, search_client, media=None, pagination=None, languages=None, facets=None):
         """Find works in this lane that also match a search query.
+
+        :param facets: A SearchFacets object.
         """
         target = self.search_target
 
         if target == self:
-            return super(Lane, self).search(_db, query, search_client, media, pagination, languages, entrypoint=entrypoint)
+            return super(Lane, self).search(_db, query, search_client, media, pagination, languages, facets=facets)
         else:
-            return target.search(_db, query, search_client, media, pagination, languages, entrypoint=entrypoint)
+            return target.search(_db, query, search_client, media, pagination, languages, facets=facets)
 
     def bibliographic_filter_clause(self, _db, qu, featured, outer_join=False):
         """Create an AND clause that restricts a query to find
