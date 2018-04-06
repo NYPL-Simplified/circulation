@@ -1425,6 +1425,70 @@ class TestAcquisitionFeed(DatabaseTest):
         CachedFeed.fetch = old_cachedfeed_fetch
         AcquisitionFeed.page = old_acquisitionfeed_page
 
+    def test_first_page_has_entrypoint_links(self):
+        """When AcquisitionFeed.page() generates the first page of a paginated
+        list, it will link to different entry points into the list,
+        assuming the WorkList has different entry points.
+        """
+        class Mock(object):
+            def add_entrypoint_links(self, *args):
+                self.called_with = args
+
+        wl = WorkList()
+        wl.initialize(library=self._default_library)
+        def works(_db, facets, pagination):
+            """Mock WorkList.works so we don't need any actual works
+            to run the test.
+            """
+            return []
+        wl.works = works
+
+        annotator = TestAnnotator()
+        def run(facets=None, pagination=None):
+            """Call page() and see what add_entrypoint_links
+            was called with.
+            """
+            mock.called_with = None
+            AcquisitionFeed.page(
+                self._db, "title", "url", wl, annotator,
+                cache_type=AcquisitionFeed.NO_CACHE, facets=facets,
+                pagination=pagination
+            )
+            return mock.called_with
+
+        mock = Mock()
+        old_add_entrypoint_links = AcquisitionFeed.add_entrypoint_links
+        AcquisitionFeed.add_entrypoint_links = mock.add_entrypoint_links
+
+        # The WorkList has no entry points, so the mock method is not
+        # even called.
+        eq_(None, run())
+
+        # Let's give the WorkList two possible entry points, and choose one.
+        wl.initialize(library=self._default_library, display_name="wl",
+                      entrypoints=[AudiobooksEntryPoint, EbooksEntryPoint])
+        facets = Facets.default(self._default_library).navigate(
+            entrypoint=EbooksEntryPoint
+        )
+
+        feed, make_link, entrypoints, selected = run(facets)
+
+        # This time, add_entrypoint_links was called, and passed both
+        # possible entry points and the selected entry point.
+        eq_(wl.entrypoints, entrypoints)
+        eq_(selected, EbooksEntryPoint)
+
+        # The make_link function calls TestAnnotator.feed_url() when
+        # passed an EntryPoint.
+        eq_("http://wl/?entrypoint=Book", make_link(EbooksEntryPoint, False))
+
+        # The entry point links are only created at the beginning of a
+        # list.
+        pagination = Pagination(offset=100)
+        eq_(None, run(facets, pagination))
+
+        AcquisitionFeed.add_entrypoint_links = old_add_entrypoint_links
+
     def test_license_tags_no_loan_or_hold(self):
         edition, pool = self._edition(with_license_pool=True)
         availability, holds, copies = AcquisitionFeed.license_tags(

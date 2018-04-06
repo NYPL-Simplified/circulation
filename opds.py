@@ -50,6 +50,7 @@ from model import (
 )
 from lane import (
     Facets,
+    FacetsWithEntryPoint,
     Lane,
     Pagination,
     SearchFacets,
@@ -604,7 +605,15 @@ class AcquisitionFeed(OPDSFeed):
         if lane.entrypoints and (not pagination or pagination.offset == 0):
             # On the first page of a paginated feed there may be
             # multiple entry points into the same dataset.
-            self.add_entrypoint_links(
+            def make_link(ep, is_default):
+                if is_default:
+                    # No need to clutter up the URL with the default
+                    # entry point.
+                    ep = None
+                return annotator.feed_url(
+                    lane, facets=FacetsWithEntryPoint(ep)
+                )
+            cls.add_entrypoint_links(
                 feed, make_link, lane.entrypoints, facets.entrypoint
             )
 

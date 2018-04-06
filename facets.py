@@ -6,6 +6,7 @@ class FacetConstants(object):
     # an OPDS facet group represents different entry points into a
     # WorkList.
     ENTRY_POINT_REL = 'http://librarysimplified.org/terms/rel/entrypoint'
+    ENTRY_POINT_FACET_GROUP_NAME = 'entrypoint'
 
     # Subset the collection, roughly, by quality.
     COLLECTION_FACET_GROUP_NAME = 'collection'
