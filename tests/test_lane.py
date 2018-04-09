@@ -64,15 +64,15 @@ class TestFacetsWithEntryPoint(object):
 
     def test_apply(self):
         class MockEntryPoint(object):
-            def apply(self, _db, qu):
-                self.called_with = (_db, qu)
+            def apply(self, qu):
+                self.called_with = qu
 
         ep = MockEntryPoint()
         f = FacetsWithEntryPoint(ep)
         _db = object()
         qu = object()
         f.apply(_db, qu)
-        eq_((_db, qu), ep.called_with)
+        eq_(qu, ep.called_with)
 
 
 class TestFacets(DatabaseTest):
@@ -416,19 +416,17 @@ class TestFeaturedFacets(DatabaseTest):
         entrypoint = EbooksEntryPoint
         f = FeaturedFacets(1, True, entrypoint)
 
-        different_entrypoint = f.navigate_to(
-            entrypoint=AudiobooksEntryPoint
-        )
-        eq_(1, different_quality.minimum_featured_quality)
-        eq_(True, different_quality.uses_customlists)
-        eq_(AudiobooksEntryPoint, different_quality.entrypoint)
+        different_entrypoint = f.navigate(entrypoint=AudiobooksEntryPoint)
+        eq_(1, different_entrypoint.minimum_featured_quality)
+        eq_(True, different_entrypoint.uses_customlists)
+        eq_(AudiobooksEntryPoint, different_entrypoint.entrypoint)
 
-        different_quality = f.navigate_to(minimum_featured_quality=2)
+        different_quality = f.navigate(minimum_featured_quality=2)
         eq_(2, different_quality.minimum_featured_quality)
         eq_(True, different_quality.uses_customlists)
         eq_(entrypoint, different_quality.entrypoint)
 
-        not_a_list = f.navigate_to(uses_customlist)
+        not_a_list = f.navigate(uses_customlists=False)
         eq_(1, not_a_list.minimum_featured_quality)
         eq_(False, not_a_list.uses_customlists)
         eq_(entrypoint, not_a_list.entrypoint)

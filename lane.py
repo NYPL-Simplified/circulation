@@ -119,7 +119,7 @@ class FacetsWithEntryPoint(FacetConstants):
         with this object.
         """
         if self.entrypoint:
-            qu = self.entrypoint.apply(_db, qu)
+            qu = self.entrypoint.apply(qu)
         return qu
 
 
@@ -410,7 +410,8 @@ class FeaturedFacets(FacetsWithEntryPoint):
         one.
         """
         minimum_featured_quality = minimum_featured_quality or self.minimum_featured_quality
-        uses_customlists = uses_customlists or self.uses_customlists
+        if uses_customlists is None:
+            uses_customlists = self.uses_customlists
         entrypoint = entrypoint or self.entrypoint
         return FeaturedFacets(
             minimum_featured_quality, uses_customlists, entrypoint
@@ -831,8 +832,8 @@ class WorkList(object):
 
         facets = facets or FeaturedFacets()
         facets = facets.navigate(
-            library.minimum_featured_quality,
-            self.uses_customlists
+            minimum_featured_quality=library.minimum_featured_quality,
+            uses_customlists=self.uses_customlists
         )
 
         query = self.works(_db, facets=facets)
