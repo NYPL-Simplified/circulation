@@ -129,13 +129,7 @@ class Facets(FacetsWithEntryPoint):
 
     Despite the generic name, this is only used in 'page' type OPDS
     feeds that list all the works in some WorkList.
-
-    The currently selected EntryPoint (if any) is propagated through
-    all generated URLs, but no functionality is provided for
-    navigating _between_ EntryPoints.
-
     """
-
     @classmethod
     def default(cls, library):
         return cls(
