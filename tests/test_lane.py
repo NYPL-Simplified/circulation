@@ -244,6 +244,29 @@ class TestFacets(DatabaseTest):
         actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)
         compare(expect, actual)
 
+
+
+class TestFacetsWithEntryPoint(object):
+
+    def test_items(self):
+        ep = AudiobooksEntryPoint
+        f = FacetsWithEntryPoint(ep)
+        expect_items = (f.ENTRY_POINT_FACET_GROUP_NAME, ep.INTERNAL_NAME)
+        eq_([expect_items], list(f.items()))
+        eq_("%s=%s" % expect_items, f.query_string)
+
+    def test_apply(self):
+        class MockEntryPoint(object):
+            def apply(self, _db, qu):
+                self.called_with = (_db, qu)
+
+        ep = MockEntryPoint()
+        f = FacetsWithEntryPoint(ep)
+        _db = object()
+        qu = object()
+        f.apply(_db, qu)
+        eq_((_db, qu), ep.called_with)
+
 class TestFacetsApply(DatabaseTest):
 
     def test_apply(self):

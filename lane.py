@@ -92,14 +92,17 @@ class FacetsWithEntryPoint(FacetConstants):
     selected EntryPoint.
     """
     def __init__(self, entrypoint=None):
-        """Prepare a query to focus on a specific EntryPoint.
+        """Constructor.
 
         :param entrypoint: An EntryPoint (optional).
         """
         self.entrypoint = entrypoint
 
     def items(self):
-        """Yields a 2-tuple for every active facet setting."""
+        """Yields a 2-tuple for every active facet setting.
+
+        In this class that just means the entrypoint.
+        """
         if self.entrypoint:
             yield (self.ENTRY_POINT_FACET_GROUP_NAME,
                    self.entrypoint.INTERNAL_NAME)
@@ -112,8 +115,11 @@ class FacetsWithEntryPoint(FacetConstants):
         return "&".join("=".join(x) for x in sorted(self.items()))
 
     def apply(self, _db, qu):
+        """Modify the given query based on the EntryPoint associated
+        with this object.
+        """
         if self.entrypoint:
-            qu = self.entrypoint.apply(qu)
+            qu = self.entrypoint.apply(_db, qu)
         return qu
 
 
