@@ -6578,7 +6578,7 @@ class CachedFeed(Base):
 
     @classmethod
     def fetch(cls, _db, lane, type, facets, pagination, annotator,
-              force_refresh=False, max_age=None, entrypoint=None):
+              force_refresh=False, max_age=None):
         from opds import AcquisitionFeed
         from lane import Lane, WorkList
         if max_age is None:
@@ -6592,17 +6592,13 @@ class CachedFeed(Base):
                 max_age = 0
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
+
+        unique_key = None
         if lane and isinstance(lane, Lane):
             lane_id = lane.id
-            if entrypoint:
-                unique_key = entrypoint.INTERNAL_NAME
-            else:
-                unique_key = None
         else:
             lane_id = None
             unique_key = "%s-%s-%s" % (lane.display_name, lane.language_key, lane.audience_key)
-            if entrypoint:
-                unique_key += '-' + entrypoint.INTERNAL_NAME
         work = None
         if lane:
             work = getattr(lane, 'work', None)
@@ -6666,8 +6662,7 @@ class CachedFeed(Base):
                 )
                 return cls.fetch(
                     _db, lane, CachedFeed.PAGE_TYPE, facets, pagination,
-                    annotator, force_refresh, max_age=None,
-                    entrypoint=entrypoint
+                    annotator, force_refresh, max_age=None
                 )
         else:
             # This feed is cheap enough to generate on the fly.

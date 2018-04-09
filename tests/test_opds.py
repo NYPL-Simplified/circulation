@@ -18,6 +18,12 @@ from config import (
     Configuration,
     temp_config,
 )
+from entrypoint import (
+    AudiobooksEntryPoint,
+    EbooksEntryPoint,
+    EntryPoint,
+)
+from facets import FacetConstants
 from model import (
     CachedFeed,
     ConfigurationSetting,
@@ -33,8 +39,11 @@ from model import (
     Work,
 )
 
+from facets import FacetConstants
+
 from lane import (
     Facets,
+    FeaturedFacets,
     Pagination,
     Lane,
     WorkList,
@@ -1272,6 +1281,150 @@ class TestOPDS(DatabaseTest):
 
 class TestAcquisitionFeed(DatabaseTest):
 
+    def test_add_entrypoint_links(self):
+        """Verify that add_entrypoint_links calls _entrypoint_link
+        on every EntryPoint passed in.
+        """
+        m = AcquisitionFeed.add_entrypoint_links
+
+        old_entrypoint_link = AcquisitionFeed._entrypoint_link
+        class Mock(object):
+            attrs = dict(href="the response")
+
+            def __init__(self):
+                self.calls = []
+
+            def __call__(self, *args):
+                self.calls.append(args)
+                return self.attrs
+
+        mock = Mock()
+        old_entrypoint_link = AcquisitionFeed._entrypoint_link
+        AcquisitionFeed._entrypoint_link = mock
+
+        feed = etree.fromstring("<feed/>")
+        entrypoints = [AudiobooksEntryPoint, EbooksEntryPoint]
+        url_generator = object()
+        AcquisitionFeed.add_entrypoint_links(
+            feed, url_generator, entrypoints, EbooksEntryPoint,
+            "Some entry points"
+        )
+
+        # Two different calls were made to the mock method.
+        c1, c2 = mock.calls
+
+        # The first entry point is not selected.
+        eq_(c1,
+            (url_generator, AudiobooksEntryPoint, EbooksEntryPoint, True, "Some entry points")
+        )
+        # The second one is selected.
+        eq_(c2,
+            (url_generator, EbooksEntryPoint, EbooksEntryPoint, False, "Some entry points")
+        )
+
+        # Two identical <link> tags were added to the <feed> tag, one
+        # for each call to the mock method.
+        l1, l2 = list(feed.iterchildren())
+        for l in l1, l2:
+            eq_("link", l.tag)
+            eq_(mock.attrs, l.attrib)
+        AcquisitionFeed._entrypoint_link = old_entrypoint_link
+
+    def test_entrypoint_link(self):
+        """Test the _entrypoint_link method's ability to create
+        attributes for <link> tags.
+        """
+        m = AcquisitionFeed._entrypoint_link
+        def g(entrypoint, is_default):
+            """A mock URL generator."""
+            return "%s - %s" % (entrypoint.INTERNAL_NAME, is_default)
+
+        # If the entry point is not registered, None is returned.
+        eq_(None, m(g, object(), object(), True, "group"))
+
+        # Now make a real set of link attributes.
+        l = m(g, AudiobooksEntryPoint, AudiobooksEntryPoint, False, "Grupe")
+
+        # The link is identified as belonging to an entry point-type
+        # facet group.
+        eq_(l['rel'], AcquisitionFeed.FACET_REL)
+        eq_(l['{http://librarysimplified.org/terms/}facetGroupType'],
+            FacetConstants.ENTRY_POINT_REL)
+        eq_('Grupe', l['{http://opds-spec.org/2010/catalog}facetGroup'])
+
+        # This facet is the active one in the group.
+        eq_('true', l['{http://opds-spec.org/2010/catalog}activeFacet'])
+
+        # The URL generator was invoked to create the href.
+        eq_(l['href'], g(AudiobooksEntryPoint, False))
+
+        # The facet title identifies it as a way to look at audiobooks.
+        eq_(EntryPoint.DISPLAY_TITLES[AudiobooksEntryPoint], l['title'])
+
+        # Now try some variants.
+
+        # Here, the entry point is the default one.
+        l = m(g, AudiobooksEntryPoint, AudiobooksEntryPoint, True, "Grupe")
+
+        # This may affect the URL generated for the facet link.
+        eq_(l['href'], g(AudiobooksEntryPoint, True))
+
+        # Here, the entry point for which we're generating the link is
+        # not the selected one -- EbooksEntryPoint is.
+        l = m(g, AudiobooksEntryPoint, EbooksEntryPoint, True, "Grupe")
+
+        # This means the 'activeFacet' attribute is not present.
+        assert '{http://opds-spec.org/2010/catalog}activeFacet' not in l
+
+    def test_groups_propagates_facets(self):
+        """AcquisitionFeed.groups() might call several different
+        methods that each need a facet object.
+        """
+        class Mock(object):
+            """Contains all the mock methods used by this test."""
+            def fetch(self, *args, **kwargs):
+                self.fetch_called_with = kwargs['facets']
+                return None, False
+
+            def groups(self, _db, facets):
+                self.groups_called_with = facets
+                return []
+
+            def page(self, *args, **kwargs):
+                self.page_called_with = facets
+                return []
+
+        mock = Mock()
+        old_cachedfeed_fetch = CachedFeed.fetch
+        CachedFeed.fetch = mock.fetch
+
+        lane = self._lane()
+        lane.groups = mock.groups
+
+        old_acquisitionfeed_page = AcquisitionFeed.page
+        AcquisitionFeed.page = mock.page
+
+        # Here's the MacGuffin -- watch it!
+        facets = object()
+
+        AcquisitionFeed.groups(
+            self._db, "title", "url", lane, TestAnnotator(), facets=facets
+        )
+        # We called CachedFeed.fetch with the given facets object.
+        eq_(facets, mock.fetch_called_with)
+
+        # That didn't return anything usable, so we passed the
+        # facets into lane.groups().
+        eq_(facets, mock.groups_called_with)
+
+        # That didn't return anything either, so as a last ditch
+        # effort we passed the facets into AcquisitionFeed.page().
+        eq_(facets, mock.page_called_with)
+
+        # Un-mock the methods that we mocked.
+        CachedFeed.fetch = old_cachedfeed_fetch
+        AcquisitionFeed.page = old_acquisitionfeed_page
+
     def test_license_tags_no_loan_or_hold(self):
         edition, pool = self._edition(with_license_pool=True)
         availability, holds, copies = AcquisitionFeed.license_tags(
@@ -1632,3 +1785,179 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             "I know about this work but can offer no way of fulfilling it."
         )
         eq_(expect, entry)
+
+
+class TestEntrypointLinkInsertion(DatabaseTest):
+    """Verify that the three main types of OPDS feeds -- grouped,
+    paginated, and search results -- will all include links to the same
+    feed but through a different entry point.
+    """
+
+    def setup(self):
+        super(TestEntrypointLinkInsertion, self).setup()
+
+        # Mock for AcquisitionFeed.add_entrypoint_links
+        class Mock(object):
+            def add_entrypoint_links(self, *args):
+                self.called_with = args
+        self.mock = Mock()
+
+        # A WorkList with no EntryPoints -- should not call the mock method.
+        self.no_eps = WorkList()
+        self.no_eps.initialize(
+            library=self._default_library, display_name="no_eps"
+        )
+
+        # A WorkList with two EntryPoints -- may call the mock method
+        # depending on circumstances.
+        self.entrypoints = [AudiobooksEntryPoint, EbooksEntryPoint]
+        self.wl = WorkList()
+        self.wl.initialize(library=self._default_library, display_name="wl",
+                           entrypoints=self.entrypoints)
+
+        def works(_db, facets=None, pagination=None):
+            """Mock WorkList.works so we don't need any actual works
+            to run the test.
+            """
+            return []
+        self.no_eps.works = works
+        self.wl.works = works
+
+        self.annotator = TestAnnotator()
+        self.old_add_entrypoint_links = AcquisitionFeed.add_entrypoint_links
+        AcquisitionFeed.add_entrypoint_links = self.mock.add_entrypoint_links
+
+    def teardown(self):
+        super(TestEntrypointLinkInsertion, self).teardown()
+        AcquisitionFeed.add_entrypoint_links = self.old_add_entrypoint_links
+
+    def test_groups(self):
+        """When AcquisitionFeed.groups() generates a grouped
+        feed, it will link to different entry points into the feed,
+        assuming the WorkList has different entry points.
+        """        
+        def run(wl=None, facets=None):
+            """Call groups() and see what add_entrypoint_links
+            was called with.
+            """
+            self.mock.called_with = None
+            AcquisitionFeed.groups(
+                self._db, "title", "url", wl, self.annotator,
+                cache_type=AcquisitionFeed.NO_CACHE, facets=facets,
+            )
+            return self.mock.called_with
+
+        # This WorkList has no entry points, so the mock method is not
+        # even called.
+        eq_(None, run(self.no_eps))
+
+        # A WorkList with entry points does cause the mock method
+        # to be called.
+        facets = FeaturedFacets(entrypoint=EbooksEntryPoint)
+        feed, make_link, entrypoints, selected = run(self.wl, facets)
+
+        # add_entrypoint_links was passed both possible entry points
+        # and the selected entry point.
+        eq_(self.wl.entrypoints, entrypoints)
+        eq_(selected, EbooksEntryPoint)
+
+        # The make_link function that was passed in calls
+        # TestAnnotator.groups_url() when passed an EntryPoint.
+        eq_("http://groups/?entrypoint=Book", make_link(EbooksEntryPoint, False))
+
+    def test_page(self):
+        """When AcquisitionFeed.page() generates the first page of a paginated
+        list, it will link to different entry points into the list,
+        assuming the WorkList has different entry points.
+        """
+        def run(wl=None, facets=None, pagination=None):
+            """Call page() and see what add_entrypoint_links
+            was called with.
+            """
+            self.mock.called_with = None
+            AcquisitionFeed.page(
+                self._db, "title", "url", wl, self.annotator,
+                cache_type=AcquisitionFeed.NO_CACHE, facets=facets,
+                pagination=pagination
+            )
+            return self.mock.called_with
+
+        # The WorkList has no entry points, so the mock method is not
+        # even called.
+        eq_(None, run(self.no_eps))
+
+        # Let's give the WorkList two possible entry points, and choose one.
+        facets = Facets.default(self._default_library).navigate(
+            entrypoint=EbooksEntryPoint
+        )
+        feed, make_link, entrypoints, selected = run(self.wl, facets)
+
+        # This time, add_entrypoint_links was called, and passed both
+        # possible entry points and the selected entry point.
+        eq_(self.wl.entrypoints, entrypoints)
+        eq_(selected, EbooksEntryPoint)
+
+        # The make_link function that was passed in calls
+        # TestAnnotator.feed_url() when passed an EntryPoint.
+        first_page_url = "http://wl/?entrypoint=Book"
+        eq_(first_page_url, make_link(EbooksEntryPoint, False))
+
+        # Pagination information is not propagated through entry point links
+        # -- you always start at the beginning of the list.
+        pagination = Pagination(offset=100)
+        feed, make_link, entrypoints, selected = run(
+            self.wl, facets, pagination
+        )
+        eq_(first_page_url, make_link(EbooksEntryPoint, False))
+
+    def test_search(self):
+        """When AcquisitionFeed.search() generates the first page of
+        search results, it will link to related searches for different
+        entry points, assuming the WorkList has different entry points.
+        """
+        def run(wl=None, facets=None, pagination=None):
+            """Call search() and see what add_entrypoint_links
+            was called with.
+            """
+            self.mock.called_with = None
+            AcquisitionFeed.search(
+                self._db, "title", "url", wl, None, None,
+                annotator=self.annotator, facets=facets,
+                pagination=pagination
+            )
+            return self.mock.called_with
+
+        # Mock search() so it never tries to return anything.
+        def mock_search(self, *args, **kwargs):
+            return []
+        self.no_eps.search = mock_search
+        self.wl.search = mock_search
+
+        # This WorkList has no entry points, so the mock method is not
+        # even called.
+        eq_(None, run(self.no_eps))
+
+        # The mock method is called for a WorkList that does have
+        # entry points.
+        facets = Facets.default(self._default_library).navigate(
+            entrypoint=EbooksEntryPoint
+        )
+        feed, make_link, entrypoints, selected = run(self.wl, facets)
+
+        # add_entrypoint_links was passed both possible entry points
+        # and the selected entry point.
+        eq_(self.wl.entrypoints, entrypoints)
+        eq_(selected, EbooksEntryPoint)
+
+        # The make_link function that was passed in calls
+        # TestAnnotator.search_url() when passed an EntryPoint.
+        first_page_url = 'http://wl/?entrypoint=Book'
+        eq_(first_page_url, make_link(EbooksEntryPoint, False))
+
+        # Pagination information is not propagated through entry point links
+        # -- you always start at the beginning of the list.
+        pagination = Pagination(offset=100)
+        feed, make_link, entrypoints, selected = run(
+            self.wl, facets, pagination
+        )
+        eq_(first_page_url, make_link(EbooksEntryPoint, False))
