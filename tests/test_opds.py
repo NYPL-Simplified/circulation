@@ -1898,12 +1898,16 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # The make_link function that was passed in calls
         # TestAnnotator.feed_url() when passed an EntryPoint.
-        eq_("http://wl/?entrypoint=Book", make_link(EbooksEntryPoint, False))
+        first_page_url = "http://wl/?entrypoint=Book"
+        eq_(first_page_url, make_link(EbooksEntryPoint, False))
 
-        # The entry point links are only created at the beginning of a
-        # list.
+        # Pagination information is not propagated through entry point links
+        # -- you always start at the beginning of the list.
         pagination = Pagination(offset=100)
-        eq_(None, run(self.wl, facets, pagination))
+        feed, make_link, entrypoints, selected = run(
+            self.wl, facets, pagination
+        )
+        eq_(first_page_url, make_link(EbooksEntryPoint, False))
 
     def test_search(self):
         """When AcquisitionFeed.search() generates the first page of
@@ -1946,12 +1950,13 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # The make_link function that was passed in calls
         # TestAnnotator.search_url() when passed an EntryPoint.
-        eq_(
-            'http://wl/?after=0&size=50&entrypoint=Book',
-            make_link(EbooksEntryPoint, False)
-        )
+        first_page_url = 'http://wl/?entrypoint=Book'
+        eq_(first_page_url, make_link(EbooksEntryPoint, False))
 
-        # The entry point links are only created at the beginning of a
-        # list.
+        # Pagination information is not propagated through entry point links
+        # -- you always start at the beginning of the list.
         pagination = Pagination(offset=100)
-        eq_(None, run(self.wl, facets, pagination))
+        feed, make_link, entrypoints, selected = run(
+            self.wl, facets, pagination
+        )
+        eq_(first_page_url, make_link(EbooksEntryPoint, False))

@@ -602,9 +602,9 @@ class AcquisitionFeed(OPDSFeed):
             pagination.this_page_size = len(works)
         feed = cls(_db, title, url, works, annotator)
 
-        if lane.entrypoints and (not pagination or pagination.offset == 0):
-            # On the first page of a paginated feed there may be
-            # multiple entry points into the same dataset.
+        if lane.entrypoints:
+            # A paginated feed may have multiple entry points into the
+            # same dataset.
             def make_link(ep, is_default):
                 if is_default:
                     # No need to clutter up the URL with the default
@@ -742,14 +742,15 @@ class AcquisitionFeed(OPDSFeed):
         opds_feed = AcquisitionFeed(_db, title, url, results, annotator=annotator)
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel='start', href=annotator.default_lane_url(), title=annotator.top_level_title())
 
-        # The first page of a feed of search results may link to
-        # alternate entry points into those results.
-        if lane.entrypoints and (not pagination or pagination.offset == 0):
+        # A feed of search results may link to alternate entry points
+        # into those results.
+        if lane.entrypoints:
             def make_link(ep, is_default):
                 if is_default:
                     ep = None
                 return annotator.search_url(
-                    lane, query, pagination, facets=FacetsWithEntryPoint(ep)
+                    lane, query, pagination=None,
+                    facets=FacetsWithEntryPoint(ep)
                 )
             cls.add_entrypoint_links(
                 opds_feed, make_link, lane.entrypoints, facets.entrypoint
