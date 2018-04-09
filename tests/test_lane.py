@@ -52,6 +52,29 @@ from model import (
     WorkGenre,
 )
 
+
+class TestFacetsWithEntryPoint(object):
+
+    def test_items(self):
+        ep = AudiobooksEntryPoint
+        f = FacetsWithEntryPoint(ep)
+        expect_items = (f.ENTRY_POINT_FACET_GROUP_NAME, ep.INTERNAL_NAME)
+        eq_([expect_items], list(f.items()))
+        eq_("%s=%s" % expect_items, f.query_string)
+
+    def test_apply(self):
+        class MockEntryPoint(object):
+            def apply(self, _db, qu):
+                self.called_with = (_db, qu)
+
+        ep = MockEntryPoint()
+        f = FacetsWithEntryPoint(ep)
+        _db = object()
+        qu = object()
+        f.apply(_db, qu)
+        eq_((_db, qu), ep.called_with)
+
+
 class TestFacets(DatabaseTest):
 
     def _configure_facets(self, library, enabled, default):
@@ -244,28 +267,41 @@ class TestFacets(DatabaseTest):
         actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)
         compare(expect, actual)
 
+    def test_navigate(self):
+        """Test the ability of navigate() to move between slight
+        variations of a FeaturedFacets object.
+        """
+        F = Facets
 
+        ebooks = EbooksEntryPoint
+        f = Facets(self._default_library, F.COLLECTION_FULL, F.AVAILABLE_ALL,
+                   F.ORDER_TITLE, entrypoint=ebooks)
 
-class TestFacetsWithEntryPoint(object):
+        different_collection = f.navigate(collection=F.COLLECTION_FEATURED)
+        eq_(F.COLLECTION_FEATURED, different_collection.collection)
+        eq_(F.AVAILABLE_ALL, different_collection.availability)
+        eq_(F.ORDER_TITLE, different_collection.order)
+        eq_(ebooks, different_collection.entrypoint)
 
-    def test_items(self):
-        ep = AudiobooksEntryPoint
-        f = FacetsWithEntryPoint(ep)
-        expect_items = (f.ENTRY_POINT_FACET_GROUP_NAME, ep.INTERNAL_NAME)
-        eq_([expect_items], list(f.items()))
-        eq_("%s=%s" % expect_items, f.query_string)
+        different_availability = f.navigate(availability=F.AVAILABLE_NOW)
+        eq_(F.COLLECTION_FULL, different_availability.collection)
+        eq_(F.AVAILABLE_NOW, different_availability.availability)
+        eq_(F.ORDER_TITLE, different_availability.order)
+        eq_(ebooks, different_availability.entrypoint)
 
-    def test_apply(self):
-        class MockEntryPoint(object):
-            def apply(self, _db, qu):
-                self.called_with = (_db, qu)
+        different_order = f.navigate(order=F.ORDER_AUTHOR)
+        eq_(F.COLLECTION_FULL, different_order.collection)
+        eq_(F.AVAILABLE_ALL, different_order.availability)
+        eq_(F.ORDER_AUTHOR, different_order.order)
+        eq_(ebooks, different_order.entrypoint)
 
-        ep = MockEntryPoint()
-        f = FacetsWithEntryPoint(ep)
-        _db = object()
-        qu = object()
-        f.apply(_db, qu)
-        eq_((_db, qu), ep.called_with)
+        audiobooks = AudiobooksEntryPoint
+        different_entrypoint = f.navigate(entrypoint=audiobooks)
+        eq_(F.COLLECTION_FULL, different_entrypoint.collection)
+        eq_(F.AVAILABLE_ALL, different_entrypoint.availability)
+        eq_(F.ORDER_TITLE, different_entrypoint.order)
+        eq_(audiobooks, different_entrypoint.entrypoint)
+
 
 class TestFacetsApply(DatabaseTest):
 
@@ -377,15 +413,15 @@ class TestFeaturedFacets(DatabaseTest):
         """Test the ability of navigate() to move between slight
         variations of a FeaturedFacets object.
         """
-        entrypoint = EntryPoint.EbooksEntryPoint
+        entrypoint = EbooksEntryPoint
         f = FeaturedFacets(1, True, entrypoint)
 
-        different_entrypoing = f.navigate_to(
-            entrypoint=EntryPoint.AudiobooksEntryPoint
+        different_entrypoint = f.navigate_to(
+            entrypoint=AudiobooksEntryPoint
         )
         eq_(1, different_quality.minimum_featured_quality)
         eq_(True, different_quality.uses_customlists)
-        eq_(EntryPoint.AudiobooksEntryPoint, different_quality.entrypoint)
+        eq_(AudiobooksEntryPoint, different_quality.entrypoint)
 
         different_quality = f.navigate_to(minimum_featured_quality=2)
         eq_(2, different_quality.minimum_featured_quality)
