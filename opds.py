@@ -485,7 +485,7 @@ class AcquisitionFeed(OPDSFeed):
             if usable:
                 return cached
 
-        works_and_lanes = lane.groups(_db, facets)
+        works_and_lanes = lane.groups(_db, facets=facets)
         if not works_and_lanes:
             # We did not find enough works for a groups feed.
             # Instead we need to display a flat feed--the
