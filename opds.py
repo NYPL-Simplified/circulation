@@ -665,7 +665,7 @@ class AcquisitionFeed(OPDSFeed):
 
     @classmethod
     def add_entrypoint_links(cls, feed, url_generator, entrypoints,
-                             selected_entrypoint, group_name='Start here'):
+                             selected_entrypoint, group_name='Formats'):
         """Add links to a feed forming an OPDS facet group for a set of
         EntryPoints.
 
