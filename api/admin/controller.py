@@ -1169,6 +1169,7 @@ class CustomListsController(CirculationManagerController):
                                         title=entry.edition.title,
                                         authors=[author.display_name for author in entry.edition.author_contributors],
                                         medium=Edition.medium_to_additional_type.get(entry.edition.medium, None),
+                                        url=entry.edition.primary_identifier.identifier,
                     ))
             collections = []
             for collection in list.collections:
