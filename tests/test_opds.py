@@ -1789,7 +1789,8 @@ class TestLookupAcquisitionFeed(DatabaseTest):
 
 class TestEntrypointLinkInsertion(DatabaseTest):
     """Verify that the three main types of OPDS feeds -- grouped,
-    paginated, and search results -- will all
+    paginated, and search results -- will all include links to the same
+    feed but through a different entry point.
     """
 
     def setup(self):
