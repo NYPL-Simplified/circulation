@@ -7428,13 +7428,6 @@ class TestCachedFeed(DatabaseTest):
                          force_refresh=True)
         eq_(False, usable)
 
-        # A group feed's unique_key is always empty unless an EntryPoint
-        # is in play, in which case the unique_key is the internal name of
-        # the EntryPoint.
-        feed, usable = m(self._db, lane, groups, None, None, annotator,
-                         entrypoint=AudiobooksEntryPoint)
-        eq_(AudiobooksEntryPoint.INTERNAL_NAME, feed.unique_key)
-
 
 class TestLibrary(DatabaseTest):
 

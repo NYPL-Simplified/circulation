@@ -1471,7 +1471,9 @@ class TestAnnotator(Annotator):
             base += sep + pagination.query_string
             sep = '&'
         if facets:
-            base += sep + facets.query_string
+            facet_query_string = facets.query_string
+            if facet_query_string:
+                base += sep + facet_query_string
         return base
 
     @classmethod

@@ -8,8 +8,8 @@ from . import DatabaseTest
 from facets import (
     FacetConstants as Facets,
     FacetConfig,
-    FacetsWithEntryPoint,
 )
+
 
 class TestFacetConfig(DatabaseTest):
    
