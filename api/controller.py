@@ -26,6 +26,7 @@ from core.app_server import (
     cdn_url_for,
     url_for,
     load_lending_policy,
+    load_entrypoint_from_request,
     load_facets_from_request,
     load_pagination_from_request,
     ComplaintController,
@@ -40,8 +41,10 @@ from core.facets import FacetConfig
 from core.log import LogConfiguration
 from core.lane import (
     Facets,
+    FeaturedFacets,
     Pagination,
     Lane,
+    SearchFacets,
     WorkList,
 )
 from core.model import (
@@ -118,6 +121,7 @@ from config import (
 from lanes import (
     load_lanes,
     ContributorLane,
+    FeaturedSeriesFacets,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
@@ -625,9 +629,15 @@ class OPDSFeedController(CirculationManagerController):
         )
 
         title = lane.display_name
+        entrypoint = load_entrypoint_from_request(lane)
+        facets = None
+        if entrypoint:
+            facets = FeaturedFacets(entrypoint=entrypoint)
 
         annotator = self.manager.annotator(lane)
-        feed = AcquisitionFeed.groups(self._db, title, url, lane, annotator)
+        feed = AcquisitionFeed.groups(
+            self._db, title, url, lane, annotator, facets=facets
+        )
         return feed_response(feed.content)
 
     def feed(self, lane_identifier):
@@ -730,13 +740,7 @@ class OPDSFeedController(CirculationManagerController):
         query = flask.request.args.get('q')
         media = flask.request.args.get('media')
         library_short_name = flask.request.library.short_name
-        this_url = self.url_for(
-            'lane_search', lane_identifier=lane_identifier,
-            library_short_name=library_short_name,
-        )
-        if not query:
-            # Send the search form
-            return OpenSearchDocument.for_lane(lane, this_url)
+        entrypoint = load_entrypoint_from_request(lane)
 
         language_header = flask.request.headers.get("Accept-Language")
         if language_header:
@@ -746,6 +750,24 @@ class OPDSFeedController(CirculationManagerController):
             languages = [l for l in languages if l]
         else:
             languages = None
+
+        # Create a function that, when called, generates a URL to the
+        # search controller.
+        kwargs = dict()
+        if media:
+            kwargs['media'] = media.encode('utf8')
+        if languages:
+            kwargs['language'] = languages
+        if entrypoint:
+            kwargs[Facets.ENTRY_POINT_FACET_GROUP_NAME] = entrypoint.INTERNAL_NAME
+        make_url = lambda: self.url_for(
+            'lane_search', lane_identifier=lane_identifier,
+            library_short_name=library_short_name,
+            **kwargs
+        )
+        if not query:
+            # Send the search form
+            return OpenSearchDocument.for_lane(lane, make_url())
 
         pagination = load_pagination_from_request(default_size=Pagination.DEFAULT_SEARCH_SIZE)
         if isinstance(pagination, ProblemDetail):
@@ -759,26 +781,21 @@ class OPDSFeedController(CirculationManagerController):
                 )
 
         # Run a search.
-        if media:
-            media_url = "&media=" + urllib.quote(media.encode("utf8"))
-        else:
-            media_url = ""
-        if languages:
-            languages_url = "&" + urllib.urlencode(dict(language=languages), doseq=True)
-        else:
-            languages_url = ""
-
+        kwargs['q'] = query.encode("utf8")
+        this_url = make_url()
         if not media:
             media = Edition.ALL_MEDIUM
 
-        this_url += "?q=" + urllib.quote(query.encode("utf8")) + media_url + languages_url
         annotator = self.manager.annotator(lane)
         info = OpenSearchDocument.search_info(lane)
+        facets = None
+        if entrypoint:
+            facets = SearchFacets(entrypoint=entrypoint)
         opds_feed = AcquisitionFeed.search(
             _db=self._db, title=info['name'],
             url=this_url, lane=lane, search_engine=self.manager.external_search,
             query=query, media=media, annotator=annotator, pagination=pagination,
-            languages=languages
+            languages=languages, facets=facets
         )
         return feed_response(opds_feed)
 
@@ -1331,7 +1348,7 @@ class WorkController(CirculationManagerController):
             return NO_SUCH_LANE.detailed(e.message)
 
         annotator = self.manager.annotator(lane)
-        facets = load_facets_from_request()
+        facets = load_facets_from_request(base_class=FeaturedSeriesFacets)
         if isinstance(facets, ProblemDetail):
             return facets
         pagination = load_pagination_from_request()
@@ -1344,7 +1361,8 @@ class WorkController(CirculationManagerController):
         )
 
         feed = AcquisitionFeed.groups(
-            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator
+            self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator,
+            facets=facets
         )
         return feed_response(unicode(feed.content))
 
