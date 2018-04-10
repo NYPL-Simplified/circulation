@@ -143,14 +143,6 @@ def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     offset = arg('after', 0)
     return load_pagination(size, offset)
 
-def load_entrypoint_from_request(worklist):
-    """Load a selected EntryPoint from a request.
-
-    :param worklist: Optional WorkList. If provided, the requested
-    EntryPoint must be one of the ones available to this WorkList.
-    """
-
-    return load_entrypoint(entrypoint, worklist)
 
 def load_facets(library, order, availability, collection, facet_config=None,
                 entrypoint=None, worklist=None, base_class=Facets,
