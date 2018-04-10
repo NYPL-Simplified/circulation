@@ -92,7 +92,7 @@ def _make_response(content, content_type, cache_for):
     return make_response(content, 200, {"Content-Type": content_type,
                                         "Cache-Control": cache_control})
 
-def load_facets_from_request(facet_config=None):
+def load_facets_from_request(facet_config=None, base_class=Facets):
     """Figure out which Facets object this request is asking for.
 
     The active request must have the `library` member set to a Library
@@ -114,7 +114,7 @@ def load_facets_from_request(facet_config=None):
     g = Facets.COLLECTION_FACET_GROUP_NAME
     collection = arg(g, config.default_facet(g))
     return load_facets(library, order, availability, collection,
-                       facet_config=facet_config)
+                       facet_config=facet_config, base_class=base_class)
 
 def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     """Figure out which Pagination object this request is asking for."""
@@ -132,7 +132,8 @@ def load_entrypoint_from_request(worklist):
     entrypoint = flask.request.args.get(Facets.ENTRY_POINT_FACET_GROUP_NAME)
     return load_entrypoint(entrypoint, worklist)
 
-def load_facets(library, order, availability, collection, facet_config=None):
+def load_facets(library, order, availability, collection, facet_config=None,
+                base_class=Facets):
     """Turn user input into a Facets object."""
     config = facet_config or library
     order_facets = config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
@@ -165,7 +166,7 @@ def load_facets(library, order, availability, collection, facet_config=None):
         Facets.COLLECTION_FACET_GROUP_NAME : collection_facets,
     }
 
-    return Facets(
+    return base_class(
         library=library, collection=collection, availability=availability,
         order=order, enabled_facets=enabled_facets
     )

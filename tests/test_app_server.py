@@ -279,6 +279,15 @@ class TestLoadMethods(DatabaseTest):
             problemdetail = load_facets_from_request()
             eq_(INVALID_INPUT.uri, problemdetail.uri)
 
+        # The caller can specify a class to instantiate other than Facets.
+        class MockFacets(object):
+            def __init__(self, *args, **kwargs):
+                pass
+        with self.app.test_request_context('/'):
+            flask.request.library = self._default_library
+            facets = load_facets_from_request(base_class=MockFacets)
+            assert isinstance(facets, MockFacets)
+
     def test_load_pagination_from_request(self):
         with self.app.test_request_context('/?size=50&after=10'):
             pagination = load_pagination_from_request()
