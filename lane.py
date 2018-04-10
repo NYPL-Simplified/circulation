@@ -389,7 +389,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
     AcquisitionFeed.groups().
     """
 
-    def __init__(self, minimum_featured_quality=None, uses_customlists=False,
+    def __init__(self, minimum_featured_quality, uses_customlists=False,
                  entrypoint=None):
         """Set up an object that finds featured books in a given
         WorkList.
@@ -807,6 +807,14 @@ class WorkList(object):
         ):
             yield work, worklist
 
+    def default_featured_facets(self, _db):
+        """Helper method to create a FeaturedFacets object."""
+        library = self.get_library(_db)
+        return FeaturedFacets(
+            minimum_featured_quality=library.minimum_featured_quality,
+            uses_customlists=self.uses_customlists
+        )
+
     def featured_works(self, _db, facets=None):
         """Find a random sample of featured books.
 
@@ -825,12 +833,7 @@ class WorkList(object):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
-        facets = facets or FeaturedFacets()
-        facets = facets.navigate(
-            minimum_featured_quality=library.minimum_featured_quality,
-            uses_customlists=self.uses_customlists
-        )
-
+        facets = facets or self.default_featured_facets(_db)
         query = self.works(_db, facets=facets)
         if not query:
             # works() may return None, indicating that the whole
@@ -1299,7 +1302,7 @@ class WorkList(object):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
-        facets = facets or FeaturedFacets()
+        facets = facets or self.default_featured_facets(_db)
         facets = facets.navigate(
             library.minimum_featured_quality,
             self.uses_customlists
