@@ -1108,7 +1108,7 @@ class CustomListsController(CirculationManagerController):
         for entry in entries:
             pwid = entry.get("pwid")
             medium = entry.get("medium")
-            language = entry.get("language", "")
+            language = entry.get("language")
             work = self._db.query(
                 Work
             ).join(
@@ -1116,7 +1116,9 @@ class CustomListsController(CirculationManagerController):
             ).filter(
                 Edition.permanent_work_id==pwid
             ).filter(
-                Edition.medium==medium
+                Edition.medium==Edition.additional_type_to_medium[medium]
+            ).filter(
+                Edition.language==LanguageCodes.iso_639_2_for_locale(language)
             ).one()
 
             if work:
