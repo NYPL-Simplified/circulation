@@ -2580,14 +2580,12 @@ class TestWorkListGroups(DatabaseTest):
             entrypoint=AudiobooksEntryPoint
         )
         groups = list(wl.featured_works(self._db, facets))
+        eq_(facets, wl.works_called_with)
 
-        # The Facets object passed in to Works is based on the object
-        # we passed in, but it's not the same. The entry point has
-        # been preserverd, but the worklist's uses_customlists and
-        # the library's minimum_featured_quality have replaced the
-        # fake values set earlier.
+        # If no FeaturedFacets object is specified, one is created
+        # based on default library configuration.
+        groups = list(wl.featured_works(self._db, None))
         facets2 = wl.works_called_with
-        eq_(facets.entrypoint, facets2.entrypoint)
         eq_(self._default_library.minimum_featured_quality,
             facets2.minimum_featured_quality)
         eq_(wl.uses_customlists, facets2.uses_customlists)
