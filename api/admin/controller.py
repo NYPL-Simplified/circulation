@@ -1166,7 +1166,7 @@ class CustomListsController(CirculationManagerController):
             for entry in list.entries:
                 if entry.edition:
                     url = self.url_for(
-                        "work_details",
+                        "permalink",
                         identifier_type=entry.edition.primary_identifier.type,
                         identifier=entry.edition.primary_identifier.identifier,
                         library_short_name=library.short_name,
