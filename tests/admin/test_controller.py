@@ -1506,6 +1506,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(edition.title, entry.get("title"))
             eq_(2, len(entry.get("authors")))
             eq_(Edition.medium_to_additional_type[Edition.BOOK_MEDIUM], entry.get("medium"))
+            eq_(edition.language, entry.get("language"))
             eq_(set([c1.display_name, c2.display_name]),
                 set(entry.get("authors")))
             eq_(1, len(response.get("collections")))

@@ -1109,17 +1109,25 @@ class CustomListsController(CirculationManagerController):
             pwid = entry.get("pwid")
             medium = entry.get("medium")
             language = entry.get("language")
-            work = self._db.query(
+
+            query = self._db.query(
                 Work
             ).join(
                 Edition, Edition.id==Work.presentation_edition_id
             ).filter(
                 Edition.permanent_work_id==pwid
-            ).filter(
-                Edition.medium==Edition.additional_type_to_medium[medium]
-            ).filter(
-                Edition.language==LanguageCodes.iso_639_2_for_locale(language)
-            ).one()
+            )
+
+            if medium:
+                query.filter(
+                    Edition.medium==Edition.additional_type_to_medium[medium]
+                )
+            if language:
+                query.filter(
+                    Edition.language==LanguageCodes.iso_639_2_for_locale(language)
+                )
+
+            work = query.one()
 
             if work:
                 entry, entry_is_new = list.add_entry(work, featured=True)
