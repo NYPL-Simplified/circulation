@@ -980,7 +980,7 @@ class TestWorkList(DatabaseTest):
         wl = Mock()
         wl.initialize(library=self._default_library)
         audio = AudiobooksEntryPoint
-        facets = FeaturedFacets(entrypoint=audio)
+        facets = FeaturedFacets(0, entrypoint=audio)
 
         # The Facets object passed in to works() is different from the
         # one we passed in -- it's got some settings for
@@ -2257,7 +2257,7 @@ class TestLane(DatabaseTest):
         old_value = Lane._groups_for_lanes
         Lane._groups_for_lanes = mock
         lane = self._lane()
-        facets = FeaturedFacets()
+        facets = FeaturedFacets(0)
         lane.groups(self._db, facets=facets)
         eq_(facets, lane.called_with)
         Lane._groups_for_lanes = old_value
@@ -2498,7 +2498,7 @@ class TestWorkListGroups(DatabaseTest):
 
         # There are no audiobooks in the system, so passing in a
         # FeaturedFacets scoped to the AudiobooksEntryPoint excludes everything.
-        facets = FeaturedFacets(entrypoint=AudiobooksEntryPoint)
+        facets = FeaturedFacets(0, entrypoint=AudiobooksEntryPoint)
         _db = self._db
         eq_([], list(fiction.groups(self._db, facets=facets)))
 
@@ -2509,7 +2509,7 @@ class TestWorkListGroups(DatabaseTest):
             def apply(cls, qu):
                 from model import MaterializedWorkWithGenre as mv
                 return qu.filter(mv.sort_title=='LQ Romance')
-        facets = FeaturedFacets(entrypoint=LQRomanceEntryPoint)
+        facets = FeaturedFacets(0, entrypoint=LQRomanceEntryPoint)
         assert_contents(
             fiction.groups(self._db, facets=facets),
             [
@@ -2560,7 +2560,7 @@ class TestWorkListGroups(DatabaseTest):
 
         wl = Mock()
         wl.initialize(library=self._default_library)
-        facets = FeaturedFacets()
+        facets = FeaturedFacets(0)
         groups = list(wl._groups_for_lanes(self._db, [], [], facets))
         eq_(facets, wl.featured_called_with)
 
@@ -2608,7 +2608,7 @@ class TestWorkListGroups(DatabaseTest):
         mock2 = Mock(("mw2","quality2"))
 
         lane = self._lane()
-        facets = FeaturedFacets()
+        facets = FeaturedFacets(0.1)
         results = lane._featured_works_with_lanes(
             self._db, [mock1, mock2], facets
         )
