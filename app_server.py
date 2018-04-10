@@ -14,6 +14,7 @@ from util.flask_util import problem
 from util.problem_detail import ProblemDetail
 import traceback
 import logging
+from entrypoint import EntryPoint
 from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
@@ -122,6 +123,15 @@ def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     offset = arg('after', 0)
     return load_pagination(size, offset)
 
+def load_entrypoint_from_request(worklist):
+    """Load a selected EntryPoint from a request.
+
+    :param worklist: Optional WorkList. If provided, the requested
+    EntryPoint must be one of the ones available to this WorkList.
+    """
+    entrypoint = flask.request.args.get(Facets.ENTRY_POINT_FACET_GROUP_NAME)
+    return load_entrypoint(entrypoint, worklist)
+
 def load_facets(library, order, availability, collection, facet_config=None):
     """Turn user input into a Facets object."""
     config = facet_config or library
@@ -173,6 +183,29 @@ def load_pagination(size, offset):
         except ValueError:
             return INVALID_INPUT.detailed(_("Invalid offset: %(offset)s", offset=offset))
     return Pagination(offset, size)
+
+def load_entrypoint(entrypoint, worklist):
+    """Turn user input into an EntryPoint class from the EntryPoint registry.
+
+    :param worklist: A WorkList.
+
+    :return: An EntryPoint class. This will be the requested
+    EntryPoint if possible. If a nonexistent or unusable EntryPoint is
+    requested, the WorkList's default EntryPoint will be returned. If
+    the WorkList has no EntryPoints, or no WorkList is provided, None
+    will be returned.
+    """
+    if not worklist or not worklist.entrypoints:
+        # This WorkList has no EntryPoints. No EntryPoint should ever
+        # be returned from this method.
+        return None
+    default = worklist.entrypoints[0]
+    cls = EntryPoint.BY_INTERNAL_NAME.get(entrypoint)
+    if not cls:
+        return default
+    if cls not in worklist.entrypoints:
+        return default
+    return cls
 
 def returns_problem_detail(f):
     @wraps(f)

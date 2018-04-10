@@ -25,6 +25,7 @@ from model import Identifier
 from lane import (
     Facets,
     Pagination,
+    WorkList,
 )
 
 from app_server import (
@@ -32,11 +33,18 @@ from app_server import (
     URNLookupController,
     ErrorHandler,
     ComplaintController,
+    load_entrypoint_from_request,
     load_facets_from_request,
     load_pagination_from_request,
 )
 
 from config import Configuration
+
+from entrypoint import (
+    AudiobooksEntryPoint,
+    EbooksEntryPoint,
+    EntryPoint,
+)
 
 from problem_details import (
     INVALID_INPUT,
@@ -306,6 +314,47 @@ class TestLoadMethods(DatabaseTest):
             pagination = load_pagination_from_request(default_size=10)
             eq_(10, pagination.size)
             eq_(0, pagination.offset)
+
+    def test_load_entrypoint_from_request(self):
+        # This WorkList supports two EntryPoints.
+        worklist = WorkList()
+        worklist.initialize(
+            self._default_library,
+            entrypoints=[AudiobooksEntryPoint, EbooksEntryPoint]
+        )
+
+        # This request does not ask for any particular entrypoint,
+        # so it gets the default.
+        with self.app.test_request_context('/'):
+            entrypoint = load_entrypoint_from_request(worklist)
+            eq_(AudiobooksEntryPoint, entrypoint)
+
+        # This request asks for an entrypoint and gets it.
+        with self.app.test_request_context('/?entrypoint=Book'):
+            entrypoint = load_entrypoint_from_request(worklist)
+            eq_(EbooksEntryPoint, entrypoint)
+
+        # This request asks for an entrypoint that is not available,
+        # and gets the default.
+        with self.app.test_request_context('/?entrypoint=nosuchpoint'):
+            entrypoint = load_entrypoint_from_request(worklist)
+            eq_(AudiobooksEntryPoint, entrypoint)
+
+        # This WorkList does not have any associated EntryPoints,
+        # which means load_entrypoint_from_request will never return
+        # anything.
+        no_entrypoints = WorkList()
+        no_entrypoints.initialize(self._default_library)
+        with self.app.test_request_context('/'):
+            eq_(None, load_entrypoint_from_request(no_entrypoints))
+
+        with self.app.test_request_context('/?entrypoint=Audio'):
+            eq_(None, load_entrypoint_from_request(no_entrypoints))
+
+        # Same behavior if for some reason you try to load an entrypoint in
+        # a request that has no associated WorkList.
+        with self.app.test_request_context('/?entrypoint=Audio'):
+            eq_(None, load_entrypoint_from_request(None))
 
 
 class TestErrorHandler(object):

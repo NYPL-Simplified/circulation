@@ -613,9 +613,10 @@ class WorkList(object):
         # This WorkList contains every title available to this library
         # in one of the media supported by the default client.
         wl = WorkList()
+
         wl.initialize(
             library, display_name=library.name, children=top_level_lanes,
-            media=Edition.FULFILLABLE_MEDIA
+            media=Edition.FULFILLABLE_MEDIA, entrypoints=library.entrypoints
         )
         return wl
 
@@ -653,7 +654,7 @@ class WorkList(object):
         show up in relation to its siblings when it is the child of
         some other WorkList.
 
-        :param entrypoints: A list of EntryPoint objects representing
+        :param entrypoints: A list of EntryPoint classes representing
         different ways of slicing up this WorkList.
         """
         self.library_id = None
