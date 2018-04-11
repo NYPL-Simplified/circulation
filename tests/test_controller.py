@@ -2446,6 +2446,7 @@ class TestFeedController(CirculationControllerTest):
         # to AcquisitionFeed.groups().
         library = self._default_library
         lane = self.manager.top_level_lanes[library.id]
+        lane = self._db.merge(lane)
         args, kwargs = self.called_with
         facets = kwargs['facets']
         assert isinstance(facets, FeaturedFacets)
