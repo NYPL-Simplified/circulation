@@ -14,6 +14,7 @@ from core.lane import (
     WorkList,
 )
 from core.metadata_layer import Metadata
+from core.lane import FacetsWithEntryPoint
 from core.model import (
     create,
     Contribution,
@@ -42,6 +43,7 @@ from api.lanes import (
     CrawlableCollectionBasedLane,
     CrawlableFacets,
     CrawlableCustomListBasedLane,
+    FeaturedSeriesFacets,
     RecommendationLane,
     RelatedBooksLane,
     SeriesLane,
@@ -634,6 +636,29 @@ class TestSeriesLane(LaneTest):
             self._default_library, series_name, audiences=[Classifier.AUDIENCE_ADULTS_ONLY]
         )
         self.assert_works_queries(adult_lane, [adults_only])
+
+    def test_facets_entry_point_propagated(self):
+        """The facets passed in to SeriesLane.featured_works are converted
+        to a FeaturedSeriesFacets object with the same entry point.
+        """
+        lane = SeriesLane(self._default_library, "A series")
+        def mock_works(_db, facets, pagination):
+            self.called_with = facets
+            # It doesn't matter what the query we return matches; just
+            # return some kind of query.
+            return _db.query(MaterializedWorkWithGenre)
+        lane.works = mock_works
+        entrypoint = object()
+        facets = FacetsWithEntryPoint(entrypoint=entrypoint)
+        lane.featured_works(self._db, facets=facets)
+
+        new_facets = self.called_with
+        assert isinstance(new_facets, FeaturedSeriesFacets)
+        eq_(entrypoint, new_facets.entrypoint)
+
+        # Availability facets have been hard-coded rather than propagated.
+        eq_(FeaturedSeriesFacets.COLLECTION_FULL, new_facets.collection)
+        eq_(FeaturedSeriesFacets.AVAILABLE_ALL, new_facets.availability)
 
 
 class TestContributorLane(LaneTest):

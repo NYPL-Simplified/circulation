@@ -984,12 +984,12 @@ class SeriesLane(DynamicLane):
             # quality.
             collection=FeaturedSeriesFacets.COLLECTION_FULL,
             availability=FeaturedSeriesFacets.AVAILABLE_ALL,
-            order=None,
+            order=None
         )
         if facets:
             new_facets.entrypoint = facets.entrypoint
         pagination = Pagination(size=library.featured_lane_size)
-        qu = self.works(_db, facets=facets, pagination=pagination)
+        qu = self.works(_db, facets=new_facets, pagination=pagination)
         return qu.all()
 
     def apply_filters(self, _db, qu, facets, pagination, featured=False):
