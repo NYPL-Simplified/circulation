@@ -79,6 +79,7 @@ from core.model import (
 )
 from core.lane import (
     Facets,
+    FeaturedFacets,
     SearchFacets,
     Pagination,
     Lane,
@@ -2397,6 +2398,15 @@ class TestFeedController(CirculationControllerTest):
 
         SessionManager.refresh_materialized_views(self._db)
 
+        # Mock AcquisitionFeed.groups so we can see the arguments going
+        # into it.
+        old_groups = AcquisitionFeed.groups
+        @classmethod
+        def mock_groups(cls, *args, **kwargs):
+            self.called_with = (args, kwargs)
+            return old_groups(*args, **kwargs)
+        AcquisitionFeed.groups = mock_groups
+
         # Initial setup gave us two English works and a French work.
         # Load up with a couple more English works to show that
         # the groups lane cuts off at FEATURED_LANE_SIZE.
@@ -2430,6 +2440,18 @@ class TestFeedController(CirculationControllerTest):
             eq_(2, counter['English'])
             eq_(1, counter[u'fran\xe7ais'])
             eq_(2, counter['All World Languages'])
+
+        # A FeaturedFacets object was created from a combination of
+        # library configuration and lane configuration, and passed in
+        # to AcquisitionFeed.groups().
+        library = self._default_library
+        lane = self.manager.top_level_lanes[library.id]
+        args, kwargs = self.called_with
+        facets = kwargs['facets']
+        assert isinstance(facets, FeaturedFacets)
+        eq_(library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(lane.uses_customlists, facets.uses_customlists)
+        AcquisitionFeed.groups = old_groups
 
     def _set_update_times(self):
         """Set the last update times so we can create a crawlable feed."""
