@@ -1527,8 +1527,8 @@ class TestAnnotatorWithGroup(TestAnnotator):
             if isinstance(work, Work):
                 work_id = work.id
             else:
-                # MaterialivedViewWithGenre
-                work_id = work.work_id
+                # MaterialivedWorkWithGenre
+                work_id = work.works_id
             lane_name = str(work_id)
         return ("http://group/%s" % lane_name,
                 "Group Title for %s!" % lane_name)
