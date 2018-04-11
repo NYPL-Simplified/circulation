@@ -338,10 +338,17 @@ class TestLibraryAnnotator(VendorIDTest):
         assert "groups" in groups_url_fantasy
         assert str(self.lane.id) in groups_url_fantasy
 
+        facets = dict(arg="value")
+        groups_url_facets = self.annotator.groups_url(None, facets=facets)
+        assert "arg=value" in groups_url_facets
+
     def test_feed_url(self):
         # A regular Lane.
-        feed_url_fantasy = self.annotator.feed_url(self.lane, dict(), dict())
+        feed_url_fantasy = self.annotator.feed_url(
+            self.lane, dict(facet="value"), dict()
+        )
         assert "feed" in feed_url_fantasy
+        assert "facet=value" in feed_url_fantasy
         assert str(self.lane.id) in feed_url_fantasy
         assert self._default_library.name in feed_url_fantasy
 
@@ -353,9 +360,12 @@ class TestLibraryAnnotator(VendorIDTest):
         assert self._default_library.name in feed_url_contributor
 
     def test_search_url(self):
-        search_url = self.annotator.search_url(self.lane, "query", dict())
+        search_url = self.annotator.search_url(
+            self.lane, "query", dict(), dict(facet="value")
+        )
         assert "search" in search_url
         assert "query" in search_url
+        assert "facet=value" in search_url
         assert str(self.lane.id) in search_url
 
     def test_facet_url(self):
