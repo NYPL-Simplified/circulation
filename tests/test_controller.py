@@ -44,6 +44,10 @@ from core.config import CannotLoadConfiguration
 from core.external_search import DummyExternalSearchIndex
 from core.metadata_layer import Metadata
 from core import model
+from core.entrypoint import (
+    EbooksEntryPoint,
+    AudiobooksEntryPoint,
+)
 from core.model import (
     Annotation,
     Collection,
@@ -75,8 +79,10 @@ from core.model import (
 )
 from core.lane import (
     Facets,
+    SearchFacets,
     Pagination,
     Lane,
+    WorkList,
 )
 from core.problem_details import *
 from core.user_profile import (
@@ -2622,11 +2628,12 @@ class TestFeedController(CirculationControllerTest):
             assert(isinstance(response, ProblemDetail))
             eq_(response.detail, "Media type None is not valid.")
 
+        old_search = AcquisitionFeed.search
+        AcquisitionFeed.search = self.mock_search
+
+        # Search using a different medium.
         with self.request_context_with_library("/?q=t&size=1&media=http://bib.schema.org/Audiobook",
             headers={ "Accept-Language": ["en-us"] }):
-
-            old_search = AcquisitionFeed.search
-            AcquisitionFeed.search = self.mock_search
 
             response = self.manager.opds_feeds.search(None)
             (s, args) = self.called_with
@@ -2634,7 +2641,29 @@ class TestFeedController(CirculationControllerTest):
             eq_(args["media"], Edition.AUDIO_MEDIUM)
             eq_(args["languages"], ["eng"])
 
-            AcquisitionFeed.search = old_search
+
+        # Verify that AcquisitionFeed.search() is passed the
+        # appropriate faceting object when we try to search a
+        # different EntryPoint.
+        #
+        # This is a little messy because to do this we have to replace the
+        # top-level Lane with a WorkList.
+        library = self._default_library
+        worklist = WorkList.top_level_for_library(self._db, library)
+        worklist.initialize(
+            self._default_library, display_name="top level",
+            entrypoints=[EbooksEntryPoint, AudiobooksEntryPoint]
+        )
+        self.manager.top_level_lanes[library.id] = worklist
+        with self.request_context_with_library("/?q=t&entrypoint=Audio"):
+            self.manager.opds_feeds.search(None)
+            (s, args) = self.called_with
+            facets = args['facets']
+            assert isinstance(facets, SearchFacets)
+            eq_(AudiobooksEntryPoint, facets.entrypoint)
+            pass
+
+        AcquisitionFeed.search = old_search
 
 
 class TestAnalyticsController(CirculationControllerTest):

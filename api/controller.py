@@ -753,8 +753,6 @@ class OPDSFeedController(CirculationManagerController):
         else:
             languages = None
 
-        # Create a function that, when called, generates a URL to the
-        # search controller.
         facets = load_facets_from_request(
             worklist=lane, base_class=SearchFacets
         )
@@ -765,6 +763,8 @@ class OPDSFeedController(CirculationManagerController):
             kwargs['language'] = languages
         kwargs.update(dict(facets.items()))
 
+        # Create a function that, when called, generates a URL to the
+        # search controller.
         make_url = lambda: self.url_for(
             'lane_search', lane_identifier=lane_identifier,
             library_short_name=library_short_name,
