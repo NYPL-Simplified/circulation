@@ -1530,14 +1530,19 @@ class TestCustomListsController(AdminControllerTest):
         lane.customlists.append(list)
         eq_(0, lane.size)
 
-        w1 = self._work(with_license_pool=True)
-        w2 = self._work(with_license_pool=True)
+        w1 = self._work(with_license_pool=True, language="eng")
+        w2 = self._work(with_license_pool=True, language="fre")
         w3 = self._work(with_license_pool=True)
+        w2.presentation_edition.medium = Edition.AUDIO_MEDIUM
+        w3.presentation_edition.permanent_work_id = w2.presentation_edition.permanent_work_id
+        w3.presentation_edition.medium = Edition.BOOK_MEDIUM
+
         list.add_entry(w1)
         list.add_entry(w2)
         self.add_to_materialized_view([w1, w2, w3])
 
-        new_entries = [dict(pwid=work.presentation_edition.permanent_work_id) for work in [w2, w3]]
+        new_entries = [dict(pwid=work.presentation_edition.permanent_work_id,
+            medium=Edition.medium_to_additional_type[work.presentation_edition.medium]) for work in [w2, w3]]
 
         c1 = self._collection()
         c1.libraries = [self._default_library]

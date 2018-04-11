@@ -1119,11 +1119,11 @@ class CustomListsController(CirculationManagerController):
             )
 
             if medium:
-                query.filter(
+                query = query.filter(
                     Edition.medium==Edition.additional_type_to_medium[medium]
                 )
             if language:
-                query.filter(
+                query = query.filter(
                     Edition.language==LanguageCodes.iso_639_2_for_locale(language)
                 )
 
