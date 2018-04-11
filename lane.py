@@ -1308,10 +1308,6 @@ class WorkList(object):
         target_size = library.featured_lane_size
 
         facets = facets or self.default_featured_facets(_db)
-        facets = facets.navigate(
-            library.minimum_featured_quality,
-            self.uses_customlists
-        )
 
         # Pull a window of works for every lane we were given.
         for lane in lanes:
