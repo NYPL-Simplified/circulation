@@ -21,7 +21,7 @@ class EntryPoint(object):
 
     # The name of the per-library setting that controls which entry points are
     # enabled.
-    ENABLED_SETTING = "enabled_entry points"
+    ENABLED_SETTING = "enabled_entry_points"
 
     ENTRY_POINTS = []
     DEFAULT_ENABLED = []
