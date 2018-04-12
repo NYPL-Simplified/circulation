@@ -374,13 +374,20 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             _external=True
         )
 
-    def groups_url(self, lane):
+    def groups_url(self, lane, facets=None):
         lane_identifier = self._lane_identifier(lane)
+        if facets:
+            kwargs =  dict(facets.items())
+        else:
+            kwargs = {}
+
         return self.cdn_url_for(
             "acquisition_groups",
             lane_identifier=lane_identifier,
             library_short_name=self.library.short_name,
-            _external=True)
+            _external=True,
+            **kwargs
+        )
 
     def default_lane_url(self):
         return self.groups_url(None)
@@ -389,10 +396,13 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         extra_kwargs = dict(library_short_name=self.library.short_name)
         return super(LibraryAnnotator, self).feed_url(lane, facets, pagination, default_route, extra_kwargs)
 
-    def search_url(self, lane, query, pagination):
+    def search_url(self, lane, query, pagination, facets=None):
         lane_identifier = self._lane_identifier(lane)
         kwargs = dict(q=query)
-        kwargs.update(dict(pagination.items()))
+        if facets:
+            kwargs.update(dict(facets.items()))
+        if pagination:
+            kwargs.update(dict(pagination.items()))
         return self.url_for(
             "lane_search", lane_identifier=lane_identifier,
             library_short_name=self.library.short_name,
