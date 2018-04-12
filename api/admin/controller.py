@@ -1107,13 +1107,27 @@ class CustomListsController(CirculationManagerController):
         membership_change = False
         for entry in entries:
             pwid = entry.get("pwid")
-            work = self._db.query(
+            medium = entry.get("medium")
+            language = entry.get("language")
+
+            query = self._db.query(
                 Work
             ).join(
                 Edition, Edition.id==Work.presentation_edition_id
             ).filter(
                 Edition.permanent_work_id==pwid
-            ).one()
+            )
+
+            if medium:
+                query = query.filter(
+                    Edition.medium==Edition.additional_type_to_medium[medium]
+                )
+            if language:
+                query = query.filter(
+                    Edition.language==LanguageCodes.iso_639_2_for_locale(language)
+                )
+
+            work = query.one()
 
             if work:
                 entry, entry_is_new = list.add_entry(work, featured=True)
@@ -1176,6 +1190,7 @@ class CustomListsController(CirculationManagerController):
                                         authors=[author.display_name for author in entry.edition.author_contributors],
                                         medium=Edition.medium_to_additional_type.get(entry.edition.medium, None),
                                         url=url,
+                                        language=entry.edition.language,
                     ))
             collections = []
             for collection in list.collections:
