@@ -14,6 +14,7 @@ from util.flask_util import problem
 from util.problem_detail import ProblemDetail
 import traceback
 import logging
+from entrypoint import EntryPoint
 from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
@@ -91,14 +92,27 @@ def _make_response(content, content_type, cache_for):
     return make_response(content, 200, {"Content-Type": content_type,
                                         "Cache-Control": cache_control})
 
-def load_facets_from_request(facet_config=None):
-    """Figure out which Facets object this request is asking for.
+def load_facets_from_request(
+        facet_config=None, worklist=None, base_class=Facets,
+        base_class_constructor_kwargs=None
+):
+    """Figure out which faceting object this request is asking for.
 
     The active request must have the `library` member set to a Library
     object.
 
     :param facet_config: An object to use instead of the request Library
     when deciding which facets are enabled.
+
+    :param lane: An optional WorkList to use when checking which EntryPoints
+    are aviailable.
+
+    :param base_class: A facet class, such as FacetsWithEntryPoint or one of
+    its subclasses, to instantiate instead of Facets.
+
+    :param base_class_constructor_kwargs: A dictionary of keyword
+    arguments to the constructor of `base_class`, representing
+    extra arguments not handled by this code.
     """
     arg = flask.request.args.get
     library = flask.request.library
@@ -112,8 +126,15 @@ def load_facets_from_request(facet_config=None):
 
     g = Facets.COLLECTION_FACET_GROUP_NAME
     collection = arg(g, config.default_facet(g))
-    return load_facets(library, order, availability, collection,
-                       facet_config=facet_config)
+
+    entrypoint = arg(Facets.ENTRY_POINT_FACET_GROUP_NAME, None)
+
+    return load_facets(
+        library, order, availability, collection,
+        facet_config=facet_config, entrypoint=entrypoint,
+        worklist=worklist, base_class=base_class,
+        base_class_constructor_kwargs=base_class_constructor_kwargs
+    )
 
 def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     """Figure out which Pagination object this request is asking for."""
@@ -122,8 +143,11 @@ def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     offset = arg('after', 0)
     return load_pagination(size, offset)
 
-def load_facets(library, order, availability, collection, facet_config=None):
-    """Turn user input into a Facets object."""
+
+def load_facets(library, order, availability, collection, facet_config=None,
+                entrypoint=None, worklist=None, base_class=Facets,
+                base_class_constructor_kwargs=None):
+    """Turn user input into a faceting object."""
     config = facet_config or library
     order_facets = config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
     if order and not order in order_facets:
@@ -155,9 +179,13 @@ def load_facets(library, order, availability, collection, facet_config=None):
         Facets.COLLECTION_FACET_GROUP_NAME : collection_facets,
     }
 
-    return Facets(
+    entrypoint = load_entrypoint(entrypoint, worklist)
+
+    base_class_constructor_kwargs = base_class_constructor_kwargs or dict()
+    return base_class(
         library=library, collection=collection, availability=availability,
-        order=order, enabled_facets=enabled_facets
+        order=order, entrypoint=entrypoint, enabled_facets=enabled_facets,
+        **base_class_constructor_kwargs
     )
 
 def load_pagination(size, offset):
@@ -173,6 +201,29 @@ def load_pagination(size, offset):
         except ValueError:
             return INVALID_INPUT.detailed(_("Invalid offset: %(offset)s", offset=offset))
     return Pagination(offset, size)
+
+def load_entrypoint(entrypoint, worklist):
+    """Turn user input into an EntryPoint class from the EntryPoint registry.
+
+    :param worklist: A WorkList.
+
+    :return: An EntryPoint class. This will be the requested
+    EntryPoint if possible. If a nonexistent or unusable EntryPoint is
+    requested, the WorkList's default EntryPoint will be returned. If
+    the WorkList has no EntryPoints, or no WorkList is provided, None
+    will be returned.
+    """
+    if not worklist or not worklist.entrypoints:
+        # This WorkList has no EntryPoints. No EntryPoint should ever
+        # be returned from this method.
+        return None
+    default = worklist.entrypoints[0]
+    cls = EntryPoint.BY_INTERNAL_NAME.get(entrypoint)
+    if not cls:
+        return default
+    if cls not in worklist.entrypoints:
+        return default
+    return cls
 
 def returns_problem_detail(f):
     @wraps(f)

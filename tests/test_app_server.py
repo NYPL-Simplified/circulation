@@ -25,6 +25,7 @@ from model import Identifier
 from lane import (
     Facets,
     Pagination,
+    WorkList,
 )
 
 from app_server import (
@@ -32,11 +33,19 @@ from app_server import (
     URNLookupController,
     ErrorHandler,
     ComplaintController,
+    load_entrypoint,
+    load_facets,
     load_facets_from_request,
     load_pagination_from_request,
 )
 
 from config import Configuration
+
+from entrypoint import (
+    AudiobooksEntryPoint,
+    EbooksEntryPoint,
+    EntryPoint,
+)
 
 from problem_details import (
     INVALID_INPUT,
@@ -256,7 +265,6 @@ class TestLoadMethods(DatabaseTest):
         self.app = Flask(__name__)
         Babel(self.app)
 
-
     def test_load_facets_from_request(self):
         with self.app.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
             flask.request.library = self._default_library
@@ -270,6 +278,67 @@ class TestLoadMethods(DatabaseTest):
             flask.request.library = self._default_library
             problemdetail = load_facets_from_request()
             eq_(INVALID_INPUT.uri, problemdetail.uri)
+
+        # An EntryPoint will be picked up from the request and passed into
+        # the Facets object, assuming the EntryPoint is available to the
+        # provided WorkList.
+        worklist = WorkList()
+        worklist.initialize(self._default_library,
+                            entrypoints=[AudiobooksEntryPoint])
+        with self.app.test_request_context('/?entrypoint=Audio'):
+            flask.request.library = self._default_library
+            facets = load_facets_from_request(worklist=worklist)
+            eq_(AudiobooksEntryPoint, facets.entrypoint)
+
+    def test_load_facets_class_instantiation(self):
+        """The caller of load_facets() can specify a class to instantiate
+        other than Facets, and arguments to pass into the class
+        constructor.
+        """
+        class MockFacets(object):
+            def __init__(self, *args, **kwargs):
+                self.called_with = kwargs
+        kwargs = dict(some_arg='some value')
+        facets = load_facets(
+            self._default_library, None, None, None,
+            base_class=MockFacets, base_class_constructor_kwargs=kwargs
+        )
+        assert isinstance(facets, MockFacets)
+        eq_('some value', facets.called_with['some_arg'])
+
+    def test_load_entrypoint(self):
+        audio = AudiobooksEntryPoint
+        ebooks = EbooksEntryPoint
+
+        # This WorkList supports two EntryPoints.
+        worklist = WorkList()
+        worklist.initialize(
+            self._default_library, entrypoints=[audio, ebooks]
+        )
+        m = load_entrypoint
+
+        # This request does not ask for any particular entrypoint,
+        # so it gets the default.
+        eq_(audio, m(None, worklist))
+
+        # This request asks for an entrypoint and gets it.
+        eq_(ebooks, m(ebooks.INTERNAL_NAME, worklist))
+
+        # This request asks for an entrypoint that is not available,
+        # and gets the default.
+        eq_(audio, m("no such entrypoint", worklist))
+
+        # This WorkList does not have any associated EntryPoints,
+        # which means the loaded Facets object will never have an
+        # .entrypoint.
+        no_entrypoints = WorkList()
+        no_entrypoints.initialize(self._default_library)
+        eq_(None, m(None, no_entrypoints))
+        eq_(None, m(audio.INTERNAL_NAME, no_entrypoints))
+
+        # Same behavior if for some reason you try to load an
+        # entrypoint but don't provide a associated WorkList.
+        eq_(None, m(audio.INTERNAL_NAME, None))
 
     def test_load_pagination_from_request(self):
         with self.app.test_request_context('/?size=50&after=10'):

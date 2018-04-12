@@ -10,6 +10,8 @@ from sqlalchemy.engine.url import make_url
 from flask_babel import lazy_gettext as _
 
 from facets import FacetConstants
+from entrypoint import EntryPoint
+
 from sqlalchemy.exc import ArgumentError
 
 class CannotLoadConfiguration(Exception):
@@ -195,6 +197,17 @@ class Configuration(object):
                 { "key": "false", "label": _("Disable holds") },
             ],
             "default": "true",
+        },
+        { "key": EntryPoint.ENABLED_SETTING,
+          "label": _("Enabled entry points"),
+          "description": _("Patrons will see the selected entry points at the top level and in search results."),
+          "type": "list",
+          "options": [
+              { "key": entrypoint.INTERNAL_NAME,
+                "label": EntryPoint.DISPLAY_TITLES.get(entrypoint) }
+              for entrypoint in EntryPoint.ENTRY_POINTS
+          ],
+          "default": [x.INTERNAL_NAME for x in EntryPoint.DEFAULT_ENABLED],
         },
         {
             "key": FEATURED_LANE_SIZE,

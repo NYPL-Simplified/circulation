@@ -17,14 +17,21 @@ from sqlalchemy import (
 
 from classifier import Classifier
 
+from entrypoint import (
+    EbooksEntryPoint,
+    AudiobooksEntryPoint,
+)
+
 from external_search import (
     DummyExternalSearchIndex,
 )
 
 from lane import (
     Facets,
+    FacetsWithEntryPoint,
     FeaturedFacets,
     Pagination,
+    SearchFacets,
     WorkList,
     Lane,
 )
@@ -44,6 +51,29 @@ from model import (
     Work,
     WorkGenre,
 )
+
+
+class TestFacetsWithEntryPoint(object):
+
+    def test_items(self):
+        ep = AudiobooksEntryPoint
+        f = FacetsWithEntryPoint(ep)
+        expect_items = (f.ENTRY_POINT_FACET_GROUP_NAME, ep.INTERNAL_NAME)
+        eq_([expect_items], list(f.items()))
+        eq_("%s=%s" % expect_items, f.query_string)
+
+    def test_apply(self):
+        class MockEntryPoint(object):
+            def apply(self, qu):
+                self.called_with = qu
+
+        ep = MockEntryPoint()
+        f = FacetsWithEntryPoint(ep)
+        _db = object()
+        qu = object()
+        f.apply(_db, qu)
+        eq_(qu, ep.called_with)
+
 
 class TestFacets(DatabaseTest):
 
@@ -237,6 +267,42 @@ class TestFacets(DatabaseTest):
         actual = order(Facets.ORDER_ADDED_TO_COLLECTION, None)
         compare(expect, actual)
 
+    def test_navigate(self):
+        """Test the ability of navigate() to move between slight
+        variations of a FeaturedFacets object.
+        """
+        F = Facets
+
+        ebooks = EbooksEntryPoint
+        f = Facets(self._default_library, F.COLLECTION_FULL, F.AVAILABLE_ALL,
+                   F.ORDER_TITLE, entrypoint=ebooks)
+
+        different_collection = f.navigate(collection=F.COLLECTION_FEATURED)
+        eq_(F.COLLECTION_FEATURED, different_collection.collection)
+        eq_(F.AVAILABLE_ALL, different_collection.availability)
+        eq_(F.ORDER_TITLE, different_collection.order)
+        eq_(ebooks, different_collection.entrypoint)
+
+        different_availability = f.navigate(availability=F.AVAILABLE_NOW)
+        eq_(F.COLLECTION_FULL, different_availability.collection)
+        eq_(F.AVAILABLE_NOW, different_availability.availability)
+        eq_(F.ORDER_TITLE, different_availability.order)
+        eq_(ebooks, different_availability.entrypoint)
+
+        different_order = f.navigate(order=F.ORDER_AUTHOR)
+        eq_(F.COLLECTION_FULL, different_order.collection)
+        eq_(F.AVAILABLE_ALL, different_order.availability)
+        eq_(F.ORDER_AUTHOR, different_order.order)
+        eq_(ebooks, different_order.entrypoint)
+
+        audiobooks = AudiobooksEntryPoint
+        different_entrypoint = f.navigate(entrypoint=audiobooks)
+        eq_(F.COLLECTION_FULL, different_entrypoint.collection)
+        eq_(F.AVAILABLE_ALL, different_entrypoint.availability)
+        eq_(F.ORDER_TITLE, different_entrypoint.order)
+        eq_(audiobooks, different_entrypoint.entrypoint)
+
+
 class TestFacetsApply(DatabaseTest):
 
     def test_apply(self):
@@ -342,6 +408,29 @@ class TestFacetsApply(DatabaseTest):
 
 
 class TestFeaturedFacets(DatabaseTest):
+
+    def test_navigate(self):
+        """Test the ability of navigate() to move between slight
+        variations of a FeaturedFacets object.
+        """
+        entrypoint = EbooksEntryPoint
+        f = FeaturedFacets(1, True, entrypoint)
+
+        different_entrypoint = f.navigate(entrypoint=AudiobooksEntryPoint)
+        eq_(1, different_entrypoint.minimum_featured_quality)
+        eq_(True, different_entrypoint.uses_customlists)
+        eq_(AudiobooksEntryPoint, different_entrypoint.entrypoint)
+
+        different_quality = f.navigate(minimum_featured_quality=2)
+        eq_(2, different_quality.minimum_featured_quality)
+        eq_(True, different_quality.uses_customlists)
+        eq_(entrypoint, different_quality.entrypoint)
+
+        not_a_list = f.navigate(uses_customlists=False)
+        eq_(1, not_a_list.minimum_featured_quality)
+        eq_(False, not_a_list.uses_customlists)
+        eq_(entrypoint, not_a_list.entrypoint)
+
 
     def test_quality_calculation(self):
 
@@ -656,7 +745,7 @@ class TestWorkList(DatabaseTest):
         # Create a WorkList that's associated with a Library, two genres,
         # and a child WorkList.
         wl.initialize(self._default_library, children=[child],
-                      genres=[sf, romance])
+                      genres=[sf, romance], entrypoints=[1,2,3])
 
         # Access the Library.
         eq_(self._default_library, wl.get_library(self._db))
@@ -673,6 +762,10 @@ class TestWorkList(DatabaseTest):
 
         # The WorkList's child is the WorkList passed in to the constructor.
         eq_([child], wl.visible_children)
+
+        # The Worklist's .entrypoints is whatever was passed in
+        # to the constructor.
+        eq_([1,2,3], wl.entrypoints)
 
     def test_initialize_without_library(self):
         wl = WorkList()
@@ -815,6 +908,29 @@ class TestWorkList(DatabaseTest):
         eq_((w2, child2), wwl2)
         eq_((w1, child2), wwl3)
 
+    def test_groups_propagates_facets(self):
+        """Verify that the Facets object passed into groups() is
+        propagated to the methods called by groups().
+        """
+        class MockWorkList(WorkList):
+
+            def featured_works(self, _db, facets):
+                self.featured_called_with = facets
+                return []
+
+            def _groups_for_lanes(self, _db, relevant_children, relevant_lanes, facets):
+                self.groups_called_with = facets
+                return []
+
+        mock = MockWorkList()
+        mock.initialize(library=self._default_library)
+        facets = object()
+        [x for x in mock.groups(self._db, facets=facets)]
+        eq_(facets, mock.groups_called_with)
+
+        [x for x in mock.groups(self._db, facets=facets, include_sublanes=False)]
+        eq_(facets, mock.featured_called_with)
+
     def test_featured_works(self):
         wl = MockWorks()
         self._default_library.setting(Library.FEATURED_LANE_SIZE).value = "10"
@@ -839,12 +955,44 @@ class TestWorkList(DatabaseTest):
         [(facets, pagination, featured)] = wl.works_calls
         eq_(self._default_library.minimum_featured_quality,
             facets.minimum_featured_quality)
-        eq_(featured, facets.uses_customlists)
+        eq_(False, facets.uses_customlists)
 
         # We then called random_sample() on the results.
         [(query, target_size)] = wl.random_sample_calls
         eq_([w1, w1], query)
         eq_(self._default_library.featured_lane_size, target_size)
+
+    def test_methods_that_call_works_propagate_entrypoint(self):
+        """Verify that the EntryPoint mentioned in the Facets object passed
+        into featured_works() and works_in_window() is propagated when
+        those methods call works().
+        """
+        class Mock(WorkList):
+            def works(self, _db, *args, **kwargs):
+                self.works_called_with = kwargs['facets']
+                # This query won't work, but we need to return some
+                # kind of query so works_in_window can complete.
+                return _db.query(Work)
+
+            def _restrict_query_to_window(self, query, target_size):
+                return query
+
+        wl = Mock()
+        wl.initialize(library=self._default_library)
+        audio = AudiobooksEntryPoint
+        facets = FeaturedFacets(0, entrypoint=audio)
+
+        # The Facets object passed in to works() is different from the
+        # one we passed in -- it's got some settings for
+        # minimum_featured_quality and uses_customlists which we
+        # didn't bother to provide -- but the EntryPoint we did provide
+        # is propagated.
+        wl.featured_works(self._db, facets=facets)
+        eq_(audio, wl.works_called_with.entrypoint)
+
+        wl.works_called_with = None
+        wl.works_in_window(self._db, facets, 10)
+        eq_(audio, wl.works_called_with.entrypoint)
 
     def test_works(self):
         """Verify that WorkList.works() correctly locates works
@@ -896,6 +1044,19 @@ class TestWorkList(DatabaseTest):
         wl.initialize(None)
         wl.collection_ids = [self._default_collection.id]
         eq_(2, wl.works(self._db).count())
+
+    def test_works_propagates_facets(self):
+        """Verify that the Facets object passed into works() is
+        propagated to the methods called by works().
+        """
+        class Mock(WorkList):
+            def apply_filters(self, _db, qu, facets, pagination):
+                self.apply_filters_called_with = facets
+        wl = Mock()
+        wl.initialize(self._default_library)
+        facets = FacetsWithEntryPoint()
+        wl.works(self._db, facets=facets)
+        eq_(facets, wl.apply_filters_called_with)
 
     def test_works_for_specific_ids(self):
         # Create two works and put them in the materialized view.
@@ -988,6 +1149,18 @@ class TestWorkList(DatabaseTest):
         assert 'facets.apply' not in called
         assert 'pagination.apply' not in called
 
+        # If a Facets is passed into apply_filters, the query
+        # is passed into the Facets.apply() method.
+        class MockFacets(object):
+            def apply(self, _db, qu):
+                self.called_with = qu
+                return qu
+        facets = MockFacets()
+        wl.apply_filters(self._db, original_qu, facets, None)
+        # The query was modified by the time it was passed in, so it's
+        # not the same as original_qu, but all we need to check is that
+        # _some_ query was passed in.
+        assert isinstance(facets.called_with, type(original_qu))
 
     def test_apply_bibliographic_filters_short_circuits_apply_filters(self):
         class MockWorkList(WorkList):
@@ -1285,6 +1458,27 @@ class TestWorkList(DatabaseTest):
         [fixed, kw] = third_query
         eq_(None, kw["media"])
 
+        # If a Facets object is passed into search(), and the Facets
+        # object has an EntryPoint set, a subset of search arguments
+        # are passed into EntryPoint.modified_search_arguments().
+        class MockEntryPoint(object):
+            def modified_search_arguments(self, **kwargs):
+                self.called_with = dict(kwargs)
+                return kwargs
+        entrypoint = MockEntryPoint()
+        facets = SearchFacets(entrypoint=entrypoint)
+        wl.search(self._db, work.title, search_client, facets=facets)
+
+        # Arguments relevant to the EntryPoint's view of the
+        # collection were passed in...
+        for i in ['audiences', 'fiction', 'in_any_of_these_genres', 'languages', 'media', 'target_age']:
+            assert i in entrypoint.called_with
+
+        # Arguments pertaining to the search query or result
+        # navigation were not.
+        for i in ['size', 'query_string', 'offset']:
+            assert i not in entrypoint.called_with
+
 
 class TestLane(DatabaseTest):
 
@@ -1384,6 +1578,10 @@ class TestLane(DatabaseTest):
     def test_display_name_for_all(self):
         lane = self._lane("Fantasy / Science Fiction")
         eq_("All Fantasy / Science Fiction", lane.display_name_for_all)
+
+    def test_entrypoints(self):
+        """Currently a Lane can never have entrypoints."""
+        eq_([], self._lane().entrypoints)
 
     def test_affected_by_customlist(self):
 
@@ -1648,6 +1846,35 @@ class TestLane(DatabaseTest):
             self._db, work.title, search_client, pagination=pagination
         )
         eq_(results, target_results)
+
+    def test_search_propagates_facets(self):
+        """Lane.search propagates facets when calling search() on
+        its search target.
+        """
+        class Mock(object):
+            def search(self, *args, **kwargs):
+                self.called_with = kwargs['facets']
+        mock = Mock()
+        lane = self._lane()
+
+        old_lane_search_target = Lane.search_target
+        old_wl_search = WorkList.search
+        Lane.search_target = mock
+        facets = SearchFacets()
+        lane.search(self._db, "query", None, facets=facets)
+        eq_(facets, mock.called_with)
+
+        # Now try the case where a lane is its own search target.  The
+        # Facets object is propagated to the WorkList.search().
+        mock.called_with = None
+        Lane.search_target = lane
+        WorkList.search = mock.search
+        lane.search(self._db, "query", None, facets=facets)
+        eq_(facets, mock.called_with)
+
+        # Restore methods that were mocked.
+        Lane.search_target = old_lane_search_target
+        WorkList.search = old_wl_search
 
     def test_bibliographic_filter_clause(self):
 
@@ -2020,6 +2247,22 @@ class TestLane(DatabaseTest):
             data
         )
 
+    def test_groups_propagates_facets(self):
+        """Lane.groups propagates a received Facets object into
+        _groups_for_lanes.
+        """
+        def mock(self, _db, relevant_lanes, queryable_lanes, facets):
+            self.called_with = facets
+            return []
+        old_value = Lane._groups_for_lanes
+        Lane._groups_for_lanes = mock
+        lane = self._lane()
+        facets = FeaturedFacets(0)
+        lane.groups(self._db, facets=facets)
+        eq_(facets, lane.called_with)
+        Lane._groups_for_lanes = old_value
+
+
 class TestWorkListGroups(DatabaseTest):
     """Tests of WorkList.groups() and the helper methods."""
 
@@ -2250,7 +2493,34 @@ class TestWorkListGroups(DatabaseTest):
             ]
         )
 
-        # Now instead of relying on the 'Fiction' lane, make a
+        # Let's see how entry points affect the feeds.
+        #
+
+        # There are no audiobooks in the system, so passing in a
+        # FeaturedFacets scoped to the AudiobooksEntryPoint excludes everything.
+        facets = FeaturedFacets(0, entrypoint=AudiobooksEntryPoint)
+        _db = self._db
+        eq_([], list(fiction.groups(self._db, facets=facets)))
+
+        # Here's an entry point that ignores everything except one
+        # specific book.
+        class LQRomanceEntryPoint(object):
+            @classmethod
+            def apply(cls, qu):
+                from model import MaterializedWorkWithGenre as mv
+                return qu.filter(mv.sort_title=='LQ Romance')
+        facets = FeaturedFacets(0, entrypoint=LQRomanceEntryPoint)
+        assert_contents(
+            fiction.groups(self._db, facets=facets),
+            [
+                # The single recognized book shows up in both lanes
+                # that can show it.
+                (lq_ro, romance_lane),
+                (lq_ro, fiction),
+            ]
+        )
+
+        # Now, instead of relying on the 'Fiction' lane, make a
         # WorkList containing two different lanes, and call groups() on
         # the WorkList.
 
@@ -2260,7 +2530,7 @@ class TestWorkListGroups(DatabaseTest):
             visible = True
             priority = 2
 
-            def groups(self, _db, include_sublanes):
+            def groups(self, _db, include_sublanes, facets=None):
                 yield lq_litfic, self
 
         mock = MockWorkList()
@@ -2282,6 +2552,44 @@ class TestWorkListGroups(DatabaseTest):
             ]
         )
 
+    def test_groups_for_lanes_propagates_facets(self):
+        class Mock(WorkList):
+            def _featured_works_with_lanes(self, *args, **kwargs):
+                self.featured_called_with = kwargs['facets']
+                return []
+
+        wl = Mock()
+        wl.initialize(library=self._default_library)
+        facets = FeaturedFacets(0)
+        groups = list(wl._groups_for_lanes(self._db, [], [], facets))
+        eq_(facets, wl.featured_called_with)
+
+    def test_featured_works_propagates_facets(self):
+        """featured_works uses facets when it calls works().
+        """
+        class Mock(WorkList):
+            def works(self, _db, facets):
+                self.works_called_with = facets
+                return []
+
+        wl = Mock()
+        wl.initialize(library=self._default_library)
+        facets = FeaturedFacets(
+            minimum_featured_quality = object(),
+            uses_customlists = object(),
+            entrypoint=AudiobooksEntryPoint
+        )
+        groups = list(wl.featured_works(self._db, facets))
+        eq_(facets, wl.works_called_with)
+
+        # If no FeaturedFacets object is specified, one is created
+        # based on default library configuration.
+        groups = list(wl.featured_works(self._db, None))
+        facets2 = wl.works_called_with
+        eq_(self._default_library.minimum_featured_quality,
+            facets2.minimum_featured_quality)
+        eq_(wl.uses_customlists, facets2.uses_customlists)
+
     def test_featured_works_with_lanes(self):
         """_featured_works_with_lanes calls works_in_window on every lane
         pass in to it.
@@ -2300,7 +2608,10 @@ class TestWorkListGroups(DatabaseTest):
         mock2 = Mock(("mw2","quality2"))
 
         lane = self._lane()
-        results = lane._featured_works_with_lanes(self._db, [mock1, mock2])
+        facets = FeaturedFacets(0.1)
+        results = lane._featured_works_with_lanes(
+            self._db, [mock1, mock2], facets
+        )
 
         # The results of works_in_window were annotated with the
         # 'lane' that produced the result.
@@ -2310,13 +2621,12 @@ class TestWorkListGroups(DatabaseTest):
         # Each Mock's works_in_window was called with the same
         # arguments.
         eq_(mock1.called_with, mock2.called_with)
-        _db, facets, target_size = mock1.called_with
 
-        # Those arguments came from the configuration of the Library
-        # associated with the (non-mock) Lane on which _groups_query
-        # was originally called.
+        # The Facets object passed in to _featured_works_with_lanes()
+        # is passed on into works_in_window().
+        _db, called_with_facets, target_size = mock1.called_with
         eq_(self._db, _db)
-        eq_(lane.library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(facets, called_with_facets)
         eq_(lane.library.featured_lane_size, target_size)
 
     def test_featured_window(self):
