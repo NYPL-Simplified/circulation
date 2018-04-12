@@ -2621,15 +2621,13 @@ class TestWorkListGroups(DatabaseTest):
         # Each Mock's works_in_window was called with the same
         # arguments.
         eq_(mock1.called_with, mock2.called_with)
-        _db, facets, target_size = mock1.called_with
 
-        # Those arguments came from the configuration of the Library
-        # associated with the (non-mock) Lane on which _groups_query
-        # was originally called.
+        # The Facets object passed in to _featured_works_with_lanes()
+        # is passed on into works_in_window().
+        _db, called_with_facets, target_size = mock1.called_with
         eq_(self._db, _db)
-        eq_(lane.library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(facets, called_with_facets)
         eq_(lane.library.featured_lane_size, target_size)
-        eq_(facets, facets)
 
     def test_featured_window(self):
         lane = self._lane()
