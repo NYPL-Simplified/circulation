@@ -504,6 +504,16 @@ class TestOPDS(DatabaseTest):
         eq_(expect_uri, group_link['href'])
         eq_(expect_title, group_link['title'])
 
+        # Verify that the same group_uri is created whether a Work or
+        # a MaterializedWorkWithGenre is passed in.
+        self.add_to_materialized_view([work])
+        from model import MaterializedWorkWithGenre
+        [mw] = self._db.query(MaterializedWorkWithGenre).all()
+        
+        mw_uri, mw_title = annotator.group_uri(mw, lp, lp.identifier)
+        eq_(mw_uri, expect_uri)
+        assert str(mw.works_id) in mw_uri
+
     def test_acquisition_feed(self):
         work = self._work(with_open_access_download=True, authors="Alice")
 
@@ -1302,7 +1312,9 @@ class TestAcquisitionFeed(DatabaseTest):
         old_entrypoint_link = AcquisitionFeed._entrypoint_link
         AcquisitionFeed._entrypoint_link = mock
 
-        feed = etree.fromstring("<feed/>")
+        xml = etree.fromstring("<feed/>")
+        feed = OPDSFeed("title", "url")
+        feed.feed = xml
         entrypoints = [AudiobooksEntryPoint, EbooksEntryPoint]
         url_generator = object()
         AcquisitionFeed.add_entrypoint_links(
@@ -1324,11 +1336,23 @@ class TestAcquisitionFeed(DatabaseTest):
 
         # Two identical <link> tags were added to the <feed> tag, one
         # for each call to the mock method.
-        l1, l2 = list(feed.iterchildren())
+        l1, l2 = list(xml.iterchildren())
         for l in l1, l2:
             eq_("link", l.tag)
             eq_(mock.attrs, l.attrib)
         AcquisitionFeed._entrypoint_link = old_entrypoint_link
+
+        # If there is only one facet in the facet group, no links are
+        # added.
+        xml = etree.fromstring("<feed/>")
+        feed.feed = xml
+        mock.calls = []
+        entrypoints = [EbooksEntryPoint]
+        AcquisitionFeed.add_entrypoint_links(
+            feed, url_generator, entrypoints, EbooksEntryPoint,
+            "Some entry points"
+        )
+        eq_([], mock.calls)
 
     def test_entrypoint_link(self):
         """Test the _entrypoint_link method's ability to create
@@ -1853,7 +1877,10 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # A WorkList with entry points does cause the mock method
         # to be called.
-        facets = FeaturedFacets(entrypoint=EbooksEntryPoint)
+        facets = FeaturedFacets(
+            minimum_featured_quality=self._default_library.minimum_featured_quality,
+            entrypoint=EbooksEntryPoint
+        )
         feed, make_link, entrypoints, selected = run(self.wl, facets)
 
         # add_entrypoint_links was passed both possible entry points

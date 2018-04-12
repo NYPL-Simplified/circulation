@@ -120,4 +120,4 @@ EntryPoint.register(EbooksEntryPoint, "Books", default_enabled=True)
 
 class AudiobooksEntryPoint(MediumEntryPoint):
     INTERNAL_NAME = "Audio"
-EntryPoint.register(AudiobooksEntryPoint, "Audiobooks")
+EntryPoint.register(AudiobooksEntryPoint, "Audio")

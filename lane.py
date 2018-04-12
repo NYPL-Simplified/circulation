@@ -91,10 +91,12 @@ class FacetsWithEntryPoint(FacetConstants):
     """Basic Facets class that knows how to filter a query based on a
     selected EntryPoint.
     """
-    def __init__(self, entrypoint=None):
+    def __init__(self, entrypoint=None, **kwargs):
         """Constructor.
 
         :param entrypoint: An EntryPoint (optional).
+        :param kwargs: Other arguments may be supplied based on user
+            input, but the default implementation is to ignore them.
         """
         self.entrypoint = entrypoint
 
@@ -389,10 +391,13 @@ class FeaturedFacets(FacetsWithEntryPoint):
     AcquisitionFeed.groups().
     """
 
-    def __init__(self, minimum_featured_quality=None, uses_customlists=False,
-                 entrypoint=None):
+    def __init__(self, minimum_featured_quality, uses_customlists=False,
+                 entrypoint=None, **kwargs):
         """Set up an object that finds featured books in a given
         WorkList.
+
+        :param kwargs: Other arguments may be supplied based on user
+            input, but the default implementation is to ignore them.
         """
         super(FeaturedFacets, self).__init__(entrypoint)
         self.minimum_featured_quality = minimum_featured_quality
@@ -613,9 +618,10 @@ class WorkList(object):
         # This WorkList contains every title available to this library
         # in one of the media supported by the default client.
         wl = WorkList()
+
         wl.initialize(
             library, display_name=library.name, children=top_level_lanes,
-            media=Edition.FULFILLABLE_MEDIA
+            media=Edition.FULFILLABLE_MEDIA, entrypoints=library.entrypoints
         )
         return wl
 
@@ -653,7 +659,7 @@ class WorkList(object):
         show up in relation to its siblings when it is the child of
         some other WorkList.
 
-        :param entrypoints: A list of EntryPoint objects representing
+        :param entrypoints: A list of EntryPoint classes representing
         different ways of slicing up this WorkList.
         """
         self.library_id = None
@@ -806,6 +812,14 @@ class WorkList(object):
         ):
             yield work, worklist
 
+    def default_featured_facets(self, _db):
+        """Helper method to create a FeaturedFacets object."""
+        library = self.get_library(_db)
+        return FeaturedFacets(
+            minimum_featured_quality=library.minimum_featured_quality,
+            uses_customlists=self.uses_customlists
+        )
+
     def featured_works(self, _db, facets=None):
         """Find a random sample of featured books.
 
@@ -824,12 +838,7 @@ class WorkList(object):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
-        facets = facets or FeaturedFacets()
-        facets = facets.navigate(
-            minimum_featured_quality=library.minimum_featured_quality,
-            uses_customlists=self.uses_customlists
-        )
-
+        facets = facets or self.default_featured_facets(_db)
         query = self.works(_db, facets=facets)
         if not query:
             # works() may return None, indicating that the whole
@@ -1298,11 +1307,7 @@ class WorkList(object):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
-        facets = facets or FeaturedFacets()
-        facets = facets.navigate(
-            library.minimum_featured_quality,
-            self.uses_customlists
-        )
+        facets = facets or self.default_featured_facets(_db)
 
         # Pull a window of works for every lane we were given.
         for lane in lanes:

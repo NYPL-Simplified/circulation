@@ -980,7 +980,7 @@ class TestWorkList(DatabaseTest):
         wl = Mock()
         wl.initialize(library=self._default_library)
         audio = AudiobooksEntryPoint
-        facets = FeaturedFacets(entrypoint=audio)
+        facets = FeaturedFacets(0, entrypoint=audio)
 
         # The Facets object passed in to works() is different from the
         # one we passed in -- it's got some settings for
@@ -2257,7 +2257,7 @@ class TestLane(DatabaseTest):
         old_value = Lane._groups_for_lanes
         Lane._groups_for_lanes = mock
         lane = self._lane()
-        facets = FeaturedFacets()
+        facets = FeaturedFacets(0)
         lane.groups(self._db, facets=facets)
         eq_(facets, lane.called_with)
         Lane._groups_for_lanes = old_value
@@ -2498,7 +2498,7 @@ class TestWorkListGroups(DatabaseTest):
 
         # There are no audiobooks in the system, so passing in a
         # FeaturedFacets scoped to the AudiobooksEntryPoint excludes everything.
-        facets = FeaturedFacets(entrypoint=AudiobooksEntryPoint)
+        facets = FeaturedFacets(0, entrypoint=AudiobooksEntryPoint)
         _db = self._db
         eq_([], list(fiction.groups(self._db, facets=facets)))
 
@@ -2509,7 +2509,7 @@ class TestWorkListGroups(DatabaseTest):
             def apply(cls, qu):
                 from model import MaterializedWorkWithGenre as mv
                 return qu.filter(mv.sort_title=='LQ Romance')
-        facets = FeaturedFacets(entrypoint=LQRomanceEntryPoint)
+        facets = FeaturedFacets(0, entrypoint=LQRomanceEntryPoint)
         assert_contents(
             fiction.groups(self._db, facets=facets),
             [
@@ -2560,7 +2560,7 @@ class TestWorkListGroups(DatabaseTest):
 
         wl = Mock()
         wl.initialize(library=self._default_library)
-        facets = FeaturedFacets()
+        facets = FeaturedFacets(0)
         groups = list(wl._groups_for_lanes(self._db, [], [], facets))
         eq_(facets, wl.featured_called_with)
 
@@ -2580,14 +2580,12 @@ class TestWorkListGroups(DatabaseTest):
             entrypoint=AudiobooksEntryPoint
         )
         groups = list(wl.featured_works(self._db, facets))
+        eq_(facets, wl.works_called_with)
 
-        # The Facets object passed in to Works is based on the object
-        # we passed in, but it's not the same. The entry point has
-        # been preserverd, but the worklist's uses_customlists and
-        # the library's minimum_featured_quality have replaced the
-        # fake values set earlier.
+        # If no FeaturedFacets object is specified, one is created
+        # based on default library configuration.
+        groups = list(wl.featured_works(self._db, None))
         facets2 = wl.works_called_with
-        eq_(facets.entrypoint, facets2.entrypoint)
         eq_(self._default_library.minimum_featured_quality,
             facets2.minimum_featured_quality)
         eq_(wl.uses_customlists, facets2.uses_customlists)
@@ -2610,7 +2608,7 @@ class TestWorkListGroups(DatabaseTest):
         mock2 = Mock(("mw2","quality2"))
 
         lane = self._lane()
-        facets = FeaturedFacets()
+        facets = FeaturedFacets(0.1)
         results = lane._featured_works_with_lanes(
             self._db, [mock1, mock2], facets
         )
@@ -2623,15 +2621,13 @@ class TestWorkListGroups(DatabaseTest):
         # Each Mock's works_in_window was called with the same
         # arguments.
         eq_(mock1.called_with, mock2.called_with)
-        _db, facets, target_size = mock1.called_with
 
-        # Those arguments came from the configuration of the Library
-        # associated with the (non-mock) Lane on which _groups_query
-        # was originally called.
+        # The Facets object passed in to _featured_works_with_lanes()
+        # is passed on into works_in_window().
+        _db, called_with_facets, target_size = mock1.called_with
         eq_(self._db, _db)
-        eq_(lane.library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(facets, called_with_facets)
         eq_(lane.library.featured_lane_size, target_size)
-        eq_(facets, facets)
 
     def test_featured_window(self):
         lane = self._lane()

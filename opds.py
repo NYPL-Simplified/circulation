@@ -675,6 +675,14 @@ class AcquisitionFeed(OPDSFeed):
         :param entrypoints: A list of all EntryPoints in the facet group.
         :param selected_entrypoint: The current EntryPoint, if selected.
         """
+        if (len(entrypoints) == 1
+            and selected_entrypoint in (None, entrypoints[0])):
+            # There is only one entry point. Unless the currently
+            # selected entry point is somehow different, there's no
+            # need to put any links at all here -- a facet group with
+            # one one facet might as well not be there.
+            return
+
         is_default = True
         for entrypoint in entrypoints:
             link = cls._entrypoint_link(
@@ -682,7 +690,7 @@ class AcquisitionFeed(OPDSFeed):
                 group_name
             )
             if link:
-                cls.add_link_to_feed(feed, **link)
+                cls.add_link_to_feed(feed.feed, **link)
                 is_default = False
 
     @classmethod
@@ -1516,7 +1524,12 @@ class TestAnnotatorWithGroup(TestAnnotator):
             if additional_lanes:
                 self.lanes_by_work[work] = additional_lanes
         else:
-            lane_name = str(work.id)
+            if isinstance(work, Work):
+                work_id = work.id
+            else:
+                # MaterialivedWorkWithGenre
+                work_id = work.works_id
+            lane_name = str(work_id)
         return ("http://group/%s" % lane_name,
                 "Group Title for %s!" % lane_name)
 
