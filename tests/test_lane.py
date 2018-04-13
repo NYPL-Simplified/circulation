@@ -76,15 +76,13 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(qu, ep.called_with)
 
     def test_from_request(self):
-        # from_request just calls _from_request.
+        """from_request just calls _from_request."""
         expect = object()
-        @classmethod
-        def mock(cls, facet_config, get_argument, worklist, **extra_kwargs):
-            return expect
-        old = FacetsWithEntryPoint._from_request
-        FacetsWithEntryPoint._from_request = mock
-        eq_(expect, FacetsWithEntryPoint.from_request(None, None, None, None))
-        FacetsWithEntryPoint._from_request = old
+        class Mock(FacetsWithEntryPoint):
+            @classmethod
+            def _from_request(cls, *args, **kwargs):
+                return expect
+        eq_(expect, Mock.from_request(None, None, None, None))
 
     def test_from_request_propagates_extra_kwargs(self):
         """Any keyword arguments passed to from_request() are propagated
@@ -97,6 +95,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         facets = ExtraFacets.from_request(
             None, None, {}.get, None, extra="extra value"
         )
+        assert isinstance(facets, ExtraFacets)
         eq_("extra value", facets.extra)
 
     def test__from_request(self):
