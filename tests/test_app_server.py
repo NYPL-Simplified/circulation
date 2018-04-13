@@ -33,7 +33,6 @@ from app_server import (
     URNLookupController,
     ErrorHandler,
     ComplaintController,
-    load_entrypoint,
     load_facets_from_request,
     load_pagination_from_request,
 )
@@ -288,6 +287,26 @@ class TestLoadMethods(DatabaseTest):
             flask.request.library = self._default_library
             facets = load_facets_from_request(worklist=worklist)
             eq_(AudiobooksEntryPoint, facets.entrypoint)
+
+    def test_load_facets_from_request_class_instantiation(self):
+        """The caller of load_facets_from_request() can specify a class other
+        than Facets to call from_request() on.
+        """
+        class MockFacets(object):
+            @classmethod
+            def from_request(*args, **kwargs):
+                facets = MockFacets()
+                facets.called_with = kwargs
+                return facets
+        kwargs = dict(some_arg='some value')
+        with self.app.test_request_context(''):
+            flask.request.library = self._default_library
+            facets = load_facets_from_request(
+                None, None, base_class=MockFacets,
+                base_class_constructor_kwargs=kwargs
+            )
+        assert isinstance(facets, MockFacets)
+        eq_('some value', facets.called_with['some_arg'])
 
     def test_load_pagination_from_request(self):
         with self.app.test_request_context('/?size=50&after=10'):

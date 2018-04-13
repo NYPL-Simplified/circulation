@@ -75,22 +75,6 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         f.apply(_db, qu)
         eq_(qu, ep.called_with)
 
-    def test_load_facets_class_instantiation(self):
-        """The caller of load_facets() can specify a class to instantiate
-        other than Facets, and arguments to pass into the class
-        constructor.
-        """
-        class MockFacets(object):
-            def __init__(self, *args, **kwargs):
-                self.called_with = kwargs
-        kwargs = dict(some_arg='some value')
-        facets = load_facets(
-            self._default_library, None, None, None,
-            base_class=MockFacets, base_class_constructor_kwargs=kwargs
-        )
-        assert isinstance(facets, MockFacets)
-        eq_('some value', facets.called_with['some_arg'])
-
     def test_from_request(self):
         # from_request just calls _from_request.
         expect = object()
