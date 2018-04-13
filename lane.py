@@ -44,7 +44,10 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.sql.expression import literal
 
-from entrypoint import EntryPoint
+from entrypoint import (
+    EntryPoint,
+    EverythingEntryPoint,
+)
 from model import (
     directly_modified,
     get_one_or_create,
@@ -148,6 +151,18 @@ class FacetsWithEntryPoint(FacetConstants):
         return cls(entrypoint=entrypoint, **extra_kwargs)
 
     @classmethod
+    def available_entrypoints(cls, worklist):
+        """Which EntryPoints are available for these facets on this
+        WorkList?
+
+        By default, this is completely determined by the WorkList.
+        See SearchFacets for an example that changes this.
+        """
+        if not worklist:
+            return []
+        return worklist.entrypoints
+
+    @classmethod
     def load_entrypoint(cls, name, worklist):
         """Look up an EntryPoint by name, assuming it's allowed in the
         given WorkList.
@@ -158,11 +173,12 @@ class FacetsWithEntryPoint(FacetConstants):
         will be returned. If the WorkList has no EntryPoints, or no
         WorkList is provided, None will be returned.
         """
-        if not worklist or not worklist.entrypoints:
+        entrypoints = cls.available_entrypoints(worklist)
+        if not entrypoints:
             return None
-        default = worklist.entrypoints[0]
+        default = entrypoints[0]
         ep = EntryPoint.BY_INTERNAL_NAME.get(name)
-        if not ep or ep not in worklist.entrypoints:
+        if not ep or ep not in entrypoints:
             return default
         return ep
 
@@ -599,9 +615,19 @@ class FeaturedFacets(FacetsWithEntryPoint):
         return self._quality_tier_field
 
 
-# Apart from a selectable entry point, search queries don't support
-# faceted navigation, so we can use the base class.
-SearchFacets = FacetsWithEntryPoint
+class SearchFacets(FacetsWithEntryPoint):
+
+    @classmethod
+    def available_entrypoints(cls, worklist):
+        if not worklist:
+            return None
+        entrypoints = list(worklist.entrypoints)
+        if len(entrypoints) < 2:
+            return entrypoints
+        if EverythingEntryPoint not in entrypoints:
+            entrypoints.insert(0, EverythingEntryPoint)
+        set_trace()
+        return entrypoints
 
 
 class Pagination(object):

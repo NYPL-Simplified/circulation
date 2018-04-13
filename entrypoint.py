@@ -91,6 +91,12 @@ class EntryPoint(object):
         return kwargs
 
 
+class EverythingEntryPoint(EntryPoint):
+    """An entry point that has everything."""
+    INTERNAL_NAME = "All"
+EntryPoint.register(EverythingEntryPoint, "All")
+
+
 class MediumEntryPoint(EntryPoint):
     """A entry point that creates a view on one specific medium.
 
