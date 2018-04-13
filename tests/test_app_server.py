@@ -34,7 +34,6 @@ from app_server import (
     ErrorHandler,
     ComplaintController,
     load_entrypoint,
-    load_facets,
     load_facets_from_request,
     load_pagination_from_request,
 )
