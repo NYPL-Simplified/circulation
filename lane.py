@@ -44,6 +44,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.sql.expression import literal
 
+from entrypoint import EntryPoint
 from model import (
     directly_modified,
     get_one_or_create,
@@ -67,10 +68,12 @@ from model import (
     WorkGenre,
 )
 from facets import FacetConstants
+from problem_details import *
 from util import (
     fast_query_count,
     LanguageCodes,
 )
+from util.problem_detail import ProblemDetail
 
 import elasticsearch
 
@@ -99,6 +102,69 @@ class FacetsWithEntryPoint(FacetConstants):
             input, but the default implementation is to ignore them.
         """
         self.entrypoint = entrypoint
+
+    @classmethod
+    def from_request(
+            cls, library, facet_config, get_argument, worklist, **extra_kwargs
+    ):
+        """Load a faceting object from an HTTP request.
+
+        :param facet_config: A Library (or mock of one) that knows
+           which subset of the available facets are configured.
+
+        :param get_argument: A callable that takes one argument and
+           retrieves (or pretends to retrieve) a query string
+           parameter of that name from an incoming HTTP request.
+
+        :param worklist: A WorkList associated with the current request,
+           if any.
+
+        :param extra_kwargs: A dictionary of keyword arguments to pass
+           into the constructor when a faceting object is instantiated.
+
+        :return: A FacetsWithEntryPoint, or a ProblemDetail if there's
+            a problem with the input from the request.
+        """
+        return cls._from_request(
+            facet_config, get_argument, worklist, **extra_kwargs
+        )
+
+    @classmethod
+    def _from_request(
+            cls, facet_config, get_argument, worklist, **extra_kwargs
+    ):
+        """Load a faceting object from an HTTP request.
+
+        Subclasses of FacetsWithEntryPoint can override `from_request`,
+        but call this method to load the EntryPoint and actually
+        instantiate the faceting class.
+        """
+        entrypoint_name = get_argument(
+            Facets.ENTRY_POINT_FACET_GROUP_NAME, None
+        )
+        entrypoint = cls.load_entrypoint(entrypoint_name, worklist)
+        if isinstance(entrypoint, ProblemDetail):
+            return entrypoint
+        return cls(entrypoint=entrypoint, **extra_kwargs)
+
+    @classmethod
+    def load_entrypoint(cls, name, worklist):
+        """Look up an EntryPoint by name, assuming it's allowed in the
+        given WorkList.
+
+        :return: An EntryPoint class. This will be the requested
+        EntryPoint if possible. If a nonexistent or unusable
+        EntryPoint is requested, the WorkList's default EntryPoint
+        will be returned. If the WorkList has no EntryPoints, or no
+        WorkList is provided, None will be returned.
+        """
+        if not worklist or not worklist.entrypoints:
+            return None
+        default = worklist.entrypoints[0]
+        ep = EntryPoint.BY_INTERNAL_NAME.get(name)
+        if not ep or ep not in worklist.entrypoints:
+            return default
+        return ep
 
     def items(self):
         """Yields a 2-tuple for every active facet setting.
@@ -141,13 +207,55 @@ class Facets(FacetsWithEntryPoint):
             order=cls.ORDER_AUTHOR
         )
 
+    @classmethod
+    def from_request(cls, library, config, get_argument, worklist, **extra):
+        """Load a faceting object from an HTTP request."""
+        g = Facets.ORDER_FACET_GROUP_NAME
+        order = get_argument(g, config.default_facet(g))
+        order_facets = config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
+        if order and not order in order_facets:
+            return INVALID_INPUT.detailed(
+                _("I don't know how to order a feed by '%(order)s'", order=order),
+                400
+            )
+        extra['order'] = order
+
+        g = Facets.AVAILABILITY_FACET_GROUP_NAME
+        availability = get_argument(g, config.default_facet(g))
+        availability_facets = config.enabled_facets(
+            Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        if availability and not availability in availability_facets:
+            return INVALID_INPUT.detailed(
+                _("I don't understand the availability term '%(availability)s'", availability=availability),
+                400
+            )
+        extra['availability'] = availability
+
+        g = Facets.COLLECTION_FACET_GROUP_NAME
+        collection = get_argument(g, config.default_facet(g))
+        collection_facets = config.enabled_facets(
+            Facets.COLLECTION_FACET_GROUP_NAME
+        )
+        if collection and not collection in collection_facets:
+            return INVALID_INPUT.detailed(
+                _("I don't understand what '%(collection)s' refers to.", collection=collection),
+                400
+            )
+        extra['collection'] = collection
+
+        extra['enabled_facets'] = {
+            Facets.ORDER_FACET_GROUP_NAME : order_facets,
+            Facets.AVAILABILITY_FACET_GROUP_NAME : availability_facets,
+            Facets.COLLECTION_FACET_GROUP_NAME : collection_facets,
+        }
+        extra['library'] = library
+
+        return cls._from_request(config, get_argument, worklist, **extra)
+
     def __init__(self, library, collection, availability, order,
                  order_ascending=None, enabled_facets=None, entrypoint=None):
         """Constructor.
-
-        :param library: The library's defaults will be used when creating the
-        facets. If library is None, collection, availability, order, and
-        enabled_facets must be specified.
 
         :param collection: This is not a Collection object; it's a value for
         the 'collection' facet, e.g. 'main' or 'featured'.

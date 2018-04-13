@@ -101,39 +101,21 @@ def load_facets_from_request(
     The active request must have the `library` member set to a Library
     object.
 
-    :param facet_config: An object to use instead of the request Library
-    when deciding which facets are enabled.
-
-    :param lane: An optional WorkList to use when checking which EntryPoints
-    are aviailable.
-
-    :param base_class: A facet class, such as FacetsWithEntryPoint or one of
-    its subclasses, to instantiate instead of Facets.
-
-    :param base_class_constructor_kwargs: A dictionary of keyword
-    arguments to the constructor of `base_class`, representing
-    extra arguments not handled by this code.
+    :param worklist: The WorkList, if any, associated with the request.
+    :param facet_config: An object containing the currently configured
+        facet groups, if different from the request library.
+    :param base_class: The faceting class to instantiate.
+    :param base_class_constructor_kwargs: Keyword arguments to pass into
+        the faceting class constructor, other than those obtained from
+        the request.
+    :return: A faceting object if possible; otherwise a ProblemDetail.
     """
-    arg = flask.request.args.get
+    kwargs = base_class_constructor_kwargs or dict()
+    get_arg = flask.request.args.get
     library = flask.request.library
-    config = facet_config or library
-    
-    g = Facets.ORDER_FACET_GROUP_NAME
-    order = arg(g, config.default_facet(g))
-
-    g = Facets.AVAILABILITY_FACET_GROUP_NAME
-    availability = arg(g, config.default_facet(g))
-
-    g = Facets.COLLECTION_FACET_GROUP_NAME
-    collection = arg(g, config.default_facet(g))
-
-    entrypoint = arg(Facets.ENTRY_POINT_FACET_GROUP_NAME, None)
-
-    return load_facets(
-        library, order, availability, collection,
-        facet_config=facet_config, entrypoint=entrypoint,
-        worklist=worklist, base_class=base_class,
-        base_class_constructor_kwargs=base_class_constructor_kwargs
+    facet_config = facet_config or library
+    return base_class.from_request(
+        library, facet_config, get_arg, worklist, **kwargs
     )
 
 def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
@@ -142,51 +124,6 @@ def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     size = arg('size', default_size)
     offset = arg('after', 0)
     return load_pagination(size, offset)
-
-
-def load_facets(library, order, availability, collection, facet_config=None,
-                entrypoint=None, worklist=None, base_class=Facets,
-                base_class_constructor_kwargs=None):
-    """Turn user input into a faceting object."""
-    config = facet_config or library
-    order_facets = config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
-    if order and not order in order_facets:
-        return INVALID_INPUT.detailed(
-            _("I don't know how to order a feed by '%(order)s'", order=order),
-            400
-        )
-    availability_facets = config.enabled_facets(
-        Facets.AVAILABILITY_FACET_GROUP_NAME
-    )
-    if availability and not availability in availability_facets:
-        return INVALID_INPUT.detailed(
-            _("I don't understand the availability term '%(availability)s'", availability=availability),
-            400
-        )
-
-    collection_facets = config.enabled_facets(
-        Facets.COLLECTION_FACET_GROUP_NAME
-    )
-    if collection and not collection in collection_facets:
-        return INVALID_INPUT.detailed(
-            _("I don't understand what '%(collection)s' refers to.", collection=collection),
-            400
-        )
-    
-    enabled_facets = {
-        Facets.ORDER_FACET_GROUP_NAME : order_facets,
-        Facets.AVAILABILITY_FACET_GROUP_NAME : availability_facets,
-        Facets.COLLECTION_FACET_GROUP_NAME : collection_facets,
-    }
-
-    entrypoint = load_entrypoint(entrypoint, worklist)
-
-    base_class_constructor_kwargs = base_class_constructor_kwargs or dict()
-    return base_class(
-        library=library, collection=collection, availability=availability,
-        order=order, entrypoint=entrypoint, enabled_facets=enabled_facets,
-        **base_class_constructor_kwargs
-    )
 
 def load_pagination(size, offset):
     """Turn user input into a Pagination object."""
@@ -201,29 +138,6 @@ def load_pagination(size, offset):
         except ValueError:
             return INVALID_INPUT.detailed(_("Invalid offset: %(offset)s", offset=offset))
     return Pagination(offset, size)
-
-def load_entrypoint(entrypoint, worklist):
-    """Turn user input into an EntryPoint class from the EntryPoint registry.
-
-    :param worklist: A WorkList.
-
-    :return: An EntryPoint class. This will be the requested
-    EntryPoint if possible. If a nonexistent or unusable EntryPoint is
-    requested, the WorkList's default EntryPoint will be returned. If
-    the WorkList has no EntryPoints, or no WorkList is provided, None
-    will be returned.
-    """
-    if not worklist or not worklist.entrypoints:
-        # This WorkList has no EntryPoints. No EntryPoint should ever
-        # be returned from this method.
-        return None
-    default = worklist.entrypoints[0]
-    cls = EntryPoint.BY_INTERNAL_NAME.get(entrypoint)
-    if not cls:
-        return default
-    if cls not in worklist.entrypoints:
-        return default
-    return cls
 
 def returns_problem_detail(f):
     @wraps(f)
