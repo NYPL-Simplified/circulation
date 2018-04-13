@@ -150,17 +150,19 @@ class FacetsWithEntryPoint(FacetConstants):
     def load_entrypoint(cls, name, worklist):
         """Look up an EntryPoint by name, assuming it's allowed in the
         given WorkList.
+
+        :return: An EntryPoint class. This will be the requested
+        EntryPoint if possible. If a nonexistent or unusable
+        EntryPoint is requested, the WorkList's default EntryPoint
+        will be returned. If the WorkList has no EntryPoints, or no
+        WorkList is provided, None will be returned.
         """
-        if not name:
-            # No EntryPoint was requested.
+        if not name or not worklist or not worklist.entrypoints:
             return None
-        matches = [x for x in worklist.entrypoints if x.INTERNAL_NAME==name]
-        if not matches:
-            return INVALID_INPUT.detailed(
-                _("The entry point %(entrypoint)s is not available",
-                  entrypoint=name)
-            )
-        return matches[0]
+        default = worklist.entrypoints[0]
+        cls = EntryPoint.BY_INTERNAL_NAME.get(entrypoint)
+        if not cls or cls not in worklist.entrypoints
+            return default
 
     def items(self):
         """Yields a 2-tuple for every active facet setting.
