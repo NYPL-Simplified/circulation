@@ -44,6 +44,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.sql.expression import literal
 
+from entrypoint import EntryPoint
 from model import (
     directly_modified,
     get_one_or_create,
@@ -125,7 +126,7 @@ class FacetsWithEntryPoint(FacetConstants):
             a problem with the input from the request.
         """
         return cls._from_request(
-            cls, facet_config, get_argument, worklist, **extra_kwargs
+            facet_config, get_argument, worklist, **extra_kwargs
         )
 
     @classmethod
@@ -157,12 +158,13 @@ class FacetsWithEntryPoint(FacetConstants):
         will be returned. If the WorkList has no EntryPoints, or no
         WorkList is provided, None will be returned.
         """
-        if not name or not worklist or not worklist.entrypoints:
+        if not worklist or not worklist.entrypoints:
             return None
         default = worklist.entrypoints[0]
-        cls = EntryPoint.BY_INTERNAL_NAME.get(entrypoint)
-        if not cls or cls not in worklist.entrypoints
+        ep = EntryPoint.BY_INTERNAL_NAME.get(name)
+        if not ep or ep not in worklist.entrypoints:
             return default
+        return ep
 
     def items(self):
         """Yields a 2-tuple for every active facet setting.

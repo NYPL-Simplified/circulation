@@ -51,9 +51,10 @@ from model import (
     Work,
     WorkGenre,
 )
+from problem_details import INVALID_INPUT
 
 
-class TestFacetsWithEntryPoint(object):
+class TestFacetsWithEntryPoint(DatabaseTest):
 
     def test_items(self):
         ep = AudiobooksEntryPoint
@@ -73,6 +74,117 @@ class TestFacetsWithEntryPoint(object):
         qu = object()
         f.apply(_db, qu)
         eq_(qu, ep.called_with)
+
+    def test_load_facets_class_instantiation(self):
+        """The caller of load_facets() can specify a class to instantiate
+        other than Facets, and arguments to pass into the class
+        constructor.
+        """
+        class MockFacets(object):
+            def __init__(self, *args, **kwargs):
+                self.called_with = kwargs
+        kwargs = dict(some_arg='some value')
+        facets = load_facets(
+            self._default_library, None, None, None,
+            base_class=MockFacets, base_class_constructor_kwargs=kwargs
+        )
+        assert isinstance(facets, MockFacets)
+        eq_('some value', facets.called_with['some_arg'])
+
+    def test_from_request(self):
+        # from_request just calls _from_request.
+        expect = object()
+        @classmethod
+        def mock(cls, facet_config, get_argument, worklist, **extra_kwargs):
+            return expect
+        old = FacetsWithEntryPoint._from_request
+        FacetsWithEntryPoint._from_request = mock
+        eq_(expect, FacetsWithEntryPoint.from_request(None, None, None, None))
+        FacetsWithEntryPoint._from_request = old
+
+    def test_from_request_propagates_extra_kwargs(self):
+        """Any keyword arguments passed to from_request() are propagated
+        through to the facet constructor.
+        """
+        class ExtraFacets(FacetsWithEntryPoint):
+            def __init__(self, entrypoint=None, extra=None):
+                self.extra = extra
+
+        facets = ExtraFacets.from_request(
+            None, None, {}.get, None, extra="extra value"
+        )
+        eq_("extra value", facets.extra)
+
+    def test__from_request(self):
+        """_from_request calls load_entrypoint and instantiates the
+        class with the result.
+        """
+        self.expect = object()
+        @classmethod
+        def mock_load_entrypoint(cls, entrypoint_name, worklist):
+            self.called_with = (entrypoint_name, worklist)
+            return self.expect
+        old = FacetsWithEntryPoint.load_entrypoint
+        FacetsWithEntryPoint.load_entrypoint = mock_load_entrypoint
+
+        # The facet group name will be pulled out of the 'request'
+        # and passed into mock_load_entrypoint.
+        def get_argument(key, default):
+            eq_(key, Facets.ENTRY_POINT_FACET_GROUP_NAME)
+            return "name of the entrypoint"
+
+        mock_worklist = object()
+        facets = FacetsWithEntryPoint._from_request(
+            None, get_argument, mock_worklist
+        )
+        assert isinstance(facets, FacetsWithEntryPoint)
+        eq_(self.expect, facets.entrypoint)
+        eq_(("name of the entrypoint", mock_worklist), self.called_with)
+
+        # If load_entrypoint returns a ProblemDetail, that object is
+        # returned instead of the faceting class.
+        self.expect = INVALID_INPUT
+        eq_(
+            self.expect,
+            FacetsWithEntryPoint._from_request(
+                None, get_argument, mock_worklist
+            )
+        )
+        FacetsWithEntryPoint.load_entrypoint = old
+
+    def test_load_entrypoint(self):
+        audio = AudiobooksEntryPoint
+        ebooks = EbooksEntryPoint
+
+        # This WorkList supports two EntryPoints.
+        worklist = WorkList()
+        worklist.initialize(
+            self._default_library, entrypoints=[audio, ebooks]
+        )
+        m = FacetsWithEntryPoint.load_entrypoint
+
+        # This request does not ask for any particular entrypoint,
+        # so it gets the default.
+        eq_(audio, m(None, worklist))
+
+        # This request asks for an entrypoint and gets it.
+        eq_(ebooks, m(ebooks.INTERNAL_NAME, worklist))
+
+        # This request asks for an entrypoint that is not available,
+        # and gets the default.
+        eq_(audio, m("no such entrypoint", worklist))
+
+        # This WorkList does not have any associated EntryPoints,
+        # which means the loaded Facets object will never have an
+        # .entrypoint.
+        no_entrypoints = WorkList()
+        no_entrypoints.initialize(self._default_library)
+        eq_(None, m(None, no_entrypoints))
+        eq_(None, m(audio.INTERNAL_NAME, no_entrypoints))
+
+        # Same behavior if for some reason you try to load an
+        # entrypoint but don't provide a associated WorkList.
+        eq_(None, m(audio.INTERNAL_NAME, None))
 
 
 class TestFacets(DatabaseTest):
