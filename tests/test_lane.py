@@ -469,11 +469,11 @@ class TestFacets(DatabaseTest):
             invalid_availability.detail)
 
         # Invalid collection
-        args = dict(available="no such collection")
+        args = dict(collection="no such collection")
         invalid_collection = m(library, library, args.get, None)
         eq_(INVALID_INPUT.uri, invalid_collection.uri)
-        eq_("I don't understand the availability term 'no such availability'",
-            invalid_availability.detail)
+        eq_("I don't understand what 'no such collection' refers to.",
+            invalid_collection.detail)
 
 
 class TestFacetsApply(DatabaseTest):
