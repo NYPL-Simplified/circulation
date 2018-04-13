@@ -414,6 +414,67 @@ class TestFacets(DatabaseTest):
         eq_(F.ORDER_TITLE, different_entrypoint.order)
         eq_(audiobooks, different_entrypoint.entrypoint)
 
+    def test_from_request(self):
+        library = self._default_library
+        config = library
+        worklist = WorkList()
+        worklist.initialize(
+            library, entrypoints=[AudiobooksEntryPoint, EbooksEntryPoint]
+        )
+
+        m = Facets.from_request
+
+        # Valid object using the default settings.
+        default_order = config.default_facet(Facets.ORDER_FACET_GROUP_NAME)
+        default_collection = config.default_facet(
+            Facets.COLLECTION_FACET_GROUP_NAME
+        )
+        default_availability = config.default_facet(
+            Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        args = {}
+        facets = m(library, library, args.get, worklist)
+        eq_(default_order, facets.order)
+        eq_(default_collection, facets.collection)
+        eq_(default_availability, facets.availability)
+        eq_(library, facets.library)
+        eq_(AudiobooksEntryPoint, facets.entrypoint)
+
+        # Valid object using non-default settings.
+        args = dict(
+            order=Facets.ORDER_TITLE,
+            collection=Facets.COLLECTION_FULL,
+            available=Facets.AVAILABLE_OPEN_ACCESS,
+            entrypoint=EbooksEntryPoint.INTERNAL_NAME,
+        )
+        facets = m(library, library, args.get, worklist)
+        eq_(Facets.ORDER_TITLE, facets.order)
+        eq_(Facets.COLLECTION_FULL, facets.collection)
+        eq_(Facets.AVAILABLE_OPEN_ACCESS, facets.availability)
+        eq_(library, facets.library)
+        eq_(EbooksEntryPoint, facets.entrypoint)
+
+        # Invalid order
+        args = dict(order="no such order")
+        invalid_order = m(library, library, args.get, None)
+        eq_(INVALID_INPUT.uri, invalid_order.uri)
+        eq_("I don't know how to order a feed by 'no such order'",
+            invalid_order.detail)
+
+        # Invalid availability
+        args = dict(available="no such availability")
+        invalid_availability = m(library, library, args.get, None)
+        eq_(INVALID_INPUT.uri, invalid_availability.uri)
+        eq_("I don't understand the availability term 'no such availability'",
+            invalid_availability.detail)
+
+        # Invalid collection
+        args = dict(available="no such collection")
+        invalid_collection = m(library, library, args.get, None)
+        eq_(INVALID_INPUT.uri, invalid_collection.uri)
+        eq_("I don't understand the availability term 'no such availability'",
+            invalid_availability.detail)
+
 
 class TestFacetsApply(DatabaseTest):
 
