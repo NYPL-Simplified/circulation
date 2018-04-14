@@ -9941,6 +9941,9 @@ class Library(Base, HasFullTableCache):
         'Patron', backref='library', cascade="all, delete-orphan"
     )
 
+    # An Library may have many admin roles.
+    adminroles = relationship("AdminRole", backref="library")
+
     # A Library may have many CachedFeeds.
     cachedfeeds = relationship(
         "CachedFeed", backref="library",
@@ -10287,6 +10290,9 @@ class Admin(Base):
     # Admins can also log in with a local password.
     password_hashed = Column(Unicode, index=True)
 
+    # An Admin may have many roles.
+    roles = relationship("AdminRole", backref="admin")
+
     def update_credentials(self, _db, credential=None):
         if credential:
             self.credential = credential
@@ -10320,6 +10326,74 @@ class Admin(Base):
         """Get Admins that have a password."""
         return _db.query(Admin).filter(Admin.password_hashed != None)
 
+    def is_system_admin(self):
+        _db = Session.object_session(self)
+        role = get_one(_db, AdminRole, admin=self, role=AdminRole.SYSTEM_ADMIN)
+        if role:
+            return True
+        return False
+
+    def is_library_manager(self, library):
+        _db = Session.object_session(self)
+        # System admins can do everything.
+        if self.is_system_admin():
+            return True
+        # First check if the admin is a manager of _all_ libraries.
+        all_role = get_one(_db, AdminRole, admin=self, role=AdminRole.LIBRARY_MANAGER_ALL)
+        if all_role:
+            return True
+        # If not, they could stil be a manager of _this_ library.
+        role = get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARY_MANAGER)
+        if role:
+            return True
+        return False
+
+    def is_librarian(self, library):
+        _db = Session.object_session(self)
+        # If the admin is a library manager, they can do everything a librarian can do.
+        if self.is_library_manager(library):
+            return True
+        # Check if the admin is a librarian for _all_ libraries.
+        all_role = get_one(_db, AdminRole, admin=self, role=AdminRole.LIBRARIAN_ALL)
+        if all_role:
+            return True
+        # If not, they might be a librarian of _this_ library.
+        role = get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARIAN)
+        if role:
+            return True
+        return False
+
+    def add_role(self, role, library=None):
+        _db = Session.object_session(self)
+        role, is_new = get_one_or_create(_db, AdminRole, admin=self, role=role, library=library)
+        return role
+
+    def remove_role(self, role, library=None):
+        _db = Session.object_session(self)
+        role = get_one(_db, AdminRole, admin=self, role=role, library=library)
+        if role:
+            _db.delete(role)
+
+class AdminRole(Base):
+
+    __tablename__ = 'adminroles'
+
+    id = Column(Integer, primary_key=True)
+    admin_id = Column(Integer, ForeignKey("admins.id"), nullable=False, index=True)
+    library_id = Column(Integer, ForeignKey("libraries.id"), nullable=True, index=True)
+    role = Column(Unicode, nullable=False, index=True)
+
+    __table_args__ = (
+        UniqueConstraint('admin_id', 'library_id', 'role'),
+    )
+
+    SYSTEM_ADMIN = "system"
+    LIBRARY_MANAGER_ALL = "manager-all"
+    LIBRARY_MANAGER = "manager"
+    LIBRARIAN_ALL = "librarian-all"
+    LIBRARIAN = "librarian"
+
+Index("ix_adminroles_admin_id_library_id_role", AdminRole.admin_id, AdminRole.library_id, AdminRole.role)
 
 class ExternalIntegration(Base, HasFullTableCache):
 
