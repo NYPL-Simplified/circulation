@@ -9942,7 +9942,7 @@ class Library(Base, HasFullTableCache):
     )
 
     # An Library may have many admin roles.
-    adminroles = relationship("AdminRole", backref="library")
+    adminroles = relationship("AdminRole", backref="library", cascade="all, delete-orphan")
 
     # A Library may have many CachedFeeds.
     cachedfeeds = relationship(
@@ -10291,7 +10291,7 @@ class Admin(Base):
     password_hashed = Column(Unicode, index=True)
 
     # An Admin may have many roles.
-    roles = relationship("AdminRole", backref="admin")
+    roles = relationship("AdminRole", backref="admin", cascade="all, delete-orphan")
 
     def update_credentials(self, _db, credential=None):
         if credential:
@@ -10392,6 +10392,8 @@ class AdminRole(Base):
     LIBRARY_MANAGER = "manager"
     LIBRARIAN_ALL = "librarian-all"
     LIBRARIAN = "librarian"
+
+    ROLES = [SYSTEM_ADMIN, LIBRARY_MANAGER_ALL, LIBRARY_MANAGER, LIBRARIAN_ALL, LIBRARIAN]
 
 Index("ix_adminroles_admin_id_library_id_role", AdminRole.admin_id, AdminRole.library_id, AdminRole.role)
 
