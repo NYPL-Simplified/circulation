@@ -118,7 +118,7 @@ UNKNOWN_ROLE = pd(
     "http://librarysimplified.org/terms/problem/unknown-role",
     status_code=400,
     title=_("Unknown role."),
-    detail=_("One of the submitted roles is not one of the known contributor roles."),
+    detail=_("One of the submitted roles is not one of the known roles."),
 )
 
 UNKNOWN_MEDIUM = pd(

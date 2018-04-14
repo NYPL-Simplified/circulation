@@ -28,6 +28,7 @@ from core.model import (
     get_one,
     get_one_or_create,
     Admin,
+    AdminRole,
     CirculationEvent,
     Classification,
     Collection,
@@ -2240,9 +2241,14 @@ class SettingsController(CirculationManagerController):
     def individual_admins(self):
         if flask.request.method == 'GET':
             admins = []
-            admins_with_password = Admin.with_password(self._db)
-            if admins_with_password.count() != 0:
-                admins=[dict(email=admin.email) for admin in admins_with_password]
+            for admin in self._db.query(Admin):
+                roles = []
+                for role in admin.roles:
+                    if role.library:
+                        roles.append(dict(role=role.role, library=role.library.short_name))
+                    else:
+                        roles.append(dict(role=role.role))
+                admins.append(dict(email=admin.email, roles=roles))
 
             return dict(
                 individualAdmins=admins,
@@ -2250,17 +2256,45 @@ class SettingsController(CirculationManagerController):
 
         email = flask.request.form.get("email")
         password = flask.request.form.get("password")
+        roles = flask.request.form.get("roles")
 
-        if not email or not password:
+        if not email:
             return INCOMPLETE_CONFIGURATION
 
+        if roles:
+            roles = json.loads(roles)
+        else:
+            roles = []
+
         admin, is_new = get_one_or_create(self._db, Admin, email=email)
-        admin.password = password
+        if password:
+            admin.password = password
         try:
             self._db.flush()
         except ProgrammingError as e:
             self._db.rollback()
             return MISSING_PGCRYPTO_EXTENSION
+
+        old_roles = admin.roles
+        for role in roles:
+            if role.get("role") not in AdminRole.ROLES:
+                self._db.rollback()
+                return UNKNOWN_ROLE
+            library = None
+            library_short_name = role.get("library")
+            if library_short_name:
+                library = Library.lookup(self._db, library_short_name)
+                if not library:
+                    self._db.rollback()
+                    return LIBRARY_NOT_FOUND.detailed(_("Library \"%(short_name)s\" does not exist.", short_name=library_short_name))
+            admin.add_role(role.get("role"), library)
+        new_roles = set((role.get("role"), role.get("library")) for role in roles)
+        for role in old_roles:
+            library = None
+            if role.library:
+                library = role.library.short_name
+            if not (role.role, library) in new_roles:
+                admin.remove_role(role.role, role.library)
 
         if is_new:
             return Response(unicode(admin.email), 201)

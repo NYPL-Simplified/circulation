@@ -30,6 +30,7 @@ from api.admin.password_admin_authentication_provider import PasswordAdminAuthen
 from api.admin.google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
 from core.model import (
     Admin,
+    AdminRole,
     CirculationEvent,
     Classification,
     Collection,
@@ -3214,19 +3215,26 @@ class TestSettingsController(AdminControllerTest):
         eq_(None, service)
 
     def test_individual_admins_get(self):
-        # There are two admins that can sign in with passwords.
+        # There are two admins that can sign in with passwords, with different roles.
         admin1, ignore = create(self._db, Admin, email="admin1@nypl.org")
         admin1.password = "pass1"
+        admin1.add_role(AdminRole.SYSTEM_ADMIN)
         admin2, ignore = create(self._db, Admin, email="admin2@nypl.org")
         admin2.password = "pass2"
+        admin2.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+        admin2.add_role(AdminRole.LIBRARIAN_ALL)
 
-        # This admin doesn't have a password, and won't be included.
+        # This admin doesn't have a password.
         admin3, ignore = create(self._db, Admin, email="admin3@nypl.org")
+        admin3.add_role(AdminRole.LIBRARIAN, self._default_library)
 
         with self.app.test_request_context("/"):
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org"}, {"email": "admin2@nypl.org"}], admins)
+            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+                 {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.LIBRARIAN_ALL }]},
+                 {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]}],
+                admins)
 
     def test_individual_admins_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -3234,11 +3242,29 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.individual_admins()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+               ("email", "test@library.org"),
+               ("roles", json.dumps([{ "role": AdminRole.LIBRARIAN, "library": "notalibrary" }])),
+            ])
+            response = self.manager.admin_settings_controller.individual_admins()
+            eq_(response.uri, LIBRARY_NOT_FOUND.uri)
+
+        library = self._library()
+        with self.app.test_request_context("/", method="POST"):
+            flask.request.form = MultiDict([
+               ("email", "test@library.org"),
+               ("roles", json.dumps([{ "role": "notarole", "library": library.short_name }])),
+            ])
+            response = self.manager.admin_settings_controller.individual_admins()
+            eq_(response.uri, UNKNOWN_ROLE.uri)
+
     def test_individual_admins_post_create(self):
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "admin@nypl.org"),
                 ("password", "pass"),
+                ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
             ])
             response = self.manager.admin_settings_controller.individual_admins()
             eq_(response.status_code, 201)
@@ -3249,17 +3275,24 @@ class TestSettingsController(AdminControllerTest):
         assert admin_match
         assert admin_match.has_password("pass")
 
+        [role] = admin_match.roles
+        eq_(AdminRole.LIBRARY_MANAGER, role.role)
+        eq_(self._default_library, role.library)
+
     def test_individual_admins_post_edit(self):
         # An admin exists.
         admin, ignore = create(
             self._db, Admin, email="admin@nypl.org",
         )
         admin.password = "password"
+        admin.add_role(AdminRole.SYSTEM_ADMIN)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "admin@nypl.org"),
                 ("password", "new password"),
+                ("roles", json.dumps([{"role": AdminRole.LIBRARIAN_ALL},
+                                      {"role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name}])),
             ])
             response = self.manager.admin_settings_controller.individual_admins()
             eq_(response.status_code, 200)
@@ -3273,11 +3306,20 @@ class TestSettingsController(AdminControllerTest):
         new_password_match = Admin.authenticate(self._db, "admin@nypl.org", "new password")
         eq_(admin, new_password_match)
 
+        # The roles were changed.
+        eq_(False, admin.is_system_admin())
+        [librarian_all, manager] = sorted(admin.roles, key=lambda x: x.role)
+        eq_(AdminRole.LIBRARIAN_ALL, librarian_all.role)
+        eq_(None, librarian_all.library)
+        eq_(AdminRole.LIBRARY_MANAGER, manager.role)
+        eq_(self._default_library, manager.library)
+
     def test_individual_admin_delete(self):
         admin, ignore = create(
             self._db, Admin, email="admin@nypl.org",
         )
         admin.password = "password"
+        admin.add_role(AdminRole.LIBRARY_MANAGER_ALL)
 
         with self.app.test_request_context("/", method="DELETE"):
             response = self.manager.admin_settings_controller.individual_admin(admin.email)
