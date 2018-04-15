@@ -10333,14 +10333,28 @@ class Admin(Base):
             return True
         return False
 
-    def is_library_manager(self, library):
+    def is_sitewide_library_manager(self):
         _db = Session.object_session(self)
-        # System admins can do everything.
         if self.is_system_admin():
             return True
+        role = get_one(_db, AdminRole, admin=self, role=AdminRole.LIBRARY_MANAGER_ALL)
+        if role:
+            return True
+        return False
+
+    def is_sitewide_librarian(self):
+        _db = Session.object_session(self)
+        if self.is_sitewide_library_manager():
+            return True
+        role = get_one(_db, AdminRole, admin=self, role=AdminRole.LIBRARIAN_ALL)
+        if role:
+            return True
+        return False
+
+    def is_library_manager(self, library):
+        _db = Session.object_session(self)
         # First check if the admin is a manager of _all_ libraries.
-        all_role = get_one(_db, AdminRole, admin=self, role=AdminRole.LIBRARY_MANAGER_ALL)
-        if all_role:
+        if self.is_sitewide_library_manager():
             return True
         # If not, they could stil be a manager of _this_ library.
         role = get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARY_MANAGER)
@@ -10354,8 +10368,7 @@ class Admin(Base):
         if self.is_library_manager(library):
             return True
         # Check if the admin is a librarian for _all_ libraries.
-        all_role = get_one(_db, AdminRole, admin=self, role=AdminRole.LIBRARIAN_ALL)
-        if all_role:
+        if self.is_sitewide_librarian():
             return True
         # If not, they might be a librarian of _this_ library.
         role = get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARIAN)
