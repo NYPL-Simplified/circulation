@@ -471,6 +471,7 @@ class AcquisitionFeed(OPDSFeed):
         """
         cached = None
         use_cache = cache_type != cls.NO_CACHE
+        facets = facets or lane.default_featured_facets(_db)
         if use_cache:
             cache_type = cache_type or CachedFeed.GROUPS_TYPE
             cached, usable = CachedFeed.fetch(
@@ -613,7 +614,7 @@ class AcquisitionFeed(OPDSFeed):
                     # entry point.
                     ep = None
                 return annotator.feed_url(
-                    lane, facets=facets.navigate(entrypoint=entrypoint)
+                    lane, facets=facets.navigate(entrypoint=ep)
                 )
             cls.add_entrypoint_links(
                 feed, make_link, entrypoints, facets.entrypoint

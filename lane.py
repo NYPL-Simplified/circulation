@@ -105,6 +105,15 @@ class FacetsWithEntryPoint(FacetConstants):
             input, but the default implementation is to ignore them.
         """
         self.entrypoint = entrypoint
+        self.constructor_kwargs = kwargs
+
+    def navigate(self, entrypoint):
+        """Create a very similar FacetsWithEntryPoint that points to
+        a different EntryPoint.
+        """
+        return self.__class__(
+            entrypoint=entrypoint, **self.constructor_kwargs
+        )
 
     @classmethod
     def from_request(
@@ -315,15 +324,17 @@ class Facets(FacetsWithEntryPoint):
     def navigate(self, collection=None, availability=None, order=None,
                  entrypoint=None):
         """Create a slightly different Facets object from this one."""
-        return Facets(self.library,
-                      collection or self.collection,
-                      availability or self.availability,
-                      order or self.order,
-                      enabled_facets=self.facets_enabled_at_init,
-                      entrypoint=(entrypoint or self.entrypoint)
+        return self.__class__(self.library,
+                              collection or self.collection,
+                              availability or self.availability,
+                              order or self.order,
+                              enabled_facets=self.facets_enabled_at_init,
+                              entrypoint=(entrypoint or self.entrypoint)
         )
 
     def items(self):
+        for k,v in super(Facets, self).items():
+            yield k, v
         if self.order:
             yield (self.ORDER_FACET_GROUP_NAME, self.order)
         if self.availability:
@@ -536,7 +547,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
         if uses_customlists is None:
             uses_customlists = self.uses_customlists
         entrypoint = entrypoint or self.entrypoint
-        return FeaturedFacets(
+        return self.__class__(
             minimum_featured_quality, uses_customlists, entrypoint
         )
 
