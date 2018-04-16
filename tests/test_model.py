@@ -5175,6 +5175,25 @@ class TestHyperlink(DatabaseTest):
         eq_([], m())
 
 
+class TestResource(DatabaseTest):
+
+    def test_as_delivery_mechanism_for(self):
+
+        # Calling as_delivery_mechanism_for on a Resource that is used
+        # to deliver a specific LicensePool returns the appropriate
+        # LicensePoolDeliveryMechanism.
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        [lpdm] = pool.delivery_mechanisms
+        eq_(lpdm, lpdm.resource.as_delivery_mechanism_for(pool))
+
+        # If there's no relationship between the Resource and 
+        # the LicensePoolDeliveryMechanism, as_delivery_mechanism_for
+        # returns None.
+        unrelated = self._licensepool()
+        eq_(None, lpdm.resource.as_delivery_mechanism_for(unrelated))
+
+
 class TestRepresentation(DatabaseTest):
 
     def test_normalized_content_path(self):

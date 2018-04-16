@@ -5833,9 +5833,8 @@ class Resource(Base):
         """If this Resource is used in a LicensePoolDeliveryMechanism for the
         given LicensePool, return that LicensePoolDeliveryMechanism.
         """
-        for lpdm in licensepooldeliverymechanisms:
-            if (lpdm.identifier == licensepool.identifier
-                and lpdm.data_source == licensepool.data_source):
+        for lpdm in licensepool.delivery_mechanisms:
+            if lpdm.resource == self:
                 return lpdm
 
     def set_mirrored_elsewhere(self, media_type):
