@@ -22,6 +22,7 @@ from entrypoint import (
     AudiobooksEntryPoint,
     EbooksEntryPoint,
     EntryPoint,
+    EverythingEntryPoint,
 )
 from facets import FacetConstants
 from model import (
@@ -44,8 +45,9 @@ from facets import FacetConstants
 from lane import (
     Facets,
     FeaturedFacets,
-    Pagination,
     Lane,
+    Pagination,
+    SearchFacets,
     WorkList,
 )
 
@@ -1925,8 +1927,9 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         eq_(selected, EbooksEntryPoint)
 
         # The make_link function that was passed in calls
-        # TestAnnotator.feed_url() when passed an EntryPoint.
-        first_page_url = "http://wl/?entrypoint=Book"
+        # TestAnnotator.feed_url() when passed an EntryPoint. The
+        # Facets object's other facet groups are propagated in this URL.
+        first_page_url = "http://wl/?available=all&collection=main&entrypoint=Book&order=author"
         eq_(first_page_url, make_link(EbooksEntryPoint, False))
 
         # Pagination information is not propagated through entry point links
@@ -1966,14 +1969,20 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # The mock method is called for a WorkList that does have
         # entry points.
-        facets = Facets.default(self._default_library).navigate(
-            entrypoint=EbooksEntryPoint
-        )
+        facets = SearchFacets().navigate(entrypoint=EbooksEntryPoint)
+        assert isinstance(facets, SearchFacets)
         feed, make_link, entrypoints, selected = run(self.wl, facets)
 
-        # add_entrypoint_links was passed both possible entry points
+        # Since the SearchFacets has more than one entry point,
+        # the EverythingEntryPoint is prepended to the list of possible
+        # entry points.
+        eq_(
+            [EverythingEntryPoint, AudiobooksEntryPoint, EbooksEntryPoint],
+            entrypoints
+        )
+
+        # add_entrypoint_links was passed the three possible entry points
         # and the selected entry point.
-        eq_(self.wl.entrypoints, entrypoints)
         eq_(selected, EbooksEntryPoint)
 
         # The make_link function that was passed in calls

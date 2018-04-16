@@ -18,8 +18,9 @@ from sqlalchemy import (
 from classifier import Classifier
 
 from entrypoint import (
-    EbooksEntryPoint,
     AudiobooksEntryPoint,
+    EbooksEntryPoint,
+    EverythingEntryPoint,
 )
 
 from external_search import (
@@ -51,9 +52,10 @@ from model import (
     Work,
     WorkGenre,
 )
+from problem_details import INVALID_INPUT
 
 
-class TestFacetsWithEntryPoint(object):
+class TestFacetsWithEntryPoint(DatabaseTest):
 
     def test_items(self):
         ep = AudiobooksEntryPoint
@@ -73,6 +75,132 @@ class TestFacetsWithEntryPoint(object):
         qu = object()
         f.apply(_db, qu)
         eq_(qu, ep.called_with)
+
+    def test_navigate(self):
+        old_entrypoint = object()
+        kwargs = dict(extra_key="extra_value")
+        facets = FacetsWithEntryPoint(old_entrypoint, **kwargs)
+        new_entrypoint = object()
+        new_facets = facets.navigate(new_entrypoint)
+
+        # A new FacetsWithEntryPoint was created.
+        assert isinstance(new_facets, FacetsWithEntryPoint)
+
+        # It has the new entry point.
+        eq_(new_entrypoint, new_facets.entrypoint)
+
+        # The keyword arguments used to create the origina faceting
+        # object were propagated to its constructor.
+        eq_(kwargs, new_facets.constructor_kwargs)
+
+    def test_from_request(self):
+        """from_request just calls _from_request."""
+        expect = object()
+        class Mock(FacetsWithEntryPoint):
+            @classmethod
+            def _from_request(cls, *args, **kwargs):
+                return expect
+        eq_(expect, Mock.from_request(None, None, None, None))
+
+    def test_from_request_propagates_extra_kwargs(self):
+        """Any keyword arguments passed to from_request() are propagated
+        through to the facet constructor.
+        """
+        class ExtraFacets(FacetsWithEntryPoint):
+            def __init__(self, entrypoint=None, extra=None):
+                self.extra = extra
+
+        facets = ExtraFacets.from_request(
+            None, None, {}.get, None, extra="extra value"
+        )
+        assert isinstance(facets, ExtraFacets)
+        eq_("extra value", facets.extra)
+
+    def test__from_request(self):
+        """_from_request calls load_entrypoint and instantiates the
+        class with the result.
+        """
+        self.expect = object()
+        @classmethod
+        def mock_load_entrypoint(cls, entrypoint_name, worklist):
+            self.called_with = (entrypoint_name, worklist)
+            return self.expect
+        old = FacetsWithEntryPoint.load_entrypoint
+        FacetsWithEntryPoint.load_entrypoint = mock_load_entrypoint
+
+        # The facet group name will be pulled out of the 'request'
+        # and passed into mock_load_entrypoint.
+        def get_argument(key, default):
+            eq_(key, Facets.ENTRY_POINT_FACET_GROUP_NAME)
+            return "name of the entrypoint"
+
+        mock_worklist = object()
+        facets = FacetsWithEntryPoint._from_request(
+            None, get_argument, mock_worklist
+        )
+        assert isinstance(facets, FacetsWithEntryPoint)
+        eq_(self.expect, facets.entrypoint)
+        eq_(("name of the entrypoint", mock_worklist), self.called_with)
+
+        # If load_entrypoint returns a ProblemDetail, that object is
+        # returned instead of the faceting class.
+        self.expect = INVALID_INPUT
+        eq_(
+            self.expect,
+            FacetsWithEntryPoint._from_request(
+                None, get_argument, mock_worklist
+            )
+        )
+        FacetsWithEntryPoint.load_entrypoint = old
+
+    def test_load_entrypoint(self):
+        audio = AudiobooksEntryPoint
+        ebooks = EbooksEntryPoint
+
+        # This WorkList supports two EntryPoints.
+        worklist = WorkList()
+        worklist.initialize(
+            self._default_library, entrypoints=[audio, ebooks]
+        )
+        m = FacetsWithEntryPoint.load_entrypoint
+
+        # This request does not ask for any particular entrypoint,
+        # so it gets the default.
+        eq_(audio, m(None, worklist))
+
+        # This request asks for an entrypoint and gets it.
+        eq_(ebooks, m(ebooks.INTERNAL_NAME, worklist))
+
+        # This request asks for an entrypoint that is not available,
+        # and gets the default.
+        eq_(audio, m("no such entrypoint", worklist))
+
+        # This WorkList does not have any associated EntryPoints,
+        # which means the loaded Facets object will never have an
+        # .entrypoint.
+        no_entrypoints = WorkList()
+        no_entrypoints.initialize(self._default_library)
+        eq_(None, m(None, no_entrypoints))
+        eq_(None, m(audio.INTERNAL_NAME, no_entrypoints))
+
+        # Same behavior if for some reason you try to load an
+        # entrypoint but don't provide a associated WorkList.
+        eq_(None, m(audio.INTERNAL_NAME, None))
+
+    def test_available_entrypoints(self):
+        """The default implementation of available_entrypoints just returns
+        the worklist's entrypoints.
+        """
+        class MockWorkList(object):
+            def __init__(self, entrypoints):
+                self.entrypoints = entrypoints
+
+        mock_entrypoints = object()
+        worklist = MockWorkList(mock_entrypoints)
+
+        m = FacetsWithEntryPoint.available_entrypoints
+        eq_(mock_entrypoints, m(worklist))
+        eq_([], m(None))
 
 
 class TestFacets(DatabaseTest):
@@ -193,6 +321,23 @@ class TestFacets(DatabaseTest):
         expect = [['order', 'author', False], ['order', 'title', True]]
         eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
 
+    def test_items(self):
+        """Verify that Facets.items() returns all information necessary
+        to recreate the Facets object.
+        """
+        facets = Facets(
+            self._default_library,
+            Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE,
+            entrypoint=AudiobooksEntryPoint
+        )
+        eq_([
+            ('available', Facets.AVAILABLE_ALL),
+            ('collection', Facets.COLLECTION_MAIN),
+            ('entrypoint', AudiobooksEntryPoint.INTERNAL_NAME),
+            ('order', Facets.ORDER_TITLE)],
+            sorted(facets.items())
+        )
+
     def test_order_facet_to_database_field(self):
         from model import MaterializedWorkWithGenre as mwg
         def fields(facet):
@@ -301,6 +446,67 @@ class TestFacets(DatabaseTest):
         eq_(F.AVAILABLE_ALL, different_entrypoint.availability)
         eq_(F.ORDER_TITLE, different_entrypoint.order)
         eq_(audiobooks, different_entrypoint.entrypoint)
+
+    def test_from_request(self):
+        library = self._default_library
+        config = library
+        worklist = WorkList()
+        worklist.initialize(
+            library, entrypoints=[AudiobooksEntryPoint, EbooksEntryPoint]
+        )
+
+        m = Facets.from_request
+
+        # Valid object using the default settings.
+        default_order = config.default_facet(Facets.ORDER_FACET_GROUP_NAME)
+        default_collection = config.default_facet(
+            Facets.COLLECTION_FACET_GROUP_NAME
+        )
+        default_availability = config.default_facet(
+            Facets.AVAILABILITY_FACET_GROUP_NAME
+        )
+        args = {}
+        facets = m(library, library, args.get, worklist)
+        eq_(default_order, facets.order)
+        eq_(default_collection, facets.collection)
+        eq_(default_availability, facets.availability)
+        eq_(library, facets.library)
+        eq_(AudiobooksEntryPoint, facets.entrypoint)
+
+        # Valid object using non-default settings.
+        args = dict(
+            order=Facets.ORDER_TITLE,
+            collection=Facets.COLLECTION_FULL,
+            available=Facets.AVAILABLE_OPEN_ACCESS,
+            entrypoint=EbooksEntryPoint.INTERNAL_NAME,
+        )
+        facets = m(library, library, args.get, worklist)
+        eq_(Facets.ORDER_TITLE, facets.order)
+        eq_(Facets.COLLECTION_FULL, facets.collection)
+        eq_(Facets.AVAILABLE_OPEN_ACCESS, facets.availability)
+        eq_(library, facets.library)
+        eq_(EbooksEntryPoint, facets.entrypoint)
+
+        # Invalid order
+        args = dict(order="no such order")
+        invalid_order = m(library, library, args.get, None)
+        eq_(INVALID_INPUT.uri, invalid_order.uri)
+        eq_("I don't know how to order a feed by 'no such order'",
+            invalid_order.detail)
+
+        # Invalid availability
+        args = dict(available="no such availability")
+        invalid_availability = m(library, library, args.get, None)
+        eq_(INVALID_INPUT.uri, invalid_availability.uri)
+        eq_("I don't understand the availability term 'no such availability'",
+            invalid_availability.detail)
+
+        # Invalid collection
+        args = dict(collection="no such collection")
+        invalid_collection = m(library, library, args.get, None)
+        eq_(INVALID_INPUT.uri, invalid_collection.uri)
+        eq_("I don't understand what 'no such collection' refers to.",
+            invalid_collection.detail)
 
 
 class TestFacetsApply(DatabaseTest):
@@ -613,6 +819,51 @@ class TestFeaturedFacets(DatabaseTest):
             work_model.works_id, distinct_query._distinct[-1]
         )
 
+
+class TestSearchFacets(DatabaseTest):
+
+    def test_available_entrypoints(self):
+        """If the WorkList has more than one facet, an 'everything' facet
+        is added for search purposes.
+        """
+        class MockWorkList(object):
+            def __init__(self):
+                self.entrypoints = None
+
+        ep1 = object()
+        ep2 = object()
+        worklist = MockWorkList()
+
+        # No WorkList, no EntryPoints.
+        m = SearchFacets.available_entrypoints
+        eq_([], m(None))
+
+        # If there is one EntryPoint, it is returned as-is.
+        worklist.entrypoints = [ep1]
+        eq_([ep1], m(worklist))
+
+        # If there are multiple EntryPoints, EverythingEntryPoint
+        # shows up at the beginning.
+        worklist.entrypoints = [ep1, ep2]
+        eq_([EverythingEntryPoint, ep1, ep2], m(worklist))
+
+        # If EverythingEntryPoint is already in the list, it's not
+        # added twice.
+        worklist.entrypoints = [ep1, EverythingEntryPoint, ep2]
+        eq_(worklist.entrypoints, m(worklist))
+
+    def test_navigation(self):
+        """Navigating from one SearchFacets to another
+        gives a new SearchFacets object, even though SearchFacets doesn't
+        define navigate().
+
+        I.e. this is really a test of FacetsWithEntryPoint.navigate().
+        """
+        facets = SearchFacets(object())
+        new_ep = object()
+        new_facets = facets.navigate(new_ep)
+        assert isinstance(new_facets, SearchFacets)
+        eq_(new_ep, new_facets.entrypoint)
 
 class TestPagination(DatabaseTest):
 
@@ -2621,15 +2872,13 @@ class TestWorkListGroups(DatabaseTest):
         # Each Mock's works_in_window was called with the same
         # arguments.
         eq_(mock1.called_with, mock2.called_with)
-        _db, facets, target_size = mock1.called_with
 
-        # Those arguments came from the configuration of the Library
-        # associated with the (non-mock) Lane on which _groups_query
-        # was originally called.
+        # The Facets object passed in to _featured_works_with_lanes()
+        # is passed on into works_in_window().
+        _db, called_with_facets, target_size = mock1.called_with
         eq_(self._db, _db)
-        eq_(lane.library.minimum_featured_quality, facets.minimum_featured_quality)
+        eq_(facets, called_with_facets)
         eq_(lane.library.featured_lane_size, target_size)
-        eq_(facets, facets)
 
     def test_featured_window(self):
         lane = self._lane()
