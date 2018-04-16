@@ -5679,6 +5679,38 @@ class Hyperlink(Base):
         Integer, ForeignKey('resources.id'), index=True, nullable=False)
 
     @classmethod
+    def unmirrored(cls, collection):
+        """Find all Hyperlinks associated with an item in the
+        given Collection that could be mirrored but aren't.
+
+        TODO: We don't cover the case where an image was mirrored but no
+        thumbnail was created of it. (We do cover the case where the thumbnail
+        was created but not mirrored.)
+        """
+        _db = Session.object_session(collection)
+        qu = _db.query(Hyperlink).join(
+            Hyperlink.identifier
+        ).join(
+            Identifier.collections
+        ).outerjoin(
+            Hyperlink.resource
+        ).outerjoin(
+            Resource.representation
+        ).filter(
+            Collection.id==collection.id
+        ).filter(
+            Hyperlink.data_source==collection.data_source
+        ).filter(
+            Hyperlink.rel.in_(Hyperlink.MIRRORED)
+        ).filter(
+            or_(
+                Representation.id==None,
+                Representation.mirror_url==None,
+            )
+        )
+        return qu
+
+    @classmethod
     def generic_uri(cls, data_source, identifier, rel, content=None):
         """Create a generic URI for the other end of this hyperlink.
 
@@ -5796,6 +5828,15 @@ class Resource(Base):
         if not self.representation.mirror_url:
             return None
         return self.representation.mirror_url
+
+    def as_delivery_mechanism_for(self, licensepool):
+        """If this Resource is used in a LicensePoolDeliveryMechanism for the
+        given LicensePool, return that LicensePoolDeliveryMechanism.
+        """
+        for lpdm in licensepooldeliverymechanisms:
+            if (lpdm.identifier == licensepool.identifier
+                and lpdm.data_source == licensepool.data_source):
+                return lpdm
 
     def set_mirrored_elsewhere(self, media_type):
         """We don't need our own copy of this resource's representation--

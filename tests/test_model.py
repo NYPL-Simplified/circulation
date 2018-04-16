@@ -5129,6 +5129,51 @@ class TestHyperlink(DatabaseTest):
         eq_("cover", m(Hyperlink.IMAGE))
         eq_("cover-thumbnail", m(Hyperlink.THUMBNAIL_IMAGE))
 
+    def test_unmirrored(self):
+
+        ds = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        c1 = self._default_collection
+        c1.data_source = ds
+
+        i1 = self._identifier()
+        c1.catalog_identifier(i1)
+        i2 = self._identifier()
+
+        def m():
+            return Hyperlink.unmirrored(c1).all()
+
+        # Identifier is not in the collection.
+        not_in_collection, ignore = i2.add_link(Hyperlink.IMAGE, self._url, ds)
+        eq_([], m())
+
+        # Hyperlink rel is not mirrorable.
+        wrong_type, ignore = i1.add_link("not mirrorable", self._url, ds)
+        wrong_type.resource.set_mirrored_elsewhere("text/plain")
+        eq_([], m())
+
+        # Hyperlink has no associated representation -- mirroring will
+        # create one!
+        hyperlink, ignore = i1.add_link(Hyperlink.IMAGE, self._url, ds)
+        eq_([hyperlink], m())
+
+        # Hyperlink is already mirrored.
+        hyperlink.resource.set_mirrored_elsewhere("image/png")
+        eq_([], m())
+
+        # Representation exists in database but is not mirrored -- it needs
+        # to be mirrored!
+        representation = hyperlink.resource.representation
+        representation.mirror_url = None
+        eq_([hyperlink], m())
+
+        # Hyperlink is associated with a data source other than the
+        # data source of the collection. It should be mirrored, but
+        # this collection isn't responsible for mirroring it.
+        hyperlink.data_source = overdrive
+        eq_([], m())
+
 
 class TestRepresentation(DatabaseTest):
 

@@ -500,6 +500,8 @@ class MetaToModelUtility(object):
     Contains functionality common to both CirculationData and Metadata.
     """
 
+    log = logging.getLogger("Abstract metadata layer - mirror code")
+
     def mirror_link(self, model_object, data_source, link, link_obj, policy):
         """Retrieve a copy of the given link and make sure it gets
         mirrored. If it's a full-size image, create a thumbnail and

@@ -1851,6 +1851,72 @@ class OPDSImportScript(CollectionInputScript):
         monitor.run()
 
 
+class MirrorScript(CollectionInputScript):
+    """Make sure that all mirrorable resources in a collection have
+    in fact been mirrored.
+    """
+
+    def do_run(self, cmd_args=None):
+        policy = self.replacement_policy(uploader)
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
+        collections = parsed.collections
+        if not collections:
+            # Assume they mean all collections.
+            collections = self._db.query(Collection).all()
+
+        # But only process collections that have an associated MirrorUploader.
+        for collection in collections:
+            uploader = MirrorUploader.for_collection(collection)
+            if uploader:
+                self.process_collection(collection, uploader)
+            else:
+                self.log.info(
+                    "Skipping %r as it has no MirrorUploader.", collection
+                )
+
+    def replacement_policy(self, uploader):
+        return ReplacementPolicy(uploader=uploader, link_content=True)
+
+    def process_collection(self, collection, policy):
+        """Make sure every mirrorable resource in this collection has
+        been mirrored.
+        """
+        for link in collection.needs_mirror(Hyperlink.MIRRORED):
+            self.process_item(collection, link, policy)
+            self._db.commit()
+
+    def process_item(self, collection, link_obj, policy):
+        mirror_utility = MetaToModelUtility()
+
+        license_pool = collection.license_pool_for(link_obj.identifier)
+        resource = link_obj.resource
+
+        rights_status = self.derive_rights_status(license_pool, resource)
+
+        # Mock up a LinkData that MetaToModelUtility can use to
+        # mirror this link (or decide not to mirror it)
+        linkdata = LinkData(
+            rel=link_obj.rel,
+            href=link_obj.href,
+            rights_uri=rights_status
+        )
+        mirror_utility.mirror_link(
+            model_object=license_pool, data_source=collection.data_source,
+            link=linkdata, link_obj=link_obj, policy=policy
+        )
+
+    def derive_rights_status(self, resource, license_pool):
+        rights_status = None
+        if resource:
+            lpdm = resource.as_delivery_mechanism_for(license_pool)
+            if lpdm:
+                rights_status = lpdm.rights_status
+        
+            rights_status = license_pool.rights_status
+        if rights_status:
+            rights_status = rights_status.uri
+
+
 class RefreshMaterializedViewsScript(Script):
     """Refresh all materialized views."""
 
