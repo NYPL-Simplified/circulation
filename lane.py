@@ -620,13 +620,12 @@ class SearchFacets(FacetsWithEntryPoint):
     @classmethod
     def available_entrypoints(cls, worklist):
         if not worklist:
-            return None
+            return []
         entrypoints = list(worklist.entrypoints)
         if len(entrypoints) < 2:
             return entrypoints
         if EverythingEntryPoint not in entrypoints:
             entrypoints.insert(0, EverythingEntryPoint)
-        set_trace()
         return entrypoints
 
 
