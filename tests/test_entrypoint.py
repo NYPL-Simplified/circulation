@@ -11,14 +11,16 @@ from model import (
 from entrypoint import (
     EntryPoint,
     EbooksEntryPoint,
+    EverythingEntryPoint,
     AudiobooksEntryPoint,
     MediumEntryPoint,
 )
 
-class TestEntryPoint(object):
+class TestEntryPoint(DatabaseTest):
 
     def test_defaults(self):
-        ebooks, audiobooks = EntryPoint.ENTRY_POINTS
+        everything, ebooks, audiobooks = EntryPoint.ENTRY_POINTS
+        eq_(EverythingEntryPoint, everything)
         eq_(EbooksEntryPoint, ebooks)
         eq_(AudiobooksEntryPoint, audiobooks)
 
@@ -28,6 +30,13 @@ class TestEntryPoint(object):
 
         eq_(Edition.BOOK_MEDIUM, EbooksEntryPoint.INTERNAL_NAME)
         eq_(Edition.AUDIO_MEDIUM, AudiobooksEntryPoint.INTERNAL_NAME)
+
+    def test_no_changes(self):
+        # EntryPoint doesn't modify queries or searches.
+        qu = self._db.query(Edition)
+        eq_(qu, EntryPoint.apply(qu))
+        args = dict(arg="value")
+        eq_(args, EverythingEntryPoint.modified_search_arguments(**args))
 
     def test_register(self):
 
@@ -68,6 +77,18 @@ class TestEntryPoint(object):
             ValueError, "Duplicate entry point display name: Mock!",
             EntryPoint.register, Mock2, "Mock!"
         )
+
+
+class TestEverythingEntryPoint(DatabaseTest):
+
+    def test_no_changes(self):
+        # EverythingEntryPoint doesn't modify queries or searches
+        # beyond the default behavior for any entry point.
+        qu = self._db.query(Edition)
+        eq_(qu, EntryPoint.apply(qu))
+        args = dict(arg="value")
+        eq_(args, EverythingEntryPoint.modified_search_arguments(**args))
+        eq_("All", EverythingEntryPoint.INTERNAL_NAME)
 
 
 class TestMediumEntryPoint(DatabaseTest):

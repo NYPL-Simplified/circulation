@@ -471,6 +471,7 @@ class AcquisitionFeed(OPDSFeed):
         """
         cached = None
         use_cache = cache_type != cls.NO_CACHE
+        facets = facets or lane.default_featured_facets(_db)
         if use_cache:
             cache_type = cache_type or CachedFeed.GROUPS_TYPE
             cached, usable = CachedFeed.fetch(
@@ -537,17 +538,18 @@ class AcquisitionFeed(OPDSFeed):
 
         # A grouped feed may link to alternate entry points into
         # the data.
-        if lane.entrypoints:
+        entrypoints = facets.available_entrypoints(lane)
+        if entrypoints:
             def make_link(ep, is_default):
                 if is_default:
                     # No need to clutter up the URL with the default
                     # entry point.
                     ep = None
                 return annotator.groups_url(
-                    lane, facets=FacetsWithEntryPoint(ep)
+                    lane, facets=facets.navigate(entrypoint=ep)
                 )
             cls.add_entrypoint_links(
-                feed, make_link, lane.entrypoints, facets.entrypoint
+                feed, make_link, entrypoints, facets.entrypoint
             )
 
         cls.add_breadcrumb_links(feed, lane, annotator)
@@ -602,7 +604,8 @@ class AcquisitionFeed(OPDSFeed):
             pagination.this_page_size = len(works)
         feed = cls(_db, title, url, works, annotator)
 
-        if lane.entrypoints:
+        entrypoints = facets.available_entrypoints(lane)
+        if entrypoints:
             # A paginated feed may have multiple entry points into the
             # same dataset.
             def make_link(ep, is_default):
@@ -611,10 +614,10 @@ class AcquisitionFeed(OPDSFeed):
                     # entry point.
                     ep = None
                 return annotator.feed_url(
-                    lane, facets=FacetsWithEntryPoint(ep)
+                    lane, facets=facets.navigate(entrypoint=ep)
                 )
             cls.add_entrypoint_links(
-                feed, make_link, lane.entrypoints, facets.entrypoint
+                feed, make_link, entrypoints, facets.entrypoint
             )
 
         # Add URLs to change faceted views of the collection.
@@ -752,16 +755,17 @@ class AcquisitionFeed(OPDSFeed):
 
         # A feed of search results may link to alternate entry points
         # into those results.
-        if lane.entrypoints:
+        entrypoints = facets.available_entrypoints(lane)
+        if entrypoints:
             def make_link(ep, is_default):
                 if is_default:
                     ep = None
                 return annotator.search_url(
                     lane, query, pagination=None,
-                    facets=FacetsWithEntryPoint(ep)
+                    facets=facets.navigate(entrypoint=ep)
                 )
             cls.add_entrypoint_links(
-                opds_feed, make_link, lane.entrypoints, facets.entrypoint
+                opds_feed, make_link, entrypoints, facets.entrypoint
             )
 
         if len(results) > 0:

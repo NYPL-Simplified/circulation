@@ -90,6 +90,22 @@ class EntryPoint(object):
         """
         return kwargs
 
+    @classmethod
+    def apply(cls, qu):
+        """Default behavior is to not change a query at all."""
+        return qu
+
+    @classmethod
+    def modified_search_arguments(cls, **kwargs):
+        """Default behavior is to not change search arguments at all."""
+        return kwargs
+
+
+class EverythingEntryPoint(EntryPoint):
+    """An entry point that has everything."""
+    INTERNAL_NAME = "All"
+EntryPoint.register(EverythingEntryPoint, "All")
+
 
 class MediumEntryPoint(EntryPoint):
     """A entry point that creates a view on one specific medium.
