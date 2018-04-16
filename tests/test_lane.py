@@ -332,8 +332,8 @@ class TestFacets(DatabaseTest):
         )
         eq_([
             ('available', Facets.AVAILABLE_ALL),
-            ('collection', Facets.COLLECTION_MAIN)
-            ('entrypoint', AudiobooksEntryPoint.NAME),
+            ('collection', Facets.COLLECTION_MAIN),
+            ('entrypoint', AudiobooksEntryPoint.INTERNAL_NAME),
             ('order', Facets.ORDER_TITLE)],
             sorted(facets.items())
         )
