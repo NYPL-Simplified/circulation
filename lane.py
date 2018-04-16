@@ -630,6 +630,9 @@ class SearchFacets(FacetsWithEntryPoint):
 
     @classmethod
     def available_entrypoints(cls, worklist):
+        """If the WorkList has more than one facet, an 'everything' facet
+        is added for search purposes.
+        """
         if not worklist:
             return []
         entrypoints = list(worklist.entrypoints)

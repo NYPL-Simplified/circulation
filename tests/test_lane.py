@@ -76,6 +76,23 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         f.apply(_db, qu)
         eq_(qu, ep.called_with)
 
+    def test_navigate(self):
+        old_entrypoint = object()
+        kwargs = dict(extra_key="extra_value")
+        facets = FacetsWithEntryPoint(old_entrypoint, **kwargs)
+        new_entrypoint = object()
+        new_facets = facets.navigate(new_entrypoint)
+
+        # A new FacetsWithEntryPoint was created.
+        assert isinstance(new_facets, FacetsWithEntryPoint)
+
+        # It has the new entry point.
+        eq_(new_entrypoint, new_facets.entrypoint)
+
+        # The keyword arguments used to create the origina faceting
+        # object were propagated to its constructor.
+        eq_(kwargs, new_facets.constructor_kwargs)
+
     def test_from_request(self):
         """from_request just calls _from_request."""
         expect = object()
@@ -303,6 +320,23 @@ class TestFacets(DatabaseTest):
         all_groups = list(facets.facet_groups)
         expect = [['order', 'author', False], ['order', 'title', True]]
         eq_(expect, sorted([list(x[:2]) + [x[-1]] for x in all_groups]))
+
+    def test_items(self):
+        """Verify that Facets.items() returns all information necessary
+        to recreate the Facets object.
+        """
+        facets = Facets(
+            self._default_library,
+            Facets.COLLECTION_MAIN, Facets.AVAILABLE_ALL, Facets.ORDER_TITLE,
+            entrypoint=AudiobooksEntryPoint
+        )
+        eq_([
+            ('available', Facets.AVAILABLE_ALL),
+            ('collection', Facets.COLLECTION_MAIN)
+            ('entrypoint', AudiobooksEntryPoint.NAME),
+            ('order', Facets.ORDER_TITLE)],
+            sorted(facets.items())
+        )
 
     def test_order_facet_to_database_field(self):
         from model import MaterializedWorkWithGenre as mwg
@@ -813,6 +847,23 @@ class TestSearchFacets(DatabaseTest):
         worklist.entrypoints = [ep1, ep2]
         eq_([EverythingEntryPoint, ep1, ep2], m(worklist))
 
+        # If EverythingEntryPoint is already in the list, it's not
+        # added twice.
+        worklist.entrypoints = [ep1, EverythingEntryPoint, ep2]
+        eq_(worklist.entrypoints, m(worklist))
+
+    def test_navigation(self):
+        """Navigating from one SearchFacets to another
+        gives a new SearchFacets object, even though SearchFacets doesn't
+        define navigate().
+
+        I.e. this is really a test of FacetsWithEntryPoint.navigate().
+        """
+        facets = SearchFacets(object())
+        new_ep = object()
+        new_facets = facets.navigate(new_ep)
+        assert isinstance(new_facets, SearchFacets)
+        eq_(new_ep, new_facets.entrypoint)
 
 class TestPagination(DatabaseTest):
 
