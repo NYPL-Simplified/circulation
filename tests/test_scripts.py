@@ -41,6 +41,7 @@ from model import (
     Identifier,
     Library,
     LicensePool,
+    RightsStatus,
     Timestamp, 
     Work,
 )
@@ -2498,7 +2499,47 @@ class TestMirrorResourcesScript(DatabaseTest):
         eq_((self._default_collection, link2, policy), call2)
 
     def test_derive_rights_status(self):
-        pass
+        """Test our ability to determine the rights status of a Resource,
+        in the absence of immediate information from the server.
+        """
+        m = MirrorResourcesScript.derive_rights_status
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        [lpdm] = pool.delivery_mechanisms
+        resource = lpdm.resource
+
+        expect = lpdm.rights_status.uri
+
+        # Given the LicensePool, we can figure out the Resource's
+        # rights status based on what was previously recovered. This lets
+        # us know whether it's okay to mirror that Resource.
+        eq_(expect, m(pool, resource))
+
+        # In theory, a Resource can be associated with several
+        # LicensePoolDeliveryMechanisms. That's why a LicensePool is
+        # necessary -- to see which LicensePoolDeliveryMechanism we're
+        # looking at.
+        eq_(None, m(None, resource))
+
+        # If there's no Resource-specific information, but a
+        # LicensePool has only one rights URI among all of its
+        # LicensePoolDeliveryMechanisms, then we can assume all Resources
+        # for that LicensePool use that same set of rights.
+        w2 = self._work(with_license_pool=True)
+        [pool2] = w2.license_pools
+        eq_(pool2.delivery_mechanisms[0].rights_status.uri, m(pool2, None))
+
+        # If there's more than one possibility, or the LicensePool has
+        # no LicensePoolDeliveryMechanisms at all, then we just don't
+        # know.
+        pool2.set_delivery_mechanism(
+            content_type="text/plain", drm_scheme=None,
+            rights_uri=RightsStatus.CC_BY_ND
+        )
+        eq_(None, m(pool2, None))
+
+        pool2.delivery_mechanisms = []
+        eq_(None, m(pool2, None))
 
     def test_get_license_pool(self):
         pass

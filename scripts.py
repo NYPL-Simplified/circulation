@@ -1915,25 +1915,34 @@ class MirrorResourcesScript(CollectionInputScript):
             self.process_item(collection, link, policy)
             self._db.commit()
 
-    def derive_rights_status(self, license_pool, resource):
+    @classmethod
+    def derive_rights_status(cls, license_pool, resource):
         """Make a best guess about the rights status for the given
         resource.
+
+        This relies on the information having been available at one point,
+        but having been stored in the database at a slight remove.
         """
         rights_status = None
+        if not license_pool:
+            return None
         if resource:
             lpdm = resource.as_delivery_mechanism_for(license_pool)
+            # When this Resource was associated with this LicensePool,
+            # the rights information was recorded in its
+            # LicensePoolDeliveryMechanism.
             if lpdm:
                 rights_status = lpdm.rights_status
-            else:
-                # We could not find a LicensePoolDeliveryMechanism for
-                # this particular resource, but if every
-                # LicensePoolDeliveryMechanism has the same rights
-                # status, we can assume it's that one.
-                statuses = list(set([
-                    x.rights_status for x in license_pool.delivery_mechanisms
-                ]))
-                if len(statuses) == 1:
-                    [rights_status] = statuses
+        if not rights_status:
+            # We could not find a LicensePoolDeliveryMechanism for
+            # this particular resource, but if every
+            # LicensePoolDeliveryMechanism has the same rights
+            # status, we can assume it's that one.
+            statuses = list(set([
+                x.rights_status for x in license_pool.delivery_mechanisms
+            ]))
+            if len(statuses) == 1:
+                [rights_status] = statuses
         if rights_status:
             rights_status = rights_status.uri
         return rights_status
