@@ -5190,7 +5190,8 @@ class TestResource(DatabaseTest):
         # If there's no relationship between the Resource and 
         # the LicensePoolDeliveryMechanism, as_delivery_mechanism_for
         # returns None.
-        unrelated = self._licensepool()
+        w2 = self._work(with_license_pool=True)
+        [unrelated] = w2.license_pools
         eq_(None, lpdm.resource.as_delivery_mechanism_for(unrelated))
 
 
