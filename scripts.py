@@ -1947,19 +1947,16 @@ class MirrorResourcesScript(CollectionInputScript):
             rights_status = rights_status.uri
         return rights_status
 
-    def get_license_pool(self, collection, identifier):
-        license_pool, is_new = LicensePool.for_foreign_id(
-            self._db, collection.data_source,
-            identifier.type, identifier.identifier, collection=collection,
-            autocreate=False
-        )
-        return license_pool
-
     def process_item(self, collection, link_obj, policy):
         """Determine the URL that needs to be mirrored and (for books)
         the rationale that lets us mirror that URL. Then mirror it.
         """
-        license_pool = self.get_license_pool(collection, link_obj.identifier)
+        identifier = link_obj.identifier
+        license_pool, ignore = LicensePool.for_foreign_id(
+            self._db, collection.data_source,
+            identifier.type, identifier.identifier,
+            collection=collection, autocreate=False
+        )
         if not license_pool:
             # This shouldn't happen.
             self.log.warn(
@@ -1971,9 +1968,10 @@ class MirrorResourcesScript(CollectionInputScript):
         if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
             rights_status = self.derive_rights_status(license_pool, resource)
             if not rights_status:
-                self.logging.warn(
+                self.log.warn(
                     "Could not unambiguously determine rights status for %r, skipping.", link_obj
                 )
+                return
         else:
             # For resources like book covers, the rights status is
             # irrelevant -- we rely on fair use.

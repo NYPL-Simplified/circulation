@@ -38,6 +38,7 @@ from model import (
     DataSource,
     Edition,
     ExternalIntegration,
+    Hyperlink,
     Identifier,
     Library,
     LicensePool,
@@ -46,6 +47,7 @@ from model import (
     Work,
 )
 from lane import Lane
+from metadata_layer import LinkData
 from oneclick import MockOneClickAPI
 
 from scripts import (
@@ -2541,11 +2543,100 @@ class TestMirrorResourcesScript(DatabaseTest):
         pool2.delivery_mechanisms = []
         eq_(None, m(pool2, None))
 
-    def test_get_license_pool(self):
-        pass
-
     def test_process_item(self):
-        pass
+        """Test the code that actually sets up the mirror operation."""
+
+        # Every time process_item() is called, it's either going to ask
+        # this thing to mirror the item, or it's going to decide not to.
+        class MockMirrorUtility(object):
+            def __init__(self):
+                self.mirrored = []
+
+            def mirror_link(self, **kwargs):
+                self.mirrored.append(kwargs)
+        mirror = MockMirrorUtility()
+
+        class MockScript(MirrorResourcesScript):
+            MIRROR_UTILITY = mirror
+            RIGHTS_STATUS = None
+
+            def derive_rights_status(self, license_pool, resource):
+                """Always return the same rights status information.
+                To start out, act like no rights information is available.
+                """
+                self.derive_rights_status_called_with = (license_pool, resource)
+                return self.RIGHTS_STATUS
+
+        # Resource and Hyperlink are a pain to use for real, so here
+        # are some cheap mocks.
+        class MockResource(object):
+            def __init__(self, url):
+                self.url = url
+
+        class MockLink(object):
+            def __init__(self, rel, href, identifier):
+                self.rel = rel
+                self.resource = MockResource(href)
+                self.identifier = identifier
+
+        script = MockScript(self._db)
+        m = script.process_item
+
+        # If we can't tie the Hyperlink to a LicensePool in the given
+        # Collection, no upload happens. (This shouldn't happen
+        # because Hyperlink.unmirrored only finds Hyperlinks
+        # associated with Identifiers licensed through a Collection.)
+        identifier = self._identifier()
+        policy = object()
+        download_link = MockLink(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url, identifier
+        )
+        self._default_collection.data_source = DataSource.GUTENBERG
+        m(self._default_collection, download_link, policy)
+        eq_([], mirror.mirrored)
+
+        # This HyperLink does match a LicensePool, but it's not
+        # in the collection we're mirroring, so mirroring it might not be
+        # appropriate.
+        work = self._work(
+            with_open_access_download=True, collection=self._default_collection
+        )
+        pool = work.license_pools[0]
+        download_link.identifier = pool.identifier
+        wrong_collection = self._collection()
+        wrong_collection.data_source = DataSource.GUTENBERG
+        m(wrong_collection, download_link, policy)
+        eq_([], mirror.mirrored)
+
+        # For "open-access" downloads of actual books, if we can't
+        # determine the actual rights status of the book, then we
+        # don't do anything.
+        m(self._default_collection, download_link, policy)
+        eq_([], mirror.mirrored)
+        eq_((pool, download_link.resource),
+            script.derive_rights_status_called_with)
+
+        # If we _can_ determine the rights status, a mirror attempt is made.
+        script.RIGHTS_STATUS = object()
+        m(self._default_collection, download_link, policy)
+        attempt = mirror.mirrored.pop()
+        eq_(policy, attempt['policy'])
+        eq_(pool.data_source, attempt['data_source'])
+        eq_(pool, attempt['model_object'])
+        eq_(download_link, attempt['link_obj'])
+
+        link = attempt['link']
+        assert isinstance(link, LinkData)
+        eq_(download_link.resource.url, link.href)
+
+        # For other types of links, we rely on fair use, so the "rights
+        # status" doesn't matter.
+        script.RIGHTS_STATUS = None
+        thumb_link = MockLink(Hyperlink.THUMBNAIL_IMAGE, self._url,
+                              pool.identifier)
+        m(self._default_collection, thumb_link, policy)
+        attempt = mirror.mirrored.pop()
+        eq_(thumb_link.resource.url, attempt['link'].href)
 
 
 class TestWorkConsolidationScript(object):
