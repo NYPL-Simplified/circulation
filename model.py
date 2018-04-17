@@ -5691,23 +5691,25 @@ class Hyperlink(Base):
         qu = _db.query(Hyperlink).join(
             Hyperlink.identifier
         ).join(
-            Identifier.collections
+            Identifier.licensed_through
         ).outerjoin(
             Hyperlink.resource
         ).outerjoin(
             Resource.representation
-        ).filter(
-            Collection.id==collection.id
-        ).filter(
-            Hyperlink.data_source==collection.data_source
-        ).filter(
-            Hyperlink.rel.in_(Hyperlink.MIRRORED)
-        ).filter(
+        )
+        qu = qu.filter(LicensePool.collection_id==collection.id)
+        qu = qu.filter(Hyperlink.rel.in_(Hyperlink.MIRRORED))
+        qu = qu.filter(Hyperlink.data_source==collection.data_source)
+        qu = qu.filter(
             or_(
                 Representation.id==None,
                 Representation.mirror_url==None,
             )
         )
+        # Without this ordering, the query does a table scan looking for
+        # items that match. With the ordering, they're all at the front.
+        qu = qu.order_by(Representation.mirror_url.asc().nullsfirst(),
+                         Representation.id.asc().nullsfirst())
         return qu
 
     @classmethod
@@ -10408,6 +10410,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         AXIS_360 : DataSource.AXIS_360,
         RB_DIGITAL : DataSource.RB_DIGITAL,
         ENKI : DataSource.ENKI,
+        FEEDBOOKS : DataSource.FEEDBOOKS,
     }
 
     # Integrations with METADATA_GOAL
