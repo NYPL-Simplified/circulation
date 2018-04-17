@@ -5137,8 +5137,12 @@ class TestHyperlink(DatabaseTest):
         c1 = self._default_collection
         c1.data_source = ds
 
-        i1 = self._identifier()
-        c1.catalog_identifier(i1)
+        # Here's an Identifier associated with a collection.
+        work = self._work(with_license_pool=True, collection=c1)
+        [pool] = work.license_pools
+        i1 = pool.identifier
+
+        # This is a random identifier not associated with the collection.
         i2 = self._identifier()
 
         def m():
@@ -5153,8 +5157,8 @@ class TestHyperlink(DatabaseTest):
         wrong_type.resource.set_mirrored_elsewhere("text/plain")
         eq_([], m())
 
-        # Hyperlink has no associated representation -- mirroring will
-        # create one!
+        # Hyperlink has no associated representation -- it needs to be
+        # mirrored, which will create one!
         hyperlink, ignore = i1.add_link(Hyperlink.IMAGE, self._url, ds)
         eq_([hyperlink], m())
 
@@ -5169,7 +5173,7 @@ class TestHyperlink(DatabaseTest):
         eq_([hyperlink], m())
 
         # Hyperlink is associated with a data source other than the
-        # data source of the collection. It should be mirrored, but
+        # data source of the collection. It ought to be mirrored, but
         # this collection isn't responsible for mirroring it.
         hyperlink.data_source = overdrive
         eq_([], m())
