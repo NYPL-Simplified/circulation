@@ -552,7 +552,7 @@ class MetaToModelUtility(object):
         if edition and edition.title:
             title = edition.title
         else:
-            title = self.title or None
+            title = getattr(self, 'title', None) or None
 
         if ((not identifier) or (link_obj.identifier and identifier != link_obj.identifier)):
             # insanity found

@@ -44,7 +44,12 @@ from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
 from coverage import CollectionCoverageProviderJob
 from lane import Lane
-from metadata_layer import ReplacementPolicy
+from metadata_layer import (
+    LinkData,
+    ReplacementPolicy,
+    MetaToModelUtility,
+)
+from mirror import MirrorUploader
 from model import (
     create,
     get_one,
@@ -61,6 +66,7 @@ from model import (
     DataSource,
     Edition,
     ExternalIntegration,
+    Hyperlink,
     Identifier,
     Library,
     LicensePool,
@@ -1851,13 +1857,15 @@ class OPDSImportScript(CollectionInputScript):
         monitor.run()
 
 
-class MirrorScript(CollectionInputScript):
+class MirrorResourcesScript(CollectionInputScript):
     """Make sure that all mirrorable resources in a collection have
     in fact been mirrored.
     """
 
+    # This object contains the actual logic of mirroring.
+    MIRROR_UTILITY = MetaToModelUtility()
+
     def do_run(self, cmd_args=None):
-        policy = self.replacement_policy(uploader)
         parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
         collections = parsed.collections
         if not collections:
@@ -1865,56 +1873,116 @@ class MirrorScript(CollectionInputScript):
             collections = self._db.query(Collection).all()
 
         # But only process collections that have an associated MirrorUploader.
+        for collection, policy in self.collections_with_uploader(collections):
+            self.process_collection(collection, policy)
+
+    def collections_with_uploader(self, collections):
+        """Filter out collections that have no MirrorUploader.
+
+        :yield: 2-tuples (Collection, ReplacementPolicy). The
+            ReplacementPolicy is the appropriate one for this script
+            to use for that Collection.
+        """
         for collection in collections:
             uploader = MirrorUploader.for_collection(collection)
             if uploader:
-                self.process_collection(collection, uploader)
+                policy = self.replacement_policy(uploader)
+                yield collection, policy
             else:
                 self.log.info(
                     "Skipping %r as it has no MirrorUploader.", collection
                 )
 
-    def replacement_policy(self, uploader):
-        return ReplacementPolicy(uploader=uploader, link_content=True)
+    @classmethod
+    def replacement_policy(cls, uploader):
+        """Create a ReplacementPolicy for this script that uses the
+        given uploader.
+        """
+        return ReplacementPolicy(
+            mirror=uploader, link_content=True,
+            even_if_not_apparently_updated=True
+        )
 
-    def process_collection(self, collection, policy):
+    def process_collection(self, collection, policy, unmirrored=None):
         """Make sure every mirrorable resource in this collection has
         been mirrored.
+
+        :param unmirrored: A replacement for Hyperlink.unmirrored,
+        for use in tests.
         """
-        for link in collection.needs_mirror(Hyperlink.MIRRORED):
+        unmirrored = unmirrored or Hyperlink.unmirrored
+        for link in unmirrored(collection):
             self.process_item(collection, link, policy)
             self._db.commit()
 
-    def process_item(self, collection, link_obj, policy):
-        mirror_utility = MetaToModelUtility()
-
-        license_pool = collection.license_pool_for(link_obj.identifier)
-        resource = link_obj.resource
-
-        rights_status = self.derive_rights_status(license_pool, resource)
-
-        # Mock up a LinkData that MetaToModelUtility can use to
-        # mirror this link (or decide not to mirror it)
-        linkdata = LinkData(
-            rel=link_obj.rel,
-            href=link_obj.href,
-            rights_uri=rights_status
-        )
-        mirror_utility.mirror_link(
-            model_object=license_pool, data_source=collection.data_source,
-            link=linkdata, link_obj=link_obj, policy=policy
-        )
-
-    def derive_rights_status(self, resource, license_pool):
+    def derive_rights_status(self, license_pool, resource):
+        """Make a best guess about the rights status for the given
+        resource.
+        """
         rights_status = None
         if resource:
             lpdm = resource.as_delivery_mechanism_for(license_pool)
             if lpdm:
                 rights_status = lpdm.rights_status
-        
-            rights_status = license_pool.rights_status
+            else:
+                # We could not find a LicensePoolDeliveryMechanism for
+                # this particular resource, but if every
+                # LicensePoolDeliveryMechanism has the same rights
+                # status, we can assume it's that one.
+                statuses = list(set([
+                    x.rights_status for x in license_pool.delivery_mechanisms
+                ]))
+                if len(statuses) == 1:
+                    [rights_status] = statuses
         if rights_status:
             rights_status = rights_status.uri
+        return rights_status
+
+    def get_license_pool(self, collection, identifier):
+        license_pool, is_new = LicensePool.for_foreign_id(
+            self._db, collection.data_source,
+            identifier.type, identifier.identifier, collection=collection,
+            autocreate=False
+        )
+        return license_pool
+
+    def process_item(self, collection, link_obj, policy):
+        """Determine the URL that needs to be mirrored and (for books)
+        the rationale that lets us mirror that URL. Then mirror it.
+        """
+        license_pool = self.get_license_pool(collection, link_obj.identifier)
+        if not license_pool:
+            # This shouldn't happen.
+            self.log.warn(
+                "Could not find LicensePool for %r, skipping it rather than mirroring something we shouldn't."
+            )
+            return
+        resource = link_obj.resource
+
+        if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            rights_status = self.derive_rights_status(license_pool, resource)
+            if not rights_status:
+                self.logging.warn(
+                    "Could not unambiguously determine rights status for %r, skipping.", link_obj
+                )
+        else:
+            # For resources like book covers, the rights status is
+            # irrelevant -- we rely on fair use.
+            rights_status = None
+
+        # Mock up a LinkData that MetaToModelUtility can use to
+        # mirror this link (or decide not to mirror it).
+        linkdata = LinkData(
+            rel=link_obj.rel,
+            href=resource.url,
+            rights_uri=rights_status
+        )
+
+        # Mirror the link (or not).
+        self.MIRROR_UTILITY.mirror_link(
+            model_object=license_pool, data_source=collection.data_source,
+            link=linkdata, link_obj=link_obj, policy=policy
+        )
 
 
 class RefreshMaterializedViewsScript(Script):

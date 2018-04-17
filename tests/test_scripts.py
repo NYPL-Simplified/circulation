@@ -23,7 +23,7 @@ from config import (
     temp_config,
 )
 from external_search import DummyExternalSearchIndex
-
+from mirror import MirrorUploader
 from model import (
     create,
     dump_query,
@@ -66,6 +66,7 @@ from scripts import (
     LaneSweeperScript,
     LibraryInputScript,
     ListCollectionMetadataIdentifiersScript,
+    MirrorResourcesScript,
     MockStdin,
     OPDSImportScript,
     PatronInputScript,
@@ -2388,6 +2389,122 @@ class TestListCollectionMetadataIdentifiersScript(DatabaseTest):
         assert expected(c1) in output
         assert expected(c2) in output
         assert '2 collections found.\n' in output
+
+class TestMirrorResourcesScript(DatabaseTest):
+
+    def test_do_run(self):
+
+        has_uploader = self._collection()
+        mock_uploader = object()
+
+        class Mock(MirrorResourcesScript):
+
+            processed = []
+
+            def collections_with_uploader(self, collections):
+                # Pretend that `has_uploader` is the only Collection
+                # with an uploader.
+                for collection in collections:
+                    if collection == has_uploader:
+                        yield collection, mock_uploader
+                
+            def process_collection(self, collection, policy):
+                self.processed.append((collection, policy))
+
+        script = Mock(self._db)
+
+        # If there are no command-line arguments, process_collection
+        # is called on every Collection in the system that is okayed
+        # by collections_with_uploader.
+        script.do_run(cmd_args=[])
+        processed = script.processed.pop()
+        eq_((has_uploader, mock_uploader), processed)
+        eq_([], script.processed)
+
+        # If a Collection is named on the command line,
+        # process_collection is called on that Collection _if_ it has
+        # an uploader.
+        args = ["--collection=%s" % self._default_collection.name]
+        script.do_run(cmd_args=args)
+        eq_([], script.processed)
+
+        script.do_run(cmd_args=["--collection=%s" % has_uploader.name])
+        processed = script.processed.pop()
+        eq_((has_uploader, mock_uploader), processed)
+
+    def test_collections_with_uploader(self):
+        class Mock(MirrorResourcesScript):
+            
+            mock_policy = object()
+
+            @classmethod
+            def replacement_policy(cls, uploader):
+                cls.replacement_policy_called_with = uploader
+                return cls.mock_policy
+
+        script = Mock()
+
+        # The default collection does not have an uploader.
+        # This new collection does.
+        has_uploader = self._collection()
+        mirror = self._external_integration(
+            "S3", ExternalIntegration.STORAGE_GOAL
+        )
+        has_uploader.mirror_integration = mirror
+
+        # Calling collections_with_uploader will do nothing for collections
+        # that don't have an uploader. It will make a MirrorUploader for
+        # the other collection, pass it into replacement_policy,
+        # and yield the result.
+        result = script.collections_with_uploader(
+            [self._default_collection, has_uploader, self._default_collection]
+        )
+        [(collection, policy)] = result
+        eq_(has_uploader, collection)
+        eq_(Mock.mock_policy, policy)
+        assert isinstance(Mock.replacement_policy_called_with, MirrorUploader)
+
+    def test_replacement_policy(self):
+        uploader = object()
+        p = MirrorResourcesScript.replacement_policy(uploader)
+        eq_(uploader, p.mirror)
+        eq_(True, p.link_content)
+        eq_(True, p.even_if_not_apparently_updated)
+        eq_(False, p.rights)
+
+    def test_process_collection(self):
+
+        class MockScript(MirrorResourcesScript):
+            process_item_called_with = []
+            def process_item(self, collection, link, policy):
+                self.process_item_called_with.append((collection, link, policy))
+
+        # Mock the Hyperlink.unmirrored method
+        link1 = object()
+        link2 = object()
+        def unmirrored(collection):
+            eq_(collection, self._default_collection)
+            yield link1
+            yield link2
+
+        script = MockScript(self._db)
+        policy = object()
+        script.process_collection(self._default_collection, policy, unmirrored)
+
+        # Process_collection called unmirrored() and then called process_item
+        # on every item yielded by unmirrored()
+        call1, call2 = script.process_item_called_with
+        eq_((self._default_collection, link1, policy), call1)
+        eq_((self._default_collection, link2, policy), call2)
+
+    def test_derive_rights_status(self):
+        pass
+
+    def test_get_license_pool(self):
+        pass
+
+    def test_process_item(self):
+        pass
 
 
 class TestWorkConsolidationScript(object):
