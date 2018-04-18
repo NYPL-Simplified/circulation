@@ -1,6 +1,7 @@
 from nose.tools import (
     set_trace,
     eq_,
+    assert_raises
 )
 import flask
 import json
@@ -22,6 +23,7 @@ from api.admin.controller import (
     SettingsController,
 )
 from api.admin.problem_details import *
+from api.admin.exceptions import *
 from api.admin.routes import setup_admin
 from api.config import (
     Configuration,
@@ -214,42 +216,40 @@ class TestAdminCirculationManagerController(AdminControllerTest):
     def test_require_system_admin(self):
         with self.app.test_request_context('/admin'):
             flask.request.admin = self.admin
-            response = self.manager.admin_work_controller.require_system_admin()
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.require_system_admin)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_work_controller.require_system_admin()
-            eq_(True, response)
+            self.manager.admin_work_controller.require_system_admin()
 
     def test_require_sitewide_library_manager(self):
         with self.app.test_request_context('/admin'):
             flask.request.admin = self.admin
-            response = self.manager.admin_work_controller.require_sitewide_library_manager()
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.require_sitewide_library_manager)
 
             self.admin.add_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
-            response = self.manager.admin_work_controller.require_sitewide_library_manager()
-            eq_(True, response)
+            self.manager.admin_work_controller.require_sitewide_library_manager()
 
     def test_require_library_manager(self):
         with self.app.test_request_context('/admin'):
             flask.request.admin = self.admin
-            response = self.manager.admin_work_controller.require_library_manager(self._default_library)
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.require_library_manager,
+                          self._default_library)
 
             self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
-            response = self.manager.admin_work_controller.require_library_manager(self._default_library)
-            eq_(True, response)
+            self.manager.admin_work_controller.require_library_manager(self._default_library)
 
     def test_require_librarian(self):
         with self.app.test_request_context('/admin'):
             flask.request.admin = self.admin
-            response = self.manager.admin_work_controller.require_librarian(self._default_library)
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.require_librarian,
+                          self._default_library)
 
             self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
-            response = self.manager.admin_work_controller.require_librarian(self._default_library)
-            eq_(True, response)
+            self.manager.admin_work_controller.require_librarian(self._default_library)
 
 class TestWorkController(AdminControllerTest):
 
@@ -294,10 +294,9 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_work_controller.details(
-                lp.identifier.type, lp.identifier.identifier
-            )
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.details,
+                          lp.identifier.type, lp.identifier.identifier)
 
     def test_roles(self):
         roles = self.manager.admin_work_controller.roles()
@@ -545,10 +544,9 @@ class TestWorkController(AdminControllerTest):
             flask.request.form = ImmutableMultiDict([
                 ("title", "Another new title"),
             ])
-            response = self.manager.admin_work_controller.edit(
-                lp.identifier.type, lp.identifier.identifier
-            )
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.edit,
+                          lp.identifier.type, lp.identifier.identifier)
 
     def test_edit_classifications(self):
         # start with a couple genres based on BISAC classifications from Axis 360
@@ -793,10 +791,9 @@ class TestWorkController(AdminControllerTest):
                 ("fiction", "nonfiction"),
                 ("genres", "Biography")
             ])
-            response = self.manager.admin_work_controller.edit_classifications(
-                lp.identifier.type, lp.identifier.identifier
-            )
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.edit_classifications,
+                          lp.identifier.type, lp.identifier.identifier)
 
     def test_suppress(self):
         [lp] = self.english_1.license_pools
@@ -811,10 +808,9 @@ class TestWorkController(AdminControllerTest):
         lp.suppressed = False
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_work_controller.suppress(
-                lp.identifier.type, lp.identifier.identifier
-            )
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.suppress,
+                          lp.identifier.type, lp.identifier.identifier)
 
     def test_unsuppress(self):
         [lp] = self.english_1.license_pools
@@ -848,10 +844,9 @@ class TestWorkController(AdminControllerTest):
         lp.suppressed = True
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_work_controller.unsuppress(
-                lp.identifier.type, lp.identifier.identifier
-            )
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.unsuppress,
+                          lp.identifier.type, lp.identifier.identifier)
 
     def test_refresh_metadata(self):
         wrangler = DataSource.lookup(self._db, DataSource.METADATA_WRANGLER)
@@ -881,10 +876,9 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_work_controller.refresh_metadata(
-                lp.identifier.type, lp.identifier.identifier, provider=success_provider
-            )
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.refresh_metadata,
+                          lp.identifier.type, lp.identifier.identifier, provider=success_provider)
 
     def test_complaints(self):
         type = iter(Complaint.VALID_TYPES)
@@ -926,10 +920,9 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_work_controller.complaints(
-                lp.identifier.type, lp.identifier.identifier
-            )
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.complaints,
+                          lp.identifier.type, lp.identifier.identifier)
 
     def test_resolve_complaints(self):
         type = iter(Complaint.VALID_TYPES)
@@ -987,10 +980,9 @@ class TestWorkController(AdminControllerTest):
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
             flask.request.form = ImmutableMultiDict([("type", type1)])
-            response = self.manager.admin_work_controller.resolve_complaints(
-                lp.identifier.type, lp.identifier.identifier
-            )
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.resolve_complaints,
+                          lp.identifier.type, lp.identifier.identifier)
 
     def test_classifications(self):
         e, pool = self._edition(with_license_pool=True)
@@ -1035,9 +1027,9 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_work_controller.classifications(
-                lp.identifier.type, lp.identifier.identifier)
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.classifications,
+                          lp.identifier.type, lp.identifier.identifier)
 
     def test_custom_lists_get(self):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -1055,8 +1047,9 @@ class TestWorkController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.custom_lists,
+                          identifier.type, identifier.identifier)
 
     def test_custom_lists_edit_with_missing_list(self):
         work = self._work(with_license_pool=True)
@@ -1127,8 +1120,9 @@ class TestWorkController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("lists", json.dumps([{ "name": "another new list" }]))
             ])
-            response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.custom_lists,
+                          identifier.type, identifier.identifier)
 
 class TestSignInController(AdminControllerTest):
 
@@ -1482,8 +1476,8 @@ class TestFeedController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_feed_controller.complaints()
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_feed_controller.complaints)
 
     def test_suppressed(self):
         suppressed_work = self._work(with_open_access_download=True)
@@ -1501,8 +1495,8 @@ class TestFeedController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_feed_controller.suppressed()
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_feed_controller.suppressed)
 
     def test_genres(self):
         with self.app.test_request_context("/"):
@@ -1555,8 +1549,8 @@ class TestCustomListsController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_custom_lists_controller.custom_lists)
 
     def test_custom_lists_post_errors(self):
         with self.request_context_with_admin("/", method='POST'):
@@ -1614,8 +1608,8 @@ class TestCustomListsController(AdminControllerTest):
                 ("name", "name"),
                 ("collections", json.dumps([])),
             ])
-            response = self.manager.admin_custom_lists_controller.custom_lists()
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_custom_lists_controller.custom_lists)
 
     def test_custom_lists_post_collection_with_wrong_library(self):
         # This collection is not associated with any libraries.
@@ -1695,8 +1689,9 @@ class TestCustomListsController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_custom_lists_controller.custom_list(list.id)
-            eq_(403, response.status_code)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_custom_lists_controller.custom_list,
+                          list.id)
 
     def test_custom_list_edit(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
@@ -1759,9 +1754,9 @@ class TestCustomListsController(AdminControllerTest):
                 ("entries", json.dumps(new_entries)),
                 ("collections", json.dumps([c.id for c in new_collections])),
             ])
-
-            response = self.manager.admin_custom_lists_controller.custom_list(list.id)
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_custom_lists_controller.custom_list,
+                          list.id)
 
     def test_custom_list_delete_success(self):
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
@@ -1794,10 +1789,11 @@ class TestCustomListsController(AdminControllerTest):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
         with self.request_context_with_admin("/", method="DELETE"):
-            response = self.manager.admin_custom_lists_controller.custom_list(list.id)
-            eq_(ADMIN_NOT_AUTHORIZED, response)
-        self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_custom_lists_controller.custom_list,
+                          list.id)
 
+        self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         with self.request_context_with_admin("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(123)
             eq_(MISSING_CUSTOM_LIST, response)
@@ -1836,9 +1832,8 @@ class TestLanesController(AdminControllerTest):
 
         with self.request_context_with_admin("/"):
             flask.request.library = library
-            response = self.manager.admin_lanes_controller.lanes()
             # The admin is not a librarian for this library.
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.lanes)
             self.admin.add_role(AdminRole.LIBRARIAN, library)
             response = self.manager.admin_lanes_controller.lanes()
 
@@ -1915,8 +1910,8 @@ class TestLanesController(AdminControllerTest):
                 ("display_name", "lane"),
                 ("custom_list_ids", json.dumps([list.id])),
             ])
-            response = self.manager.admin_lanes_controller.lanes()
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_lanes_controller.lanes)
 
         lane1 = self._lane("lane1")
         lane2 = self._lane("lane2")
@@ -2078,8 +2073,9 @@ class TestLanesController(AdminControllerTest):
         library = self._library()
         with self.request_context_with_admin("/", method="DELETE"):
             flask.request.library = library
-            response = self.manager.admin_lanes_controller.lane(lane.id)
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_lanes_controller.lane,
+                          lane.id)
 
         with self.request_context_with_admin("/", method="DELETE"):
             response = self.manager.admin_lanes_controller.lane(lane.id)
@@ -2109,8 +2105,9 @@ class TestLanesController(AdminControllerTest):
 
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_lanes_controller.show_lane(parent.id)
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_lanes_controller.show_lane,
+                          parent.id)
 
     def test_hide_lane_success(self):
         lane = self._lane("lane")
@@ -2128,8 +2125,9 @@ class TestLanesController(AdminControllerTest):
         lane = self._lane()
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
         with self.request_context_with_admin("/"):
-            response = self.manager.admin_lanes_controller.show_lane(lane.id)
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_lanes_controller.show_lane,
+                          lane.id)
 
     def test_reset(self):
         library = self._library()
@@ -2137,8 +2135,7 @@ class TestLanesController(AdminControllerTest):
 
         with self.request_context_with_admin("/"):
             flask.request.library = library
-            response = self.manager.admin_lanes_controller.reset()
-            eq_(ADMIN_NOT_AUTHORIZED, response)
+            assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.reset)
 
             self.admin.add_role(AdminRole.LIBRARY_MANAGER, library)
             response = self.manager.admin_lanes_controller.reset()
@@ -2526,8 +2523,8 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "Brooklyn Public Library"),
                 ("short_name", "bpl"),
             ])
-            response = self.manager.admin_settings_controller.libraries()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.libraries)
 
         with self.app.test_request_context("/", method="POST"):
             flask.request.admin = self.admin
@@ -2547,8 +2544,8 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "Brooklyn Public Library"),
                 ("short_name", library.short_name),
             ])
-            response = self.manager.admin_settings_controller.libraries()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.libraries)
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
         with self.app.test_request_context("/", method="POST"):
@@ -2718,8 +2715,9 @@ class TestSettingsController(AdminControllerTest):
             flask.request.admin = self.admin
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.library(library.uuid)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.library,
+                          library.uuid)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.library(library.uuid)
@@ -2941,8 +2939,8 @@ class TestSettingsController(AdminControllerTest):
                 ("name", "Collection 1"),
                 ("protocol", "Overdrive"),
             ])
-            response = self.manager.admin_settings_controller.collections()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.collections)
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
         with self.app.test_request_context("/", method="POST"):
@@ -3396,8 +3394,9 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="DELETE"):
             flask.request.admin = self.admin
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.collection(collection.id)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.collection,
+                          collection.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.collection(collection.id)
@@ -3428,8 +3427,8 @@ class TestSettingsController(AdminControllerTest):
                 sorted(ExternalIntegration.ADMIN_AUTH_PROTOCOLS))
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.admin_auth_services)
 
     def test_admin_auth_services_get_with_google_oauth_service(self):
         auth_service, ignore = create(
@@ -3513,8 +3512,8 @@ class TestSettingsController(AdminControllerTest):
                 ("password", "password"),
                 ("domains", "nypl.org"),
             ])
-            response = self.manager.admin_settings_controller.admin_auth_services()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.admin_auth_services)
 
     def test_admin_auth_services_post_create(self):
         with self.app.test_request_context("/", method="POST"):
@@ -3590,8 +3589,9 @@ class TestSettingsController(AdminControllerTest):
         with self.app.test_request_context("/", method="DELETE"):
             flask.request.admin = self.admin
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.admin_auth_service(auth_service.protocol)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.admin_auth_service,
+                          auth_service.protocol)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.admin_auth_service(auth_service.protocol)
@@ -3724,15 +3724,16 @@ class TestSettingsController(AdminControllerTest):
         librarian2.add_role(AdminRole.LIBRARIAN, l2)
 
         with self.app.test_request_context("/", method="POST"):
-            def test_changing_roles(changing_admin, target_admin, roles=None):
+            def test_changing_roles(admin_making_request, target_admin, roles=None):
                 self._db.begin_nested()
-                flask.request.admin = changing_admin
+                flask.request.admin = admin_making_request
                 flask.request.form = MultiDict([
                     ("email", target_admin.email),
                     ("roles", json.dumps(roles or [])),
                 ])
-                response = self.manager.admin_settings_controller.individual_admins()
-                eq_(ADMIN_NOT_AUTHORIZED, response)
+                assert_raises(AdminNotAuthorized,
+                              self.manager.admin_settings_controller.individual_admins)
+                self._db.rollback()
                 self._db.commit()
 
             test_changing_roles(sitewide_manager, system)
@@ -3842,15 +3843,17 @@ class TestSettingsController(AdminControllerTest):
 
         with self.app.test_request_context("/", method="DELETE"):
             flask.request.admin = librarian
-            response = self.manager.admin_settings_controller.individual_admin(librarian.email)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.individual_admin,
+                          librarian.email)
 
             flask.request.admin = sitewide_manager
             response = self.manager.admin_settings_controller.individual_admin(librarian.email)
             eq_(response.status_code, 200)
 
-            response = self.manager.admin_settings_controller.individual_admin(system_admin.email)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.individual_admin,
+                          system_admin.email)
 
             flask.request.admin = system_admin
             response = self.manager.admin_settings_controller.individual_admin(system_admin.email)
@@ -3874,8 +3877,8 @@ class TestSettingsController(AdminControllerTest):
             assert "library_settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.patron_auth_services()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.patron_auth_services)
 
     def test_patron_auth_services_get_with_simple_auth_service(self):
         auth_service, ignore = create(
@@ -4212,8 +4215,8 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
             ] + self._common_basic_auth_arguments())
-            response = self.manager.admin_settings_controller.patron_auth_services()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.patron_auth_services)
 
     def test_patron_auth_services_post_create(self):
         library, ignore = create(
@@ -4328,8 +4331,9 @@ class TestSettingsController(AdminControllerTest):
             flask.request.admin = self.admin
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.patron_auth_service(auth_service.id)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.patron_auth_service,
+                          auth_service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.patron_auth_service(auth_service.id)
@@ -4371,8 +4375,8 @@ class TestSettingsController(AdminControllerTest):
             assert Configuration.SECRET_KEY in keys
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.sitewide_settings()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.sitewide_settings)
 
     def test_sitewide_settings_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -4396,8 +4400,8 @@ class TestSettingsController(AdminControllerTest):
                 ("key", Configuration.SECRET_KEY),
                 ("value", "secret"),
             ])
-            response = self.manager.admin_settings_controller.sitewide_settings()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.sitewide_settings)
 
     def test_sitewide_settings_post_create(self):
         with self.app.test_request_context("/", method="POST"):
@@ -4439,8 +4443,9 @@ class TestSettingsController(AdminControllerTest):
             flask.request.admin = self.admin
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.sitewide_setting(setting.key)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.sitewide_setting,
+                          setting.key)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.sitewide_setting(setting.key)
@@ -4458,8 +4463,8 @@ class TestSettingsController(AdminControllerTest):
             assert "settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.metadata_services()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.metadata_services)
 
     def test_metadata_services_get_with_one_service(self):
         novelist_service, ignore = create(
@@ -4576,8 +4581,8 @@ class TestSettingsController(AdminControllerTest):
                 (ExternalIntegration.PASSWORD, "pass"),
                 ("libraries", json.dumps([])),
             ])
-            response = self.manager.admin_settings_controller.metadata_services()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.metadata_services)
 
     def test_metadata_services_post_create(self):
         library, ignore = create(
@@ -4653,8 +4658,9 @@ class TestSettingsController(AdminControllerTest):
             flask.request.admin = self.admin
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.metadata_service(novelist_service.id)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.metadata_service,
+                          novelist_service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.metadata_service(novelist_service.id)
@@ -4673,8 +4679,8 @@ class TestSettingsController(AdminControllerTest):
             assert "settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.analytics_services()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.analytics_services)
 
     def test_analytics_services_get_with_one_service(self):
         ga_service, ignore = create(
@@ -4832,8 +4838,8 @@ class TestSettingsController(AdminControllerTest):
                 (ExternalIntegration.URL, "url"),
                 ("libraries", json.dumps([])),
             ])
-            response = self.manager.admin_settings_controller.analytics_services()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.analytics_services)
 
     def test_analytics_services_post_create(self):
         library, ignore = create(
@@ -4908,8 +4914,9 @@ class TestSettingsController(AdminControllerTest):
             flask.request.admin = self.admin
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.analytics_service(ga_service.id)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.analytics_service,
+                          ga_service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.analytics_service(ga_service.id)
@@ -4928,8 +4935,8 @@ class TestSettingsController(AdminControllerTest):
             assert "settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.cdn_services()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.cdn_services)
 
     def test_cdn_services_get_with_one_service(self):
         cdn_service, ignore = create(
@@ -5010,8 +5017,8 @@ class TestSettingsController(AdminControllerTest):
                 (ExternalIntegration.URL, "cdn url"),
                 (Configuration.CDN_MIRRORED_DOMAIN_KEY, "mirrored domain"),
             ])
-            response = self.manager.admin_settings_controller.cdn_services()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.cdn_services)
 
     def test_cdn_services_post_create(self):
         with self.app.test_request_context("/", method="POST"):
@@ -5068,8 +5075,9 @@ class TestSettingsController(AdminControllerTest):
             flask.request.admin = self.admin
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.cdn_service(cdn_service.id)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.cdn_service,
+                          cdn_service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.cdn_service(cdn_service.id)
@@ -5088,8 +5096,8 @@ class TestSettingsController(AdminControllerTest):
             assert "settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.search_services()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.search_services)
 
     def test_search_services_get_with_one_service(self):
         search_service, ignore = create(
@@ -5193,8 +5201,8 @@ class TestSettingsController(AdminControllerTest):
                 (ExternalIntegration.URL, "search url"),
                 (ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY, "works-index-prefix"),
             ])
-            response = self.manager.admin_settings_controller.search_services()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.search_services)
 
     def test_search_services_post_create(self):
         with self.app.test_request_context("/", method="POST"):
@@ -5251,8 +5259,9 @@ class TestSettingsController(AdminControllerTest):
             flask.request.admin = self.admin
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.search_service(search_service.id)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.search_service,
+                          search_service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.search_service(search_service.id)
@@ -5320,8 +5329,8 @@ class TestSettingsController(AdminControllerTest):
             eq_("https://libraryregistry.librarysimplified.org", service.get("settings").get(ExternalIntegration.URL))
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.discovery_services()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.discovery_services)
 
     def test_discovery_services_get_with_one_service(self):
         discovery_service, ignore = create(
@@ -5399,8 +5408,8 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
                 (ExternalIntegration.URL, "registry url"),
             ])
-            response = self.manager.admin_settings_controller.discovery_services()
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.discovery_services)
 
     def test_discovery_services_post_create(self):
         with self.app.test_request_context("/", method="POST"):
@@ -5451,8 +5460,9 @@ class TestSettingsController(AdminControllerTest):
             flask.request.admin = self.admin
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.discovery_service(discovery_service.id)
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.discovery_service,
+                          discovery_service.id)
 
             self.admin.add_role(AdminRole.SYSTEM_ADMIN)
             response = self.manager.admin_settings_controller.discovery_service(discovery_service.id)
@@ -5500,8 +5510,8 @@ class TestSettingsController(AdminControllerTest):
             eq_(expected, libraryInfo)
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.discovery_service_library_registrations)
 
     def test_discovery_service_library_registrations_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -5570,8 +5580,9 @@ class TestSettingsController(AdminControllerTest):
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
             ])
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.discovery_service_library_registrations,
+                          do_get=self.do_request, do_post=self.do_request)
 
     def test_discovery_service_library_registrations_post_success(self):
         discovery_service, ignore = create(
@@ -5683,8 +5694,8 @@ class TestSettingsController(AdminControllerTest):
             eq_(expected, libraryInfo)
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-            response = self.manager.admin_settings_controller.collection_library_registrations()
-            eq_(response.status_code, 403)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.collection_library_registrations)
 
     def test_collection_library_registrations_post_errors(self):
         with self.app.test_request_context("/", method="POST"):
@@ -5760,8 +5771,9 @@ class TestSettingsController(AdminControllerTest):
                 ("collection_id", collection.id),
                 ("library_short_name", self._default_library.short_name),
             ])
-            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(response, ADMIN_NOT_AUTHORIZED)
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_settings_controller.collection_library_registrations,
+                          do_get=self.do_request, do_post=self.do_request)
 
     def test_collection_library_registrations_post_success(self):
         collection = self._collection(protocol=SharedODLAPI.NAME)
