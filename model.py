@@ -5679,6 +5679,40 @@ class Hyperlink(Base):
         Integer, ForeignKey('resources.id'), index=True, nullable=False)
 
     @classmethod
+    def unmirrored(cls, collection):
+        """Find all Hyperlinks associated with an item in the
+        given Collection that could be mirrored but aren't.
+
+        TODO: We don't cover the case where an image was mirrored but no
+        thumbnail was created of it. (We do cover the case where the thumbnail
+        was created but not mirrored.)
+        """
+        _db = Session.object_session(collection)
+        qu = _db.query(Hyperlink).join(
+            Hyperlink.identifier
+        ).join(
+            Identifier.licensed_through
+        ).outerjoin(
+            Hyperlink.resource
+        ).outerjoin(
+            Resource.representation
+        )
+        qu = qu.filter(LicensePool.collection_id==collection.id)
+        qu = qu.filter(Hyperlink.rel.in_(Hyperlink.MIRRORED))
+        qu = qu.filter(Hyperlink.data_source==collection.data_source)
+        qu = qu.filter(
+            or_(
+                Representation.id==None,
+                Representation.mirror_url==None,
+            )
+        )
+        # Without this ordering, the query does a table scan looking for
+        # items that match. With the ordering, they're all at the front.
+        qu = qu.order_by(Representation.mirror_url.asc().nullsfirst(),
+                         Representation.id.asc().nullsfirst())
+        return qu
+
+    @classmethod
     def generic_uri(cls, data_source, identifier, rel, content=None):
         """Create a generic URI for the other end of this hyperlink.
 
@@ -5796,6 +5830,14 @@ class Resource(Base):
         if not self.representation.mirror_url:
             return None
         return self.representation.mirror_url
+
+    def as_delivery_mechanism_for(self, licensepool):
+        """If this Resource is used in a LicensePoolDeliveryMechanism for the
+        given LicensePool, return that LicensePoolDeliveryMechanism.
+        """
+        for lpdm in licensepool.delivery_mechanisms:
+            if lpdm.resource == self:
+                return lpdm
 
     def set_mirrored_elsewhere(self, media_type):
         """We don't need our own copy of this resource's representation--
@@ -10368,6 +10410,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         AXIS_360 : DataSource.AXIS_360,
         RB_DIGITAL : DataSource.RB_DIGITAL,
         ENKI : DataSource.ENKI,
+        FEEDBOOKS : DataSource.FEEDBOOKS,
     }
 
     # Integrations with METADATA_GOAL

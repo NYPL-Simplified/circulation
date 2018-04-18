@@ -5129,6 +5129,75 @@ class TestHyperlink(DatabaseTest):
         eq_("cover", m(Hyperlink.IMAGE))
         eq_("cover-thumbnail", m(Hyperlink.THUMBNAIL_IMAGE))
 
+    def test_unmirrored(self):
+
+        ds = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        c1 = self._default_collection
+        c1.data_source = ds
+
+        # Here's an Identifier associated with a collection.
+        work = self._work(with_license_pool=True, collection=c1)
+        [pool] = work.license_pools
+        i1 = pool.identifier
+
+        # This is a random identifier not associated with the collection.
+        i2 = self._identifier()
+
+        def m():
+            return Hyperlink.unmirrored(c1).all()
+
+        # Identifier is not in the collection.
+        not_in_collection, ignore = i2.add_link(Hyperlink.IMAGE, self._url, ds)
+        eq_([], m())
+
+        # Hyperlink rel is not mirrorable.
+        wrong_type, ignore = i1.add_link("not mirrorable", self._url, ds)
+        wrong_type.resource.set_mirrored_elsewhere("text/plain")
+        eq_([], m())
+
+        # Hyperlink has no associated representation -- it needs to be
+        # mirrored, which will create one!
+        hyperlink, ignore = i1.add_link(Hyperlink.IMAGE, self._url, ds)
+        eq_([hyperlink], m())
+
+        # Hyperlink is already mirrored.
+        hyperlink.resource.set_mirrored_elsewhere("image/png")
+        eq_([], m())
+
+        # Representation exists in database but is not mirrored -- it needs
+        # to be mirrored!
+        representation = hyperlink.resource.representation
+        representation.mirror_url = None
+        eq_([hyperlink], m())
+
+        # Hyperlink is associated with a data source other than the
+        # data source of the collection. It ought to be mirrored, but
+        # this collection isn't responsible for mirroring it.
+        hyperlink.data_source = overdrive
+        eq_([], m())
+
+
+class TestResource(DatabaseTest):
+
+    def test_as_delivery_mechanism_for(self):
+
+        # Calling as_delivery_mechanism_for on a Resource that is used
+        # to deliver a specific LicensePool returns the appropriate
+        # LicensePoolDeliveryMechanism.
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        [lpdm] = pool.delivery_mechanisms
+        eq_(lpdm, lpdm.resource.as_delivery_mechanism_for(pool))
+
+        # If there's no relationship between the Resource and 
+        # the LicensePoolDeliveryMechanism, as_delivery_mechanism_for
+        # returns None.
+        w2 = self._work(with_license_pool=True)
+        [unrelated] = w2.license_pools
+        eq_(None, lpdm.resource.as_delivery_mechanism_for(unrelated))
+
 
 class TestRepresentation(DatabaseTest):
 
