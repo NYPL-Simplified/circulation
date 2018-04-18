@@ -1921,6 +1921,17 @@ class Lane(Base, WorkList):
             )
         return genre_ids
 
+    @property
+    def customlist_ids(self):
+        """Find the database ID of every CustomList such that a Work filed
+        in that List should be in this Lane.
+
+        :return: A list of CustomList IDs, possibly empty.
+        """
+        # TODO: We need to consider the 'all custom lists for a data source'
+        # case.
+        return [x.id for x in self.customlists]
+
     @classmethod
     def affected_by_customlist(self, customlist):
         """Find all Lanes whose membership is partially derived
