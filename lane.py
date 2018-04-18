@@ -7,6 +7,7 @@ import time
 import urllib
 
 from psycopg2.extras import NumericRange
+from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
 
 from config import Configuration
@@ -1928,9 +1929,24 @@ class Lane(Base, WorkList):
 
         :return: A list of CustomList IDs, possibly empty.
         """
-        # TODO: We need to consider the 'all custom lists for a data source'
-        # case.
-        return [x.id for x in self.customlists]
+        if not hasattr(self, '_customlist_ids'):
+            self._customlist_ids = self._gather_customlist_ids()
+        return self._customlist_ids
+
+    def _gather_customlist_ids(self):
+        """Method that does the work of `customlist_ids`."""
+        if self.list_datasource:
+            # Find the ID of every CustomList from a certain
+            # DataSource.
+            _db = Session.object_session(self)
+            query = select(
+                [CustomList.id],
+                CustomList.data_source_id==self.list_datasource.id
+            )
+            return [x[0] for x in _db.execute(query)]
+        else:
+            # Find the IDs of some specific CustomLists.
+            return [x.id for x in self.customlists]
 
     @classmethod
     def affected_by_customlist(self, customlist):
@@ -2220,7 +2236,7 @@ class Lane(Base, WorkList):
                 CustomList.data_source_id==self.list_datasource.id
             )
         else:
-            customlist_ids = [x.id for x in self.customlists]
+            customlist_ids = self.customlist_ids
         if customlist_ids is not None:
             clauses.append(a_entry.list_id.in_(customlist_ids))
             if not already_filtered_customlist_on_materialized_view:

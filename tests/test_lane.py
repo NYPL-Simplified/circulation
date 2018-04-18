@@ -1978,6 +1978,32 @@ class TestLane(DatabaseTest):
         assert len(no_inclusive_genres.genre_ids) > 10
         assert science_fiction.id not in no_inclusive_genres.genre_ids
 
+    def test_customlist_ids(self):
+        # When you add a CustomList to a Lane, you are saying that works
+        # from that CustomList can appear in the Lane.
+        nyt1, ignore = self._customlist(
+            num_entries=0, data_source_name=DataSource.NYT
+        )
+        nyt2, ignore = self._customlist(
+            num_entries=0, data_source_name=DataSource.NYT
+        )
+
+        no_lists = self._lane()
+        eq_([], no_lists.customlist_ids)
+
+        has_list = self._lane()
+        has_list.customlists.append(nyt1)
+        eq_([nyt1.id], has_list.customlist_ids)
+
+        # When you set a Lane's list_datasource, you're saying that
+        # works appear in the Lane if they are on _any_ CustomList from
+        # that data source.
+        has_list_source = self._lane()
+        has_list_source.list_datasource = DataSource.lookup(
+            self._db, DataSource.NYT
+        )
+        eq_(set([nyt1.id, nyt2.id]), set(has_list_source.customlist_ids))
+
     def test_search_target(self):
 
         # A Lane that is the root for a patron type can be
