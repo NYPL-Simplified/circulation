@@ -23,6 +23,13 @@ INVALID_ADMIN_CREDENTIALS = pd(
       _("Valid library staff credentials are required."),
 )
 
+ADMIN_NOT_AUTHORIZED = pd(
+    "http://librarysimplified.org/terms/problem/admin-not-authorized",
+    403,
+    _("Admin not authorized"),
+    _("Your admin account is not authorized to make this request."),
+)
+
 GOOGLE_OAUTH_FAILURE = pd(
       "http://librarysimplified.org/terms/problem/google-oauth-failure",
       400,

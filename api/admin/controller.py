@@ -194,7 +194,9 @@ class AdminController(object):
             if not auth:
                 return ADMIN_AUTH_MECHANISM_NOT_CONFIGURED
             if admin and auth.active_credentials(admin):
+                flask.request.admin = admin
                 return admin
+        flask.request.admin = None
         return INVALID_ADMIN_CREDENTIALS
 
     def authenticated_admin(self, admin_details):
@@ -247,6 +249,33 @@ class AdminController(object):
     def generate_csrf_token(self):
         """Generate a random CSRF token."""
         return base64.b64encode(os.urandom(24))
+
+class AdminCirculationManagerController(CirculationManagerController):
+    """Parent class that provides methods for verifying an admin's roles."""
+
+    def require_system_admin(self):
+        admin = flask.request.admin
+        if not admin or not admin.is_system_admin():
+            return ADMIN_NOT_AUTHORIZED
+        return True
+
+    def require_sitewide_library_manager(self):
+        admin = flask.request.admin
+        if not admin or not admin.is_sitewide_library_manager():
+            return ADMIN_NOT_AUTHORIZED
+        return True
+
+    def require_library_manager(self, library):
+        admin = flask.request.admin
+        if not admin or not admin.is_library_manager(library):
+            return ADMIN_NOT_AUTHORIZED
+        return True
+
+    def require_librarian(self, library):
+        admin = flask.request.admin
+        if not admin or not admin.is_librarian(library):
+            return ADMIN_NOT_AUTHORIZED
+        return True
 
 
 class ViewController(AdminController):
@@ -375,7 +404,7 @@ class SignInController(AdminController):
         )
         return Response(html, problem_detail.status_code)
 
-class WorkController(CirculationManagerController):
+class WorkController(AdminCirculationManagerController):
 
     STAFF_WEIGHT = 1000
 
@@ -384,6 +413,9 @@ class WorkController(CirculationManagerController):
 
         This includes relevant links for editing the book.
         """
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
@@ -398,7 +430,9 @@ class WorkController(CirculationManagerController):
 
     def complaints(self, identifier_type, identifier):
         """Return detailed complaint information for admins."""
-
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
@@ -462,6 +496,9 @@ class WorkController(CirculationManagerController):
 
     def edit(self, identifier_type, identifier):
         """Edit a work's metadata."""
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
         # TODO: It would be nice to use the metadata layer for this, but
         # this code handles empty values differently than other metadata
@@ -672,6 +709,10 @@ class WorkController(CirculationManagerController):
 
     def suppress(self, identifier_type, identifier):
         """Suppress the license pool associated with a book."""
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         # Turn source + identifier into a LicensePool
         pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
@@ -692,6 +733,10 @@ class WorkController(CirculationManagerController):
         between complaints about a work and complaints about a
         LicensePoool.
         """
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         # Turn source + identifier into a group of LicensePools
         pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
         if isinstance(pools, ProblemDetail):
@@ -705,6 +750,10 @@ class WorkController(CirculationManagerController):
 
     def refresh_metadata(self, identifier_type, identifier, provider=None):
         """Refresh the metadata for a book from the content server"""
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
             return work
@@ -736,6 +785,9 @@ class WorkController(CirculationManagerController):
 
     def resolve_complaints(self, identifier_type, identifier):
         """Resolve all complaints for a particular license pool and complaint type."""
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
@@ -761,6 +813,9 @@ class WorkController(CirculationManagerController):
 
     def classifications(self, identifier_type, identifier):
         """Return list of this work's classifications."""
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
@@ -794,6 +849,9 @@ class WorkController(CirculationManagerController):
 
     def edit_classifications(self, identifier_type, identifier):
         """Edit a work's audience, target age, fiction status, and genres."""
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
@@ -955,6 +1013,10 @@ class WorkController(CirculationManagerController):
         return Counter(complaint_types)
 
     def custom_lists(self, identifier_type, identifier):
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         library = flask.request.library
         work = self.load_work(library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
@@ -1013,9 +1075,13 @@ class WorkController(CirculationManagerController):
             return Response(unicode(_("Success")), 200)
 
 
-class FeedController(CirculationManagerController):
+class FeedController(AdminCirculationManagerController):
 
     def complaints(self):
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         this_url = self.url_for('complaints')
         annotator = AdminAnnotator(self.circulation, flask.request.library)
         pagination = load_pagination_from_request()
@@ -1029,6 +1095,10 @@ class FeedController(CirculationManagerController):
         return feed_response(opds_feed, cache_for=0)
 
     def suppressed(self):
+        authorized = self.require_librarian(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         this_url = self.url_for('suppressed')
         annotator = AdminAnnotator(self.circulation, flask.request.library)
         pagination = load_pagination_from_request()
@@ -1055,9 +1125,12 @@ class FeedController(CirculationManagerController):
             })
         return data
 
-class CustomListsController(CirculationManagerController):
+class CustomListsController(AdminCirculationManagerController):
     def custom_lists(self):
         library = flask.request.library
+        authorized = self.require_librarian(library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
         if flask.request.method == "GET":
             custom_lists = []
@@ -1170,6 +1243,9 @@ class CustomListsController(CirculationManagerController):
 
     def custom_list(self, list_id):
         library = flask.request.library
+        authorized = self.require_librarian(library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
 
         list = get_one(self._db, CustomList, id=list_id, data_source=data_source)
@@ -1205,6 +1281,10 @@ class CustomListsController(CirculationManagerController):
             return self._create_or_update_list(library, name, entries, collections, list_id)
 
         elif flask.request.method == "DELETE":
+            # Deleting requires a library manager.
+            authorized = self.require_library_manager(flask.request.library)
+            if isinstance(authorized, ProblemDetail):
+                return authorized
             # Build the list of affected lanes before modifying the
             # CustomList.
             affected_lanes = Lane.affected_by_customlist(list)
@@ -1216,10 +1296,13 @@ class CustomListsController(CirculationManagerController):
             return Response(unicode(_("Deleted")), 200)
 
 
-class LanesController(CirculationManagerController):
+class LanesController(AdminCirculationManagerController):
 
     def lanes(self):
         library = flask.request.library
+        authorized = self.require_librarian(library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
         if flask.request.method == "GET":
             def lanes_for_parent(parent):
@@ -1235,6 +1318,10 @@ class LanesController(CirculationManagerController):
             return dict(lanes=lanes_for_parent(None))
 
         if flask.request.method == "POST":
+            authorized = self.require_library_manager(flask.request.library)
+            if isinstance(authorized, ProblemDetail):
+                return authorized
+
             id = flask.request.form.get("id")
             parent_id = flask.request.form.get("parent_id")
             display_name = flask.request.form.get("display_name")
@@ -1307,6 +1394,10 @@ class LanesController(CirculationManagerController):
     def lane(self, lane_identifier):
         if flask.request.method == "DELETE":
             library = flask.request.library
+            authorized = self.require_library_manager(library)
+            if isinstance(authorized, ProblemDetail):
+                return authorized
+
             lane = get_one(self._db, Lane, id=lane_identifier, library=library)
             if not lane:
                 return MISSING_LANE
@@ -1324,6 +1415,10 @@ class LanesController(CirculationManagerController):
 
     def show_lane(self, lane_identifier):
         library = flask.request.library
+        authorized = self.require_library_manager(library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         lane = get_one(self._db, Lane, id=lane_identifier, library=library)
         if not lane:
             return MISSING_LANE
@@ -1334,6 +1429,10 @@ class LanesController(CirculationManagerController):
 
     def hide_lane(self, lane_identifier):
         library = flask.request.library
+        authorized = self.require_library_manager(library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         lane = get_one(self._db, Lane, id=lane_identifier, library=library)
         if not lane:
             return MISSING_LANE
@@ -1341,11 +1440,15 @@ class LanesController(CirculationManagerController):
         return Response(unicode(_("Success")), 200)
 
     def reset(self):
+        authorized = self.require_library_manager(flask.request.library)
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         create_default_lanes(self._db, flask.request.library)
         return Response(unicode(_("Success")), 200)
 
 
-class DashboardController(CirculationManagerController):
+class DashboardController(AdminCirculationManagerController):
 
     def stats(self):
         patron_count = self._db.query(Patron).count()
@@ -1547,7 +1650,7 @@ class DashboardController(CirculationManagerController):
 
         return [header] + map(result_to_row, results), date
 
-class SettingsController(CirculationManagerController):
+class SettingsController(AdminCirculationManagerController):
 
     METADATA_SERVICE_URI_TYPE = 'application/opds+json;profile=https://librarysimplified.org/rel/profile/metadata-service'
 
@@ -1557,6 +1660,11 @@ class SettingsController(CirculationManagerController):
         if flask.request.method == 'GET':
             libraries = []
             for library in self._db.query(Library).order_by(Library.name):
+                # Only include libraries this admin has librarian access to.
+                authorized = self.require_librarian(library)
+                if isinstance(authorized, ProblemDetail):
+                    continue
+
                 settings = dict()
                 for setting in Configuration.LIBRARY_SETTINGS:
                     if setting.get("type") == "list":
@@ -1601,9 +1709,16 @@ class SettingsController(CirculationManagerController):
                 return LIBRARY_SHORT_NAME_ALREADY_IN_USE
 
         if not library:
+            authorized = self.require_system_admin()
+            if isinstance(authorized, ProblemDetail):
+                return authorized
             library, is_new = create(
                 self._db, Library, short_name=short_name,
                 uuid=str(uuid.uuid4()))
+        else:
+            authorized = self.require_library_manager(library)
+            if isinstance(authorized, ProblemDetail):
+                return authorized
 
         if name:
             library.name = name
@@ -1672,6 +1787,9 @@ class SettingsController(CirculationManagerController):
 
     def library(self, library_uuid):
         if flask.request.method == "DELETE":
+            authorized = self.require_system_admin()
+            if isinstance(authorized, ProblemDetail):
+                return authorized
             library = get_one(self._db, Library, uuid=library_uuid)
             if not library:
                 return LIBRARY_NOT_FOUND.detailed(_("The specified library uuid does not exist."))
@@ -1847,6 +1965,10 @@ class SettingsController(CirculationManagerController):
     def _delete_integration(self, integration_id, goal):
         if flask.request.method != "DELETE":
             return
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         integration = get_one(self._db, ExternalIntegration,
                               id=integration_id, goal=goal)
         if not integration:
@@ -1855,6 +1977,10 @@ class SettingsController(CirculationManagerController):
         return Response(unicode(_("Deleted")), 200)
 
     def _sitewide_settings_controller(self, configuration_object):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         if flask.request.method == 'GET':
             settings = []
             for s in configuration_object.SITEWIDE_SETTINGS:
@@ -1904,6 +2030,18 @@ class SettingsController(CirculationManagerController):
         if flask.request.method == 'GET':
             collections = []
             for c in self._db.query(Collection).order_by(Collection.name).all():
+                authorized = False
+                for library in c.libraries:
+                    if not isinstance(self.require_librarian(library), ProblemDetail):
+                        authorized = True
+                # If the collection's not associated with any libraries, only system
+                # admins can see it.
+                if not c.libraries:
+                    if not isinstance(self.require_system_admin(), ProblemDetail):
+                        authorized = True
+                if not authorized:
+                    continue
+
                 collection = dict(
                     id=c.id,
                     name=c.name,
@@ -1913,10 +2051,12 @@ class SettingsController(CirculationManagerController):
                 )
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
-                    libraries = [
-                            self._get_integration_library_info(
-                                c.external_integration, library, protocol)
-                            for library in c.libraries]
+                    libraries = []
+                    for library in c.libraries:
+                        if isinstance(self.require_librarian(library), ProblemDetail):
+                            continue
+                        libraries.append(self._get_integration_library_info(
+                                c.external_integration, library, protocol))
                     collection['libraries'] = libraries
                     for setting in protocol.get("settings"):
                         key = setting.get("key")
@@ -1934,6 +2074,10 @@ class SettingsController(CirculationManagerController):
                 collections=collections,
                 protocols=protocols,
             )
+
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
 
         id = flask.request.form.get("id")
@@ -2051,6 +2195,10 @@ class SettingsController(CirculationManagerController):
 
     def collection_library_registrations(self, do_get=HTTP.debuggable_get,
                                  do_post=HTTP.debuggable_post, key=None):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         # TODO: This method might be able to share code with discovery_service_library_registrations.
         shared_collection_provider_apis = [SharedODLAPI]
         LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
@@ -2173,6 +2321,10 @@ class SettingsController(CirculationManagerController):
 
     def collection(self, collection_id):
         if flask.request.method == "DELETE":
+            authorized = self.require_system_admin()
+            if isinstance(authorized, ProblemDetail):
+                return authorized
+
             collection = get_one(self._db, Collection, id=collection_id)
             if not collection:
                 return MISSING_COLLECTION
@@ -2182,6 +2334,10 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(_("Deleted")), 200)
 
     def admin_auth_services(self):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         provider_apis = [GoogleOAuthAdminAuthenticationProvider]
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
 
@@ -2231,6 +2387,10 @@ class SettingsController(CirculationManagerController):
             return Response(unicode(auth_service.protocol), 200)
 
     def admin_auth_service(self, protocol):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         if flask.request.method == "DELETE":
             service = get_one(self._db, ExternalIntegration, protocol=protocol, goal=ExternalIntegration.ADMIN_AUTH_GOAL)
             if not service:
@@ -2245,6 +2405,9 @@ class SettingsController(CirculationManagerController):
                 roles = []
                 for role in admin.roles:
                     if role.library:
+                        authorized = self.require_librarian(role.library)
+                        if isinstance(authorized, ProblemDetail):
+                            continue
                         roles.append(dict(role=role.role, library=role.library.short_name))
                     else:
                         roles.append(dict(role=role.role))
@@ -2267,6 +2430,17 @@ class SettingsController(CirculationManagerController):
             roles = []
 
         admin, is_new = get_one_or_create(self._db, Admin, email=email)
+        if admin.is_sitewide_librarian():
+            authorized = self.require_sitewide_library_manager()
+            if isinstance(authorized, ProblemDetail):
+                self._db.rollback()
+                return authorized
+        if admin.is_system_admin():
+            authorized = self.require_system_admin()
+            if isinstance(authorized, ProblemDetail):
+                self._db.rollback()
+                return authorized
+            
         if password:
             admin.password = password
         try:
@@ -2287,6 +2461,15 @@ class SettingsController(CirculationManagerController):
                 if not library:
                     self._db.rollback()
                     return LIBRARY_NOT_FOUND.detailed(_("Library \"%(short_name)s\" does not exist.", short_name=library_short_name))
+            if library:
+                authorized = self.require_library_manager(library)
+            elif role.get("role") == AdminRole.SYSTEM_ADMIN:
+                authorized = self.require_system_admin()
+            else:
+                authorized = self.require_sitewide_library_manager()
+            if isinstance(authorized, ProblemDetail):
+                self._db.rollback()
+                return authorized
             admin.add_role(role.get("role"), library)
         new_roles = set((role.get("role"), role.get("library")) for role in roles)
         for role in old_roles:
@@ -2294,6 +2477,14 @@ class SettingsController(CirculationManagerController):
             if role.library:
                 library = role.library.short_name
             if not (role.role, library) in new_roles:
+                authorized = self.require_library_manager(role.library)
+                if isinstance(authorized, ProblemDetail):
+                    if flask.request.admin.is_librarian(role.library):
+                        self._db.rollback()
+                        return authorized
+                    # The admin who made the request can't see roles for
+                    # this library, so the request didn't include this role.
+                    continue
                 admin.remove_role(role.role, role.library)
 
         if is_new:
@@ -2303,13 +2494,24 @@ class SettingsController(CirculationManagerController):
 
     def individual_admin(self, email):
         if flask.request.method == "DELETE":
+            authorized = self.require_sitewide_library_manager()
+            if isinstance(authorized, ProblemDetail):
+                return authorized
             admin = get_one(self._db, Admin, email=email)
+            if admin.is_system_admin():
+                authorized = self.require_system_admin()
+                if isinstance(authorized, ProblemDetail):
+                    return authorized
             if not admin:
                 return MISSING_ADMIN
             self._db.delete(admin)
             return Response(unicode(_("Deleted")), 200)
 
     def patron_auth_services(self):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         provider_apis = [SimpleAuthenticationProvider,
                          MilleniumPatronAPI,
                          SIP2AuthenticationProvider,
@@ -2418,6 +2620,10 @@ class SettingsController(CirculationManagerController):
         return self._sitewide_settings_controller(Configuration)
 
     def sitewide_setting(self, key):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         if flask.request.method == "DELETE":
             setting = ConfigurationSetting.sitewide(self._db, key)
             setting.value = None
@@ -2440,6 +2646,10 @@ class SettingsController(CirculationManagerController):
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
             key=None
     ):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         provider_apis = [NYTBestSellerAPI,
                          NoveListAPI,
                          MetadataWranglerOPDSLookup,
@@ -2516,6 +2726,10 @@ class SettingsController(CirculationManagerController):
 
         :return: A ProblemDetail or, if successful, None
         """
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         if not integration:
             return MISSING_SERVICE
 
@@ -2600,6 +2814,10 @@ class SettingsController(CirculationManagerController):
         integration.password = unicode(shared_secret)
 
     def analytics_services(self):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         provider_apis = [GoogleAnalyticsProvider,
                          LocalAnalyticsProvider,
                         ]
@@ -2657,6 +2875,10 @@ class SettingsController(CirculationManagerController):
         )
 
     def cdn_services(self):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         protocols = [
             {
                 "name": ExternalIntegration.CDN,
@@ -2723,6 +2945,10 @@ class SettingsController(CirculationManagerController):
             self, goal, provider_apis, service_key_name,
             multiple_sitewide_services_detail, protocol_name_attr='NAME'
     ):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         protocols = self._get_integration_protocols(provider_apis, protocol_name_attr=protocol_name_attr)
 
         if flask.request.method == 'GET':
@@ -2804,6 +3030,10 @@ class SettingsController(CirculationManagerController):
         )
 
     def discovery_services(self):
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
+
         protocols = [
             {
                 "name": ExternalIntegration.OPDS_REGISTRATION,
@@ -2881,6 +3111,10 @@ class SettingsController(CirculationManagerController):
         LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
         SUCCESS = u"success"
         FAILURE = u"failure"
+
+        authorized = self.require_system_admin()
+        if isinstance(authorized, ProblemDetail):
+            return authorized
 
         if flask.request.method == "GET":
             services = []
