@@ -9549,7 +9549,16 @@ class CustomList(Base):
         return Work.from_identifiers(_db, identifiers)
 
     def add_entry(self, work_or_edition, annotation=None, first_appearance=None,
-                  featured=None):
+                  featured=None, update_external_index=True):
+        """Add a work to a CustomList.
+
+        :param update_external_index: When a Work is added to a list,
+        its external index needs to be updated. The only reason not to
+        do this is when the current database session already contains
+        a new WorkCoverageRecord for this purpose (e.g. because the
+        Work was just created) and creating another one would violate
+        the workcoveragerecords table's unique constraint.
+        """
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
 
@@ -9586,7 +9595,7 @@ class CustomList(Base):
 
         # Make sure the Work's search document is updated to reflect its new
         # list membership.
-        if entry.work:
+        if entry.work and update_external_index:
             entry.work.external_index_needs_updating()
 
         return entry, was_new
@@ -11557,7 +11566,11 @@ def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initia
     if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
         for pool in pools:
             for list in pool.collection.customlists:
-                list.add_entry(work, featured=True)
+                # Since the work was just created, we can assume that
+                # there's already a pending registration for updating the
+                # work's internal index, and decide not to create a
+                # second one.
+                list.add_entry(work, featured=True, update_external_index=False)
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.

@@ -876,6 +876,13 @@ class WorkList(object):
         return []
 
     @property
+    def customlist_ids(self):
+        """WorkLists per se are not associated with custom lists, although
+        Lanes might be.
+        """
+        return None
+
+    @property
     def full_identifier(self):
         """A human-readable identifier for this WorkList that
         captures its position within the heirarchy.
@@ -1325,6 +1332,7 @@ class WorkList(object):
                 audiences=self.audiences,
                 target_age=target_age,
                 in_any_of_these_genres=self.genre_ids,
+                on_any_of_these_lists=self.customlist_ids,
             )
             if facets and facets.entrypoint:
                 kwargs = facets.entrypoint.modified_search_arguments(**kwargs)
@@ -1943,10 +1951,16 @@ class Lane(Base, WorkList):
                 [CustomList.id],
                 CustomList.data_source_id==self.list_datasource.id
             )
-            return [x[0] for x in _db.execute(query)]
+            ids = [x[0] for x in _db.execute(query)]
         else:
             # Find the IDs of some specific CustomLists.
-            return [x.id for x in self.customlists]
+            ids = [x.id for x in self.customlists]
+        if len(ids) == 0:
+            # Return None to make it clear that we mean "there is no
+            # custom list restriction" rather than "exclude
+            # everything".
+            return None
+        return ids
 
     @classmethod
     def affected_by_customlist(self, customlist):

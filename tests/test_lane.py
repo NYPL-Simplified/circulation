@@ -1649,8 +1649,16 @@ class TestWorkList(DatabaseTest):
         work = self._work(with_license_pool=True)
         self.add_to_materialized_view(work)
 
+        class MockWorkList(WorkList):
+            def customlist_ids(self):
+                """WorkList.customlist_ids returns an empty list; we
+                want to return something specific so we can make sure
+                the results are passed into search().
+                """
+                return ["a customlist id"]
+
         # Create a WorkList that has very specific requirements.
-        wl = WorkList()
+        wl = MockWorkList()
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         wl.initialize(
             self._default_library, "Work List",
@@ -1679,6 +1687,7 @@ class TestWorkList(DatabaseTest):
         eq_(wl.media, kw['media'])
         eq_(wl.audiences, kw['audiences'])
         eq_(wl.genre_ids, kw['in_any_of_these_genres'])
+        eq_(wl.customlist_ids, kw['on_any_of_these_lists'])
         eq_(1, kw['size'])
         eq_(0, kw['offset'])
 
@@ -1979,6 +1988,11 @@ class TestLane(DatabaseTest):
         assert science_fiction.id not in no_inclusive_genres.genre_ids
 
     def test_customlist_ids(self):
+        # WorkLists always return None for customlist_ids.
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        eq_(None, wl.customlist_ids)
+
         # When you add a CustomList to a Lane, you are saying that works
         # from that CustomList can appear in the Lane.
         nyt1, ignore = self._customlist(
@@ -1989,7 +2003,7 @@ class TestLane(DatabaseTest):
         )
 
         no_lists = self._lane()
-        eq_([], no_lists.customlist_ids)
+        eq_(None, no_lists.customlist_ids)
 
         has_list = self._lane()
         has_list.customlists.append(nyt1)
