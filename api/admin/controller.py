@@ -2417,9 +2417,7 @@ class SettingsController(AdminCirculationManagerController):
             self.require_sitewide_library_manager()
             admin = get_one(self._db, Admin, email=email)
             if admin.is_system_admin():
-                authorized = self.require_system_admin()
-                if isinstance(authorized, ProblemDetail):
-                    return authorized
+                self.require_system_admin()
             if not admin:
                 return MISSING_ADMIN
             self._db.delete(admin)
