@@ -699,9 +699,7 @@ class WorkController(AdminCirculationManagerController):
 
     def suppress(self, identifier_type, identifier):
         """Suppress the license pool associated with a book."""
-        authorized = self.require_librarian(flask.request.library)
-        if isinstance(authorized, ProblemDetail):
-            return authorized
+        self.require_librarian(flask.request.library)
 
         # Turn source + identifier into a LicensePool
         pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
@@ -723,9 +721,7 @@ class WorkController(AdminCirculationManagerController):
         between complaints about a work and complaints about a
         LicensePoool.
         """
-        authorized = self.require_librarian(flask.request.library)
-        if isinstance(authorized, ProblemDetail):
-            return authorized
+        self.require_librarian(flask.request.library)
 
         # Turn source + identifier into a group of LicensePools
         pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
@@ -740,9 +736,7 @@ class WorkController(AdminCirculationManagerController):
 
     def refresh_metadata(self, identifier_type, identifier, provider=None):
         """Refresh the metadata for a book from the content server"""
-        authorized = self.require_librarian(flask.request.library)
-        if isinstance(authorized, ProblemDetail):
-            return authorized
+        self.require_librarian(flask.request.library)
 
         work = self.load_work(flask.request.library, identifier_type, identifier)
         if isinstance(work, ProblemDetail):
