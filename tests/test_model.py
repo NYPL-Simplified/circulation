@@ -7112,7 +7112,15 @@ class TestCustomList(DatabaseTest):
         custom_list.library = self._default_library
         result = CustomList.find(self._db, 'My List', source, library=self._default_library)
         eq_(custom_list, result)
-        
+
+    def assert_reindexing_scheduled(self, work):
+        """Assert that the given work has exactly one WorkCoverageRecord, which
+        indicates that it needs to have its search index updated.
+        """
+        [needs_reindex] = work.coverage_records
+        eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+            needs_reindex.operation)
+        eq_(WorkCoverageRecord.REGISTERED, needs_reindex.status)
 
     def test_add_entry(self):
         custom_list = self._customlist(num_entries=0)[0]
@@ -7130,19 +7138,28 @@ class TestCustomList(DatabaseTest):
         eq_(True, custom_list.updated > now)
 
         # An edition with a work can create an entry.
-        worked_edition, lp = self._edition(with_license_pool=True)
-        worked_entry, is_new = custom_list.add_entry(worked_edition)
+        work = self._work()
+        work.coverage_records = []
+        worked_entry, is_new = custom_list.add_entry(work.presentation_edition)
         eq_(True, is_new)
-        eq_(worked_edition, worked_entry.edition)
+        eq_(work, worked_entry.work)
+        eq_(work.presentation_edition, worked_entry.edition)
         eq_(True, worked_entry.first_appearance > now)
+
+        # When this happens, the work is scheduled for reindexing.
+        self.assert_reindexing_scheduled(work)
 
         # A work can create an entry.
         work = self._work(with_open_access_download=True)
+        work.coverage_records = []
         work_entry, is_new = custom_list.add_entry(work)
         eq_(True, is_new)
         eq_(work.presentation_edition, work_entry.edition)
         eq_(work, work_entry.work)
         eq_(True, work_entry.first_appearance > now)
+
+        # When this happens, the work is scheduled for reindexing.
+        self.assert_reindexing_scheduled(work)
 
         # Annotations can be passed to the entry.
         annotated_edition = self._edition()
@@ -7208,11 +7225,16 @@ class TestCustomList(DatabaseTest):
         now = datetime.datetime.utcnow()
 
         # An entry is removed if its edition is passed in.
+        first.work.coverage_records = []
         custom_list.remove_entry(first)
         eq_(2, len(custom_list.entries))
         eq_(set([second, third]), set([entry.edition for entry in custom_list.entries]))
         # And CustomList.updated is changed.
         eq_(True, custom_list.updated > now)
+
+        # The editon's work has been scheduled for reindexing.
+        self.assert_reindexing_scheduled(first.work)
+        first.work.coverage_records = []
 
         # An entry is also removed if any of its equivalent editions
         # are passed in.
@@ -7238,6 +7260,10 @@ class TestCustomList(DatabaseTest):
         custom_list.remove_entry(first)
         eq_(1, len(custom_list.entries))
         eq_(previous_list_update_time, custom_list.updated)
+
+        # The 'removed' edition's work does not need to be reindexed
+        # because it wasn't on the list to begin with.
+        eq_([], first.work.coverage_records)
 
     def test_entries_for_work(self):
         custom_list, editions = self._customlist(num_entries=2)

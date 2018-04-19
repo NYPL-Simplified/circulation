@@ -9584,6 +9584,11 @@ class CustomList(Base):
         if was_new:
             self.updated = datetime.datetime.utcnow()
 
+        # Make sure the Work's search document is updated to reflect its new
+        # list membership.
+        if entry.work:
+            entry.work.external_index_needs_updating()
+
         return entry, was_new
 
     def remove_entry(self, work_or_edition):
@@ -9594,6 +9599,11 @@ class CustomList(Base):
 
         existing_entries = list(self.entries_for_work(work_or_edition))
         for entry in existing_entries:
+            if entry.work:
+                # Make sure the Work's search document is updated to
+                # reflect its new list membership.
+                entry.work.external_index_needs_updating()
+
             _db.delete(entry)
 
         if existing_entries:
