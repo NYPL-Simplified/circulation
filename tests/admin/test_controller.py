@@ -105,9 +105,25 @@ class AdminControllerTest(CirculationControllerTest):
 
     @contextmanager
     def request_context_with_admin(self, route, *args, **kwargs):
-        with self.request_context_with_library(route, *args, **kwargs) as c:
-            flask.request.admin = self.admin
+        admin = self.admin
+        if 'admin' in kwargs:
+            admin = kwargs.pop('admin')
+        with self.app.test_request_context(route, *args, **kwargs) as c:
+            self._db.begin_nested()
+            flask.request.admin = admin
             yield c
+            self._db.commit()
+
+    @contextmanager
+    def request_context_with_library_and_admin(self, route, *args, **kwargs):
+        admin = self.admin
+        if 'admin' in kwargs:
+            admin = kwargs.pop('admin')
+        with self.request_context_with_library(route, *args, **kwargs) as c:
+            self._db.begin_nested()
+            flask.request.admin = admin
+            yield c
+            self._db.commit()
 
 class TestViewController(AdminControllerTest):
 
@@ -148,8 +164,7 @@ class TestViewController(AdminControllerTest):
             response = self.manager.admin_view_controller(None, None)
             eq_(302, response.status_code)
             location = response.headers.get("Location")
-            library = Library.default(self._db)
-            assert "admin/web/collection/%s" % library.short_name in location
+            assert "admin/web/collection/%s" % self._default_library.short_name in location
 
         # Only the root url redirects - a non-library specific page with another
         # path won't.
@@ -214,8 +229,7 @@ class TestViewController(AdminControllerTest):
 
 class TestAdminCirculationManagerController(AdminControllerTest):
     def test_require_system_admin(self):
-        with self.app.test_request_context('/admin'):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin('/admin'):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_system_admin)
 
@@ -223,8 +237,7 @@ class TestAdminCirculationManagerController(AdminControllerTest):
             self.manager.admin_work_controller.require_system_admin()
 
     def test_require_sitewide_library_manager(self):
-        with self.app.test_request_context('/admin'):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin('/admin'):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_sitewide_library_manager)
 
@@ -232,8 +245,7 @@ class TestAdminCirculationManagerController(AdminControllerTest):
             self.manager.admin_work_controller.require_sitewide_library_manager()
 
     def test_require_library_manager(self):
-        with self.app.test_request_context('/admin'):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin('/admin'):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_library_manager,
                           self._default_library)
@@ -242,8 +254,7 @@ class TestAdminCirculationManagerController(AdminControllerTest):
             self.manager.admin_work_controller.require_library_manager(self._default_library)
 
     def test_require_librarian(self):
-        with self.app.test_request_context('/admin'):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin('/admin'):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.require_librarian,
                           self._default_library)
@@ -261,7 +272,7 @@ class TestWorkController(AdminControllerTest):
         [lp] = self.english_1.license_pools
 
         lp.suppressed = False
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.details(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -277,7 +288,7 @@ class TestWorkController(AdminControllerTest):
             assert lp.identifier.identifier in suppress_links[0]
 
         lp.suppressed = True
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.details(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -293,7 +304,7 @@ class TestWorkController(AdminControllerTest):
             assert lp.identifier.identifier in unsuppress_links[0]
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.details,
                           lp.identifier.type, lp.identifier.identifier)
@@ -322,7 +333,7 @@ class TestWorkController(AdminControllerTest):
 
     def _make_test_edit_request(self, data):
         [lp] = self.english_1.license_pools
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = ImmutableMultiDict(data)
             return self.manager.admin_work_controller.edit(
                 lp.identifier.type, lp.identifier.identifier
@@ -390,7 +401,7 @@ class TestWorkController(AdminControllerTest):
                 ) \
                 .count()
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
                 ("subtitle", "New subtitle"),
@@ -441,7 +452,7 @@ class TestWorkController(AdminControllerTest):
             assert "&lt;p&gt;New summary&lt;/p&gt;" in self.english_1.simple_opds_entry
             eq_(1, staff_edition_count())
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             # Change the summary again and add an author.
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
@@ -481,7 +492,7 @@ class TestWorkController(AdminControllerTest):
             eq_("Author", author2.role)
             eq_(1, staff_edition_count())
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             # Now delete the subtitle, narrator, series, and summary entirely
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
@@ -515,7 +526,7 @@ class TestWorkController(AdminControllerTest):
             assert 'abcd' not in self.english_1.simple_opds_entry
             eq_(1, staff_edition_count())
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             # Set the fields one more time
             flask.request.form = ImmutableMultiDict([
                 ("title", "New title"),
@@ -540,7 +551,7 @@ class TestWorkController(AdminControllerTest):
 
         # Make sure a non-librarian of this library can't edit.
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = ImmutableMultiDict([
                 ("title", "Another new title"),
             ])
@@ -573,7 +584,7 @@ class TestWorkController(AdminControllerTest):
         work.genres = [genre1, genre2]
 
         # make no changes
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
                 ("fiction", "fiction"),
@@ -607,7 +618,7 @@ class TestWorkController(AdminControllerTest):
         eq_(True, work.fiction)
 
         # remove all genres
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
                 ("fiction", "fiction")
@@ -635,7 +646,7 @@ class TestWorkController(AdminControllerTest):
         eq_(True, work.fiction)
 
         # completely change genres
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
                 ("fiction", "fiction"),
@@ -658,7 +669,7 @@ class TestWorkController(AdminControllerTest):
         eq_(True, work.fiction)
 
         # remove some genres and change audience and target age
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 16),
@@ -683,7 +694,7 @@ class TestWorkController(AdminControllerTest):
         previous_genres = new_genre_names
 
         # try to add a nonfiction genre
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 16),
@@ -705,7 +716,7 @@ class TestWorkController(AdminControllerTest):
         eq_(True, work.fiction)
 
         # try to add Erotica
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 16),
@@ -728,7 +739,7 @@ class TestWorkController(AdminControllerTest):
 
         # try to set min target age greater than max target age
         # othe edits should not go through
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 16),
@@ -747,7 +758,7 @@ class TestWorkController(AdminControllerTest):
         eq_(True, work.fiction)
 
         # change to nonfiction with nonfiction genres and new target age
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Young Adult"),
                 ("target_age_min", 15),
@@ -768,7 +779,7 @@ class TestWorkController(AdminControllerTest):
         eq_(False, work.fiction)
 
         # set to Adult and make sure that target ages is set automatically
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Adult"),
                 ("fiction", "nonfiction"),
@@ -785,7 +796,7 @@ class TestWorkController(AdminControllerTest):
 
         # Make sure a non-librarian of this library can't edit.
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = MultiDict([
                 ("audience", "Children"),
                 ("fiction", "nonfiction"),
@@ -798,7 +809,7 @@ class TestWorkController(AdminControllerTest):
     def test_suppress(self):
         [lp] = self.english_1.license_pools
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.suppress(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -807,7 +818,7 @@ class TestWorkController(AdminControllerTest):
 
         lp.suppressed = False
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.suppress,
                           lp.identifier.type, lp.identifier.identifier)
@@ -830,7 +841,7 @@ class TestWorkController(AdminControllerTest):
             "blah", "blah"
         )
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.unsuppress(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -843,7 +854,7 @@ class TestWorkController(AdminControllerTest):
 
         lp.suppressed = True
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.unsuppress,
                           lp.identifier.type, lp.identifier.identifier)
@@ -859,7 +870,7 @@ class TestWorkController(AdminControllerTest):
             DATA_SOURCE_NAME = wrangler.name
         failure_provider = NeverSuccessfulMetadataProvider(self._db)
 
-        with self.request_context_with_admin('/'):
+        with self.request_context_with_library_and_admin('/'):
             [lp] = self.english_1.license_pools
             response = self.manager.admin_work_controller.refresh_metadata(
                 lp.identifier.type, lp.identifier.identifier, provider=success_provider
@@ -875,7 +886,7 @@ class TestWorkController(AdminControllerTest):
             eq_(METADATA_REFRESH_FAILURE.detail, response.detail)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.refresh_metadata,
                           lp.identifier.type, lp.identifier.identifier, provider=success_provider)
@@ -909,7 +920,7 @@ class TestWorkController(AdminControllerTest):
         SessionManager.refresh_materialized_views(self._db)
         [lp] = work.license_pools
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.complaints(
                 lp.identifier.type, lp.identifier.identifier
             )
@@ -919,7 +930,7 @@ class TestWorkController(AdminControllerTest):
             eq_(response['complaints'][type2], 1)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.complaints,
                           lp.identifier.type, lp.identifier.identifier)
@@ -949,7 +960,7 @@ class TestWorkController(AdminControllerTest):
         [lp] = work.license_pools
 
         # first attempt to resolve complaints of the wrong type
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = ImmutableMultiDict([("type", type2)])
             response = self.manager.admin_work_controller.resolve_complaints(
                 lp.identifier.type, lp.identifier.identifier
@@ -959,7 +970,7 @@ class TestWorkController(AdminControllerTest):
             eq_(len(unresolved_complaints), 2)
 
         # then attempt to resolve complaints of the correct type
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = ImmutableMultiDict([("type", type1)])
             response = self.manager.admin_work_controller.resolve_complaints(
                 lp.identifier.type, lp.identifier.identifier
@@ -970,7 +981,7 @@ class TestWorkController(AdminControllerTest):
             eq_(len(unresolved_complaints), 0)
 
         # then attempt to resolve the already-resolved complaints of the correct type
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = ImmutableMultiDict([("type", type1)])
             response = self.manager.admin_work_controller.resolve_complaints(
                 lp.identifier.type, lp.identifier.identifier
@@ -978,7 +989,7 @@ class TestWorkController(AdminControllerTest):
             eq_(response.status_code, 409)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.form = ImmutableMultiDict([("type", type1)])
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.resolve_complaints,
@@ -1009,7 +1020,7 @@ class TestWorkController(AdminControllerTest):
         SessionManager.refresh_materialized_views(self._db)
         [lp] = work.license_pools
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.classifications(
                 lp.identifier.type, lp.identifier.identifier)
             eq_(response['book']['identifier_type'], lp.identifier.type)
@@ -1026,7 +1037,7 @@ class TestWorkController(AdminControllerTest):
                 eq_(response['classifications'][i]['weight'], classification.weight)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.classifications,
                           lp.identifier.type, lp.identifier.identifier)
@@ -1038,7 +1049,7 @@ class TestWorkController(AdminControllerTest):
         list.add_entry(work)
         identifier = work.presentation_edition.primary_identifier
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
             lists = response.get('custom_lists')
             eq_(1, len(lists))
@@ -1046,7 +1057,7 @@ class TestWorkController(AdminControllerTest):
             eq_(list.name, lists[0].get("name"))
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.custom_lists,
                           identifier.type, identifier.identifier)
@@ -1055,7 +1066,7 @@ class TestWorkController(AdminControllerTest):
         work = self._work(with_license_pool=True)
         identifier = work.presentation_edition.primary_identifier
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "4"),
                 ("name", "name"),
@@ -1076,7 +1087,7 @@ class TestWorkController(AdminControllerTest):
         eq_(0, lane.size)
 
         # Add the list to the work.
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("lists", json.dumps([{ "id": str(list.id), "name": list.name }]))
             ])
@@ -1093,30 +1104,30 @@ class TestWorkController(AdminControllerTest):
             eq_(1, lane.size)
 
         # Now remove the list.
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("lists", json.dumps([])),
             ])
             response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
-            eq_(200, response.status_code)
-            eq_(0, len(work.custom_list_entries))
-            eq_(0, len(list.entries))
-            eq_(0, lane.size)
+        eq_(200, response.status_code)
+        eq_(0, len(work.custom_list_entries))
+        eq_(0, len(list.entries))
+        eq_(0, lane.size)
 
         # Add a list that didn't exist before.
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("lists", json.dumps([{ "name": "new list" }]))
             ])
             response = self.manager.admin_work_controller.custom_lists(identifier.type, identifier.identifier)
-            eq_(200, response.status_code)
-            eq_(1, len(work.custom_list_entries))
-            new_list = CustomList.find(self._db, "new list", staff_data_source, self._default_library)
-            eq_(new_list, work.custom_list_entries[0].customlist)
-            eq_(True, work.custom_list_entries[0].featured)
+        eq_(200, response.status_code)
+        eq_(1, len(work.custom_list_entries))
+        new_list = CustomList.find(self._db, "new list", staff_data_source, self._default_library)
+        eq_(new_list, work.custom_list_entries[0].customlist)
+        eq_(True, work.custom_list_entries[0].featured)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("lists", json.dumps([{ "name": "another new list" }]))
             ])
@@ -1467,7 +1478,7 @@ class TestFeedController(AdminControllerTest):
             "complaint detail 3")
 
         SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.complaints()
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -1475,7 +1486,7 @@ class TestFeedController(AdminControllerTest):
             eq_(len(entries), 2)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_feed_controller.complaints)
 
@@ -1486,7 +1497,7 @@ class TestFeedController(AdminControllerTest):
         unsuppressed_work = self._work()
 
         SessionManager.refresh_materialized_views(self._db)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_feed_controller.suppressed()
             feed = feedparser.parse(response.data)
             entries = feed['entries']
@@ -1494,7 +1505,7 @@ class TestFeedController(AdminControllerTest):
             eq_(suppressed_work.title, entries[0]['title'])
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_feed_controller.suppressed)
 
@@ -1527,7 +1538,7 @@ class TestCustomListsController(AdminControllerTest):
 
         no_entries, ignore = create(self._db, CustomList, name=self._str, library=self._default_library)
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_custom_lists_controller.custom_lists()
             eq_(2, len(response.get("custom_lists")))
             lists = response.get("custom_lists")
@@ -1548,12 +1559,12 @@ class TestCustomListsController(AdminControllerTest):
             eq_(0, len(l2.get("collections")))
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_lists)
 
     def test_custom_lists_post_errors(self):
-        with self.request_context_with_admin("/", method='POST'):
+        with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
                 ("id", "4"),
                 ("name", "name"),
@@ -1565,7 +1576,7 @@ class TestCustomListsController(AdminControllerTest):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
         list.library = library
-        with self.request_context_with_admin("/", method='POST'):
+        with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
                 ("id", list.id),
                 ("name", list.name),
@@ -1574,7 +1585,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(CANNOT_CHANGE_LIBRARY_FOR_CUSTOM_LIST, response)
 
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
-        with self.request_context_with_admin("/", method='POST'):
+        with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
                 ("name", list.name),
             ])
@@ -1583,7 +1594,7 @@ class TestCustomListsController(AdminControllerTest):
 
         l1, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
         l2, ignore = create(self._db, CustomList, name=self._str, data_source=data_source, library=self._default_library)
-        with self.request_context_with_admin("/", method='POST'):
+        with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
                 ("id", l2.id),
                 ("name", l1.name),
@@ -1591,7 +1602,7 @@ class TestCustomListsController(AdminControllerTest):
             response = self.manager.admin_custom_lists_controller.custom_lists()
             eq_(CUSTOM_LIST_NAME_ALREADY_IN_USE, response)
 
-        with self.request_context_with_admin("/", method='POST'):
+        with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
                 ("name", "name"),
                 ("collections", json.dumps([12345])),
@@ -1601,8 +1612,7 @@ class TestCustomListsController(AdminControllerTest):
 
         admin, ignore = create(self._db, Admin, email="test@nypl.org")
         library = self._library()
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = admin
+        with self.request_context_with_admin("/", method="POST", admin=admin):
             flask.request.library = library
             flask.request.form = MultiDict([
                 ("name", "name"),
@@ -1614,7 +1624,7 @@ class TestCustomListsController(AdminControllerTest):
     def test_custom_lists_post_collection_with_wrong_library(self):
         # This collection is not associated with any libraries.
         collection = self._collection()
-        with self.request_context_with_admin("/", method='POST'):
+        with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
                 ("name", "name"),
                 ("collections", json.dumps([collection.id])),
@@ -1627,7 +1637,7 @@ class TestCustomListsController(AdminControllerTest):
         collection = self._collection()
         collection.libraries = [self._default_library]
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "List"),
                 ("entries", json.dumps([dict(pwid=work.presentation_edition.permanent_work_id)])),
@@ -1659,7 +1669,7 @@ class TestCustomListsController(AdminControllerTest):
         list.add_entry(edition)
         collection = self._collection()
         collection.customlists = [list]
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
             eq_(list.id, response.get("id"))
             eq_(list.name, response.get("name"))
@@ -1680,7 +1690,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(collection.protocol, c.get("protocol"))
 
     def test_custom_list_get_errors(self):
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_custom_lists_controller.custom_list(123)
             eq_(MISSING_CUSTOM_LIST, response)
 
@@ -1688,7 +1698,7 @@ class TestCustomListsController(AdminControllerTest):
         list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=data_source)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
@@ -1724,7 +1734,7 @@ class TestCustomListsController(AdminControllerTest):
         list.collections = [c1]
         new_collections = [c2]
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", str(list.id)),
                 ("name", "new name"),
@@ -1733,13 +1743,13 @@ class TestCustomListsController(AdminControllerTest):
             ])
 
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
-            eq_(200, response.status_code)
-            eq_(list.id, int(response.response[0]))
-
-            eq_("new name", list.name)
-            eq_(set([w2, w3]),
-                set([entry.work for entry in list.entries]))
-            eq_(new_collections, list.collections)
+        eq_(200, response.status_code)
+        eq_(list.id, int(response.response[0]))
+        
+        eq_("new name", list.name)
+        eq_(set([w2, w3]),
+            set([entry.work for entry in list.entries]))
+        eq_(new_collections, list.collections)
 
         # The lane's estimated size will be updated once the materialized
         # views are refreshed.
@@ -1747,7 +1757,7 @@ class TestCustomListsController(AdminControllerTest):
         eq_(2, lane.size)
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", str(list.id)),
                 ("name", "another new name"),
@@ -1774,7 +1784,7 @@ class TestCustomListsController(AdminControllerTest):
         lane.list_datasource = list.data_source
         lane.size = 100
 
-        with self.request_context_with_admin("/", method="DELETE"):
+        with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
             eq_(200, response.status_code)
 
@@ -1788,13 +1798,13 @@ class TestCustomListsController(AdminControllerTest):
     def test_custom_list_delete_errors(self):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, data_source=data_source)
-        with self.request_context_with_admin("/", method="DELETE"):
+        with self.request_context_with_library_and_admin("/", method="DELETE"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_custom_lists_controller.custom_list,
                           list.id)
 
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
-        with self.request_context_with_admin("/", method="DELETE"):
+        with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_custom_lists_controller.custom_list(123)
             eq_(MISSING_CUSTOM_LIST, response)
 
@@ -1830,7 +1840,7 @@ class TestLanesController(AdminControllerTest):
 
         SessionManager.refresh_materialized_views(self._db)
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.library = library
             # The admin is not a librarian for this library.
             assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.lanes)
@@ -1878,13 +1888,13 @@ class TestLanesController(AdminControllerTest):
             eq_(True, list_info.get("inherit_parent_restrictions"))
 
     def test_lanes_post_errors(self):
-        with self.request_context_with_admin("/", method='POST'):
+        with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
             ])
             response = self.manager.admin_lanes_controller.lanes()
             eq_(NO_DISPLAY_NAME_FOR_LANE, response)
 
-        with self.request_context_with_admin("/", method='POST'):
+        with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.form = MultiDict([
                 ("display_name", "lane"),
             ])
@@ -1894,7 +1904,7 @@ class TestLanesController(AdminControllerTest):
         list, ignore = self._customlist(data_source_name=DataSource.LIBRARY_STAFF, num_entries=0)
         list.library = self._default_library
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "12345"),
                 ("display_name", "lane"),
@@ -1904,7 +1914,7 @@ class TestLanesController(AdminControllerTest):
             eq_(MISSING_LANE, response)
 
         library = self._library()
-        with self.request_context_with_admin("/", method='POST'):
+        with self.request_context_with_library_and_admin("/", method='POST'):
             flask.request.library = library
             flask.request.form = MultiDict([
                 ("display_name", "lane"),
@@ -1916,7 +1926,7 @@ class TestLanesController(AdminControllerTest):
         lane1 = self._lane("lane1")
         lane2 = self._lane("lane2")
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", lane1.id),
                 ("display_name", "lane1"),
@@ -1927,7 +1937,7 @@ class TestLanesController(AdminControllerTest):
 
         lane1.customlists += [list]
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", lane1.id),
                 ("display_name", "lane2"),
@@ -1936,7 +1946,7 @@ class TestLanesController(AdminControllerTest):
             response = self.manager.admin_lanes_controller.lanes()
             eq_(LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS, response)
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("display_name", "lane2"),
                 ("custom_list_ids", json.dumps([list.id])),
@@ -1944,7 +1954,7 @@ class TestLanesController(AdminControllerTest):
             response = self.manager.admin_lanes_controller.lanes()
             eq_(LANE_WITH_PARENT_AND_DISPLAY_NAME_ALREADY_EXISTS, response)
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("parent_id", "12345"),
                 ("display_name", "lane"),
@@ -1953,7 +1963,7 @@ class TestLanesController(AdminControllerTest):
             response = self.manager.admin_lanes_controller.lanes()
             eq_(MISSING_LANE.uri, response.uri)
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("parent_id", lane1.id),
                 ("display_name", "lane"),
@@ -1970,7 +1980,7 @@ class TestLanesController(AdminControllerTest):
         parent = self._lane("parent")
         sibling = self._lane("sibling", parent=parent)
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("parent_id", parent.id),
                 ("display_name", "lane"),
@@ -2008,7 +2018,7 @@ class TestLanesController(AdminControllerTest):
         lane = self._lane("old name")
         lane.customlists += [list1]
 
-        with self.request_context_with_admin("/", method="POST"):
+        with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", str(lane.id)),
                 ("display_name", "new name"),
@@ -2034,7 +2044,7 @@ class TestLanesController(AdminControllerTest):
         lane.customlists += [list]
         eq_(1, self._db.query(Lane).filter(Lane.library==library).count())
 
-        with self.request_context_with_admin("/", method="DELETE"):
+        with self.request_context_with_library_and_admin("/", method="DELETE"):
             flask.request.library = library
             response = self.manager.admin_lanes_controller.lane(lane.id)
             eq_(200, response.status_code)
@@ -2053,7 +2063,7 @@ class TestLanesController(AdminControllerTest):
         grandchild.customlists += [list]
         eq_(3, self._db.query(Lane).filter(Lane.library==library).count())
 
-        with self.request_context_with_admin("/", method="DELETE"):
+        with self.request_context_with_library_and_admin("/", method="DELETE"):
             flask.request.library = library
             response = self.manager.admin_lanes_controller.lane(lane.id)
             eq_(200, response.status_code)
@@ -2065,32 +2075,32 @@ class TestLanesController(AdminControllerTest):
             eq_(1, self._db.query(CustomList).filter(CustomList.library==library).count())
 
     def test_lane_delete_errors(self):
-        with self.request_context_with_admin("/", method="DELETE"):
+        with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_lanes_controller.lane(123)
             eq_(MISSING_LANE, response)
 
         lane = self._lane("lane")
         library = self._library()
-        with self.request_context_with_admin("/", method="DELETE"):
+        with self.request_context_with_library_and_admin("/", method="DELETE"):
             flask.request.library = library
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.lane,
                           lane.id)
 
-        with self.request_context_with_admin("/", method="DELETE"):
+        with self.request_context_with_library_and_admin("/", method="DELETE"):
             response = self.manager.admin_lanes_controller.lane(lane.id)
             eq_(CANNOT_EDIT_DEFAULT_LANE, response)
 
     def test_show_lane_success(self):
         lane = self._lane("lane")
         lane.visible = False
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.show_lane(lane.id)
             eq_(200, response.status_code)
             eq_(True, lane.visible)
 
     def test_show_lane_errors(self):
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.show_lane(123)
             eq_(MISSING_LANE, response)
 
@@ -2099,12 +2109,12 @@ class TestLanesController(AdminControllerTest):
         child = self._lane("lane")
         child.visible = False
         child.parent = parent
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.show_lane(child.id)
             eq_(CANNOT_SHOW_LANE_WITH_HIDDEN_PARENT, response)
 
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.show_lane,
                           parent.id)
@@ -2112,19 +2122,19 @@ class TestLanesController(AdminControllerTest):
     def test_hide_lane_success(self):
         lane = self._lane("lane")
         lane.visible = True
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.hide_lane(lane.id)
             eq_(200, response.status_code)
             eq_(False, lane.visible)
 
     def test_hide_lane_errors(self):
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_lanes_controller.hide_lane(123456789)
             eq_(MISSING_LANE, response)
 
         lane = self._lane()
         self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_lanes_controller.show_lane,
                           lane.id)
@@ -2133,7 +2143,7 @@ class TestLanesController(AdminControllerTest):
         library = self._library()
         old_lane = self._lane("old lane", library=library)
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             flask.request.library = library
             assert_raises(AdminNotAuthorized, self.manager.admin_lanes_controller.reset)
 
@@ -2167,7 +2177,7 @@ class TestDashboardController(AdminControllerTest):
                 foreign_patron_id=patron_id)
             time += timedelta(minutes=1)
 
-        with self.request_context_with_admin("/"):
+        with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_dashboard_controller.circulation_events()
             url = AdminAnnotator(self.manager.d_circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
 
@@ -2178,7 +2188,7 @@ class TestDashboardController(AdminControllerTest):
         eq_([patron_id]*len(types), [event['patron_id'] for event in events])
 
         # request fewer events
-        with self.request_context_with_admin("/?num=2"):
+        with self.request_context_with_library_and_admin("/?num=2"):
             response = self.manager.admin_dashboard_controller.circulation_events()
             url = AdminAnnotator(self.manager.d_circulation, self._default_library).permalink_for(self.english_1, lp, lp.identifier)
 
@@ -2371,7 +2381,7 @@ class TestSettingsController(AdminControllerTest):
         return HTTP.process_debuggable_response(response)
 
     def test_get_integration_protocols(self):
-        # Test the _get_integration_protocols helper method.
+        """Test the _get_integration_protocols helper method."""
         class Protocol(object):
             __module__ = 'my name'
             NAME = 'my label'
@@ -2403,7 +2413,7 @@ class TestSettingsController(AdminControllerTest):
         assert 'cardinality' not in result
 
     def test_get_integration_info(self):
-        # Test the _get_integration_info helper method.
+        """Test the _get_integration_info helper method."""
         m = self.manager.admin_settings_controller._get_integration_info
 
         # Test the case where there are integrations in the database
@@ -2416,7 +2426,7 @@ class TestSettingsController(AdminControllerTest):
         eq_([], m(goal, [dict(name="some other protocol")]))
 
     def test_create_integration(self):
-        # Test the _create_integration helper method.
+        """Test the _create_integration helper method."""
 
         m = self.manager.admin_settings_controller._create_integration
 
@@ -2463,7 +2473,8 @@ class TestSettingsController(AdminControllerTest):
 
     def test_libraries_get_with_no_libraries(self):
         # Delete any existing library created by the controller test setup.
-        for library in self._db.query(Library):
+        library = get_one(self._db, Library)
+        if library:
             self._db.delete(library)
 
         with self.app.test_request_context("/"):
@@ -2472,7 +2483,8 @@ class TestSettingsController(AdminControllerTest):
 
     def test_libraries_get_with_multiple_libraries(self):
         # Delete any existing library created by the controller test setup.
-        for library in self._db.query(Library):
+        library = get_one(self._db, Library)
+        if library:
             self._db.delete(library)
 
         l1 = self._library("Library 1", "L1")
@@ -2491,8 +2503,7 @@ class TestSettingsController(AdminControllerTest):
         self.admin.add_role(AdminRole.LIBRARIAN, l1)
         self.admin.add_role(AdminRole.LIBRARY_MANAGER, l2)
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.libraries()
             libraries = response.get("libraries")
             eq_(2, len(libraries))
@@ -2517,8 +2528,7 @@ class TestSettingsController(AdminControllerTest):
 
     def test_libraries_post_errors(self):
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Brooklyn Public Library"),
                 ("short_name", "bpl"),
@@ -2526,8 +2536,7 @@ class TestSettingsController(AdminControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.libraries)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Brooklyn Public Library"),
             ])
@@ -2537,8 +2546,7 @@ class TestSettingsController(AdminControllerTest):
         library = self._library()
         self.admin.add_role(AdminRole.LIBRARIAN, library)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("uuid", library.uuid),
                 ("name", "Brooklyn Public Library"),
@@ -2548,8 +2556,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.libraries)
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("uuid", "1234"),
                 ("name", "Brooklyn Public Library"),
@@ -2558,8 +2565,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.libraries()
             eq_(response.uri, LIBRARY_NOT_FOUND.uri)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Brooklyn Public Library"),
                 ("short_name", library.short_name),
@@ -2570,8 +2576,7 @@ class TestSettingsController(AdminControllerTest):
         bpl, ignore = get_one_or_create(
             self._db, Library, short_name="bpl"
         )
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("uuid", bpl.uuid),
                 ("name", "Brooklyn Public Library"),
@@ -2580,8 +2585,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.libraries()
             eq_(response, LIBRARY_SHORT_NAME_ALREADY_IN_USE)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("uuid", library.uuid),
                 ("name", "The New York Public Library"),
@@ -2595,8 +2599,7 @@ class TestSettingsController(AdminControllerTest):
             headers = { "Content-Type": "image/png" }
         image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "The New York Public Library"),
                 ("short_name", "nypl"),
@@ -2662,8 +2665,7 @@ class TestSettingsController(AdminControllerTest):
             Configuration.LOGO, library
         ).value = "A tiny image"
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("uuid", library.uuid),
                 ("name", "The New York Public Library"),
@@ -2711,9 +2713,7 @@ class TestSettingsController(AdminControllerTest):
     def test_library_delete(self):
         library = self._library()
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
-
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.library,
@@ -2747,8 +2747,7 @@ class TestSettingsController(AdminControllerTest):
         # When there is no storage integration configured,
         # the protocols will not offer a 'mirror_integration_id'
         # setting.
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.collections()
             protocols = response.get('protocols')
             for protocol in protocols:
@@ -2768,8 +2767,7 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.STORAGE_GOAL
         )
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             controller = self.manager.admin_settings_controller
             response = controller.collections()
             protocols = response.get('protocols')
@@ -2822,8 +2820,7 @@ class TestSettingsController(AdminControllerTest):
         l1_librarian, ignore = create(self._db, Admin, email="admin@l1.org")
         l1_librarian.add_role(AdminRole.LIBRARIAN, l1)
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             controller = self.manager.admin_settings_controller
             response = controller.collections()
             # The system admin can see all collections.
@@ -2868,8 +2865,8 @@ class TestSettingsController(AdminControllerTest):
             eq_("14", coll3_l1.get("ebook_loan_duration"))
             eq_(self._default_library.short_name, coll3_default.get("short_name"))
 
+        with self.request_context_with_admin("/", admin=l1_librarian):
             # A librarian only sees collections associated with their library.
-            flask.request.admin = l1_librarian
             response = controller.collections()
             [coll3] = response.get("collections")
             eq_(c3.id, coll3.get("id"))
@@ -2880,24 +2877,21 @@ class TestSettingsController(AdminControllerTest):
             eq_("14", coll3_libraries[0].get("ebook_loan_duration"))
 
     def test_collections_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Overdrive"),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response, MISSING_COLLECTION_NAME)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection"),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection"),
                 ("protocol", "Unknown"),
@@ -2905,8 +2899,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collections()
             eq_(response, UNKNOWN_PROTOCOL)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "123456789"),
                 ("name", "collection"),
@@ -2920,20 +2913,16 @@ class TestSettingsController(AdminControllerTest):
             protocol=ExternalIntegration.OVERDRIVE
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Collection 1"),
                 ("protocol", "Bibliotheca"),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response, COLLECTION_NAME_ALREADY_IN_USE)
-            self._db.commit()
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
                 ("name", "Collection 1"),
@@ -2943,9 +2932,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.collections)
 
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
                 ("name", "Collection 1"),
@@ -2953,11 +2940,8 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Collection 2"),
                 ("protocol", "Bibliotheca"),
@@ -2965,11 +2949,8 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response, PROTOCOL_DOES_NOT_SUPPORT_PARENTS)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Collection 2"),
                 ("protocol", "Overdrive"),
@@ -2977,11 +2958,8 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response, MISSING_PARENT)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection"),
                 ("protocol", "OPDS Import"),
@@ -2991,22 +2969,16 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection1"),
                 ("protocol", "OPDS Import"),
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection1"),
                 ("protocol", "Overdrive"),
@@ -3016,11 +2988,8 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection1"),
                 ("protocol", "Bibliotheca"),
@@ -3029,11 +2998,8 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection1"),
                 ("protocol", "Axis 360"),
@@ -3042,11 +3008,8 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "collection1"),
                 ("protocol", ExternalIntegration.RB_DIGITAL),
@@ -3055,7 +3018,6 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.collections()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
     def test_collections_post_create(self):
         l1, ignore = create(
@@ -3068,8 +3030,7 @@ class TestSettingsController(AdminControllerTest):
             self._db, Library, name="Library 3", short_name="L3",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "New Collection"),
                 ("protocol", "Overdrive"),
@@ -3109,8 +3070,7 @@ class TestSettingsController(AdminControllerTest):
                 self._db, "ils_name", l2, collection.external_integration).value)
 
         # This collection will be a child of the first collection.
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "Child Collection"),
                 ("protocol", "Overdrive"),
@@ -3150,8 +3110,7 @@ class TestSettingsController(AdminControllerTest):
             self._db, Library, name="Library 1", short_name="L1",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
                 ("name", "Collection 1"),
@@ -3181,8 +3140,7 @@ class TestSettingsController(AdminControllerTest):
         eq_("the_ils", ConfigurationSetting.for_library_and_externalintegration(
                 self._db, "ils_name", l1, collection.external_integration).value)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
                 ("name", "Collection 1"),
@@ -3213,8 +3171,7 @@ class TestSettingsController(AdminControllerTest):
             protocol=ExternalIntegration.OVERDRIVE
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
                 ("name", "Collection 1"),
@@ -3260,8 +3217,7 @@ class TestSettingsController(AdminControllerTest):
         # It's possible to associate the storage integration with the
         # collection.
         base_request = self._base_collections_post_request(collection)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             request = MultiDict(
                 base_request + [("mirror_integration_id", storage.id)]
             )
@@ -3272,8 +3228,7 @@ class TestSettingsController(AdminControllerTest):
 
         # It's possible to unset the mirror integration ID.
         controller = self.manager.admin_settings_controller
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             request = MultiDict(
                 base_request + [("mirror_integration_id",
                                  str(controller.NO_MIRROR_INTEGRATION))]
@@ -3284,8 +3239,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(None, collection.mirror_integration_id)
 
         # Providing a nonexistent integration ID gives an error.
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             request = MultiDict(
                 base_request + [("mirror_integration_id", -200)]
             )
@@ -3312,8 +3266,7 @@ class TestSettingsController(AdminControllerTest):
         # integration associated with the collection's licenses) as
         # the collection's mirror integration gives an error.
         base_request = self._base_collections_post_request(collection)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             request = MultiDict(
                 base_request + [
                     ("mirror_integration_id", collection.external_integration.id)
@@ -3334,8 +3287,7 @@ class TestSettingsController(AdminControllerTest):
             self._db, Library, name="Library 1", short_name="L1",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
                 ("name", "Collection 1"),
@@ -3363,8 +3315,7 @@ class TestSettingsController(AdminControllerTest):
                 self._db, "audio_loan_duration", l1, collection.external_integration).value)
 
         # Remove the connection between collection and library.
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", collection.id),
                 ("name", "Collection 1"),
@@ -3391,8 +3342,7 @@ class TestSettingsController(AdminControllerTest):
     def test_collection_delete(self):
         collection = self._collection()
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.collection,
@@ -3410,14 +3360,12 @@ class TestSettingsController(AdminControllerTest):
         child = self._collection(protocol=ExternalIntegration.OVERDRIVE)
         child.parent = parent
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="DELETE"):
             response = self.manager.admin_settings_controller.collection(parent.id)
             eq_(CANNOT_DELETE_COLLECTION_WITH_CHILDREN, response)
 
     def test_admin_auth_services_get_with_no_services(self):
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.get("admin_auth_services"), [])
 
@@ -3441,8 +3389,7 @@ class TestSettingsController(AdminControllerTest):
         auth_service.password = "pass"
         auth_service.set_setting("domains", json.dumps(["nypl.org"]))
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.admin_auth_services()
             [service] = response.get("admin_auth_services")
 
@@ -3455,22 +3402,19 @@ class TestSettingsController(AdminControllerTest):
             eq_(["nypl.org"], service.get("settings").get("domains"))
 
     def test_admin_auth_services_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, UNKNOWN_PROTOCOL)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "1234"),
             ])
@@ -3483,27 +3427,22 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", str(auth_service.id)),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Google OAuth"),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "oauth"),
                 ("protocol", "Google OAuth"),
@@ -3516,8 +3455,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.admin_auth_services)
 
     def test_admin_auth_services_post_create(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "oauth"),
                 ("protocol", "Google OAuth"),
@@ -3554,8 +3492,7 @@ class TestSettingsController(AdminControllerTest):
         auth_service.password = "pass"
         auth_service.set_setting("domains", json.dumps(["library1.org"]))
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "oauth"),
                 ("protocol", "Google OAuth"),
@@ -3586,8 +3523,7 @@ class TestSettingsController(AdminControllerTest):
         auth_service.password = "pass"
         auth_service.set_setting("domains", json.dumps(["library1.org"]))
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.admin_auth_service,
@@ -3622,9 +3558,8 @@ class TestSettingsController(AdminControllerTest):
         admin5, ignore = create(self._db, Admin, email="admin5@l2.org")
         admin5.add_role(AdminRole.LIBRARIAN, library2)
 
-        with self.app.test_request_context("/"):
+        with self.request_context_with_admin("/", admin=admin1):
             # A system admin can see all other admins' roles.
-            flask.request.admin = admin1
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
             eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
@@ -3634,8 +3569,8 @@ class TestSettingsController(AdminControllerTest):
                  {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}],
                 admins)
 
+        with self.request_context_with_admin("/", admin=admin2):
             # A sitewide librarian or library manager can also see all admins' roles.
-            flask.request.admin = admin2
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
             eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
@@ -3645,9 +3580,9 @@ class TestSettingsController(AdminControllerTest):
                  {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}],
                 admins)
 
+        with self.request_context_with_admin("/", admin=admin3):
             # A librarian or library manager of a specific library can see all admins, but only
             # roles that affect their libraries.
-            flask.request.admin = admin3
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
             eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
@@ -3657,7 +3592,7 @@ class TestSettingsController(AdminControllerTest):
                  {"email": "admin5@l2.org", "roles": []}],
                 admins)
 
-            flask.request.admin = admin4
+        with self.request_context_with_admin("/", admin=admin4):
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
             eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
@@ -3667,7 +3602,7 @@ class TestSettingsController(AdminControllerTest):
                  {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}],
                 admins)
 
-            flask.request.admin = admin5
+        with self.request_context_with_admin("/", admin=admin5):
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
             eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
@@ -3678,14 +3613,12 @@ class TestSettingsController(AdminControllerTest):
                 admins)
 
     def test_individual_admins_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.individual_admins()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                ("email", "test@library.org"),
                ("roles", json.dumps([{ "role": AdminRole.LIBRARIAN, "library": "notalibrary" }])),
@@ -3694,16 +3627,13 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.uri, LIBRARY_NOT_FOUND.uri)
 
         library = self._library()
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                ("email", "test@library.org"),
                ("roles", json.dumps([{ "role": "notarole", "library": library.short_name }])),
             ])
             response = self.manager.admin_settings_controller.individual_admins()
             eq_(response.uri, UNKNOWN_ROLE.uri)
-            self._db.commit()
 
         l1 = self._library()
         l2 = self._library()
@@ -3723,18 +3653,14 @@ class TestSettingsController(AdminControllerTest):
         librarian2, ignore = create(self._db, Admin, email=self._str)
         librarian2.add_role(AdminRole.LIBRARIAN, l2)
 
-        with self.app.test_request_context("/", method="POST"):
-            def test_changing_roles(admin_making_request, target_admin, roles=None):
-                self._db.begin_nested()
-                flask.request.admin = admin_making_request
+        def test_changing_roles(admin_making_request, target_admin, roles=None):
+            with self.app.test_request_context_with_admin("/", method="POST", admin=admin_making_request):
                 flask.request.form = MultiDict([
                     ("email", target_admin.email),
                     ("roles", json.dumps(roles or [])),
                 ])
                 assert_raises(AdminNotAuthorized,
                               self.manager.admin_settings_controller.individual_admins)
-                self._db.rollback()
-                self._db.commit()
 
             test_changing_roles(sitewide_manager, system)
             test_changing_roles(sitewide_librarian, sitewide_manager)
@@ -3751,8 +3677,7 @@ class TestSettingsController(AdminControllerTest):
                                 roles=[{ "role": AdminRole.LIBRARY_MANAGER, "library": l1.short_name }])
 
     def test_individual_admins_post_create(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "admin@nypl.org"),
                 ("password", "pass"),
@@ -3772,8 +3697,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(self._default_library, role.library)
 
         # The new admin is a library manager, so they can create librarians.
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = admin_match
+        with self.request_context_with_admin("/", method="POST", admin=admin_match):
             flask.request.form = MultiDict([
                 ("email", "admin2@nypl.org"),
                 ("password", "pass"),
@@ -3799,8 +3723,7 @@ class TestSettingsController(AdminControllerTest):
         admin.password = "password"
         admin.add_role(AdminRole.SYSTEM_ADMIN)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("email", "admin@nypl.org"),
                 ("password", "new password"),
@@ -3841,13 +3764,12 @@ class TestSettingsController(AdminControllerTest):
             self._db, Admin, email=self._str)
         system_admin.add_role(AdminRole.SYSTEM_ADMIN)
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = librarian
+        with self.request_context_with_admin("/", method="DELETE", admin=librarian):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.individual_admin,
                           librarian.email)
 
-            flask.request.admin = sitewide_manager
+        with self.request_context_with_admin("/", method="DELETE", admin=sitewide_manager):
             response = self.manager.admin_settings_controller.individual_admin(librarian.email)
             eq_(response.status_code, 200)
 
@@ -3855,7 +3777,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.individual_admin,
                           system_admin.email)
 
-            flask.request.admin = system_admin
+        with self.request_context_with_admin("/", method="DELETE", admin=system_admin):
             response = self.manager.admin_settings_controller.individual_admin(system_admin.email)
             eq_(response.status_code, 200)
 
@@ -3866,8 +3788,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(None, admin)
 
     def test_patron_auth_services_get_with_no_services(self):
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.get("patron_auth_services"), [])
             protocols = response.get("protocols")
@@ -3890,8 +3811,7 @@ class TestSettingsController(AdminControllerTest):
         auth_service.setting(BasicAuthenticationProvider.TEST_IDENTIFIER).value = "user"
         auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value = "pass"
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.patron_auth_services()
             [service] = response.get("patron_auth_services")
 
@@ -3903,8 +3823,7 @@ class TestSettingsController(AdminControllerTest):
             eq_([], service.get("libraries"))
 
         auth_service.libraries += [self._default_library]
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.patron_auth_services()
             [service] = response.get("patron_auth_services")
 
@@ -3917,8 +3836,7 @@ class TestSettingsController(AdminControllerTest):
             self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
             self._default_library, auth_service,
         ).value = "^(u)"
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.patron_auth_services()
             [service] = response.get("patron_auth_services")
 
@@ -3942,8 +3860,7 @@ class TestSettingsController(AdminControllerTest):
             self._default_library, auth_service,
         ).value = "^(u)"
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.patron_auth_services()
             [service] = response.get("patron_auth_services")
 
@@ -3976,8 +3893,7 @@ class TestSettingsController(AdminControllerTest):
             self._default_library, auth_service,
         ).value = "^(u)"
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.patron_auth_services()
             [service] = response.get("patron_auth_services")
 
@@ -4007,8 +3923,7 @@ class TestSettingsController(AdminControllerTest):
             self._default_library, auth_service,
         ).value = "^(u)"
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.patron_auth_services()
             [service] = response.get("patron_auth_services")
 
@@ -4030,8 +3945,7 @@ class TestSettingsController(AdminControllerTest):
         auth_service.password = "pass"
         auth_service.libraries += [self._default_library]
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.patron_auth_services()
             [service] = response.get("patron_auth_services")
 
@@ -4055,22 +3969,19 @@ class TestSettingsController(AdminControllerTest):
         ]
 
     def test_patron_auth_services_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, UNKNOWN_PROTOCOL)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "123"),
             ])
@@ -4084,27 +3995,21 @@ class TestSettingsController(AdminControllerTest):
             name="name",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
                 ("protocol", SIP2AuthenticationProvider.__module__),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", auth_service.name),
                 ("protocol", SIP2AuthenticationProvider.__module__),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
-            self._db.commit()
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -4113,9 +4018,7 @@ class TestSettingsController(AdminControllerTest):
         )
 
         common_args = self._common_basic_auth_arguments()
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             M = MilleniumPatronAPI
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
@@ -4126,7 +4029,6 @@ class TestSettingsController(AdminControllerTest):
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, INVALID_CONFIGURATION_OPTION.uri)
-            self._db.commit()
 
         auth_service, ignore = create(
             self._db, ExternalIntegration,
@@ -4134,36 +4036,28 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.PATRON_AUTH_GOAL
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
                 ("protocol", SimpleAuthenticationProvider.__module__),
             ])
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
                 ("libraries", json.dumps([{ "short_name": "not-a-library" }])),
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
-            self._db.commit()
 
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
         auth_service.libraries += [library]
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
                 ("libraries", json.dumps([{
@@ -4174,12 +4068,9 @@ class TestSettingsController(AdminControllerTest):
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response.uri, MULTIPLE_BASIC_AUTH_SERVICES.uri)
-            self._db.commit()
 
         self._db.delete(auth_service)
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
                 ("libraries", json.dumps([{
@@ -4191,11 +4082,8 @@ class TestSettingsController(AdminControllerTest):
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, INVALID_EXTERNAL_TYPE_REGULAR_EXPRESSION)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
                 ("libraries", json.dumps([{
@@ -4207,11 +4095,9 @@ class TestSettingsController(AdminControllerTest):
             ] + common_args)
             response = self.manager.admin_settings_controller.patron_auth_services()
             eq_(response, INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION)
-            self._db.commit()
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
             ] + self._common_basic_auth_arguments())
@@ -4222,8 +4108,7 @@ class TestSettingsController(AdminControllerTest):
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
                 ("libraries", json.dumps([{
@@ -4247,8 +4132,7 @@ class TestSettingsController(AdminControllerTest):
                 self._db, AuthenticationProvider.EXTERNAL_TYPE_REGULAR_EXPRESSION,
                 library, auth_service).value)
         common_args = self._common_basic_auth_arguments()
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", MilleniumPatronAPI.__module__),
                 (ExternalIntegration.URL, "url"),
@@ -4290,8 +4174,7 @@ class TestSettingsController(AdminControllerTest):
         auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value = "old_password"
         auth_service.libraries = [l1]
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", auth_service.id),
                 ("protocol", SimpleAuthenticationProvider.__module__),
@@ -4327,9 +4210,7 @@ class TestSettingsController(AdminControllerTest):
         auth_service.setting(BasicAuthenticationProvider.TEST_PASSWORD).value = "old_password"
         auth_service.libraries = [l1]
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
-
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.patron_auth_service,
@@ -4343,8 +4224,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(None, service)
 
     def test_sitewide_settings_get(self):
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.sitewide_settings()
             settings = response.get("settings")
             all_settings = response.get("all_settings")
@@ -4359,8 +4239,7 @@ class TestSettingsController(AdminControllerTest):
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "secret"
         self._db.flush()
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.sitewide_settings()
             settings = response.get("settings")
             all_settings = response.get("all_settings")
@@ -4379,14 +4258,12 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.sitewide_settings)
 
     def test_sitewide_settings_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.sitewide_settings()
             eq_(response, MISSING_SITEWIDE_SETTING_KEY)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("key", Configuration.SECRET_KEY),
             ])
@@ -4394,8 +4271,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response, MISSING_SITEWIDE_SETTING_VALUE)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("key", Configuration.SECRET_KEY),
                 ("value", "secret"),
@@ -4404,8 +4280,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.sitewide_settings)
 
     def test_sitewide_settings_post_create(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("key", AcquisitionFeed.GROUPED_MAX_AGE_POLICY),
                 ("value", "10"),
@@ -4422,8 +4297,7 @@ class TestSettingsController(AdminControllerTest):
         setting = ConfigurationSetting.sitewide(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY)
         setting.value = "10"
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("key", AcquisitionFeed.GROUPED_MAX_AGE_POLICY),
                 ("value", "20"),
@@ -4439,9 +4313,7 @@ class TestSettingsController(AdminControllerTest):
         setting = ConfigurationSetting.sitewide(self._db, AcquisitionFeed.GROUPED_MAX_AGE_POLICY)
         setting.value = "10"
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
-
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.sitewide_setting,
@@ -4454,8 +4326,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(None, setting.value)
 
     def test_metadata_services_get_with_no_services(self):
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response.get("metadata_services"), [])
             protocols = response.get("protocols")
@@ -4475,8 +4346,7 @@ class TestSettingsController(AdminControllerTest):
         novelist_service.username = "user"
         novelist_service.password = "pass"
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.metadata_services()
             [service] = response.get("metadata_services")
 
@@ -4486,8 +4356,7 @@ class TestSettingsController(AdminControllerTest):
             eq_("pass", service.get("settings").get(ExternalIntegration.PASSWORD))
 
         novelist_service.libraries += [self._default_library]
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.metadata_services()
             [service] = response.get("metadata_services")
 
@@ -4496,22 +4365,19 @@ class TestSettingsController(AdminControllerTest):
             eq_(self._default_library.short_name, library.get("short_name"))
 
     def test_metadata_services_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response, UNKNOWN_PROTOCOL)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "123"),
             ])
@@ -4525,42 +4391,31 @@ class TestSettingsController(AdminControllerTest):
             name="name",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", service.name),
                 ("protocol", ExternalIntegration.NYT),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", ExternalIntegration.NYT),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", ExternalIntegration.NOVELIST),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", ExternalIntegration.NOVELIST),
@@ -4570,11 +4425,9 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.metadata_services()
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
-            self._db.commit()
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.NOVELIST),
                 (ExternalIntegration.USERNAME, "user"),
@@ -4588,8 +4441,7 @@ class TestSettingsController(AdminControllerTest):
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.NOVELIST),
                 (ExternalIntegration.USERNAME, "user"),
@@ -4623,8 +4475,7 @@ class TestSettingsController(AdminControllerTest):
         novelist_service.password = "oldpass"
         novelist_service.libraries = [l1]
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", novelist_service.id),
                 ("protocol", ExternalIntegration.NOVELIST),
@@ -4654,9 +4505,7 @@ class TestSettingsController(AdminControllerTest):
         novelist_service.password = "oldpass"
         novelist_service.libraries = [l1]
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
-
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.metadata_service,
@@ -4670,8 +4519,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(None, service)
 
     def test_analytics_services_get_with_no_services(self):
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.analytics_services()
             eq_(response.get("analytics_services"), [])
             protocols = response.get("protocols")
@@ -4690,8 +4538,7 @@ class TestSettingsController(AdminControllerTest):
         )
         ga_service.url = self._str
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.analytics_services()
             [service] = response.get("analytics_services")
 
@@ -4703,8 +4550,7 @@ class TestSettingsController(AdminControllerTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, GoogleAnalyticsProvider.TRACKING_ID, self._default_library, ga_service
         ).value = "trackingid"
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.analytics_services()
             [service] = response.get("analytics_services")
 
@@ -4721,8 +4567,7 @@ class TestSettingsController(AdminControllerTest):
         )
 
         local_service.libraries += [self._default_library]
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.analytics_services()
             [service] = response.get("analytics_services")
 
@@ -4732,22 +4577,19 @@ class TestSettingsController(AdminControllerTest):
             eq_(self._default_library.short_name, library.get("short_name"))
 
     def test_analytics_services_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.analytics_services()
             eq_(response, UNKNOWN_PROTOCOL)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.analytics_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "123"),
             ])
@@ -4761,16 +4603,13 @@ class TestSettingsController(AdminControllerTest):
             name="name",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", service.name),
                 ("protocol", GoogleAnalyticsProvider.__module__),
             ])
             response = self.manager.admin_settings_controller.analytics_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
-            self._db.commit()
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -4778,31 +4617,23 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.ANALYTICS_GOAL,
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", "core.local_analytics_provider"),
             ])
             response = self.manager.admin_settings_controller.analytics_services()
             eq_(response, CANNOT_CHANGE_PROTOCOL)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", GoogleAnalyticsProvider.__module__),
             ])
             response = self.manager.admin_settings_controller.analytics_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", GoogleAnalyticsProvider.__module__),
@@ -4811,15 +4642,12 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.analytics_services()
             eq_(response.uri, NO_SUCH_LIBRARY.uri)
-            self._db.commit()
 
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", GoogleAnalyticsProvider.__module__),
@@ -4828,11 +4656,9 @@ class TestSettingsController(AdminControllerTest):
             ])
             response = self.manager.admin_settings_controller.analytics_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", GoogleAnalyticsProvider.__module__),
                 (ExternalIntegration.URL, "url"),
@@ -4845,8 +4671,7 @@ class TestSettingsController(AdminControllerTest):
         library, ignore = create(
             self._db, Library, name="Library", short_name="L",
         )
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", GoogleAnalyticsProvider.__module__),
                 (ExternalIntegration.URL, "url"),
@@ -4880,8 +4705,7 @@ class TestSettingsController(AdminControllerTest):
         ga_service.url = "oldurl"
         ga_service.libraries = [l1]
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", ga_service.id),
                 ("protocol", GoogleAnalyticsProvider.__module__),
@@ -4910,9 +4734,7 @@ class TestSettingsController(AdminControllerTest):
         ga_service.url = "oldurl"
         ga_service.libraries = [l1]
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
-
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.analytics_service,
@@ -4926,8 +4748,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(None, service)
 
     def test_cdn_services_get_with_no_services(self):
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.cdn_services()
             eq_(response.get("cdn_services"), [])
             protocols = response.get("protocols")
@@ -4947,8 +4768,7 @@ class TestSettingsController(AdminControllerTest):
         cdn_service.url = "cdn url"
         cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value = "mirrored domain"
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.cdn_services()
             [service] = response.get("cdn_services")
 
@@ -4958,22 +4778,19 @@ class TestSettingsController(AdminControllerTest):
             eq_("mirrored domain", service.get("settings").get(Configuration.CDN_MIRRORED_DOMAIN_KEY))
 
     def test_cdn_services_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.cdn_services()
             eq_(response, UNKNOWN_PROTOCOL)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.cdn_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "123"),
             ])
@@ -4987,31 +4804,24 @@ class TestSettingsController(AdminControllerTest):
             name="name",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", service.name),
                 ("protocol", ExternalIntegration.CDN),
             ])
             response = self.manager.admin_settings_controller.cdn_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", ExternalIntegration.CDN),
             ])
             response = self.manager.admin_settings_controller.cdn_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.CDN),
                 (ExternalIntegration.URL, "cdn url"),
@@ -5021,8 +4831,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.cdn_services)
 
     def test_cdn_services_post_create(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.CDN),
                 (ExternalIntegration.URL, "cdn url"),
@@ -5046,8 +4855,7 @@ class TestSettingsController(AdminControllerTest):
         cdn_service.url = "cdn url"
         cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value = "mirrored domain"
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", cdn_service.id),
                 ("protocol", ExternalIntegration.CDN),
@@ -5071,9 +4879,7 @@ class TestSettingsController(AdminControllerTest):
         cdn_service.url = "cdn url"
         cdn_service.setting(Configuration.CDN_MIRRORED_DOMAIN_KEY).value = "mirrored domain"
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
-
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.cdn_service,
@@ -5087,8 +4893,7 @@ class TestSettingsController(AdminControllerTest):
         eq_(None, service)
 
     def test_search_services_get_with_no_services(self):
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.search_services()
             eq_(response.get("search_services"), [])
             protocols = response.get("protocols")
@@ -5108,8 +4913,7 @@ class TestSettingsController(AdminControllerTest):
         search_service.url = "search url"
         search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.search_services()
             [service] = response.get("search_services")
 
@@ -5119,22 +4923,19 @@ class TestSettingsController(AdminControllerTest):
             eq_("works-index-prefix", service.get("settings").get(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY))
 
     def test_search_services_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.search_services()
             eq_(response, UNKNOWN_PROTOCOL)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.search_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "123"),
             ])
@@ -5147,15 +4948,12 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.SEARCH_GOAL,
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
             response = self.manager.admin_settings_controller.search_services()
             eq_(response.uri, MULTIPLE_SITEWIDE_SERVICES.uri)
-            self._db.commit()
 
         self._db.delete(service)
         service, ignore = create(
@@ -5165,16 +4963,13 @@ class TestSettingsController(AdminControllerTest):
             name="name",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", service.name),
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
             response = self.manager.admin_settings_controller.search_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
-            self._db.commit()
 
         service, ignore = create(
             self._db, ExternalIntegration,
@@ -5182,20 +4977,16 @@ class TestSettingsController(AdminControllerTest):
             goal=ExternalIntegration.SEARCH_GOAL,
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
             ])
             response = self.manager.admin_settings_controller.search_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
                 (ExternalIntegration.URL, "search url"),
@@ -5205,8 +4996,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.search_services)
 
     def test_search_services_post_create(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
                 (ExternalIntegration.URL, "search url"),
@@ -5230,8 +5020,7 @@ class TestSettingsController(AdminControllerTest):
         search_service.url = "search url"
         search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", search_service.id),
                 ("protocol", ExternalIntegration.ELASTICSEARCH),
@@ -5255,9 +5044,7 @@ class TestSettingsController(AdminControllerTest):
         search_service.url = "search url"
         search_service.setting(ExternalSearchIndex.WORKS_INDEX_PREFIX_KEY).value = "works-index-prefix"
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
-
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.search_service,
@@ -5288,7 +5075,7 @@ class TestSettingsController(AdminControllerTest):
 
         # Test storage services first.
         EI = ExternalIntegration
-        with self.app.test_request_context("/"):
+        with self.request_context_with_admin("/"):
             controller.storage_services()
             goal, apis, key_name, problem = controller.manage_called_with
             eq_(EI.STORAGE_GOAL, goal)
@@ -5296,14 +5083,14 @@ class TestSettingsController(AdminControllerTest):
             eq_('storage_services', key_name)
             assert 'new storage service' in problem
 
-        with self.app.test_request_context("/"):
+        with self.request_context_with_admin("/"):
             id = object()
             controller.storage_service(id)
             eq_((id, EI.STORAGE_GOAL), controller.delete_called_with)
 
         # Search services work the same way but pass in different
         # arguments.
-        with self.app.test_request_context("/"):
+        with self.request_context_with_admin("/"):
             controller.search_services()
             goal, apis, key_name, problem = controller.manage_called_with
             eq_(EI.SEARCH_GOAL, goal)
@@ -5311,15 +5098,14 @@ class TestSettingsController(AdminControllerTest):
             eq_('search_services', key_name)
             assert 'new search service' in problem
 
-        with self.app.test_request_context("/"):
+        with self.request_context_with_admin("/"):
             id = object()
             controller.search_service(id)
             eq_((id, EI.SEARCH_GOAL),
                 controller.delete_called_with)
 
     def test_discovery_services_get_with_no_services_creates_default(self):
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.discovery_services()
             [service] = response.get("discovery_services")
             protocols = response.get("protocols")
@@ -5340,8 +5126,7 @@ class TestSettingsController(AdminControllerTest):
         )
         discovery_service.url = self._str
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.discovery_services()
             [service] = response.get("discovery_services")
 
@@ -5350,22 +5135,19 @@ class TestSettingsController(AdminControllerTest):
             eq_(discovery_service.url, service.get("settings").get(ExternalIntegration.URL))
 
     def test_discovery_services_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", "Unknown"),
             ])
             response = self.manager.admin_settings_controller.discovery_services()
             eq_(response, UNKNOWN_PROTOCOL)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([])
             response = self.manager.admin_settings_controller.discovery_services()
             eq_(response, NO_PROTOCOL_FOR_NEW_SERVICE)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", "123"),
             ])
@@ -5379,31 +5161,24 @@ class TestSettingsController(AdminControllerTest):
             name="name",
         )
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", service.name),
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
             ])
             response = self.manager.admin_settings_controller.discovery_services()
             eq_(response, INTEGRATION_NAME_ALREADY_IN_USE)
-            self._db.commit()
 
-        with self.app.test_request_context("/", method="POST"):
-            self._db.begin_nested()
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", service.id),
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
             ])
             response = self.manager.admin_settings_controller.discovery_services()
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
-            self._db.commit()
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
                 (ExternalIntegration.URL, "registry url"),
@@ -5412,8 +5187,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.discovery_services)
 
     def test_discovery_services_post_create(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
                 (ExternalIntegration.URL, "registry url"),
@@ -5434,8 +5208,7 @@ class TestSettingsController(AdminControllerTest):
         )
         discovery_service.url = "registry url"
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("id", discovery_service.id),
                 ("protocol", ExternalIntegration.OPDS_REGISTRATION),
@@ -5456,9 +5229,7 @@ class TestSettingsController(AdminControllerTest):
         )
         discovery_service.url = "registry url"
 
-        with self.app.test_request_context("/", method="DELETE"):
-            flask.request.admin = self.admin
-
+        with self.request_context_with_admin("/", method="DELETE"):
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.discovery_service,
@@ -5494,8 +5265,7 @@ class TestSettingsController(AdminControllerTest):
         )
         discovery_service.libraries = [succeeded, failed, unregistered]
 
-        with self.app.test_request_context("/", method="GET"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="GET"):
             response = self.manager.admin_settings_controller.discovery_service_library_registrations()
 
             serviceInfo = response.get("library_registrations")
@@ -5514,8 +5284,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.discovery_service_library_registrations)
 
     def test_discovery_service_library_registrations_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", "1234"),
             ])
@@ -5529,8 +5298,7 @@ class TestSettingsController(AdminControllerTest):
         )
         discovery_service.url = "registry url"
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", "not-a-library"),
@@ -5540,8 +5308,7 @@ class TestSettingsController(AdminControllerTest):
 
         library = self._default_library
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
@@ -5556,8 +5323,7 @@ class TestSettingsController(AdminControllerTest):
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
@@ -5574,8 +5340,7 @@ class TestSettingsController(AdminControllerTest):
                     self._db, "library-registration-status", library, discovery_service).value)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
@@ -5594,8 +5359,7 @@ class TestSettingsController(AdminControllerTest):
 
         library = self._default_library
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
@@ -5622,8 +5386,7 @@ class TestSettingsController(AdminControllerTest):
             eq_("success", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
@@ -5678,8 +5441,7 @@ class TestSettingsController(AdminControllerTest):
         )
         collection.libraries = [succeeded, failed, unregistered]
 
-        with self.app.test_request_context("/", method="GET"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="GET"):
             response = self.manager.admin_settings_controller.collection_library_registrations()
 
             serviceInfo = response.get("library_registrations")
@@ -5698,8 +5460,7 @@ class TestSettingsController(AdminControllerTest):
                           self.manager.admin_settings_controller.collection_library_registrations)
 
     def test_collection_library_registrations_post_errors(self):
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("collection_id", "1234"),
             ])
@@ -5709,8 +5470,7 @@ class TestSettingsController(AdminControllerTest):
         collection = self._collection()
         collection.external_account_id = "collection url"
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("collection_id", collection.id),
                 ("library_short_name", "not-a-library"),
@@ -5720,8 +5480,7 @@ class TestSettingsController(AdminControllerTest):
 
         collection.protocol = SharedODLAPI.NAME
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("collection_id", collection.id),
                 ("library_short_name", "not-a-library"),
@@ -5731,8 +5490,7 @@ class TestSettingsController(AdminControllerTest):
 
         library = self._default_library
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("collection_id", collection.id),
                 ("library_short_name", library.short_name),
@@ -5747,8 +5505,7 @@ class TestSettingsController(AdminControllerTest):
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, collection.external_integration).value)
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("collection_id", collection.id),
                 ("library_short_name", library.short_name),
@@ -5765,8 +5522,7 @@ class TestSettingsController(AdminControllerTest):
                     self._db, "library-registration-status", library, collection.external_integration).value)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("collection_id", collection.id),
                 ("library_short_name", self._default_library.short_name),
@@ -5781,8 +5537,7 @@ class TestSettingsController(AdminControllerTest):
 
         library = self._default_library
 
-        with self.app.test_request_context("/", method="POST"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("collection_id", collection.id),
                 ("library_short_name", library.short_name),
@@ -5826,8 +5581,7 @@ class TestSettingsController(AdminControllerTest):
         default_form = None
 
         # If ExternalIntegration is given, a ProblemDetail is returned.
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.sitewide_registration(
                 None, do_get=self.do_request
             )
@@ -5837,8 +5591,7 @@ class TestSettingsController(AdminControllerTest):
         def error_get(*args, **kwargs):
             raise RuntimeError('Mock error during request')
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.sitewide_registration(
                 metadata_wrangler_service, do_get=error_get
             )
@@ -5849,8 +5602,7 @@ class TestSettingsController(AdminControllerTest):
             MockRequestsResponse(200, headers={'Content-Type' : 'text/plain'})
         )
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.sitewide_registration(
                 metadata_wrangler_service, do_get=self.do_request
             )
@@ -5864,8 +5616,7 @@ class TestSettingsController(AdminControllerTest):
         self.responses.append(
             MockRequestsResponse(content, headers, status_code)
         )
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.sitewide_registration(
                 metadata_wrangler_service, do_get=self.do_request
             )
@@ -5882,8 +5633,7 @@ class TestSettingsController(AdminControllerTest):
             MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
         )
 
-        with self.app.test_request_context("/"):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.sitewide_registration(
                 metadata_wrangler_service, do_get=self.do_request
             )
@@ -5900,8 +5650,7 @@ class TestSettingsController(AdminControllerTest):
             MockRequestsResponse(200, content=json.dumps(catalog), headers=headers)
         ])
 
-        with self.app.test_request_context('/', method='POST'):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin('/', method='POST'):
             response = self.manager.admin_settings_controller.sitewide_registration(
                 metadata_wrangler_service, do_get=self.do_request, do_post=self.do_request
             )
@@ -5919,8 +5668,7 @@ class TestSettingsController(AdminControllerTest):
 
         def bad_do_post(self, *args, **kwargs):
             return MULTIPLE_BASIC_AUTH_SERVICES
-        with self.app.test_request_context('/', method='POST'):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin('/', method='POST'):
             flask.request.form = MultiDict([
                 ('integration_id', metadata_wrangler_service.id),
             ])
@@ -5987,8 +5735,7 @@ class TestSettingsController(AdminControllerTest):
         )
         self.responses.insert(0, MockRequestsResponse(200, content=json.dumps(registration)))
 
-        with self.app.test_request_context('/', method='POST'):
-            flask.request.admin = self.admin
+        with self.request_context_with_admin('/', method='POST'):
             flask.request.form = MultiDict([
                 ('integration_id', metadata_wrangler_service.id),
             ])
