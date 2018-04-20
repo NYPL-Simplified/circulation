@@ -10387,6 +10387,9 @@ class Admin(Base):
         if role:
             _db.delete(role)
 
+    def __repr__(self):
+        return u"<Admin: email=%s>" % self.email
+
 class AdminRole(Base):
 
     __tablename__ = 'adminroles'
@@ -10407,6 +10410,11 @@ class AdminRole(Base):
     LIBRARIAN = "librarian"
 
     ROLES = [SYSTEM_ADMIN, SITEWIDE_LIBRARY_MANAGER, LIBRARY_MANAGER, SITEWIDE_LIBRARIAN, LIBRARIAN]
+
+    def __repr__(self):
+        return u"<AdminRole: role=%s library=%s admin=%s>" % (
+            self.role, (self.library and self.library.short_name), self.admin.email)
+
 
 Index("ix_adminroles_admin_id_library_id_role", AdminRole.admin_id, AdminRole.library_id, AdminRole.role)
 
