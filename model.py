@@ -10390,7 +10390,7 @@ class Admin(Base):
     def __repr__(self):
         return u"<Admin: email=%s>" % self.email
 
-class AdminRole(Base):
+class AdminRole(Base, HasFullTableCache):
 
     __tablename__ = 'adminroles'
 
@@ -10410,6 +10410,10 @@ class AdminRole(Base):
     LIBRARIAN = "librarian"
 
     ROLES = [SYSTEM_ADMIN, SITEWIDE_LIBRARY_MANAGER, LIBRARY_MANAGER, SITEWIDE_LIBRARIAN, LIBRARIAN]
+
+
+    _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
 
     def __repr__(self):
         return u"<AdminRole: role=%s library=%s admin=%s>" % (
