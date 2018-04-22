@@ -227,6 +227,18 @@ class TestViewController(AdminControllerTest):
             html = response.response[0]
             assert 'showCircEventsDownload: true' in html
 
+    def test_roles(self):
+        self.admin.add_role(AdminRole.SITEWIDE_LIBRARIAN)
+        self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
+            response = self.manager.admin_view_controller("collection", "book")
+            eq_(200, response.status_code)
+            html = response.response[0]
+            assert "\"role\": \"librarian-all\"" in html
+            assert "\"role\": \"manager\", \"library\": \"%s\"" % self._default_library.short_name in html
+
 class TestAdminCirculationManagerController(AdminControllerTest):
     def test_require_system_admin(self):
         with self.request_context_with_admin('/admin'):

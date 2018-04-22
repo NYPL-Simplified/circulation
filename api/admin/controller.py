@@ -277,6 +277,7 @@ class AdminCirculationManagerController(CirculationManagerController):
 class ViewController(AdminController):
     def __call__(self, collection, book, path=None):
         setting_up = (self.admin_auth_providers == [])
+        roles = []
         if not setting_up:
             admin = self.authenticated_admin_from_request()
             if isinstance(admin, ProblemDetail):
@@ -298,6 +299,12 @@ class ViewController(AdminController):
                 if library:
                     return redirect(self.url_for('admin_view', collection=library.short_name))
 
+            for role in admin.roles:
+                if role.library:
+                    roles.append({ "role": role.role, "library": role.library })
+                else:
+                    roles.append({ "role": role.role })
+
         csrf_token = flask.request.cookies.get("csrf_token") or self.generate_csrf_token()
 
         local_analytics = get_one(
@@ -311,6 +318,7 @@ class ViewController(AdminController):
             csrf_token=csrf_token,
             show_circ_events_download=show_circ_events_download,
             setting_up=setting_up,
+            roles=roles,
         ))
 
         # The CSRF token is in its own cookie instead of the session cookie,
