@@ -10277,7 +10277,7 @@ class Library(Base, HasFullTableCache):
                 library._is_default = False
 
 
-class Admin(Base):
+class Admin(Base, HasFullTableCache):
 
     __tablename__ = 'admins'
 
@@ -10292,6 +10292,12 @@ class Admin(Base):
 
     # An Admin may have many roles.
     roles = relationship("AdminRole", backref="admin", cascade="all, delete-orphan")
+
+    _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
+
+    def cache_key(self):
+        return self.email
 
     def update_credentials(self, _db, credential=None):
         if credential:
@@ -10315,7 +10321,10 @@ class Admin(Base):
 
         :return: Admin or None
         """
-        match = get_one(_db, Admin, email=unicode(email))
+        def lookup_hook():
+            return get_one(_db, Admin, email=unicode(email)), False
+
+        match, ignore = Admin.by_cache_key(_db, unicode(email), lookup_hook)
         if match and not match.has_password(password):
             # Admin with this email was found, but password is invalid.
             match = None
@@ -10328,7 +10337,9 @@ class Admin(Base):
 
     def is_system_admin(self):
         _db = Session.object_session(self)
-        role = get_one(_db, AdminRole, admin=self, role=AdminRole.SYSTEM_ADMIN)
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, role=AdminRole.SYSTEM_ADMIN), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, None, AdminRole.SYSTEM_ADMIN), lookup_hook)
         if role:
             return True
         return False
@@ -10337,7 +10348,9 @@ class Admin(Base):
         _db = Session.object_session(self)
         if self.is_system_admin():
             return True
-        role = get_one(_db, AdminRole, admin=self, role=AdminRole.SITEWIDE_LIBRARY_MANAGER)
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, role=AdminRole.SITEWIDE_LIBRARY_MANAGER), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, None, AdminRole.SITEWIDE_LIBRARY_MANAGER), lookup_hook)
         if role:
             return True
         return False
@@ -10346,7 +10359,9 @@ class Admin(Base):
         _db = Session.object_session(self)
         if self.is_sitewide_library_manager():
             return True
-        role = get_one(_db, AdminRole, admin=self, role=AdminRole.SITEWIDE_LIBRARIAN)
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, role=AdminRole.SITEWIDE_LIBRARIAN), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, None, AdminRole.SITEWIDE_LIBRARIAN), lookup_hook)
         if role:
             return True
         return False
@@ -10357,7 +10372,9 @@ class Admin(Base):
         if self.is_sitewide_library_manager():
             return True
         # If not, they could stil be a manager of _this_ library.
-        role = get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARY_MANAGER)
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARY_MANAGER), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, library.id, AdminRole.LIBRARY_MANAGER), lookup_hook)
         if role:
             return True
         return False
@@ -10371,7 +10388,9 @@ class Admin(Base):
         if self.is_sitewide_librarian():
             return True
         # If not, they might be a librarian of _this_ library.
-        role = get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARIAN)
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARIAN), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, library.id, AdminRole.LIBRARIAN), lookup_hook)
         if role:
             return True
         return False
@@ -10411,9 +10430,11 @@ class AdminRole(Base, HasFullTableCache):
 
     ROLES = [SYSTEM_ADMIN, SITEWIDE_LIBRARY_MANAGER, LIBRARY_MANAGER, SITEWIDE_LIBRARIAN, LIBRARIAN]
 
-
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
+
+    def cache_key(self):
+        return (self.admin_id, self.library_id, self.role)
 
     def __repr__(self):
         return u"<AdminRole: role=%s library=%s admin=%s>" % (
@@ -11924,6 +11945,22 @@ def configuration_relevant_lifecycle_event(mapper, connection, target):
 def configuration_relevant_update(mapper, connection, target):
     if directly_modified(target):
         site_configuration_has_changed(target)
+
+@event.listens_for(Admin, 'after_insert')
+@event.listens_for(Admin, 'after_delete')
+@event.listens_for(Admin, 'after_update')
+def refresh_admin_cache(mapper, connection, target):
+    # The next time someone tries to access an Admin,
+    # the cache will be repopulated.
+    Admin.reset_cache()
+
+@event.listens_for(AdminRole, 'after_insert')
+@event.listens_for(AdminRole, 'after_delete')
+@event.listens_for(AdminRole, 'after_update')
+def refresh_admin_role_cache(mapper, connection, target):
+    # The next time someone tries to access an AdminRole,
+    # the cache will be repopulated.
+    AdminRole.reset_cache()
 
 @event.listens_for(Collection, 'after_insert')
 @event.listens_for(Collection, 'after_delete')
