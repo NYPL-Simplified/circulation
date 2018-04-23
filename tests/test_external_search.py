@@ -334,6 +334,13 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             self.sherlock_spanish.presentation_edition.language = "es"
             self.sherlock_spanish.set_presentation_ready()
 
+            # Create a custom list that contains a few books.
+            self.presidential, ignore = self._customlist(
+                name="Nonfiction about US Presidents", num_entries=0
+            )
+            for work in [self.washington, self.lincoln, self.obama]:
+                self.presidential.add_entry(work)
+
             # Create a second collection that only contains a few books.
             self.tiny_collection = self._collection("A Tiny Collection")
             self.tiny_book = self._work(
@@ -371,7 +378,6 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
             return self.search.query_works(
                 self._default_library, *args, **kwargs
             )
-        
 
         # Pagination
 
@@ -781,6 +787,20 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         hits = results["hits"]["hits"]
         eq_(2, len(hits))
 
+        # Filters on list membership.
+        # This ignores 'Abraham Lincoln, Vampire Hunter' because that
+        # book isn't on the list.
+        results = query("lincoln", None, None, None, None, None, None, on_any_of_these_lists=[self.presidential.id])
+        hits = results['hits']['hits']
+        eq_(1, len(hits))
+        eq_(unicode(self.lincoln.id), hits[0]["_id"])
+
+        # This filters everything, since the query is restricted to
+        # an empty set of lists.
+        results = query("lincoln", None, None, None, None, None, None, on_any_of_these_lists=[])
+        hits = results['hits']['hits']
+        eq_(0, len(hits))
+
         # This query does not match anything because the book in
         # question is not in a collection associated with the default
         # library.
@@ -1185,7 +1205,7 @@ class TestSearchFilterFromLane(DatabaseTest):
             collection_ids,
             lane.media, lane.languages,
             lane.fiction, list(lane.audiences), lane.target_age,
-            lane.genre_ids,
+            lane.genre_ids, lane.customlist_ids,
         )
         [collection_filter] = filter['and']
         expect = [
@@ -1203,7 +1223,7 @@ class TestSearchFilterFromLane(DatabaseTest):
             [self._default_collection.id],
             lane.media, lane.languages,
             lane.fiction, lane.audiences, lane.target_age,
-            lane.genre_ids,
+            lane.genre_ids, lane.customlist_ids,
         )
         collection_filter, medium_filter = filter['and']
         expect = dict(terms=dict(medium=[Edition.AUDIO_MEDIUM.lower()]))
@@ -1218,7 +1238,7 @@ class TestSearchFilterFromLane(DatabaseTest):
             [self._default_collection.id],
             lane.media, lane.languages,
             lane.fiction, list(lane.audiences), lane.target_age,
-            lane.genre_ids,
+            lane.genre_ids, lane.customlist_ids,
         )
 
         collection_filter, audience_filter, target_age_filter = filter['and']
@@ -1236,7 +1256,7 @@ class TestSearchFilterFromLane(DatabaseTest):
             [self._default_collection.id],
             lane.media, lane.languages,
             lane.fiction, lane.audiences, lane.target_age,
-            lane.genre_ids,
+            lane.genre_ids, lane.customlist_ids,
         )
         
         collection_filter, languages_filter = filter['and']

@@ -1649,8 +1649,16 @@ class TestWorkList(DatabaseTest):
         work = self._work(with_license_pool=True)
         self.add_to_materialized_view(work)
 
+        class MockWorkList(WorkList):
+            def customlist_ids(self):
+                """WorkList.customlist_ids returns an empty list; we
+                want to return something specific so we can make sure
+                the results are passed into search().
+                """
+                return ["a customlist id"]
+
         # Create a WorkList that has very specific requirements.
-        wl = WorkList()
+        wl = MockWorkList()
         sf, ignore = Genre.lookup(self._db, "Science Fiction")
         wl.initialize(
             self._default_library, "Work List",
@@ -1679,6 +1687,7 @@ class TestWorkList(DatabaseTest):
         eq_(wl.media, kw['media'])
         eq_(wl.audiences, kw['audiences'])
         eq_(wl.genre_ids, kw['in_any_of_these_genres'])
+        eq_(wl.customlist_ids, kw['on_any_of_these_lists'])
         eq_(1, kw['size'])
         eq_(0, kw['offset'])
 
@@ -1977,6 +1986,45 @@ class TestLane(DatabaseTest):
         no_inclusive_genres.add_genre("Science Fiction", inclusive=False)
         assert len(no_inclusive_genres.genre_ids) > 10
         assert science_fiction.id not in no_inclusive_genres.genre_ids
+
+    def test_customlist_ids(self):
+        # WorkLists always return None for customlist_ids.
+        wl = WorkList()
+        wl.initialize(self._default_library)
+        eq_(None, wl.customlist_ids)
+
+        # When you add a CustomList to a Lane, you are saying that works
+        # from that CustomList can appear in the Lane.
+        nyt1, ignore = self._customlist(
+            num_entries=0, data_source_name=DataSource.NYT
+        )
+        nyt2, ignore = self._customlist(
+            num_entries=0, data_source_name=DataSource.NYT
+        )
+
+        no_lists = self._lane()
+        eq_(None, no_lists.customlist_ids)
+
+        has_list = self._lane()
+        has_list.customlists.append(nyt1)
+        eq_([nyt1.id], has_list.customlist_ids)
+
+        # When you set a Lane's list_datasource, you're saying that
+        # works appear in the Lane if they are on _any_ CustomList from
+        # that data source.
+        has_list_source = self._lane()
+        has_list_source.list_datasource = DataSource.lookup(
+            self._db, DataSource.NYT
+        )
+        eq_(set([nyt1.id, nyt2.id]), set(has_list_source.customlist_ids))
+
+        # If there are no CustomLists from that data source, an empty
+        # list is returned.
+        has_no_lists = self._lane()
+        has_no_lists.list_datasource = DataSource.lookup(
+            self._db, DataSource.OVERDRIVE
+        )
+        eq_([], has_no_lists.customlist_ids)
 
     def test_search_target(self):
 

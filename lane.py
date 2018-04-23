@@ -7,6 +7,7 @@ import time
 import urllib
 
 from psycopg2.extras import NumericRange
+from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import Select
 
 from config import Configuration
@@ -875,6 +876,13 @@ class WorkList(object):
         return []
 
     @property
+    def customlist_ids(self):
+        """WorkLists per se are not associated with custom lists, although
+        Lanes might be.
+        """
+        return None
+
+    @property
     def full_identifier(self):
         """A human-readable identifier for this WorkList that
         captures its position within the heirarchy.
@@ -1324,6 +1332,7 @@ class WorkList(object):
                 audiences=self.audiences,
                 target_age=target_age,
                 in_any_of_these_genres=self.genre_ids,
+                on_any_of_these_lists=self.customlist_ids,
             )
             if facets and facets.entrypoint:
                 kwargs = facets.entrypoint.modified_search_arguments(**kwargs)
@@ -1921,6 +1930,42 @@ class Lane(Base, WorkList):
             )
         return genre_ids
 
+    @property
+    def customlist_ids(self):
+        """Find the database ID of every CustomList such that a Work filed
+        in that List should be in this Lane.
+
+        :return: A list of CustomList IDs, possibly empty.
+        """
+        if not hasattr(self, '_customlist_ids'):
+            self._customlist_ids = self._gather_customlist_ids()
+        return self._customlist_ids
+
+    def _gather_customlist_ids(self):
+        """Method that does the work of `customlist_ids`."""
+        if self.list_datasource:
+            # Find the ID of every CustomList from a certain
+            # DataSource.
+            _db = Session.object_session(self)
+            query = select(
+                [CustomList.id],
+                CustomList.data_source_id==self.list_datasource.id
+            )
+            ids = [x[0] for x in _db.execute(query)]
+        else:
+            # Find the IDs of some specific CustomLists.
+            ids = [x.id for x in self.customlists]
+        if len(ids) == 0:
+            if self.list_datasource:
+                # We are restricted to all lists from a given data
+                # source, and there are no such lists, so we want to
+                # exclude everything.
+                return []
+            else:
+                # There is no custom list restriction at all.
+                return None
+        return ids
+
     @classmethod
     def affected_by_customlist(self, customlist):
         """Find all Lanes whose membership is partially derived
@@ -2209,7 +2254,7 @@ class Lane(Base, WorkList):
                 CustomList.data_source_id==self.list_datasource.id
             )
         else:
-            customlist_ids = [x.id for x in self.customlists]
+            customlist_ids = self.customlist_ids
         if customlist_ids is not None:
             clauses.append(a_entry.list_id.in_(customlist_ids))
             if not already_filtered_customlist_on_materialized_view:

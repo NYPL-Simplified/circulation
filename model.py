@@ -4977,25 +4977,46 @@ class Work(Base):
             )
         ).alias('works_alias')
 
+        work_id_column = literal_column(
+            works_alias.name + '.' + works_alias.c.work_id.name
+        )
+
+        def query_to_json(query):
+            """Convert the results of a query to a JSON object."""
+            return select(
+                [func.row_to_json(literal_column(query.name))]
+            ).select_from(query)
+
+        def query_to_json_array(query):
+            """Convert the results of a query into a JSON array."""
+            return select(
+                [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(query.name)
+                        )))]
+            ).select_from(query)
+
         # This subquery gets Collection IDs for collections
         # that own more than zero licenses for this book.
         collections = select(
             [LicensePool.collection_id]
         ).where(
             and_(
-                LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name),
+                LicensePool.work_id==work_id_column,
                 or_(LicensePool.open_access, LicensePool.licenses_owned>0)
             )
         ).alias("collections_subquery")
+        collections_json = query_to_json_array(collections)
 
-        # Create a json array from the set of Collections.
-        collections_json = select(
-            [func.array_to_json(
-                    func.array_agg(
-                        func.row_to_json(
-                            literal_column(collections.name)
-                        )))]
-        ).select_from(collections)
+        # This subquery gets CustomList IDs for all lists
+        # that contain the work.
+        customlists = select(
+            [CustomListEntry.list_id]
+        ).where(
+            CustomListEntry.work_id==work_id_column
+        ).alias("listentries_subquery")
+        customlists_json = query_to_json_array(customlists)
 
         # This subquery gets Contributors, filtered on edition_id.
         contributors = select(
@@ -5011,16 +5032,7 @@ class Work(Base):
                 Contributor.id==Contribution.contributor_id
             )
         ).alias("contributors_subquery")
-
-        # Create a json array from the set of Contributors.
-        contributors_json = select(
-            [func.array_to_json(
-                    func.array_agg(
-                        func.row_to_json(
-                            literal_column(contributors.name)
-                        )))]
-        ).select_from(contributors)
-
+        contributors_json = query_to_json_array(contributors)
 
         # For Classifications, use a subquery to get recursively equivalent Identifiers
         # for the Edition's primary_identifier_id.
@@ -5057,15 +5069,7 @@ class Work(Base):
         ).select_from(
             join(Classification, Subject, Classification.subject_id==Subject.id)
         ).alias("subjects_subquery")
-
-        # Create a json array for the set of Subjects.
-        subjects_json = select(
-            [func.array_to_json(
-                    func.array_agg(
-                        func.row_to_json(
-                            literal_column(subjects.name)
-                        )))]
-        ).select_from(subjects)
+        subjects_json = query_to_json_array(subjects)
 
 
         # Subquery for genres.
@@ -5081,15 +5085,7 @@ class Work(Base):
         ).select_from(
             join(WorkGenre, Genre, WorkGenre.genre_id==Genre.id)
         ).alias("genres_subquery")
-
-        # Create a json array for the set of Genres.
-        genres_json = select(
-            [func.array_to_json(
-                    func.array_agg(
-                        func.row_to_json(
-                            literal_column(genres.name)
-                        )))]
-        ).select_from(genres)
+        genres_json = query_to_json_array(genres)
 
 
         # When we set an inclusive target age range, the upper bound is converted to
@@ -5105,11 +5101,7 @@ class Work(Base):
         ).where(
             Work.id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)
         ).alias('target_age_subquery')
-        # Create the target age json object.
-        target_age_json = select(
-            [func.row_to_json(literal_column(target_age.name))]
-        ).select_from(target_age)
-
+        target_age_json = query_to_json(target_age)
 
         # Now, create a query that brings together everything we need for the final
         # search document.
@@ -5143,6 +5135,7 @@ class Work(Base):
 
              # Here are all the subqueries.
              collections_json.label("collections"),
+             customlists_json.label("customlists"),
              contributors_json.label("contributors"),
              subjects_json.label("classifications"),
              genres_json.label('genres'),
@@ -5153,11 +5146,7 @@ class Work(Base):
         ).alias("search_data_subquery")
 
         # Finally, convert everything to json.
-        search_json = select(
-            [func.row_to_json(
-                    literal_column(search_data.name)
-                )]
-        ).select_from(search_data)
+        search_json = query_to_json(search_data)
 
         result = _db.execute(search_json)
         if result:
@@ -9560,7 +9549,16 @@ class CustomList(Base):
         return Work.from_identifiers(_db, identifiers)
 
     def add_entry(self, work_or_edition, annotation=None, first_appearance=None,
-                  featured=None):
+                  featured=None, update_external_index=True):
+        """Add a work to a CustomList.
+
+        :param update_external_index: When a Work is added to a list,
+        its external index needs to be updated. The only reason not to
+        do this is when the current database session already contains
+        a new WorkCoverageRecord for this purpose (e.g. because the
+        Work was just created) and creating another one would violate
+        the workcoveragerecords table's unique constraint.
+        """
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
 
@@ -9595,6 +9593,11 @@ class CustomList(Base):
         if was_new:
             self.updated = datetime.datetime.utcnow()
 
+        # Make sure the Work's search document is updated to reflect its new
+        # list membership.
+        if entry.work and update_external_index:
+            entry.work.external_index_needs_updating()
+
         return entry, was_new
 
     def remove_entry(self, work_or_edition):
@@ -9605,6 +9608,11 @@ class CustomList(Base):
 
         existing_entries = list(self.entries_for_work(work_or_edition))
         for entry in existing_entries:
+            if entry.work:
+                # Make sure the Work's search document is updated to
+                # reflect its new list membership.
+                entry.work.external_index_needs_updating()
+
             _db.delete(entry)
 
         if existing_entries:
@@ -11558,7 +11566,11 @@ def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initia
     if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
         for pool in pools:
             for list in pool.collection.customlists:
-                list.add_entry(work, featured=True)
+                # Since the work was just created, we can assume that
+                # there's already a pending registration for updating the
+                # work's internal index, and decide not to create a
+                # second one.
+                list.add_entry(work, featured=True, update_external_index=False)
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.

@@ -263,7 +263,7 @@ class ExternalSearchIndex(object):
         return base_works_index
 
     def query_works(self, library, query_string, media, languages, fiction, audiences,
-                    target_age, in_any_of_these_genres=[], fields=None, size=30, offset=0):
+                    target_age, in_any_of_these_genres=[], on_any_of_these_lists=None, fields=None, size=30, offset=0):
         if not self.works_alias:
             return []
 
@@ -280,7 +280,8 @@ class ExternalSearchIndex(object):
 
         filter = self.make_filter(
             collection_ids, media, languages, fiction, 
-            audiences, target_age, in_any_of_these_genres
+            audiences, target_age, in_any_of_these_genres,
+            on_any_of_these_lists
         )
         q = dict(
             filtered=dict(
@@ -532,7 +533,7 @@ class ExternalSearchIndex(object):
             }
         }
         
-    def make_filter(self, collection_ids, media, languages, fiction, audiences, target_age, genres):
+    def make_filter(self, collection_ids, media, languages, fiction, audiences, target_age, genres, customlist_ids):
         def _f(s):
             if not s:
                 return s
@@ -562,6 +563,8 @@ class ExternalSearchIndex(object):
                 # no longer happen but we'll handle it.
                 genre_ids = [genre.id for genre in genres]
             clauses.append(dict(terms={"genres.term": genre_ids}))
+        if customlist_ids is not None:
+            clauses.append(dict(terms={"list_id": customlist_ids}))
         if media:
             media = [_f(medium) for medium in media]
             clauses.append(dict(terms=dict(medium=media)))
