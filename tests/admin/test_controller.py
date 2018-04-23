@@ -3799,6 +3799,40 @@ class TestSettingsController(AdminControllerTest):
         admin = get_one(self._db, Admin, id=system_admin.id)
         eq_(None, admin)
 
+    def test_individual_admins_post_create_on_setup(self):
+        for admin in self._db.query(Admin):
+            self._db.delete(admin)
+        self.admin = None
+
+        # Creating an admin that's not a system admin will fail.
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "admin@nypl.org"),
+                ("password", "pass"),
+                ("roles", json.dumps([{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }])),
+            ])
+            assert_raises(AdminNotAuthorized, self.manager.admin_settings_controller.individual_admins)
+            self._db.rollback()
+
+        # But creating a system admin works.
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([
+                ("email", "admin@nypl.org"),
+                ("password", "pass"),
+                ("roles", json.dumps([{ "role": AdminRole.SYSTEM_ADMIN }])),
+            ])
+            response = self.manager.admin_settings_controller.individual_admins()
+            eq_(201, response.status_code)
+
+        # The admin was created.
+        admin_match = Admin.authenticate(self._db, "admin@nypl.org", "pass")
+        eq_(admin_match.email, response.response[0])
+        assert admin_match
+        assert admin_match.has_password("pass")
+
+        [role] = admin_match.roles
+        eq_(AdminRole.SYSTEM_ADMIN, role.role)
+
     def test_patron_auth_services_get_with_no_services(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.patron_auth_services()

@@ -255,22 +255,22 @@ class AdminCirculationManagerController(CirculationManagerController):
     """Parent class that provides methods for verifying an admin's roles."""
 
     def require_system_admin(self):
-        admin = flask.request.admin
+        admin = getattr(flask.request, "admin", None)
         if not admin or not admin.is_system_admin():
             raise AdminNotAuthorized()
 
     def require_sitewide_library_manager(self):
-        admin = flask.request.admin
+        admin = getattr(flask.request, "admin", None)
         if not admin or not admin.is_sitewide_library_manager():
             raise AdminNotAuthorized()
 
     def require_library_manager(self, library):
-        admin = flask.request.admin
+        admin = getattr(flask.request, "admin", None)
         if not admin or not admin.is_library_manager(library):
             raise AdminNotAuthorized()
 
     def require_librarian(self, library):
-        admin = flask.request.admin
+        admin = getattr(flask.request, "admin", None)
         if not admin or not admin.is_librarian(library):
             raise AdminNotAuthorized()
 
@@ -2365,10 +2365,13 @@ class SettingsController(AdminCirculationManagerController):
         else:
             roles = []
 
+        # If there are no admins yet, anyone can create the first system admin.
+        settingUp = (self._db.query(Admin).count() == 0)
+
         admin, is_new = get_one_or_create(self._db, Admin, email=email)
-        if admin.is_sitewide_librarian():
+        if admin.is_sitewide_librarian() and not settingUp:
             self.require_sitewide_library_manager()
-        if admin.is_system_admin():
+        if admin.is_system_admin() and not settingUp:
             self.require_system_admin()
             
         if password:
@@ -2393,9 +2396,9 @@ class SettingsController(AdminCirculationManagerController):
                     return LIBRARY_NOT_FOUND.detailed(_("Library \"%(short_name)s\" does not exist.", short_name=library_short_name))
             if library:
                 self.require_library_manager(library)
-            elif role.get("role") == AdminRole.SYSTEM_ADMIN:
+            elif role.get("role") == AdminRole.SYSTEM_ADMIN and not settingUp:
                 self.require_system_admin()
-            else:
+            elif not settingUp:
                 self.require_sitewide_library_manager()
             admin.add_role(role.get("role"), library)
         new_roles = set((role.get("role"), role.get("library")) for role in roles)

@@ -349,7 +349,6 @@ def collection_library_registrations():
 
 @app.route("/admin/admin_auth_services", methods=['GET', 'POST'])
 @returns_json_or_response_or_problem_detail
-@allows_admin_auth_setup
 @requires_admin
 @requires_csrf_token
 def admin_auth_services():
