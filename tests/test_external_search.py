@@ -795,6 +795,11 @@ class TestExternalSearchWithWorks(ExternalSearchTest):
         eq_(1, len(hits))
         eq_(unicode(self.lincoln.id), hits[0]["_id"])
 
+        # This filters everything, since the query is restricted to
+        # an empty set of lists.
+        results = query("lincoln", None, None, None, None, None, None, on_any_of_these_lists=[])
+        hits = results['hits']['hits']
+        eq_(0, len(hits))
 
         # This query does not match anything because the book in
         # question is not in a collection associated with the default

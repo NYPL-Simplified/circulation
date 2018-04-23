@@ -2018,6 +2018,14 @@ class TestLane(DatabaseTest):
         )
         eq_(set([nyt1.id, nyt2.id]), set(has_list_source.customlist_ids))
 
+        # If there are no CustomLists from that data source, an empty
+        # list is returned.
+        has_no_lists = self._lane()
+        has_no_lists.list_datasource = DataSource.lookup(
+            self._db, DataSource.OVERDRIVE
+        )
+        eq_([], has_no_lists.customlist_ids)
+
     def test_search_target(self):
 
         # A Lane that is the root for a patron type can be

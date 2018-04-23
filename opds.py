@@ -783,7 +783,7 @@ class AcquisitionFeed(OPDSFeed):
             AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="previous", href=previous_url)
 
         # Add "up" link and breadcrumbs
-        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=str(lane.display_name))
+        AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=unicode(lane.display_name))
         opds_feed.add_breadcrumbs(lane, annotator, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)

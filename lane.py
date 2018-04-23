@@ -1956,10 +1956,14 @@ class Lane(Base, WorkList):
             # Find the IDs of some specific CustomLists.
             ids = [x.id for x in self.customlists]
         if len(ids) == 0:
-            # Return None to make it clear that we mean "there is no
-            # custom list restriction" rather than "exclude
-            # everything".
-            return None
+            if self.list_datasource:
+                # We are restricted to all lists from a given data
+                # source, and there are no such lists, so we want to
+                # exclude everything.
+                return []
+            else:
+                # There is no custom list restriction at all.
+                return None
         return ids
 
     @classmethod

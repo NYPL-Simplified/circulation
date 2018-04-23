@@ -9,6 +9,18 @@ from config import Configuration, temp_config
 from model import ExternalIntegration
 from cdn import cdnify
 
+from core.model import Work
+
+class TestSubtransaction(DatabaseTest):
+
+    def test_subtransaction(self):
+        transaction = self._db.begin_nested()
+        work = self._work(title="out, brief candle")
+        transaction.rollback()
+        eq_([], self._db.query(Work).all())
+
+    def test_zzz(self):
+        eq_([], self._db.query(Work).all())
 
 class TestCDN(DatabaseTest):
 
