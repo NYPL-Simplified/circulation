@@ -3387,6 +3387,7 @@ class TestSettingsController(AdminControllerTest):
                 sorted(ExternalIntegration.ADMIN_AUTH_PROTOCOLS))
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.admin_auth_services)
 
@@ -3454,6 +3455,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response.uri, INCOMPLETE_CONFIGURATION.uri)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        self._db.flush()
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "oauth"),
@@ -3844,6 +3846,7 @@ class TestSettingsController(AdminControllerTest):
             assert "library_settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.patron_auth_services)
 
@@ -4143,6 +4146,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(response, INVALID_LIBRARY_IDENTIFIER_RESTRICTION_REGULAR_EXPRESSION)
 
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        self._db.flush()
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("protocol", SimpleAuthenticationProvider.__module__),
@@ -4300,6 +4304,7 @@ class TestSettingsController(AdminControllerTest):
             assert Configuration.SECRET_KEY in keys
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.sitewide_settings)
 
@@ -4380,6 +4385,7 @@ class TestSettingsController(AdminControllerTest):
             assert "settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.metadata_services)
 
@@ -4573,6 +4579,7 @@ class TestSettingsController(AdminControllerTest):
             assert "settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.analytics_services)
 
@@ -4802,6 +4809,7 @@ class TestSettingsController(AdminControllerTest):
             assert "settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.cdn_services)
 
@@ -4947,6 +4955,7 @@ class TestSettingsController(AdminControllerTest):
             assert "settings" in protocols[0]
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.search_services)
 
@@ -5161,6 +5170,7 @@ class TestSettingsController(AdminControllerTest):
             eq_("https://libraryregistry.librarysimplified.org", service.get("settings").get(ExternalIntegration.URL))
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.discovery_services)
 
@@ -5326,6 +5336,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(expected, libraryInfo)
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.discovery_service_library_registrations)
 
@@ -5502,6 +5513,7 @@ class TestSettingsController(AdminControllerTest):
             eq_(expected, libraryInfo)
 
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self._db.flush()
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.collection_library_registrations)
 
