@@ -1287,12 +1287,16 @@ class TestSignInController(AdminControllerTest):
             'email' : u'admin@nypl.org',
             'credentials' : u'gnarly',
             'type': GoogleOAuthAdminAuthenticationProvider.NAME,
+            'roles': [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }],
         }
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             flask.request.url = "http://chosen-hostname/admin/sign_in?redirect=foo"
             admin = self.manager.admin_sign_in_controller.authenticated_admin(new_admin_details)
             eq_('admin@nypl.org', admin.email)
             eq_('gnarly', admin.credential)
+            [role] = admin.roles
+            eq_(AdminRole.LIBRARY_MANAGER, role.role)
+            eq_(self._default_library, role.library)
 
             # Also sets up the admin's flask session.
             eq_("admin@nypl.org", flask.session["admin_email"])
@@ -1308,12 +1312,15 @@ class TestSignInController(AdminControllerTest):
             'email' : u'example@nypl.org',
             'credentials' : u'b-a-n-a-n-a-s',
             'type': GoogleOAuthAdminAuthenticationProvider.NAME,
+            'roles': [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }],
         }
         with self.app.test_request_context('/admin/sign_in?redirect=foo'):
             flask.request.url = "http://a-different-hostname/"
             admin = self.manager.admin_sign_in_controller.authenticated_admin(existing_admin_details)
             eq_(self.admin.id, admin.id)
             eq_('b-a-n-a-n-a-s', self.admin.credential)
+            # No roles were created since the admin already existed.
+            eq_([], admin.roles)
 
         # We already set the site's base URL, and it doesn't get set
         # to a different value just because someone authenticated
@@ -1362,6 +1369,8 @@ class TestSignInController(AdminControllerTest):
             eq_("foo", response.headers["Location"])
 
     def test_redirect_after_google_sign_in(self):
+        self._db.delete(self.admin)
+
         # Returns an error if there's no admin auth service.
         with self.app.test_request_context('/admin/GoogleOAuth/callback'):
             response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
@@ -1380,6 +1389,9 @@ class TestSignInController(AdminControllerTest):
             protocol=ExternalIntegration.GOOGLE_OAUTH,
             goal=ExternalIntegration.ADMIN_AUTH_GOAL
         )
+        auth_integration.libraries += [self._default_library]
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "domains", self._default_library, auth_integration)
 
         # Returns an error if google oauth fails..
         with self.app.test_request_context('/admin/GoogleOAuth/callback?error=foo'):
@@ -1387,13 +1399,13 @@ class TestSignInController(AdminControllerTest):
             eq_(400, response.status_code)
 
         # Returns an error if the admin email isn't a staff email.
-        auth_integration.set_setting("domains", json.dumps(["alibrary.org"]))
+        setting.value = json.dumps(["alibrary.org"])
         with self.app.test_request_context('/admin/GoogleOAuth/callback?code=1234&state=foo'):
             response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
             eq_(401, response.status_code)
 
         # Redirects to the state parameter if the admin email is valid.
-        auth_integration.set_setting("domains", json.dumps(["nypl.org"]))
+        setting.value = json.dumps(["nypl.org"])
         with self.app.test_request_context('/admin/GoogleOAuth/callback?code=1234&state=foo'):
             response = self.manager.admin_sign_in_controller.redirect_after_google_sign_in()
             eq_(302, response.status_code)
@@ -3400,7 +3412,10 @@ class TestSettingsController(AdminControllerTest):
         auth_service.url = "http://oauth.test"
         auth_service.username = "user"
         auth_service.password = "pass"
-        auth_service.set_setting("domains", json.dumps(["nypl.org"]))
+        auth_service.libraries += [self._default_library]
+        ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "domains", self._default_library, auth_service
+        ).value = json.dumps(["nypl.org"])
 
         with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.admin_auth_services()
@@ -3412,7 +3427,9 @@ class TestSettingsController(AdminControllerTest):
             eq_(auth_service.url, service.get("settings").get("url"))
             eq_(auth_service.username, service.get("settings").get("username"))
             eq_(auth_service.password, service.get("settings").get("password"))
-            eq_(["nypl.org"], service.get("settings").get("domains"))
+            [library_info] = service.get("libraries")
+            eq_(self._default_library.short_name, library_info.get("short_name"))
+            eq_(["nypl.org"], library_info.get("domains"))
 
     def test_admin_auth_services_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
@@ -3476,8 +3493,8 @@ class TestSettingsController(AdminControllerTest):
                 ("url", "url"),
                 ("username", "username"),
                 ("password", "password"),
-                ("domains", "nypl.org"),
-                ("domains", "gmail.com"),
+                ("libraries", json.dumps([{ "short_name": self._default_library.short_name,
+                                            "domains": ["nypl.org", "gmail.com"] }])),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.status_code, 201)
@@ -3490,7 +3507,10 @@ class TestSettingsController(AdminControllerTest):
         eq_("username", auth_service.username)
         eq_("password", auth_service.password)
 
-        setting = auth_service.setting("domains")
+        eq_([self._default_library], auth_service.libraries)
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "domains", self._default_library, auth_service
+        )
         eq_("domains", setting.key)
         eq_(["nypl.org", "gmail.com"], json.loads(setting.value))
 
@@ -3504,7 +3524,10 @@ class TestSettingsController(AdminControllerTest):
         auth_service.url = "url"
         auth_service.username = "user"
         auth_service.password = "pass"
-        auth_service.set_setting("domains", json.dumps(["library1.org"]))
+        auth_service.libraries += [self._default_library]
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, "domains", self._default_library, auth_service)
+        setting.value = json.dumps(["library1.org"])
 
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
@@ -3513,7 +3536,8 @@ class TestSettingsController(AdminControllerTest):
                 ("url", "url2"),
                 ("username", "user2"),
                 ("password", "pass2"),
-                ("domains", "library2.org"),
+                ("libraries", json.dumps([{ "short_name": self._default_library.short_name,
+                                            "domains": ["library2.org"] }])),
             ])
             response = self.manager.admin_settings_controller.admin_auth_services()
             eq_(response.status_code, 200)
@@ -3522,7 +3546,6 @@ class TestSettingsController(AdminControllerTest):
         eq_("oauth", auth_service.name)
         eq_("url2", auth_service.url)
         eq_("user2", auth_service.username)
-        setting = auth_service.setting("domains")
         eq_("domains", setting.key)
         eq_(["library2.org"], json.loads(setting.value))
 

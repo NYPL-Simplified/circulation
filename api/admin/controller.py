@@ -203,13 +203,17 @@ class AdminController(object):
     def authenticated_admin(self, admin_details):
         """Creates or updates an admin with the given details"""
 
-        admin, ignore = get_one_or_create(
+        admin, is_new = get_one_or_create(
             self._db, Admin, email=admin_details['email']
         )
         admin.update_credentials(
             self._db,
             credential=admin_details.get('credentials'),
         )
+        if is_new and admin_details.get("roles"):
+            for role in admin_details.get("roles"):
+                library = Library.lookup(self._db, role.get("library"))
+                admin.add_role(role.get("role"), library)
 
         # Set up the admin's flask session.
         flask.session["admin_email"] = admin_details.get("email")
@@ -1819,7 +1823,7 @@ class SettingsController(AdminCirculationManagerController):
                 continue
             protocol = candidates[0]
             libraries = []
-            if not protocol.get("sitewide"):
+            if not protocol.get("sitewide") or protocol.get("library_settings"):
                 for library in service.libraries:
                     libraries.append(self._get_integration_library_info(
                             service, library, protocol))
@@ -1883,6 +1887,8 @@ class SettingsController(AdminCirculationManagerController):
         for setting in protocol.get("library_settings", []):
             key = setting.get("key")
             value = library_info.get(key)
+            if value and setting.get("type") == "list" and not setting.get("options"):
+                value = json.dumps(value)
             if setting.get("options") and value not in [option.get("key") for option in setting.get("options")]:
                 self._db.rollback()
                 return INVALID_CONFIGURATION_OPTION.detailed(_(
@@ -1905,7 +1911,7 @@ class SettingsController(AdminCirculationManagerController):
             if isinstance(result, ProblemDetail):
                 return result
 
-        if not protocol.get("sitewide"):
+        if not protocol.get("sitewide") or protocol.get("library_settings"):
             integration.libraries = []
 
             libraries = []

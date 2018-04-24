@@ -1,11 +1,19 @@
 import json
 from nose.tools import set_trace
+from collections import defaultdict
 
 from admin_authentication_provider import AdminAuthenticationProvider
 from problem_details import GOOGLE_OAUTH_FAILURE, INVALID_ADMIN_CREDENTIALS
 from oauth2client import client as GoogleClient
 from flask_babel import lazy_gettext as _
-from core.model import ExternalIntegration, Admin, get_one
+from core.model import (
+    Admin,
+    AdminRole,
+    ConfigurationSetting,
+    ExternalIntegration,
+    Session,
+    get_one,
+)
 
 class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
@@ -23,10 +31,13 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
         { "key": ExternalIntegration.URL, "label": _("Authentication URI"), "default": "https://accounts.google.com/o/oauth2/auth" },
         { "key": ExternalIntegration.USERNAME, "label": _("Client ID") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Client Secret") },
+    ]
+
+    LIBRARY_SETTINGS = [
         { "key": DOMAINS,
           "label": _("Allowed Domains"),
           "optional": True,
-          "description": _("Admins must have an email address from one of these domains to sign in. If no domains are specified, admins must be created individually in the 'Individual Admins' section before they can sign in with Google."),
+          "description": _("Anyone who logs in with an email address from one of these domains will automatically have librarian-level access to this library. Library manager roles must still be granted individually by other admins. If you want to set up admins individually but still allow them to log in with Google, you can create the admin authentication service without adding any libraries."),
           "type": "list" },
     ]
     SITEWIDE = True
@@ -57,9 +68,16 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
 
     @property
     def domains(self):
-        if self.integration and self.integration.setting(self.DOMAINS).value:
-            return json.loads(self.integration.setting(self.DOMAINS).value)
-        return []
+        domains = defaultdict(list)
+        if self.integration:
+            _db = Session.object_session(self.integration)
+            for library in self.integration.libraries:
+                setting = ConfigurationSetting.for_library_and_externalintegration(
+                    _db, self.DOMAINS, library, self.integration)
+                if setting.json_value:
+                    for domain in setting.json_value:
+                        domains[domain.lower()].append(library)
+        return domains
 
     def sign_in_template(self, redirect_url):
         return self.TEMPLATE % dict(auth_uri = self.auth_uri(redirect_url))
@@ -85,10 +103,15 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
             email = credentials.id_token.get('email')
             if not self.staff_email(_db, email):
                 return INVALID_ADMIN_CREDENTIALS, None
+            domain = email[email.index('@')+1:].lower()
+            roles = []
+            for library in self.domains[domain]:
+                roles.append({ "role": AdminRole.LIBRARIAN, "library": library.short_name })
             return dict(
                 email=email,
                 credentials=credentials.to_json(),
                 type=self.NAME,
+                roles=roles,
             ), redirect_url
 
     def google_error_problem_detail(self, error):
@@ -112,14 +135,14 @@ class GoogleOAuthAdminAuthenticationProvider(AdminAuthenticationProvider):
         return False
 
     def staff_email(self, _db, email):
-        if not self.domains:
-            # If no domains are configured, the admin must already exist in the database.
-            admin = get_one(_db, Admin, email=email)
-            if admin:
-                return True
-            return False
+        # If the admin already exists in the database, they can log in regardless of
+        # whether their domain has been whitelisted for a library.
+        admin = get_one(_db, Admin, email=email)
+        if admin:
+            return True
 
-        staff_domains = self.domains
+        # Otherwise, their email must match one of the configured domains.
+        staff_domains = self.domains.keys()
         domain = email[email.index('@')+1:]
         return domain.lower() in [staff_domain.lower() for staff_domain in staff_domains]
 
