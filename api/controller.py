@@ -741,7 +741,6 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(lane, ProblemDetail):
             return lane
         query = flask.request.args.get('q')
-        media = flask.request.args.get('media')
         library_short_name = flask.request.library.short_name
 
         language_header = flask.request.headers.get("Accept-Language")
@@ -757,8 +756,6 @@ class OPDSFeedController(CirculationManagerController):
             worklist=lane, base_class=SearchFacets
         )
         kwargs = dict()
-        if media:
-            kwargs['media'] = media.encode('utf8')
         if languages:
             kwargs['language'] = languages
         kwargs.update(dict(facets.items()))
@@ -778,25 +775,16 @@ class OPDSFeedController(CirculationManagerController):
         if isinstance(pagination, ProblemDetail):
             return pagination
 
-        if media:
-            media = Edition.additional_type_to_medium.get(media, None)
-            if not media:
-                return INVALID_INPUT.detailed(
-                    _("Media type %s is not valid.") % media
-                )
-
         # Run a search.
         kwargs['q'] = query.encode("utf8")
         this_url = make_url()
-        if not media:
-            media = Edition.ALL_MEDIUM
 
         annotator = self.manager.annotator(lane)
         info = OpenSearchDocument.search_info(lane)
         opds_feed = AcquisitionFeed.search(
             _db=self._db, title=info['name'],
             url=this_url, lane=lane, search_engine=self.manager.external_search,
-            query=query, media=media, annotator=annotator, pagination=pagination,
+            query=query, annotator=annotator, pagination=pagination,
             languages=languages, facets=facets
         )
         return feed_response(opds_feed)

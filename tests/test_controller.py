@@ -2645,25 +2645,8 @@ class TestFeedController(CirculationControllerTest):
             entries = feed['entries']
             eq_(1, len(entries))
 
-        with self.request_context_with_library("/?q=t&size=1&media=audio"):
-            response = self.manager.opds_feeds.search(None)
-
-            assert(isinstance(response, ProblemDetail))
-            eq_(response.detail, "Media type None is not valid.")
-
         old_search = AcquisitionFeed.search
         AcquisitionFeed.search = self.mock_search
-
-        # Search using a different medium.
-        with self.request_context_with_library("/?q=t&size=1&media=http://bib.schema.org/Audiobook",
-            headers={ "Accept-Language": ["en-us"] }):
-
-            response = self.manager.opds_feeds.search(None)
-            (s, args) = self.called_with
-
-            eq_(args["media"], Edition.AUDIO_MEDIUM)
-            eq_(args["languages"], ["eng"])
-
 
         # Verify that AcquisitionFeed.search() is passed the
         # appropriate faceting object when we try to search a
