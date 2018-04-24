@@ -583,9 +583,9 @@ class IndexController(CirculationManagerController):
         else:
             return lanes.one()
 
-    def appropriate_index_for_patron_type(self, **kwargs):
+    def appropriate_index_for_patron_type(self):
         library_short_name = flask.request.library.short_name
-        root_lane = self.authenticated_patron_root_lane(**kwargs)
+        root_lane = self.authenticated_patron_root_lane()
         if isinstance(root_lane, ProblemDetail):
             return root_lane
         if isinstance(root_lane, Response):
