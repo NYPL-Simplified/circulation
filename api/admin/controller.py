@@ -212,8 +212,11 @@ class AdminController(object):
         )
         if is_new and admin_details.get("roles"):
             for role in admin_details.get("roles"):
-                library = Library.lookup(self._db, role.get("library"))
-                admin.add_role(role.get("role"), library)
+                if role.get("role") in AdminRole.ROLES:
+                    library = Library.lookup(self._db, role.get("library"))
+                    admin.add_role(role.get("role"), library)
+                else:
+                    self.log.warn("%s authentication provider specified an unknown role for a new admin: %s" % (admin_details.get("type"), role.get("role")))
 
         # Set up the admin's flask session.
         flask.session["admin_email"] = admin_details.get("email")
