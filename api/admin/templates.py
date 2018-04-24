@@ -13,6 +13,7 @@ admin = """
         csrfToken: \"{{ csrf_token }}\",
         showCircEventsDownload: {{ "true" if show_circ_events_download else "false" }},
         settingUp: {{ "true" if setting_up else "false" }},
+        email: \"{{ email }}\",
         roles: [{% for role in roles %}{"role": \"{{role.role}}\"{% if role.library %}, "library": \"{{role.library.short_name}}\"{% endif %} },{% endfor %}]
     });
   </script>

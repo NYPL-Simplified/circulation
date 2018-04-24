@@ -281,6 +281,7 @@ class AdminCirculationManagerController(CirculationManagerController):
 class ViewController(AdminController):
     def __call__(self, collection, book, path=None):
         setting_up = (self.admin_auth_providers == [])
+        email = None
         roles = []
         if not setting_up:
             admin = self.authenticated_admin_from_request()
@@ -303,6 +304,7 @@ class ViewController(AdminController):
                 if library:
                     return redirect(self.url_for('admin_view', collection=library.short_name))
 
+            email = admin.email
             for role in admin.roles:
                 if role.library:
                     roles.append({ "role": role.role, "library": role.library })
@@ -322,6 +324,7 @@ class ViewController(AdminController):
             csrf_token=csrf_token,
             show_circ_events_download=show_circ_events_download,
             setting_up=setting_up,
+            email=email,
             roles=roles,
         ))
 
@@ -403,6 +406,21 @@ class SignInController(AdminController):
 
         admin = self.authenticated_admin(admin_details)
         return redirect(redirect_url, Response=Response)
+
+    def change_password(self):
+        admin = flask.request.admin
+        new_password = flask.request.form.get("password")
+        if new_password:
+            admin.password = new_password
+        return Response(_("Success"), 200)
+
+    def sign_out(self):
+        # Clear out the admin's flask session.
+        flask.session.pop("admin_email", None)
+        flask.session.pop("auth_type", None)
+
+        redirect_url = self.url_for("admin_sign_in", redirect=self.url_for("admin_view"), _external=True)
+        return redirect(redirect_url)
 
     def error_response(self, problem_detail):
         """Returns a problem detail as an HTML response"""

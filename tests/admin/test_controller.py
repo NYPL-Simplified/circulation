@@ -1463,6 +1463,30 @@ class TestSignInController(AdminControllerTest):
             eq_(302, response.status_code)
             eq_("foo", response.headers["Location"])
 
+    def test_change_password(self):
+        admin, ignore = create(self._db, Admin, email=self._str)
+        admin.password = "old"
+        with self.request_context_with_admin('/admin/change_password', admin=admin):
+            flask.request.form = MultiDict([
+                ("password", "new"),
+            ])
+            response = self.manager.admin_sign_in_controller.change_password()
+            eq_(200, response.status_code)
+            eq_(admin, Admin.authenticate(self._db, admin.email, "new"))
+            eq_(None, Admin.authenticate(self._db, admin.email, "old"))
+
+    def test_sign_out(self):
+        admin, ignore = create(self._db, Admin, email=self._str)
+        admin.password = "pass"
+        with self.app.test_request_context('/admin/sign_out'):
+            flask.session["admin_email"] = admin.email
+            flask.session["auth_type"] = PasswordAdminAuthenticationProvider.NAME
+            response = self.manager.admin_sign_in_controller.sign_out()
+            eq_(302, response.status_code)
+
+            # The admin's credentials have been removed from the session.
+            eq_(None, flask.session.get("admin_email"))
+            eq_(None, flask.session.get("auth_type"))
 
 class TestFeedController(AdminControllerTest):
 

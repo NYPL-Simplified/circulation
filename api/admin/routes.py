@@ -136,6 +136,18 @@ def password_auth():
 def admin_sign_in():
     return app.manager.admin_sign_in_controller.sign_in()
 
+@app.route('/admin/sign_out')
+@returns_problem_detail
+@requires_admin
+def admin_sign_out():
+    return app.manager.admin_sign_in_controller.sign_out()
+
+@app.route('/admin/change_password', methods=["POST"])
+@returns_problem_detail
+@requires_admin
+def admin_change_password():
+    return app.manager.admin_sign_in_controller.change_password()
+
 @library_route('/admin/works/<identifier_type>/<path:identifier>', methods=['GET'])
 @has_library
 @returns_problem_detail
