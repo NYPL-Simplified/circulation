@@ -2,31 +2,33 @@
 something other than the default.
 """
 
+from flask_babel import lazy_gettext as _
+
 from config import CannotLoadConfiguration
 from core.model import (
     get_one,
-    Lane,
 )
+from core.lane import Lane
 
 
 class CustomIndexView(object):
     """A custom view that replaces the default OPDS view for a
     library.
 
-    Any subclass of this class must define NAME and must be
+    Any subclass of this class must define PROTOCOL and must be
     passed into a CustomIndexView.register() call after the class
     definition is complete.
     """
-    BY_NAME = {}
+    BY_PROTOCOL = {}
 
     CUSTOM_INDEX_VIEW_GOAL = "custom_index"
 
     @classmethod
-    def register(self, front_page_class):
-        name = gate_class.NAME
-        if name in self.BY_NAME:
-            raise ValueError("Duplicate index view: %s" % name)
-        self.BY_NAME[uri] = gate_class
+    def register(self, view_class):
+        protocol = view_class.PROTOCOL
+        if protocol in self.BY_PROTOCOL:
+            raise ValueError("Duplicate index view for protocol: %s" % protocol)
+        self.BY_PROTOCOL[protocol] = view_class
 
     @classmethod
     def library_integration(self, library):
@@ -55,14 +57,12 @@ class CustomIndexView(object):
         integration = cls.library_integration(library)
         if not integration:
             return None
-        name = integration.setting(self.GATE_URI).value
-        if not name:
-            return None
-        if not name in self.BY_NAME:
+        protocol = integration.protocol
+        if not protocol in self.BY_PROTOCOL:
             raise CannotLoadConfiguration(
-                "Unregistered custom index view: %s" % name
+                "Unregistered custom index protocol: %s" % name
             )
-        cls = self.BY_NAME[name]
+        cls = self.BY_PROTOCOL[name]
         return cls(library, integration)
 
     def __init__(self, library, integration):
@@ -74,7 +74,7 @@ class CustomIndexView(object):
 
 class COPPAGate(CustomIndexView):
 
-    NAME = "Age Gate"
+    PROTOCOL = "COPPA Age Gate"
 
     URI = "http://librarysimplified.org/terms/restrictions/coppa"
     LABEL = _("COPPA compliance - Patron must be at least 13 years old"),
@@ -84,13 +84,9 @@ class COPPAGate(CustomIndexView):
     YES_CONTENT = _("See the full collection"),
 
     REQUIREMENT_MET_LANE = "requirement_met_lane"
-    REQUIREMENT_NOT_LANE = "requirement_met_lane"
+    REQUIREMENT_NOT_MET_LANE = "requirement_not_met_lane"
 
     SETTINGS = [
-        { "key": GATE_URI,
-          "label": "Gate type",
-          "options": GATE_OPTIONS
-        }
         { "key": REQUIREMENT_MET_LANE,
           "label": _("ID of lane for people who meet the age requirement"),
         },
@@ -178,7 +174,7 @@ class COPPAGate(CustomIndexView):
         content = AtomFeed.content(type="text")
         content.setText(content)
         entry = cls.entry(
-            AtomFeed.id(href)
+            AtomFeed.id(href),
             AtomFeed.title(title),
             content,
         )
