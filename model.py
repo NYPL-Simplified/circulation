@@ -10436,6 +10436,11 @@ class AdminRole(Base, HasFullTableCache):
     def cache_key(self):
         return (self.admin_id, self.library_id, self.role)
 
+    def to_dict(self):
+        if self.library:
+            return dict(role=self.role, library=self.library.short_name)
+        return dict(role=self.role)
+
     def __repr__(self):
         return u"<AdminRole: role=%s library=%s admin=%s>" % (
             self.role, (self.library and self.library.short_name), self.admin.email)
