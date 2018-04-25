@@ -36,9 +36,6 @@ from datetime import timedelta
 # the admin will have to log in again.
 app.permanent_session_lifetime = timedelta(hours=9)
 
-app.admin_email = None
-app.admin_auth_type = None
-
 @app.before_first_request
 def setup_admin(_db=None):
     if getattr(app, 'manager', None) is not None:
@@ -48,20 +45,6 @@ def setup_admin(_db=None):
     app.secret_key = ConfigurationSetting.sitewide_secret(
         _db, Configuration.SECRET_KEY
     )
-    # If an admin was logged in when the app restarted and
-    # makes the first request, the flask session is loaded
-    # before this method. Since the secret key isn't set yet
-    # it ends up being a NullSession. We can't replace
-    # the flask session object, but we can create a new
-    # session object in order to extract the admin's email
-    # and store it for later.
-    if not flask.session and flask.request:
-        temp_session = app.open_session(flask.request)
-        email = temp_session.get("admin_email")
-        type = temp_session.get("auth_type")
-        if email and type:
-            app.admin_email = email
-            app.admin_auth_type = type
 
 def allows_admin_auth_setup(f):
     @wraps(f)
@@ -86,7 +69,7 @@ def requires_admin(f):
             setting_up = False
 
         if not setting_up:
-            admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request(app.admin_email, app.admin_auth_type)
+            admin = app.manager.admin_sign_in_controller.authenticated_admin_from_request()
             if isinstance(admin, ProblemDetail):
                 return app.manager.admin_sign_in_controller.error_response(admin)
             elif isinstance(admin, Response):

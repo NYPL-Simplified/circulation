@@ -157,14 +157,29 @@ class TestViewController(AdminControllerTest):
             assert "collection%2Fa%2F%28b%29" in location
             assert "book%2Fc%2F%28d%29" in location
 
-    def test_redirect_to_default_library(self):
+    def test_redirect_to_library(self):
+        # If the admin doesn't have access to any libraries, they get a message
+        # instead of a redirect.
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
+            response = self.manager.admin_view_controller(None, None)
+            eq_(200, response.status_code)
+            assert "Your admin account doesn't have access to any libraries" in response.data
+
+        l1 = self._library(short_name="L1")
+        l2 = self._library(short_name="L2")
+        l3 = self._library(short_name="L3")
+        self.admin.add_role(AdminRole.LIBRARIAN, l1)
+        self.admin.add_role(AdminRole.LIBRARY_MANAGER, l3)
+        # An admin with roles gets redirected to the oldest library they have access to.
         with self.app.test_request_context('/admin'):
             flask.session['admin_email'] = self.admin.email
             flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
             response = self.manager.admin_view_controller(None, None)
             eq_(302, response.status_code)
             location = response.headers.get("Location")
-            assert "admin/web/collection/%s" % self._default_library.short_name in location
+            assert "admin/web/collection/%s" % l1.short_name in location
 
         # Only the root url redirects - a non-library specific page with another
         # path won't.
@@ -3696,6 +3711,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.individual_admins()
             eq_(response.uri, UNKNOWN_ROLE.uri)
 
+    def test_individual_admins_post_permissions(self):
         l1 = self._library()
         l2 = self._library()
         system, ignore = create(self._db, Admin, email=self._str)
@@ -3709,33 +3725,96 @@ class TestSettingsController(AdminControllerTest):
         librarian1, ignore = create(self._db, Admin, email=self._str)
         librarian1.add_role(AdminRole.LIBRARIAN, l1)
         l2 = self._library()
-        manager2, ignpre = create(self._db, Admin, email=self._str)
+        manager2, ignore = create(self._db, Admin, email=self._str)
         manager2.add_role(AdminRole.LIBRARY_MANAGER, l2)
         librarian2, ignore = create(self._db, Admin, email=self._str)
         librarian2.add_role(AdminRole.LIBRARIAN, l2)
 
-        def test_changing_roles(admin_making_request, target_admin, roles=None):
-            with self.app.test_request_context_with_admin("/", method="POST", admin=admin_making_request):
+        def test_changing_roles(admin_making_request, target_admin, roles=None, allowed=False):
+            with self.request_context_with_admin("/", method="POST", admin=admin_making_request):
                 flask.request.form = MultiDict([
                     ("email", target_admin.email),
                     ("roles", json.dumps(roles or [])),
                 ])
-                assert_raises(AdminNotAuthorized,
-                              self.manager.admin_settings_controller.individual_admins)
+                if allowed:
+                    self.manager.admin_settings_controller.individual_admins()
+                    self._db.rollback()
+                else:
+                    assert_raises(AdminNotAuthorized,
+                                  self.manager.admin_settings_controller.individual_admins)
 
-            test_changing_roles(sitewide_manager, system)
-            test_changing_roles(sitewide_librarian, sitewide_manager)
-            test_changing_roles(manager1, sitewide_manager)
-            test_changing_roles(manager1, sitewide_librarian)
-            test_changing_roles(sitewide_librarian, librarian1)
-            test_changing_roles(sitewide_manager, sitewide_manager,
-                                roles=[{ "role": AdminRole.SYSTEM_ADMIN }])
-            test_changing_roles(sitewide_librarian, manager1,
-                                roles=[{ "role": AdminRole.SITEWIDE_LIBRARY_MANAGER }])
-            test_changing_roles(manager2, librarian2,
-                                roles=[{ "role": AdminRole.LIBRARIAN, "library": l1.short_name }])
-            test_changing_roles(manager2, librarian1,
-                                roles=[{ "role": AdminRole.LIBRARY_MANAGER, "library": l1.short_name }])
+        test_changing_roles(system, system, allowed=True)
+        for admin in [sitewide_manager, sitewide_librarian, manager1, librarian1, manager2, librarian2]:
+            test_changing_roles(admin, system)
+
+        for admin in [system, sitewide_manager]:
+            test_changing_roles(admin, sitewide_manager, allowed=True)
+        for admin in [sitewide_librarian, manager1, librarian1, manager2, librarian2]:
+            test_changing_roles(admin, sitewide_manager)
+
+        for admin in [system, sitewide_manager]:
+            test_changing_roles(admin, sitewide_librarian, allowed=True)
+        for admin in [sitewide_librarian, manager1, librarian1, manager2, librarian2]:
+            test_changing_roles(admin, sitewide_librarian)
+
+        test_changing_roles(manager1, manager1, allowed=True)
+        test_changing_roles(manager1, sitewide_librarian,
+                            roles=[{ "role": AdminRole.SITEWIDE_LIBRARIAN },
+                                   { "role": AdminRole.LIBRARY_MANAGER, "library": l1.short_name }],
+                            allowed=True)
+        test_changing_roles(manager1, librarian1, allowed=True)
+        test_changing_roles(manager2, librarian2,
+                            roles=[{ "role": AdminRole.LIBRARIAN, "library": l1.short_name }])
+        test_changing_roles(manager2, librarian1,
+                            roles=[{ "role": AdminRole.LIBRARY_MANAGER, "library": l1.short_name }])
+
+        test_changing_roles(sitewide_librarian, librarian1)
+        test_changing_roles(sitewide_manager, sitewide_manager,
+                            roles=[{ "role": AdminRole.SYSTEM_ADMIN }])
+        test_changing_roles(sitewide_librarian, manager1,
+                            roles=[{ "role": AdminRole.SITEWIDE_LIBRARY_MANAGER }])
+
+        def test_changing_password(admin_making_request, target_admin, allowed=False):
+            with self.request_context_with_admin("/", method="POST", admin=admin_making_request):
+                flask.request.form = MultiDict([
+                    ("email", target_admin.email),
+                    ("password", "new password"),
+                    ("roles", json.dumps([role.to_dict() for role in target_admin.roles])),
+                ])
+                if allowed:
+                    self.manager.admin_settings_controller.individual_admins()
+                    self._db.rollback()
+                else:
+                    assert_raises(AdminNotAuthorized,
+                                  self.manager.admin_settings_controller.individual_admins)
+
+        test_changing_password(system, system, allowed=True)
+        for admin in [sitewide_manager, sitewide_librarian, manager1, librarian1, manager2, librarian2]:
+            test_changing_password(admin, system)
+
+        for admin in [system, sitewide_manager]:
+            test_changing_password(admin, sitewide_manager, allowed=True)
+        for admin in [sitewide_librarian, manager1, librarian1, manager2, librarian2]:
+            test_changing_password(admin, sitewide_manager)
+
+        for admin in [system, sitewide_manager, manager1, manager2]:
+            test_changing_password(admin, sitewide_librarian, allowed=True)
+        for admin in [sitewide_librarian, librarian1, librarian2]:
+            test_changing_password(admin, sitewide_librarian)
+
+        for admin in [system, sitewide_manager, manager1]:
+            test_changing_password(admin, manager1, allowed=True)
+            test_changing_password(admin, librarian1, allowed=True)
+        for admin in [sitewide_librarian, manager2, librarian2]:
+            test_changing_password(admin, manager1)
+            test_changing_password(admin, librarian1)
+
+        for admin in [system, sitewide_manager, manager2]:
+            test_changing_password(admin, manager2, allowed=True)
+            test_changing_password(admin, librarian2, allowed=True)
+        for admin in [sitewide_librarian, manager1, librarian1]:
+            test_changing_password(admin, manager2)
+            test_changing_password(admin, librarian2)
 
     def test_individual_admins_post_create(self):
         with self.request_context_with_admin("/", method="POST"):

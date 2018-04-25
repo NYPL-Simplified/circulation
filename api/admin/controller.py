@@ -181,13 +181,13 @@ class AdminController(object):
                 return provider
         return None
 
-    def authenticated_admin_from_request(self, email=None, type=None):
+    def authenticated_admin_from_request(self):
         """Returns an authenticated admin or a problem detail."""
         if not self.admin_auth_providers:
             return ADMIN_AUTH_NOT_CONFIGURED
 
-        email = email or flask.session.get("admin_email")
-        type = type or flask.session.get("auth_type")
+        email = flask.session.get("admin_email")
+        type = flask.session.get("auth_type")
 
         if email and type:
             admin = get_one(self._db, Admin, email=email)
@@ -303,9 +303,15 @@ class ViewController(AdminController):
                 return redirect(self.url_for('admin_sign_in', redirect=redirect_url))
 
             if not collection and not book and not path:
-                library = Library.default(self._db)
-                if library:
-                    return redirect(self.url_for('admin_view', collection=library.short_name))
+                # Find the first library the admin is a librarian of.
+                library_name = None
+                for library in self._db.query(Library).order_by(Library.id.asc()):
+                    if admin.is_librarian(library):
+                        library_name = library.short_name
+                        break
+                if not library_name:
+                    return Response(_("Your admin account doesn't have access to any libraries. Contact your library manager for assistance."), 200)
+                return redirect(self.url_for('admin_view', collection=library_name))
 
             email = admin.email
             for role in admin.roles:
@@ -2396,12 +2402,37 @@ class SettingsController(AdminCirculationManagerController):
         settingUp = (self._db.query(Admin).count() == 0)
 
         admin, is_new = get_one_or_create(self._db, Admin, email=email)
-        if admin.is_sitewide_librarian() and not settingUp:
+        if admin.is_sitewide_library_manager() and not settingUp:
             self.require_sitewide_library_manager()
         if admin.is_system_admin() and not settingUp:
             self.require_system_admin()
             
         if password:
+            # If the admin we're editing has a sitewide manager role, we've already verified
+            # the current admin's role above. Otherwise, an admin can only change that
+            # admin's password if they are a library manager of one of that admin's
+            # libraries, or if they are editing a new admin or an admin who has no 
+            # roles yet.
+            # TODO: set up password reset emails instead.
+            if not is_new and not admin.is_sitewide_library_manager():
+                can_change_pw = False
+                if not admin.roles:
+                    can_change_pw = True
+                if admin.is_sitewide_librarian():
+                    # A manager of any library can change a sitewide librarian's password.
+                    if flask.request.admin.is_sitewide_library_manager():
+                        can_change_pw = True
+                    else:
+                        for role in flask.request.admin.roles:
+                            if role.role == AdminRole.LIBRARY_MANAGER:
+                                can_change_pw = True
+                else:
+                    for role in admin.roles:
+                        if flask.request.admin.is_library_manager(role.library):
+                            can_change_pw = True
+                            break
+                if not can_change_pw:
+                    raise AdminNotAuthorized()
             admin.password = password
         try:
             self._db.flush()
@@ -2410,10 +2441,12 @@ class SettingsController(AdminCirculationManagerController):
             return MISSING_PGCRYPTO_EXTENSION
 
         old_roles = admin.roles
+        old_roles_set = set((role.role, role.library) for role in old_roles)
         for role in roles:
             if role.get("role") not in AdminRole.ROLES:
                 self._db.rollback()
                 return UNKNOWN_ROLE
+
             library = None
             library_short_name = role.get("library")
             if library_short_name:
@@ -2421,6 +2454,11 @@ class SettingsController(AdminCirculationManagerController):
                 if not library:
                     self._db.rollback()
                     return LIBRARY_NOT_FOUND.detailed(_("Library \"%(short_name)s\" does not exist.", short_name=library_short_name))
+
+            if (role.get("role"), library) in old_roles_set:
+                # The admin already has this role.
+                continue
+
             if library:
                 self.require_library_manager(library)
             elif role.get("role") == AdminRole.SYSTEM_ADMIN and not settingUp:
@@ -2428,12 +2466,15 @@ class SettingsController(AdminCirculationManagerController):
             elif not settingUp:
                 self.require_sitewide_library_manager()
             admin.add_role(role.get("role"), library)
+
         new_roles = set((role.get("role"), role.get("library")) for role in roles)
         for role in old_roles:
             library = None
             if role.library:
                 library = role.library.short_name
             if not (role.role, library) in new_roles:
+                if not library:
+                    self.require_sitewide_library_manager()
                 if flask.request.admin and flask.request.admin.is_librarian(role.library):
                     # A librarian can see roles for the library, but only a library manager
                     # can delete them.
