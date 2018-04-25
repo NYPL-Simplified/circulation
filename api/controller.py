@@ -198,11 +198,18 @@ class CirculationManager(object):
         # Create a CirculationAPI for each library.
         new_circulation_apis = {}
 
+        # Potentially load a CustomIndexView for each library
+        new_custom_index_views = {}
+
         new_adobe_device_management = None
         for library in self._db.query(Library):
             lanes = load_lanes(self._db, library)
 
             new_top_level_lanes[library.id] = lanes
+
+            new_custom_index_views[library.id] = CustomIndexView.for_library(
+                library
+            )
 
             new_circulation_apis[library.id] = self.setup_circulation(
                 library, self.analytics
@@ -216,6 +223,7 @@ class CirculationManager(object):
         self.adobe_device_management = new_adobe_device_management
         self.top_level_lanes = new_top_level_lanes
         self.circulation_apis = new_circulation_apis
+        self.custom_index_views = new_custom_index_views
         self.shared_collection_api = self.setup_shared_collection()
         self.lending_policy = load_lending_policy(
             Configuration.policy('lending', {})
@@ -539,10 +547,12 @@ class IndexController(CirculationManagerController):
     """Redirect the patron to the appropriate feed."""
 
     def __call__(self):
-        # If this library provides a custom index, use that.
-        custom = self.manager.custom_index(flask.request.library)
+        # If this library provides a custom index view, use that.
+        library = flask.request.library
+        custom = self.manager.custom_index_views.get(library.id)
         if custom is not None:
-            return custom
+            annotator = self.manager.annotator(None)
+            return custom(library, annotator)
 
         # The simple case: the app is equally open to all clients.
         library_short_name = flask.request.library.short_name
