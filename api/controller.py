@@ -539,6 +539,11 @@ class IndexController(CirculationManagerController):
     """Redirect the patron to the appropriate feed."""
 
     def __call__(self):
+        # If this library provides a custom index, use that.
+        custom = self.manager.custom_index(flask.request.library)
+        if custom is not None:
+            return custom
+
         # The simple case: the app is equally open to all clients.
         library_short_name = flask.request.library.short_name
         if not self.has_root_lanes():
