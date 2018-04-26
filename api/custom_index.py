@@ -22,10 +22,14 @@ class CustomIndexView(object):
     Any subclass of this class must define PROTOCOL and must be
     passed into a CustomIndexView.register() call after the class
     definition is complete.
+
+    Subclasses of this class are loaded into the CirculationManager, so they
+    should not store any objects obtained from the database without
+    disconnecting them from their session.
     """
     BY_PROTOCOL = {}
 
-    CUSTOM_INDEX_VIEW_GOAL = "custom_index"
+    GOAL = "custom_index"
 
     @classmethod
     def register(self, view_class):
@@ -39,7 +43,7 @@ class CustomIndexView(object):
         """Find the appropriate CustomIndexView for the given library."""
         _db = Session.object_session(library)
         integration = ExternalIntegration.one_for_library_and_goal(
-            _db, library, cls.CUSTOM_INDEX_VIEW_GOAL
+            _db, library, cls.GOAL
         )
         if not integration:
             return None
