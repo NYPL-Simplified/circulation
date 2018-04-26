@@ -2,6 +2,8 @@
 something other than the default.
 """
 
+from nose.tools import set_trace
+
 from flask import Response
 from flask_babel import lazy_gettext as _
 
@@ -12,8 +14,11 @@ from core.model import (
     get_one,
 )
 from core.lane import Lane
-from core.model import ExternalIntegration
-
+from core.model import (
+    ConfigurationSetting,
+    ExternalIntegration,
+)
+from core.util.opds_writer import OPDSFeed
 
 class CustomIndexView(object):
     """A custom view that replaces the default OPDS view for a
@@ -81,9 +86,9 @@ class COPPAGate(CustomIndexView):
 
     URI = "http://librarysimplified.org/terms/restrictions/coppa"
     NO_TITLE = _("I'm Under 13")
-    NO_CONTENT = _("Read children's books"),
+    NO_CONTENT = _("Read children's books")
     YES_TITLE = _("I'm 13 or Older")
-    YES_CONTENT = _("See the full collection"),
+    YES_CONTENT = _("See the full collection")
 
     REQUIREMENT_MET_LANE = "requirement_met_lane"
     REQUIREMENT_NOT_MET_LANE = "requirement_not_met_lane"
@@ -98,6 +103,7 @@ class COPPAGate(CustomIndexView):
     ]
 
     def __init__(self, library, integration):
+        _db = Session.object_session(library)
         m = ConfigurationSetting.for_library_and_externalintegration
         yes_lane_id = m(_db, self.REQUIREMENT_MET_LANE, library, integration)
         no_lane_id = m(_db, self.REQUIREMENT_NOT_MET_LANE, library, integration)
@@ -105,22 +111,23 @@ class COPPAGate(CustomIndexView):
         # We don't want to store the Lane objects long-term, but we do need
         # to make sure the lane IDs correspond to real lanes for the
         # right library.
-        self.yes_lane_id = yes_lane_id
-        self.no_lane_id = yes_lane_id
-        yes_lane = self._load_lane(library, yes_lane_id)
-        no_lane = self._load_lane(library, no_lane_id)
+        self.yes_lane_id = yes_lane_id.int_value
+        self.no_lane_id = no_lane_id.int_value
+        yes_lane = self._load_lane(library, self.yes_lane_id)
+        no_lane = self._load_lane(library, self.no_lane_id)
 
     def _load_lane(self, library, lane_id):
         """Make sure the Lane with the given ID actually exists and is
         associated with the given Library.
         """
-        lane = get_one(self._db, Lane, id==i)
+        _db = Session.object_session(library)
+        lane = get_one(_db, Lane, id=lane_id)
         if not lane:
-            raise CannotLoadConfiguration("No lane with ID: %s", i)
+            raise CannotLoadConfiguration("No lane with ID: %s" % lane_id)
         if lane.library != library:
             raise CannotLoadConfiguration(
-                "Lane %d is for the wrong library (%s, I need %s)",
-                lane.id, lane.library.name, library.name
+                "Lane %d is for the wrong library (%s, I need %s)" %
+                (lane.id, lane.library.name, library.name)
             )
         return lane
 
@@ -132,37 +139,38 @@ class COPPAGate(CustomIndexView):
             self.navigation_feed = self._navigation_feed(
                 library, annotator, url_for
             )
-        headers = { "Content-Type": OPDSFeed.NAVIGATION_FEED_URI }
-        return Response(200, headers, self.navigation_feed)
+        headers = { "Content-Type": OPDSFeed.NAVIGATION_FEED_TYPE }
+        return Response(unicode(self.navigation_feed), 200, headers)
 
     def _navigation_feed(self, library, annotator, url_for=None):
         """Generate an OPDS feed for navigating the COPPA age gate."""
         url_for = url_for or cdn_url_for
-        base_url = url_for('index', library_short_name=library_short_name)
+        base_url = url_for('index', library_short_name=library.short_name)
 
         # An entry for grown-ups.
         feed = OPDSFeed(title=library.name, url=base_url)
+        opds = feed.feed
         yes_url = url_for(
             'feed',
-            library_short_name=library_short_name,
+            library_short_name=library.short_name,
             lane_identifier=self.yes_lane_id
         )
-        feed.append(
-            self.navigation_entry(yes_url, cls.YES_TITLE, cls.YES_CONTENT)
+        opds.append(
+            self.navigation_entry(yes_url, self.YES_TITLE, self.YES_CONTENT)
         )
 
         # An entry for children.
         no_url = url_for(
             'feed',
-            library_short_name=library_short_name,
+            library_short_name=library.short_name,
             lane_identifier=self.no_lane_id
         )
-        feed.append(
-            cls.navigation_entry(no_url, cls.NO_TITLE, cls.NO_CONTENT)
+        opds.append(
+            self.navigation_entry(no_url, self.NO_TITLE, self.NO_CONTENT)
         )        
 
         # The gate tag is the thing that the SimplyE client actually uses.
-        feed.append(cls.gate_tag(self.URI, yes_url, no_url))
+        opds.append(self.gate_tag(self.URI, yes_url, no_url))
 
         # Add any other links associated with this library, notably
         # the link to its authentication document.
@@ -171,16 +179,17 @@ class COPPAGate(CustomIndexView):
         return feed
 
     @classmethod
-    def navigation_entry(self, href, title, content):
+    def navigation_entry(cls, href, title, content):
         """Create an <entry> that serves as navigation."""
-        content = AtomFeed.content(type="text")
-        content.setText(content)
-        entry = cls.entry(
-            AtomFeed.id(href),
-            AtomFeed.title(title),
-            content,
+        E = OPDSFeed.E
+        content_tag = E.content(type="text")
+        content_tag.text = unicode(content)
+        entry = E.entry(
+            E.id(href),
+            E.title(unicode(title)),
+            content_tag,
         )
-        cls.add_link_to_entry(
+        OPDSFeed.add_link_to_entry(
             entry, href=href, rel="subsection",
             type=OPDSFeed.ACQUISITION_FEED_TYPE
         )
@@ -196,10 +205,10 @@ class COPPAGate(CustomIndexView):
         # 'restriction-not-met', and the SimplyE client depends on the
         # namespace not being present. For now, we include both a
         # namespaced and a non-namespaced version.
-        tag = cls.makeelement("{%s}gate" % AtomFeed.SIMPLIFIED_NS)
-        for namespace in ['', "{%s}" % AtomFeed.SIMPLIFIED_NS]:
-            tag[namespace+'restriction-met'] = met_url
-            tag[namespace+'restriction-not-met'] = not_met_url
-        return gate_tag
+        tag = OPDSFeed.makeelement("{%s}gate" % OPDSFeed.SIMPLIFIED_NS)
+        for namespace in ['', "{%s}" % OPDSFeed.SIMPLIFIED_NS]:
+            tag.attrib[namespace+'restriction-met'] = met_url
+            tag.attrib[namespace+'restriction-not-met'] = not_met_url
+        return tag
 
 CustomIndexView.register(COPPAGate)
