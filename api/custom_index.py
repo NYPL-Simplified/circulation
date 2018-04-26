@@ -167,7 +167,7 @@ class COPPAGate(CustomIndexView):
         )
         opds.append(
             self.navigation_entry(no_url, self.NO_TITLE, self.NO_CONTENT)
-        )        
+        )
 
         # The gate tag is the thing that the SimplyE client actually uses.
         opds.append(self.gate_tag(self.URI, yes_url, no_url))

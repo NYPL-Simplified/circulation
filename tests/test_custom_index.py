@@ -31,7 +31,7 @@ class TestCustomIndexView(DatabaseTest):
 
         class Mock2(object):
             PROTOCOL = "A protocol"
-        
+
         c.register(Mock1)
         eq_(Mock1, c.BY_PROTOCOL[Mock1.PROTOCOL])
 
@@ -89,19 +89,19 @@ class TestCOPPAGate(DatabaseTest):
         self.lane2 = self._lane()
         m = ConfigurationSetting.for_library_and_externalintegration
         m(
-            self._db, COPPAGate.REQUIREMENT_MET_LANE, self._default_library, 
+            self._db, COPPAGate.REQUIREMENT_MET_LANE, self._default_library,
             self.integration
         ).value = self.lane1.id
         m(
             self._db, COPPAGate.REQUIREMENT_NOT_MET_LANE, self._default_library,
             self.integration
         ).value = self.lane2.id
-        self.gate = COPPAGate(self._default_library, self.integration)
 
     def test_lane_loading(self):
         # The default setup loads lane IDs properly.
-        eq_(self.lane1.id, self.gate.yes_lane_id)
-        eq_(self.lane2.id, self.gate.no_lane_id)
+        gate = COPPAGate(self._default_library, self.integration)
+        eq_(self.lane1.id, gate.yes_lane_id)
+        eq_(self.lane2.id, gate.no_lane_id)
 
         # If a lane isn't associated with the right library, the
         # COPPAGate is misconfigured and cannot be instantiated.
@@ -184,7 +184,7 @@ class TestCOPPAGate(DatabaseTest):
         feed = gate._navigation_feed(
             self._default_library, annotator, mock_url_for
         )
-        
+
         # The feed was passed to our mock Annotator, which decided to do
         # nothing to it.
         eq_((feed, None), annotator.called_with)
