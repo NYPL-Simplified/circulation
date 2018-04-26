@@ -39,6 +39,13 @@ class CustomIndexView(object):
         self.BY_PROTOCOL[protocol] = view_class
 
     @classmethod
+    def unregister(self, view_class):
+        """Remove a CustomIndexView from consideration.
+        Only used in tests.
+        """
+        del self.BY_PROTOCOL[view_class.PROTOCOL]
+
+    @classmethod
     def for_library(cls, library):
         """Find the appropriate CustomIndexView for the given library."""
         _db = Session.object_session(library)
@@ -52,7 +59,7 @@ class CustomIndexView(object):
             raise CannotLoadConfiguration(
                 "Unregistered custom index protocol: %s" % name
             )
-        view_class = cls.BY_PROTOCOL[name]
+        view_class = cls.BY_PROTOCOL[protocol]
         return view_class(library, integration)
 
     def __init__(self, library, integration):
