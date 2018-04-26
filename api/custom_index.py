@@ -2,6 +2,7 @@
 something other than the default.
 """
 
+from flask import Response
 from flask_babel import lazy_gettext as _
 
 from config import CannotLoadConfiguration
@@ -31,30 +32,12 @@ class CustomIndexView(object):
         self.BY_PROTOCOL[protocol] = view_class
 
     @classmethod
-    def library_integration(self, library):
-        """Find the appropriate custom index ExternalIntegration for the given
-        library.
-        """
-        integrations = _db.query(ExternalIntegration).join(
-            ExternalIntegration.libraries).filter(
-            ExternalIntegration.goal==ExternalIntegration.CUSTOM_INDEX_VIEW_GOAL
-        ).filter(
-            Library.id==library.id
-        ).all()
-        if len(integrations) == 0:
-            return None
-        if len(integrations) > 1:
-            raise CannotLoadConfiguration(
-                "Library %s defines multiple custom index view integrations!",
-                library.name
-            )
-        return integrations[0]
-
-    @classmethod
     def for_library(cls, library):
         """Find the appropriate CustomIndexView for the given library."""
 
-        integration = cls.library_integration(library)
+        integration = ExternalIntegration.one_for_library_and_goal(
+            library, self.CUSTOM_INDEX_VIEW_GOAL
+        )
         if not integration:
             return None
         protocol = integration.protocol
@@ -69,6 +52,12 @@ class CustomIndexView(object):
         raise NotImplementedError()
 
     def __call__(self, library, annotator):
+        """Render the custom index view.
+
+        :return: A Response or ProblemDetail
+        :param library: A Library
+        :param annoatator: An Annotator for annotating OPDS feeds.
+        """
         raise NotImplementedError()
 
 
@@ -77,7 +66,6 @@ class COPPAGate(CustomIndexView):
     PROTOCOL = "COPPA Age Gate"
 
     URI = "http://librarysimplified.org/terms/restrictions/coppa"
-    LABEL = _("COPPA compliance - Patron must be at least 13 years old"),
     NO_TITLE = _("I'm Under 13")
     NO_CONTENT = _("Read children's books"),
     YES_TITLE = _("I'm 13 or Older")
@@ -88,23 +76,12 @@ class COPPAGate(CustomIndexView):
 
     SETTINGS = [
         { "key": REQUIREMENT_MET_LANE,
-          "label": _("ID of lane for people who meet the age requirement"),
+          "label": _("ID of lane for patrons who are 13 or older"),
         },
         { "key": REQUIREMENT_NOT_MET_LANE,
-          "label": _("ID of lane for people who do not meet the age requirement"),
+          "label": _("ID of lane for patrons who are under 13"),
         },
     ]
-
-    def _load_lane(self, library, lane_id):
-        lane = get_one(self._db, Lane, id==i)
-        if not lane:
-            raise CannotLoadConfiguration("No lane with ID: %s", i)
-        if lane.library != library:
-            raise CannotLoadConfiguration(
-                "Lane %d is for the wrong library (%s, I need %s)",
-                lane.id, lane.library.name, library.name
-            )
-        return lane
 
     def __init__(self, library, integration):
         m = ConfigurationSetting.for_library_and_externalintegration
@@ -119,11 +96,22 @@ class COPPAGate(CustomIndexView):
         yes_lane = self._load_lane(library, yes_lane_id)
         no_lane = self._load_lane(library, no_lane_id)
 
-        # Build the entries and the feed, but leave the actual links out --
-        # we need an active request to generate the links.
+    def _load_lane(self, library, lane_id):
+        """Make sure the Lane with the given ID actually exists and is
+        associated with the given Library.
+        """
+        lane = get_one(self._db, Lane, id==i)
+        if not lane:
+            raise CannotLoadConfiguration("No lane with ID: %s", i)
+        if lane.library != library:
+            raise CannotLoadConfiguration(
+                "Lane %d is for the wrong library (%s, I need %s)",
+                lane.id, lane.library.name, library.name
+            )
+        return lane
 
     def __call__(self, library, annotator, url_for=None):
-        """Send an OPDS navigation feed that lets the patron choose a root
+        """Render an OPDS navigation feed that lets the patron choose a root
         lane on their own, without providing any credentials.
         """
         if not hasattr(self, 'navigation_feed'):
@@ -159,11 +147,11 @@ class COPPAGate(CustomIndexView):
             cls.navigation_entry(no_url, cls.NO_TITLE, cls.NO_CONTENT)
         )        
 
-        # The gate tag is the thing that SimplyE actually uses.
+        # The gate tag is the thing that the SimplyE client actually uses.
         feed.append(cls.gate_tag(self.URI, yes_url, no_url))
 
-        # Any other links associated with this library, e.g. the link
-        # to its authentication document.
+        # Add any other links associated with this library, notably
+        # the link to its authentication document.
         if annotator:
             annotator.annotate_feed(feed, None)
         return feed
@@ -191,9 +179,9 @@ class COPPAGate(CustomIndexView):
         """
         # The original Instant Classics OPDS feed incorrectly omitted
         # the simplified: namespace on 'restriction-met' and
-        # 'restriction-not-met', and SimplyE depends on the namespace not 
-        # being present. For now, we include both a namespaced
-        # and a non-namespaced version.
+        # 'restriction-not-met', and the SimplyE client depends on the
+        # namespace not being present. For now, we include both a
+        # namespaced and a non-namespaced version.
         tag = cls.makeelement("{%s}gate" % AtomFeed.SIMPLIFIED_NS)
         for namespace in ['', "{%s}" % AtomFeed.SIMPLIFIED_NS]:
             tag[namespace+'restriction-met'] = met_url

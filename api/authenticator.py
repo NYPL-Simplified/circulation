@@ -435,11 +435,8 @@ class LibraryAuthenticator(object):
 
         # Find all of this library's ExternalIntegrations set up with
         # the goal of authenticating patrons.
-        integrations = _db.query(ExternalIntegration).join(
-            ExternalIntegration.libraries).filter(
-            ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
-        ).filter(
-            Library.id==library.id
+        integrations = ExternalIntegration.for_library_and_goal(
+            _db, library, ExternalIntegration.PATRON_AUTH_GOAL
         )
         # Turn each such ExternalIntegration into an
         # AuthenticationProvider.
