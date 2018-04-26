@@ -97,16 +97,6 @@ class TestCOPPAGate(DatabaseTest):
         ).value = self.lane2.id
         self.gate = COPPAGate(self._default_library, self.integration)
 
-        self.url_for_calls = []
-
-    def mock_url_for(self, controller, library_short_name, **kwargs):
-        """Create a real-looking URL for any random controller."""
-        self.url_for_calls.append((controller, library_short_name, kwargs))
-        query = "&".join(
-            ["%s=%s" % (k,v) for k, v in sorted(kwargs.items())]
-        )
-        return "http://%s/%s?%s" % (library_short_name, controller, query)
-
     def test_lane_loading(self):
         # The default setup loads lane IDs properly.
         eq_(self.lane1.id, self.gate.yes_lane_id)
@@ -155,14 +145,86 @@ class TestCOPPAGate(DatabaseTest):
         eq_("fake feed", response.data)
         eq_(response.data, gate.navigation_feed)
 
+    def test__navigation_feed(self):
+        """Test the code that builds an OPDS navigation feed."""
 
-    def test_other(self):
         class MockAnnotator(object):
+            """This annotator will have its chance to annotate
+            the feed before it's finalized.
+            """
             def annotate_feed(self, feed, lane):
                 self.called_with = (feed, lane)
-
         annotator = MockAnnotator()
 
+        url_for_calls = []
+        def mock_url_for(controller, library_short_name, **kwargs):
+            """Create a real-looking URL for any random controller."""
+            url_for_calls.append((controller, library_short_name, kwargs))
+            query = "&".join(
+                ["%s=%s" % (k,v) for k, v in sorted(kwargs.items())]
+            )
+            return "http://%s/%s?%s" % (library_short_name, controller, query)
+
+        navigation_entry_calls = []
+        gate_tag_calls = []
+        class MockCOPPAGate(COPPAGate):
+            def navigation_entry(self, url, title, content):
+                navigation_entry_calls.append((url, title, content))
+                return OPDSFeed.E.entry()
+
+            @classmethod
+            def gate_tag(cls, restriction, met_uri, not_met_uri):
+                gate_tag_calls.append((restriction, met_uri, not_met_uri))
+                return OPDSFeed.E.gate()
+
+        self._default_library.name = "The Library"
+        self._default_library.short_name = "LIBR"
+        gate = MockCOPPAGate(self._default_library, self.integration)
+        feed = gate._navigation_feed(
+            self._default_library, annotator, mock_url_for
+        )
+        
         # The feed was passed to our mock Annotator, which decided to do
         # nothing to it.
-        eq_((self.gate.navigation_feed, None), annotator.called_with)
+        eq_((feed, None), annotator.called_with)
+
+        # navigation_entry was called twice, once for the 'old enough'
+        # entry and once for the 'not old enough' entry.
+        older, younger = navigation_entry_calls
+
+        lane_url, title, content = older
+        yes_url = mock_url_for(
+            "feed", self._default_library.short_name,
+            lane_identifier=gate.yes_lane_id
+        )
+        eq_(lane_url, yes_url)
+        eq_(title, gate.YES_TITLE)
+        eq_(content, gate.YES_CONTENT)
+
+        lane_url, title, content = younger
+        no_url = mock_url_for(
+            "feed", self._default_library.short_name,
+            lane_identifier=gate.no_lane_id
+        )
+        eq_(lane_url, no_url)
+        eq_(title, gate.NO_TITLE)
+        eq_(content, gate.NO_CONTENT)
+
+        # gate_tag was called once.
+        [(restriction, met_url, not_met_url)] = gate_tag_calls
+        eq_(gate.URI, restriction)
+        eq_(yes_url, met_url)
+        eq_(no_url, not_met_url)
+
+        # The feed as a whole incorporates the return values of
+        # the methods that were called.
+        feed = unicode(feed)
+        assert "<gate/>" in feed
+        eq_(2, feed.count("<entry/>"))
+
+        # There's also a self link, a title and an ID, which were
+        # inserted by the OPDSFeed constructor.
+        index = mock_url_for("index", self._default_library.short_name)
+        assert ('<link href="%s" rel="self"/>' % index) in feed
+        assert ("<title>%s</title>" % self._default_library.name) in feed
+        assert ('<id>%s</id>' % index)
