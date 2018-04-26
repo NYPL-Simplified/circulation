@@ -105,7 +105,10 @@ from sqlalchemy import (
 )
 
 import log # Make sure logging is set up properly.
-from config import Configuration
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 import classifier
 from classifier import (
     Classifier,
@@ -10544,6 +10547,38 @@ class ExternalIntegration(Base, HasFullTableCache):
     def admin_authentication(cls, _db):
         admin_auth = get_one(_db, cls, goal=cls.ADMIN_AUTH_GOAL)
         return admin_auth
+
+    @classmethod
+    def for_library_and_goal(cls, library, goal):
+        """Find all ExternalIntegrations associated with the given
+        Library and the given goal.
+
+        :return: A Query.
+        """
+        return _db.query(ExternalIntegration).join(
+            ExternalIntegration.libraries).filter(
+            ExternalIntegration.goal==ExternalIntegration.CUSTOM_INDEX_VIEW_GOAL
+        ).filter(
+            Library.id==library.id
+        )
+
+    @classmethod
+    def one_for_library_and_goal(cls, library, goal):
+        """Find the ExternalIntegration associated with the given
+        Library and the given goal.
+
+        :return: An ExternalIntegration, or None.
+        :raise: CannotLoadConfiguration
+        """
+        integrations = cls.for_library_and_goal(library, goal).all()
+        if len(integrations) == 0:
+            return None
+        if len(integrations) > 1:
+            raise CannotLoadConfiguration(
+                "Library %s defines multiple integrations with goal %s!",
+                library.name, goal
+            )
+        return integrations[0]
 
     def set_setting(self, key, value):
         """Create or update a key-value setting for this ExternalIntegration."""
