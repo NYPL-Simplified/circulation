@@ -32,6 +32,14 @@ class TestCustomIndexView(DatabaseTest):
                              c.register, Mock2)
         c.BY_PROTOCOL = old_registry
 
+    def test_default_registry(self):
+        """Verify the default contents of the registry."""
+        eq_(
+            {COPPAGate.PROTOCOL : COPPAGate},
+            CustomIndexView.BY_PROTOCOL
+        )
+
+
     def test_for_library(self):
         m = CustomIndexView.for_library
 
@@ -56,6 +64,6 @@ class TestCustomIndexView(DatabaseTest):
         # A CustomIndexView of the appropriate class is instantiated
         # and returned.
         view = m(self._default_library)
-        assert isinstance(MockCustomIndexView, view)
+        assert isinstance(view, MockCustomIndexView)
         eq_((self._default_library, integration), view.instantiated_with)
 

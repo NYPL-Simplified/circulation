@@ -101,7 +101,7 @@ class COPPAGate(CustomIndexView):
         m = ConfigurationSetting.for_library_and_externalintegration
         yes_lane_id = m(_db, self.REQUIREMENT_MET_LANE, library, integration)
         no_lane_id = m(_db, self.REQUIREMENT_NOT_MET_LANE, library, integration)
-        
+
         # We don't want to store the Lane objects long-term, but we do need
         # to make sure the lane IDs correspond to real lanes for the
         # right library.
@@ -202,3 +202,4 @@ class COPPAGate(CustomIndexView):
             tag[namespace+'restriction-not-met'] = not_met_url
         return gate_tag
 
+CustomIndexView.register(COPPAGate)
