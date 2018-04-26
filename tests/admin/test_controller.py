@@ -167,6 +167,17 @@ class TestViewController(AdminControllerTest):
             eq_(200, response.status_code)
             assert "Your admin account doesn't have access to any libraries" in response.data
 
+        # Unless there aren't any libraries yet. In that case, an admin needs to
+        # get in to create one.
+        for library in self._db.query(Library):
+            self._db.delete(library)
+        with self.app.test_request_context('/admin'):
+            flask.session['admin_email'] = self.admin.email
+            flask.session['auth_type'] = PasswordAdminAuthenticationProvider.NAME
+            response = self.manager.admin_view_controller(None, None)
+            eq_(200, response.status_code)
+            assert "<body>" in response.data
+
         l1 = self._library(short_name="L1")
         l2 = self._library(short_name="L2")
         l3 = self._library(short_name="L3")

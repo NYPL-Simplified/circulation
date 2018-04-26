@@ -303,15 +303,16 @@ class ViewController(AdminController):
                 return redirect(self.url_for('admin_sign_in', redirect=redirect_url))
 
             if not collection and not book and not path:
-                # Find the first library the admin is a librarian of.
-                library_name = None
-                for library in self._db.query(Library).order_by(Library.id.asc()):
-                    if admin.is_librarian(library):
-                        library_name = library.short_name
-                        break
-                if not library_name:
-                    return Response(_("Your admin account doesn't have access to any libraries. Contact your library manager for assistance."), 200)
-                return redirect(self.url_for('admin_view', collection=library_name))
+                if self._db.query(Library).count() > 0:
+                    # Find the first library the admin is a librarian of.
+                    library_name = None
+                    for library in self._db.query(Library).order_by(Library.id.asc()):
+                        if admin.is_librarian(library):
+                            library_name = library.short_name
+                            break
+                    if not library_name:
+                        return Response(_("Your admin account doesn't have access to any libraries. Contact your library manager for assistance."), 200)
+                    return redirect(self.url_for('admin_view', collection=library_name))
 
             email = admin.email
             for role in admin.roles:
