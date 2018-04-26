@@ -3,6 +3,7 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+from lxml import etree
 
 from flask import Response
 
@@ -228,3 +229,38 @@ class TestCOPPAGate(DatabaseTest):
         assert ('<link href="%s" rel="self"/>' % index) in feed
         assert ("<title>%s</title>" % self._default_library.name) in feed
         assert ('<id>%s</id>' % index)
+
+    def test_navigation_entry(self):
+        """navigation_entry creates an OPDS entry with a subsection link."""
+        entry = etree.tostring(
+            COPPAGate.navigation_entry(
+                "some href", "some title", "some content"
+            )
+        )
+        assert entry.startswith('<entry ')
+        for expect in (
+                '<id>some href</id>',
+                '<title>some title</title>',
+                '<content type="text">some content</content>',
+                '<link href="some href" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection"/>'
+        ):
+            assert expect in entry
+
+    def test_gate_tag(self):
+        """gate_tag creates a simplified:gate tag."""
+        gate = COPPAGate.gate_tag(
+            "restriction", "http://met/", "http://not-met/"
+        )
+        simplified_ns = '{%s}' % OPDSFeed.SIMPLIFIED_NS
+        eq_(simplified_ns + "gate", gate.tag)
+
+        # The tag contains the URI for the restriction, and the
+        # destination URLs designating where clients should go if they
+        # do (or don't) meet the restriction. These attributes are
+        # present both with and (for legacy reasons) without the
+        # simplified: namespace.
+        for namespace in ('', simplified_ns):
+            eq_("restriction", gate.attrib[namespace+"restriction"])
+            eq_("http://met/", gate.attrib[namespace+"restriction-met"])
+            eq_("http://not-met/", gate.attrib[namespace+"restriction-not-met"])
+

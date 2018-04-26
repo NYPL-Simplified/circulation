@@ -205,10 +205,11 @@ class COPPAGate(CustomIndexView):
         # 'restriction-not-met', and the SimplyE client depends on the
         # namespace not being present. For now, we include both a
         # namespaced and a non-namespaced version.
-        tag = OPDSFeed.makeelement("{%s}gate" % OPDSFeed.SIMPLIFIED_NS)
+        tag = OPDSFeed.SIMPLIFIED.gate()
         for namespace in ['', "{%s}" % OPDSFeed.SIMPLIFIED_NS]:
             tag.attrib[namespace+'restriction-met'] = met_url
             tag.attrib[namespace+'restriction-not-met'] = not_met_url
+            tag.attrib[namespace+'restriction'] = restriction
         return tag
 
 CustomIndexView.register(COPPAGate)
