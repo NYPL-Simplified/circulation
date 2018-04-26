@@ -10549,7 +10549,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         return admin_auth
 
     @classmethod
-    def for_library_and_goal(cls, library, goal):
+    def for_library_and_goal(cls, _db, library, goal):
         """Find all ExternalIntegrations associated with the given
         Library and the given goal.
 
