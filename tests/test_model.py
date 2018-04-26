@@ -35,6 +35,7 @@ from sqlalchemy.orm.session import Session
 from lxml import etree
 
 from config import (
+    CannotLoadConfiguration,
     Configuration, 
     temp_config,
 )
@@ -7696,7 +7697,47 @@ class TestExternalIntegration(DatabaseTest):
         self.external_integration, ignore = create(
             self._db, ExternalIntegration, goal=self._str, protocol=self._str
         )
-        
+
+    def test_for_library_and_goal(self):
+        goal = self.external_integration.goal
+        qu = ExternalIntegration.for_library_and_goal(
+            self._db, self._default_library, goal
+        )
+
+        # This matches nothing because the ExternalIntegration is not
+        # associated with the Library.
+        eq_([], qu.all())
+        get_one = ExternalIntegration.one_for_library_and_goal
+        eq_(None, get_one(self._db, self._default_library, goal))
+
+        # Associate the library with the ExternalIntegration and
+        # the query starts matching it. one_for_library_and_goal
+        # also starts returning it.
+        self.external_integration.libraries.append(self._default_library)
+        eq_([self.external_integration], qu.all())
+        eq_(self.external_integration,
+            get_one(self._db, self._default_library, goal))
+
+        # Create another, similar ExternalIntegration. By itself, this
+        # has no effect.
+        integration2, ignore = create(
+            self._db, ExternalIntegration, goal=goal, protocol=self._str
+        )
+        eq_([self.external_integration], qu.all())
+        eq_(self.external_integration,
+            get_one(self._db, self._default_library, goal))
+
+        # Associate that ExternalIntegration with the library, and
+        # the query starts picking it up, and one_for_library_and_goal
+        # starts raising an exception.
+        integration2.libraries.append(self._default_library)
+        eq_(set([self.external_integration, integration2]), set(qu.all()))
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Library .* defines multiple integrations with goal .*",
+            get_one, self._db, self._default_library, goal
+        )
+
     def test_data_source(self):
         # For most collections, the protocol determines the
         # data source.

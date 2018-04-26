@@ -10556,27 +10556,29 @@ class ExternalIntegration(Base, HasFullTableCache):
         :return: A Query.
         """
         return _db.query(ExternalIntegration).join(
-            ExternalIntegration.libraries).filter(
-            ExternalIntegration.goal==ExternalIntegration.CUSTOM_INDEX_VIEW_GOAL
+            ExternalIntegration.libraries
+        ).filter(
+            ExternalIntegration.goal==goal
         ).filter(
             Library.id==library.id
         )
 
     @classmethod
-    def one_for_library_and_goal(cls, library, goal):
+    def one_for_library_and_goal(cls, _db, library, goal):
         """Find the ExternalIntegration associated with the given
         Library and the given goal.
 
         :return: An ExternalIntegration, or None.
         :raise: CannotLoadConfiguration
         """
-        integrations = cls.for_library_and_goal(library, goal).all()
+        integrations = cls.for_library_and_goal(_db, library, goal).all()
         if len(integrations) == 0:
             return None
         if len(integrations) > 1:
             raise CannotLoadConfiguration(
-                "Library %s defines multiple integrations with goal %s!",
-                library.name, goal
+                "Library %s defines multiple integrations with goal %s!" % (
+                    library.name, goal
+                )
             )
         return integrations[0]
 
