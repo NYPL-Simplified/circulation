@@ -787,6 +787,40 @@ class TestIndexController(CirculationControllerTest):
             eq_(302, response.status_code)
             eq_("http://cdn/default/groups/", response.headers['location'])
 
+    def test_custom_index_view(self):
+        """If a custom index view is registered for a library,
+        it is called instead of the normal IndexController code.
+        """
+        class MockCustomIndexView(object):
+            def __call__(self, library, annotator):
+                self.called_with = (library, annotator)
+                return "fake response"
+
+        # Set up our MockCustomIndexView as the custom index for
+        # the default library.
+        mock = MockCustomIndexView()
+        self.manager.custom_index_views[self._default_library.id] = mock
+
+        # Mock CirculationManager.annotator so it's easy to check
+        # that it was called.
+        mock_annotator = object()
+        def make_mock_annotator(lane):
+            eq_(lane, None)
+            return mock_annotator
+        self.manager.annotator = make_mock_annotator
+
+        # Make a request, and the custom index is invoked.
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.invalid_auth)):
+            response = self.manager.index_controller()
+        eq_("fake response", response)
+
+        # The custom index was invoked with the library associated
+        # with the request + the output of self.manager.annotator()
+        library, annotator = mock.called_with
+        eq_(self._default_library, library)
+        eq_(mock_annotator, annotator)
+
     def test_authenticated_patron_root_lane(self):
         root_1, root_2 = self._db.query(Lane).all()[:2]
 

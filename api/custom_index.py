@@ -5,11 +5,14 @@ something other than the default.
 from flask import Response
 from flask_babel import lazy_gettext as _
 
+from sqlalchemy.orm.session import Session
+
 from config import CannotLoadConfiguration
 from core.model import (
     get_one,
 )
 from core.lane import Lane
+from core.model import ExternalIntegration
 
 
 class CustomIndexView(object):
@@ -34,19 +37,19 @@ class CustomIndexView(object):
     @classmethod
     def for_library(cls, library):
         """Find the appropriate CustomIndexView for the given library."""
-
+        _db = Session.object_session(library)
         integration = ExternalIntegration.one_for_library_and_goal(
-            library, self.CUSTOM_INDEX_VIEW_GOAL
+            _db, library, cls.CUSTOM_INDEX_VIEW_GOAL
         )
         if not integration:
             return None
         protocol = integration.protocol
-        if not protocol in self.BY_PROTOCOL:
+        if not protocol in cls.BY_PROTOCOL:
             raise CannotLoadConfiguration(
                 "Unregistered custom index protocol: %s" % name
             )
-        cls = self.BY_PROTOCOL[name]
-        return cls(library, integration)
+        view_class = cls.BY_PROTOCOL[name]
+        return view_class(library, integration)
 
     def __init__(self, library, integration):
         raise NotImplementedError()

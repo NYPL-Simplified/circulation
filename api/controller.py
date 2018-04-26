@@ -94,6 +94,7 @@ from core.util.http import (
 )
 
 from circulation_exceptions import *
+from custom_index import CustomIndexView
 
 from opds import (
     CirculationManagerAnnotator,
