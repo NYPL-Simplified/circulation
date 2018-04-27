@@ -206,7 +206,7 @@ class CirculationManagerAnnotator(Annotator):
                 for mechanism in active_license_pool.delivery_mechanisms:
                     borrow_links.append(
                         self.borrow_link(
-                            identifier,
+                            active_license_pool,
                             mechanism, [mechanism],
                             active_hold
                         )
@@ -220,7 +220,7 @@ class CirculationManagerAnnotator(Annotator):
                 # will be set at the point of fulfillment.
                 borrow_links.append(
                     self.borrow_link(
-                        identifier,
+                        active_license_pool,
                         None, active_license_pool.delivery_mechanisms,
                         active_hold
                     )
@@ -289,7 +289,7 @@ class CirculationManagerAnnotator(Annotator):
     def revoke_link(self, active_license_pool, active_loan, active_hold):
         return None
 
-    def borrow_link(self, identifier,
+    def borrow_link(self, active_license_pool,
                     borrow_mechanism, fulfillment_mechanisms, active_hold=None):
         return None
 
@@ -749,10 +749,11 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         revoke_link_tag = OPDSFeed.makeelement("link", **kw)
         return revoke_link_tag
 
-    def borrow_link(self, identifier,
+    def borrow_link(self, active_license_pool,
                     borrow_mechanism, fulfillment_mechanisms, active_hold=None):
         if not self.patron_auth:
             return
+        identifier = active_license_pool.identifier
         if borrow_mechanism:
             # Following this link will both borrow the book and set
             # its delivery mechanism.
@@ -1040,8 +1041,14 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
             revoke_link_tag = OPDSFeed.makeelement("link", **kw)
             return revoke_link_tag
 
-    def borrow_link(self, identifier,
+    def borrow_link(self, active_license_pool,
                     borrow_mechanism, fulfillment_mechanisms, active_hold=None):
+        if active_license_pool.open_access:
+            # No need to borrow from a shared collection when the book
+            # already has an open access link.
+            return None
+
+        identifier = active_license_pool.identifier
         if active_hold:
             borrow_url = self.url_for(
                 "shared_collection_borrow",
