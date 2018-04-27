@@ -9331,6 +9331,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     default_client_can_fulfill_lookup = set([
         (Representation.EPUB_MEDIA_TYPE, NO_DRM),
         (Representation.EPUB_MEDIA_TYPE, ADOBE_DRM),
+        (Representation.EPUB_MEDIA_TYPE, BEARER_TOKEN),
     ])
 
     license_pool_delivery_mechanisms = relationship(
