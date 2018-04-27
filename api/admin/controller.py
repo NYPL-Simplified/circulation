@@ -214,7 +214,10 @@ class AdminController(object):
             for role in admin_details.get("roles"):
                 if role.get("role") in AdminRole.ROLES:
                     library = Library.lookup(self._db, role.get("library"))
-                    admin.add_role(role.get("role"), library)
+                    if role.get("library") and not library:
+                        self.log.warn("%s authentication provider specifiec an unknown library for a new admin: %s" % (admin_details.get("type"), role.get("library")))
+                    else:
+                        admin.add_role(role.get("role"), library)
                 else:
                     self.log.warn("%s authentication provider specified an unknown role for a new admin: %s" % (admin_details.get("type"), role.get("role")))
 
