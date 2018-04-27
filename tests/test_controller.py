@@ -102,6 +102,7 @@ from api.circulation import (
     LoanInfo,
     FulfillmentInfo,
 )
+from api.custom_index import CustomIndexView
 from api.novelist import MockNoveListAPI
 from api.adobe_vendor_id import (
     AuthdataUtility,
@@ -321,6 +322,7 @@ class TestCirculationManager(CirculationControllerTest):
         manager.auth = object()
         manager.lending_policy = object()
         manager.shared_collection_api = object()
+        manager.new_custom_index_views = object()
 
         # But some fields are _not_ about to be reloaded
         index_controller = manager.index_controller
@@ -334,10 +336,20 @@ class TestCirculationManager(CirculationControllerTest):
         library = self._library()
         self.library_setup(library)
 
-        # In addition to the setup performed by library_set(), give it
+        # In addition to the setup performed by library_setup(), give it
         # a registry integration with short client tokens so we can verify
         # that the DeviceManagementProtocolController is recreated.
         self.initialize_adobe(library, [library])
+
+        # We also register a CustomIndexView for this new library.
+        mock_custom_view = object()
+        @classmethod
+        def mock_for_library(cls, incoming_library):
+            if incoming_library == library:
+                return mock_custom_view
+            return None
+        old_for_library = CustomIndexView.for_library
+        CustomIndexView.for_library = mock_for_library
 
         # Then reload the CirculationManager...
         self.manager.load_settings()
@@ -347,6 +359,10 @@ class TestCirculationManager(CirculationControllerTest):
 
         # And a circulation API.
         assert library.id in manager.circulation_apis
+
+        # And a CustomIndexView.
+        eq_(mock_custom_view, manager.custom_index_views[library.id])
+        eq_(None, manager.custom_index_views[self._default_library.id])
 
         # The Authenticator has been reloaded with information about
         # how to authenticate patrons of the new library.
@@ -375,6 +391,9 @@ class TestCirculationManager(CirculationControllerTest):
         # Controllers that don't depend on site configuration
         # have not been reloaded.
         eq_(index_controller, manager.index_controller)
+
+        # Restore the CustomIndexView.for_library implementation
+        CustomIndexView.for_library = old_for_library
 
     def test_exception_during_external_search_initialization_is_stored(self):
 
@@ -786,6 +805,40 @@ class TestIndexController(CirculationControllerTest):
             response = self.manager.index_controller()
             eq_(302, response.status_code)
             eq_("http://cdn/default/groups/", response.headers['location'])
+
+    def test_custom_index_view(self):
+        """If a custom index view is registered for a library,
+        it is called instead of the normal IndexController code.
+        """
+        class MockCustomIndexView(object):
+            def __call__(self, library, annotator):
+                self.called_with = (library, annotator)
+                return "fake response"
+
+        # Set up our MockCustomIndexView as the custom index for
+        # the default library.
+        mock = MockCustomIndexView()
+        self.manager.custom_index_views[self._default_library.id] = mock
+
+        # Mock CirculationManager.annotator so it's easy to check
+        # that it was called.
+        mock_annotator = object()
+        def make_mock_annotator(lane):
+            eq_(lane, None)
+            return mock_annotator
+        self.manager.annotator = make_mock_annotator
+
+        # Make a request, and the custom index is invoked.
+        with self.request_context_with_library(
+            "/", headers=dict(Authorization=self.invalid_auth)):
+            response = self.manager.index_controller()
+        eq_("fake response", response)
+
+        # The custom index was invoked with the library associated
+        # with the request + the output of self.manager.annotator()
+        library, annotator = mock.called_with
+        eq_(self._default_library, library)
+        eq_(mock_annotator, annotator)
 
     def test_authenticated_patron_root_lane(self):
         root_1, root_2 = self._db.query(Lane).all()[:2]
@@ -2501,24 +2554,33 @@ class TestFeedController(CirculationControllerTest):
                 eq_(1, len(links))
                 eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, links[0].get("rel"))
 
-            # Shared collection with one book.
+            # Shared collection with two books.
             collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
             self.english_2.license_pools[0].collection = collection
+            work = self._work(title="A", with_license_pool=True, collection=collection)
             self._db.flush()
             SessionManager.refresh_materialized_views(self._db)
             response = self.manager.opds_feeds.crawlable_collection_feed(
                 collection.name
             )
             feed = feedparser.parse(response.data)
-            eq_([self.english_2.title], [x['title'] for x in feed['entries']])
-            [entry] = feed.get("entries")
-            links = entry.get("links")
+            [entry1, entry2] = sorted(feed['entries'], key=lambda x: x['title'])
+            eq_(work.title, entry1["title"])
+            # The first title isn't open access, so it has a borrow link but no open access link.
+            links = entry1.get("links")
+            eq_(0, len([link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]))
             [borrow_link] = [link for link in links if link.get("rel") == Hyperlink.BORROW]
-            [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
-            pool = self.english_2.license_pools[0]
+            pool = work.license_pools[0]
             expected = "/collections/%s/%s/%s/borrow" % (urllib.quote(collection.name), urllib.quote(pool.identifier.type), urllib.quote(pool.identifier.identifier))
             assert expected in borrow_link.get("href")
-            eq_(self.english_2.license_pools[0].identifier.links[0].resource.url, open_access_link.get("href"))
+
+            eq_(self.english_2.title, entry2["title"])
+            links = entry2.get("links")
+            # The second title is open access, so it has an open access link but no borrow link.
+            eq_(0, len([link for link in links if link.get("rel") == Hyperlink.BORROW]))
+            [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
+            pool = self.english_2.license_pools[0]
+            eq_(pool.identifier.links[0].resource.url, open_access_link.get("href"))
 
         # The collection must exist.
         with self.app.test_request_context("/?size=1"):
@@ -2946,7 +3008,10 @@ class TestSharedCollectionController(ControllerTest):
             yield c
 
     def test_info(self):
-        with self.app.test_request_context("/", method="POST"):
+        with self.app.test_request_context("/"):
+            collection = self.manager.shared_collection_controller.info(self._str)
+            eq_(NO_SUCH_COLLECTION, collection)
+
             response = self.manager.shared_collection_controller.info(self.collection.name)
             eq_(200, response.status_code)
             assert response.headers.get("Content-Type").startswith("application/opds+json")
