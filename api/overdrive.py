@@ -131,6 +131,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
+                self.log.error("Exception on %s: %s", response.status_code, response.content)
                 raise Exception("Something's wrong with the patron OAuth Bearer Token!")
             else:
                 # Refresh the token and try again.
