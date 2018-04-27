@@ -256,11 +256,8 @@ class TestCOPPAGate(DatabaseTest):
 
         # The tag contains the URI for the restriction, and the
         # destination URLs designating where clients should go if they
-        # do (or don't) meet the restriction. These attributes are
-        # present both with and (for legacy reasons) without the
-        # simplified: namespace.
-        for namespace in ('', simplified_ns):
-            eq_("restriction", gate.attrib[namespace+"restriction"])
-            eq_("http://met/", gate.attrib[namespace+"restriction-met"])
-            eq_("http://not-met/", gate.attrib[namespace+"restriction-not-met"])
+        # do (or don't) meet the restriction.
+        eq_("restriction", gate.attrib["restriction"])
+        eq_("http://met/", gate.attrib["restriction-met"])
+        eq_("http://not-met/", gate.attrib["restriction-not-met"])
 

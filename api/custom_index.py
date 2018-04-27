@@ -200,16 +200,10 @@ class COPPAGate(CustomIndexView):
         """Create a simplified:gate tag explaining the boolean option
         the client is faced with.
         """
-        # The original Instant Classics OPDS feed incorrectly omitted
-        # the simplified: namespace on 'restriction-met' and
-        # 'restriction-not-met', and the SimplyE client depends on the
-        # namespace not being present. For now, we include both a
-        # namespaced and a non-namespaced version.
         tag = OPDSFeed.SIMPLIFIED.gate()
-        for namespace in ['', "{%s}" % OPDSFeed.SIMPLIFIED_NS]:
-            tag.attrib[namespace+'restriction-met'] = met_url
-            tag.attrib[namespace+'restriction-not-met'] = not_met_url
-            tag.attrib[namespace+'restriction'] = restriction
+        tag.attrib['restriction-met'] = met_url
+        tag.attrib['restriction-not-met'] = not_met_url
+        tag.attrib['restriction'] = restriction
         return tag
 
 CustomIndexView.register(COPPAGate)
