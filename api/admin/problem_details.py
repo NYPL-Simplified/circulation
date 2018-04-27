@@ -23,6 +23,13 @@ INVALID_ADMIN_CREDENTIALS = pd(
       _("Valid library staff credentials are required."),
 )
 
+ADMIN_NOT_AUTHORIZED = pd(
+    "http://librarysimplified.org/terms/problem/admin-not-authorized",
+    403,
+    _("Admin not authorized"),
+    _("Your admin account is not authorized to make this request."),
+)
+
 GOOGLE_OAUTH_FAILURE = pd(
       "http://librarysimplified.org/terms/problem/google-oauth-failure",
       400,
@@ -118,7 +125,7 @@ UNKNOWN_ROLE = pd(
     "http://librarysimplified.org/terms/problem/unknown-role",
     status_code=400,
     title=_("Unknown role."),
-    detail=_("One of the submitted roles is not one of the known contributor roles."),
+    detail=_("One of the submitted roles is not one of the known roles."),
 )
 
 UNKNOWN_MEDIUM = pd(

@@ -976,9 +976,9 @@ class SeriesLane(DynamicLane):
         )
         return self.ROUTE, kwargs
 
-    def featured_works(self, _db):
+    def featured_works(self, _db, facets=None):
         library = self.get_library(_db)
-        facets = FeaturedSeriesFacets(
+        new_facets = FeaturedSeriesFacets(
             library,
             # If a work is in the right series we don't care about its
             # quality.
@@ -986,8 +986,10 @@ class SeriesLane(DynamicLane):
             availability=FeaturedSeriesFacets.AVAILABLE_ALL,
             order=None
         )
+        if facets:
+            new_facets.entrypoint = facets.entrypoint
         pagination = Pagination(size=library.featured_lane_size)
-        qu = self.works(_db, facets=facets, pagination=pagination)
+        qu = self.works(_db, facets=new_facets, pagination=pagination)
         return qu.all()
 
     def apply_filters(self, _db, qu, facets, pagination, featured=False):

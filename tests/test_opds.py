@@ -23,6 +23,7 @@ from core.model import (
     DataSource,
     DeliveryMechanism,
     ExternalIntegration,
+    Hyperlink,
     Library,
     PresentationCalculationPolicy,
     Representation,
@@ -338,10 +339,17 @@ class TestLibraryAnnotator(VendorIDTest):
         assert "groups" in groups_url_fantasy
         assert str(self.lane.id) in groups_url_fantasy
 
+        facets = dict(arg="value")
+        groups_url_facets = self.annotator.groups_url(None, facets=facets)
+        assert "arg=value" in groups_url_facets
+
     def test_feed_url(self):
         # A regular Lane.
-        feed_url_fantasy = self.annotator.feed_url(self.lane, dict(), dict())
+        feed_url_fantasy = self.annotator.feed_url(
+            self.lane, dict(facet="value"), dict()
+        )
         assert "feed" in feed_url_fantasy
+        assert "facet=value" in feed_url_fantasy
         assert str(self.lane.id) in feed_url_fantasy
         assert self._default_library.name in feed_url_fantasy
 
@@ -353,9 +361,12 @@ class TestLibraryAnnotator(VendorIDTest):
         assert self._default_library.name in feed_url_contributor
 
     def test_search_url(self):
-        search_url = self.annotator.search_url(self.lane, "query", dict())
+        search_url = self.annotator.search_url(
+            self.lane, "query", dict(), dict(facet="value")
+        )
         assert "search" in search_url
         assert "query" in search_url
+        assert "facet=value" in search_url
         assert str(self.lane.id) in search_url
 
     def test_facet_url(self):
@@ -1032,19 +1043,19 @@ class TestLibraryAnnotator(VendorIDTest):
         assert_raises(
             UnfulfillableWork,
             annotator.borrow_link,
-            identifier, None, [])
+            pool, None, [])
 
         assert_raises(
             UnfulfillableWork,
             annotator.borrow_link,
-            identifier, None, [kindle_mechanism])
+            pool, None, [kindle_mechanism])
 
         # If there's a fulfillable mechanism, everything's fine.
-        link = annotator.borrow_link(identifier, None, [epub_mechanism])
+        link = annotator.borrow_link(pool, None, [epub_mechanism])
         assert link != None
 
         link = annotator.borrow_link(
-            identifier, None, [epub_mechanism, kindle_mechanism]
+            pool, None, [epub_mechanism, kindle_mechanism]
         )
         assert link != None
 
@@ -1202,7 +1213,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         given feed or entry, as well as its link 'type' value and parts
         of its 'href' value.
         """
-        def get_link_by_rel(rel):
+        def get_link_by_rel(rel, should_exist=True):
             try:
                 [link] = [x for x in entry['links'] if x['rel']==rel]
             except ValueError as e:
@@ -1240,8 +1251,15 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         feed = self.get_parsed_feed([open_access_work, licensed_work])
         [open_access_entry, licensed_entry] = feed.entries
 
-        self.assert_link_on_entry(open_access_entry, rels=[OPDSFeed.BORROW_REL])
+        self.assert_link_on_entry(open_access_entry, rels=[Hyperlink.OPEN_ACCESS_DOWNLOAD])
         self.assert_link_on_entry(licensed_entry, rels=[OPDSFeed.BORROW_REL])
+
+        # The open access entry shouldn't have a borrow link, and the licensed entry
+        # shouldn't have an open access link.
+        links = [x for x in open_access_entry['links'] if x['rel']==OPDSFeed.BORROW_REL]
+        eq_(0, len(links))
+        links = [x for x in licensed_entry['links'] if x['rel']==Hyperlink.OPEN_ACCESS_DOWNLOAD]
+        eq_(0, len(links))
 
     def test_borrow_link_raises_unfulfillable_work(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -1261,19 +1279,19 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         assert_raises(
             UnfulfillableWork,
             annotator.borrow_link,
-            identifier, None, [])
+            pool, None, [])
 
         assert_raises(
             UnfulfillableWork,
             annotator.borrow_link,
-            identifier, None, [kindle_mechanism])
+            pool, None, [kindle_mechanism])
 
         # If there's a fulfillable mechanism, everything's fine.
-        link = annotator.borrow_link(identifier, None, [epub_mechanism])
+        link = annotator.borrow_link(pool, None, [epub_mechanism])
         assert link != None
 
         link = annotator.borrow_link(
-            identifier, None, [epub_mechanism, kindle_mechanism]
+            pool, None, [epub_mechanism, kindle_mechanism]
         )
         assert link != None
 

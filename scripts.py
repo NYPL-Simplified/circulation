@@ -72,6 +72,7 @@ from core.scripts import (
 from core.lane import (
     Pagination,
     Facets,
+    FeaturedFacets,
 )
 from core.opds_import import (
     MetadataWranglerOPDSLookup,
@@ -568,14 +569,26 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
             # Presumably this is the top-level WorkList.
             lane_id = None
         library = lane.get_library(self._db)
-        url = self.app.manager.cdn_url_for(
-            "acquisition_groups", lane_identifier=lane_id, 
-            library_short_name=library.short_name
-        )
-        yield AcquisitionFeed.groups(
-            self._db, title, url, lane, annotator,
-            force_refresh=True
-        )
+
+        # If the WorkList has explicitly defined EntryPoints, we want to
+        # create a grouped feed for each EntryPoint. Otherwise, we want
+        # to create a single grouped feed with no particular EntryPoint.
+        entrypoints = lane.entrypoints or [None]
+        for entrypoint in entrypoints:
+            facets = FeaturedFacets(
+                minimum_featured_quality=library.minimum_featured_quality,
+                uses_customlists=lane.uses_customlists,
+                entrypoint=entrypoint
+            )
+            kwargs = dict(facets.items())
+            url = self.app.manager.cdn_url_for(
+                "acquisition_groups", lane_identifier=lane_id,
+                library_short_name=library.short_name, **kwargs
+            )
+            yield AcquisitionFeed.groups(
+                self._db, title, url, lane, annotator,
+                force_refresh=True, facets=facets
+            )
 
 
 class AdobeAccountIDResetScript(PatronInputScript):

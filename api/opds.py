@@ -206,7 +206,7 @@ class CirculationManagerAnnotator(Annotator):
                 for mechanism in active_license_pool.delivery_mechanisms:
                     borrow_links.append(
                         self.borrow_link(
-                            identifier,
+                            active_license_pool,
                             mechanism, [mechanism],
                             active_hold
                         )
@@ -220,7 +220,7 @@ class CirculationManagerAnnotator(Annotator):
                 # will be set at the point of fulfillment.
                 borrow_links.append(
                     self.borrow_link(
-                        identifier,
+                        active_license_pool,
                         None, active_license_pool.delivery_mechanisms,
                         active_hold
                     )
@@ -289,7 +289,7 @@ class CirculationManagerAnnotator(Annotator):
     def revoke_link(self, active_license_pool, active_loan, active_hold):
         return None
 
-    def borrow_link(self, identifier,
+    def borrow_link(self, active_license_pool,
                     borrow_mechanism, fulfillment_mechanisms, active_hold=None):
         return None
 
@@ -374,13 +374,20 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             _external=True
         )
 
-    def groups_url(self, lane):
+    def groups_url(self, lane, facets=None):
         lane_identifier = self._lane_identifier(lane)
+        if facets:
+            kwargs =  dict(facets.items())
+        else:
+            kwargs = {}
+
         return self.cdn_url_for(
             "acquisition_groups",
             lane_identifier=lane_identifier,
             library_short_name=self.library.short_name,
-            _external=True)
+            _external=True,
+            **kwargs
+        )
 
     def default_lane_url(self):
         return self.groups_url(None)
@@ -389,10 +396,13 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         extra_kwargs = dict(library_short_name=self.library.short_name)
         return super(LibraryAnnotator, self).feed_url(lane, facets, pagination, default_route, extra_kwargs)
 
-    def search_url(self, lane, query, pagination):
+    def search_url(self, lane, query, pagination, facets=None):
         lane_identifier = self._lane_identifier(lane)
         kwargs = dict(q=query)
-        kwargs.update(dict(pagination.items()))
+        if facets:
+            kwargs.update(dict(facets.items()))
+        if pagination:
+            kwargs.update(dict(pagination.items()))
         return self.url_for(
             "lane_search", lane_identifier=lane_identifier,
             library_short_name=self.library.short_name,
@@ -739,10 +749,11 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         revoke_link_tag = OPDSFeed.makeelement("link", **kw)
         return revoke_link_tag
 
-    def borrow_link(self, identifier,
+    def borrow_link(self, active_license_pool,
                     borrow_mechanism, fulfillment_mechanisms, active_hold=None):
         if not self.patron_auth:
             return
+        identifier = active_license_pool.identifier
         if borrow_mechanism:
             # Following this link will both borrow the book and set
             # its delivery mechanism.
@@ -1030,8 +1041,14 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
             revoke_link_tag = OPDSFeed.makeelement("link", **kw)
             return revoke_link_tag
 
-    def borrow_link(self, identifier,
+    def borrow_link(self, active_license_pool,
                     borrow_mechanism, fulfillment_mechanisms, active_hold=None):
+        if active_license_pool.open_access:
+            # No need to borrow from a shared collection when the book
+            # already has an open access link.
+            return None
+
+        identifier = active_license_pool.identifier
         if active_hold:
             borrow_url = self.url_for(
                 "shared_collection_borrow",
