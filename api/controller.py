@@ -1574,6 +1574,10 @@ class SharedCollectionController(CirculationManagerController):
     support it."""
     def info(self, collection_name):
         """Return an OPDS2 catalog-like document with a link to register."""
+        collection = get_one(self._db, Collection, name=collection_name)
+        if not collection:
+            return NO_SUCH_COLLECTION
+
         register_url = self.url_for('shared_collection_register',
                                     collection_name=collection_name)
         register_link = dict(href=register_url, rel='register')

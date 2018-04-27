@@ -2554,24 +2554,33 @@ class TestFeedController(CirculationControllerTest):
                 eq_(1, len(links))
                 eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, links[0].get("rel"))
 
-            # Shared collection with one book.
+            # Shared collection with two books.
             collection = MockODLWithConsolidatedCopiesAPI.mock_collection(self._db)
             self.english_2.license_pools[0].collection = collection
+            work = self._work(title="A", with_license_pool=True, collection=collection)
             self._db.flush()
             SessionManager.refresh_materialized_views(self._db)
             response = self.manager.opds_feeds.crawlable_collection_feed(
                 collection.name
             )
             feed = feedparser.parse(response.data)
-            eq_([self.english_2.title], [x['title'] for x in feed['entries']])
-            [entry] = feed.get("entries")
-            links = entry.get("links")
+            [entry1, entry2] = sorted(feed['entries'], key=lambda x: x['title'])
+            eq_(work.title, entry1["title"])
+            # The first title isn't open access, so it has a borrow link but no open access link.
+            links = entry1.get("links")
+            eq_(0, len([link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]))
             [borrow_link] = [link for link in links if link.get("rel") == Hyperlink.BORROW]
-            [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
-            pool = self.english_2.license_pools[0]
+            pool = work.license_pools[0]
             expected = "/collections/%s/%s/%s/borrow" % (urllib.quote(collection.name), urllib.quote(pool.identifier.type), urllib.quote(pool.identifier.identifier))
             assert expected in borrow_link.get("href")
-            eq_(self.english_2.license_pools[0].identifier.links[0].resource.url, open_access_link.get("href"))
+
+            eq_(self.english_2.title, entry2["title"])
+            links = entry2.get("links")
+            # The second title is open access, so it has an open access link but no borrow link.
+            eq_(0, len([link for link in links if link.get("rel") == Hyperlink.BORROW]))
+            [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
+            pool = self.english_2.license_pools[0]
+            eq_(pool.identifier.links[0].resource.url, open_access_link.get("href"))
 
         # The collection must exist.
         with self.app.test_request_context("/?size=1"):
@@ -2999,7 +3008,10 @@ class TestSharedCollectionController(ControllerTest):
             yield c
 
     def test_info(self):
-        with self.app.test_request_context("/", method="POST"):
+        with self.app.test_request_context("/"):
+            collection = self.manager.shared_collection_controller.info(self._str)
+            eq_(NO_SUCH_COLLECTION, collection)
+
             response = self.manager.shared_collection_controller.info(self.collection.name)
             eq_(200, response.status_code)
             assert response.headers.get("Content-Type").startswith("application/opds+json")
