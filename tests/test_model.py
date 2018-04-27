@@ -51,6 +51,7 @@ from lane import (
 import model
 from model import (
     Admin,
+    AdminRole,
     Annotation,
     BaseCoverageRecord,
     CachedFeed,
@@ -9013,6 +9014,72 @@ class TestAdmin(DatabaseTest):
         eq_(None, Admin.authenticate(self._db, "other@nypl.org", "password"))
         eq_(None, Admin.authenticate(self._db, "example@nypl.org", "password"))
 
+    def test_roles(self):
+        # The admin has no roles yet.
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(False, self.admin.is_librarian(self._default_library))
+
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+        eq_(True, self.admin.is_system_admin())
+        eq_(True, self.admin.is_sitewide_library_manager())
+        eq_(True, self.admin.is_sitewide_librarian())
+        eq_(True, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        self.admin.add_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
+        eq_(False, self.admin.is_system_admin())
+        eq_(True, self.admin.is_sitewide_library_manager())
+        eq_(True, self.admin.is_sitewide_librarian())
+        eq_(True, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
+        self.admin.add_role(AdminRole.SITEWIDE_LIBRARIAN)
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_sitewide_library_manager())
+        eq_(True, self.admin.is_sitewide_librarian())
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.SITEWIDE_LIBRARIAN)
+        self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_sitewide_library_manager())
+        eq_(False, self.admin.is_sitewide_librarian())
+        eq_(True, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+        self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_sitewide_library_manager())
+        eq_(False, self.admin.is_sitewide_librarian())
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_sitewide_library_manager())
+        eq_(False, self.admin.is_sitewide_librarian())
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(False, self.admin.is_librarian(self._default_library))
+
+        other_library = self._library()
+        self.admin.add_role(AdminRole.LIBRARY_MANAGER, other_library)
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_library_manager(other_library))
+        self.admin.add_role(AdminRole.SITEWIDE_LIBRARIAN)
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_library_manager(other_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+        eq_(True, self.admin.is_librarian(other_library))
+        self.admin.remove_role(AdminRole.LIBRARY_MANAGER, other_library)
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(False, self.admin.is_library_manager(other_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+        eq_(True, self.admin.is_librarian(other_library))
 
 class TestTupleToNumericrange(object):
     """Test the tuple_to_numericrange helper function."""
