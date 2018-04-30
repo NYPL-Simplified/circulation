@@ -40,3 +40,34 @@ class TestOpenSearchDocument(DatabaseTest):
         eq_("Search Science Fiction &amp; Fantasy", info['description'])
         eq_("science-fiction-&amp;-fantasy", info['tags'])
     
+    def test_url_template(self):
+        """Verify that url_template generates sensible URL templates."""
+        m = OpenSearchDocument.url_template
+        eq_("http://url/?q={searchTerms}", m("http://url/"))
+        eq_("http://url/?key=val&q={searchTerms}", m("http://url/?key=val"))
+
+    def test_for_lane(self):
+
+        class Mock(OpenSearchDocument):
+            """Mock methods called by for_lane."""
+            @classmethod
+            def search_info(cls, lane):
+                return dict(
+                    name="name",
+                    description="description",
+                    tags=["tag"],
+                )
+
+            @classmethod
+            def url_template(cls, base_url):
+                return "http://template/"
+
+        # Here's the search document.
+        doc = Mock.for_lane(object(), object())
+
+        # It's just the result of calling search_info() and url_template(),
+        # and using the resulting dict as arguments into TEMPLATE.
+        expect = Mock.search_info(object())
+        expect['url_template'] = Mock.url_template(object())
+        eq_(Mock.TEMPLATE % expect, doc)
+
