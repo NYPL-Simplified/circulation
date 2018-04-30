@@ -37,8 +37,14 @@ class TestOpenSearchDocument(DatabaseTest):
 
         info = OpenSearchDocument.search_info(root_lane)
         eq_("Search", info['name'])
-        eq_("Search Science Fiction &amp; Fantasy", info['description'])
-        eq_("science-fiction-&amp;-fantasy", info['tags'])
+        eq_("Search Science Fiction & Fantasy", info['description'])
+        eq_("science-fiction-&-fantasy", info['tags'])
+
+    def test_escape_entities(self):
+        """Verify that escape_entities properly escapes ampersands."""
+        d = dict(k1="a", k2="b & c")
+        expect = dict(k1="a", k2="b &amp; c")
+        eq_(expect, OpenSearchDocument.escape_entities(d))
     
     def test_url_template(self):
         """Verify that url_template generates sensible URL templates."""
@@ -53,14 +59,14 @@ class TestOpenSearchDocument(DatabaseTest):
             @classmethod
             def search_info(cls, lane):
                 return dict(
-                    name="name",
-                    description="description",
-                    tags=["tag"],
+                    name="sf & fantasy",
+                    description="description & stuff",
+                    tags="sf-&-fantasy, tag2",
                 )
 
             @classmethod
             def url_template(cls, base_url):
-                return "http://template/"
+                return "http://template?key1=val1&key2=val2"
 
         # Here's the search document.
         doc = Mock.for_lane(object(), object())
@@ -69,5 +75,5 @@ class TestOpenSearchDocument(DatabaseTest):
         # and using the resulting dict as arguments into TEMPLATE.
         expect = Mock.search_info(object())
         expect['url_template'] = Mock.url_template(object())
+        expect = Mock.escape_entities(expect)
         eq_(Mock.TEMPLATE % expect, doc)
-
