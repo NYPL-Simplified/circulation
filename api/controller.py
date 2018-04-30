@@ -1010,7 +1010,8 @@ class LoanController(CirculationManagerController):
         return best, mechanism
 
     def fulfill(self, license_pool_id, mechanism_id=None, do_get=None):
-        """Fulfill a book that has already been checked out.
+        """Fulfill a book that has already been checked out,
+        or which can be fulfilled with no active loan.
 
         If successful, this will serve the patron a downloadable copy of
         the book, or a DRM license file which can be used to get the
@@ -1029,12 +1030,6 @@ class LoanController(CirculationManagerController):
         if isinstance(pool, ProblemDetail):
             return pool
 
-        loan, loan_license_pool = self.get_patron_loan(patron, [pool])
-
-        if not loan or not loan_license_pool:
-            return NO_ACTIVE_LOAN.detailed(
-                _("You have no active loan for this title.")
-            )
 
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
@@ -1044,6 +1039,15 @@ class LoanController(CirculationManagerController):
             )
             if isinstance(mechanism, ProblemDetail):
                 return mechanism
+
+        loan, loan_license_pool = self.get_patron_loan(patron, [pool])
+
+        if (not loan or not loan_license_pool) and not (
+                self.circulation.can_fulfill_without_loan(patron, pool)
+        ):
+            return NO_ACTIVE_LOAN.detailed(
+                _("You have no active loan for this title.")
+            )
 
         if not mechanism:
             # See if the loan already has a mechanism set. We can use that.
@@ -1056,7 +1060,7 @@ class LoanController(CirculationManagerController):
 
         try:
             fulfillment = self.circulation.fulfill(
-                patron, credential, loan.license_pool, mechanism
+                patron, credential, loan_license_pool, mechanism
             )
         except DeliveryMechanismConflict, e:
             return DELIVERY_CONFLICT.detailed(e.message)
@@ -1111,7 +1115,7 @@ class LoanController(CirculationManagerController):
             if fulfillment.content_type:
                 headers['Content-Type'] = fulfillment.content_type
 
-        return Response(content, status_code, headers)
+        return Response(content, status_code, headers)        
 
     def revoke(self, license_pool_id):
         patron = flask.request.patron

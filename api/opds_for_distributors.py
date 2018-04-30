@@ -128,6 +128,16 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
                                  refresher_method=refresh,
                                  )
 
+    def can_fulfill_without_loan(
+            self, patron, licensepool, delivery_mechanism
+    ):
+        """Since OPDS For Distributors allows loans of indefinite length and
+        has no DRM, any book can be fulfilled without identifying the
+        patron, assuming the library's policies support it.
+        """
+        return delivery_mechanism delivery_mechanism.delivery_mechanism.drm_scheme==
+        return True
+
     def checkin(self, patron, pin, licensepool):
         # Delete the patron's loan for this licensepool.
         _db = Session.object_session(patron)

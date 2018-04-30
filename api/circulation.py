@@ -616,8 +616,25 @@ class CirculationAPI(object):
                 patron.library, licensepool,
                 CirculationEvent.CM_CHECKOUT,
             )
+
+    def can_fulfill_without_loan(
+            self, patron, licensepool, delivery_mechanism
+    ):
+        """Can this CirculationAPI deliver a copy of the given book
+        to the given patron, even though the patron has no active loan?
+
+        :param patron: A Patron. This is probably None, indicating
+        that someone is trying to fulfill a book without identifying
+        themselves.
+
+        :param licensepool: The LicensePool for the requested book.
+
+        :param delivery_mechanism: The LicensePoolDeliveryMechanism
+        representing the requested format.
+        """
     
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
+
         """Fulfil a book that a patron has previously checked out.
 
         :param delivery_mechanism: A LicensePoolDeliveryMechanism
