@@ -74,7 +74,6 @@ class TestOpenSearchDocument(DatabaseTest):
         # It's just the result of calling search_info() and url_template(),
         # and using the resulting dict as arguments into TEMPLATE.
         expect = Mock.search_info(object())
-        escaped_template = Mock.url_template(object())
-        expect['url_template'] = escaped_template
+        expect['url_template'] = Mock.url_template(object())
         expect = Mock.escape_entities(expect)
         eq_(Mock.TEMPLATE % expect, doc)
