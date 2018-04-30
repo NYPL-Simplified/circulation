@@ -26,7 +26,11 @@ class OpenSearchDocument(object):
 
     @classmethod
     def for_lane(cls, lane, base_url):
+        if '?' in base_url:
+            query = '&'
+        else:
+            query = '?'
         info = cls.search_info(lane)
-        info['url_template'] = base_url + "?q={searchTerms}"
+        info['url_template'] = base_url + query + "q={searchTerms}"
 
         return cls.TEMPLATE % info
