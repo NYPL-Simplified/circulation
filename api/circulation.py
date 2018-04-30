@@ -632,6 +632,8 @@ class CirculationAPI(object):
         :param delivery_mechanism: The LicensePoolDeliveryMechanism
         representing the requested format.
         """
+        # In general, this is not possible.
+        return False
     
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
 

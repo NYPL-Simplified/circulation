@@ -1022,6 +1022,7 @@ class LoanController(CirculationManagerController):
         do_get = do_get or Representation.simple_http_get
 
         patron = flask.request.patron
+        library = flask.request.library
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
 
@@ -1030,20 +1031,19 @@ class LoanController(CirculationManagerController):
         if isinstance(pool, ProblemDetail):
             return pool
 
+        loan, loan_license_pool = self.get_patron_loan(patron, [pool])
 
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
         if mechanism_id:
             mechanism = self.load_licensepooldelivery(
-                loan_license_pool, mechanism_id
+                loan_license_pool or pool, mechanism_id
             )
             if isinstance(mechanism, ProblemDetail):
                 return mechanism
 
-        loan, loan_license_pool = self.get_patron_loan(patron, [pool])
-
         if (not loan or not loan_license_pool) and not (
-                self.circulation.can_fulfill_without_loan(patron, pool)
+                self.can_fulfill_without_loan(library, patron, mechanism)
         ):
             return NO_ACTIVE_LOAN.detailed(
                 _("You have no active loan for this title.")
@@ -1116,6 +1116,29 @@ class LoanController(CirculationManagerController):
                 headers['Content-Type'] = fulfillment.content_type
 
         return Response(content, status_code, headers)        
+
+    def can_fulfill_without_loan(self, library, patron, lpdm):
+        """Is it acceptable to fulfill the given LicensePoolDeliveryMechanism
+        for the given Patron without creating a Loan first?
+
+        This probably happens because no Patron has been authenticated
+        and thus no Loan can be created.
+
+        :param library: A Library.
+        :param patron: A Patron, probably None.
+        :param lpdm: A LicensePoolDeliveryMechanism.
+        """
+        # If library's authentication mechanism requires that
+        # individual patrons identify themselves, then there is no way
+        # to fulfill books without a loan.
+        authenticator = self.auth.library_authenticators.get(library.short_name)
+        if self.manager.auth:
+            pass
+
+        # Otherwise, it's up to the CirculationAPI object.
+        return self.circulation.can_fulfill_without_loan(
+            patron, pool, mechanism
+        )
 
     def revoke(self, license_pool_id):
         patron = flask.request.patron
