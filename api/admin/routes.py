@@ -579,7 +579,6 @@ def admin_sign_in_again():
         return redirect(app.manager.url_for('admin_sign_in', redirect=redirect_url))
     return flask.render_template_string(sign_in_again_template)
 
-@app.route('/admin/web', strict_slashes=False)
 @app.route('/admin/web/', strict_slashes=False)
 @app.route('/admin/web/collection/<path:collection>/book/<path:book>', strict_slashes=False)
 @app.route('/admin/web/collection/<path:collection>', strict_slashes=False)
@@ -588,7 +587,6 @@ def admin_sign_in_again():
 def admin_view(collection=None, book=None, etc=None, **kwargs):
     return app.manager.admin_view_controller(collection, book, path=etc)
 
-@app.route('/admin', strict_slashes=False)
 @app.route('/admin/', strict_slashes=False)
 def admin_base(**kwargs):
     return redirect(app.manager.url_for('admin_view'))
