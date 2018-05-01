@@ -1124,27 +1124,33 @@ class LoanController(CirculationManagerController):
         """Is it acceptable to fulfill the given LicensePoolDeliveryMechanism
         for the given Patron without creating a Loan first?
 
-        This question is probably asked because no Patron has been
-        authenticated and thus no Loan can be created.
+        This question is usually asked because no Patron has been
+        authenticated, and thus no Loan can be created, but somebody
+        wants a book anyway.
 
         :param library: A Library.
         :param patron: A Patron, probably None.
         :param lpdm: A LicensePoolDeliveryMechanism.
         """
         # If library's authentication mechanism requires that
-        # individual patrons identify themselves, then there is no way
-        # to fulfill books without a loan.
+        # individual patrons identify themselves, then there is no
+        # reason to fulfill books without a loan. Even if the books
+        # are free and the 'loans' are nominal, having a Loan object
+        # makes it possible for a patron to sync their collection
+        # across devices.
         authenticator = self.manager.auth.library_authenticators.get(library.short_name)
-        if self.manager.auth is not None:
+        if authenticator is not None:
             # TODO: in the future there will be authentication
-            # mechanisms, such as geo-gates, that don't identify
-            # specific people. When those are added, this check will
-            # need an extra clause.
+            # mechanisms, such as geo-gates, that perform
+            # authorization but don't identify specific people. When
+            # those are added, this check will need an extra clause.
             return False
 
         # If the library doesn't require that individual patrons
         # identify themselves, it's up to the CirculationAPI object.
-        # Most of them will say no.
+        # Most of them will say no. (This would indicate that the
+        # collection is improperly associated with a library that
+        # doesn't identify its patrons.)
         return self.circulation.can_fulfill_without_loan(patron, lpdm)
 
     def revoke(self, license_pool_id):

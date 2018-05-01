@@ -976,6 +976,36 @@ class TestLoanController(CirculationControllerTest):
         self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
 
+    def test_can_fulfill_without_loan(self):
+        """Test the circumstances under which a title can be fulfilled
+        in the absence of an active loan for that title.
+        """
+        m = self.manager.loans.can_fulfill_without_loan
+
+        # If the library has a way of authenticating patrons (as the
+        # default library does), then fulfilling a title always
+        # requires an active loan.
+        patron = object()
+        lpdm = object()
+        eq_(False, m(self._default_library, patron, lpdm))
+
+        # If the library does not authenticate patrons, then this
+        # _may_ be possible, but
+        # CirculationAPI.can_fulfill_without_loan also has to say it's
+        # okay.
+        del self.manager.auth.library_authenticators[
+            self._default_library.short_name
+        ]
+        def mock_can_fulfill_without_loan(patron, lpdm):
+            self.called_with = (patron, lpdm)
+            return True
+        with self.request_context_with_library("/"):
+            self.manager.loans.circulation.can_fulfill_without_loan = (
+                mock_can_fulfill_without_loan
+            )
+            eq_(True, m(self._default_library, patron, lpdm))
+            eq_((patron, lpdm), self.called_with)
+
     def test_patron_circulation_retrieval(self):
         """The controller can get loans and holds for a patron, even if
         there are multiple licensepools on the Work.
