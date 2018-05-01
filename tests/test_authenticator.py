@@ -755,9 +755,17 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         )
         eq_(False, authenticator.identifies_individuals)
 
-        # Let's change that.
+        # If some Authenticators identify individuals and some do not,
+        # the library as a whole does not (necessarily) identify
+        # individuals.
         basic.IDENTIFIES_INDIVIDUALS = True
+        eq_(False, authenticator.identifies_individuals)
+
+        # If every Authenticator identifies individuals, then so does
+        # the library as a whole.
+        oauth.IDENTIFIES_INDIVIDUALS = True
         eq_(True, authenticator.identifies_individuals)
+
 
     def test_providers(self):
         integration = self._external_integration(self._str)

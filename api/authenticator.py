@@ -509,16 +509,22 @@ class LibraryAuthenticator(object):
 
     @property
     def identifies_individuals(self):
-        """Does this library identify individual patrons?
+        """Does this library require that individual patrons be identified?
 
         Most libraries require authentication as an individual. Some
         libraries don't identify patrons at all; others may have a way
         of identifying the patron population without identifying
         individuals, such as an IP gate.
+
+        If some of a library's authentication mechanisms identify individuals,
+        and others do not, the library does not identify individuals.
         """
         if not self.supports_patron_authentication:
             return False
-        return any([x for x in self.providers if x.IDENTIFIES_INDIVIDUALS])
+        matches = list(self.providers)
+        return matches and all(
+            [x.IDENTIFIES_INDIVIDUALS for x in matches]
+        )
 
     @property
     def library(self):
