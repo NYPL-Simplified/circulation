@@ -1130,7 +1130,7 @@ class LoanController(CirculationManagerController):
         # If library's authentication mechanism requires that
         # individual patrons identify themselves, then there is no way
         # to fulfill books without a loan.
-        authenticator = self.auth.library_authenticators.get(library.short_name)
+        authenticator = self.manager.auth.library_authenticators.get(library.short_name)
         if self.manager.auth is not None:
             # TODO: in the future there will be authentication
             # mechanisms, such as geo-gates, that don't identify

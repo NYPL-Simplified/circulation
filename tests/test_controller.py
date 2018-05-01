@@ -1384,7 +1384,7 @@ class TestLoanController(CirculationControllerTest):
                 "/", headers=dict(Authorization=self.valid_auth)):
             self.manager.loans.authenticated_patron_from_request()
             response = self.manager.loans.fulfill(
-                self.pool.id, self.mech2.id
+                self.pool.id, self.mech2.delivery_mechanism.id
             )
 
             eq_(NO_ACTIVE_LOAN.uri, response.uri)
