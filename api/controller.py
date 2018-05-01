@@ -1013,11 +1013,10 @@ class LoanController(CirculationManagerController):
         """Fulfill a book that has already been checked out,
         or which can be fulfilled with no active loan.
 
-        If successful, this will serve the patron a downloadable copy of
-        the book, or a DRM license file which can be used to get the
-        book). Alternatively, for a streaming delivery mechanism it may
-        serve an OPDS entry with a link to a third-party web page that
-        streams the content.
+        If successful, this will serve the patron a downloadable copy
+        of the book, a key (such as a DRM license file or bearer
+        token) which can be used to get the book, or an OPDS entry
+        containing a link to the book.
         """
         do_get = do_get or Representation.simple_http_get
 
@@ -1115,14 +1114,14 @@ class LoanController(CirculationManagerController):
             if fulfillment.content_type:
                 headers['Content-Type'] = fulfillment.content_type
 
-        return Response(content, status_code, headers)        
+        return Response(content, status_code, headers)
 
     def can_fulfill_without_loan(self, library, patron, lpdm):
         """Is it acceptable to fulfill the given LicensePoolDeliveryMechanism
         for the given Patron without creating a Loan first?
 
-        This probably happens because no Patron has been authenticated
-        and thus no Loan can be created.
+        This question is probably asked because no Patron has been
+        authenticated and thus no Loan can be created.
 
         :param library: A Library.
         :param patron: A Patron, probably None.
@@ -1132,13 +1131,17 @@ class LoanController(CirculationManagerController):
         # individual patrons identify themselves, then there is no way
         # to fulfill books without a loan.
         authenticator = self.auth.library_authenticators.get(library.short_name)
-        if self.manager.auth:
-            pass
+        if self.manager.auth is not None:
+            # TODO: in the future there will be authentication
+            # mechanisms, such as geo-gates, that don't identify
+            # specific people. When those are added, this check will
+            # need an extra clause.
+            return False
 
-        # Otherwise, it's up to the CirculationAPI object.
-        return self.circulation.can_fulfill_without_loan(
-            patron, pool, mechanism
-        )
+        # If the library doesn't require that individual patrons
+        # identify themselves, it's up to the CirculationAPI object.
+        # Most of them will say no.
+        return self.circulation.can_fulfill_without_loan(patron, lpdm)
 
     def revoke(self, license_pool_id):
         patron = flask.request.patron

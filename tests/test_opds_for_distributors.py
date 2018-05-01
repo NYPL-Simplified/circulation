@@ -44,6 +44,37 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         self.collection = MockOPDSForDistributorsAPI.mock_collection(self._db)
         self.api = MockOPDSForDistributorsAPI(self._db, self.collection)
 
+    def test_can_fulfill_without_loan(self):
+        """A book made available through OPDS For Distributors can be
+        fulfilled with no underlying loan, if its delivery mechanism
+        uses bearer token fulfillment.
+        """
+        patron = object()
+        pool = self._licensepool(edition=None, collection=self.collection)
+        [lpdm] = pool.delivery_mechanisms
+
+        m = self.api.can_fulfill_without_loan
+
+        # No LicensePoolDeliveryMechanism -> False
+        eq_(False, m(patron, None))
+
+        # No DeliveryMechanism -> False
+        old_dm = lpdm.delivery_mechanism
+        lpdm.delivery_mechanism = None
+        eq_(False, m(patron, lpdm))
+
+        # DRM mechanism requires identifying a specific patron -> False
+        lpdm.delivery_mechanism = old_dm
+        lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.ADOBE_DRM
+        eq_(False, m(patron, lpdm))
+
+        # Otherwise -> True
+        lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.NO_DRM
+        eq_(True, m(patron, lpdm))
+
+        lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.BEARER_TOKEN
+        eq_(True, m(patron, lpdm))
+
     def test_get_token_success(self):
         # The API hasn't been used yet, so it will need to find the auth
         # document and authenticate url.
