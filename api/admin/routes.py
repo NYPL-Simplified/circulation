@@ -580,10 +580,10 @@ def admin_sign_in_again():
     return flask.render_template_string(sign_in_again_template)
 
 @app.route('/admin/web/', strict_slashes=False)
-@app.route('/admin/web/collection/<path:collection>/book/<path:book>', strict_slashes=False)
-@app.route('/admin/web/collection/<path:collection>', strict_slashes=False)
-@app.route('/admin/web/book/<path:book>', strict_slashes=False)
-@app.route('/admin/web/<path:etc>', strict_slashes=False) # catchall for single-page URLs
+@app.route('/admin/web/collection/<path:collection>/book/<path:book>')
+@app.route('/admin/web/collection/<path:collection>')
+@app.route('/admin/web/book/<path:book>')
+@app.route('/admin/web/<path:etc>') # catchall for single-page URLs
 def admin_view(collection=None, book=None, etc=None, **kwargs):
     return app.manager.admin_view_controller(collection, book, path=etc)
 

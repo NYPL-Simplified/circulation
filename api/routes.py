@@ -189,7 +189,7 @@ def library_dir_route(path, *args, **kwargs):
         return default_library_no_slash
     return decorator
 
-@library_route("/")
+@library_route("/", strict_slashes=False)
 @has_library
 @allows_patron_web
 @returns_problem_detail
