@@ -809,6 +809,8 @@ class OPDSFeedController(CirculationManagerController):
 class LoanController(CirculationManagerController):
 
     def get_patron_circ_objects(self, object_class, patron, license_pools):
+        if not patron:
+            return []
         pool_ids = [pool.id for pool in license_pools]
 
         return self._db.query(object_class).filter(
@@ -1020,7 +1022,9 @@ class LoanController(CirculationManagerController):
         """
         do_get = do_get or Representation.simple_http_get
 
-        patron = flask.request.patron
+        # Unlike most controller methods, this one does not require
+        # that the patron be authenticated.
+        patron = getattr(flask.request, 'patron', None)
         library = flask.request.library
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
