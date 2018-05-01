@@ -30,6 +30,7 @@ from opds_import import (
 )
 from util.opds_writer import (
     AtomFeed,
+    OPDSFeed,
     OPDSMessage,
 )
 from metadata_layer import (
@@ -58,6 +59,7 @@ from s3 import (
     MockS3Uploader,
 )
 from testing import DummyHTTPClient
+from util.http import BadResponseException
 
 
 class DoomedOPDSImporter(OPDSImporter):
@@ -1590,7 +1592,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         class MockOPDSImportMonitor(OPDSImportMonitor):
             def _get(self, url, headers):
-                return 200, {}, feed
+                return 200, {"content-type": AtomFeed.ATOM_TYPE}, feed
 
         monitor = OPDSImportMonitor(
             self._db, self._default_collection,
@@ -1662,6 +1664,12 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         record.timestamp = datetime.datetime(1970, 1, 1, 1, 1, 1)
         eq_(True, monitor.feed_contains_new_data(feed))
 
+    def http_with_feed(self, feed, content_type=OPDSFeed.ACQUISITION_FEED_TYPE):
+        """Helper method to make a DummyHTTPClient with a
+        successful OPDS feed response queued.
+        """
+        return http
+
     def test_follow_one_link(self):
         monitor = OPDSImportMonitor(
             self._db, collection=self._default_collection,
@@ -1669,13 +1677,12 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         )
         feed = self.content_server_mini_feed
 
-        # If there's new data, follow_one_link extracts the next links.
-
         http = DummyHTTPClient()
-        http.queue_response(200, content=feed)
-
-        next_links, content = monitor.follow_one_link("http://url", do_get=http.do_get)
-        
+        # If there's new data, follow_one_link extracts the next links.
+        def follow():
+            return monitor.follow_one_link("http://url", do_get=http.do_get)
+        http.queue_response(200, OPDSFeed.ACQUISITION_FEED_TYPE, content=feed)
+        next_links, content = follow()
         eq_(1, len(next_links))
         eq_("http://localhost:5000/?after=327&size=100", next_links[0])
 
@@ -1695,14 +1702,27 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             record.timestamp = datetime.datetime(2016, 1, 1, 1, 1, 1)
 
 
-        # If there's no new data, follow_one_link returns no next links and no content.
-        http.queue_response(200, content=feed)
-
-        next_links, content = monitor.follow_one_link("http://url", do_get=http.do_get)
-
+        # If there's no new data, follow_one_link returns no next
+        # links and no content.
+        #
+        # Note that this works even though the feed type is inaccurately
+        # stated as Atom rather than OPDS.
+        http.queue_response(200, AtomFeed.ATOM_TYPE, content=feed)
+        next_links, content = follow()
         eq_(0, len(next_links))
         eq_(None, content)
 
+        # If the media type is missing or is not an Atom feed,
+        # an exception is raised.
+        http.queue_response(200, None, content=feed)
+        assert_raises_regexp(
+            BadResponseException, ".*Expected Atom feed, got None.*", follow
+        )
+
+        http.queue_response(200, "not/atom", content=feed)
+        assert_raises_regexp(
+            BadResponseException, ".*Expected Atom feed, got not/atom.*", follow
+        )
 
     def test_import_one_feed(self):
         # Check coverage records are created.
