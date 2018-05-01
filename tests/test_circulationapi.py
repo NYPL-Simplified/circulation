@@ -832,6 +832,13 @@ class TestCirculationAPI(DatabaseTest):
         eq_(0, len(holds))
         eq_(False, complete)        
 
+    def test_can_fulfill_without_loan(self):
+        """In general, a title cannot be fulfilled without an active loan.
+
+        See opds_for_distributors.py for an exception.
+        """
+        api = CirculationAPI(self._db, self._default_library)
+        eq_(False, api.can_fulfill_without_loan(object(), object()))
 
 class TestDeliveryMechanismInfo(DatabaseTest):
 
