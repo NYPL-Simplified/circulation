@@ -840,6 +840,7 @@ class TestCirculationAPI(DatabaseTest):
         api = CirculationAPI(self._db, self._default_library)
         eq_(False, api.can_fulfill_without_loan(object(), object()))
 
+
 class TestDeliveryMechanismInfo(DatabaseTest):
 
     def test_apply(self):

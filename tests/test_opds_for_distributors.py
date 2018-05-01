@@ -27,6 +27,8 @@ from core.model import (
     Representation,
     RightsStatus,
 )
+from core.util.opds_writer import OPDSFeed
+
 
 class BaseOPDSForDistributorsTest(object):
     base_path = os.path.split(__file__)[0]
@@ -395,7 +397,9 @@ class TestOPDSForDistributorsReaperMonitor(DatabaseTest, BaseOPDSForDistributors
         class MockOPDSForDistributorsReaperMonitor(OPDSForDistributorsReaperMonitor):
             """An OPDSForDistributorsReaperMonitor that overrides _get."""
             def _get(self, url, headers):
-                return 200, {}, feed
+                return (
+                    200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, feed
+                )
 
         data_source = DataSource.lookup(self._db, "Biblioboard", autocreate=True)
         collection = MockOPDSForDistributorsAPI.mock_collection(self._db)
