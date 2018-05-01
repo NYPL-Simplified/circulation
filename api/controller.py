@@ -1036,17 +1036,20 @@ class LoanController(CirculationManagerController):
 
         loan, loan_license_pool = self.get_patron_loan(patron, [pool])
 
+        requested_license_pool = loan_license_pool or pool
+
         # Find the LicensePoolDeliveryMechanism they asked for.
         mechanism = None
         if mechanism_id:
             mechanism = self.load_licensepooldelivery(
-                loan_license_pool or pool, mechanism_id
+                requested_license_pool, mechanism_id
             )
             if isinstance(mechanism, ProblemDetail):
                 return mechanism
 
         if (not loan or not loan_license_pool) and not (
-                self.can_fulfill_without_loan(library, patron, mechanism)
+                self.can_fulfill_without_loan(
+                    library, patron, requested_license_pool, mechanism)
         ):
             return NO_ACTIVE_LOAN.detailed(
                 _("You have no active loan for this title.")
@@ -1063,7 +1066,7 @@ class LoanController(CirculationManagerController):
 
         try:
             fulfillment = self.circulation.fulfill(
-                patron, credential, loan_license_pool, mechanism
+                patron, credential, requested_license_pool, mechanism
             )
         except DeliveryMechanismConflict, e:
             return DELIVERY_CONFLICT.detailed(e.message)
@@ -1120,7 +1123,7 @@ class LoanController(CirculationManagerController):
 
         return Response(content, status_code, headers)
 
-    def can_fulfill_without_loan(self, library, patron, lpdm):
+    def can_fulfill_without_loan(self, library, patron, pool, lpdm):
         """Is it acceptable to fulfill the given LicensePoolDeliveryMechanism
         for the given Patron without creating a Loan first?
 
@@ -1132,18 +1135,13 @@ class LoanController(CirculationManagerController):
         :param patron: A Patron, probably None.
         :param lpdm: A LicensePoolDeliveryMechanism.
         """
-        # If library's authentication mechanism requires that
-        # individual patrons identify themselves, then there is no
-        # reason to fulfill books without a loan. Even if the books
-        # are free and the 'loans' are nominal, having a Loan object
-        # makes it possible for a patron to sync their collection
-        # across devices.
         authenticator = self.manager.auth.library_authenticators.get(library.short_name)
-        if authenticator is not None:
-            # TODO: in the future there will be authentication
-            # mechanisms, such as geo-gates, that perform
-            # authorization but don't identify specific people. When
-            # those are added, this check will need an extra clause.
+        if authenticator.identifies_individuals:
+            # This library identifies individual patrons, so there is
+            # no reason to fulfill books without a loan. Even if the
+            # books are free and the 'loans' are nominal, having a
+            # Loan object makes it possible for a patron to sync their
+            # collection across devices, so that's the way we do it.
             return False
 
         # If the library doesn't require that individual patrons
@@ -1151,7 +1149,7 @@ class LoanController(CirculationManagerController):
         # Most of them will say no. (This would indicate that the
         # collection is improperly associated with a library that
         # doesn't identify its patrons.)
-        return self.circulation.can_fulfill_without_loan(patron, lpdm)
+        return self.circulation.can_fulfill_without_loan(patron, pool, lpdm)
 
     def revoke(self, license_pool_id):
         patron = flask.request.patron

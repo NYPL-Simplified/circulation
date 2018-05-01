@@ -617,13 +617,13 @@ class CirculationAPI(object):
                 CirculationEvent.CM_CHECKOUT,
             )
 
-    def can_fulfill_without_loan(self, patron, lpdm):
-        """Can this CirculationAPI deliver the given book in the given format
-        to the given patron, even though the patron has no active
-        loan for that book?
+    def can_fulfill_without_loan(self, patron, pool, lpdm):
+        """Can we deliver the given book in the given format to the given
+        patron, even though the patron has no active loan for that
+        book?
 
         In general this is not possible, but there are some
-        exceptions, managed in subclasses.
+        exceptions, managed in subclasses of BaseCirculationAPI.
 
         :param patron: A Patron. This is probably None, indicating
         that someone is trying to fulfill a book without identifying
@@ -632,7 +632,12 @@ class CirculationAPI(object):
         :param delivery_mechanism: The LicensePoolDeliveryMechanism
         representing a format for a specific title.
         """
-        return False
+        if not lpdm or not pool:
+            return False
+        api = self.api_for_license_pool(pool)
+        if not api:
+            return False
+        return api.can_fulfill_without_loan(patron, pool, lpdm)
     
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
 
@@ -651,7 +656,9 @@ class CirculationAPI(object):
             self._db, Loan, patron=patron, license_pool=licensepool,
             on_multiple='interchangeable'
         )
-        if not loan:
+        if not loan and not self.can_fulfill_without_loan(
+            patron, licensepool, delivery_mechanism
+        ):
             if sync_on_failure:
                 # Sync and try again.
                 # TODO: Pass in only the single collection or LicensePool
@@ -664,7 +671,7 @@ class CirculationAPI(object):
                 )
             else:
                 raise NoActiveLoan(_("Cannot find your active loan for this work."))
-        if loan.fulfillment is not None and not loan.fulfillment.compatible_with(delivery_mechanism):
+        if loan and loan.fulfillment is not None and not loan.fulfillment.compatible_with(delivery_mechanism):
             raise DeliveryMechanismConflict(
                 _("You already fulfilled this loan as %(loan_delivery_mechanism)s, you can't also do it as %(requested_delivery_mechanism)s",
                   loan_delivery_mechanism=loan.fulfillment.delivery_mechanism.name, 
@@ -690,14 +697,17 @@ class CirculationAPI(object):
         # a fulfillment was initiated through the circulation
         # manager.
         if self.analytics:
+            if patron:
+                library = patron.library
+            else:
+                library = None
             self.analytics.collect_event(
-                patron.library, licensepool,
-                CirculationEvent.CM_FULFILL,
+                library, licensepool, CirculationEvent.CM_FULFILL,
             )
 
         # Make sure the delivery mechanism we just used is associated
-        # with the loan.
-        if loan.fulfillment is None and not delivery_mechanism.delivery_mechanism.is_streaming:
+        # with the loan, if any.
+        if loan and loan.fulfillment is None and not delivery_mechanism.delivery_mechanism.is_streaming:
             __transaction = self._db.begin_nested()
             loan.fulfillment = delivery_mechanism
             __transaction.commit()
@@ -1142,6 +1152,9 @@ class BaseCirculationAPI(object):
         """
         raise NotImplementedError()
 
+    def can_fulfill_without_loan(self, patron, pool, lpdm):
+        """In general, you can't fulfill a book without a loan."""
+        return False
 
     def fulfill(self, patron, pin, licensepool, internal_format):
         """ Get the actual resource file to the patron.

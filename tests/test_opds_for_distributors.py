@@ -58,24 +58,28 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         m = self.api.can_fulfill_without_loan
 
         # No LicensePoolDeliveryMechanism -> False
-        eq_(False, m(patron, None))
+        eq_(False, m(patron, pool, None))
+
+        # No LicensePool -> False (there can be multiple LicensePools for
+        # a single LicensePoolDeliveryMechanism).
+        eq_(False, m(patron, None, lpdm))
 
         # No DeliveryMechanism -> False
         old_dm = lpdm.delivery_mechanism
         lpdm.delivery_mechanism = None
-        eq_(False, m(patron, lpdm))
+        eq_(False, m(patron, pool, lpdm))
 
         # DRM mechanism requires identifying a specific patron -> False
         lpdm.delivery_mechanism = old_dm
         lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.ADOBE_DRM
-        eq_(False, m(patron, lpdm))
+        eq_(False, m(patron, pool, lpdm))
 
         # Otherwise -> True
         lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.NO_DRM
-        eq_(True, m(patron, lpdm))
+        eq_(True, m(patron, pool, lpdm))
 
         lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.BEARER_TOKEN
-        eq_(True, m(patron, lpdm))
+        eq_(True, m(patron, pool, lpdm))
 
     def test_get_token_success(self):
         # The API hasn't been used yet, so it will need to find the auth

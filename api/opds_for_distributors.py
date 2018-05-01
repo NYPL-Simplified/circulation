@@ -128,7 +128,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
                                  refresher_method=refresh,
                                  )
 
-    def can_fulfill_without_loan(self, patron, lpdm):
+    def can_fulfill_without_loan(self, patron, licensepool, lpdm):
         """Since OPDS For Distributors delivers books to the library rather
         than creating loans, any book can be fulfilled without
         identifying the patron, assuming the library's policies
@@ -186,7 +186,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
 
                 # Obtain a Credential with the information from our
                 # bearer token.
-                _db = Session.object_session(patron)
+                _db = Session.object_session(licensepool)
                 credential = self._get_token(_db)
 
                 # Build a application/vnd.librarysimplified.bearer-token

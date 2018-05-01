@@ -986,25 +986,28 @@ class TestLoanController(CirculationControllerTest):
         # default library does), then fulfilling a title always
         # requires an active loan.
         patron = object()
+        pool = object()
         lpdm = object()
-        eq_(False, m(self._default_library, patron, lpdm))
+        eq_(False, m(self._default_library, patron, pool, lpdm))
 
         # If the library does not authenticate patrons, then this
         # _may_ be possible, but
         # CirculationAPI.can_fulfill_without_loan also has to say it's
         # okay.
-        del self.manager.auth.library_authenticators[
+        class MockLibraryAuthenticator(object):
+            identifies_individuals = False
+        self.manager.auth.library_authenticators[
             self._default_library.short_name
-        ]
-        def mock_can_fulfill_without_loan(patron, lpdm):
-            self.called_with = (patron, lpdm)
+        ] = MockLibraryAuthenticator()
+        def mock_can_fulfill_without_loan(patron, pool, lpdm):
+            self.called_with = (patron, pool, lpdm)
             return True
         with self.request_context_with_library("/"):
             self.manager.loans.circulation.can_fulfill_without_loan = (
                 mock_can_fulfill_without_loan
             )
-            eq_(True, m(self._default_library, patron, lpdm))
-            eq_((patron, lpdm), self.called_with)
+            eq_(True, m(self._default_library, patron, pool, lpdm))
+            eq_((patron, pool, lpdm), self.called_with)
 
     def test_patron_circulation_retrieval(self):
         """The controller can get loans and holds for a patron, even if
