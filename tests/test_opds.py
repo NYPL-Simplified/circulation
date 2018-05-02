@@ -254,6 +254,25 @@ class TestLibraryAnnotator(VendorIDTest):
         feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes)
         eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes))
 
+    def test_fulfill_link_issues_only_open_access_links_when_library_does_not_identify_patrons(self):
+
+        # This library doesn't identify patrons.
+        self.annotator.identifies_patrons = False
+
+        # Because of this, normal fulfillment links are not generated.
+        [pool] = self.work.license_pools
+        [lpdm] = pool.delivery_mechanisms
+        eq_(None, 
+            self.annotator.fulfill_link(pool, None, lpdm)
+        )
+
+        # However, fulfillment links _can_ be generated with the
+        # 'open-access' link relation.
+        link = self.annotator.fulfill_link(
+            pool, None, lpdm, OPDSFeed.OPEN_ACCESS_REL
+        )
+        eq_(OPDSFeed.OPEN_ACCESS_REL, link.attrib['rel'])
+
     def test_fulfill_link_includes_device_registration_tags(self):
         """Verify that when Adobe Vendor ID delegation is included, the
         fulfill link for an Adobe delivery mechanism includes instructions
