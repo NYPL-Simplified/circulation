@@ -401,11 +401,10 @@ class CirculationManager(object):
         # Some features are only available if a patron authentication
         # mechanism is set up for this library.
         authenticator = self.auth.library_authenticators.get(library.short_name)
-        auth_supported = authenticator.supports_patron_authentication
         return LibraryAnnotator(
             self.circulation_apis[library.id], lane, library,
             top_level_title='All Books',
-            library_supports_patron_authentication=auth_supported,
+            library_identifies_patrons=authenticator.identifies_individuals,
             *args, **kwargs
         )
 
