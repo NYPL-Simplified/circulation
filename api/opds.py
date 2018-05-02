@@ -161,10 +161,22 @@ class CirculationManagerAnnotator(Annotator):
         for tag in link_tags:
             entry.append(tag)
 
-    def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
-                          feed, identifier, can_hold=True, can_revoke_hold=True,
-                          set_mechanism_at_borrow=False):
-        """Generate a number of <link> tags that enumerate all acquisition methods."""
+    def acquisition_links(
+            self, active_license_pool, active_loan, active_hold,
+            active_fulfillment, feed, identifier, can_hold=True,
+            can_revoke_hold=True, set_mechanism_at_borrow=False,
+            direct_fulfillment_delivery_mechanisms=[]
+    ):
+        """Generate a number of <link> tags that enumerate all acquisition
+        methods.
+
+        :param direct_fulfillment_delivery_mechanisms: A way to
+        fulfill each LicensePoolDeliveryMechanism in this list will be
+        presented as a link with
+        rel="http://opds-spec.org/acquisition/open-access", indicating
+        that it can be downloaded with no intermediate steps such as
+        authentication.
+        """
         can_borrow = False
         can_fulfill = False
         can_revoke = False
@@ -248,7 +260,7 @@ class CirculationManagerAnnotator(Annotator):
                     rel=rel, href=url, types=[type])
                 fulfill_links.append(link_tag)
 
-            elif active_loan.fulfillment:
+            elif active_loan and active_loan.fulfillment:
                 # The delivery mechanism for this loan has been
                 # set. There is one link for the delivery mechanism
                 # that was locked in, and links for any streaming
@@ -275,6 +287,20 @@ class CirculationManagerAnnotator(Annotator):
                         )
                     )
 
+        for lpdm in direct_fulfillment_delivery_mechanisms:
+            # These links use the OPDS 'open-access' link relation not
+            # because they are open access in the licensing sense, but
+            # because they are ways to download the book "without any
+            # requirement, which includes payment and registration."
+            fulfill_links.append(
+                self.fulfill_link(
+                    active_license_pool,
+                    active_loan,
+                    lpdm.delivery_mechanism,
+                    rel=OPDSFeed.OPEN_ACCESS_REL
+                )
+            )
+
         # If this is an open-access book, add an open-access link for
         # every delivery mechanism with an associated resource.
         open_access_links = []
@@ -293,7 +319,8 @@ class CirculationManagerAnnotator(Annotator):
                     borrow_mechanism, fulfillment_mechanisms, active_hold=None):
         return None
 
-    def fulfill_link(self, license_pool, active_loan, delivery_mechanism):
+    def fulfill_link(self, license_pool, active_loan, delivery_mechanism,
+                     rel=OPDSFeed.ACQUISITION_REL):
         return None
 
     def open_access_link(self, lpdm):
@@ -339,15 +366,21 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                  facet_view='feed',
                  test_mode=False,
                  top_level_title="All Books",
-                 library_supports_patron_authentication = True
+                 library_identifies_patrons = True
     ):
         """Constructor.
 
-        :param library_supports_patron_authentication: A boolean
-          indicating whether or not this library authenticates its
-          patrons (and, thus, can distinguish between one patron and
-          another). If this is false, links that imply the library can
-          distinguish between patrons will not be included.
+        :param library_identifies_patrons: A boolean indicating
+          whether or not this library can distinguish between its
+          patrons. A library might not authenticate patrons at
+          all, or it might distinguish patrons from non-patrons in a
+          way that does not allow it to keep track of individuals.
+
+          If this is false, links that imply the library can
+          distinguish between patrons will not be included. Depending
+          on the configured collections, some extra links may be
+          added, for direct acquisition of titles that would normally
+          require a loan.
         """
         super(LibraryAnnotator, self).__init__(lane, active_loans_by_work=active_loans_by_work,
                                                active_holds_by_work=active_holds_by_work,
@@ -360,7 +393,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         self.facet_view = facet_view
         self._adobe_id_tags = {}
         self._top_level_title = top_level_title
-        self.patron_auth = library_supports_patron_authentication
+        self.identifies_patrons = library_identifies_patrons
 
     def top_level_title(self):
         return self._top_level_title
@@ -535,7 +568,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             )
 
         # Add a link to get a patron's annotations for this book.
-        if self.patron_auth:
+        if self.identifies_patrons:
             feed.add_link_to_entry(
                 entry,
                 rel="http://www.w3.org/ns/oa#annotationService",
@@ -664,7 +697,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             )
             feed.add_link_to_feed(feed.feed, **search_link)
 
-        if self.patron_auth:
+        if self.identifies_patrons:
             # Since this library authenticates patrons it can offer
             # a bookshelf and an annotation service.
             shelf_link = dict(
@@ -725,6 +758,18 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         if api:
             set_mechanism_at_borrow = (
                 api.SET_DELIVERY_MECHANISM_AT == BaseCirculationAPI.BORROW_STEP)
+            direct_fulfillment_delivery_mechanisms = []
+            if (active_license_pool and not self.identifies_patrons
+                and not active_loan):
+                for lpdm in active_license_pool.delivery_mechanisms:
+                    if api.can_fulfill_without_loan(
+                            None, active_license_pool, lpdm
+                    ):
+                        # This title can be fulfilled without an
+                        # active loan, so we're going to add an acquisition
+                        # link that goes directly to the fulfillment step
+                        # without the 'borrow' step.
+                        direct_fulfillment_delivery_mechanisms.append(lpdm)
         else:
             # This is most likely an open-access book. Just put one
             # borrow link and figure out the rest later.
@@ -735,10 +780,11 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             feed, identifier, can_hold=self.library.allow_holds,
             can_revoke_hold=(active_hold and (not self.circulation or self.circulation.can_revoke_hold(active_license_pool, active_hold))),
             set_mechanism_at_borrow=set_mechanism_at_borrow,
+            direct_fulfillment_delivery_mechanisms=direct_fulfillment_delivery_mechanisms
         )
 
     def revoke_link(self, active_license_pool, active_loan, active_hold):
-        if not self.patron_auth:
+        if not self.identifies_patrons:
             return
         url = self.url_for(
             'revoke_loan_or_hold',
@@ -751,7 +797,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
     def borrow_link(self, active_license_pool,
                     borrow_mechanism, fulfillment_mechanisms, active_hold=None):
-        if not self.patron_auth:
+        if not self.identifies_patrons:
             return
         identifier = active_license_pool.identifier
         if borrow_mechanism:
@@ -802,12 +848,13 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         borrow_link.extend(indirect_acquisitions)
         return borrow_link
 
-    def fulfill_link(self, license_pool, active_loan, delivery_mechanism):
+    def fulfill_link(self, license_pool, active_loan, delivery_mechanism,
+                     rel=OPDSFeed.ACQUISITION_REL):
         """Create a new fulfillment link.
 
         This link may include tags from the OPDS Extensions for DRM.
         """
-        if not self.patron_auth:
+        if not self.identifies_patrons and rel != OPDSFeed.OPEN_ACCESS_REL:
             return
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
             logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
@@ -823,7 +870,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             library_short_name=self.library.short_name,
             _external=True
         )
-        rel=OPDSFeed.ACQUISITION_REL
         link_tag = AcquisitionFeed.acquisition_link(
             rel=rel, href=fulfill_url,
             types=format_types
@@ -857,7 +903,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         register a device with the DRM server that manages this loan.
         :param delivery_mechanism: A DeliveryMechanism
         """        
-        if not active_loan or not delivery_mechanism or not self.patron_auth:
+        if not active_loan or not delivery_mechanism or not self.identifies_patrons:
             return []
         
         if delivery_mechanism.drm_scheme == DeliveryMechanism.ADOBE_DRM:
@@ -931,7 +977,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return cached
         
     def add_patron(self, feed_obj):
-        if not self.patron_auth:
+        if not self.identifies_patrons:
             return
         patron_details = {}
         if self.patron.username:
@@ -947,7 +993,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         manager's Authentication for OPDS document
         for the current library.
         """
-        # Even if self.patron_auth is false, we include this link,
+        # Even if self.identifies_patrons is false, we include this link,
         # because this document is the one that explains there is no
         # patron authentication at this library.
         feed_obj.add_link_to_feed(
@@ -1097,7 +1143,8 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
         borrow_link.extend(indirect_acquisitions)
         return borrow_link
 
-    def fulfill_link(self, license_pool, active_loan, delivery_mechanism):
+    def fulfill_link(self, license_pool, active_loan, delivery_mechanism,
+                     rel=OPDSFeed.ACQUISITION_REL):
         """Create a new fulfillment link."""
         if isinstance(delivery_mechanism, LicensePoolDeliveryMechanism):
             logging.warn("LicensePoolDeliveryMechanism passed into fulfill_link instead of DeliveryMechanism!")
@@ -1113,7 +1160,6 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
             mechanism_id=delivery_mechanism.id,
             _external=True
         )
-        rel=OPDSFeed.ACQUISITION_REL
         link_tag = AcquisitionFeed.acquisition_link(
             rel=rel, href=fulfill_url,
             types=format_types
