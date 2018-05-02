@@ -349,7 +349,6 @@ def borrow(identifier_type, identifier, mechanism_id=None):
 @library_route('/works/<license_pool_id>/fulfill/<mechanism_id>')
 @has_library
 @allows_patron_web
-@requires_auth
 @returns_problem_detail
 def fulfill(license_pool_id, mechanism_id=None):
     return app.manager.loans.fulfill(license_pool_id, mechanism_id)
