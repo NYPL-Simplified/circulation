@@ -419,7 +419,7 @@ class TestLibraryAnnotator(VendorIDTest):
         for auth in (True, False):
             annotator = LibraryAnnotator(
                 None, lane, self._default_library, test_mode=True,
-                library_supports_patron_authentication=auth
+                library_identifies_patrons=auth
             )
             feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
             entry = feed._make_entry_xml(work, pool, edition, identifier)
@@ -455,7 +455,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         annotator = LibraryAnnotator(
             None, lane, self._default_library, test_mode=True,
-            library_supports_patron_authentication=True
+            library_identifies_patrons=True
         )
         feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
         entry = feed._make_entry_xml(work, None, edition, identifier)
@@ -479,7 +479,7 @@ class TestLibraryAnnotator(VendorIDTest):
         for auth in (True, False):
             annotator = LibraryAnnotator(
                 None, lane, self._default_library, test_mode=True,
-                library_supports_patron_authentication=auth
+                library_identifies_patrons=auth
             )
             feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
             annotator.annotate_feed(feed, lane)
@@ -677,7 +677,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # If the library does not authenticate patrons, no link to the
         # annotation service is provided.
         feed = self.get_parsed_feed(
-            [work], library_supports_patron_authentication=False
+            [work], library_identifies_patrons=False
         )
         [entry] = feed.entries
         assert annotation_rel not in [x['rel'] for x in entry['links']]

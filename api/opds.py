@@ -287,23 +287,27 @@ class CirculationManagerAnnotator(Annotator):
                         )
                     )
 
+        open_access_links = []
         for lpdm in direct_fulfillment_delivery_mechanisms:
             # These links use the OPDS 'open-access' link relation not
             # because they are open access in the licensing sense, but
             # because they are ways to download the book "without any
             # requirement, which includes payment and registration."
-            fulfill_links.append(
-                self.fulfill_link(
-                    active_license_pool,
-                    active_loan,
-                    lpdm.delivery_mechanism,
-                    rel=OPDSFeed.OPEN_ACCESS_REL
-                )
+            #
+            # To avoid confusion, we explicitly add a dc:rights
+            # statement to each link explaining what the rights are to
+            # this title.
+            direct_fulfill = self.fulfill_link(
+                active_license_pool,
+                active_loan,
+                lpdm.delivery_mechanism,
+                rel=OPDSFeed.OPEN_ACCESS_REL
             )
+            direct_fulfill.attrib.update(self.rights_attributes(lpdm))
+            open_access_links.append(direct_fulfill)
 
         # If this is an open-access book, add an open-access link for
         # every delivery mechanism with an associated resource.
-        open_access_links = []
         if active_license_pool and active_license_pool.open_access:
             for lpdm in active_license_pool.delivery_mechanisms:
                 if lpdm.resource:
@@ -327,6 +331,8 @@ class CirculationManagerAnnotator(Annotator):
         _db = Session.object_session(lpdm)
         url = cdnify(lpdm.resource.url)
         kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
+        kw.update(self.rights_attributes(lpdm))
+
         rep = lpdm.resource.representation
         if rep and rep.media_type:
             kw['type'] = rep.media_type
@@ -336,6 +342,18 @@ class CirculationManagerAnnotator(Annotator):
         )
         link_tag.append(always_available)
         return link_tag
+
+    def rights_attributes(self, lpdm):
+        """Create a dictionary of tag attributes that explain the
+        rights status of a LicensePoolDeliveryMechanism.
+
+        If nothing is known, the dictionary will be empty.
+        """
+        if not lpdm or not lpdm.rights_status or not lpdm.rights_status.uri:
+            return {}
+        rights_attr = "{%s}rights" % OPDSFeed.DCTERMS_NS
+        return {rights_attr : lpdm.rights_status.uri }
+
 
 class LibraryAnnotator(CirculationManagerAnnotator):
 
