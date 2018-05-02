@@ -123,6 +123,14 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         assert str(self.lane.id) in feed_url_fantasy
         assert self._default_library.name not in feed_url_fantasy
 
+    def test_rights_attributes(self):
+        m = self.annotator.rights_attributes
+        
+        lp = self._licensepool()
+        [lpdm] = lp.delivery_mechanisms
+        set_trace()
+
+        eq_({}, m(None))
 
 class TestLibraryAnnotator(VendorIDTest):
     def setup(self):
@@ -1177,7 +1185,10 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
 
         # This may include links with the open-access relation for
-        # non-open-access works that are available without authentication.
+        # non-open-access works that are available without
+        # authentication.  To get such link, you pass in a list of
+        # LicensePoolDeliveryMechanisms as
+        # `direct_fufillment_delivery_mechanisms`.
         [lp4] = work4.license_pools
         [lpdm4] = lp4.delivery_mechanisms
         lpdm4.set_rights_status(RightsStatus.IN_COPYRIGHT)
