@@ -753,12 +753,12 @@ class LibraryAnnotator(CirculationManagerAnnotator):
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
                           feed, identifier):
         api = None
+        direct_fulfillment_delivery_mechanisms = []
         if self.circulation and active_license_pool:
             api = self.circulation.api_for_license_pool(active_license_pool)
         if api:
             set_mechanism_at_borrow = (
                 api.SET_DELIVERY_MECHANISM_AT == BaseCirculationAPI.BORROW_STEP)
-            direct_fulfillment_delivery_mechanisms = []
             if (active_license_pool and not self.identifies_patrons
                 and not active_loan):
                 for lpdm in active_license_pool.delivery_mechanisms:
