@@ -96,6 +96,11 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         link_tag = self.annotator.open_access_link(lpdm)
         eq_(lpdm.resource.url, link_tag.get('href'))
 
+        # The dcterms:rights attribute may provide a more detailed
+        # explanation of the book's copyright status.
+        rights = link_tag.attrib['{http://purl.org/dc/terms/}rights']
+        eq_(lpdm.rights_status.uri, rights)
+
         # If we have a CDN set up for open-access links, the CDN hostname
         # replaces the original hostname.
         with temp_config() as config:
@@ -1165,13 +1170,33 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # If patron authentication is turned off for the library, then
         # only open-access links are displayed.
-        annotator.patron_auth = False
+        annotator.identifies_patrons = False
 
         [open_access] = annotator.acquisition_links(
             loan1.license_pool, loan1, None, None, feed, loan1.license_pool.identifier)
         eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
 
-        # This happens even when there are active holds in the
+        # This may include links with the open-access relation for
+        # non-open-access works that are available without authentication.
+        [lp4] = work4.license_pools
+        [lpdm4] = lp4.delivery_mechanisms
+        lpdm4.set_rights_status(RightsStatus.IN_COPYRIGHT)
+        [not_open_access] = annotator.acquisition_links(
+            lp4, None, None, None, feed, lp4.identifier,
+            direct_fulfillment_delivery_mechanisms=[lpdm4]
+        )
+
+        # The link relation is OPDS 'open-access', which just means the
+        # book can be downloaded with no hassle.
+        eq_('http://opds-spec.org/acquisition/open-access', not_open_access.attrib.get("rel"))
+
+        # The dcterms:rights attribute provides a more detailed
+        # explanation of the book's copyright status -- note that it's
+        # not "open access" in the typical sense.
+        rights = not_open_access.attrib['{http://purl.org/dc/terms/}rights']
+        eq_(RightsStatus.IN_COPYRIGHT, rights)
+
+        # Hold links are absent even when there are active holds in the
         # database -- there is no way to distinguish one patron from
         # another so the concept of a 'hold' is meaningless.
         hold_links = annotator.acquisition_links(

@@ -331,12 +331,12 @@ class CirculationManagerAnnotator(Annotator):
         _db = Session.object_session(lpdm)
         url = cdnify(lpdm.resource.url)
         kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
-        kw.update(self.rights_attributes(lpdm))
 
         rep = lpdm.resource.representation
         if rep and rep.media_type:
             kw['type'] = rep.media_type
         link_tag = AcquisitionFeed.link(**kw)
+        link_tag.attrib.update(self.rights_attributes(lpdm))
         always_available = OPDSFeed.makeelement(
             "{%s}availability" % OPDSFeed.OPDS_NS, status="available"
         )
@@ -769,9 +769,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             _add_link(d)
         
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
-                          feed, identifier):
+                          feed, identifier, direct_fulfillment_delivery_mechanisms=[]):
         api = None
-        direct_fulfillment_delivery_mechanisms = []
         if self.circulation and active_license_pool:
             api = self.circulation.api_for_license_pool(active_license_pool)
         if api:
