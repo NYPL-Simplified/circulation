@@ -28,8 +28,28 @@ from core.model import (
     Session,
     Subject,
     get_one,
+    Equivalency,
+    LicensePool,
+    Collection,
 )
 from core.util import TitleProcessor
+# from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct,
+from sqlalchemy.sql import (
+    select,
+    join,
+    and_,
+    literal_column,
+)
+from sqlalchemy import (
+    event,
+    exists,
+    func,
+    MetaData,
+    Table,
+    text,
+)
+from sqlalchemy.orm import aliased
+from core.util.http import HTTP
 
 class NoveListAPI(object):
 
@@ -60,6 +80,7 @@ class NoveListAPI(object):
         "https://novselect.ebscohost.com/Data/ContentByQuery?"
         "ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
     )
+    COLLECTION_DATA_API = "http://www.noveListcollectiondata.com/api/collections"
     AUTH_PARAMS = "&profile=%(profile)s&password=%(password)s"
     MAX_REPRESENTATION_AGE = 7*24*60*60      # one week
 
@@ -432,6 +453,55 @@ class NoveListAPI(object):
             for book_info in related_books:
                 metadata.recommendations += self._extract_isbns(book_info)
         return metadata
+
+    def get_all_isbns(self, db=None, libraries=None):
+        _db = db
+
+        collectionList = {}
+        for l in libraries:
+            collectionList[l.id] = []
+            for c in l.collections:
+                collectionList[l.id].append(c.id)
+
+        # select i2.identifier from licensepools lp
+        #   join identifiers i1 on i1.id=lp.identifier_id
+        #   join equivalents e on i1.id=e.input_id
+        #   join identifiers i2 on e.output_id=i2.id and
+        #   collection_id in (1,2,3,4,5) and i2.type='ISBN';
+
+        # use 4 for the axis 360 data
+        collection = collectionList[1]
+
+        i1 = aliased(Identifier)
+        i2 = aliased(Identifier)
+        e = aliased(Equivalency)
+        lp = aliased(LicensePool)
+        isbns = select(
+            [i2.identifier]
+        ).select_from(
+            join(lp, i1, i1.id==lp.id)
+            .join(e, i1.id==e.input_id)
+            .join(i2, e.output_id==i2.id)
+        ).where(
+            and_(lp.collection_id==4, i2.type=="ISBN")
+        ).alias('lp_isbns')
+
+        result = _db.execute(isbns)
+        # print result
+        for r in result:
+            print r
+
+        # cls.put(cls.COLLECTION_DATA_API, {"AuthorizedIdentifier":"652..."}, data=[result])
+
+    @classmethod
+    def put(cls, url, headers, **kwargs):
+        data = kwargs.get('data')
+        if 'data' in kwargs:
+            del kwargs['data']
+        response = HTTP.put_with_timeout(url, data, headers=headers, **kwargs)
+
+        print response
+        return response
 
 
 class MockNoveListAPI(NoveListAPI):
