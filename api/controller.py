@@ -69,6 +69,7 @@ from core.model import (
     LicensePool,
     Loan,
     LicensePoolDeliveryMechanism,
+    Patron,
     PatronProfileStorage,
     Representation,
     Session,
@@ -1022,9 +1023,24 @@ class LoanController(CirculationManagerController):
         """
         do_get = do_get or Representation.simple_http_get
 
-        # Unlike most controller methods, this one does not require
-        # that the patron be authenticated.
-        patron = getattr(flask.request, 'patron', None)
+        # Unlike most controller methods, this one has different
+        # behavior whether or not the patron is authenticated. This is
+        # why we're about to do something we don't usually do--call
+        # authenticated_patron_from_request from within a controller
+        # method.
+        authentication_response = self.authenticated_patron_from_request()
+        if isinstance(authentication_response, Patron):
+            # The patron is authenticated.
+            patron = authentication_response
+        else:
+            # The patron is not authenticated, either due to bad credentials
+            # (in which case authentication_response is a Response)
+            # or due to an integration error with the auth provider (in
+            # which case it is a ProblemDetail).
+            #
+            # There's still a chance this request can succeed, but if not,
+            # we'll be sending out authentication_response.
+            patron = None
         library = flask.request.library
         header = self.authorization_header()
         credential = self.manager.auth.get_credential_from_header(header)
@@ -1048,12 +1064,23 @@ class LoanController(CirculationManagerController):
                 return mechanism
 
         if (not loan or not loan_license_pool) and not (
-                self.can_fulfill_without_loan(
-                    library, patron, requested_license_pool, mechanism)
-        ):
-            return NO_ACTIVE_LOAN.detailed(
-                _("You have no active loan for this title.")
+            self.can_fulfill_without_loan(
+                library, patron, requested_license_pool, mechanism
             )
+        ):
+            if patron:
+                # Since a patron was identified, the problem is they have
+                # no active loan.
+                return NO_ACTIVE_LOAN.detailed(
+                    _("You have no active loan for this title.")
+                )
+            else:
+                # Since no patron was identified, the problem is
+                # whatever problem was revealed by the earlier
+                # authenticated_patron_from_request() call -- either the
+                # patron didn't authenticate or there's a problem
+                # integrating with the auth provider.
+                return authentication_response
 
         if not mechanism:
             # See if the loan already has a mechanism set. We can use that.
@@ -1136,7 +1163,7 @@ class LoanController(CirculationManagerController):
         :param lpdm: A LicensePoolDeliveryMechanism.
         """
         authenticator = self.manager.auth.library_authenticators.get(library.short_name)
-        if authenticator.identifies_individuals:
+        if authenticator and authenticator.identifies_individuals:
             # This library identifies individual patrons, so there is
             # no reason to fulfill books without a loan. Even if the
             # books are free and the 'loans' are nominal, having a

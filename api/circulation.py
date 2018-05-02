@@ -640,7 +640,6 @@ class CirculationAPI(object):
         return api.can_fulfill_without_loan(patron, pool, lpdm)
     
     def fulfill(self, patron, pin, licensepool, delivery_mechanism, sync_on_failure=True):
-
         """Fulfil a book that a patron has previously checked out.
 
         :param delivery_mechanism: A LicensePoolDeliveryMechanism

@@ -13,7 +13,10 @@ from time import mktime
 from decimal import Decimal
 
 import flask
-from flask import url_for
+from flask import (
+    url_for,
+    Response,
+)
 from flask_sqlalchemy_session import (
     current_session,
     flask_scoped_session,
@@ -1433,8 +1436,21 @@ class TestLoanController(CirculationControllerTest):
             response = controller.fulfill(
                 self.pool.id, self.mech2.delivery_mechanism.id
             )
+            assert isinstance(response, Response)
+            eq_(401, response.status_code)
 
-            eq_(NO_ACTIVE_LOAN.uri, response.uri)
+        # ...or it might be because of an error communicating
+        # with the authentication provider.
+        old_authenticated_patron = controller.authenticated_patron_from_request
+        def mock_authenticated_patron():
+            return INTEGRATION_ERROR
+        controller.authenticated_patron_from_request = mock_authenticated_patron
+        with self.request_context_with_library("/"):
+            problem = controller.fulfill(
+                self.pool.id, self.mech2.delivery_mechanism.id
+            )
+            eq_(INTEGRATION_ERROR, problem)
+        controller.authenticated_patron_from_request = old_authenticated_patron
 
         # However, if can_fulfill_without_loan returns True, then
         # fulfill() will be called. If fulfill() returns a
@@ -1454,16 +1470,16 @@ class TestLoanController(CirculationControllerTest):
                 None, "text/html", "here's your book",
                 datetime.datetime.utcnow(),
             )
+
+        # Now we're able to fulfill the book even without
+        # authenticating a patron.
         with self.request_context_with_library("/"):
-            # Note that this request, unlike the first one,
-            # has no authenticated patron.
             controller.can_fulfill_without_loan = mock_can_fulfill_without_loan
             controller.circulation.fulfill = mock_fulfill
             response = controller.fulfill(
                 self.pool.id, self.mech2.delivery_mechanism.id
             )
 
-            # But we're able to fulfill the book anyway.
             eq_("here's your book", response.data)
             eq_([], self._db.query(Loan).all())
 
