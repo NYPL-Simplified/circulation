@@ -353,6 +353,44 @@ class TestNoveListAPI(DatabaseTest):
         eq_(0.67, round(confidence, 2))
         eq_(more_identifier, metadata.primary_identifier)
 
+    def test_make_novelist_data_object(self):
+        data = ["12345", "12346", "12347"]
+
+        result = self.novelist.make_novelist_data_object(data)
+
+        eq_(result, {
+            "Customer": "library:yep",
+            "Records": [{"ISBN": "12345"}, {"ISBN": "12346"}, {"ISBN": "12347"}]
+        })
+
+        bad_data = []
+        result = self.novelist.make_novelist_data_object(bad_data)
+
+        eq_(result, {
+            "Customer": "library:yep",
+            "Records": []
+        })
+
+    def mockHTTPPut(self, *args, **kwargs):
+        self.called_with = (args, kwargs)
+
+    def test_put(self):
+        oldPut = self.novelist.put
+
+        self.novelist.put = self.mockHTTPPut
+
+        headers = {"AuthorizedIdentifier": "authorized!"}
+        isbns = ["12345", "12346", "12347"]
+        data = self.novelist.make_novelist_data_object(isbns)
+
+        response = self.novelist.put("http://apiendpoint.com", headers, data=data)
+        (params, args) = self.called_with
+
+        eq_(params, ("http://apiendpoint.com", headers))
+        eq_(args["data"], data)
+
+        self.novelist.put = oldPut
+
 
 class TestNoveListCoverageProvider(DatabaseTest):
 

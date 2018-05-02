@@ -59,6 +59,7 @@ class NoveListAPI(object):
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Profile") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
+        { "key": ExternalIntegration.AUTHORIZED_IDENTIFIER, "label": _("Authorized Identifier") },
     ]
 
     # Different libraries may have different NoveList integrations
@@ -86,12 +87,12 @@ class NoveListAPI(object):
 
     @classmethod
     def from_config(cls, library):
-        profile, password = cls.values(library)
+        profile, password, authorized_identifier = cls.values(library)
         if not (profile and password):
             raise ValueError("No NoveList client configured.")
 
         _db = Session.object_session(library)
-        return cls(_db, profile, password)
+        return cls(_db, profile, password, authorized_identifier)
 
     @classmethod
     def values(cls, library):
@@ -101,27 +102,30 @@ class NoveListAPI(object):
             _db, ExternalIntegration.NOVELIST,
             ExternalIntegration.METADATA_GOAL, library=library
         )
+
         if not integration:
-            return (None, None)
+            return (None, None, None)
 
         profile = integration.username
         password = integration.password
-        return (profile, password)
+        authorized_identifier = integration.authorized_identifier
+        return (profile, password, authorized_identifier)
 
     @classmethod
     def is_configured(cls, library):
         if (cls.IS_CONFIGURED is None or
             library.id != cls._configuration_library_id
         ):
-            profile, password = cls.values(library)
+            profile, password, authorized_identifier = cls.values(library)
             cls.IS_CONFIGURED = bool(profile and password)
             cls._configuration_library_id = library.id
         return cls.IS_CONFIGURED
 
-    def __init__(self, _db, profile, password):
+    def __init__(self, _db, profile, password, authorized_identifier):
         self._db = _db
         self.profile = profile
         self.password = password
+        self.authorized_identifier = authorized_identifier
 
     @property
     def source(self):
@@ -454,53 +458,57 @@ class NoveListAPI(object):
                 metadata.recommendations += self._extract_isbns(book_info)
         return metadata
 
-    def get_all_isbns(self, db=None, libraries=None):
+    def put_isbns_novelist(self, db, library):
         _db = db
 
-        collectionList = {}
-        for l in libraries:
-            collectionList[l.id] = []
-            for c in l.collections:
-                collectionList[l.id].append(c.id)
-
-        # select i2.identifier from licensepools lp
-        #   join identifiers i1 on i1.id=lp.identifier_id
-        #   join equivalents e on i1.id=e.input_id
-        #   join identifiers i2 on e.output_id=i2.id and
-        #   collection_id in (1,2,3,4,5) and i2.type='ISBN';
-
-        # use 4 for the axis 360 data
-        collection = collectionList[1]
+        collectionList = []
+        for c in library.collections:
+            collectionList.append(c.id)
 
         i1 = aliased(Identifier)
         i2 = aliased(Identifier)
         e = aliased(Equivalency)
         lp = aliased(LicensePool)
-        isbns = select(
+
+        isbnQuery = select(
             [i2.identifier]
         ).select_from(
             join(lp, i1, i1.id==lp.id)
             .join(e, i1.id==e.input_id)
             .join(i2, e.output_id==i2.id)
         ).where(
-            and_(lp.collection_id==4, i2.type=="ISBN")
+            and_(lp.collection_id.in_(collectionList), i2.type=="ISBN")
         ).alias('lp_isbns')
 
-        result = _db.execute(isbns)
-        # print result
+        result = _db.execute(isbnQuery)
+        isbns = []
         for r in result:
-            print r
+            isbns.append(r[0])
 
-        # cls.put(cls.COLLECTION_DATA_API, {"AuthorizedIdentifier":"652..."}, data=[result])
+        if isbns:
+            response = self.put(
+                self.COLLECTION_DATA_API,
+                { "AuthorizedIdentifier": self.authorized_identifier },
+                data=self.make_novelist_data_object(isbns)
+            )
 
-    @classmethod
-    def put(cls, url, headers, **kwargs):
+            content = json.loads(response._content)
+            # print content
+
+    def make_novelist_data_object(self, data):
+        isbns = list(map(lambda isbn: {"ISBN": isbn}, data))
+
+        return {
+            "Customer": "%s:%s" % (self.profile, self.password),
+            "Records": isbns,
+        }
+
+    def put(self, url, headers, **kwargs):
         data = kwargs.get('data')
         if 'data' in kwargs:
             del kwargs['data']
-        response = HTTP.put_with_timeout(url, data, headers=headers, **kwargs)
 
-        print response
+        response = HTTP.put_with_timeout(url, data, headers=headers, **kwargs)
         return response
 
 

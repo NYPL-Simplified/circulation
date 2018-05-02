@@ -2410,12 +2410,12 @@ class SettingsController(AdminCirculationManagerController):
             self.require_sitewide_library_manager()
         if admin.is_system_admin() and not settingUp:
             self.require_system_admin()
-            
+
         if password:
             # If the admin we're editing has a sitewide manager role, we've already verified
             # the current admin's role above. Otherwise, an admin can only change that
             # admin's password if they are a library manager of one of that admin's
-            # libraries, or if they are editing a new admin or an admin who has no 
+            # libraries, or if they are editing a new admin or an admin who has no
             # roles yet.
             # TODO: set up password reset emails instead.
             if not is_new and not admin.is_sitewide_library_manager():
