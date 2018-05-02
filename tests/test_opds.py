@@ -126,11 +126,26 @@ class TestCirculationManagerAnnotator(DatabaseTest):
     def test_rights_attributes(self):
         m = self.annotator.rights_attributes
         
-        lp = self._licensepool()
+        # Given a LicensePoolDeliveryMechanism with a RightsStatus,
+        # rights_attributes creates a dictionary mapping the dcterms:rights
+        # attribute to the URI associated with the RightsStatus.
+        lp = self._licensepool(None)
         [lpdm] = lp.delivery_mechanisms
-        set_trace()
+        eq_({"{http://purl.org/dc/terms/}rights":lpdm.rights_status.uri},
+            m(lpdm))
+
+        # If any link in the chain is broken, rights_attributes returns
+        # an empty dictionary.
+        old_uri = lpdm.rights_status.uri
+        lpdm.rights_status.uri = None
+        eq_({}, m(lpdm))
+        lpdm.rights_status.uri = old_uri
+
+        lpdm.rights_status = None
+        eq_({}, m(lpdm))
 
         eq_({}, m(None))
+
 
 class TestLibraryAnnotator(VendorIDTest):
     def setup(self):
