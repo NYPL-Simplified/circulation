@@ -21,6 +21,10 @@ from api.config import (
     Configuration,
 )
 
+from api.novelist import (
+    NoveListAPI
+)
+
 from core.entrypoint import (
     AudiobooksEntryPoint,
     EbooksEntryPoint
@@ -75,13 +79,14 @@ from scripts import (
     DirectoryImportScript,
     InstanceInitializationScript,
     LanguageListScript,
+    NovelistSnapshotScript,
 )
 
 class TestAdobeAccountIDResetScript(DatabaseTest):
 
     def test_process_patron(self):
         patron = self._patron()
-    
+
         # This patron has old-style and new-style Credentials that link
         # them to Adobe account IDs (hopefully the same ID, though that
         # doesn't matter here.
@@ -119,11 +124,11 @@ class TestAdobeAccountIDResetScript(DatabaseTest):
         script.delete = True
         script.process_patron(patron)
         self._db.commit()
-                
+
         # The two Adobe-related credentials are gone. The other one remains.
         [credential] = patron.credentials
         eq_("Some other type", credential.type)
-    
+
 
 class TestLaneScript(DatabaseTest):
 
@@ -142,7 +147,7 @@ class TestLaneScript(DatabaseTest):
 
 
 class TestRepresentationPerLane(TestLaneScript):
-   
+
     def test_language_filter(self):
         script = CacheRepresentationPerLane(
             self._db, ["--language=fre", "--language=English", "--language=none", "--min-depth=0"],
@@ -158,7 +163,7 @@ class TestRepresentationPerLane(TestLaneScript):
 
         no_english_or_french_lane = self._lane(languages=['spa'])
         eq_(False, script.should_process_lane(no_english_or_french_lane))
-            
+
     def test_max_and_min_depth(self):
         script = CacheRepresentationPerLane(
             self._db, ["--max-depth=0", "--min-depth=0"],
@@ -179,7 +184,7 @@ class TestRepresentationPerLane(TestLaneScript):
         eq_(False, script.should_process_lane(parent))
         eq_(True, script.should_process_lane(child))
 
-            
+
 class TestCacheFacetListsPerLane(TestLaneScript):
 
     def test_arguments(self):
@@ -221,10 +226,10 @@ class TestCacheFacetListsPerLane(TestLaneScript):
 
 
 class TestCacheOPDSGroupFeedPerLane(TestLaneScript):
-    
+
     def test_do_run(self):
 
-        work = self._work(fiction=True, with_license_pool=True, 
+        work = self._work(fiction=True, with_license_pool=True,
                           genre="Science Fiction")
         work.quality = 1
         lane = self._lane(display_name="Fantastic Fiction", fiction=True)
@@ -350,7 +355,7 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
 
         output = StringIO()
         self.script.set_secret(
-            self._db, "http://foo/", "vendorid", "libraryname", "secret", 
+            self._db, "http://foo/", "vendorid", "libraryname", "secret",
             output
         )
         eq_(
@@ -367,7 +372,7 @@ class TestShortClientTokenLibraryConfigurationScript(DatabaseTest):
         # We can modify an existing configuration.
         output = StringIO()
         self.script.set_secret(
-            self._db, "http://foo/", "newid", "newname", "newsecret", 
+            self._db, "http://foo/", "newid", "newname", "newsecret",
             output
         )
         expect = u'Current Short Client Token configuration for http://foo/:\n Vendor ID: newid\n Library name: newname\n Shared secret: newsecret\n'
@@ -416,7 +421,7 @@ class TestDirectoryImportScript(DatabaseTest):
         class Mock(DirectoryImportScript):
             def run_with_arguments(self, *args):
                 self.ran_with = args
-                
+
         script = Mock(self._db)
         script.do_run(
             cmd_args=[
@@ -470,7 +475,7 @@ class TestDirectoryImportScript(DatabaseTest):
         script.run_with_arguments(*(basic_args + [True]))
 
         # load_collection was called with the collection and data source names.
-        eq_([('collection name', 'data source name')], 
+        eq_([('collection name', 'data source name')],
             script.load_collection_calls)
 
         # load_metadata was called with the metadata file.
@@ -529,14 +534,14 @@ class TestDirectoryImportScript(DatabaseTest):
 
         integration = collection.external_integration
         eq_(ExternalIntegration.LICENSE_GOAL, integration.goal)
-        eq_(ExternalIntegration.MANUAL, 
+        eq_(ExternalIntegration.MANUAL,
             integration.protocol)
 
         # The Collection has no mirror integration because there is no
         # sitewide storage integration to use.
         eq_(None, collection.mirror_integration)
         eq_(None, mirror)
-        
+
     def test_load_collection_installs_site_wide_mirror(self):
         # We have a sitewide storage integration.
         integration = self._external_integration("my uploader")
@@ -589,12 +594,12 @@ class TestDirectoryImportScript(DatabaseTest):
         # not actually import anything because there are no files 'on
         # disk' and thus no way to actually get the book.
         collection = self._default_collection
-        args = (collection, metadata, policy, "cover directory", 
+        args = (collection, metadata, policy, "cover directory",
                 "ebook directory", RightsStatus.CC0)
         script = Mock(self._db)
         eq_(None, script.work_from_metadata(*args))
         eq_(True, metadata.annotated)
-         
+
         # Now let's try it with some files 'on disk'.
         with open(self.sample_cover_path('test-book-cover.png')) as fh:
             image = fh.read()
@@ -625,7 +630,7 @@ class TestDirectoryImportScript(DatabaseTest):
             '/test.content.bucket/Gutenberg/Gutenberg+ID/1003/A+book.epub'
         )
 
-        eq_(RightsStatus.CC0, 
+        eq_(RightsStatus.CC0,
             pool.delivery_mechanisms[0].rights_status.uri)
 
         # The mock S3Uploader has a record of 'uploading' all these files
@@ -662,7 +667,7 @@ class TestDirectoryImportScript(DatabaseTest):
         identifier_obj, ignore = identifier.load(self._db)
         metadata = Metadata(
             title=self._str,
-            data_source=gutenberg, 
+            data_source=gutenberg,
             primary_identifier=identifier
         )
         mirror = object()
@@ -677,7 +682,7 @@ class TestDirectoryImportScript(DatabaseTest):
 
         # load_circulation_data was called.
         eq_(
-            (identifier_obj, gutenberg, ebook_directory, mirror, 
+            (identifier_obj, gutenberg, ebook_directory, mirror,
              metadata.title, rights_uri),
             script.load_circulation_data_args
         )
@@ -875,3 +880,29 @@ class TestDirectoryImportScript(DatabaseTest):
         assert_not_found('thefile', 'another_directory', ['.jpeg'])
         assert_not_found('thefile', 'directory', ['.another-extension'])
         assert_not_found('thefile', 'directory', [])
+
+class TestNovelistSnapshotScript(DatabaseTest):
+
+    def mockNoveListAPI(self, *args, **kwargs):
+        self.called_with = (args, kwargs)
+
+    def test_do_run(self):
+        """Test that NovelistSnapshotScript.do_run() calls the NoveList api.
+        """
+
+        class MockNovelistSnapshotScript(NovelistSnapshotScript):
+            pass
+
+        oldNovelistConfig = NoveListAPI.from_config
+        NoveListAPI.from_config = self.mockNoveListAPI
+
+        l1 = self._library()
+        cmd_args = [l1.name]
+        script = MockNovelistSnapshotScript(self._db)
+        script.do_run(cmd_args=cmd_args)
+
+        (params, args) = self.called_with
+
+        eq_(params[0], l1)
+
+        NoveListAPI.from_config = oldNovelistConfig

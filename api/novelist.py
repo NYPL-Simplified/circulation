@@ -55,11 +55,12 @@ class NoveListAPI(object):
 
     PROTOCOL = ExternalIntegration.NOVELIST
     NAME = _("Novelist API")
+    AUTHORIZED_IDENTIFIER = u"authorized_identifier"
 
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Profile") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
-        { "key": ExternalIntegration.AUTHORIZED_IDENTIFIER, "label": _("Authorized Identifier") },
+        { "key": AUTHORIZED_IDENTIFIER, "label": _("Authorized Identifier") },
     ]
 
     # Different libraries may have different NoveList integrations
@@ -88,7 +89,7 @@ class NoveListAPI(object):
     @classmethod
     def from_config(cls, library):
         profile, password, authorized_identifier = cls.values(library)
-        if not (profile and password):
+        if not (profile and password and authorized_identifier):
             raise ValueError("No NoveList client configured.")
 
         _db = Session.object_session(library)
@@ -108,7 +109,7 @@ class NoveListAPI(object):
 
         profile = integration.username
         password = integration.password
-        authorized_identifier = integration.authorized_identifier
+        authorized_identifier = integration.setting(cls.AUTHORIZED_IDENTIFIER).value
         return (profile, password, authorized_identifier)
 
     @classmethod
@@ -117,7 +118,7 @@ class NoveListAPI(object):
             library.id != cls._configuration_library_id
         ):
             profile, password, authorized_identifier = cls.values(library)
-            cls.IS_CONFIGURED = bool(profile and password)
+            cls.IS_CONFIGURED = bool(profile and password and authorized_identifier)
             cls._configuration_library_id = library.id
         return cls.IS_CONFIGURED
 
