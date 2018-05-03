@@ -1735,6 +1735,7 @@ class TestCustomListsController(AdminControllerTest):
         data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=data_source)
         edition = self._edition()
+
         [c1] = edition.author_contributors
         c1.display_name = self._str
         c2, ignore = self._contributor()
@@ -1755,6 +1756,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(2, len(entry.get("authors")))
             eq_(Edition.medium_to_additional_type[Edition.BOOK_MEDIUM], entry.get("medium"))
             eq_(edition.language, entry.get("language"))
+            eq_(edition.data_source_id, entry.get("data_source_id"))
             eq_(set([c1.display_name, c2.display_name]),
                 set(entry.get("authors")))
             eq_(1, len(response.get("collections")))
@@ -1799,7 +1801,8 @@ class TestCustomListsController(AdminControllerTest):
         self.add_to_materialized_view([w1, w2, w3])
 
         new_entries = [dict(pwid=work.presentation_edition.permanent_work_id,
-            medium=Edition.medium_to_additional_type[work.presentation_edition.medium]) for work in [w2, w3]]
+            medium=Edition.medium_to_additional_type[work.presentation_edition.medium],
+            data_source_id=work.presentation_edition.data_source_id) for work in [w2, w3]]
 
         c1 = self._collection()
         c1.libraries = [self._default_library]
@@ -1819,7 +1822,7 @@ class TestCustomListsController(AdminControllerTest):
             response = self.manager.admin_custom_lists_controller.custom_list(list.id)
         eq_(200, response.status_code)
         eq_(list.id, int(response.response[0]))
-        
+
         eq_("new name", list.name)
         eq_(set([w2, w3]),
             set([entry.work for entry in list.entries]))

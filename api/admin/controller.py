@@ -1196,6 +1196,14 @@ class CustomListsController(AdminCirculationManagerController):
             pwid = entry.get("pwid")
             medium = entry.get("medium")
             language = entry.get("language")
+            data_source_id = entry.get("data_source_id")
+
+            if not type(data_source_id) == type(int()):
+                data_source = DataSource.lookup(self._db, data_source_id)
+                if data_source:
+                    data_source_id = data_source.id
+                else:
+                    data_source_id = None
 
             query = self._db.query(
                 Work
@@ -1205,6 +1213,10 @@ class CustomListsController(AdminCirculationManagerController):
                 Edition.permanent_work_id==pwid
             )
 
+            if data_source_id:
+                query = query.filter(
+                    Edition.data_source_id==data_source_id
+                )
             if medium:
                 query = query.filter(
                     Edition.medium==Edition.additional_type_to_medium[medium]
@@ -1279,6 +1291,7 @@ class CustomListsController(AdminCirculationManagerController):
                                         medium=Edition.medium_to_additional_type.get(entry.edition.medium, None),
                                         url=url,
                                         language=entry.edition.language,
+                                        data_source_id=entry.edition.data_source_id
                     ))
             collections = []
             for collection in list.collections:
@@ -2410,12 +2423,12 @@ class SettingsController(AdminCirculationManagerController):
             self.require_sitewide_library_manager()
         if admin.is_system_admin() and not settingUp:
             self.require_system_admin()
-            
+
         if password:
             # If the admin we're editing has a sitewide manager role, we've already verified
             # the current admin's role above. Otherwise, an admin can only change that
             # admin's password if they are a library manager of one of that admin's
-            # libraries, or if they are editing a new admin or an admin who has no 
+            # libraries, or if they are editing a new admin or an admin who has no
             # roles yet.
             # TODO: set up password reset emails instead.
             if not is_new and not admin.is_sitewide_library_manager():
