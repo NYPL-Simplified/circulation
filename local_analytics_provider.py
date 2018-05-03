@@ -18,6 +18,8 @@ class LocalAnalyticsProvider(object):
 
     def collect_event(self, library, license_pool, event_type, time, 
         old_value=None, new_value=None, **kwargs):
+        if not library and not license_pool:
+            raise ValueError("Either library or license_pool must be provided.")
         if library:
             _db = Session.object_session(library)
         else:
