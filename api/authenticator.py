@@ -508,6 +508,25 @@ class LibraryAuthenticator(object):
         return False
 
     @property
+    def identifies_individuals(self):
+        """Does this library require that individual patrons be identified?
+
+        Most libraries require authentication as an individual. Some
+        libraries don't identify patrons at all; others may have a way
+        of identifying the patron population without identifying
+        individuals, such as an IP gate.
+
+        If some of a library's authentication mechanisms identify individuals,
+        and others do not, the library does not identify individuals.
+        """
+        if not self.supports_patron_authentication:
+            return False
+        matches = list(self.providers)
+        return matches and all(
+            [x.IDENTIFIES_INDIVIDUALS for x in matches]
+        )
+
+    @property
     def library(self):
         return Library.by_id(self._db, self.library_id)
         
@@ -858,6 +877,11 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     # Authentication for OPDS document to distinguish between
     # different types of authentication.
     FLOW_TYPE = None
+
+    # If an AuthenticationProvider authenticates patrons without identifying
+    # then as specific individuals (the way a geographic gate does),
+    # it should override this value and set it to False.
+    IDENTIFIES_INDIVIDUALS = True
 
     # Each authentication mechanism may have a list of SETTINGS that
     # must be configured for that mechanism, and may have a list of

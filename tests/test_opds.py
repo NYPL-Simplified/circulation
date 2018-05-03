@@ -96,6 +96,11 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         link_tag = self.annotator.open_access_link(lpdm)
         eq_(lpdm.resource.url, link_tag.get('href'))
 
+        # The dcterms:rights attribute may provide a more detailed
+        # explanation of the book's copyright status.
+        rights = link_tag.attrib['{http://purl.org/dc/terms/}rights']
+        eq_(lpdm.rights_status.uri, rights)
+
         # If we have a CDN set up for open-access links, the CDN hostname
         # replaces the original hostname.
         with temp_config() as config:
@@ -117,6 +122,29 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         assert "feed" in feed_url_fantasy
         assert str(self.lane.id) in feed_url_fantasy
         assert self._default_library.name not in feed_url_fantasy
+
+    def test_rights_attributes(self):
+        m = self.annotator.rights_attributes
+        
+        # Given a LicensePoolDeliveryMechanism with a RightsStatus,
+        # rights_attributes creates a dictionary mapping the dcterms:rights
+        # attribute to the URI associated with the RightsStatus.
+        lp = self._licensepool(None)
+        [lpdm] = lp.delivery_mechanisms
+        eq_({"{http://purl.org/dc/terms/}rights":lpdm.rights_status.uri},
+            m(lpdm))
+
+        # If any link in the chain is broken, rights_attributes returns
+        # an empty dictionary.
+        old_uri = lpdm.rights_status.uri
+        lpdm.rights_status.uri = None
+        eq_({}, m(lpdm))
+        lpdm.rights_status.uri = old_uri
+
+        lpdm.rights_status = None
+        eq_({}, m(lpdm))
+
+        eq_({}, m(None))
 
 
 class TestLibraryAnnotator(VendorIDTest):
@@ -225,6 +253,25 @@ class TestLibraryAnnotator(VendorIDTest):
 
         feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes)
         eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes))
+
+    def test_fulfill_link_issues_only_open_access_links_when_library_does_not_identify_patrons(self):
+
+        # This library doesn't identify patrons.
+        self.annotator.identifies_patrons = False
+
+        # Because of this, normal fulfillment links are not generated.
+        [pool] = self.work.license_pools
+        [lpdm] = pool.delivery_mechanisms
+        eq_(None, 
+            self.annotator.fulfill_link(pool, None, lpdm)
+        )
+
+        # However, fulfillment links _can_ be generated with the
+        # 'open-access' link relation.
+        link = self.annotator.fulfill_link(
+            pool, None, lpdm, OPDSFeed.OPEN_ACCESS_REL
+        )
+        eq_(OPDSFeed.OPEN_ACCESS_REL, link.attrib['rel'])
 
     def test_fulfill_link_includes_device_registration_tags(self):
         """Verify that when Adobe Vendor ID delegation is included, the
@@ -419,7 +466,7 @@ class TestLibraryAnnotator(VendorIDTest):
         for auth in (True, False):
             annotator = LibraryAnnotator(
                 None, lane, self._default_library, test_mode=True,
-                library_supports_patron_authentication=auth
+                library_identifies_patrons=auth
             )
             feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
             entry = feed._make_entry_xml(work, pool, edition, identifier)
@@ -455,7 +502,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         annotator = LibraryAnnotator(
             None, lane, self._default_library, test_mode=True,
-            library_supports_patron_authentication=True
+            library_identifies_patrons=True
         )
         feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
         entry = feed._make_entry_xml(work, None, edition, identifier)
@@ -479,7 +526,7 @@ class TestLibraryAnnotator(VendorIDTest):
         for auth in (True, False):
             annotator = LibraryAnnotator(
                 None, lane, self._default_library, test_mode=True,
-                library_supports_patron_authentication=auth
+                library_identifies_patrons=auth
             )
             feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
             annotator.annotate_feed(feed, lane)
@@ -677,7 +724,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # If the library does not authenticate patrons, no link to the
         # annotation service is provided.
         feed = self.get_parsed_feed(
-            [work], library_supports_patron_authentication=False
+            [work], library_identifies_patrons=False
         )
         [entry] = feed.entries
         assert annotation_rel not in [x['rel'] for x in entry['links']]
@@ -1165,13 +1212,36 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # If patron authentication is turned off for the library, then
         # only open-access links are displayed.
-        annotator.patron_auth = False
+        annotator.identifies_patrons = False
 
         [open_access] = annotator.acquisition_links(
             loan1.license_pool, loan1, None, None, feed, loan1.license_pool.identifier)
         eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
 
-        # This happens even when there are active holds in the
+        # This may include links with the open-access relation for
+        # non-open-access works that are available without
+        # authentication.  To get such link, you pass in a list of
+        # LicensePoolDeliveryMechanisms as
+        # `direct_fufillment_delivery_mechanisms`.
+        [lp4] = work4.license_pools
+        [lpdm4] = lp4.delivery_mechanisms
+        lpdm4.set_rights_status(RightsStatus.IN_COPYRIGHT)
+        [not_open_access] = annotator.acquisition_links(
+            lp4, None, None, None, feed, lp4.identifier,
+            direct_fulfillment_delivery_mechanisms=[lpdm4]
+        )
+
+        # The link relation is OPDS 'open-access', which just means the
+        # book can be downloaded with no hassle.
+        eq_('http://opds-spec.org/acquisition/open-access', not_open_access.attrib.get("rel"))
+
+        # The dcterms:rights attribute provides a more detailed
+        # explanation of the book's copyright status -- note that it's
+        # not "open access" in the typical sense.
+        rights = not_open_access.attrib['{http://purl.org/dc/terms/}rights']
+        eq_(RightsStatus.IN_COPYRIGHT, rights)
+
+        # Hold links are absent even when there are active holds in the
         # database -- there is no way to distinguish one patron from
         # another so the concept of a 'hold' is meaningless.
         hold_links = annotator.acquisition_links(

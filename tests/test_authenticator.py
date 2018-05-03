@@ -734,6 +734,38 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         authenticator.oauth_providers_by_name[object()] = object()
         eq_(True, authenticator.supports_patron_authentication)
 
+    def test_identifies_individuals(self):
+        # This LibraryAuthenticator does not authenticate patrons at
+        # all, so it does not identify patrons as individuals.
+        authenticator = LibraryAuthenticator(
+            _db=self._db, library=self._default_library,
+        )
+
+        # This LibraryAuthenticator has two Authenticators, but
+        # neither of them identify patrons as individuals.
+        class MockAuthenticator(object):
+            NAME = "mock"
+            IDENTIFIES_INDIVIDUALS = False
+        basic = MockAuthenticator()
+        oauth = MockAuthenticator()
+        authenticator = LibraryAuthenticator(
+            _db=self._db, library=self._default_library,
+            basic_auth_provider=basic, oauth_providers=[oauth],
+            bearer_token_signing_secret=self._str
+        )
+        eq_(False, authenticator.identifies_individuals)
+
+        # If some Authenticators identify individuals and some do not,
+        # the library as a whole does not (necessarily) identify
+        # individuals.
+        basic.IDENTIFIES_INDIVIDUALS = True
+        eq_(False, authenticator.identifies_individuals)
+
+        # If every Authenticator identifies individuals, then so does
+        # the library as a whole.
+        oauth.IDENTIFIES_INDIVIDUALS = True
+        eq_(True, authenticator.identifies_individuals)
+
 
     def test_providers(self):
         integration = self._external_integration(self._str)

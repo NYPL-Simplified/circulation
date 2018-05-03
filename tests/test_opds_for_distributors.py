@@ -27,6 +27,8 @@ from core.model import (
     Representation,
     RightsStatus,
 )
+from core.util.opds_writer import OPDSFeed
+
 
 class BaseOPDSForDistributorsTest(object):
     base_path = os.path.split(__file__)[0]
@@ -43,6 +45,41 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         super(TestOPDSForDistributorsAPI, self).setup()
         self.collection = MockOPDSForDistributorsAPI.mock_collection(self._db)
         self.api = MockOPDSForDistributorsAPI(self._db, self.collection)
+
+    def test_can_fulfill_without_loan(self):
+        """A book made available through OPDS For Distributors can be
+        fulfilled with no underlying loan, if its delivery mechanism
+        uses bearer token fulfillment.
+        """
+        patron = object()
+        pool = self._licensepool(edition=None, collection=self.collection)
+        [lpdm] = pool.delivery_mechanisms
+
+        m = self.api.can_fulfill_without_loan
+
+        # No LicensePoolDeliveryMechanism -> False
+        eq_(False, m(patron, pool, None))
+
+        # No LicensePool -> False (there can be multiple LicensePools for
+        # a single LicensePoolDeliveryMechanism).
+        eq_(False, m(patron, None, lpdm))
+
+        # No DeliveryMechanism -> False
+        old_dm = lpdm.delivery_mechanism
+        lpdm.delivery_mechanism = None
+        eq_(False, m(patron, pool, lpdm))
+
+        # DRM mechanism requires identifying a specific patron -> False
+        lpdm.delivery_mechanism = old_dm
+        lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.ADOBE_DRM
+        eq_(False, m(patron, pool, lpdm))
+
+        # Otherwise -> True
+        lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.NO_DRM
+        eq_(True, m(patron, pool, lpdm))
+
+        lpdm.delivery_mechanism.drm_scheme = DeliveryMechanism.BEARER_TOKEN
+        eq_(True, m(patron, pool, lpdm))
 
     def test_get_token_success(self):
         # The API hasn't been used yet, so it will need to find the auth
@@ -364,7 +401,9 @@ class TestOPDSForDistributorsReaperMonitor(DatabaseTest, BaseOPDSForDistributors
         class MockOPDSForDistributorsReaperMonitor(OPDSForDistributorsReaperMonitor):
             """An OPDSForDistributorsReaperMonitor that overrides _get."""
             def _get(self, url, headers):
-                return 200, {}, feed
+                return (
+                    200, {'content-type': OPDSFeed.ACQUISITION_FEED_TYPE}, feed
+                )
 
         data_source = DataSource.lookup(self._db, "Biblioboard", autocreate=True)
         collection = MockOPDSForDistributorsAPI.mock_collection(self._db)
