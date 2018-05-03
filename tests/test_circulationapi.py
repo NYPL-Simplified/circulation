@@ -18,6 +18,7 @@ from datetime import (
 
 from api.circulation_exceptions import *
 from api.circulation import (
+    BaseCirculationAPI,
     CirculationAPI,
     DeliveryMechanismInfo,
     FulfillmentInfo,
@@ -591,9 +592,8 @@ class TestCirculationAPI(DatabaseTest):
         working_lpdm.delivery_mechanism = irrelevant_delivery_mechanism
         assert_raises(FormatNotAvailable, self.circulation.fulfill_open_access,
                       self.pool, i_want_an_epub)
-        
-        
-    def test_fulfill_sends_analytics_event(self):
+
+    def test_fulfill(self):
         self.pool.loan_to(self.patron)
 
         fulfillment = self.pool.delivery_mechanisms[0]
@@ -611,6 +611,30 @@ class TestCirculationAPI(DatabaseTest):
         eq_(1, self.analytics.count)
         eq_(CirculationEvent.CM_FULFILL,
             self.analytics.event_type)
+
+    def test_fulfill_without_loan(self):
+        # By default, a title cannot be fulfilled unless there is an active
+        # loan for the title (tested above, in test_fulfill).
+        fulfillment = self.pool.delivery_mechanisms[0]
+        fulfillment.content = "Fulfilled."
+        fulfillment.content_link = None
+        self.remote.queue_fulfill(fulfillment)
+
+        def try_to_fulfill():
+            # Note that we're passing None for `patron`.
+            return self.circulation.fulfill(
+                None, '1234', self.pool, self.pool.delivery_mechanisms[0]
+            )
+
+        assert_raises(NoActiveLoan, try_to_fulfill)
+
+        # However, if CirculationAPI.can_fulfill_without_loan() says it's
+        # okay, the title will be fulfilled anyway.
+        def yes_we_can(*args, **kwargs):
+            return True
+        self.circulation.can_fulfill_without_loan = yes_we_can
+        result = try_to_fulfill()
+        eq_(fulfillment, result)
             
     def test_revoke_loan_sends_analytics_event(self):
         self.pool.loan_to(self.patron)
@@ -831,6 +855,40 @@ class TestCirculationAPI(DatabaseTest):
         eq_(0, len(loans))
         eq_(0, len(holds))
         eq_(False, complete)        
+
+    def test_can_fulfill_without_loan(self):
+        """Can a title can be fulfilled without an active loan?  It depends on
+        the BaseCirculationAPI implementation for that title's colelction.
+        """
+        class Mock(BaseCirculationAPI):
+            def can_fulfill_without_loan(self, patron, pool, lpdm):
+                return "yep"
+
+        pool = self._licensepool(None)
+        circulation = CirculationAPI(self._db, self._default_library)
+        circulation.api_for_collection[pool.collection.id] = Mock()
+        eq_(
+            "yep",
+            circulation.can_fulfill_without_loan(None, pool, object())
+        )
+
+        # If format data is missing or the BaseCirculationAPI cannot
+        # be found, we assume the title cannot be fulfilled.
+        eq_(False, circulation.can_fulfill_without_loan(None, pool, None))
+        eq_(False, circulation.can_fulfill_without_loan(None, None, object()))
+
+        circulation.api_for_collection = {}
+        eq_(False, circulation.can_fulfill_without_loan(None, pool, None))
+
+
+class TestBaseCirculationAPI(object):
+
+    def test_can_fulfill_without_loan(self):
+        """By default, there is a blanket prohibition on fulfilling a title
+        when there is no active loan.
+        """
+        api = BaseCirculationAPI()
+        eq_(False, api.can_fulfill_without_loan(object(), object(), object()))
 
 
 class TestDeliveryMechanismInfo(DatabaseTest):
