@@ -8830,6 +8830,15 @@ class Representation(Base):
         return response.status_code, response.headers, response.content
 
     @classmethod
+    def simple_http_put(cls, url, headers, **kwargs):
+        """The most simple HTTP-based PUT."""
+        data = kwargs.get('data')
+        if 'data' in kwargs:
+            del kwargs['data']
+        response = HTTP.put_with_timeout(url, data, headers=headers, **kwargs)
+        return response.status_code, response.headers, response.content
+
+    @classmethod
     def http_get_no_timeout(cls, url, headers, **kwargs):
         return Representation.simple_http_get(url, headers, timeout=None, **kwargs)
 

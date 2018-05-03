@@ -26,7 +26,7 @@ class RemoteIntegrationException(Exception):
 
     def __init__(self, url_or_service, message, debug_message=None):
         """Indicate that a remote integration has failed.
-        
+
         `param url_or_service` The name of the service that failed
            (e.g. "Overdrive"), or the specific URL that had the problem.
         """
@@ -54,7 +54,7 @@ class RemoteIntegrationException(Exception):
 
     def as_problem_detail_document(self, debug):
         return INTEGRATION_ERROR.detailed(
-            detail=self.document_detail(debug), title=self.title, 
+            detail=self.document_detail(debug), title=self.title,
             debug_message=self.document_debug_message(debug)
         )
 
@@ -68,7 +68,7 @@ class BadResponseException(RemoteIntegrationException):
 
     def __init__(self, url_or_service, message, debug_message=None, status_code=None):
         """Indicate that a remote integration has failed.
-        
+
         `param url_or_service` The name of the service that failed
            (e.g. "Overdrive"), or the specific URL that had the problem.
         """
@@ -97,8 +97,8 @@ class BadResponseException(RemoteIntegrationException):
             status_code = response.status_code
             content = response.content
         return BadResponseException(
-            url, message, 
-            status_code=status_code, 
+            url, message,
+            status_code=status_code,
             debug_message="Status code: %s\nContent: %s" % (
                 status_code,
                 content,
@@ -151,6 +151,12 @@ class HTTP(object):
         return cls.request_with_timeout("POST", url, *args, **kwargs)
 
     @classmethod
+    def put_with_timeout(cls, url, payload, *args, **kwargs):
+        """Make a PUT request with timeout handling."""
+        kwargs['data'] = payload
+        return cls.request_with_timeout("PUT", url, *args, **kwargs)
+
+    @classmethod
     def request_with_timeout(cls, http_method, url, *args, **kwargs):
         """Call requests.request and turn a timeout into a RequestTimedOut
         exception.
@@ -194,7 +200,7 @@ class HTTP(object):
         try:
             response = m(*args, **kwargs)
         except requests.exceptions.Timeout, e:
-            # Wrap the requests-specific Timeout exception 
+            # Wrap the requests-specific Timeout exception
             # in a generic RequestTimedOut exception.
             raise RequestTimedOut(url, e.message)
         except requests.exceptions.RequestException, e:
@@ -213,10 +219,10 @@ class HTTP(object):
         server-side failure, or behavior so unpredictable that we can't
         continue.
 
-        :param allowed_response_codes If passed, then only the responses with 
-            http status codes in this list are processed.  The rest generate  
+        :param allowed_response_codes If passed, then only the responses with
+            http status codes in this list are processed.  The rest generate
             BadResponseExceptions.
-        :param disallowed_response_codes The values passed are added to 5xx, as 
+        :param disallowed_response_codes The values passed are added to 5xx, as
             http status codes that would generate BadResponseExceptions.
         """
         if allowed_response_codes:
@@ -232,7 +238,7 @@ class HTTP(object):
         code = str(code)
 
         if allowed_response_codes and (
-                code in allowed_response_codes 
+                code in allowed_response_codes
                 or series in allowed_response_codes
         ):
             # The code or series has been explicitly allowed. Allow
@@ -247,7 +253,7 @@ class HTTP(object):
             # an exception.
             error_message = BadResponseException.BAD_STATUS_CODE_MESSAGE
         elif (allowed_response_codes and not (
-                code in allowed_response_codes 
+                code in allowed_response_codes
                 or series in allowed_response_codes
         )):
             error_message = status_code_not_in_allowed
@@ -255,7 +261,7 @@ class HTTP(object):
         if error_message:
             raise BadResponseException(
                 url,
-                error_message % code, 
+                error_message % code,
                 status_code=code,
                 debug_message="Response content: %s" % response.content
             )
@@ -296,7 +302,7 @@ class HTTP(object):
             # response codes so that we can handle bad ones in a more
             # helpful way.
             kwargs['allowed_response_codes']=["1xx", "2xx", "3xx", "4xx", "5xx"]
-            
+
             # But we want to apply the normal rules when deciding whether
             # a given response is 'bad'.
             allowed_response_codes = None
