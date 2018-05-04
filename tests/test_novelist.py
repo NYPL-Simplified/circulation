@@ -23,6 +23,9 @@ from api.novelist import (
     NoveListAPI,
     NoveListCoverageProvider,
 )
+from core.util.http import (
+    HTTP
+)
 
 
 class TestNoveListAPI(DatabaseTest):
@@ -34,8 +37,8 @@ class TestNoveListAPI(DatabaseTest):
             ExternalIntegration.NOVELIST,
             ExternalIntegration.METADATA_GOAL, username=u'library',
             password=u'yep', libraries=[self._default_library],
-            authorized_identifier=u'authorized'
         )
+        self.integration.set_setting('authorized_identifier', 'authorized')
         self.novelist = NoveListAPI.from_config(self._default_library)
         print self.novelist
 
@@ -70,7 +73,7 @@ class TestNoveListAPI(DatabaseTest):
 
         self.integration.password = u'yep'
         self.integration.username = u'profile'
-        self.integration.authorized_identifier = None
+        self.integration.set_setting('authorized_identifier', None)
         assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
 
     def test_is_configured(self):
@@ -383,9 +386,9 @@ class TestNoveListAPI(DatabaseTest):
         self.called_with = (args, kwargs)
 
     def test_put(self):
-        oldPut = self.novelist.put
+        oldPut = HTTP.put_with_timeout
 
-        self.novelist.put = self.mockHTTPPut
+        HTTP.put_with_timeout = self.mockHTTPPut
 
         headers = {"AuthorizedIdentifier": "authorized!"}
         isbns = ["12345", "12346", "12347"]
@@ -394,10 +397,10 @@ class TestNoveListAPI(DatabaseTest):
         response = self.novelist.put("http://apiendpoint.com", headers, data=data)
         (params, args) = self.called_with
 
-        eq_(params, ("http://apiendpoint.com", headers))
-        eq_(args["data"], data)
+        eq_(params, ("http://apiendpoint.com", data))
+        eq_(args["headers"], headers)
 
-        self.novelist.put = oldPut
+        HTTP.put_with_timeout = oldPut
 
 
 class TestNoveListCoverageProvider(DatabaseTest):
@@ -409,6 +412,7 @@ class TestNoveListCoverageProvider(DatabaseTest):
             ExternalIntegration.METADATA_GOAL, username=u'library',
             password=u'yep', libraries=[self._default_library]
         )
+        self.integration.set_setting('authorized_identifier', 'authorized')
 
         self.novelist = NoveListCoverageProvider(self._db)
         self.novelist.api = MockNoveListAPI.from_config(self._default_library)

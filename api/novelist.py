@@ -493,7 +493,6 @@ class NoveListAPI(object):
 
             content = json.loads(response._content)
 
-        print content
         return content
 
     def make_novelist_data_object(self, data):
