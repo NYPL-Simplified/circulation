@@ -2204,9 +2204,11 @@ class TestLane(DatabaseTest):
                 # bibliographic_filter_clause modifies the query (by
                 # calling customlist_filter_clauses).
                 assert base_query != new_query
-            else:
-                # The query was not modified.
-                eq_(base_query, new_query)
+
+            # The query will also be modified if a lane includes genre
+            # restrictions and also inherits genre restrictions from
+            # its parent, but we don't have a good way of seeing
+            # whether that happened.
 
             if expect_bibliographic_filter:
                 # There must be some kind of bibliographic filter.
@@ -2304,6 +2306,33 @@ class TestLane(DatabaseTest):
 
         best_sellers_lane.fiction = True
         match_works(best_selling_classics, [childrens_fiction])
+
+        # Parent restrictions based on genre can also be inherited.
+        #
+
+        # Here's a lane that finds only short stories.
+        short_stories, ignore = Genre.lookup(self._db, "Short Stories")
+        short_stories_lane = self._lane(genres=["Short Stories"])
+
+        # Here's a child of that lane, which contains science fiction.
+        sf, ignore = Genre.lookup(self._db, "Science Fiction")
+        sf_lane = self._lane(genres=[sf], parent=short_stories_lane)
+
+        # Without the parent restriction in place, all science fiction
+        # shows up in sf_lane.
+        sf_lane.inherit_parent_restrictions = False
+        sf_short = self._work(with_license_pool=True)
+        sf_short.genres.append(sf)
+        self.add_to_materialized_view(sf_short)
+        from model import MaterializedWorkWithGenre as work_model
+        match_works(sf_lane, [sf_short])
+
+        # With the parent restriction in place, a book must be classified
+        # under both science fiction and short stories to show up.
+        sf_lane.inherit_parent_restrictions = True
+        match_works(sf_lane, [])
+        sf_short.genres.append(short_stories)
+        match_works(sf_lane, [sf_short])
 
     def test_bibliographic_filter_clause_no_restrictions(self):
         """A lane that matches every single book has no bibliographic
