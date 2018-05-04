@@ -1173,7 +1173,17 @@ class WorkList(object):
         if self.media:
             clauses.append(work_model.medium.in_(self.media))
         if self.genre_ids:
-            clauses.append(work_model.genre_id.in_(self.genre_ids))
+            already_filtered_genre_id_on_materialized_view = getattr(
+                qu, 'genre_id_filtered', False
+            )
+            if already_filtered_genre_id_on_materialized_view:
+                wg = aliased(WorkGenre)
+                qu = qu.join(wg, wg.work_id==work_model.works_id)
+                field = wg.genre_id
+            else:
+                qu.genre_id_filtered = True
+                field = work_model.genre_id
+            clauses.append(field.in_(self.genre_ids))
         if not clauses:
             clause = None
         else:
