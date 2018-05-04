@@ -10,6 +10,7 @@ from flask_babel import lazy_gettext as _
 from sqlalchemy.orm.session import Session
 
 from config import CannotLoadConfiguration
+from core.app_server import cdn_url_for
 from core.model import (
     get_one,
 )
@@ -151,7 +152,7 @@ class COPPAGate(CustomIndexView):
         feed = OPDSFeed(title=library.name, url=base_url)
         opds = feed.feed
         yes_url = url_for(
-            'feed',
+            'acquisition_groups',
             library_short_name=library.short_name,
             lane_identifier=self.yes_lane_id
         )
@@ -161,7 +162,7 @@ class COPPAGate(CustomIndexView):
 
         # An entry for children.
         no_url = url_for(
-            'feed',
+            'acquisition_groups',
             library_short_name=library.short_name,
             lane_identifier=self.no_lane_id
         )
