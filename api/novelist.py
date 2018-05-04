@@ -459,9 +459,7 @@ class NoveListAPI(object):
                 metadata.recommendations += self._extract_isbns(book_info)
         return metadata
 
-    def put_isbns_novelist(self, db, library):
-        _db = db
-
+    def put_isbns_novelist(self, library):
         collectionList = []
         for c in library.collections:
             collectionList.append(c.id)
@@ -481,7 +479,7 @@ class NoveListAPI(object):
             and_(lp.collection_id.in_(collectionList), i2.type=="ISBN")
         ).alias('lp_isbns')
 
-        result = _db.execute(isbnQuery)
+        result = self._db.execute(isbnQuery)
         isbns = []
         for r in result:
             isbns.append(r[0])
@@ -494,7 +492,9 @@ class NoveListAPI(object):
             )
 
             content = json.loads(response._content)
-            # print content
+
+        print content
+        return content
 
     def make_novelist_data_object(self, data):
         isbns = list(map(lambda isbn: {"ISBN": isbn}, data))

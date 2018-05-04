@@ -33,9 +33,11 @@ class TestNoveListAPI(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.NOVELIST,
             ExternalIntegration.METADATA_GOAL, username=u'library',
-            password=u'yep', libraries=[self._default_library]
+            password=u'yep', libraries=[self._default_library],
+            authorized_identifier=u'authorized'
         )
         self.novelist = NoveListAPI.from_config(self._default_library)
+        print self.novelist
 
     def teardown(self):
         NoveListAPI.IS_CONFIGURED = None
@@ -56,6 +58,7 @@ class TestNoveListAPI(DatabaseTest):
         eq_(True, isinstance(novelist, NoveListAPI))
         eq_("library", novelist.profile)
         eq_("yep", novelist.password)
+        eq_("authorized", novelist.authorized_identifier)
 
         # Without either configuration value, an error is raised.
         self.integration.password = None
@@ -63,6 +66,11 @@ class TestNoveListAPI(DatabaseTest):
 
         self.integration.password = u'yep'
         self.integration.username = None
+        assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
+
+        self.integration.password = u'yep'
+        self.integration.username = u'profile'
+        self.integration.authorized_identifier = None
         assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
 
     def test_is_configured(self):

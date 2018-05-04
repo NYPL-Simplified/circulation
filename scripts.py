@@ -1424,7 +1424,7 @@ class NovelistSnapshotScript(LibraryInputScript):
         parsed = self.parse_command_line(self._db, *args, **kwargs)
         api = NoveListAPI.from_config(parsed.libraries[0])
         if (api):
-            api.put_isbns_novelist(self._db, parsed.libraries[0])
+            api.put_isbns_novelist(parsed.libraries[0])
 
 class ODLBibliographicImportScript(OPDSImportScript):
     """Import bibliographic information from the feed associated
