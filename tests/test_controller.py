@@ -13,7 +13,10 @@ from time import mktime
 from decimal import Decimal
 
 import flask
-from flask import url_for
+from flask import (
+    url_for,
+    Response,
+)
 from flask_sqlalchemy_session import (
     current_session,
     flask_scoped_session,
@@ -976,6 +979,39 @@ class TestLoanController(CirculationControllerTest):
         self.data_source = self.edition.data_source
         self.identifier = self.edition.primary_identifier
 
+    def test_can_fulfill_without_loan(self):
+        """Test the circumstances under which a title can be fulfilled
+        in the absence of an active loan for that title.
+        """
+        m = self.manager.loans.can_fulfill_without_loan
+
+        # If the library has a way of authenticating patrons (as the
+        # default library does), then fulfilling a title always
+        # requires an active loan.
+        patron = object()
+        pool = object()
+        lpdm = object()
+        eq_(False, m(self._default_library, patron, pool, lpdm))
+
+        # If the library does not authenticate patrons, then this
+        # _may_ be possible, but
+        # CirculationAPI.can_fulfill_without_loan also has to say it's
+        # okay.
+        class MockLibraryAuthenticator(object):
+            identifies_individuals = False
+        self.manager.auth.library_authenticators[
+            self._default_library.short_name
+        ] = MockLibraryAuthenticator()
+        def mock_can_fulfill_without_loan(patron, pool, lpdm):
+            self.called_with = (patron, pool, lpdm)
+            return True
+        with self.request_context_with_library("/"):
+            self.manager.loans.circulation.can_fulfill_without_loan = (
+                mock_can_fulfill_without_loan
+            )
+            eq_(True, m(self._default_library, patron, pool, lpdm))
+            eq_((patron, pool, lpdm), self.called_with)
+
     def test_patron_circulation_retrieval(self):
         """The controller can get loans and holds for a patron, even if
         there are multiple licensepools on the Work.
@@ -1379,15 +1415,73 @@ class TestLoanController(CirculationControllerTest):
 
             eq_(ALREADY_CHECKED_OUT, response)
 
-    def test_fulfill_fails_when_no_active_loan(self):
+    def test_fulfill_without_active_loan(self):
+
+        controller = self.manager.loans
+
+        # Most of the time, it is not possible to fulfill a title if the
+        # patron has no active loan for the title. This might be
+        # because the patron never checked out the book...
         with self.request_context_with_library(
                 "/", headers=dict(Authorization=self.valid_auth)):
-            self.manager.loans.authenticated_patron_from_request()
-            response = self.manager.loans.fulfill(
-                self.pool.id, self.mech2.id
+            controller.authenticated_patron_from_request()
+            response = controller.fulfill(
+                self.pool.id, self.mech2.delivery_mechanism.id
             )
 
             eq_(NO_ACTIVE_LOAN.uri, response.uri)
+
+        # ...or it might be because there is no authenticated patron.
+        with self.request_context_with_library("/"):
+            response = controller.fulfill(
+                self.pool.id, self.mech2.delivery_mechanism.id
+            )
+            assert isinstance(response, Response)
+            eq_(401, response.status_code)
+
+        # ...or it might be because of an error communicating
+        # with the authentication provider.
+        old_authenticated_patron = controller.authenticated_patron_from_request
+        def mock_authenticated_patron():
+            return INTEGRATION_ERROR
+        controller.authenticated_patron_from_request = mock_authenticated_patron
+        with self.request_context_with_library("/"):
+            problem = controller.fulfill(
+                self.pool.id, self.mech2.delivery_mechanism.id
+            )
+            eq_(INTEGRATION_ERROR, problem)
+        controller.authenticated_patron_from_request = old_authenticated_patron
+
+        # However, if can_fulfill_without_loan returns True, then
+        # fulfill() will be called. If fulfill() returns a
+        # FulfillmentInfo, then the title is fulfilled, with no loan
+        # having been created.
+        #
+        # To that end, we'll mock can_fulfill_without_loan and fulfill.
+        def mock_can_fulfill_without_loan(*args, **kwargs):
+            return True
+
+        def mock_fulfill(*args, **kwargs):
+            return FulfillmentInfo(
+                self.collection,
+                self.pool.data_source.name,
+                self.pool.identifier.type,
+                self.pool.identifier.identifier,
+                None, "text/html", "here's your book",
+                datetime.datetime.utcnow(),
+            )
+
+        # Now we're able to fulfill the book even without
+        # authenticating a patron.
+        with self.request_context_with_library("/"):
+            controller.can_fulfill_without_loan = mock_can_fulfill_without_loan
+            controller.circulation.fulfill = mock_fulfill
+            response = controller.fulfill(
+                self.pool.id, self.mech2.delivery_mechanism.id
+            )
+
+            eq_("here's your book", response.data)
+            eq_([], self._db.query(Loan).all())
 
     def test_revoke_loan(self):
          with self.request_context_with_library(
