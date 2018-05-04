@@ -1196,14 +1196,13 @@ class CustomListsController(AdminCirculationManagerController):
             pwid = entry.get("pwid")
             medium = entry.get("medium")
             language = entry.get("language")
-            data_source_id = entry.get("data_source_id")
+            data_source = entry.get("data_source")
 
-            if not type(data_source_id) == type(int()):
-                data_source = DataSource.lookup(self._db, data_source_id)
-                if data_source:
-                    data_source_id = data_source.id
-                else:
-                    data_source_id = None
+            data_source = DataSource.lookup(self._db, data_source)
+            if data_source:
+                data_source_id = data_source.id
+            else:
+                data_source_id = None
 
             query = self._db.query(
                 Work
@@ -1291,7 +1290,7 @@ class CustomListsController(AdminCirculationManagerController):
                                         medium=Edition.medium_to_additional_type.get(entry.edition.medium, None),
                                         url=url,
                                         language=entry.edition.language,
-                                        data_source_id=entry.edition.data_source_id
+                                        data_source=entry.edition.data_source.name
                     ))
             collections = []
             for collection in list.collections:

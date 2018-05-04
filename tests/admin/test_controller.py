@@ -1756,7 +1756,7 @@ class TestCustomListsController(AdminControllerTest):
             eq_(2, len(entry.get("authors")))
             eq_(Edition.medium_to_additional_type[Edition.BOOK_MEDIUM], entry.get("medium"))
             eq_(edition.language, entry.get("language"))
-            eq_(edition.data_source_id, entry.get("data_source_id"))
+            eq_(edition.data_source.name, entry.get("data_source"))
             eq_(set([c1.display_name, c2.display_name]),
                 set(entry.get("authors")))
             eq_(1, len(response.get("collections")))
@@ -1802,7 +1802,7 @@ class TestCustomListsController(AdminControllerTest):
 
         new_entries = [dict(pwid=work.presentation_edition.permanent_work_id,
             medium=Edition.medium_to_additional_type[work.presentation_edition.medium],
-            data_source_id=work.presentation_edition.data_source_id) for work in [w2, w3]]
+            data_source=work.presentation_edition.data_source.name) for work in [w2, w3]]
 
         c1 = self._collection()
         c1.libraries = [self._default_library]
