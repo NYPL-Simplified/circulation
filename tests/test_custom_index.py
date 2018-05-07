@@ -195,7 +195,7 @@ class TestCOPPAGate(DatabaseTest):
 
         lane_url, title, content = older
         yes_url = mock_url_for(
-            "feed", self._default_library.short_name,
+            "acquisition_groups", self._default_library.short_name,
             lane_identifier=gate.yes_lane_id
         )
         eq_(lane_url, yes_url)
@@ -204,7 +204,7 @@ class TestCOPPAGate(DatabaseTest):
 
         lane_url, title, content = younger
         no_url = mock_url_for(
-            "feed", self._default_library.short_name,
+            "acquisition_groups", self._default_library.short_name,
             lane_identifier=gate.no_lane_id
         )
         eq_(lane_url, no_url)
