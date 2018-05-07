@@ -60,7 +60,8 @@ class NoveListAPI(object):
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Profile") },
         { "key": ExternalIntegration.PASSWORD, "label": _("Password") },
-        { "key": AUTHORIZED_IDENTIFIER, "label": _("Authorized Identifier") },
+        { "key": AUTHORIZED_IDENTIFIER, "label": _("Authorized Identifier"),
+          "description": "The authorization key used as a Header for using the NoveList collections API endpoint." },
     ]
 
     # Different libraries may have different NoveList integrations
