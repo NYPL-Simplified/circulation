@@ -2118,7 +2118,7 @@ class Identifier(Base):
 
     @classmethod
     def recursively_equivalent_identifier_ids_query(
-            cls, identifier_id_column, levels=5, threshold=0.50):
+            cls, identifier_id_column, levels=5, threshold=0.50, cutoff=None):
         """Get a SQL statement that will return all Identifier IDs
         equivalent to a given ID at the given confidence threshold.
 
@@ -2128,11 +2128,11 @@ class Identifier(Base):
 
         This uses the function defined in files/recursive_equivalents.sql.
         """
-        return select([func.fn_recursive_equivalents(identifier_id_column, levels, threshold)])
+        return select([func.fn_recursive_equivalents(identifier_id_column, levels, threshold, cutoff)])
 
     @classmethod
     def recursively_equivalent_identifier_ids(
-            cls, _db, identifier_ids, levels=5, threshold=0.50):
+            cls, _db, identifier_ids, levels=5, threshold=0.50, cutoff=None):
         """All Identifier IDs equivalent to the given set of Identifier
         IDs at the given confidence threshold.
 
@@ -2143,11 +2143,17 @@ class Identifier(Base):
 
         Returns a dictionary mapping each ID in the original to a
         list of equivalent IDs.
-        """
 
-        query = select([Identifier.id, func.fn_recursive_equivalents(Identifier.id, levels, threshold)],
+        :param cutoff: The results will be cut off at _approximately_
+        this many results.
+        """
+        query = select([Identifier.id, func.fn_recursive_equivalents(Identifier.id, levels, threshold, cutoff)],
                        Identifier.id.in_(identifier_ids))
+        import time
+        a = time.time()
         results = _db.execute(query)
+        b = time.time()
+        logging.error("%r took %.2f", identifier_ids, b-a)
         equivalents = defaultdict(list)
         for r in results:
             original = r[0]
@@ -2467,7 +2473,7 @@ class Identifier(Base):
 
         last_coverage_update = None
         if self.coverage_records:
-            timestamps = [c.timestamp for c in self.coverage_records]
+            timestamps = [c.timestamp for c in self.coverage_records if c.timestamp]
             last_coverage_update = max(timestamps)
 
         quality = Measurement.overall_quality(self.measurements)
@@ -4358,7 +4364,7 @@ class Work(Base):
         )
         return q
 
-    def all_identifier_ids(self, recursion_level=5):
+    def all_identifier_ids(self, recursion_level=5, cutoff=None):
         _db = Session.object_session(self)
         primary_identifier_ids = [
             lp.identifier.id for lp in self.license_pools
@@ -4366,7 +4372,7 @@ class Work(Base):
         ]
         # Get a dict that maps identifier ids to lists of their equivalents.
         equivalent_lists = Identifier.recursively_equivalent_identifier_ids(
-            _db, primary_identifier_ids, recursion_level)
+            _db, primary_identifier_ids, recursion_level, cutoff=cutoff)
 
         identifier_ids = set()
         for equivs in equivalent_lists.values():
