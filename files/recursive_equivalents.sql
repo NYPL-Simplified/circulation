@@ -1,8 +1,7 @@
 CREATE OR REPLACE FUNCTION fn_recursive_equivalents(parent INT, recursion_depth INT, strength_threshold DOUBLE PRECISION, cutoff INT DEFAULT null)
 RETURNS TABLE
         (
-        recursive_equivalent INT,
-	r BIGINT
+        recursive_equivalent INT
         )
 AS
 $$
