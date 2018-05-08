@@ -166,9 +166,9 @@ class HTTP(object):
 
         The core of `request_with_timeout` made easy to test.
         """
-        allowed_response_codes = kwargs.pop('allowed_response_codes')
-        disallowed_response_codes = kwargs.pop('disallowed_response_codes')
-        verbose = kwargs.pop('verbose')
+        allowed_response_codes = kwargs.pop('allowed_response_codes', [])
+        disallowed_response_codes = kwargs.pop('disallowed_response_codes', [])
+        verbose = kwargs.pop('verbose', False)
 
         if not 'timeout' in kwargs:
             kwargs['timeout'] = 20
