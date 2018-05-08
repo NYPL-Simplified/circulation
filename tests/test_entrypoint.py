@@ -31,6 +31,10 @@ class TestEntryPoint(DatabaseTest):
         eq_(Edition.BOOK_MEDIUM, EbooksEntryPoint.INTERNAL_NAME)
         eq_(Edition.AUDIO_MEDIUM, AudiobooksEntryPoint.INTERNAL_NAME)
 
+        eq_("http://schema.org/CreativeWork", everything.URI)
+        for ep in (EbooksEntryPoint, AudiobooksEntryPoint):
+            eq_(ep.URI, Edition.medium_to_additional_type[ep.INTERNAL_NAME])
+
     def test_no_changes(self):
         # EntryPoint doesn't modify queries or searches.
         qu = self._db.query(Edition)

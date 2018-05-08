@@ -1739,6 +1739,59 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_([OPDSFeed.ENTRY_TYPE, Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE],
             AcquisitionFeed.format_types(overdrive_streaming_text))
 
+    def test_add_breadcrumb_links(self):
+
+        class MockFeed(AcquisitionFeed):
+            add_link_calls = []
+            add_breadcrumbs_call = None
+            current_entrypoint = None
+            def add_link_to_feed(self, **kwargs):
+                self.add_link_calls.append(kwargs)
+
+            def add_breadcrumbs(self, lane, entrypoint):
+                self.add_breadcrumbs_call = (lane, entrypoint)
+
+            def show_current_entrypoint(self, entrypoint):
+                self.current_entrypoint = entrypoint
+
+        annotator = TestAnnotator()
+        feed = MockFeed(self._db, "title", "url", [], annotator=annotator)
+
+        lane = self._lane()
+        sublane = self._lane(parent=lane)
+        ep = AudiobooksEntryPoint
+        feed.add_breadcrumb_links(sublane, ep)
+
+        # add_link_to_feed was called twice, to create the 'start' and
+        # 'up' links.
+        start, up = feed.add_link_calls
+        eq_('start', start['rel'])
+        eq_(annotator.top_level_title(), start['title'])
+
+        eq_('up', up['rel'])
+        eq_(lane.display_name, up['title'])
+
+        # The Lane and EntryPoint were passed into add_breadcrumbs.
+        eq_((sublane, ep), feed.add_breadcrumbs_call)
+
+        # The EntryPoint was passed into show_current_entrypoint.
+        eq_(ep, feed.current_entrypoint)
+
+    def test_show_current_entrypoint(self):
+        """Calling AcquisitionFeed.show_current_entrypoint annotates
+        the top-level <feed> tag with information about the currently
+        selected entrypoint, if any.
+        """
+        feed = AcquisitionFeed(self._db, "title", "url", [], annotator=None)
+        assert feed.CURRENT_ENTRYPOINT_ATTRIBUTE not in feed.feed.attrib
+
+        # No entry point, no annotation.
+        feed.show_current_entrypoint(None)
+
+        ep = AudiobooksEntryPoint
+        feed.show_current_entrypoint(ep)
+        eq_(ep.URI, feed.feed.attrib[feed.CURRENT_ENTRYPOINT_ATTRIBUTE])
+
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 

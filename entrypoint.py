@@ -28,6 +28,10 @@ class EntryPoint(object):
     DISPLAY_TITLES = {}
     BY_INTERNAL_NAME = {}
 
+    # A distinctive URI designating the sort of thing found through this
+    # EntryPoint.
+    URI = None
+
     @classmethod
     def register(cls, entrypoint_class, display_title, default_enabled=False):
         """Register the given subclass with the master registry
@@ -104,6 +108,7 @@ class EntryPoint(object):
 class EverythingEntryPoint(EntryPoint):
     """An entry point that has everything."""
     INTERNAL_NAME = "All"
+    URI = "http://schema.org/CreativeWork"
 EntryPoint.register(EverythingEntryPoint, "All")
 
 
@@ -111,6 +116,9 @@ class MediumEntryPoint(EntryPoint):
     """A entry point that creates a view on one specific medium.
 
     The medium is expected to be the entry point's INTERNAL_NAME.
+
+    The URI is expected to be the one in
+    Edition.schema_to_additional_type[INTERNAL_NAME]
     """
 
     @classmethod
@@ -132,8 +140,10 @@ class MediumEntryPoint(EntryPoint):
 
 class EbooksEntryPoint(MediumEntryPoint):
     INTERNAL_NAME = "Book"
+    URI = u"http://schema.org/EBook"
 EntryPoint.register(EbooksEntryPoint, "Books", default_enabled=True)
 
 class AudiobooksEntryPoint(MediumEntryPoint):
     INTERNAL_NAME = "Audio"
+    URI = u"http://bib.schema.org/Audiobook"
 EntryPoint.register(AudiobooksEntryPoint, "Audio")

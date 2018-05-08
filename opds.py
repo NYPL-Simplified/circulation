@@ -558,7 +558,7 @@ class AcquisitionFeed(OPDSFeed):
                 feed, make_link, entrypoints, facets.entrypoint
             )
 
-        cls.add_breadcrumb_links(feed, lane, annotator)
+        cls.add_breadcrumb_links(feed, lane, facets.entrypoint)
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
@@ -641,7 +641,7 @@ class AcquisitionFeed(OPDSFeed):
         if previous_page:
             OPDSFeed.add_link_to_feed(feed=feed.feed, rel="previous", href=annotator.feed_url(lane, facets, previous_page))
 
-        cls.add_breadcrumb_links(feed, lane, annotator)
+        feed.add_breadcrumb_links(lane, facets.entrypoint)
 
         annotator.annotate_feed(feed, lane)
 
@@ -728,10 +728,32 @@ class AcquisitionFeed(OPDSFeed):
         link['{%s}facetGroupType' % AtomFeed.SIMPLIFIED_NS] = FacetConstants.ENTRY_POINT_REL
         return link
 
-    @classmethod
-    def add_breadcrumb_links(self, feed, lane, annotator):
-        # Add "up" link and breadcrumbs
+    def add_breadcrumb_links(self, lane, entrypoint=None):
+        """Add information necessary to find your current place in the
+        site's navigation.
+
+        A link with rel="start" points to the start of the site
+
+        A <simplified:entrypoint> section describes the current entry point.
+
+        A <simplified:breadcrumbs> section contains a sequence of
+        breadcrumb links.
+        """
+        # Add the top-level link with rel='start'
+        xml = self.feed
+        annotator = self.annotator
         top_level_title = annotator.top_level_title() or "Collection Home"
+        self.add_link_to_feed(
+            feed=xml, rel='start', href=annotator.default_lane_url(),
+            title=top_level_title
+        )
+
+        # Add a link to the direct parent with rel="up".
+        #
+        # TODO: the 'direct parent' may be the same lane but without
+        # the entry point specified. Fixing this would also be a good
+        # opportunity to refactor the code for figuring out parent and
+        # parent_title.
         parent = None
         if isinstance(lane, Lane):
             parent = lane.parent
@@ -741,11 +763,14 @@ class AcquisitionFeed(OPDSFeed):
             parent_title = top_level_title
         if parent:
             up_uri = annotator.lane_url(parent)
-            OPDSFeed.add_link_to_feed(feed=feed.feed, href=up_uri, rel="up", title=parent_title)
-            feed.add_breadcrumbs(lane, annotator)
+            self.add_link_to_feed(
+                feed=xml, href=up_uri, rel="up", title=parent_title
+            )
+            self.add_breadcrumbs(lane, entrypoint)
 
-        OPDSFeed.add_link_to_feed(feed=feed.feed, rel='start', href=annotator.default_lane_url(), title=top_level_title)
-
+        # Annotate the feed with a simplified:entryPoint for the
+        # current EntryPoint.
+        self.show_current_entrypoint(entrypoint)
 
     @classmethod
     def search(cls, _db, title, url, lane, search_engine, query, media=None, pagination=None,
@@ -790,7 +815,7 @@ class AcquisitionFeed(OPDSFeed):
 
         # Add "up" link and breadcrumbs
         AcquisitionFeed.add_link_to_feed(feed=opds_feed.feed, rel="up", href=annotator.lane_url(lane), title=unicode(lane.display_name))
-        opds_feed.add_breadcrumbs(lane, annotator, include_lane=True)
+        opds_feed.add_breadcrumbs(lane, include_lane=True)
 
         annotator.annotate_feed(opds_feed, lane)
         return unicode(opds_feed)
@@ -1151,9 +1176,34 @@ class AcquisitionFeed(OPDSFeed):
 
         return entry
 
-    def add_breadcrumbs(self, lane, annotator, include_lane=False):
-        """Add list of ancestor links in a breadcrumbs element."""
+
+    CURRENT_ENTRYPOINT_ATTRIBUTE = "{%s}entryPoint" % AtomFeed.SIMPLIFIED_NS
+
+    def show_current_entrypoint(self, entrypoint):
+        """Annotate this given feed with a simplified:entryPoint
+        attribute pointing to the current entrypoint's TYPE_URI.
+
+        This gives clients an overall picture of the type of works in
+        the feed, and a way to distinguish between one EntryPoint
+        and another.
+
+        :param entrypoint: An EntryPoint.
+        """
+        if not entrypoint:
+            return
+
+        if not entrypoint.URI:
+            return
+        self.feed.attrib[self.CURRENT_ENTRYPOINT_ATTRIBUTE] = entrypoint.URI
+
+    def add_breadcrumbs(self, lane, include_lane=False, entrypoint=None):
+        """Add list of ancestor links in a breadcrumbs element.
+
+        TODO: The switchover from "no entry point" to "entry point" needs
+        its own breadcrumb link.
+        """
         # Ensure that lane isn't top-level before proceeding
+        annotator = self.annotator
         if annotator.lane_url(lane) != annotator.default_lane_url():
             breadcrumbs = AtomFeed.makeelement("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
 
