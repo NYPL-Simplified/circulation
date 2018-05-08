@@ -2148,11 +2148,9 @@ class Identifier(Base):
         Returns a dictionary mapping each ID in the original to a
         list of equivalent IDs.
 
-        :param cutoff: The results will be cut off at _approximately_
-        this many results. (There will probably be more than this, if
-        more are available.) Equivalent identifiers that are closer to
-        one of the given identifiers will be given preference to
-        identifiers that are further away.
+        :param cutoff: For each recursion level, results will be cut
+        off at this many results. (The maximum total number of results
+        is levels * cutoff)
         """
         query = select([Identifier.id, func.fn_recursive_equivalents(Identifier.id, levels, threshold, cutoff)],
                        Identifier.id.in_(identifier_ids))
