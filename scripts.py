@@ -1420,11 +1420,17 @@ You'll get another chance to back out before the database session is committed."
 
 class NovelistSnapshotScript(LibraryInputScript):
 
-    def do_run(self, *args, **kwargs):
+    def do_run(self, output=sys.stdout, *args, **kwargs):
         parsed = self.parse_command_line(self._db, *args, **kwargs)
         api = NoveListAPI.from_config(parsed.libraries[0])
         if (api):
-            api.put_isbns_novelist(parsed.libraries[0])
+            response = api.put_isbns_novelist(parsed.libraries[0])
+
+            if (response):
+                result = "NoveList Snapshot"
+                result += "\nRecords sent: " + str(response["RecordsReceived"]) + "\n"
+
+                output.write(result)
 
 class ODLBibliographicImportScript(OPDSImportScript):
     """Import bibliographic information from the feed associated

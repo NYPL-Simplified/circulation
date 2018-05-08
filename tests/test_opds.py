@@ -701,8 +701,8 @@ class TestLibraryAnnotator(VendorIDTest):
             ExternalIntegration.NOVELIST,
             goal=ExternalIntegration.METADATA_GOAL, username=u'library',
             password=u'sure', libraries=[self._default_library],
-            authorized_identifier=u'authorized'
         )
+        NoveListAPI.set_setting('authorized_identifier', 'authorized')
 
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries

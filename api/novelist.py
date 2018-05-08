@@ -460,7 +460,7 @@ class NoveListAPI(object):
                 metadata.recommendations += self._extract_isbns(book_info)
         return metadata
 
-    def get_isbns(self, library):
+    def get_isbns_from_query(self, library):
         collectionList = []
         for c in library.collections:
             collectionList.append(c.id)
@@ -496,8 +496,9 @@ class NoveListAPI(object):
         return isbns
 
     def put_isbns_novelist(self, library):
-        isbns = self.get_isbns(library)
+        isbns = self.get_isbns_from_query(library)
 
+        content = None
         if isbns:
             response = self.put(
                 self.COLLECTION_DATA_API,
@@ -505,7 +506,8 @@ class NoveListAPI(object):
                 data=self.make_novelist_data_object(isbns)
             )
 
-            content = json.loads(response._content)
+            if (response.status_code == 200):
+                content = json.loads(response.content)
 
         return content
 

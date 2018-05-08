@@ -26,6 +26,7 @@ from api.novelist import (
 from core.util.http import (
     HTTP
 )
+from core.testing import MockRequestsResponse
 
 
 class TestNoveListAPI(DatabaseTest):
@@ -363,33 +364,53 @@ class TestNoveListAPI(DatabaseTest):
         eq_(0.67, round(confidence, 2))
         eq_(more_identifier, metadata.primary_identifier)
 
-    def test_get_isbns(self):
-        isbns = self.novelist.get_isbns(self._default_library)
+    def test_get_isbns_from_query(self):
+        isbns = self.novelist.get_isbns_from_query(self._default_library)
         eq_(isbns, [])
 
         edition = self._edition(identifier_type=Identifier.ISBN)
         pool = self._licensepool(edition, collection=self._default_collection)
 
-        isbns = self.novelist.get_isbns(self._default_library)
+        isbns = self.novelist.get_isbns_from_query(self._default_library)
 
         eq_(isbns, [edition.primary_identifier.identifier])
 
+    def test_put_isbns_novelist(self):
+        response = self.novelist.put_isbns_novelist(self._default_library)
+
+        eq_(response, None)
+
+        edition = self._edition(identifier_type=Identifier.ISBN)
+        pool = self._licensepool(edition, collection=self._default_collection)
+        mock_response = {'Customer': 'NYPL','RecordsReceived':10}
+
+        def mockHTTPPut(url, headers, **kwargs):
+            return MockRequestsResponse(200, content=json.dumps(mock_response))
+
+        oldPut = self.novelist.put
+        self.novelist.put = mockHTTPPut
+
+        response = self.novelist.put_isbns_novelist(self._default_library)
+
+        eq_(response, mock_response)
+
+        self.novelist.put = oldPut
+
     def test_make_novelist_data_object(self):
-        data = [u"12345", u"12346", u"12347"]
-
-        result = self.novelist.make_novelist_data_object(data)
-
-        eq_(result, {
-            "Customer": "library:yep",
-            "Records": [{"ISBN": u"12345"}, {"ISBN": u"12346"}, {"ISBN": u"12347"}]
-        })
-
         bad_data = []
         result = self.novelist.make_novelist_data_object(bad_data)
 
         eq_(result, {
             "Customer": "library:yep",
             "Records": []
+        })
+
+        data = [u"12345", u"12346", u"12347"]
+        result = self.novelist.make_novelist_data_object(data)
+
+        eq_(result, {
+            "Customer": "library:yep",
+            "Records": [{"ISBN": u"12345"}, {"ISBN": u"12346"}, {"ISBN": u"12347"}]
         })
 
     def mockHTTPPut(self, *args, **kwargs):
