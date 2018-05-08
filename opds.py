@@ -558,7 +558,7 @@ class AcquisitionFeed(OPDSFeed):
                 feed, make_link, entrypoints, facets.entrypoint
             )
 
-        cls.add_breadcrumb_links(feed, lane, facets.entrypoint)
+        feed.add_breadcrumb_links(lane, facets.entrypoint)
         annotator.annotate_feed(feed, lane)
 
         content = unicode(feed)
