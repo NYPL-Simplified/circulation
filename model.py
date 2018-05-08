@@ -2145,15 +2145,14 @@ class Identifier(Base):
         list of equivalent IDs.
 
         :param cutoff: The results will be cut off at _approximately_
-        this many results.
+        this many results. (There will probably be more than this, if
+        more are available.) Equivalent identifiers that are closer to
+        one of the given identifiers will be given preference to
+        identifiers that are further away.
         """
         query = select([Identifier.id, func.fn_recursive_equivalents(Identifier.id, levels, threshold, cutoff)],
                        Identifier.id.in_(identifier_ids))
-        import time
-        a = time.time()
         results = _db.execute(query)
-        b = time.time()
-        logging.error("%r took %.2f", identifier_ids, b-a)
         equivalents = defaultdict(list)
         for r in results:
             original = r[0]
