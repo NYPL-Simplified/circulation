@@ -40,7 +40,6 @@ class TestNoveListAPI(DatabaseTest):
         )
         self.integration.set_setting('authorized_identifier', 'authorized')
         self.novelist = NoveListAPI.from_config(self._default_library)
-        print self.novelist
 
     def teardown(self):
         NoveListAPI.IS_CONFIGURED = None
@@ -364,14 +363,25 @@ class TestNoveListAPI(DatabaseTest):
         eq_(0.67, round(confidence, 2))
         eq_(more_identifier, metadata.primary_identifier)
 
+    def test_get_isbns(self):
+        isbns = self.novelist.get_isbns(self._default_library)
+        eq_(isbns, [])
+
+        edition = self._edition(identifier_type=Identifier.ISBN)
+        pool = self._licensepool(edition, collection=self._default_collection)
+
+        isbns = self.novelist.get_isbns(self._default_library)
+
+        eq_(isbns, [edition.primary_identifier.identifier])
+
     def test_make_novelist_data_object(self):
-        data = ["12345", "12346", "12347"]
+        data = [u"12345", u"12346", u"12347"]
 
         result = self.novelist.make_novelist_data_object(data)
 
         eq_(result, {
             "Customer": "library:yep",
-            "Records": [{"ISBN": "12345"}, {"ISBN": "12346"}, {"ISBN": "12347"}]
+            "Records": [{"ISBN": u"12345"}, {"ISBN": u"12346"}, {"ISBN": u"12347"}]
         })
 
         bad_data = []

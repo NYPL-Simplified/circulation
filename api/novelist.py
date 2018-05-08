@@ -33,11 +33,11 @@ from core.model import (
     Collection,
 )
 from core.util import TitleProcessor
-# from sqlalchemy.sql.expression import desc, nullslast, or_, and_, distinct,
 from sqlalchemy.sql import (
     select,
     join,
     and_,
+    or_,
     literal_column,
 )
 from sqlalchemy import (
@@ -460,30 +460,43 @@ class NoveListAPI(object):
                 metadata.recommendations += self._extract_isbns(book_info)
         return metadata
 
-    def put_isbns_novelist(self, library):
+    def get_isbns(self, library):
         collectionList = []
         for c in library.collections:
             collectionList.append(c.id)
 
+        LEFT_OUTER_JOIN = True
         i1 = aliased(Identifier)
         i2 = aliased(Identifier)
         e = aliased(Equivalency)
         lp = aliased(LicensePool)
 
         isbnQuery = select(
-            [i2.identifier]
+            [i1.identifier, i1.type, i2.identifier]
         ).select_from(
-            join(lp, i1, i1.id==lp.id)
-            .join(e, i1.id==e.input_id)
-            .join(i2, e.output_id==i2.id)
+            join(lp, i1, i1.id==lp.identifier_id)
+            .join(e, i1.id==e.input_id, LEFT_OUTER_JOIN)
+            .join(i2, e.output_id==i2.id, LEFT_OUTER_JOIN)
         ).where(
-            and_(lp.collection_id.in_(collectionList), i2.type=="ISBN")
+            and_(
+                lp.collection_id.in_(collectionList),
+                or_(i1.type=="ISBN", i2.type=="ISBN")
+            )
         ).alias('lp_isbns')
 
         result = self._db.execute(isbnQuery)
+
         isbns = []
-        for r in result:
-            isbns.append(r[0])
+        for res in result:
+            if (res[1] == "ISBN"):
+                isbns.append(res[0])
+            else:
+                isbns.append(res[2])
+
+        return isbns
+
+    def put_isbns_novelist(self, library):
+        isbns = self.get_isbns(library)
 
         if isbns:
             response = self.put(
