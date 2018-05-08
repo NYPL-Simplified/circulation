@@ -2474,7 +2474,9 @@ class Identifier(Base):
 
         last_coverage_update = None
         if self.coverage_records:
-            timestamps = [c.timestamp for c in self.coverage_records if c.timestamp]
+            timestamps = [
+                c.timestamp for c in self.coverage_records if c.timestamp
+            ]
             last_coverage_update = max(timestamps)
 
         quality = Measurement.overall_quality(self.measurements)
