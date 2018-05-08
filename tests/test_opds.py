@@ -25,6 +25,7 @@ from entrypoint import (
     EverythingEntryPoint,
 )
 from facets import FacetConstants
+import model
 from model import (
     CachedFeed,
     ConfigurationSetting,
@@ -217,7 +218,30 @@ class TestAnnotators(DatabaseTest):
 
         for source, subject_type, subject, name, weight in subjects:
             identifier.classify(source, subject_type, subject, name, weight=weight)
+
+        old_ids = model.Identifier.recursively_equivalent_identifier_ids
+
+        class MockIdentifier(model.Identifier):
+            called_with_cutoff = None
+            @classmethod
+            def recursively_equivalent_identifier_ids(
+                    cls, _db, identifier_ids, levels=5, threshold=0.50,
+                    cutoff=None):
+                cls.called_with_cutoff = cutoff
+                return old_ids(_db, identifier_ids, levels, threshold)
+        old_identifier = model.Identifier
+        model.Identifier = MockIdentifier
+
         category_tags = VerboseAnnotator.categories(work)
+        model.Identifier = old_identifier
+
+        # Although the default 'cutoff' for
+        # recursively_equivalent_identifier_ids is null, when we are
+        # generating subjects as part of an OPDS feed, the cutoff is
+        # set to 500. This gives us reasonable worst-case performance
+        # at the cost of not showing every single random subject under
+        # which an extremely popular book is filed.
+        eq_(500, MockIdentifier.called_with_cutoff)
 
         ddc_uri = Subject.uri_lookup[Subject.DDC]
         rating_value = '{http://schema.org/}ratingValue'
