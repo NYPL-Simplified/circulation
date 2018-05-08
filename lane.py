@@ -887,7 +887,7 @@ class WorkList(object):
         """A human-readable identifier for this WorkList that
         captures its position within the heirarchy.
         """
-        lane_parentage = list(list(reversed(list(self.parentage)))) + [self]
+        lane_parentage = list(reversed(list(self.parentage))) + [self]
         full_parentage = [unicode(x.display_name) for x in lane_parentage]
         if getattr(self, 'library', None):
             # This WorkList is associated with a specific library.
