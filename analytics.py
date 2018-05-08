@@ -37,5 +37,8 @@ class Analytics(object):
     def collect_event(self, library, license_pool, event_type, time=None, **kwargs):
         if not time:
             time = datetime.datetime.utcnow()
-        for provider in (self.sitewide_providers + self.library_providers[library.id]):
+        providers = list(self.sitewide_providers)
+        if library:
+            providers.extend(self.library_providers[library.id])
+        for provider in providers:
             provider.collect_event(library, license_pool, event_type, time, **kwargs)

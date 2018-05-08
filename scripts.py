@@ -44,8 +44,14 @@ from axis import Axis360BibliographicCoverageProvider
 from config import Configuration, CannotLoadConfiguration
 from coverage import CollectionCoverageProviderJob
 from lane import Lane
-from metadata_layer import ReplacementPolicy
+from metadata_layer import (
+    LinkData,
+    ReplacementPolicy,
+    MetaToModelUtility,
+)
+from mirror import MirrorUploader
 from model import (
+    create,
     get_one,
     get_one_or_create,
     production_session,
@@ -60,6 +66,7 @@ from model import (
     DataSource,
     Edition,
     ExternalIntegration,
+    Hyperlink,
     Identifier,
     Library,
     LicensePool,
@@ -75,8 +82,8 @@ from model import (
     site_configuration_has_changed,
 )
 from monitor import (
-    SubjectAssignmentMonitor,
     CollectionMonitor,
+    ReaperMonitor,
 )
 from opds_import import (
     OPDSImportMonitor,
@@ -202,45 +209,78 @@ class RunMonitorScript(Script):
             ).run()
 
 
-class RunCollectionMonitorScript(Script):
-    """Run a CollectionMonitor on every Collection that comes through a
-    certain protocol.
+class RunMultipleMonitorsScript(Script):
+    """Run a number of monitors in sequence.
 
     Currently the Monitors are run one at a time. It should be
     possible to take a command-line argument that runs all the
     Monitors in batches, each in its own thread. Unfortunately, it's
-    tough to know in a given situation that the system configuration
-    and the Collection protocol are tough enough to handle this, and
-    won't be overloaded.
+    tough to know in a given situation that this won't overload the
+    system.
     """
-    def __init__(self, monitor_class, _db=None, **kwargs):
+
+    def __init__(self, _db=None, **kwargs):
         """Constructor.
         
-        :param monitor_class: A class object that derives from 
-            CollectionMonitor.
-        :param kwargs: Keyword arguments to pass into the `monitor_class`
-            constructor each time it's called.
+        :param kwargs: Keyword arguments to pass into the `monitors` method
+            when building the Monitor objects.
         """
-        super(RunCollectionMonitorScript, self).__init__(_db)
-        self.monitor_class = monitor_class
-        self.name = self.monitor_class.SERVICE_NAME
+        super(RunMultipleMonitorsScript, self).__init__(_db)
         self.kwargs = kwargs
-        
-    def do_run(self):
-        """Instantiate a Monitor for every appropriate Collection,
-        and run them, in order.
+
+    def monitors(self, **kwargs):
+        """Find all the Monitors that need to be run.
+
+        :return: A list of Monitor objects.
         """
-        for monitor in self.monitor_class.all(self._db, **self.kwargs):
+        raise NotImplementedError()
+
+    def do_run(self):
+        """Run all appropriate monitors."""
+        for monitor in self.monitors(**self.kwargs):
             try:
                 monitor.run()
             except Exception, e:
                 # This is bad, but not so bad that we should give up trying
                 # to run the other Monitors.
+                if monitor.collection:
+                    collection_name = monitor.collection.name
+                else:
+                    collection_name = None
+                monitor.exception = e
                 self.log.error(
                     "Error running monitor %s for collection %s: %s",
-                    self.name, monitor.collection.name,
-                    e, exc_info=e
+                    self.name, collection_name, e, exc_info=e
                 )
+
+
+class RunCollectionMonitorScript(RunMultipleMonitorsScript):
+    """Run a CollectionMonitor on every Collection that comes through a
+    certain protocol.
+    """
+    def __init__(self, monitor_class, _db=None, **kwargs):
+        """Constructor.
+
+        :param monitor_class: A class object that derives from
+            CollectionMonitor.
+        :param kwargs: Keyword arguments to pass into the `monitor_class`
+            constructor each time it's called.
+        """
+        super(RunCollectionMonitorScript, self).__init__(_db, **kwargs)
+        self.monitor_class = monitor_class
+        self.name = self.monitor_class.SERVICE_NAME
+
+    def monitors(self, **kwargs):
+        return self.monitor_class.all(self._db, **kwargs)
+
+
+class RunReaperMonitorsScript(RunMultipleMonitorsScript):
+    """Run all the monitors found in ReaperMonitor.REGISTRY"""
+
+    name = "Run all reaper monitors"
+
+    def monitors(self, **kwargs):
+        return [cls(self._db, **kwargs) for cls in ReaperMonitor.REGISTRY]
 
 
 class UpdateSearchIndexScript(RunMonitorScript):
@@ -1341,6 +1381,116 @@ class ConfigureIntegrationScript(ConfigurationSettingScript):
         output.write("\n")
 
         
+class ShowLanesScript(Script):
+    """Show information about the lanes on a server."""
+    
+    name = "List the lanes on this server."
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--id',
+            help='Only display information for the lane with the given ID',
+        )
+        return parser
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        if args.id:
+            id = args.id
+            lane = get_one(_db, Lane, id=id)
+            if lane:
+                lanes = [lane]
+            else:
+                output.write(
+                    "Could not locate lane with id: %s" % id
+                )
+                lanes = []
+        else:
+            lanes = _db.query(Lane).order_by(Lane.id).all()
+        if not lanes:
+            output.write("No lanes found.\n")
+        for lane in lanes:
+            output.write(
+                "\n".join(
+                    lane.explain()
+                )
+            )
+            output.write("\n\n")
+
+class ConfigureLaneScript(ConfigurationSettingScript):
+    """Create a lane or change its settings."""
+    name = "Change a lane's settings"
+
+    @classmethod
+    def parse_command_line(cls, _db=None, cmd_args=None):
+        parser = cls.arg_parser(_db)
+        return parser.parse_known_args(cmd_args)[0]
+    
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--id',
+            help='ID of the lane, if editing an existing lane.',
+        )
+        parser.add_argument(
+            '--library-short-name',
+            help='Short name of the library for this lane. Possible values: %s' % cls._library_names(_db),
+        )
+        parser.add_argument(
+            '--parent-id',
+            help="The ID of this lane's parent lane",
+        )
+        parser.add_argument(
+            '--priority',
+            help="The lane's priority",
+        )
+        parser.add_argument(
+            '--display-name',
+            help='The lane name that will be displayed to patrons.',
+        )
+        return parser
+
+    @classmethod
+    def _library_names(self, _db):
+        """Return a string that lists known library names."""
+        library_names = [x.short_name for x in _db.query(
+            Library).order_by(Library.short_name)
+        ]
+        if library_names:
+            return '"' + '", "'.join(library_names) + '"'
+        return ""
+    
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+
+        # Find or create the lane
+        id = args.id
+        lane = get_one(_db, Lane, id=id)
+        if not lane:
+            if args.library_short_name:
+                library = get_one(_db, Library, short_name=args.library_short_name)
+                if not library:
+                    raise ValueError("No such library: \"%s\"." % args.library_short_name)
+                lane, is_new = create(_db, Lane, library=library)
+            else:
+                raise ValueError("Library short name is required to create a new lane.")
+
+        if args.parent_id:
+            lane.parent_id = args.parent_id
+        if args.priority:
+            lane.priority = args.priority
+        if args.display_name:
+            lane.display_name = args.display_name
+        site_configuration_has_changed(_db)
+        _db.commit()
+        output.write("Lane settings stored.\n")
+        output.write("\n".join(lane.explain()))
+        output.write("\n")
+
 class AddClassificationScript(IdentifierInputScript):
     name = "Add a classification to an identifier"
 
@@ -1707,6 +1857,141 @@ class OPDSImportScript(CollectionInputScript):
         monitor.run()
 
 
+class MirrorResourcesScript(CollectionInputScript):
+    """Make sure that all mirrorable resources in a collection have
+    in fact been mirrored.
+    """
+
+    # This object contains the actual logic of mirroring.
+    MIRROR_UTILITY = MetaToModelUtility()
+
+    def do_run(self, cmd_args=None):
+        parsed = self.parse_command_line(self._db, cmd_args=cmd_args)
+        collections = parsed.collections
+        if not collections:
+            # Assume they mean all collections.
+            collections = self._db.query(Collection).all()
+
+        # But only process collections that have an associated MirrorUploader.
+        for collection, policy in self.collections_with_uploader(collections):
+            self.process_collection(collection, policy)
+
+    def collections_with_uploader(self, collections):
+        """Filter out collections that have no MirrorUploader.
+
+        :yield: 2-tuples (Collection, ReplacementPolicy). The
+            ReplacementPolicy is the appropriate one for this script
+            to use for that Collection.
+        """
+        for collection in collections:
+            uploader = MirrorUploader.for_collection(collection)
+            if uploader:
+                policy = self.replacement_policy(uploader)
+                yield collection, policy
+            else:
+                self.log.info(
+                    "Skipping %r as it has no MirrorUploader.", collection
+                )
+
+    @classmethod
+    def replacement_policy(cls, uploader):
+        """Create a ReplacementPolicy for this script that uses the
+        given uploader.
+        """
+        return ReplacementPolicy(
+            mirror=uploader, link_content=True,
+            even_if_not_apparently_updated=True
+        )
+
+    def process_collection(self, collection, policy, unmirrored=None):
+        """Make sure every mirrorable resource in this collection has
+        been mirrored.
+
+        :param unmirrored: A replacement for Hyperlink.unmirrored,
+        for use in tests.
+        """
+        unmirrored = unmirrored or Hyperlink.unmirrored
+        for link in unmirrored(collection):
+            self.process_item(collection, link, policy)
+            self._db.commit()
+
+    @classmethod
+    def derive_rights_status(cls, license_pool, resource):
+        """Make a best guess about the rights status for the given
+        resource.
+
+        This relies on the information having been available at one point,
+        but having been stored in the database at a slight remove.
+        """
+        rights_status = None
+        if not license_pool:
+            return None
+        if resource:
+            lpdm = resource.as_delivery_mechanism_for(license_pool)
+            # When this Resource was associated with this LicensePool,
+            # the rights information was recorded in its
+            # LicensePoolDeliveryMechanism.
+            if lpdm:
+                rights_status = lpdm.rights_status
+        if not rights_status:
+            # We could not find a LicensePoolDeliveryMechanism for
+            # this particular resource, but if every
+            # LicensePoolDeliveryMechanism has the same rights
+            # status, we can assume it's that one.
+            statuses = list(set([
+                x.rights_status for x in license_pool.delivery_mechanisms
+            ]))
+            if len(statuses) == 1:
+                [rights_status] = statuses
+        if rights_status:
+            rights_status = rights_status.uri
+        return rights_status
+
+    def process_item(self, collection, link_obj, policy):
+        """Determine the URL that needs to be mirrored and (for books)
+        the rationale that lets us mirror that URL. Then mirror it.
+        """
+        identifier = link_obj.identifier
+        license_pool, ignore = LicensePool.for_foreign_id(
+            self._db, collection.data_source,
+            identifier.type, identifier.identifier,
+            collection=collection, autocreate=False
+        )
+        if not license_pool:
+            # This shouldn't happen.
+            self.log.warn(
+                "Could not find LicensePool for %r, skipping it rather than mirroring something we shouldn't."
+            )
+            return
+        resource = link_obj.resource
+
+        if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+            rights_status = self.derive_rights_status(license_pool, resource)
+            if not rights_status:
+                self.log.warn(
+                    "Could not unambiguously determine rights status for %r, skipping.", link_obj
+                )
+                return
+        else:
+            # For resources like book covers, the rights status is
+            # irrelevant -- we rely on fair use.
+            rights_status = None
+
+        # Mock up a LinkData that MetaToModelUtility can use to
+        # mirror this link (or decide not to mirror it).
+        linkdata = LinkData(
+            rel=link_obj.rel,
+            href=resource.url,
+            rights_uri=rights_status
+        )
+
+        # Mirror the link (or not).
+        self.MIRROR_UTILITY.mirror_link(
+            model_object=license_pool, data_source=collection.data_source,
+            link=linkdata, link_obj=link_obj, policy=policy
+        )
+
+
 class RefreshMaterializedViewsScript(Script):
     """Refresh all materialized views."""
 
@@ -1726,34 +2011,43 @@ class RefreshMaterializedViewsScript(Script):
             concurrently = ''
         else:
             concurrently = 'CONCURRENTLY'
-        # Initialize database
+
+        # Initialize the default database session. We can't use this
+        # session to run the VACUUM commands, because it wraps
+        # everything in a big transaction, and VACUUM can't be
+        # executed within a transaction block. But we will use it at
+        # the end, to recalculate the sizes of lanes.
         db = self._db
-        for view_name in SessionManager.MATERIALIZED_VIEWS.keys():
-            a = time.time()
-            db.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
-            b = time.time()
-            print "%s refreshed in %.2f sec." % (view_name, b-a)
 
-        # Recalculate the sizes of lanes.
-        for lane in db.query(Lane):
-            lane.update_size(db)
-            print "Size of %s: %s" % (lane.full_identifier, lane.size)
-
-        # Close out this session because we're about to create another one.
-        db.commit()
-        db.close()
-
-        # The normal database connection (which we want almost all the
-        # time) wraps everything in a big transaction, but VACUUM
-        # can't be executed within a transaction block. So create a
-        # separate connection that uses autocommit.
         url = Configuration.database_url()
         engine = create_engine(url, isolation_level="AUTOCOMMIT")
         engine.autocommit = True
         a = time.time()
         engine.execute("VACUUM (VERBOSE, ANALYZE)")
         b = time.time()
-        print "Vacuumed in %.2f sec." % (b-a)
+        self.log.info("Database vacuumed in %.2f sec." % (b-a))
+
+        for view_name in SessionManager.MATERIALIZED_VIEWS.keys():
+            a = time.time()
+            engine.execute("REFRESH MATERIALIZED VIEW %s %s" % (concurrently, view_name))
+            b = time.time()
+            self.log.info("%s refreshed in %.2f sec.", view_name, b-a)
+
+            # Vacuum the materialized view immediately after
+            # refreshing it.
+            a = time.time()
+            engine.execute("VACUUM ANALYZE %s" % view_name)
+            b = time.time()
+            self.log.info("%s vacuumed in %.2f sec", view_name, b-a)
+
+        # Recalculate the sizes of lanes.
+        for lane in db.query(Lane):
+            lane.update_size(db)
+            self.log.info(
+                "Size of lane %s calculated as %s",
+                lane.full_identifier, lane.size
+            )
+        db.commit()
 
 
 class DatabaseMigrationScript(Script):
@@ -2739,15 +3033,6 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.output.write(
             "I would now expect you to be able to find %d works.\n" % mv_works_count
         )
-
-class SubjectAssignmentScript(SubjectInputScript):
-
-    def do_run(self):
-        args = self.parse_command_line(self._db)
-        monitor = SubjectAssignmentMonitor(
-            self._db, args.subject_type, args.subject_filter
-        )
-        monitor.run()
 
 
 class ListCollectionMetadataIdentifiersScript(CollectionInputScript):

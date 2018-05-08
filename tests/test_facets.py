@@ -10,6 +10,7 @@ from facets import (
     FacetConfig,
 )
 
+
 class TestFacetConfig(DatabaseTest):
    
     def test_from_library(self):

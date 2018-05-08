@@ -14,6 +14,7 @@ from util.flask_util import problem
 from util.problem_detail import ProblemDetail
 import traceback
 import logging
+from entrypoint import EntryPoint
 from opds import (
     AcquisitionFeed,
     LookupAcquisitionFeed,
@@ -91,29 +92,31 @@ def _make_response(content, content_type, cache_for):
     return make_response(content, 200, {"Content-Type": content_type,
                                         "Cache-Control": cache_control})
 
-def load_facets_from_request(facet_config=None):
-    """Figure out which Facets object this request is asking for.
+def load_facets_from_request(
+        facet_config=None, worklist=None, base_class=Facets,
+        base_class_constructor_kwargs=None
+):
+    """Figure out which faceting object this request is asking for.
 
     The active request must have the `library` member set to a Library
     object.
 
-    :param facet_config: An object to use instead of the request Library
-    when deciding which facets are enabled.
+    :param worklist: The WorkList, if any, associated with the request.
+    :param facet_config: An object containing the currently configured
+        facet groups, if different from the request library.
+    :param base_class: The faceting class to instantiate.
+    :param base_class_constructor_kwargs: Keyword arguments to pass into
+        the faceting class constructor, other than those obtained from
+        the request.
+    :return: A faceting object if possible; otherwise a ProblemDetail.
     """
-    arg = flask.request.args.get
+    kwargs = base_class_constructor_kwargs or dict()
+    get_arg = flask.request.args.get
     library = flask.request.library
-    config = facet_config or library
-    
-    g = Facets.ORDER_FACET_GROUP_NAME
-    order = arg(g, config.default_facet(g))
-
-    g = Facets.AVAILABILITY_FACET_GROUP_NAME
-    availability = arg(g, config.default_facet(g))
-
-    g = Facets.COLLECTION_FACET_GROUP_NAME
-    collection = arg(g, config.default_facet(g))
-    return load_facets(library, order, availability, collection,
-                       facet_config=facet_config)
+    facet_config = facet_config or library
+    return base_class.from_request(
+        library, facet_config, get_arg, worklist, **kwargs
+    )
 
 def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     """Figure out which Pagination object this request is asking for."""
@@ -121,44 +124,6 @@ def load_pagination_from_request(default_size=Pagination.DEFAULT_SIZE):
     size = arg('size', default_size)
     offset = arg('after', 0)
     return load_pagination(size, offset)
-
-def load_facets(library, order, availability, collection, facet_config=None):
-    """Turn user input into a Facets object."""
-    config = facet_config or library
-    order_facets = config.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
-    if order and not order in order_facets:
-        return INVALID_INPUT.detailed(
-            _("I don't know how to order a feed by '%(order)s'", order=order),
-            400
-        )
-    availability_facets = config.enabled_facets(
-        Facets.AVAILABILITY_FACET_GROUP_NAME
-    )
-    if availability and not availability in availability_facets:
-        return INVALID_INPUT.detailed(
-            _("I don't understand the availability term '%(availability)s'", availability=availability),
-            400
-        )
-
-    collection_facets = config.enabled_facets(
-        Facets.COLLECTION_FACET_GROUP_NAME
-    )
-    if collection and not collection in collection_facets:
-        return INVALID_INPUT.detailed(
-            _("I don't understand what '%(collection)s' refers to.", collection=collection),
-            400
-        )
-    
-    enabled_facets = {
-        Facets.ORDER_FACET_GROUP_NAME : order_facets,
-        Facets.AVAILABILITY_FACET_GROUP_NAME : availability_facets,
-        Facets.COLLECTION_FACET_GROUP_NAME : collection_facets,
-    }
-
-    return Facets(
-        library=library, collection=collection, availability=availability,
-        order=order, enabled_facets=enabled_facets
-    )
 
 def load_pagination(size, offset):
     """Turn user input into a Pagination object."""

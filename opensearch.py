@@ -16,8 +16,8 @@ class OpenSearchDocument(object):
         tags = []
         
         if lane is not None and lane.search_target is not None:
-            tags.append(lane.search_target.display_name.lower().replace(" ", "-").replace("&", "&amp;"))
-            description = "Search %s" % lane.search_target.display_name.replace("&", "&amp;")
+            tags.append(lane.search_target.display_name.lower().replace(" ", "-"))
+            description = "Search %s" % lane.search_target.display_name
         else:
             description = "Search"
         d['description'] = description
@@ -25,8 +25,22 @@ class OpenSearchDocument(object):
         return d
 
     @classmethod
+    def url_template(self, base_url):
+        """Turn a base URL into an OpenSearch URL template."""
+        if '?' in base_url:
+            query = '&'
+        else:
+            query = '?'
+        return base_url + query + "q={searchTerms}"
+
+    @classmethod
     def for_lane(cls, lane, base_url):
         info = cls.search_info(lane)
-        info['url_template'] = base_url + "?q={searchTerms}"
-
+        info['url_template'] = cls.url_template(base_url)
+        info = cls.escape_entities(info)
         return cls.TEMPLATE % info
+
+    @classmethod
+    def escape_entities(cls, info):
+        """Escape ampersands in the given dictionary's values."""
+        return dict([(k, v.replace("&", "&amp;")) for (k, v) in info.items()])

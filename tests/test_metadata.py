@@ -1168,6 +1168,13 @@ class TestMARCExtractor(DatabaseTest):
         with open(os.path.join(self.resource_path, filename)) as fh:
             return fh.read()
 
+    def test_parse_year(self):
+        m = MARCExtractor.parse_year
+        nineteen_hundred = datetime.datetime.strptime("1900", "%Y")
+        eq_(nineteen_hundred, m("1900"))
+        eq_(nineteen_hundred, m("1900."))
+        eq_(None, m("not a year"))
+
     def test_parser(self):
         """Parse a MARC file into Metadata objects."""
 

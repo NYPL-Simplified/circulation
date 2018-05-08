@@ -153,7 +153,7 @@ class SysLogger(Logger):
 
 class Loggly(Logger):
 
-    NAME = 'loggly'
+    NAME = "Loggly"
     DEFAULT_LOGGLY_URL = "https://logs-01.loggly.com/inputs/%(token)s/tag/python/"
 
     USER = 'user'

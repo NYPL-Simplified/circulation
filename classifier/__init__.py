@@ -155,12 +155,17 @@ class Classifier(object):
         This may involve data normalization, conversion to lowercase,
         etc.
         """
+        if identifier is None:
+            return None
         return Lowercased(identifier)
 
     @classmethod
     def scrub_name(cls, name):
         """Prepare a name from within a call to classify()."""
+        if name is None:
+            return None
         return Lowercased(name)
+
 
     @classmethod
     def genre(cls, identifier, name, fiction=None, audience=None):
@@ -975,7 +980,10 @@ class DeweyDecimalClassifier(Classifier):
             identifier = int(identifier)
         except ValueError:
             pass
-        return identifier
+
+        # For our purposes, Dewey Decimal numbers are identifiers
+        # without names.
+        return identifier, None
 
     @classmethod
     def is_fiction(cls, identifier, name):

@@ -16,9 +16,11 @@ from coverage import CoverageFailure
 from model import (
     get_one,
     get_one_or_create,
+    CachedFeed,
     Collection,
     CollectionMissing,
     CoverageRecord,
+    Credential,
     Edition,
     ExternalIntegration,
     CustomListEntry,
@@ -87,9 +89,9 @@ class Monitor(object):
     def __init__(self, _db, collection=None):
         self._db = _db
         cls = self.__class__
-        if not cls.SERVICE_NAME:
+        if not self.SERVICE_NAME and not cls.SERVICE_NAME:
             raise ValueError("%s must define SERVICE_NAME." % cls.__name__)
-        self.service_name = cls.SERVICE_NAME
+        self.service_name = self.SERVICE_NAME
         self.interval_seconds = cls.INTERVAL_SECONDS
         self.keep_timestamp = cls.KEEP_TIMESTAMP
         default_start_time = cls.DEFAULT_START_TIME
@@ -478,9 +480,9 @@ class NotPresentationReadyWorkSweepMonitor(WorkSweepMonitor):
             NotPresentationReadyWorkSweepMonitor, self).item_query().filter(
                 not_presentation_ready
             )
+
     
-# Beneath this point are SweepMonitors that do something specific,
-# usually for repair purposes.
+# SweepMonitors that do something specific.
 
 class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
     """A Monitor that recalculates the OPDS entries for every
@@ -494,14 +496,6 @@ class OPDSEntryCacheMonitor(PresentationReadyWorkSweepMonitor):
     
     def process_item(self, work):
         work.calculate_opds_entries()
-
-
-class SubjectAssignmentMonitor(SubjectSweepMonitor):
-    """A Monitor that assigns or reassigns Subjects to Genres."""
-    SERVICE_NAME = "Subject assignment monitor"
-
-    def process_item(self, subject):
-        subject.assign_to_genre()
 
 
 class PermanentWorkIDRefreshMonitor(EditionSweepMonitor):
@@ -639,3 +633,76 @@ class CustomListEntryWorkUpdateMonitor(CustomListEntrySweepMonitor):
     
     def process_item(self, item):
         item.set_work()
+
+
+class ReaperMonitor(Monitor):
+    """A Monitor that deletes database rows that have expired but
+    have no other process to delete them.
+
+    A subclass of ReaperMonitor MUST define values for the following
+    constants:
+    MODEL_CLASS - The model class this monitor is reaping, e.g. Credential.
+    TIMESTAMP_FIELD - Within the model class, the DateTime field to be
+       used when deciding which rows to deleting,
+       e.g. 'expires'. The reaper will be more efficient if there's
+       an index on this field.
+    MAX_AGE - A datetime.timedelta or number of days representing
+        the time that must pass before an item can be safely deleted.
+
+    """
+    MODEL_CLASS = None
+    TIMESTAMP_FIELD = None
+    MAX_AGE = None
+
+    REGISTRY = []
+
+    def __init__(self, *args, **kwargs):
+        self.SERVICE_NAME = "Reaper for %s.%s" % (
+            self.MODEL_CLASS.__name__,
+            self.TIMESTAMP_FIELD
+        )
+        super(ReaperMonitor, self).__init__(*args, **kwargs)
+
+    @property
+    def cutoff(self):
+        """Items with a timestamp earlier than this time will be reaped.
+        """
+        if isinstance(self.MAX_AGE, datetime.timedelta):
+            max_age = self.MAX_AGE
+        else:
+            max_age = datetime.timedelta(days=self.MAX_AGE)
+        return datetime.datetime.utcnow() - max_age
+
+    @property
+    def timestamp_field(self):
+        return getattr(self.MODEL_CLASS, self.TIMESTAMP_FIELD)
+
+    @property
+    def where_clause(self):
+        """A SQLAlchemy clause that identifies the database rows to be reaped.
+        """
+        return self.timestamp_field < self.cutoff
+
+    def run_once(self, *args, **kwargs):
+        rows_deleted = self.query().delete(synchronize_session=False)
+        self.log.info("Deleted %d row(s)", rows_deleted)
+
+    def query(self):
+        return self._db.query(self.MODEL_CLASS).filter(self.where_clause)
+
+# ReaperMonitors that do something specific.
+
+class CachedFeedReaper(ReaperMonitor):
+    """Removed cached feeds older than thirty days."""
+    MODEL_CLASS = CachedFeed
+    TIMESTAMP_FIELD = 'timestamp'
+    MAX_AGE = 30
+ReaperMonitor.REGISTRY.append(CachedFeedReaper)
+
+
+class CredentialReaper(ReaperMonitor):
+    """Remove Credentials that expired more than a day ago."""
+    MODEL_CLASS = Credential
+    TIMESTAMP_FIELD = 'expires'
+    MAX_AGE = 1
+ReaperMonitor.REGISTRY.append(CredentialReaper)

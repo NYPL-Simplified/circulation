@@ -8,6 +8,8 @@ from nose.tools import set_trace
 
 class AtomFeed(object):
 
+    ATOM_TYPE = 'application/atom+xml'
+
     TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
 
     ATOM_NS = 'http://www.w3.org/2005/Atom'
@@ -150,9 +152,9 @@ class AtomFeed(object):
 
 class OPDSFeed(AtomFeed):
 
-    ACQUISITION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=acquisition"
-    NAVIGATION_FEED_TYPE = "application/atom+xml;profile=opds-catalog;kind=navigation"
-    ENTRY_TYPE = "application/atom+xml;type=entry;profile=opds-catalog"
+    ACQUISITION_FEED_TYPE = AtomFeed.ATOM_TYPE + ";profile=opds-catalog;kind=acquisition"
+    NAVIGATION_FEED_TYPE = AtomFeed.ATOM_TYPE + ";profile=opds-catalog;kind=navigation"
+    ENTRY_TYPE = AtomFeed.ATOM_TYPE + ";type=entry;profile=opds-catalog"
 
     GROUP_REL = "collection"
     FEATURED_REL = "http://opds-spec.org/featured"

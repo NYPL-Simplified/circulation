@@ -111,3 +111,11 @@ class TestAnalytics(DatabaseTest):
         eq_(2, sitewide_provider.count)
         eq_(1, library_provider.count)
         eq_(CirculationEvent.DISTRIBUTOR_CHECKIN, library_provider.event_type)
+
+        # Here's an event that we couldn't associate with any
+        # particular library.
+        analytics.collect_event(None, lp, CirculationEvent.DISTRIBUTOR_CHECKOUT, None)
+
+        # It's counted as a sitewide event, but not as a library event.
+        eq_(3, sitewide_provider.count)
+        eq_(1, library_provider.count)

@@ -23,7 +23,7 @@ from config import (
     temp_config,
 )
 from external_search import DummyExternalSearchIndex
-
+from mirror import MirrorUploader
 from model import (
     create,
     dump_query,
@@ -38,12 +38,16 @@ from model import (
     DataSource,
     Edition,
     ExternalIntegration,
+    Hyperlink,
     Identifier,
     Library,
     LicensePool,
+    RightsStatus,
     Timestamp, 
     Work,
 )
+from lane import Lane
+from metadata_layer import LinkData
 from oneclick import MockOneClickAPI
 
 from scripts import (
@@ -53,6 +57,7 @@ from scripts import (
     CollectionInputScript,
     ConfigureCollectionScript,
     ConfigureIntegrationScript,
+    ConfigureLaneScript,
     ConfigureLibraryScript,
     ConfigureSiteScript,
     CustomListManagementScript,
@@ -64,6 +69,7 @@ from scripts import (
     LaneSweeperScript,
     LibraryInputScript,
     ListCollectionMetadataIdentifiersScript,
+    MirrorResourcesScript,
     MockStdin,
     OPDSImportScript,
     PatronInputScript,
@@ -71,11 +77,14 @@ from scripts import (
     RunCollectionMonitorScript,
     RunCoverageProviderScript,
     RunMonitorScript,
+    RunMultipleMonitorsScript,
+    RunReaperMonitorsScript,
     RunThreadedCollectionCoverageProviderScript,
     RunWorkCoverageProviderScript,
     Script,
     ShowCollectionsScript,
     ShowIntegrationsScript,
+    ShowLanesScript,
     ShowLibrariesScript,
     WorkClassificationScript,
     WorkProcessingScript,
@@ -87,7 +96,9 @@ from testing import(
     AlwaysSuccessfulWorkCoverageProvider,
 )
 from monitor import (
+    Monitor,
     CollectionMonitor,
+    ReaperMonitor,
 )
 from util.opds_writer import (
     OPDSFeed,
@@ -262,6 +273,13 @@ class TestIdentifierInputScript(DatabaseTest):
         eq_(DataSource.STANDARD_EBOOKS, parsed.identifier_data_source)
 
 
+class SuccessMonitor(Monitor):
+    """A simple Monitor that alway succeeds."""
+    SERVICE_NAME = "Success"
+    def run(self):
+        self.ran = True
+
+
 class OPDSCollectionMonitor(CollectionMonitor):
     """Mock Monitor for use in tests of Run*MonitorScript."""
     SERVICE_NAME = "Test Monitor"
@@ -280,6 +298,7 @@ class DoomedCollectionMonitor(CollectionMonitor):
     SERVICE_NAME = "Doomed Monitor"
     PROTOCOL = ExternalIntegration.OPDS_IMPORT
     def run_once(self, *args, **kwargs):
+        self.ran = True
         self.collection.doomed = True
         raise Exception("Doomed!")
         
@@ -300,10 +319,44 @@ class TestRunMonitorScript(DatabaseTest):
         for c in [c1, c2]:
             eq_("test value", c.ran_with_argument)
         
+
+class TestRunMultipleMonitorsScript(DatabaseTest):
+
+    def test_do_run(self):
+        m1 = SuccessMonitor(self._db)
+        m2 = DoomedCollectionMonitor(self._db, self._default_collection)
+        m3 = SuccessMonitor(self._db)
+
+        class MockScript(RunMultipleMonitorsScript):
+            name = "Run three monitors"
+            def monitors(self, **kwargs):
+                self.kwargs = kwargs
+                return [m1, m2, m3]
+
+        # Run the script.
+        script = MockScript(self._db, kwarg="value")
+        script.do_run()
+
+        # The kwarg we passed in to the MockScript constructor was
+        # propagated into the monitors() method.
+        eq_(dict(kwarg="value"), script.kwargs)
+
+        # All three monitors were run, even though the
+        # second one raised an exception.
+        eq_(True, m1.ran)
+        eq_(True, m2.ran)
+        eq_(True, m3.ran)
+
+        # The exception that crashed the second monitor was stored as
+        # .exception, in case we want to look at it.
+        eq_("Doomed!", m2.exception.message)
+        eq_(None, getattr(m1, 'exception', None))
+
         
 class TestRunCollectionMonitorScript(DatabaseTest):
 
-    def test_all(self):
+
+    def test_monitors(self):
         # Here we have three OPDS import Collections...
         o1 = self._collection()
         o2 = self._collection()
@@ -312,37 +365,31 @@ class TestRunCollectionMonitorScript(DatabaseTest):
         # ...and a Bibliotheca collection.
         b1 = self._collection(protocol=ExternalIntegration.BIBLIOTHECA)
 
-        script = RunCollectionMonitorScript(
-            OPDSCollectionMonitor, self._db, test_argument="test value"
-        )
-        script.run()
+        script = RunCollectionMonitorScript(OPDSCollectionMonitor, self._db)
 
-        # Running the script instantiates an OPDSCollectionMonitor for
-        # every Collection and calls run_once() on each one. This
-        # propagates a value sent into the script constructor to the
-        # Collection object.
-        for i in [o1, o2, o3]:
-            eq_("test value", i.ran_with_argument)
+        # Calling monitors() instantiates an OPDSCollectionMonitor
+        # for every OPDS import collection. The Bibliotheca collection
+        # is unaffected.
+        monitors = script.monitors()
+        collections = [x.collection for x in monitors]
+        eq_(set(collections), set([o1, o2, o3]))
+        for i in monitors:
+            assert isinstance(monitor, OPDSCollectionMonitor)
 
-        # Nothing happened to the Bibliotheca collection.
-        assert not hasattr(b1, 'ran_with_argument')
 
-    def test_keep_going_on_failure(self):
-        # Here we have two Collections that are going to be run
-        # through a CollectionMonitor that always fails.
-        o1 = self._collection()
-        o2 = self._collection()
-        script = RunCollectionMonitorScript(
-            DoomedCollectionMonitor, self._db
-        )
-        script.run()
+class TestRunReaperMonitorsScript(DatabaseTest):
 
-        # Even though run_once() raised an exception, it didn't stop
-        # the script from calling run_once() again for the second
-        # collection.
-        assert(True, o1.doomed)
-        assert(True, o2.doomed)
-        
+    def test_monitors(self):
+        """This script instantiates a Monitor for every class in
+        ReaperMonitor.REGISTRY.
+        """
+        old_registry = ReaperMonitor.REGISTRY
+        ReaperMonitor.REGISTRY = [SuccessMonitor]
+        script = RunReaperMonitorsScript(self._db)
+        [monitor] = script.monitors()
+        assert isinstance(monitor, SuccessMonitor)
+        ReaperMonitor.REGISTRY = old_registry
+
 
 class TestPatronInputScript(DatabaseTest):
 
@@ -1820,7 +1867,110 @@ class TestConfigureIntegrationScript(DatabaseTest):
 
         expect_output = "Configuration settings stored.\n" + "\n".join(integration.explain()) + "\n"
         eq_(expect_output, output.getvalue())
-       
+
+class TestShowLanesScript(DatabaseTest):
+
+    def test_with_no_lanes(self):
+        output = StringIO()
+        ShowLanesScript().do_run(self._db, output=output)
+        eq_("No lanes found.\n", output.getvalue())
+
+    def test_with_multiple_lanes(self):
+        l1 = self._lane()
+        l2 = self._lane()
+
+        # The output of this script is the result of running explain()
+        # on both lanes.
+        output = StringIO()
+        ShowLanesScript().do_run(self._db, output=output)
+        expect_1 = "\n".join(l1.explain())
+        expect_2 = "\n".join(l2.explain())
+        
+        eq_(expect_1 + "\n\n" + expect_2 + "\n\n", output.getvalue())
+
+        # We can tell the script to only list a single lane.
+        output = StringIO()
+        ShowLanesScript().do_run(
+            self._db,
+            cmd_args=["--id=%s" % l2.id],
+            output=output
+        )
+        eq_(expect_2 + "\n\n", output.getvalue())
+
+class TestConfigureLaneScript(DatabaseTest):
+    
+    def test_bad_arguments(self):
+        script = ConfigureLaneScript()
+
+        # No lane id but no library short name for creating it either.
+        assert_raises_regexp(
+            ValueError,
+            'Library short name is required to create a new lane',
+            script.do_run, self._db, []
+        )
+
+        # Try to create a lane for a nonexistent library.
+        assert_raises_regexp(
+            ValueError,
+            'No such library: "nosuchlibrary".',
+            script.do_run, self._db, [
+                "--library-short-name=nosuchlibrary"
+            ]
+        )
+
+
+    def test_create_lane(self):
+        script = ConfigureLaneScript()
+        parent = self._lane()
+
+        # Create a lane and set its attributes.
+        output = StringIO()
+        script.do_run(
+            self._db, ["--library-short-name=%s" % self._default_library.short_name,
+                       "--parent-id=%s" % parent.id,
+                       "--priority=3",
+                       "--display-name=NewLane",
+            ], output
+        )
+
+        # The lane was created and configured properly.
+        lane = get_one(self._db, Lane, display_name="NewLane")
+        eq_(self._default_library, lane.library)
+        eq_(parent, lane.parent)
+        eq_(3, lane.priority)
+
+        # The output explains the lane settings.
+        expect = ("Lane settings stored.\n"
+                  + "\n".join(lane.explain()) + "\n")
+        eq_(expect, output.getvalue())
+
+    def test_reconfigure_lane(self):
+        # The lane exists.
+        lane = self._lane(display_name="Name")
+        lane.priority = 3
+
+        parent = self._lane()
+
+        script = ConfigureLaneScript()
+        output = StringIO()
+
+        script.do_run(
+            self._db, [
+                "--id=%s" % lane.id,
+                "--priority=1",
+                "--parent-id=%s" % parent.id,
+            ],
+            output
+        )
+
+        # The lane has been changed.
+        eq_(1, lane.priority)
+        eq_(parent, lane.parent)
+        expect = ("Lane settings stored.\n"
+                  + "\n".join(lane.explain()) + "\n")
+        
+        eq_(expect, output.getvalue())
+
 
 class TestCollectionInputScript(DatabaseTest):
     """Test the ability to name collections on the command line."""
@@ -2243,6 +2393,251 @@ class TestListCollectionMetadataIdentifiersScript(DatabaseTest):
         assert expected(c2) in output
         assert '2 collections found.\n' in output
 
+class TestMirrorResourcesScript(DatabaseTest):
+
+    def test_do_run(self):
+
+        has_uploader = self._collection()
+        mock_uploader = object()
+
+        class Mock(MirrorResourcesScript):
+
+            processed = []
+
+            def collections_with_uploader(self, collections):
+                # Pretend that `has_uploader` is the only Collection
+                # with an uploader.
+                for collection in collections:
+                    if collection == has_uploader:
+                        yield collection, mock_uploader
+                
+            def process_collection(self, collection, policy):
+                self.processed.append((collection, policy))
+
+        script = Mock(self._db)
+
+        # If there are no command-line arguments, process_collection
+        # is called on every Collection in the system that is okayed
+        # by collections_with_uploader.
+        script.do_run(cmd_args=[])
+        processed = script.processed.pop()
+        eq_((has_uploader, mock_uploader), processed)
+        eq_([], script.processed)
+
+        # If a Collection is named on the command line,
+        # process_collection is called on that Collection _if_ it has
+        # an uploader.
+        args = ["--collection=%s" % self._default_collection.name]
+        script.do_run(cmd_args=args)
+        eq_([], script.processed)
+
+        script.do_run(cmd_args=["--collection=%s" % has_uploader.name])
+        processed = script.processed.pop()
+        eq_((has_uploader, mock_uploader), processed)
+
+    def test_collections_with_uploader(self):
+        class Mock(MirrorResourcesScript):
+            
+            mock_policy = object()
+
+            @classmethod
+            def replacement_policy(cls, uploader):
+                cls.replacement_policy_called_with = uploader
+                return cls.mock_policy
+
+        script = Mock()
+
+        # The default collection does not have an uploader.
+        # This new collection does.
+        has_uploader = self._collection()
+        mirror = self._external_integration(
+            "S3", ExternalIntegration.STORAGE_GOAL
+        )
+        has_uploader.mirror_integration = mirror
+
+        # Calling collections_with_uploader will do nothing for collections
+        # that don't have an uploader. It will make a MirrorUploader for
+        # the other collection, pass it into replacement_policy,
+        # and yield the result.
+        result = script.collections_with_uploader(
+            [self._default_collection, has_uploader, self._default_collection]
+        )
+        [(collection, policy)] = result
+        eq_(has_uploader, collection)
+        eq_(Mock.mock_policy, policy)
+        assert isinstance(Mock.replacement_policy_called_with, MirrorUploader)
+
+    def test_replacement_policy(self):
+        uploader = object()
+        p = MirrorResourcesScript.replacement_policy(uploader)
+        eq_(uploader, p.mirror)
+        eq_(True, p.link_content)
+        eq_(True, p.even_if_not_apparently_updated)
+        eq_(False, p.rights)
+
+    def test_process_collection(self):
+
+        class MockScript(MirrorResourcesScript):
+            process_item_called_with = []
+            def process_item(self, collection, link, policy):
+                self.process_item_called_with.append((collection, link, policy))
+
+        # Mock the Hyperlink.unmirrored method
+        link1 = object()
+        link2 = object()
+        def unmirrored(collection):
+            eq_(collection, self._default_collection)
+            yield link1
+            yield link2
+
+        script = MockScript(self._db)
+        policy = object()
+        script.process_collection(self._default_collection, policy, unmirrored)
+
+        # Process_collection called unmirrored() and then called process_item
+        # on every item yielded by unmirrored()
+        call1, call2 = script.process_item_called_with
+        eq_((self._default_collection, link1, policy), call1)
+        eq_((self._default_collection, link2, policy), call2)
+
+    def test_derive_rights_status(self):
+        """Test our ability to determine the rights status of a Resource,
+        in the absence of immediate information from the server.
+        """
+        m = MirrorResourcesScript.derive_rights_status
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        [lpdm] = pool.delivery_mechanisms
+        resource = lpdm.resource
+
+        expect = lpdm.rights_status.uri
+
+        # Given the LicensePool, we can figure out the Resource's
+        # rights status based on what was previously recovered. This lets
+        # us know whether it's okay to mirror that Resource.
+        eq_(expect, m(pool, resource))
+
+        # In theory, a Resource can be associated with several
+        # LicensePoolDeliveryMechanisms. That's why a LicensePool is
+        # necessary -- to see which LicensePoolDeliveryMechanism we're
+        # looking at.
+        eq_(None, m(None, resource))
+
+        # If there's no Resource-specific information, but a
+        # LicensePool has only one rights URI among all of its
+        # LicensePoolDeliveryMechanisms, then we can assume all Resources
+        # for that LicensePool use that same set of rights.
+        w2 = self._work(with_license_pool=True)
+        [pool2] = w2.license_pools
+        eq_(pool2.delivery_mechanisms[0].rights_status.uri, m(pool2, None))
+
+        # If there's more than one possibility, or the LicensePool has
+        # no LicensePoolDeliveryMechanisms at all, then we just don't
+        # know.
+        pool2.set_delivery_mechanism(
+            content_type="text/plain", drm_scheme=None,
+            rights_uri=RightsStatus.CC_BY_ND
+        )
+        eq_(None, m(pool2, None))
+
+        pool2.delivery_mechanisms = []
+        eq_(None, m(pool2, None))
+
+    def test_process_item(self):
+        """Test the code that actually sets up the mirror operation."""
+
+        # Every time process_item() is called, it's either going to ask
+        # this thing to mirror the item, or it's going to decide not to.
+        class MockMirrorUtility(object):
+            def __init__(self):
+                self.mirrored = []
+
+            def mirror_link(self, **kwargs):
+                self.mirrored.append(kwargs)
+        mirror = MockMirrorUtility()
+
+        class MockScript(MirrorResourcesScript):
+            MIRROR_UTILITY = mirror
+            RIGHTS_STATUS = None
+
+            def derive_rights_status(self, license_pool, resource):
+                """Always return the same rights status information.
+                To start out, act like no rights information is available.
+                """
+                self.derive_rights_status_called_with = (license_pool, resource)
+                return self.RIGHTS_STATUS
+
+        # Resource and Hyperlink are a pain to use for real, so here
+        # are some cheap mocks.
+        class MockResource(object):
+            def __init__(self, url):
+                self.url = url
+
+        class MockLink(object):
+            def __init__(self, rel, href, identifier):
+                self.rel = rel
+                self.resource = MockResource(href)
+                self.identifier = identifier
+
+        script = MockScript(self._db)
+        m = script.process_item
+
+        # If we can't tie the Hyperlink to a LicensePool in the given
+        # Collection, no upload happens. (This shouldn't happen
+        # because Hyperlink.unmirrored only finds Hyperlinks
+        # associated with Identifiers licensed through a Collection.)
+        identifier = self._identifier()
+        policy = object()
+        download_link = MockLink(
+            Hyperlink.OPEN_ACCESS_DOWNLOAD, self._url, identifier
+        )
+        self._default_collection.data_source = DataSource.GUTENBERG
+        m(self._default_collection, download_link, policy)
+        eq_([], mirror.mirrored)
+
+        # This HyperLink does match a LicensePool, but it's not
+        # in the collection we're mirroring, so mirroring it might not be
+        # appropriate.
+        work = self._work(
+            with_open_access_download=True, collection=self._default_collection
+        )
+        pool = work.license_pools[0]
+        download_link.identifier = pool.identifier
+        wrong_collection = self._collection()
+        wrong_collection.data_source = DataSource.GUTENBERG
+        m(wrong_collection, download_link, policy)
+        eq_([], mirror.mirrored)
+
+        # For "open-access" downloads of actual books, if we can't
+        # determine the actual rights status of the book, then we
+        # don't do anything.
+        m(self._default_collection, download_link, policy)
+        eq_([], mirror.mirrored)
+        eq_((pool, download_link.resource),
+            script.derive_rights_status_called_with)
+
+        # If we _can_ determine the rights status, a mirror attempt is made.
+        script.RIGHTS_STATUS = object()
+        m(self._default_collection, download_link, policy)
+        attempt = mirror.mirrored.pop()
+        eq_(policy, attempt['policy'])
+        eq_(pool.data_source, attempt['data_source'])
+        eq_(pool, attempt['model_object'])
+        eq_(download_link, attempt['link_obj'])
+
+        link = attempt['link']
+        assert isinstance(link, LinkData)
+        eq_(download_link.resource.url, link.href)
+
+        # For other types of links, we rely on fair use, so the "rights
+        # status" doesn't matter.
+        script.RIGHTS_STATUS = None
+        thumb_link = MockLink(Hyperlink.THUMBNAIL_IMAGE, self._url,
+                              pool.identifier)
+        m(self._default_collection, thumb_link, policy)
+        attempt = mirror.mirrored.pop()
+        eq_(thumb_link.resource.url, attempt['link'].href)
+
 
 class TestWorkConsolidationScript(object):
     """TODO"""
@@ -2265,11 +2660,6 @@ class TestWorkOPDSScript(object):
 
 
 class TestCustomListManagementScript(object):
-    """TODO"""
-    pass
-
-
-class TestSubjectAssignmentScript(object):
     """TODO"""
     pass
 

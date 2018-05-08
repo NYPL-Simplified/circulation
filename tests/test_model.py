@@ -35,14 +35,23 @@ from sqlalchemy.orm.session import Session
 from lxml import etree
 
 from config import (
+    CannotLoadConfiguration,
     Configuration, 
     temp_config,
 )
 
+from entrypoint import AudiobooksEntryPoint
+
 import lane
+from lane import (
+    Facets,
+    Pagination,
+    WorkList,
+)
 import model
 from model import (
     Admin,
+    AdminRole,
     Annotation,
     BaseCoverageRecord,
     CachedFeed,
@@ -3117,6 +3126,28 @@ class TestWork(DatabaseTest):
         eq_("Alice Adder, Bob Bitshifter", work.author)
         eq_("Adder, Alice ; Bitshifter, Bob", work.sort_author)
 
+    def test_different_language_means_different_work(self):
+        """There are two open-access LicensePools for the same book in
+        different languages. The author and title information is the
+        same, so the books have the same permanent work ID, but since
+        they are in different languages they become separate works.
+        """
+        title = 'Siddhartha'
+        author = ['Herman Hesse']
+        edition1, lp1 = self._edition(
+            title=title, authors=author, language='eng', with_license_pool=True,
+            with_open_access_download=True
+        )
+        w1 = lp1.calculate_work()
+        edition2, lp2 = self._edition(
+            title=title, authors=author, language='ger', with_license_pool=True,
+            with_open_access_download=True
+        )
+        w2 = lp2.calculate_work()
+        for l in (lp1, lp2):
+            eq_(False, l.superceded)
+        assert w1 != w2
+
     def test_reject_covers(self):
         edition, lp = self._edition(with_open_access_download=True)
 
@@ -4025,7 +4056,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         expect_open_access_work, open_access_work_is_new = (
             Work.open_access_for_permanent_work_id(
-                self._db, "abcd", Edition.BOOK_MEDIUM
+                self._db, "abcd", Edition.BOOK_MEDIUM, 'eng'
             )
         )
         eq_(expect_open_access_work, abcd_open_access.work)
@@ -4059,7 +4090,7 @@ class TestWorkConsolidation(DatabaseTest):
         commercial_work = abcd_commercial.work
         eq_((commercial_work, False), abcd_commercial.calculate_work())
 
-    def test_calculate_work_fixes_book_grouped_with_audiobook(self):
+    def test_calculate_work_fixes_incorrectly_grouped_books(self):
         # Here's a Work with an open-access edition of "abcd".
         work = self._work(with_license_pool=True)
         [book] = work.license_pools
@@ -4074,9 +4105,17 @@ class TestWorkConsolidation(DatabaseTest):
         audiobook.presentation_edition.permanent_work_id = "abcd"
         work.license_pools.append(audiobook)
 
+        # And the Work _also_ contains an open-access book of "abcd"
+        # in a different language.
+        edition, spanish = self._edition(with_license_pool=True)
+        spanish.open_access = True
+        spanish.presentation_edition.language='spa'
+        spanish.presentation_edition.permanent_work_id = "abcd"
+        work.license_pools.append(spanish)
+
         def mock_pwid(debug=False):
             return "abcd"
-        for lp in [book, audiobook]:
+        for lp in [book, audiobook, spanish]:
             lp.presentation_edition.calculate_permanent_work_id = mock_pwid
 
         # We can fix this by calling calculate_work() on one of the
@@ -4098,7 +4137,7 @@ class TestWorkConsolidation(DatabaseTest):
         # book-type LicensePools for that title going forward.
         expect_book_work, book_work_is_new = (
             Work.open_access_for_permanent_work_id(
-                self._db, "abcd", Edition.BOOK_MEDIUM
+                self._db, "abcd", Edition.BOOK_MEDIUM, 'eng'
             )
         )
         eq_(expect_book_work, book.work)
@@ -4108,10 +4147,21 @@ class TestWorkConsolidation(DatabaseTest):
         # forward.
         expect_audiobook_work, audiobook_work_is_new = (
             Work.open_access_for_permanent_work_id(
-                self._db, "abcd", Edition.AUDIO_MEDIUM
+                self._db, "abcd", Edition.AUDIO_MEDIUM, 'eng'
             )
         )
         eq_(expect_audiobook_work, audiobook.work)
+
+        # The Spanish book has been given the Work that will be used
+        # for all Spanish LicensePools for that title going forward.
+        expect_spanish_work, spanish_work_is_new = (
+            Work.open_access_for_permanent_work_id(
+                self._db, "abcd", Edition.BOOK_MEDIUM, 'spa'
+            )
+        )
+        eq_(expect_spanish_work, spanish.work)
+        eq_('spa', expect_spanish_work.language)
+
 
     def test_calculate_work_detaches_licensepool_with_no_title(self):
         # Here's a Work with an open-access edition of "abcd".
@@ -4190,9 +4240,47 @@ class TestWorkConsolidation(DatabaseTest):
             work.pwids)
 
     def test_open_access_for_permanent_work_id_no_licensepools(self):
+        # There are no LicensePools, which short-circuilts
+        # open_access_for_permanent_work_id.
         eq_(
             (None, False), Work.open_access_for_permanent_work_id(
-                self._db, "No such permanent work ID", Edition.BOOK_MEDIUM
+                self._db, "No such permanent work ID", Edition.BOOK_MEDIUM,
+                "eng"
+            )
+        )
+
+        # Now it works.
+        w = self._work(
+            language="eng", with_license_pool=True,
+            with_open_access_download=True
+        )
+        w.presentation_edition.permanent_work_id = "permid"
+        eq_(
+            (w, False), Work.open_access_for_permanent_work_id(
+                self._db, "permid", Edition.BOOK_MEDIUM,
+                "eng"
+            )
+        )
+
+        # But the language, medium, and permanent ID must all match.
+        eq_(
+            (None, False), Work.open_access_for_permanent_work_id(
+                self._db, "permid", Edition.BOOK_MEDIUM,
+                "spa"
+            )
+        )
+
+        eq_(
+            (None, False), Work.open_access_for_permanent_work_id(
+                self._db, "differentid", Edition.BOOK_MEDIUM,
+                "eng"
+            )
+        )
+
+        eq_(
+            (None, False), Work.open_access_for_permanent_work_id(
+                self._db, "differentid", Edition.AUDIO_MEDIUM,
+                "eng"
             )
         )
 
@@ -4214,9 +4302,11 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Due to an error, it turns out both Works are providing the
         # exact same book.
-        lp1.presentation_edition.permanent_work_id="abcd"
-        lp2.presentation_edition.permanent_work_id="abcd"
-        lp3.presentation_edition.permanent_work_id="abcd"
+        def mock_pwid(debug=False):
+            return "abcd"
+        for lp in [lp1, lp2, lp3]:
+            lp.presentation_edition.permanent_work_id="abcd"
+            lp.presentation_edition.calculate_permanent_work_id = mock_pwid
 
         # We've also got Work #3, which provides a commercial license
         # for that book.
@@ -4227,7 +4317,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Work.open_access_for_permanent_work_id can resolve this problem.
         work, is_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd", Edition.BOOK_MEDIUM
+            self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         )
 
         # Work #3 still exists and its license pool was not affected.
@@ -4250,8 +4340,10 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Calling Work.open_access_for_permanent_work_id again returns the same
         # result.
+        _db = self._db
+        Work.open_access_for_permanent_work_id(_db, "abcd", Edition.BOOK_MEDIUM, "eng")
         eq_((w2, False), Work.open_access_for_permanent_work_id(
-            self._db, "abcd", Edition.BOOK_MEDIUM
+            self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         ))
 
     def test_open_access_for_permanent_work_id_can_create_work(self):
@@ -4263,10 +4355,132 @@ class TestWorkConsolidation(DatabaseTest):
 
         # open_access_for_permanent_work_id creates the Work.
         work, is_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd", Edition.BOOK_MEDIUM
+            self._db, "abcd", Edition.BOOK_MEDIUM, edition.language
         )
         eq_([lp], work.license_pools)
         eq_(True, is_new)
+
+    def test_potential_open_access_works_for_permanent_work_id(self):
+        """Test of the _potential_open_access_works_for_permanent_work_id
+        helper method.
+        """
+
+        # Here are two editions of the same book with the same PWID.
+        title = 'Siddhartha'
+        author = ['Herman Hesse']
+        e1, lp1 = self._edition(
+            data_source_name=DataSource.STANDARD_EBOOKS,
+            title=title, authors=author, language='eng', with_license_pool=True,
+        )
+        e1.permanent_work_id = "pwid"
+
+        e2, lp2 = self._edition(
+            data_source_name=DataSource.GUTENBERG,
+            title=title, authors=author, language='eng', with_license_pool=True,
+        )
+        e2.permanent_work_id = "pwid"
+
+        w1 = Work()
+        for lp in [lp1, lp2]:
+            w1.license_pools.append(lp)
+            lp.open_access = True
+
+        def m():
+            return Work._potential_open_access_works_for_permanent_work_id(
+                self._db, "pwid", Edition.BOOK_MEDIUM, "eng"
+            )
+        pools, counts = m()
+
+        # Both LicensePools show up in the list of LicensePools that
+        # should be grouped together, and both LicensePools are
+        # associated with the same Work.
+        poolset = set([lp1, lp2])
+        eq_(poolset, pools)
+        eq_({w1 : 2}, counts)
+
+        # Since the work was just created, it has no presentation
+        # edition and thus no language. If the presentation edition
+        # were set, the result would be the same.
+        w1.presentation_edition = e1
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({w1 : 2}, counts)
+
+        # If the Work's presentation edition has information that
+        # _conflicts_ with the information passed in to
+        # _potential_open_access_works_for_permanent_work_id, the Work
+        # does not show up in `counts`, indicating that a new Work
+        # should to be created to hold those books.
+        bad_pe = self._edition()
+        bad_pe.permanent_work_id='pwid'
+        w1.presentation_edition = bad_pe
+
+        bad_pe.language = 'fin'
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({}, counts)
+        bad_pe.language = 'eng'
+
+        bad_pe.medium = Edition.AUDIO_MEDIUM
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({}, counts)
+        bad_pe.medium = Edition.BOOK_MEDIUM
+
+        bad_pe.permanent_work_id = "Some other ID"
+        pools, counts = m()
+        eq_(poolset, pools)
+        eq_({}, counts)
+        bad_pe.permanent_work_id = "pwid"
+
+        w1.presentation_edition = None
+
+        # Now let's see what changes to a LicensePool will cause it
+        # not to be eligible in the first place.
+        def assert_lp1_missing():
+            # A LicensePool that is not eligible will not show up in
+            # the set and will not be counted towards the total of eligible
+            # LicensePools for its Work.
+            pools, counts = m()
+            eq_(set([lp2]), pools)
+            eq_({w1 : 1}, counts)
+
+        # It has to be open-access.
+        lp1.open_access = False
+        assert_lp1_missing()
+        lp1.open_access = True
+
+        # The presentation edition's permanent work ID must match
+        # what's passed into the helper method.
+        e1.permanent_work_id = "another pwid"
+        assert_lp1_missing()
+        e1.permanent_work_id = "pwid"
+
+        # The medium must also match.
+        e1.medium = Edition.AUDIO_MEDIUM
+        assert_lp1_missing()
+        e1.medium = Edition.BOOK_MEDIUM
+
+        # The language must also match.
+        e1.language = "another language"
+        assert_lp1_missing()
+        e1.language = 'eng'
+
+        # Finally, let's see what happens when there are two Works where
+        # there should be one.
+        w2 = Work()
+        w2.license_pools.append(lp2)
+        pools, counts = m()
+
+        # This work is irrelevant and will not show up at all.
+        w3 = Work()
+
+        # Both Works have one associated LicensePool, so they have
+        # equal claim to being 'the' Work for this work
+        # ID/language/medium. The calling code will have to sort it
+        # out.
+        eq_(poolset, pools)
+        eq_({w1: 1, w2: 1}, counts)
 
     def test_make_exclusive_open_access_for_permanent_work_id(self):
         # Here's a work containing an open-access LicensePool for
@@ -4303,7 +4517,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Let's fix these problems.
         work1.make_exclusive_open_access_for_permanent_work_id(
-            "abcd", Edition.BOOK_MEDIUM
+            "abcd", Edition.BOOK_MEDIUM, "eng",
         )
 
         # The open-access "abcd" book is now the only LicensePool
@@ -4339,7 +4553,7 @@ class TestWorkConsolidation(DatabaseTest):
             pool.presentation_edition.permanent_work_id = None
 
         work.make_exclusive_open_access_for_permanent_work_id(
-            None, Edition.BOOK_MEDIUM
+            None, Edition.BOOK_MEDIUM, edition.language
         )
 
         # Since a LicensePool with no PWID cannot have an associated Work,
@@ -4440,13 +4654,13 @@ class TestWorkConsolidation(DatabaseTest):
         # first one. (The first work is chosen because it represents
         # two LicensePools for 'abcd', not just one.)
         abcd_work, abcd_new = Work.open_access_for_permanent_work_id(
-            self._db, "abcd", Edition.BOOK_MEDIUM
+            self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         )
         efgh_work, efgh_new = Work.open_access_for_permanent_work_id(
-            self._db, "efgh", Edition.BOOK_MEDIUM
+            self._db, "efgh", Edition.BOOK_MEDIUM, "eng"
         )
         ijkl_work, ijkl_new = Work.open_access_for_permanent_work_id(
-            self._db, "ijkl", Edition.BOOK_MEDIUM
+            self._db, "ijkl", Edition.BOOK_MEDIUM, "eng"
         )
 
         # We've got three different works here. The 'abcd' work is the
@@ -4469,9 +4683,9 @@ class TestWorkConsolidation(DatabaseTest):
         eq_([efgh], efgh_work.license_pools)
         eq_(3, len(abcd_work.license_pools))
 
-    def test_open_access_for_permanent_work_id_avoids_infinite_loop(self):
+    def test_open_access_for_permanent_work_untangles_tangled_works(self):
 
-        # Here's are three works for the books "abcd", "efgh", and "ijkl".
+        # Here are three works for the books "abcd", "efgh", and "ijkl".
         abcd_work = self._work(with_license_pool=True, 
                                with_open_access_download=True)
         [abcd_1] = abcd_work.license_pools
@@ -4486,15 +4700,20 @@ class TestWorkConsolidation(DatabaseTest):
         #
         # (This is pretty much impossible, but bear with me...)
 
-        edition, abcd_2 = self._edition(
+        abcd_edition, abcd_2 = self._edition(
             with_license_pool=True, with_open_access_download=True
         )
         efgh_work.license_pools.append(abcd_2)
 
-        edition, efgh_2 = self._edition(
+        efgh_edition, efgh_2 = self._edition(
             with_license_pool=True, with_open_access_download=True
         )
         abcd_work.license_pools.append(efgh_2)
+
+        # Both Works have a presentation edition that indicates the
+        # permanent work ID is 'abcd'.
+        abcd_work.presentation_edition = efgh_edition
+        efgh_work.presentation_edition = efgh_edition
 
         def mock_pwid_abcd(debug=False):
             return "abcd"
@@ -4510,15 +4729,37 @@ class TestWorkConsolidation(DatabaseTest):
             lp.presentation_edition.calculate_permanent_work_id = mock_pwid_efgh
             lp.presentation_edition.permanent_work_id = 'efgh'
 
-        # Calling Work.open_access_for_permanent_work_id() raises an
-        # exception. We can't untangle the loop (for now) but at least
-        # it doesn't put us into an infinite loop.
-        assert_raises_regexp(
-            ValueError,
-            "Refusing to merge .* into .* because permanent work IDs don't match: abcd,efgh vs. abcd",
-            Work.open_access_for_permanent_work_id, self._db, "abcd",
-            Edition.BOOK_MEDIUM
+        # Calling Work.open_access_for_permanent_work_id() creates a
+        # new work that contains both 'abcd' LicensePools.
+        abcd_new, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "abcd", Edition.BOOK_MEDIUM, "eng"
         )
+        eq_(True, is_new)
+        eq_(set([abcd_1, abcd_2]), set(abcd_new.license_pools))
+
+        # The old abcd_work now contains only the 'efgh' LicensePool
+        # that didn't fit.
+        eq_([efgh_2], abcd_work.license_pools)
+
+        # We now have two works with 'efgh' LicensePools: abcd_work
+        # and efgh_work. Calling
+        # Work.open_access_for_permanent_work_id on 'efgh' will
+        # consolidate the two LicensePools into one of the Works
+        # (which one is nondeterministic).
+        efgh_new, is_new = Work.open_access_for_permanent_work_id(
+            self._db, "efgh", Edition.BOOK_MEDIUM, "eng"
+        )
+        eq_(False, is_new)
+        eq_(set([efgh_1, efgh_2]), set(efgh_new.license_pools))
+        assert efgh_new in (abcd_work, efgh_work)
+
+        # The Work that was not chosen for consolidation now has no
+        # LicensePools.
+        if efgh_new is abcd_work:
+            other = efgh_work
+        else:
+            other = abcd_work
+        eq_([], other.license_pools)
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
         # Here's a work with an open-access LicensePool.
@@ -4889,6 +5130,75 @@ class TestHyperlink(DatabaseTest):
         eq_("content", m(Hyperlink.OPEN_ACCESS_DOWNLOAD))
         eq_("cover", m(Hyperlink.IMAGE))
         eq_("cover-thumbnail", m(Hyperlink.THUMBNAIL_IMAGE))
+
+    def test_unmirrored(self):
+
+        ds = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        overdrive = DataSource.lookup(self._db, DataSource.OVERDRIVE)
+
+        c1 = self._default_collection
+        c1.data_source = ds
+
+        # Here's an Identifier associated with a collection.
+        work = self._work(with_license_pool=True, collection=c1)
+        [pool] = work.license_pools
+        i1 = pool.identifier
+
+        # This is a random identifier not associated with the collection.
+        i2 = self._identifier()
+
+        def m():
+            return Hyperlink.unmirrored(c1).all()
+
+        # Identifier is not in the collection.
+        not_in_collection, ignore = i2.add_link(Hyperlink.IMAGE, self._url, ds)
+        eq_([], m())
+
+        # Hyperlink rel is not mirrorable.
+        wrong_type, ignore = i1.add_link("not mirrorable", self._url, ds)
+        wrong_type.resource.set_mirrored_elsewhere("text/plain")
+        eq_([], m())
+
+        # Hyperlink has no associated representation -- it needs to be
+        # mirrored, which will create one!
+        hyperlink, ignore = i1.add_link(Hyperlink.IMAGE, self._url, ds)
+        eq_([hyperlink], m())
+
+        # Hyperlink is already mirrored.
+        hyperlink.resource.set_mirrored_elsewhere("image/png")
+        eq_([], m())
+
+        # Representation exists in database but is not mirrored -- it needs
+        # to be mirrored!
+        representation = hyperlink.resource.representation
+        representation.mirror_url = None
+        eq_([hyperlink], m())
+
+        # Hyperlink is associated with a data source other than the
+        # data source of the collection. It ought to be mirrored, but
+        # this collection isn't responsible for mirroring it.
+        hyperlink.data_source = overdrive
+        eq_([], m())
+
+
+class TestResource(DatabaseTest):
+
+    def test_as_delivery_mechanism_for(self):
+
+        # Calling as_delivery_mechanism_for on a Resource that is used
+        # to deliver a specific LicensePool returns the appropriate
+        # LicensePoolDeliveryMechanism.
+        work = self._work(with_open_access_download=True)
+        [pool] = work.license_pools
+        [lpdm] = pool.delivery_mechanisms
+        eq_(lpdm, lpdm.resource.as_delivery_mechanism_for(pool))
+
+        # If there's no relationship between the Resource and 
+        # the LicensePoolDeliveryMechanism, as_delivery_mechanism_for
+        # returns None.
+        w2 = self._work(with_license_pool=True)
+        [unrelated] = w2.license_pools
+        eq_(None, lpdm.resource.as_delivery_mechanism_for(unrelated))
 
 
 class TestRepresentation(DatabaseTest):
@@ -6804,7 +7114,15 @@ class TestCustomList(DatabaseTest):
         custom_list.library = self._default_library
         result = CustomList.find(self._db, 'My List', source, library=self._default_library)
         eq_(custom_list, result)
-        
+
+    def assert_reindexing_scheduled(self, work):
+        """Assert that the given work has exactly one WorkCoverageRecord, which
+        indicates that it needs to have its search index updated.
+        """
+        [needs_reindex] = work.coverage_records
+        eq_(WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION,
+            needs_reindex.operation)
+        eq_(WorkCoverageRecord.REGISTERED, needs_reindex.status)
 
     def test_add_entry(self):
         custom_list = self._customlist(num_entries=0)[0]
@@ -6822,19 +7140,28 @@ class TestCustomList(DatabaseTest):
         eq_(True, custom_list.updated > now)
 
         # An edition with a work can create an entry.
-        worked_edition, lp = self._edition(with_license_pool=True)
-        worked_entry, is_new = custom_list.add_entry(worked_edition)
+        work = self._work()
+        work.coverage_records = []
+        worked_entry, is_new = custom_list.add_entry(work.presentation_edition)
         eq_(True, is_new)
-        eq_(worked_edition, worked_entry.edition)
+        eq_(work, worked_entry.work)
+        eq_(work.presentation_edition, worked_entry.edition)
         eq_(True, worked_entry.first_appearance > now)
+
+        # When this happens, the work is scheduled for reindexing.
+        self.assert_reindexing_scheduled(work)
 
         # A work can create an entry.
         work = self._work(with_open_access_download=True)
+        work.coverage_records = []
         work_entry, is_new = custom_list.add_entry(work)
         eq_(True, is_new)
         eq_(work.presentation_edition, work_entry.edition)
         eq_(work, work_entry.work)
         eq_(True, work_entry.first_appearance > now)
+
+        # When this happens, the work is scheduled for reindexing.
+        self.assert_reindexing_scheduled(work)
 
         # Annotations can be passed to the entry.
         annotated_edition = self._edition()
@@ -6900,11 +7227,16 @@ class TestCustomList(DatabaseTest):
         now = datetime.datetime.utcnow()
 
         # An entry is removed if its edition is passed in.
+        first.work.coverage_records = []
         custom_list.remove_entry(first)
         eq_(2, len(custom_list.entries))
         eq_(set([second, third]), set([entry.edition for entry in custom_list.entries]))
         # And CustomList.updated is changed.
         eq_(True, custom_list.updated > now)
+
+        # The editon's work has been scheduled for reindexing.
+        self.assert_reindexing_scheduled(first.work)
+        first.work.coverage_records = []
 
         # An entry is also removed if any of its equivalent editions
         # are passed in.
@@ -6930,6 +7262,10 @@ class TestCustomList(DatabaseTest):
         custom_list.remove_entry(first)
         eq_(1, len(custom_list.entries))
         eq_(previous_list_update_time, custom_list.updated)
+
+        # The 'removed' edition's work does not need to be reindexed
+        # because it wasn't on the list to begin with.
+        eq_([], first.work.coverage_records)
 
     def test_entries_for_work(self):
         custom_list, editions = self._customlist(num_entries=2)
@@ -7073,6 +7409,121 @@ class TestCustomListEntry(DatabaseTest):
         entry.update(self._db, equivalent_entries=[longwinded_entry])
         eq_(long_annotation, entry.annotation)
         eq_(longwinded_entry.most_recent_appearance, entry.most_recent_appearance)
+
+
+class TestCachedFeed(DatabaseTest):
+
+    def test_fetch_page_feeds(self):
+        """CachedFeed.fetch retrieves paginated feeds from the database if
+        they exist, and prepares them for creation if not.
+        """
+        m = CachedFeed.fetch
+        lane = self._lane()
+        page = CachedFeed.PAGE_TYPE
+        annotator = object()
+
+        # A page feed for a lane with no facets or pagination.
+        feed, fresh = m(self._db, lane, page, None, None, annotator)
+        eq_(page, feed.type)
+
+        # The feed is not usable as-is because there's no content.
+        eq_(False, fresh)
+
+        # If we set content, we can fetch the same feed and then it
+        # becomes usable.
+        feed.content = "some content"
+        feed.timestamp = (
+            datetime.datetime.utcnow() - datetime.timedelta(seconds=5)
+        )
+        feed2, fresh = m(self._db, lane, page, None, None, annotator)
+        eq_(feed, feed2)
+        eq_(True, fresh)
+
+        # But a feed is not considered fresh if it's older than `max_age`
+        # seconds.
+        feed, fresh = m(
+            self._db, lane, page, None, None, annotator, max_age=0
+        )
+        eq_(False, fresh)
+
+        # This feed has no unique key because its lane ID and type
+        # are enough to uniquely identify it.
+        eq_(None, feed.unique_key)
+        eq_("", feed.pagination)
+        eq_("", feed.facets)
+
+        # Now let's introduce some pagination and facet information.
+        facets = Facets.default(self._default_library)
+        pagination = Pagination.default()
+        feed2, fresh = m(
+            self._db, lane, page, facets, pagination, annotator
+        )
+        assert feed2 != feed
+        eq_(pagination.query_string, feed2.pagination)
+        eq_(facets.query_string, feed2.facets)
+
+        # There's still no need for a unique key because pagination
+        # and facets are taken into account when trying to uniquely
+        # identify a feed.
+        eq_(None, feed.unique_key)
+
+        # However, a lane based on a WorkList has no lane ID, so a
+        # unique key is necessary.
+        worklist = WorkList()
+        worklist.initialize(
+            library=self._default_library, display_name="aworklist",
+            languages=["eng", "spa"], audiences=[Classifier.AUDIENCE_CHILDREN]
+        )
+        feed, fresh = m(
+            self._db, worklist, page, None, None, annotator
+        )
+        # The unique key incorporates the WorkList's display name,
+        # its languages, and its audiences.
+        eq_("aworklist-eng,spa-Children", feed.unique_key)
+
+    def test_fetch_group_feeds(self):
+        # Group feeds don't need to worry about facets or pagination,
+        # but they have their own complications.
+
+        m = CachedFeed.fetch
+        lane = self._lane()
+        groups = CachedFeed.GROUPS_TYPE
+        annotator = object()
+
+        # Ask for a groups feed for a lane.
+        feed, usable = m(self._db, lane, groups, None, None, annotator)
+
+        # The feed is not usable because there's no content.
+        eq_(False, usable)
+
+        # Group-type feeds are too expensive to generate, so when
+        # asked to produce one we prepared a page-type feed instead.
+        eq_(CachedFeed.PAGE_TYPE, feed.type)
+        eq_(lane, feed.lane)
+        eq_(None, feed.unique_key)
+        eq_("", feed.facets)
+        eq_("", feed.pagination)
+
+        # But what if a group feed had been created ahead of time
+        # through some other mechanism?
+        feed.content = "some content"
+        feed.type = groups
+        feed.timestamp = datetime.datetime.utcnow()
+
+        # Now fetch() finds the feed, but because there was content
+        # and a recent timestamp, it's now usable and there's no need
+        # to change the type.
+        feed2, usable = m(self._db, lane, groups, None, None, annotator)
+        eq_(feed, feed2)
+        eq_(True, usable)
+        eq_(groups, feed.type)
+        eq_("some content", feed.content)
+
+        # If we pass in force_refresh then the feed is always treated as
+        # stale.
+        feed, usable = m(self._db, lane, groups, None, None, annotator,
+                         force_refresh=True)
+        eq_(False, usable)
 
 
 class TestLibrary(DatabaseTest):
@@ -7247,7 +7698,47 @@ class TestExternalIntegration(DatabaseTest):
         self.external_integration, ignore = create(
             self._db, ExternalIntegration, goal=self._str, protocol=self._str
         )
-        
+
+    def test_for_library_and_goal(self):
+        goal = self.external_integration.goal
+        qu = ExternalIntegration.for_library_and_goal(
+            self._db, self._default_library, goal
+        )
+
+        # This matches nothing because the ExternalIntegration is not
+        # associated with the Library.
+        eq_([], qu.all())
+        get_one = ExternalIntegration.one_for_library_and_goal
+        eq_(None, get_one(self._db, self._default_library, goal))
+
+        # Associate the library with the ExternalIntegration and
+        # the query starts matching it. one_for_library_and_goal
+        # also starts returning it.
+        self.external_integration.libraries.append(self._default_library)
+        eq_([self.external_integration], qu.all())
+        eq_(self.external_integration,
+            get_one(self._db, self._default_library, goal))
+
+        # Create another, similar ExternalIntegration. By itself, this
+        # has no effect.
+        integration2, ignore = create(
+            self._db, ExternalIntegration, goal=goal, protocol=self._str
+        )
+        eq_([self.external_integration], qu.all())
+        eq_(self.external_integration,
+            get_one(self._db, self._default_library, goal))
+
+        # Associate that ExternalIntegration with the library, and
+        # the query starts picking it up, and one_for_library_and_goal
+        # starts raising an exception.
+        integration2.libraries.append(self._default_library)
+        eq_(set([self.external_integration, integration2]), set(qu.all()))
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Library .* defines multiple integrations with goal .*",
+            get_one, self._db, self._default_library, goal
+        )
+
     def test_data_source(self):
         # For most collections, the protocol determines the
         # data source.
@@ -8523,6 +9014,72 @@ class TestAdmin(DatabaseTest):
         eq_(None, Admin.authenticate(self._db, "other@nypl.org", "password"))
         eq_(None, Admin.authenticate(self._db, "example@nypl.org", "password"))
 
+    def test_roles(self):
+        # The admin has no roles yet.
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(False, self.admin.is_librarian(self._default_library))
+
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+        eq_(True, self.admin.is_system_admin())
+        eq_(True, self.admin.is_sitewide_library_manager())
+        eq_(True, self.admin.is_sitewide_librarian())
+        eq_(True, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        self.admin.add_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
+        eq_(False, self.admin.is_system_admin())
+        eq_(True, self.admin.is_sitewide_library_manager())
+        eq_(True, self.admin.is_sitewide_librarian())
+        eq_(True, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
+        self.admin.add_role(AdminRole.SITEWIDE_LIBRARIAN)
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_sitewide_library_manager())
+        eq_(True, self.admin.is_sitewide_librarian())
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.SITEWIDE_LIBRARIAN)
+        self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_sitewide_library_manager())
+        eq_(False, self.admin.is_sitewide_librarian())
+        eq_(True, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+        self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_sitewide_library_manager())
+        eq_(False, self.admin.is_sitewide_librarian())
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+
+        self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
+        eq_(False, self.admin.is_system_admin())
+        eq_(False, self.admin.is_sitewide_library_manager())
+        eq_(False, self.admin.is_sitewide_librarian())
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(False, self.admin.is_librarian(self._default_library))
+
+        other_library = self._library()
+        self.admin.add_role(AdminRole.LIBRARY_MANAGER, other_library)
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_library_manager(other_library))
+        self.admin.add_role(AdminRole.SITEWIDE_LIBRARIAN)
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(True, self.admin.is_library_manager(other_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+        eq_(True, self.admin.is_librarian(other_library))
+        self.admin.remove_role(AdminRole.LIBRARY_MANAGER, other_library)
+        eq_(False, self.admin.is_library_manager(self._default_library))
+        eq_(False, self.admin.is_library_manager(other_library))
+        eq_(True, self.admin.is_librarian(self._default_library))
+        eq_(True, self.admin.is_librarian(other_library))
 
 class TestTupleToNumericrange(object):
     """Test the tuple_to_numericrange helper function."""

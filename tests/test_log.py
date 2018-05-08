@@ -52,6 +52,13 @@ class TestJSONFormatter(object):
 
 class TestLogConfiguration(DatabaseTest):
 
+    def test_configuration(self):
+        """Loggly.NAME must equal ExternalIntegration.LOGGLY.
+        Enforcing this with code would create an import loop,
+        but we can enforce it with a test.
+        """
+        eq_(Loggly.NAME, ExternalIntegration.LOGGLY)
+
     def loggly_integration(self):
         """Create an ExternalIntegration for a Loggly account."""
         integration = self._external_integration(

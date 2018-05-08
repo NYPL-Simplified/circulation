@@ -105,7 +105,10 @@ from sqlalchemy import (
 )
 
 import log # Make sure logging is set up properly.
-from config import Configuration
+from config import (
+    Configuration,
+    CannotLoadConfiguration,
+)
 import classifier
 from classifier import (
     Classifier,
@@ -114,6 +117,7 @@ from classifier import (
     GenreData,
     WorkClassifier,
 )
+from entrypoint import EntryPoint
 from facets import FacetConstants
 from user_profile import ProfileStorage
 from util import (
@@ -707,7 +711,7 @@ class Patron(Base):
     def can_borrow(self, work, policy):
         """Return true if the given policy allows this patron to borrow the
         given work.
-        
+
         This will return False when the policy for this patron's
         .external_type prevents access to this book's audience.
         """
@@ -787,7 +791,7 @@ class PatronProfileStorage(ProfileStorage):
 
     def update(self, settable, full):
         """Bring the Patron's status up-to-date with the given document.
-        
+
         Right now this means making sure Patron.synchronize_annotations
         is up to date.
         """
@@ -826,8 +830,8 @@ class Loan(Base, LoanAndHoldMixin):
     integration_client_id = Column(Integer, ForeignKey('integrationclients.id'), index=True)
     license_pool_id = Column(Integer, ForeignKey('licensepools.id'), index=True)
     fulfillment_id = Column(Integer, ForeignKey('licensepooldeliveries.id'))
-    start = Column(DateTime)
-    end = Column(DateTime)
+    start = Column(DateTime, index=True)
+    end = Column(DateTime, index=True)
     # Some distributors (e.g. Feedbooks) may have an identifier that can
     # be used to check the status of a specific Loan.
     external_identifier = Column(Unicode, unique=True, nullable=True)
@@ -1419,7 +1423,7 @@ class CoverageRecord(Base, BaseCoverageRecord):
             identifier = edition_or_identifier.primary_identifier
         else:
             raise ValueError(
-                "Cannot look up a coverage record for %r." % edition) 
+                "Cannot look up a coverage record for %r." % edition)
 
         if isinstance(data_source, basestring):
             data_source = DataSource.lookup(_db, data_source)
@@ -1661,9 +1665,9 @@ class WorkCoverageRecord(Base, BaseCoverageRecord):
 
         # The SELECT part of the INSERT...SELECT query.
         new_records = _db.query(
-            Work.id.label('work_id'), 
+            Work.id.label('work_id'),
             literal(operation, type_=String(255)).label('operation'),
-            literal(timestamp, type_=DateTime).label('timestamp'), 
+            literal(timestamp, type_=DateTime).label('timestamp'),
             literal(status, type_=BaseCoverageRecord.status_enum).label('status')
         ).select_from(
             Work
@@ -3002,6 +3006,7 @@ class Edition(Base):
     # A Project Gutenberg text was likely `published` long before being `issued`.
     published = Column(Date)
 
+    ALL_MEDIUM = object()
     BOOK_MEDIUM = u"Book"
     PERIODICAL_MEDIUM = u"Periodical"
     AUDIO_MEDIUM = u"Audio"
@@ -4038,13 +4043,63 @@ class Work(Base):
             LicensePool.identifier).join(
                 Identifier.classifications).join(
                     Classification.subject)
-        return qu.filter(Subject.checked==False).distinct()
+        return qu.filter(Subject.checked==False).order_by(Subject.id)
 
     @classmethod
-    def open_access_for_permanent_work_id(cls, _db, pwid, medium):
+    def _potential_open_access_works_for_permanent_work_id(
+            cls, _db, pwid, medium, language
+    ):
+        """Find all Works that might be suitable for use as the
+        canonical open-access Work for the given `pwid`, `medium`,
+        and `language`.
+
+        :return: A 2-tuple (pools, counts_by_work). `pools` is a set
+        containing all affected LicensePools; `counts_by_work is a
+        Counter tallying the number of affected LicensePools
+        associated with a given work.
+        """
+        qu = _db.query(LicensePool).join(
+            LicensePool.presentation_edition).filter(
+                LicensePool.open_access==True
+            ).filter(
+                Edition.permanent_work_id==pwid
+            ).filter(
+                Edition.medium==medium
+            ).filter(
+                Edition.language==language
+            )
+        pools = set(qu.all())
+
+        # Build the Counter of Works that are eligible to represent
+        # this pwid/medium/language combination.
+        affected_licensepools_for_work = Counter()
+        for lp in pools:
+            work = lp.work
+            if not lp.work:
+                continue
+            if affected_licensepools_for_work[lp.work]:
+                # We already got this information earlier in the loop.
+                continue
+            pe = work.presentation_edition
+            if pe and (
+                    pe.language != language or pe.medium != medium
+                    or pe.permanent_work_id != pwid
+            ):
+                # This Work's presentation edition doesn't match
+                # this LicensePool's presentation edition.
+                # It would be better to create a brand new Work and
+                # remove this LicensePool from its current Work.
+                continue
+            affected_licensepools_for_work[lp.work] = len(
+                [x for x in pools if x.work == lp.work]
+            )
+        return pools, affected_licensepools_for_work
+
+    @classmethod
+    def open_access_for_permanent_work_id(cls, _db, pwid, medium, language):
         """Find or create the Work encompassing all open-access LicensePools
-        whose presentation Editions have the given permanent work ID and
-        the given medium.
+        whose presentation Editions have the given permanent work ID,
+        the given medium, and the given language.
 
         This may result in the consolidation or splitting of Works, if
         a book's permanent work ID has changed without
@@ -4053,28 +4108,13 @@ class Work(Base):
         """
         is_new = False
 
-        # Find all open-access LicensePools whose presentation
-        # Editions have the given permanent work ID and medium.
-        qu = _db.query(LicensePool).join(
-            LicensePool.presentation_edition).filter(
-                Edition.permanent_work_id==pwid
-            ).filter(
-                LicensePool.open_access==True
-            ).filter(
-                Edition.medium==medium
-            )
-
-        licensepools = qu.all()
+        licensepools, licensepools_for_work = cls._potential_open_access_works_for_permanent_work_id(
+            _db, pwid, medium, language
+        )
         if not licensepools:
-            # There are no LicensePools for this PWID. Do nothing.
+            # There is no work for this PWID/medium/language combination
+            # because no LicensePools offer it.
             return None, is_new
-
-        # Tally up how many LicensePools are associated with each
-        # Work.
-        licensepools_for_work = Counter()
-        for lp in qu:
-            if lp.work and not licensepools_for_work[lp.work]:
-                licensepools_for_work[lp.work] = len(lp.work.license_pools)
 
         work = None
         if len(licensepools_for_work) == 0:
@@ -4098,7 +4138,7 @@ class Work(Base):
                 # open-access work for its permanent work ID.
                 # Otherwise the merge may fail.
                 work.make_exclusive_open_access_for_permanent_work_id(
-                    pwid, medium
+                    pwid, medium, language
                 )
                 for needs_merge in licensepools_for_work.keys():
                     if needs_merge != work:
@@ -4107,17 +4147,18 @@ class Work(Base):
                         # nothing but LicensePools whose permanent
                         # work ID matches the permanent work ID of the
                         # Work we're about to merge into.
-                        needs_merge.make_exclusive_open_access_for_permanent_work_id(pwid, medium)
+                        needs_merge.make_exclusive_open_access_for_permanent_work_id(pwid, medium, language)
                         needs_merge.merge_into(work)
 
         # At this point we have one, and only one, Work for this
         # permanent work ID. Assign it to every LicensePool whose
-        # presentation Edition has that permanent work ID.
+        # presentation Edition has that permanent work ID/medium/language
+        # combination.
         for lp in licensepools:
             lp.work = work
         return work, is_new
 
-    def make_exclusive_open_access_for_permanent_work_id(self, pwid, medium):
+    def make_exclusive_open_access_for_permanent_work_id(self, pwid, medium, language):
         """Ensure that every open-access LicensePool associated with this Work
         has the given PWID and medium. Any non-open-access
         LicensePool, and any LicensePool with a different PWID or a
@@ -4161,14 +4202,14 @@ class Work(Base):
                     e.work = None
                     pool.work = None
                     continue
-                if this_pwid != pwid or e.medium != medium:
+                if this_pwid != pwid or e.medium != medium or e.language != language:
                     # This LicensePool should not belong to this Work.
                     # Make sure it gets its own Work, creating a new one
                     # if necessary.
                     pool.work = None
                     pool.presentation_edition.work = None
                     other_work, is_new = Work.open_access_for_permanent_work_id(
-                        _db, this_pwid, pool.presentation_edition.medium
+                        _db, this_pwid, e.medium, e.language
                     )
             if other_work and is_new:
                 other_work.calculate_presentation()
@@ -4944,25 +4985,46 @@ class Work(Base):
             )
         ).alias('works_alias')
 
+        work_id_column = literal_column(
+            works_alias.name + '.' + works_alias.c.work_id.name
+        )
+
+        def query_to_json(query):
+            """Convert the results of a query to a JSON object."""
+            return select(
+                [func.row_to_json(literal_column(query.name))]
+            ).select_from(query)
+
+        def query_to_json_array(query):
+            """Convert the results of a query into a JSON array."""
+            return select(
+                [func.array_to_json(
+                    func.array_agg(
+                        func.row_to_json(
+                            literal_column(query.name)
+                        )))]
+            ).select_from(query)
+
         # This subquery gets Collection IDs for collections
         # that own more than zero licenses for this book.
         collections = select(
             [LicensePool.collection_id]
         ).where(
             and_(
-                LicensePool.work_id==literal_column(works_alias.name + '.' + works_alias.c.work_id.name),
+                LicensePool.work_id==work_id_column,
                 or_(LicensePool.open_access, LicensePool.licenses_owned>0)
             )
         ).alias("collections_subquery")
+        collections_json = query_to_json_array(collections)
 
-        # Create a json array from the set of Collections.
-        collections_json = select(
-            [func.array_to_json(
-                    func.array_agg(
-                        func.row_to_json(
-                            literal_column(collections.name)
-                        )))]
-        ).select_from(collections)
+        # This subquery gets CustomList IDs for all lists
+        # that contain the work.
+        customlists = select(
+            [CustomListEntry.list_id]
+        ).where(
+            CustomListEntry.work_id==work_id_column
+        ).alias("listentries_subquery")
+        customlists_json = query_to_json_array(customlists)
 
         # This subquery gets Contributors, filtered on edition_id.
         contributors = select(
@@ -4978,16 +5040,7 @@ class Work(Base):
                 Contributor.id==Contribution.contributor_id
             )
         ).alias("contributors_subquery")
-
-        # Create a json array from the set of Contributors.
-        contributors_json = select(
-            [func.array_to_json(
-                    func.array_agg(
-                        func.row_to_json(
-                            literal_column(contributors.name)
-                        )))]
-        ).select_from(contributors)
-
+        contributors_json = query_to_json_array(contributors)
 
         # For Classifications, use a subquery to get recursively equivalent Identifiers
         # for the Edition's primary_identifier_id.
@@ -5024,15 +5077,7 @@ class Work(Base):
         ).select_from(
             join(Classification, Subject, Classification.subject_id==Subject.id)
         ).alias("subjects_subquery")
-
-        # Create a json array for the set of Subjects.
-        subjects_json = select(
-            [func.array_to_json(
-                    func.array_agg(
-                        func.row_to_json(
-                            literal_column(subjects.name)
-                        )))]
-        ).select_from(subjects)
+        subjects_json = query_to_json_array(subjects)
 
 
         # Subquery for genres.
@@ -5048,15 +5093,7 @@ class Work(Base):
         ).select_from(
             join(WorkGenre, Genre, WorkGenre.genre_id==Genre.id)
         ).alias("genres_subquery")
-
-        # Create a json array for the set of Genres.
-        genres_json = select(
-            [func.array_to_json(
-                    func.array_agg(
-                        func.row_to_json(
-                            literal_column(genres.name)
-                        )))]
-        ).select_from(genres)
+        genres_json = query_to_json_array(genres)
 
 
         # When we set an inclusive target age range, the upper bound is converted to
@@ -5072,11 +5109,7 @@ class Work(Base):
         ).where(
             Work.id==literal_column(works_alias.name + "." + works_alias.c.work_id.name)
         ).alias('target_age_subquery')
-        # Create the target age json object.
-        target_age_json = select(
-            [func.row_to_json(literal_column(target_age.name))]
-        ).select_from(target_age)
-
+        target_age_json = query_to_json(target_age)
 
         # Now, create a query that brings together everything we need for the final
         # search document.
@@ -5110,6 +5143,7 @@ class Work(Base):
 
              # Here are all the subqueries.
              collections_json.label("collections"),
+             customlists_json.label("customlists"),
              contributors_json.label("contributors"),
              subjects_json.label("classifications"),
              genres_json.label('genres'),
@@ -5120,11 +5154,7 @@ class Work(Base):
         ).alias("search_data_subquery")
 
         # Finally, convert everything to json.
-        search_json = select(
-            [func.row_to_json(
-                    literal_column(search_data.name)
-                )]
-        ).select_from(search_data)
+        search_json = query_to_json(search_data)
 
         result = _db.execute(search_json)
         if result:
@@ -5550,7 +5580,7 @@ class LicensePoolDeliveryMechanism(Base):
         _db = Session.object_session(self)
         pools = list(self.license_pools)
         _db.delete(self)
-        
+
         # TODO: We need to explicitly commit here so that
         # LicensePool.delivery_mechanisms gets updated. It would be
         # better if we didn't have to do this, but I haven't been able
@@ -5644,6 +5674,40 @@ class Hyperlink(Base):
     # The Resource on the other end of the link.
     resource_id = Column(
         Integer, ForeignKey('resources.id'), index=True, nullable=False)
+
+    @classmethod
+    def unmirrored(cls, collection):
+        """Find all Hyperlinks associated with an item in the
+        given Collection that could be mirrored but aren't.
+
+        TODO: We don't cover the case where an image was mirrored but no
+        thumbnail was created of it. (We do cover the case where the thumbnail
+        was created but not mirrored.)
+        """
+        _db = Session.object_session(collection)
+        qu = _db.query(Hyperlink).join(
+            Hyperlink.identifier
+        ).join(
+            Identifier.licensed_through
+        ).outerjoin(
+            Hyperlink.resource
+        ).outerjoin(
+            Resource.representation
+        )
+        qu = qu.filter(LicensePool.collection_id==collection.id)
+        qu = qu.filter(Hyperlink.rel.in_(Hyperlink.MIRRORED))
+        qu = qu.filter(Hyperlink.data_source==collection.data_source)
+        qu = qu.filter(
+            or_(
+                Representation.id==None,
+                Representation.mirror_url==None,
+            )
+        )
+        # Without this ordering, the query does a table scan looking for
+        # items that match. With the ordering, they're all at the front.
+        qu = qu.order_by(Representation.mirror_url.asc().nullsfirst(),
+                         Representation.id.asc().nullsfirst())
+        return qu
 
     @classmethod
     def generic_uri(cls, data_source, identifier, rel, content=None):
@@ -5763,6 +5827,14 @@ class Resource(Base):
         if not self.representation.mirror_url:
             return None
         return self.representation.mirror_url
+
+    def as_delivery_mechanism_for(self, licensepool):
+        """If this Resource is used in a LicensePoolDeliveryMechanism for the
+        given LicensePool, return that LicensePoolDeliveryMechanism.
+        """
+        for lpdm in licensepool.delivery_mechanisms:
+            if lpdm.resource == self:
+                return lpdm
 
     def set_mirrored_elsewhere(self, media_type):
         """We don't need our own copy of this resource's representation--
@@ -6321,33 +6393,36 @@ class Subject(Base):
             genre, was_new = Genre.lookup(_db, genredata.name, True)
         else:
             genre = None
+
+        # Create a shorthand way of referring to this Subject in log
+        # messages.
+        parts = [self.type, self.identifier, self.name]
+        shorthand = ":".join(x for x in parts if x)
+
         if genre != self.genre:
             log.info(
-                "%s:%s genre %r=>%r", self.type, self.identifier,
-                self.genre, genre
+                "%s genre %r=>%r", shorthand, self.genre, genre
             )
         self.genre = genre
 
         if audience:
             if self.audience != audience:
                 log.info(
-                    "%s:%s audience %s=>%s", self.type, self.identifier,
-                    self.audience, audience
+                    "%s audience %s=>%s", shorthand, self.audience, audience
                 )
         self.audience = audience
 
         if fiction is not None:
             if self.fiction != fiction:
                 log.info(
-                    "%s:%s fiction %s=>%s", self.type, self.identifier,
-                    self.fiction, fiction
+                    "%s fiction %s=>%s", shorthand, self.fiction, fiction
                 )
         self.fiction = fiction
 
-        if (numericrange_to_tuple(self.target_age) != target_age and 
+        if (numericrange_to_tuple(self.target_age) != target_age and
             not (not self.target_age and not target_age)):
             log.info(
-                "%s:%s target_age %r=>%r", self.type, self.identifier,
+                "%s target_age %r=>%r", shorthand,
                 self.target_age, tuple_to_numericrange(target_age)
             )
         self.target_age = tuple_to_numericrange(target_age)
@@ -6504,7 +6579,7 @@ class CachedFeed(Base):
         nullable=True, index=True)
 
     # Every feed has a timestamp reflecting when it was created.
-    timestamp = Column(DateTime, nullable=True)
+    timestamp = Column(DateTime, nullable=True, index=True)
 
     # A feed is of a certain type--currently either 'page' or 'groups'.
     type = Column(Unicode, nullable=False)
@@ -6556,9 +6631,10 @@ class CachedFeed(Base):
                 max_age = 0
         if isinstance(max_age, int):
             max_age = datetime.timedelta(seconds=max_age)
+
+        unique_key = None
         if lane and isinstance(lane, Lane):
             lane_id = lane.id
-            unique_key = None
         else:
             lane_id = None
             unique_key = "%s-%s-%s" % (lane.display_name, lane.language_key, lane.audience_key)
@@ -6650,7 +6726,7 @@ class CachedFeed(Base):
         else:
             length = "No content"
         return "<CachedFeed #%s %s %s %s %s %s %s >" % (
-            self.id, self.lane_id, self.type, 
+            self.id, self.lane_id, self.type,
             self.facets, self.pagination,
             self.timestamp, length
         )
@@ -6736,7 +6812,7 @@ class LicensePool(Base):
     )
 
     delivery_mechanisms = relationship(
-        "LicensePoolDeliveryMechanism", 
+        "LicensePoolDeliveryMechanism",
         primaryjoin="and_(LicensePool.data_source_id==LicensePoolDeliveryMechanism.data_source_id, LicensePool.identifier_id==LicensePoolDeliveryMechanism.identifier_id)",
         foreign_keys=(data_source_id, identifier_id),
         uselist=True,
@@ -7474,7 +7550,7 @@ class LicensePool(Base):
             # merged.
             work, is_new = Work.open_access_for_permanent_work_id(
                 _db, presentation_edition.permanent_work_id,
-                presentation_edition.medium
+                presentation_edition.medium, presentation_edition.language
             )
 
             # Run a sanity check to make sure every LicensePool
@@ -7486,7 +7562,8 @@ class LicensePool(Base):
             # a very long recursive call, so I've put it here.
             work.make_exclusive_open_access_for_permanent_work_id(
                 presentation_edition.permanent_work_id,
-                presentation_edition.medium
+                presentation_edition.medium,
+                presentation_edition.language,
             )
             self.work = work
             licensepools_changed = True
@@ -7936,7 +8013,7 @@ class Credential(Base):
     patron_id = Column(Integer, ForeignKey('patrons.id'), index=True)
     type = Column(String(255), index=True)
     credential = Column(String)
-    expires = Column(DateTime)
+    expires = Column(DateTime, index=True)
 
     # One Credential can have many associated DRMDeviceIdentifiers.
     drm_device_identifiers = relationship(
@@ -8840,7 +8917,7 @@ class Representation(Base):
         :param do_not_access: Domains to which GET requests are not useful.
         :param check_for_redirect: Domains to which we should make a HEAD
             request, in case they redirect to a `do_not_access` domain.
-        :param head_client: Function for making the HEAD request, if 
+        :param head_client: Function for making the HEAD request, if
             one becomes necessary. Should return requests.Response or a mock.
         """
         do_not_access = do_not_access or cls.AVOID_WHEN_CAUTIOUS_DOMAINS
@@ -8848,7 +8925,7 @@ class Representation(Base):
         head_client = head_client or requests.head
 
         def has_domain(domain, check_against):
-            """Is the given `domain` in `check_against`, 
+            """Is the given `domain` in `check_against`,
             or maybe a subdomain of one of the domains in `check_against`?
             """
             return any(domain == x or domain.endswith('.' + x)
@@ -8873,7 +8950,7 @@ class Representation(Base):
             # It's not a redirect. Go ahead and make the GET request.
             return True
 
-        # Yes, it's a redirect. Does it redirect to a 
+        # Yes, it's a redirect. Does it redirect to a
         # domain we don't want to access?
         location = head_response.headers.get('location', '')
         netloc = urlparse.urlparse(location).netloc
@@ -9259,6 +9336,7 @@ class DeliveryMechanism(Base, HasFullTableCache):
     default_client_can_fulfill_lookup = set([
         (Representation.EPUB_MEDIA_TYPE, NO_DRM),
         (Representation.EPUB_MEDIA_TYPE, ADOBE_DRM),
+        (Representation.EPUB_MEDIA_TYPE, BEARER_TOKEN),
     ])
 
     license_pool_delivery_mechanisms = relationship(
@@ -9480,7 +9558,16 @@ class CustomList(Base):
         return Work.from_identifiers(_db, identifiers)
 
     def add_entry(self, work_or_edition, annotation=None, first_appearance=None,
-                  featured=None):
+                  featured=None, update_external_index=True):
+        """Add a work to a CustomList.
+
+        :param update_external_index: When a Work is added to a list,
+        its external index needs to be updated. The only reason not to
+        do this is when the current database session already contains
+        a new WorkCoverageRecord for this purpose (e.g. because the
+        Work was just created) and creating another one would violate
+        the workcoveragerecords table's unique constraint.
+        """
         first_appearance = first_appearance or datetime.datetime.utcnow()
         _db = Session.object_session(self)
 
@@ -9495,7 +9582,6 @@ class CustomList(Base):
             if len(existing) > 1:
                 entry.update(_db, equivalent_entries=existing[1:])
             entry.edition = edition
-            _db.commit()
         else:
             entry, was_new = get_one_or_create(
                 _db, CustomListEntry,
@@ -9516,6 +9602,11 @@ class CustomList(Base):
         if was_new:
             self.updated = datetime.datetime.utcnow()
 
+        # Make sure the Work's search document is updated to reflect its new
+        # list membership.
+        if entry.work and update_external_index:
+            entry.work.external_index_needs_updating()
+
         return entry, was_new
 
     def remove_entry(self, work_or_edition):
@@ -9526,6 +9617,11 @@ class CustomList(Base):
 
         existing_entries = list(self.entries_for_work(work_or_edition))
         for entry in existing_entries:
+            if entry.work:
+                # Make sure the Work's search document is updated to
+                # reflect its new list membership.
+                entry.work.external_index_needs_updating()
+
             _db.delete(entry)
 
         if existing_entries:
@@ -9862,6 +9958,9 @@ class Library(Base, HasFullTableCache):
         'Patron', backref='library', cascade="all, delete-orphan"
     )
 
+    # An Library may have many admin roles.
+    adminroles = relationship("AdminRole", backref="library", cascade="all, delete-orphan")
+
     # A Library may have many CachedFeeds.
     cachedfeeds = relationship(
         "CachedFeed", backref="library",
@@ -10030,6 +10129,22 @@ class Library(Base, HasFullTableCache):
             value = 15
         return value
 
+    @property
+    def entrypoints(self):
+        """The EntryPoints enabled for this library."""
+        values = self.setting(EntryPoint.ENABLED_SETTING).json_value
+        if values is None:
+            # No decision has been made about enabled EntryPoints.
+            for cls in EntryPoint.DEFAULT_ENABLED:
+                yield cls
+        else:
+            # It's okay for `values` to be an empty list--that means
+            # the library wants to only use lanes, no entry points.
+            for v in values:
+                cls = EntryPoint.BY_INTERNAL_NAME.get(v)
+                if cls:
+                    yield cls
+
     def enabled_facets(self, group_name):
         """Look up the enabled facets for a given facet group."""
         setting = self.enabled_facets_setting(group_name)
@@ -10179,7 +10294,7 @@ class Library(Base, HasFullTableCache):
                 library._is_default = False
 
 
-class Admin(Base):
+class Admin(Base, HasFullTableCache):
 
     __tablename__ = 'admins'
 
@@ -10191,6 +10306,15 @@ class Admin(Base):
 
     # Admins can also log in with a local password.
     password_hashed = Column(Unicode, index=True)
+
+    # An Admin may have many roles.
+    roles = relationship("AdminRole", backref="admin", cascade="all, delete-orphan")
+
+    _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
+
+    def cache_key(self):
+        return self.email
 
     def update_credentials(self, _db, credential=None):
         if credential:
@@ -10214,7 +10338,10 @@ class Admin(Base):
 
         :return: Admin or None
         """
-        match = get_one(_db, Admin, email=unicode(email))
+        def lookup_hook():
+            return get_one(_db, Admin, email=unicode(email)), False
+
+        match, ignore = Admin.by_cache_key(_db, unicode(email), lookup_hook)
         if match and not match.has_password(password):
             # Admin with this email was found, but password is invalid.
             match = None
@@ -10225,6 +10352,118 @@ class Admin(Base):
         """Get Admins that have a password."""
         return _db.query(Admin).filter(Admin.password_hashed != None)
 
+    def is_system_admin(self):
+        _db = Session.object_session(self)
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, role=AdminRole.SYSTEM_ADMIN), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, None, AdminRole.SYSTEM_ADMIN), lookup_hook)
+        if role:
+            return True
+        return False
+
+    def is_sitewide_library_manager(self):
+        _db = Session.object_session(self)
+        if self.is_system_admin():
+            return True
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, role=AdminRole.SITEWIDE_LIBRARY_MANAGER), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, None, AdminRole.SITEWIDE_LIBRARY_MANAGER), lookup_hook)
+        if role:
+            return True
+        return False
+
+    def is_sitewide_librarian(self):
+        _db = Session.object_session(self)
+        if self.is_sitewide_library_manager():
+            return True
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, role=AdminRole.SITEWIDE_LIBRARIAN), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, None, AdminRole.SITEWIDE_LIBRARIAN), lookup_hook)
+        if role:
+            return True
+        return False
+
+    def is_library_manager(self, library):
+        _db = Session.object_session(self)
+        # First check if the admin is a manager of _all_ libraries.
+        if self.is_sitewide_library_manager():
+            return True
+        # If not, they could stil be a manager of _this_ library.
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARY_MANAGER), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, library.id, AdminRole.LIBRARY_MANAGER), lookup_hook)
+        if role:
+            return True
+        return False
+
+    def is_librarian(self, library):
+        _db = Session.object_session(self)
+        # If the admin is a library manager, they can do everything a librarian can do.
+        if self.is_library_manager(library):
+            return True
+        # Check if the admin is a librarian for _all_ libraries.
+        if self.is_sitewide_librarian():
+            return True
+        # If not, they might be a librarian of _this_ library.
+        def lookup_hook():
+            return get_one(_db, AdminRole, admin=self, library=library, role=AdminRole.LIBRARIAN), False
+        role, ignore = AdminRole.by_cache_key(_db, (self.id, library.id, AdminRole.LIBRARIAN), lookup_hook)
+        if role:
+            return True
+        return False
+
+    def add_role(self, role, library=None):
+        _db = Session.object_session(self)
+        role, is_new = get_one_or_create(_db, AdminRole, admin=self, role=role, library=library)
+        return role
+
+    def remove_role(self, role, library=None):
+        _db = Session.object_session(self)
+        role = get_one(_db, AdminRole, admin=self, role=role, library=library)
+        if role:
+            _db.delete(role)
+
+    def __repr__(self):
+        return u"<Admin: email=%s>" % self.email
+
+class AdminRole(Base, HasFullTableCache):
+
+    __tablename__ = 'adminroles'
+
+    id = Column(Integer, primary_key=True)
+    admin_id = Column(Integer, ForeignKey("admins.id"), nullable=False, index=True)
+    library_id = Column(Integer, ForeignKey("libraries.id"), nullable=True, index=True)
+    role = Column(Unicode, nullable=False, index=True)
+
+    __table_args__ = (
+        UniqueConstraint('admin_id', 'library_id', 'role'),
+    )
+
+    SYSTEM_ADMIN = "system"
+    SITEWIDE_LIBRARY_MANAGER = "manager-all"
+    LIBRARY_MANAGER = "manager"
+    SITEWIDE_LIBRARIAN = "librarian-all"
+    LIBRARIAN = "librarian"
+
+    ROLES = [SYSTEM_ADMIN, SITEWIDE_LIBRARY_MANAGER, LIBRARY_MANAGER, SITEWIDE_LIBRARIAN, LIBRARIAN]
+
+    _cache = HasFullTableCache.RESET
+    _id_cache = HasFullTableCache.RESET
+
+    def cache_key(self):
+        return (self.admin_id, self.library_id, self.role)
+
+    def to_dict(self):
+        if self.library:
+            return dict(role=self.role, library=self.library.short_name)
+        return dict(role=self.role)
+
+    def __repr__(self):
+        return u"<AdminRole: role=%s library=%s admin=%s>" % (
+            self.role, (self.library and self.library.short_name), self.admin.email)
+
+
+Index("ix_adminroles_admin_id_library_id_role", AdminRole.admin_id, AdminRole.library_id, AdminRole.role)
 
 class ExternalIntegration(Base, HasFullTableCache):
 
@@ -10315,6 +10554,7 @@ class ExternalIntegration(Base, HasFullTableCache):
         AXIS_360 : DataSource.AXIS_360,
         RB_DIGITAL : DataSource.RB_DIGITAL,
         ENKI : DataSource.ENKI,
+        FEEDBOOKS : DataSource.FEEDBOOKS,
     }
 
     # Integrations with METADATA_GOAL
@@ -10440,6 +10680,40 @@ class ExternalIntegration(Base, HasFullTableCache):
     def admin_authentication(cls, _db):
         admin_auth = get_one(_db, cls, goal=cls.ADMIN_AUTH_GOAL)
         return admin_auth
+
+    @classmethod
+    def for_library_and_goal(cls, _db, library, goal):
+        """Find all ExternalIntegrations associated with the given
+        Library and the given goal.
+
+        :return: A Query.
+        """
+        return _db.query(ExternalIntegration).join(
+            ExternalIntegration.libraries
+        ).filter(
+            ExternalIntegration.goal==goal
+        ).filter(
+            Library.id==library.id
+        )
+
+    @classmethod
+    def one_for_library_and_goal(cls, _db, library, goal):
+        """Find the ExternalIntegration associated with the given
+        Library and the given goal.
+
+        :return: An ExternalIntegration, or None.
+        :raise: CannotLoadConfiguration
+        """
+        integrations = cls.for_library_and_goal(_db, library, goal).all()
+        if len(integrations) == 0:
+            return None
+        if len(integrations) > 1:
+            raise CannotLoadConfiguration(
+                "Library %s defines multiple integrations with goal %s!" % (
+                    library.name, goal
+                )
+            )
+        return integrations[0]
 
     def set_setting(self, key, value):
         """Create or update a key-value setting for this ExternalIntegration."""
@@ -10972,7 +11246,7 @@ class Collection(Base, HasFullTableCache):
     AUDIOBOOK_LOAN_DURATION_KEY = 'audio_loan_duration'
     EBOOK_LOAN_DURATION_KEY = 'ebook_loan_duration'
     STANDARD_DEFAULT_LOAN_PERIOD = 21
-        
+
     def default_loan_period(self, library, medium=Edition.BOOK_MEDIUM):
         """Until we hear otherwise from the license provider, we assume
         that someone who borrows a non-open-access item from this
@@ -11462,7 +11736,11 @@ def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initia
     if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
         for pool in pools:
             for list in pool.collection.customlists:
-                list.add_entry(work, featured=True)
+                # Since the work was just created, we can assume that
+                # there's already a pending registration for updating the
+                # work's internal index, and decide not to create a
+                # second one.
+                list.add_entry(work, featured=True, update_external_index=False)
 
 class IntegrationClient(Base):
     """A client that has authenticated access to this application.
@@ -11648,7 +11926,7 @@ def licensepool_collection_change(target, value, oldvalue, initiator):
 
 @event.listens_for(LicensePool.licenses_owned, 'set')
 def licenses_owned_change(target, value, oldvalue, initiator):
-    """A Work may need to have its search document re-indexed if one of 
+    """A Work may need to have its search document re-indexed if one of
     its LicensePools changes the number of licenses_owned to or from zero.
     """
     work = target.work
@@ -11666,7 +11944,7 @@ def licenses_owned_change(target, value, oldvalue, initiator):
 
 @event.listens_for(LicensePool.open_access, 'set')
 def licensepool_open_access_change(target, value, oldvalue, initiator):
-    """A Work may need to have its search document re-indexed if one of 
+    """A Work may need to have its search document re-indexed if one of
     its LicensePools changes its open-access status.
 
     This shouldn't ever happen.
@@ -11686,7 +11964,7 @@ def directly_modified(obj):
     return Session.object_session(obj).is_modified(
         obj, include_collections=False
     )
-            
+
 # Most of the time, we can know whether a change to the database is
 # likely to require that the application reload the portion of the
 # configuration it gets from the database. These hooks will call
@@ -11727,6 +12005,22 @@ def configuration_relevant_lifecycle_event(mapper, connection, target):
 def configuration_relevant_update(mapper, connection, target):
     if directly_modified(target):
         site_configuration_has_changed(target)
+
+@event.listens_for(Admin, 'after_insert')
+@event.listens_for(Admin, 'after_delete')
+@event.listens_for(Admin, 'after_update')
+def refresh_admin_cache(mapper, connection, target):
+    # The next time someone tries to access an Admin,
+    # the cache will be repopulated.
+    Admin.reset_cache()
+
+@event.listens_for(AdminRole, 'after_insert')
+@event.listens_for(AdminRole, 'after_delete')
+@event.listens_for(AdminRole, 'after_update')
+def refresh_admin_role_cache(mapper, connection, target):
+    # The next time someone tries to access an AdminRole,
+    # the cache will be repopulated.
+    AdminRole.reset_cache()
 
 @event.listens_for(Collection, 'after_insert')
 @event.listens_for(Collection, 'after_delete')

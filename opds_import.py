@@ -1639,7 +1639,17 @@ class OPDSImportMonitor(CollectionMonitor):
         """
         self.log.info("Following next link: %s", url)
         get = do_get or self._get
-        status_code, content_type, feed = get(url, {})
+        status_code, headers, feed = get(url, {})
+
+        # Make sure we got an OPDS feed, and not an error page that was
+        # sent with a 200 status code.
+        media_type = headers.get('content-type')
+        if not media_type or OPDSFeed.ATOM_TYPE not in media_type:
+            message = "Expected Atom feed, got %s" % media_type
+            raise BadResponseException(
+                url, message=message, debug_message=feed,
+                status_code=status_code
+            )
 
         new_data = self.feed_contains_new_data(feed)
 

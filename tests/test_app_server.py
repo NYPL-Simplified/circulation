@@ -25,6 +25,7 @@ from model import Identifier
 from lane import (
     Facets,
     Pagination,
+    WorkList,
 )
 
 from app_server import (
@@ -37,6 +38,12 @@ from app_server import (
 )
 
 from config import Configuration
+
+from entrypoint import (
+    AudiobooksEntryPoint,
+    EbooksEntryPoint,
+    EntryPoint,
+)
 
 from problem_details import (
     INVALID_INPUT,
@@ -256,7 +263,6 @@ class TestLoadMethods(DatabaseTest):
         self.app = Flask(__name__)
         Babel(self.app)
 
-
     def test_load_facets_from_request(self):
         with self.app.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
             flask.request.library = self._default_library
@@ -270,6 +276,37 @@ class TestLoadMethods(DatabaseTest):
             flask.request.library = self._default_library
             problemdetail = load_facets_from_request()
             eq_(INVALID_INPUT.uri, problemdetail.uri)
+
+        # An EntryPoint will be picked up from the request and passed into
+        # the Facets object, assuming the EntryPoint is available to the
+        # provided WorkList.
+        worklist = WorkList()
+        worklist.initialize(self._default_library,
+                            entrypoints=[AudiobooksEntryPoint])
+        with self.app.test_request_context('/?entrypoint=Audio'):
+            flask.request.library = self._default_library
+            facets = load_facets_from_request(worklist=worklist)
+            eq_(AudiobooksEntryPoint, facets.entrypoint)
+
+    def test_load_facets_from_request_class_instantiation(self):
+        """The caller of load_facets_from_request() can specify a class other
+        than Facets to call from_request() on.
+        """
+        class MockFacets(object):
+            @classmethod
+            def from_request(*args, **kwargs):
+                facets = MockFacets()
+                facets.called_with = kwargs
+                return facets
+        kwargs = dict(some_arg='some value')
+        with self.app.test_request_context(''):
+            flask.request.library = self._default_library
+            facets = load_facets_from_request(
+                None, None, base_class=MockFacets,
+                base_class_constructor_kwargs=kwargs
+            )
+        assert isinstance(facets, MockFacets)
+        eq_('some value', facets.called_with['some_arg'])
 
     def test_load_pagination_from_request(self):
         with self.app.test_request_context('/?size=50&after=10'):
