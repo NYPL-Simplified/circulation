@@ -3033,7 +3033,35 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.output.write(
             "I would now expect you to be able to find %d works.\n" % mv_works_count
         )
+        self.check_libraries()
 
+    def check_libraries(self):
+        """Assuming that works are properly in the materialized view,
+        make sure the libraries are equipped to show them.
+        """
+        # Now check each library.
+        libraries = self._db.query(Library).all()
+        if libraries:
+            for library in libraries:
+                self.check_library(library)
+        else:
+            self.output.write("There are no libraries in the system -- that's a problem.\n")
+
+    def check_library(self, library):
+        self.output.write("Checking library %s\n" % library.name)
+
+        # Make sure it has collections.
+        if not library.collections:
+            self.output.write(" This library has no collections -- that's a problem.\n")
+        else:
+            for collection in library.collections:
+                self.output.write(" Associated with collection %s.\n" % collection.name)
+
+        # Make sure it has lanes.
+        if not library.lanes:
+            self.output.write(" This library has no lanes -- that's a problem.\n")
+        else:
+            self.output.write(" Associated with %s lanes.\n" % len(library.lanes))
 
 class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
     """List the metadata identifiers for Collections in the database.

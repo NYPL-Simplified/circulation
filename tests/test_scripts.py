@@ -2154,6 +2154,8 @@ Here's your problem: your works aren't open access and have no licenses owned.
         output = StringIO()
         search = DummyExternalSearchIndex()
 
+        lane = self._lane()
+
         # Let's add a work that's not presentation-ready for a stupid
         # reason.
         work = self._work(with_license_pool=True)
@@ -2179,6 +2181,9 @@ Refreshing the materialized views.
 1 page-type feeds in cachedfeeds table.
 Deleting them all.
 I would now expect you to be able to find 1 works.
+Checking library default
+ Associated with collection Default Collection.
+ Associated with 1 lanes.
 """, output.getvalue())
 
         # The Work was made presentation-ready
@@ -2189,6 +2194,20 @@ I would now expect you to be able to find 1 works.
 
         # The materialized view was refreshed.
         eq_(1, mw_query.count())
+
+    def test_no_library(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        assert "There are no libraries in the system -- that's a problem" in output.getvalue()
+
+    def test_no_collections_in_library(self):
+        library = self._default_library
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        set_trace()
+        assert "There are no libraries in the system -- that's a problem" in output.getvalue()
 
     def test_with_collections(self):
         search = DummyExternalSearchIndex()
