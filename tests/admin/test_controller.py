@@ -91,8 +91,6 @@ from api.adobe_vendor_id import AuthdataUtility
 
 from core.external_search import ExternalSearchIndex
 
-from api.novelist import NoveListAPI
-
 class AdminControllerTest(CirculationControllerTest):
 
     def setup(self):
