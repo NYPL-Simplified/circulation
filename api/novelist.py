@@ -38,15 +38,6 @@ from sqlalchemy.sql import (
     join,
     and_,
     or_,
-    literal_column,
-)
-from sqlalchemy import (
-    event,
-    exists,
-    func,
-    MetaData,
-    Table,
-    text,
 )
 from sqlalchemy.orm import aliased
 from core.util.http import HTTP
@@ -468,18 +459,16 @@ class NoveListAPI(object):
         LEFT_OUTER_JOIN = True
         i1 = aliased(Identifier)
         i2 = aliased(Identifier)
-        e = aliased(Equivalency)
-        lp = aliased(LicensePool)
 
         isbnQuery = select(
             [i1.identifier, i1.type, i2.identifier]
         ).select_from(
-            join(lp, i1, i1.id==lp.identifier_id)
-            .join(e, i1.id==e.input_id, LEFT_OUTER_JOIN)
-            .join(i2, e.output_id==i2.id, LEFT_OUTER_JOIN)
+            join(LicensePool, i1, i1.id==LicensePool.identifier_id)
+            .join(Equivalency, i1.id==Equivalency.input_id, LEFT_OUTER_JOIN)
+            .join(i2, Equivalency.output_id==i2.id, LEFT_OUTER_JOIN)
         ).where(
             and_(
-                lp.collection_id.in_(collectionList),
+                LicensePool.collection_id.in_(collectionList),
                 or_(i1.type=="ISBN", i2.type=="ISBN")
             )
         ).alias('lp_isbns')
@@ -488,9 +477,9 @@ class NoveListAPI(object):
 
         isbns = []
         for res in result:
-            if (res[1] == "ISBN"):
+            if (res[1] == Identifier.ISBN):
                 isbns.append(res[0])
-            else:
+            elif res[2] is not None:
                 isbns.append(res[2])
 
         return isbns
