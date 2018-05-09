@@ -1795,6 +1795,7 @@ class TestLane(DatabaseTest):
         worklist.display_name = "A WorkList"
         lane = self._lane()
         child_lane = self._lane(parent=lane)
+        grandchild_lane = self._lane(parent=child_lane)
         unrelated = self._lane()
         worklist.sublanes = [child_lane]
 
@@ -1810,11 +1811,11 @@ class TestLane(DatabaseTest):
             lane.full_identifier)
 
         eq_(
-            "%s / %s / %s" % (
-                lane.library.short_name, lane.display_name,
-                child_lane.display_name
-            ),
-            child_lane.full_identifier
+            "%s / %s / %s / %s" % (
+                lane.library.short_name, lane.display_name, 
+                child_lane.display_name, grandchild_lane.display_name
+            ), 
+            grandchild_lane.full_identifier
         )
 
         # TODO: The error should be raised when we try to set the parent

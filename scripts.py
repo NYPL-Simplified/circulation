@@ -2872,6 +2872,15 @@ class Explain(IdentifierInputScript):
 
     def explain_license_pool(self, pool):
         self.write("Licensepool info:")
+        if pool.collection:
+            self.write(" Collection: %r" % pool.collection)
+            libraries = [library.name for library in pool.collection.libraries]
+            if libraries:
+                self.write(" Available to libraries: %s" % ", ".join(libraries))
+            else:
+                self.write("Not available to any libraries!")
+        else:
+            self.write(" Not in any collection!")
         self.write(" Delivery mechanisms:")
         if pool.delivery_mechanisms:
             for lpdm in pool.delivery_mechanisms:
@@ -2923,6 +2932,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.do_run(parsed.collections)
 
     def do_run(self, collections=None):
+        self.check_libraries()
         if collections:
             collection_ids = [c.id for c in collections]
 
@@ -3034,6 +3044,34 @@ class FixInvisibleWorksScript(CollectionInputScript):
             "I would now expect you to be able to find %d works.\n" % mv_works_count
         )
 
+    def check_libraries(self):
+        """Make sure the libraries are equipped to show works.
+        """
+        # Check each library.
+        libraries = self._db.query(Library).all()
+        if libraries:
+            for library in libraries:
+                self.check_library(library)
+        else:
+            self.output.write("There are no libraries in the system -- that's a problem.\n")
+        self.output.write("\n")
+
+    def check_library(self, library):
+        """Make sure a library is properly set up to show works."""
+        self.output.write("Checking library %s\n" % library.name)
+
+        # Make sure it has collections.
+        if not library.collections:
+            self.output.write(" This library has no collections -- that's a problem.\n")
+        else:
+            for collection in library.collections:
+                self.output.write(" Associated with collection %s.\n" % collection.name)
+
+        # Make sure it has lanes.
+        if not library.lanes:
+            self.output.write(" This library has no lanes -- that's a problem.\n")
+        else:
+            self.output.write(" Associated with %s lanes.\n" % len(library.lanes))
 
 class ListCollectionMetadataIdentifiersScript(CollectionInputScript):
     """List the metadata identifiers for Collections in the database.

@@ -172,12 +172,9 @@ class HTTP(object):
 
         The core of `request_with_timeout` made easy to test.
         """
-        allowed_response_codes = kwargs.get('allowed_response_codes')
-        if 'allowed_response_codes' in kwargs:
-            del kwargs['allowed_response_codes']
-        disallowed_response_codes = kwargs.get('disallowed_response_codes')
-        if 'disallowed_response_codes' in kwargs:
-            del kwargs['disallowed_response_codes']
+        allowed_response_codes = kwargs.pop('allowed_response_codes', [])
+        disallowed_response_codes = kwargs.pop('disallowed_response_codes', [])
+        verbose = kwargs.pop('verbose', False)
 
         if not 'timeout' in kwargs:
             kwargs['timeout'] = 20
@@ -198,7 +195,16 @@ class HTTP(object):
             kwargs['headers'] = new_headers
 
         try:
+            if verbose:
+                logging.info("Sending %s request to %s: kwargs %r",
+                             http_method, url, kwargs)
             response = m(*args, **kwargs)
+            if verbose:
+                logging.info(
+                    "Response from %s: %s %r %r",
+                    url, response.status_code, response.headers,
+                    response.content
+                )
         except requests.exceptions.Timeout, e:
             # Wrap the requests-specific Timeout exception
             # in a generic RequestTimedOut exception.

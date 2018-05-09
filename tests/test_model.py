@@ -799,6 +799,14 @@ class TestIdentifier(DatabaseTest):
         expected = cover.resource.representation.mirrored_at
         eq_(format_timestamp(expected), entry.updated)
 
+        # For whatever reason, this coverage record is missing its
+        # timestamp. This indicates an error elsewhere, but it
+        # doesn't crash the method we're testing.
+        no_timestamp = self._coverage_record(
+            identifier, source, operation="bad operation"
+        )
+        no_timestamp.timestamp = None
+
         # If a coverage record is dated after the representation time,
         # That becomes the new updated time.
         record = self._coverage_record(identifier, source)
