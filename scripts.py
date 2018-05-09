@@ -2923,6 +2923,7 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.do_run(parsed.collections)
 
     def do_run(self, collections=None):
+        self.check_libraries()
         if collections:
             collection_ids = [c.id for c in collections]
 
@@ -3033,21 +3034,21 @@ class FixInvisibleWorksScript(CollectionInputScript):
         self.output.write(
             "I would now expect you to be able to find %d works.\n" % mv_works_count
         )
-        self.check_libraries()
 
     def check_libraries(self):
-        """Assuming that works are properly in the materialized view,
-        make sure the libraries are equipped to show them.
+        """Make sure the libraries are equipped to show works.
         """
-        # Now check each library.
+        # Check each library.
         libraries = self._db.query(Library).all()
         if libraries:
             for library in libraries:
                 self.check_library(library)
         else:
             self.output.write("There are no libraries in the system -- that's a problem.\n")
+        self.output.write("\n")
 
     def check_library(self, library):
+        """Make sure a library is properly set up to show works."""
         self.output.write("Checking library %s\n" % library.name)
 
         # Make sure it has collections.
