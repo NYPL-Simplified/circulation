@@ -697,13 +697,11 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # There's a recommendation link when configuration is found, though!
         NoveListAPI.IS_CONFIGURED = None
-        integration = self._external_integration(
+        self._external_integration(
             ExternalIntegration.NOVELIST,
             goal=ExternalIntegration.METADATA_GOAL, username=u'library',
             password=u'sure', libraries=[self._default_library],
         )
-
-        integration.set_setting('authorized_identifier', 'authorized')
 
         feed = self.get_parsed_feed([work])
         [entry] = feed.entries

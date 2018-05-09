@@ -4615,7 +4615,6 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.NOVELIST),
                 (ExternalIntegration.USERNAME, "user"),
                 (ExternalIntegration.PASSWORD, "pass"),
-                (NoveListAPI.AUTHORIZED_IDENTIFIER, "authorized identifier"),
                 ("libraries", json.dumps([{"short_name": "not-a-library"}])),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
@@ -4627,7 +4626,6 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.NOVELIST),
                 (ExternalIntegration.USERNAME, "user"),
                 (ExternalIntegration.PASSWORD, "pass"),
-                (NoveListAPI.AUTHORIZED_IDENTIFIER, "authorized identifier"),
                 ("libraries", json.dumps([])),
             ])
             assert_raises(AdminNotAuthorized,
@@ -4642,7 +4640,6 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.NOVELIST),
                 (ExternalIntegration.USERNAME, "user"),
                 (ExternalIntegration.PASSWORD, "pass"),
-                (NoveListAPI.AUTHORIZED_IDENTIFIER, "authorized identifier"),
                 ("libraries", json.dumps([{"short_name": "L"}])),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
@@ -4653,7 +4650,6 @@ class TestSettingsController(AdminControllerTest):
         eq_(ExternalIntegration.NOVELIST, service.protocol)
         eq_("user", service.username)
         eq_("pass", service.password)
-        eq_("authorized identifier", service.setting(NoveListAPI.AUTHORIZED_IDENTIFIER).value)
         eq_([library], service.libraries)
 
     def test_metadata_services_post_edit(self):
@@ -4671,7 +4667,6 @@ class TestSettingsController(AdminControllerTest):
         )
         novelist_service.username = "olduser"
         novelist_service.password = "oldpass"
-        novelist_service.authorized_identifier = "oldidentifier"
         novelist_service.libraries = [l1]
 
         with self.request_context_with_admin("/", method="POST"):
@@ -4680,7 +4675,6 @@ class TestSettingsController(AdminControllerTest):
                 ("protocol", ExternalIntegration.NOVELIST),
                 (ExternalIntegration.USERNAME, "user"),
                 (ExternalIntegration.PASSWORD, "pass"),
-                (NoveListAPI.AUTHORIZED_IDENTIFIER, "authorized identifier"),
                 ("libraries", json.dumps([{"short_name": "L2"}])),
             ])
             response = self.manager.admin_settings_controller.metadata_services()
@@ -4690,7 +4684,6 @@ class TestSettingsController(AdminControllerTest):
         eq_(ExternalIntegration.NOVELIST, novelist_service.protocol)
         eq_("user", novelist_service.username)
         eq_("pass", novelist_service.password)
-        eq_("authorized identifier", novelist_service.setting(NoveListAPI.AUTHORIZED_IDENTIFIER).value)
         eq_([l2], novelist_service.libraries)
 
     def test_metadata_service_delete(self):
@@ -4704,7 +4697,6 @@ class TestSettingsController(AdminControllerTest):
         )
         novelist_service.username = "olduser"
         novelist_service.password = "oldpass"
-        novelist_service.authorized_identifier = "oldidentifier"
         novelist_service.libraries = [l1]
 
         with self.request_context_with_admin("/", method="DELETE"):

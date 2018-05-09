@@ -39,7 +39,6 @@ class TestNoveListAPI(DatabaseTest):
             ExternalIntegration.METADATA_GOAL, username=u'library',
             password=u'yep', libraries=[self._default_library],
         )
-        self.integration.set_setting('authorized_identifier', 'authorized')
         self.novelist = NoveListAPI.from_config(self._default_library)
 
     def teardown(self):
@@ -61,7 +60,6 @@ class TestNoveListAPI(DatabaseTest):
         eq_(True, isinstance(novelist, NoveListAPI))
         eq_("library", novelist.profile)
         eq_("yep", novelist.password)
-        eq_("authorized", novelist.authorized_identifier)
 
         # Without either configuration value, an error is raised.
         self.integration.password = None
@@ -69,11 +67,6 @@ class TestNoveListAPI(DatabaseTest):
 
         self.integration.password = u'yep'
         self.integration.username = None
-        assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
-
-        self.integration.password = u'yep'
-        self.integration.username = u'profile'
-        self.integration.set_setting('authorized_identifier', None)
         assert_raises(ValueError, NoveListAPI.from_config, self._default_library)
 
     def test_is_configured(self):
@@ -443,7 +436,6 @@ class TestNoveListCoverageProvider(DatabaseTest):
             ExternalIntegration.METADATA_GOAL, username=u'library',
             password=u'yep', libraries=[self._default_library]
         )
-        self.integration.set_setting('authorized_identifier', 'authorized')
 
         self.novelist = NoveListCoverageProvider(self._db)
         self.novelist.api = MockNoveListAPI.from_config(self._default_library)
