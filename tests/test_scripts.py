@@ -2068,11 +2068,17 @@ class TestOPDSImportScript(DatabaseTest):
 
 class TestFixInvisibleWorksScript(DatabaseTest):
 
+    class MockScript(FixInvisibleWorksScript):
+        """Don't run check_libraries -- this reduces the amount
+        of text that needs to be checked."""
+        def check_libraries(self):
+            return
+
     def test_no_presentation_ready_works(self):
         output = StringIO()
         search = DummyExternalSearchIndex()
 
-        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        self.MockScript(self._db, output, search=search).do_run()
         eq_("""0 presentation-ready works.
 0 works not presentation-ready.
 Here's your problem: there are no presentation-ready works.
@@ -2086,7 +2092,7 @@ Here's your problem: there are no presentation-ready works.
         # LicensePools, and will not show up in the materialized view.
         work = self._work(with_license_pool=False)
         work.presentation_ready=True
-        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        self.MockScript(self._db, output, search=search).do_run()
         eq_("""1 presentation-ready works.
 0 works not presentation-ready.
 0 works in materialized view.
@@ -2105,7 +2111,7 @@ Here's your problem: your presentation-ready works are not making it into the ma
         for lpdm in work.license_pools[0].delivery_mechanisms:
             self._db.delete(lpdm)
 
-        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        self.MockScript(self._db, output, search=search).do_run()
         eq_("""1 presentation-ready works.
 0 works not presentation-ready.
 0 works in materialized view.
@@ -2123,7 +2129,7 @@ Here's your problem: your works don't have delivery mechanisms.
         work.presentation_ready=True
         work.license_pools[0].suppressed = True
 
-        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        self.MockScript(self._db, output, search=search).do_run()
         eq_("""1 presentation-ready works.
 0 works not presentation-ready.
 0 works in materialized view.
@@ -2141,7 +2147,7 @@ Here's your problem: your works' license pools are suppressed.
         work.presentation_ready=True
         work.license_pools[0].licenses_owned = 0
 
-        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        self.MockScript(self._db, output, search=search).do_run()
         eq_("""1 presentation-ready works.
 0 works not presentation-ready.
 0 works in materialized view.
@@ -2153,6 +2159,8 @@ Here's your problem: your works aren't open access and have no licenses owned.
     def test_success(self):
         output = StringIO()
         search = DummyExternalSearchIndex()
+
+        lane = self._lane()
 
         # Let's add a work that's not presentation-ready for a stupid
         # reason.
@@ -2168,8 +2176,14 @@ Here's your problem: your works aren't open access and have no licenses owned.
         feed = create(self._db, CachedFeed, type=CachedFeed.PAGE_TYPE,
                       pagination="")
         
+        # We're using the real script instead of the mock so that we
+        # can test the full output of the script in a realistic situation.
         FixInvisibleWorksScript(self._db, output, search=search).do_run()
-        eq_("""0 presentation-ready works.
+        eq_("""Checking library default
+ Associated with collection Default Collection.
+ Associated with 1 lanes.
+
+0 presentation-ready works.
 1 works not presentation-ready.
 Attempting to make 1 works presentation-ready based on their metadata.
 1 works are now presentation-ready.
@@ -2190,9 +2204,32 @@ I would now expect you to be able to find 1 works.
         # The materialized view was refreshed.
         eq_(1, mw_query.count())
 
+    def test_no_library(self):
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        assert "There are no libraries in the system -- that's a problem" in output.getvalue()
+
+    def test_no_collections_or_lanes(self):
+        """If a library has no collections or lanes, those are mentioned as
+        problems.
+        """
+        output = StringIO()
+        search = DummyExternalSearchIndex()
+
+        library = self._default_library
+        old_collections = library.collections
+        library.collections = []
+
+        FixInvisibleWorksScript(self._db, output, search=search).do_run()
+        assert "This library has no collections -- that's a problem" in output.getvalue()
+        assert "This library has no lanes -- that's a problem" in output.getvalue()
+        library.collections = old_collections
+
     def test_with_collections(self):
         search = DummyExternalSearchIndex()
 
+        library = self._library()
         c1 = self._collection()
         c2 = self._collection()
 
@@ -2208,7 +2245,7 @@ I would now expect you to be able to find 1 works.
         output = StringIO()
 
         # Running the script on a different collection won't help.
-        FixInvisibleWorksScript(self._db, output, search=search).do_run(collections=[c1])
+        self.MockScript(self._db, output, search=search).do_run(collections=[c1])
         eq_("""0 presentation-ready works.
 0 works not presentation-ready.
 Here's your problem: there are no presentation-ready works.
@@ -2220,11 +2257,10 @@ Here's your problem: there are no presentation-ready works.
         # It's still not in the materialized view.
         eq_(0, mw_query.count())
 
-
         output = StringIO()
 
         # But running it with the right collection fixes the work.
-        FixInvisibleWorksScript(self._db, output, search=search).do_run(collections=[c2])
+        self.MockScript(self._db, output, search=search).do_run(collections=[c2])
         eq_("""0 presentation-ready works.
 1 works not presentation-ready.
 Attempting to make 1 works presentation-ready based on their metadata.
@@ -2336,6 +2372,8 @@ class TestExplain(DatabaseTest):
         # The script ran. Spot-check that it provided various
         # information about the work, without testing the exact
         # output.
+        assert pool.collection.name in output
+        assert "Available to libraries: default" in output
         assert work.title in output
         assert "Science Fiction" in output
         for contributor in edition.contributors:
