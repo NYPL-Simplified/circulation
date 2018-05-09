@@ -2872,6 +2872,15 @@ class Explain(IdentifierInputScript):
 
     def explain_license_pool(self, pool):
         self.write("Licensepool info:")
+        if pool.collection:
+            self.write(" Collection: %r" % pool.collection)
+        else:
+            self.write(" Not in any collection!")
+        libraries = [library.name for library in pool.collection.libraries]
+        if libraries:
+            self.write(" Available to libraries: %s" % ", ".join(libraries))
+        else:
+            self.write("Not available to any libraries!")
         self.write(" Delivery mechanisms:")
         if pool.delivery_mechanisms:
             for lpdm in pool.delivery_mechanisms:

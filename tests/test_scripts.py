@@ -2260,7 +2260,7 @@ Here's your problem: there are no presentation-ready works.
         output = StringIO()
 
         # But running it with the right collection fixes the work.
-        Mock(self._db, output, search=search).do_run(collections=[c2])
+        self.MockScript(self._db, output, search=search).do_run(collections=[c2])
         eq_("""0 presentation-ready works.
 1 works not presentation-ready.
 Attempting to make 1 works presentation-ready based on their metadata.
@@ -2372,6 +2372,8 @@ class TestExplain(DatabaseTest):
         # The script ran. Spot-check that it provided various
         # information about the work, without testing the exact
         # output.
+        assert pool.collection.name in output
+        assert "Available to libraries: default" in output
         assert work.title in output
         assert "Science Fiction" in output
         for contributor in edition.contributors:
