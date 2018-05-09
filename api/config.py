@@ -60,6 +60,8 @@ class Configuration(CoreConfiguration):
     SMALL_COLLECTION_LANGUAGES = "small_collections"
     TINY_COLLECTION_LANGUAGES = "tiny_collections"
 
+    LANGUAGE_DESCRIPTION = _('Each value must be an <a href="https://www.loc.gov/standards/iso639-2/php/code_list.php">ISO-639-2</a> language code.')
+
     # The client-side color scheme to use for this library.
     COLOR_SCHEME = "color_scheme"
     DEFAULT_COLOR_SCHEME = "blue"
@@ -229,16 +231,19 @@ class Configuration(CoreConfiguration):
             "key": LARGE_COLLECTION_LANGUAGES,
             "label": _("The primary languages represented in this library's collection"),
             "type": "list",
+            "description": LANGUAGE_DESCRIPTION,
         },
         {
             "key": SMALL_COLLECTION_LANGUAGES,
             "label": _("Other major languages represented in this library's collection"),
             "type": "list",
+            "description": LANGUAGE_DESCRIPTION,
         },        
         {
             "key": TINY_COLLECTION_LANGUAGES,
             "label": _("Other languages in this library's collection"),
             "type": "list",
+            "description": LANGUAGE_DESCRIPTION,
         },        
     ]
     
