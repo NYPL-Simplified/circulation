@@ -46,6 +46,10 @@ class NoveListAPI(object):
 
     PROTOCOL = ExternalIntegration.NOVELIST
     NAME = _("Novelist API")
+
+    # Hardcoded authentication key used as a Header for calling the NoveList
+    # Collections API. It identifies the client, and lets NoveList know that
+    # SimplyE is making the requests.
     AUTHORIZED_IDENTIFIER = u"62521fa1-bdbb-4939-84aa-aee2a52c8d59"
 
     SETTINGS = [
