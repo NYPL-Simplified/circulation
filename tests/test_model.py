@@ -8805,6 +8805,30 @@ class TestIntegrationClient(DatabaseTest):
         super(TestIntegrationClient, self).setup()
         self.client = self._integration_client()
 
+    def test_for_url(self):
+        now = datetime.datetime.utcnow()
+        url = self._url
+        client, is_new = IntegrationClient.for_url(self._db, url)
+
+        # A new IntegrationClient has been created.
+        eq_(True, is_new)
+
+        # Its .url is a normalized version of the provided URL.
+        eq_(client.url, IntegrationClient.normalize_url(url))
+
+        # It has timestamps for created & last_accessed.
+        assert client.created and client.last_accessed
+        assert client.created > now
+        eq_(True, isinstance(client.created, datetime.datetime))
+        eq_(client.created, client.last_accessed)
+
+        # It does not have a shared secret.
+        eq_(None, client.shared_secret)
+
+        # Calling it again on the same URL gives the same object.
+        client2, is_new = IntegrationClient.for_url(self._db, url)
+        eq_(client, client2)
+
     def test_register(self):
         now = datetime.datetime.utcnow()
         client, is_new = IntegrationClient.register(self._db, self._url)

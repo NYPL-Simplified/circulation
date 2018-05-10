@@ -11768,21 +11768,32 @@ class IntegrationClient(Base):
         return (u"<IntegrationClient: URL=%s ID=%s>" % (self.url, self.id)).encode('utf8')
 
     @classmethod
-    def register(cls, _db, url, submitted_secret=None):
-        """Creates a new server with client details."""
+    def for_url(cls, _db, url):
+        """Finds the IntegrationClient for the given server URL.
+
+        :return: an IntegrationClient. If it didn't already exist,
+        it will be created. If it didn't already have a secret, no
+        secret will be set.
+        """
         url = cls.normalize_url(url)
         now = datetime.datetime.utcnow()
         client, is_new = get_one_or_create(
             _db, cls, url=url, create_method_kwargs=dict(created=now)
         )
         client.last_accessed = now
+        return client, is_new
+
+    @classmethod
+    def register(cls, _db, url, submitted_secret=None):
+        """Creates a new server with client details."""
+        client, is_new = cls.for_url(_db, url)
 
         if not is_new and (not submitted_secret or submitted_secret != client.shared_secret):
             raise ValueError('Cannot update existing IntegratedClient without valid shared_secret')
 
         generate_secret = (client.shared_secret is None) or submitted_secret
         if generate_secret:
-            client.shared_secret = unicode(os.urandom(24).encode('hex'))
+            client.randomize_secret()
 
         return client, is_new
 
@@ -11804,6 +11815,8 @@ class IntegrationClient(Base):
             return client
         return None
 
+    def randomize_secret(self):
+        self.shared_secret = unicode(os.urandom(24).encode('hex'))
 
 from sqlalchemy.sql import compiler
 from psycopg2.extensions import adapt as sqlescape
