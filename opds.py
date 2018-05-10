@@ -378,17 +378,17 @@ class VerboseAnnotator(Annotator):
                 entry.append(cls.rating_tag(type_uri, value))
 
     @classmethod
-    def categories(cls, work, identifier_cutoff=500):
+    def categories(cls, work, identifier_cutoff=100):
         """Send out _all_ categories for the work.
 
         (So long as the category type has a URI associated with it in
         Subject.uri_lookup.)
 
         :param identifier_cutoff: When calculating related identifiers
-        for this work, cut off the query after approximately this many
-        results. This will improve performance at the expense of ignoring
-        classifications for identifiers that are distantly related to
-        the work.
+        for this work at a given level, cut off the query after
+        approximately this many results. This will improve
+        performance, at the expense of ignoring classifications for
+        identifiers that are distantly related to the work.
         """
         _db = Session.object_session(work)
         by_scheme_and_term = dict()
@@ -1405,7 +1405,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
 
         # Most of the time we can use the cached OPDS entry for the
         # Work. However, that cached OPDS feed is designed around one
-        # specific LicensePool, and it's possible that the client is
+        # specific Identifier, and it's possible that the client is
         # asking for a lookup centered around a different edition of the
         # same book.
         default_licensepool = self.annotator.active_licensepool_for(work)
@@ -1414,9 +1414,15 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         else:
             active_licensepool = default_licensepool
 
-        # In that case, we can't use the cached OPDS entry. We need to
-        # create a new one (and not store it in the cache).
-        use_cache = (active_licensepool == default_licensepool)
+        # A cached OPDS entry contains information keyed to a specific
+        # Work and Identifier, but not to a specific LicensePool.
+        # Assuming the identifiers match (and there is already a
+        # cached entry), we can avoid the expense of creating a new
+        # one.
+        use_cache = (
+            active_licensepool and identifier
+            and active_licensepool.identifier == identifier
+        )
 
         error_status = error_message = None
         if not active_licensepool:

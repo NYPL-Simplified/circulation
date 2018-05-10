@@ -1742,12 +1742,16 @@ class TestAcquisitionFeed(DatabaseTest):
 
 class TestLookupAcquisitionFeed(DatabaseTest):
 
-    def entry(self, identifier, work, annotator=VerboseAnnotator, **kwargs):
-        """Helper method to create an entry."""
-        feed = LookupAcquisitionFeed(
+    def feed(self, annotator=VerboseAnnotator, **kwargs):
+        """Helper method to create a LookupAcquisitionFeed."""
+        return LookupAcquisitionFeed(
             self._db, u"Feed Title", "http://whatever.io", [],
             annotator=annotator, **kwargs
         )
+
+    def entry(self, identifier, work, annotator=VerboseAnnotator, **kwargs):
+        """Helper method to create an entry."""
+        feed = self.feed(annotator, **kwargs)
         entry = feed.create_entry((identifier, work))
         if isinstance(entry, OPDSMessage):
             return feed, entry
@@ -1835,6 +1839,54 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             "I know about this work but can offer no way of fulfilling it."
         )
         eq_(expect, entry)
+
+    def test_create_entry_uses_cache_for_all_licensepools_with_identifier(self):
+        """A Work's cached OPDS entries are based on a specific identifier,
+        but they can be reused by all LicensePools with that identifier,
+        even LicensePools not directly associated with that Work.
+        """
+        class InstrumentableActiveLicensePool(VerboseAnnotator):
+            """A mock class that lets us control the output of
+            active_license_pool.
+            """
+
+            ACTIVE = None
+
+            @classmethod
+            def active_licensepool_for(cls, work):
+                return cls.ACTIVE
+        feed = self.feed(annotator=InstrumentableActiveLicensePool)
+
+        # Here are two completely different LicensePools for the same
+        # identifier.
+        work = self._work(with_license_pool=True)
+        work.verbose_opds_entry = "<entry>Cached</entry>"
+        [pool1] = work.license_pools
+        identifier = pool1.identifier
+
+        collection2 = self._collection()
+        edition2 = self._edition(
+            identifier_type=identifier.type,
+            identifier_id=identifier.identifier
+        )
+        pool2 = self._licensepool(edition=edition2, collection=collection2)
+
+        # Regardless of which LicensePool the annotator thinks is
+        # 'active', passing in (identifier, work) will use the cache.
+        m = feed.create_entry
+        annotator = feed.annotator
+
+        annotator.ACTIVE = pool1
+        eq_("Cached", m((identifier, work)).text)
+
+        annotator.ACTIVE = pool2
+        eq_("Cached", m((identifier, work)).text)
+
+        # If for some reason we pass in an identifier that is not
+        # associated with the active license pool, the cache is not used.
+        identifier2 = self._identifier()
+        result = m((identifier2, work))
+        assert isinstance(result, OPDSMessage)
 
 
 class TestEntrypointLinkInsertion(DatabaseTest):
