@@ -238,10 +238,10 @@ class TestAnnotators(DatabaseTest):
         # Although the default 'cutoff' for
         # recursively_equivalent_identifier_ids is null, when we are
         # generating subjects as part of an OPDS feed, the cutoff is
-        # set to 500. This gives us reasonable worst-case performance
+        # set to 100. This gives us reasonable worst-case performance
         # at the cost of not showing every single random subject under
         # which an extremely popular book is filed.
-        eq_(500, MockIdentifier.called_with_cutoff)
+        eq_(100, MockIdentifier.called_with_cutoff)
 
         ddc_uri = Subject.uri_lookup[Subject.DDC]
         rating_value = '{http://schema.org/}ratingValue'
@@ -1772,12 +1772,12 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         # We can generate two different OPDS feeds for a single work
         # depending on which identifier we look up.
         ignore, e1 = self.entry(original_pool.identifier, work)
-        ignore, e2 = self.entry(new_pool.identifier, work)
         assert original_pool.identifier.urn in e1
         assert original_pool.presentation_edition.title in e1
         assert new_pool.identifier.urn not in e1
         assert new_pool.presentation_edition.title not in e1
 
+        ignore, e2 = self.entry(new_pool.identifier, work)
         assert new_pool.identifier.urn in e2
         assert new_pool.presentation_edition.title in e2
         assert original_pool.identifier.urn not in e2

@@ -1416,12 +1416,13 @@ class LookupAcquisitionFeed(AcquisitionFeed):
 
         # A cached OPDS entry contains information keyed to a specific
         # Work and Identifier, but not to a specific LicensePool.
-        # Assuming the identifiers match (and there is already a
-        # cached entry), we can avoid the expense of creating a new
-        # one.
+        # Assuming the identifier of the active licensepool matches
+        # the identifier of the default licensepool (and there is
+        # already a cached entry), we can avoid the expense of
+        # creating a new one.
         use_cache = (
-            active_licensepool and identifier
-            and active_licensepool.identifier == identifier
+            active_licensepool and default_licensepool
+            and active_licensepool.identifier == default_licensepool.identifier
         )
 
         error_status = error_message = None
