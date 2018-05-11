@@ -544,7 +544,7 @@ class AcquisitionFeed(OPDSFeed):
 
         # A grouped feed may link to alternate entry points into
         # the data.
-        entrypoints = facets.available_entrypoints(lane)
+        entrypoints = facets.selectable_entrypoints(lane)
         if entrypoints:
             def make_link(ep, is_default):
                 if is_default:
@@ -610,7 +610,7 @@ class AcquisitionFeed(OPDSFeed):
             pagination.this_page_size = len(works)
         feed = cls(_db, title, url, works, annotator)
 
-        entrypoints = facets.available_entrypoints(lane)
+        entrypoints = facets.selectable_entrypoints(lane)
         if entrypoints:
             # A paginated feed may have multiple entry points into the
             # same dataset.
@@ -786,7 +786,7 @@ class AcquisitionFeed(OPDSFeed):
 
         # A feed of search results may link to alternate entry points
         # into those results.
-        entrypoints = facets.available_entrypoints(lane)
+        entrypoints = facets.selectable_entrypoints(lane)
         if entrypoints:
             def make_link(ep, is_default):
                 if is_default:
