@@ -8,6 +8,7 @@ import json
 import os
 import re
 import feedparser
+import jwt
 from werkzeug import ImmutableMultiDict, MultiDict
 from werkzeug.http import dump_cookie
 from StringIO import StringIO
@@ -2453,7 +2454,7 @@ class TestSettingsController(AdminControllerTest):
 
     def do_request(self, url, *args, **kwargs):
         """Mock HTTP get/post method to replace HTTP.get_with_timeout or post_with_timeout."""
-        self.requests.append(url)
+        self.requests.append((url, args, kwargs))
         response = self.responses.pop()
         return HTTP.process_debuggable_response(response)
 
@@ -5516,7 +5517,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
             eq_("The service at registry url did not return OPDS.", response.detail)
-            eq_([discovery_service.url], self.requests)
+            eq_([discovery_service.url], [x[0] for x in self.requests])
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
 
@@ -5532,7 +5533,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
             eq_("The service at registry url did not provide a register link.", response.detail)
-            eq_([discovery_service.url], self.requests[1:])
+            eq_([discovery_service.url], [x[0] for x in self.requests[1:]])
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
 
@@ -5569,7 +5570,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
 
             eq_(200, response.status_code)
-            eq_(["registry url", "register url"], self.requests)
+            eq_(["registry url", "register url"], [x[0] for x in self.requests])
 
             # This registry doesn't support short client tokens and doesn't have a vendor id,
             # so no settings were added to it.
@@ -5606,7 +5607,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
 
             eq_(200, response.status_code)
-            eq_(["registry url", "register url"], self.requests[2:])
+            eq_(["registry url", "register url"], [x[0] for x in self.requests[2:]])
 
             # The vendor id and short client token settings were stored.
             eq_("vendorid", discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
@@ -5699,7 +5700,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
             eq_("The service at collection url did not return OPDS.", response.detail)
-            eq_([collection.external_account_id], self.requests)
+            eq_([collection.external_account_id], [x[0] for x in self.requests])
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, collection.external_integration).value)
 
@@ -5715,7 +5716,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
             eq_("The service at collection url did not provide a register link.", response.detail)
-            eq_([collection.external_account_id], self.requests[1:])
+            eq_([collection.external_account_id], [x[0] for x in self.requests[1:]])
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, collection.external_integration).value)
 
@@ -5755,7 +5756,7 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
 
             eq_(200, response.status_code)
-            eq_(["collection url", "register url"], self.requests)
+            eq_(["collection url", "register url"], [x[0] for x in self.requests])
 
             # The shared secret was saved.
             eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
@@ -5898,6 +5899,7 @@ class TestSettingsController(AdminControllerTest):
         assert encrypted_secret in problem.detail
 
     def test_sitewide_registration_post_success(self):
+
         # A service to register with
         metadata_wrangler_service = self._external_integration(
             ExternalIntegration.METADATA_WRANGLER,
@@ -5942,5 +5944,43 @@ class TestSettingsController(AdminControllerTest):
                 do_post=self.do_request, key=key
             )
         eq_(None, response)
-        eq_([metadata_wrangler_service.url, registration_url], self.requests)
+
+        # We made two requests: a GET to get the service document from
+        # the metadata wrangler, and a POST to the registration
+        # service, with the entity-body containing a callback URL and
+        # a JWT.
+        metadata_wrangler_service_request, registration_request = self.requests
+        url, i1, i2 = metadata_wrangler_service_request
+        eq_(metadata_wrangler_service.url, url)
+
+        url, [document], ignore = registration_request
+        eq_(url, registration_url)
+        for k in 'url', 'jwt':
+            assert k in document
+
+        # The end result is that our ExternalIntegration for the metadata
+        # wrangler has been updated with a shared secret.
         eq_(shared_secret, metadata_wrangler_service.password)
+
+    def test_sitewide_registration_document(self):
+        """Test the document sent along to sitewide registration."""
+        key = RSA.generate(2048)
+        controller = self.manager.admin_settings_controller
+        with self.request_context_with_admin('/'):
+            doc = controller.sitewide_registration_document(
+                key.exportKey()
+            )
+
+            # The registrar knows where to go to get our public key.
+            eq_(doc['url'], controller.url_for('public_key_document'))
+
+            # The JWT proves that we control the public/private key pair.
+            public_key = key.publickey().exportKey()
+            parsed = jwt.decode(
+                doc['jwt'], public_key, algorithm='RS256'
+            )
+
+            # The JWT must be valid or jwt.decode() would have raised
+            # an exception. This simply verifies that the JWT includes
+            # an expiration date and doesn't last forever.
+            assert 'exp' in parsed

@@ -16,6 +16,7 @@ from flask import (
     redirect,
 )
 from flask_babel import lazy_gettext as _
+import jwt
 from sqlalchemy.exc import ProgrammingError
 from PIL import Image
 from StringIO import StringIO
@@ -2782,6 +2783,9 @@ class SettingsController(AdminCirculationManagerController):
 
         # If the integration has an existing shared_secret, use it to access the
         # server and update it.
+        #
+        # NOTE: This is no longer technically necessary since we prove
+        # ownership with a signed JWT.
         headers = { 'Content-Type' : 'application/x-www-form-urlencoded' }
         if integration.password:
             token = base64.b64encode(integration.password.encode('utf-8'))
@@ -2789,10 +2793,10 @@ class SettingsController(AdminCirculationManagerController):
 
         # Get the public key document URL and register this server.
         try:
-            public_key_url = self.url_for('public_key_document')
+            body = self.sitewide_registration_document(key.exportKey())
             response = do_post(
-                register_url, dict(url=public_key_url),
-                allowed_response_codes=['2xx'], headers=headers
+                register_url, body, allowed_response_codes=['2xx'],
+                headers=headers
             )
         except Exception as e:
             public_key_setting.value = None
@@ -2812,6 +2816,22 @@ class SettingsController(AdminCirculationManagerController):
         public_key_setting.value = None
         shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
         integration.password = unicode(shared_secret)
+
+    def sitewide_registration_document(self, private_key):
+        """Generate the document to be sent as part of a sitewide registration
+        request.
+
+        :param private_key: An string containing an RSA private key,
+            e.g. the output of RsaKey.exportKey()
+        :return: A dictionary with keys 'url' and 'jwt'. 'url' is the URL to
+            this site's public key document, and 'jwt' is a JSON Web Token
+            proving control over that URL.
+        """
+        public_key_url = self.url_for('public_key_document')
+        in_one_minute = datetime.utcnow() + timedelta(seconds=60)
+        payload = {'exp': in_one_minute}
+        token = jwt.encode(payload, private_key, algorithm='RS256')
+        return dict(url=public_key_url, jwt=token)
 
     def analytics_services(self):
         self.require_system_admin()

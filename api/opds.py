@@ -769,7 +769,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             _add_link(d)
         
     def acquisition_links(self, active_license_pool, active_loan, active_hold, active_fulfillment,
-                          feed, identifier, direct_fulfillment_delivery_mechanisms=[]):
+                          feed, identifier, direct_fulfillment_delivery_mechanisms=None):
+        direct_fulfillment_delivery_mechanisms = direct_fulfillment_delivery_mechanisms or []
         api = None
         if self.circulation and active_license_pool:
             api = self.circulation.api_for_license_pool(active_license_pool)
