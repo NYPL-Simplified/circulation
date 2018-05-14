@@ -21,6 +21,7 @@ from entrypoint import (
     AudiobooksEntryPoint,
     EbooksEntryPoint,
     EverythingEntryPoint,
+    EntryPoint,
 )
 
 from external_search import (
@@ -56,6 +57,12 @@ from problem_details import INVALID_INPUT
 
 
 class TestFacetsWithEntryPoint(DatabaseTest):
+
+    class MockFacetConfig(object):
+        """Pass this in when you call FacetsWithEntryPoint.from_request
+        but you don't care which EntryPoints are configured.
+        """
+        entrypoints = []
 
     def test_items(self):
         ep = AudiobooksEntryPoint
@@ -111,7 +118,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
                 self.extra = extra
 
         facets = ExtraFacets.from_request(
-            None, None, {}.get, None, extra="extra value"
+            None, self.MockFacetConfig, {}.get, None, extra="extra value"
         )
         assert isinstance(facets, ExtraFacets)
         eq_("extra value", facets.extra)
@@ -122,8 +129,8 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         """
         self.expect = object()
         @classmethod
-        def mock_load_entrypoint(cls, entrypoint_name, worklist):
-            self.called_with = (entrypoint_name, worklist)
+        def mock_load_entrypoint(cls, entrypoint_name, entrypoints):
+            self.called_with = (entrypoint_name, entrypoints)
             return self.expect
         old = FacetsWithEntryPoint.load_entrypoint
         FacetsWithEntryPoint.load_entrypoint = mock_load_entrypoint
@@ -135,12 +142,13 @@ class TestFacetsWithEntryPoint(DatabaseTest):
             return "name of the entrypoint"
 
         mock_worklist = object()
+        config = self.MockFacetConfig
         facets = FacetsWithEntryPoint._from_request(
-            None, get_argument, mock_worklist
+            config, get_argument, mock_worklist
         )
         assert isinstance(facets, FacetsWithEntryPoint)
         eq_(self.expect, facets.entrypoint)
-        eq_(("name of the entrypoint", mock_worklist), self.called_with)
+        eq_(("name of the entrypoint", config.entrypoints), self.called_with)
 
         # If load_entrypoint returns a ProblemDetail, that object is
         # returned instead of the faceting class.
@@ -148,7 +156,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         eq_(
             self.expect,
             FacetsWithEntryPoint._from_request(
-                None, get_argument, mock_worklist
+                config, get_argument, mock_worklist
             )
         )
         FacetsWithEntryPoint.load_entrypoint = old
@@ -157,38 +165,30 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         audio = AudiobooksEntryPoint
         ebooks = EbooksEntryPoint
 
-        # This WorkList supports two EntryPoints.
-        worklist = WorkList()
-        worklist.initialize(
-            self._default_library, entrypoints=[audio, ebooks]
-        )
+        # These are the allowable entrypoints for this site -- we'll
+        # be passing this in to load_entrypoint every time.
+        entrypoints = [audio, ebooks]
+
+        worklist = object()
         m = FacetsWithEntryPoint.load_entrypoint
 
         # This request does not ask for any particular entrypoint,
         # so it gets the default.
-        eq_(audio, m(None, worklist))
+        eq_(audio, m(None, entrypoints))
 
         # This request asks for an entrypoint and gets it.
-        eq_(ebooks, m(ebooks.INTERNAL_NAME, worklist))
+        eq_(ebooks, m(ebooks.INTERNAL_NAME, entrypoints))
 
         # This request asks for an entrypoint that is not available,
         # and gets the default.
-        eq_(audio, m("no such entrypoint", worklist))
+        eq_(audio, m("no such entrypoint", entrypoints))
 
-        # This WorkList does not have any associated EntryPoints,
-        # which means the loaded Facets object will never have an
-        # .entrypoint.
-        no_entrypoints = WorkList()
-        no_entrypoints.initialize(self._default_library)
-        eq_(None, m(None, no_entrypoints))
-        eq_(None, m(audio.INTERNAL_NAME, no_entrypoints))
+        # If no EntryPoints are available, load_entrypoint returns
+        # nothing.
+        eq_(None, m(audio.INTERNAL_NAME, []))
 
-        # Same behavior if for some reason you try to load an
-        # entrypoint but don't provide a associated WorkList.
-        eq_(None, m(audio.INTERNAL_NAME, None))
-
-    def test_available_entrypoints(self):
-        """The default implementation of available_entrypoints just returns
+    def test_selectable_entrypoints(self):
+        """The default implementation of selectable_entrypoints just returns
         the worklist's entrypoints.
         """
         class MockWorkList(object):
@@ -198,7 +198,7 @@ class TestFacetsWithEntryPoint(DatabaseTest):
         mock_entrypoints = object()
         worklist = MockWorkList(mock_entrypoints)
 
-        m = FacetsWithEntryPoint.available_entrypoints
+        m = FacetsWithEntryPoint.selectable_entrypoints
         eq_(mock_entrypoints, m(worklist))
         eq_([], m(None))
 
@@ -449,11 +449,14 @@ class TestFacets(DatabaseTest):
 
     def test_from_request(self):
         library = self._default_library
+
+        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
+        )
+
         config = library
         worklist = WorkList()
-        worklist.initialize(
-            library, entrypoints=[AudiobooksEntryPoint, EbooksEntryPoint]
-        )
+        worklist.initialize(library)
 
         m = Facets.from_request
 
@@ -507,7 +510,6 @@ class TestFacets(DatabaseTest):
         eq_(INVALID_INPUT.uri, invalid_collection.uri)
         eq_("I don't understand what 'no such collection' refers to.",
             invalid_collection.detail)
-
 
 class TestFacetsApply(DatabaseTest):
 
@@ -822,7 +824,7 @@ class TestFeaturedFacets(DatabaseTest):
 
 class TestSearchFacets(DatabaseTest):
 
-    def test_available_entrypoints(self):
+    def test_selectable_entrypoints(self):
         """If the WorkList has more than one facet, an 'everything' facet
         is added for search purposes.
         """
@@ -835,7 +837,7 @@ class TestSearchFacets(DatabaseTest):
         worklist = MockWorkList()
 
         # No WorkList, no EntryPoints.
-        m = SearchFacets.available_entrypoints
+        m = SearchFacets.selectable_entrypoints
         eq_([], m(None))
 
         # If there is one EntryPoint, it is returned as-is.

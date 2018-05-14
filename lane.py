@@ -155,15 +155,20 @@ class FacetsWithEntryPoint(FacetConstants):
         entrypoint_name = get_argument(
             Facets.ENTRY_POINT_FACET_GROUP_NAME, None
         )
-        entrypoint = cls.load_entrypoint(entrypoint_name, worklist)
+        entrypoint = cls.load_entrypoint(
+            entrypoint_name, list(facet_config.entrypoints)
+        )
         if isinstance(entrypoint, ProblemDetail):
             return entrypoint
         return cls(entrypoint=entrypoint, **extra_kwargs)
 
     @classmethod
-    def available_entrypoints(cls, worklist):
-        """Which EntryPoints are available for these facets on this
+    def selectable_entrypoints(cls, worklist):
+        """Which EntryPoints can be selected for these facets on this
         WorkList?
+
+        In most cases, there are no selectable EntryPoints; this generally
+        happens only at the top level.
 
         By default, this is completely determined by the WorkList.
         See SearchFacets for an example that changes this.
@@ -173,22 +178,27 @@ class FacetsWithEntryPoint(FacetConstants):
         return worklist.entrypoints
 
     @classmethod
-    def load_entrypoint(cls, name, worklist):
-        """Look up an EntryPoint by name, assuming it's allowed in the
+    def load_entrypoint(cls, name, valid_entrypoints):
+        """Look up an EntryPoint by name, assuming it's valid in the
         given WorkList.
+
+        :param valid_entrypoints: The EntryPoints that might be
+        valid. This is probably not the value of
+        WorkList.selectable_entrypoints, because an EntryPoint
+        selected in a WorkList remains valid (but not selectable) for
+        all of its children.
 
         :return: An EntryPoint class. This will be the requested
         EntryPoint if possible. If a nonexistent or unusable
-        EntryPoint is requested, the WorkList's default EntryPoint
-        will be returned. If the WorkList has no EntryPoints, or no
-        WorkList is provided, None will be returned.
+        EntryPoint is requested, the first valid EntryPoint will be
+        returned. If there are no valid EntryPoints, None will be
+        returned.
         """
-        entrypoints = cls.available_entrypoints(worklist)
-        if not entrypoints:
+        if not valid_entrypoints:
             return None
-        default = entrypoints[0]
+        default = valid_entrypoints[0]
         ep = EntryPoint.BY_INTERNAL_NAME.get(name)
-        if not ep or ep not in entrypoints:
+        if not ep or ep not in valid_entrypoints:
             return default
         return ep
 
@@ -630,7 +640,7 @@ class FeaturedFacets(FacetsWithEntryPoint):
 class SearchFacets(FacetsWithEntryPoint):
 
     @classmethod
-    def available_entrypoints(cls, worklist):
+    def selectable_entrypoints(cls, worklist):
         """If the WorkList has more than one facet, an 'everything' facet
         is added for search purposes.
         """

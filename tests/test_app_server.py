@@ -264,6 +264,12 @@ class TestLoadMethods(DatabaseTest):
         Babel(self.app)
 
     def test_load_facets_from_request(self):
+        # The library has two EntryPoints enabled.
+        self._default_library.setting(EntryPoint.ENABLED_SETTING).value = (
+            json.dumps([EbooksEntryPoint.INTERNAL_NAME,
+                        AudiobooksEntryPoint.INTERNAL_NAME])
+        )
+
         with self.app.test_request_context('/?order=%s' % Facets.ORDER_TITLE):
             flask.request.library = self._default_library
             facets = load_facets_from_request()
@@ -277,16 +283,22 @@ class TestLoadMethods(DatabaseTest):
             problemdetail = load_facets_from_request()
             eq_(INVALID_INPUT.uri, problemdetail.uri)
 
-        # An EntryPoint will be picked up from the request and passed into
-        # the Facets object, assuming the EntryPoint is available to the
-        # provided WorkList.
+        # An EntryPoint will be picked up from the request and passed
+        # into the Facets object, assuming the EntryPoint is
+        # configured on the present library.
         worklist = WorkList()
-        worklist.initialize(self._default_library,
-                            entrypoints=[AudiobooksEntryPoint])
+        worklist.initialize(self._default_library)
         with self.app.test_request_context('/?entrypoint=Audio'):
             flask.request.library = self._default_library
             facets = load_facets_from_request(worklist=worklist)
             eq_(AudiobooksEntryPoint, facets.entrypoint)
+
+        # If it's not configured, the default EntryPoint is used.
+        with self.app.test_request_context('/?entrypoint=NoSuchEntryPoint'):
+            flask.request.library = self._default_library
+            facets = load_facets_from_request(worklist=worklist)
+            eq_(EbooksEntryPoint, facets.entrypoint)
+
 
     def test_load_facets_from_request_class_instantiation(self):
         """The caller of load_facets_from_request() can specify a class other

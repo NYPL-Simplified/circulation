@@ -132,9 +132,10 @@ class FacetConfig(object):
         
         return FacetConfig(enabled_facets, default_facets)
 
-    def __init__(self, enabled_facets, default_facets):
+    def __init__(self, enabled_facets, default_facets, entrypoints=[]):
         self._enabled_facets = dict(enabled_facets)
         self._default_facets = dict(default_facets)
+        self.entrypoints = entrypoints
 
     def enabled_facets(self, group_name):
         return self._enabled_facets.get(group_name)
