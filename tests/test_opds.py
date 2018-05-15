@@ -41,7 +41,7 @@ from core.classifier import (
 from core.external_search import DummyExternalSearchIndex
 
 from core.util.opds_writer import (
-    AtomFeed, 
+    AtomFeed,
     OPDSFeed,
 )
 
@@ -125,7 +125,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
     def test_rights_attributes(self):
         m = self.annotator.rights_attributes
-        
+
         # Given a LicensePoolDeliveryMechanism with a RightsStatus,
         # rights_attributes creates a dictionary mapping the dcterms:rights
         # attribute to the URI associated with the RightsStatus.
@@ -201,7 +201,7 @@ class TestLibraryAnnotator(VendorIDTest):
             # Check that the configuration value made it into the link.
             eq_(href, link_config[rel])
             eq_("text/html", link.attrib['type'])
-            
+
         # There are three help links using different protocols.
         help_links = [x.attrib['href'] for x in mock_feed
                       if x.attrib['rel'] == 'help']
@@ -262,7 +262,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # Because of this, normal fulfillment links are not generated.
         [pool] = self.work.license_pools
         [lpdm] = pool.delivery_mechanisms
-        eq_(None, 
+        eq_(None,
             self.annotator.fulfill_link(pool, None, lpdm)
         )
 
@@ -283,7 +283,7 @@ class TestLibraryAnnotator(VendorIDTest):
         identifier = pool.identifier
         patron = self._patron()
         old_credentials = list(patron.credentials)
-        
+
         loan, ignore = pool.loan_to(patron, start=datetime.datetime.utcnow())
         adobe_delivery_mechanism, ignore = DeliveryMechanism.lookup(
             self._db, "text/html", DeliveryMechanism.ADOBE_DRM
@@ -302,7 +302,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # No new Credential has been associated with the patron.
         eq_(old_credentials, patron.credentials)
-            
+
         # The fulfill link for Adobe DRM includes information
         # on how to get an Adobe ID in the drm:licensor tag.
         link = self.annotator.fulfill_link(
@@ -700,7 +700,7 @@ class TestLibraryAnnotator(VendorIDTest):
         self._external_integration(
             ExternalIntegration.NOVELIST,
             goal=ExternalIntegration.METADATA_GOAL, username=u'library',
-            password=u'sure', libraries=[self._default_library]
+            password=u'sure', libraries=[self._default_library],
         )
 
         feed = self.get_parsed_feed([work])
@@ -836,7 +836,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # specific book, that context would otherwise be lost.
         eq_('http://librarysimplified.org/terms/drm/scheme/ACS',
             licensor.attrib['{http://librarysimplified.org/terms/drm}scheme'])
-            
+
         now = datetime.datetime.utcnow()
         tomorrow = now + datetime.timedelta(days=1)
 
@@ -879,7 +879,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # One of these availability tags has 'since' but not 'until'.
         # The other one has both.
-        [no_until] = [x for x in availabilities if 'until' not in x.attrib] 
+        [no_until] = [x for x in availabilities if 'until' not in x.attrib]
         eq_(now_s, no_until.attrib['since'])
 
         [has_until] = [x for x in availabilities if 'until' in x.attrib]
@@ -900,7 +900,7 @@ class TestLibraryAnnotator(VendorIDTest):
         assert "simplified:username" in raw
         eq_(patron.username, feed_details['simplified_patron']['simplified:username'])
         eq_(u'987654321', feed_details['simplified_patron']['simplified:authorizationidentifier'])
-        
+
     def test_loans_feed_includes_annotations_link(self):
         patron = self._patron()
         feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
@@ -932,7 +932,7 @@ class TestLibraryAnnotator(VendorIDTest):
 
         # ...but it's empty.
         assert '<entry>' not in unicode(feed_obj)
-        
+
     def test_acquisition_feed_includes_license_information(self):
         work = self._work(with_open_access_download=True)
         pool = work.license_pools[0]
@@ -950,7 +950,7 @@ class TestLibraryAnnotator(VendorIDTest):
         u = unicode(feed)
         holds_re = re.compile('<opds:holds\W+total="25"\W*/>', re.S)
         assert holds_re.search(u) is not None
-        
+
         copies_re = re.compile('<opds:copies[^>]+available="50"', re.S)
         assert copies_re.search(u) is not None
 
@@ -972,10 +972,10 @@ class TestLibraryAnnotator(VendorIDTest):
             DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
             RightsStatus.IN_COPYRIGHT, None
         )
-        
+
         now = datetime.datetime.utcnow()
         loan, ignore = pool.loan_to(patron, start=now)
-        
+
         feed_obj = LibraryLoanAndHoldAnnotator.active_loans_for(
             None, patron, test_mode=True)
         raw = unicode(feed_obj)
@@ -984,11 +984,11 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(1, len(entries))
 
         links = entries[0]['links']
-        
+
         # Before we fulfill the loan, there are fulfill links for all three mechanisms.
         fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
         eq_(3, len(fulfill_links))
-        
+
         eq_(set([mech1.delivery_mechanism.drm_scheme_media_type, mech2.delivery_mechanism.drm_scheme_media_type,
                  OPDSFeed.ENTRY_TYPE]),
             set([link['type'] for link in fulfill_links]))
@@ -1005,10 +1005,10 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(1, len(entries))
 
         links = entries[0]['links']
-        
+
         fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
         eq_(2, len(fulfill_links))
-        
+
         eq_(set([mech1.delivery_mechanism.drm_scheme_media_type,
                  OPDSFeed.ENTRY_TYPE]),
             set([link['type'] for link in fulfill_links]))
@@ -1023,7 +1023,7 @@ class TestLibraryAnnotator(VendorIDTest):
             DeliveryMechanism.STREAMING_TEXT_CONTENT_TYPE, DeliveryMechanism.OVERDRIVE_DRM,
             RightsStatus.IN_COPYRIGHT, None
         )
-        
+
         now = datetime.datetime.utcnow()
         loan, ignore = pool.loan_to(patron, start=now)
         fulfillment = FulfillmentInfo(
@@ -1041,21 +1041,21 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(1, len(entries))
 
         links = entries[0]['links']
-        
+
         # The feed for a single fulfillment only includes one fulfill link.
         fulfill_links = [link for link in links if link['rel'] == "http://opds-spec.org/acquisition"]
         eq_(1, len(fulfill_links))
-        
+
         eq_(Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE,
             fulfill_links[0]['type'])
         eq_("http://streaming_link", fulfill_links[0]['href'])
 
 
     def test_drm_device_registration_feed_tags(self):
-        """Check that drm_device_registration_feed_tags returns 
-        a generic drm:licensor tag, except with the drm:scheme attribute 
+        """Check that drm_device_registration_feed_tags returns
+        a generic drm:licensor tag, except with the drm:scheme attribute
         set.
-        """ 
+        """
         self.initialize_adobe(self._default_library)
         annotator = LibraryLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)
         patron = self._patron()
@@ -1084,7 +1084,7 @@ class TestLibraryAnnotator(VendorIDTest):
         identifier = pool.identifier
 
         annotator = LibraryLoanAndHoldAnnotator(None, None, self._default_library, test_mode=True)
-        
+
         # If there's no way to fulfill the book, borrow_link raises
         # UnfulfillableWork.
         assert_raises(
@@ -1132,7 +1132,7 @@ class TestLibraryAnnotator(VendorIDTest):
         annotator.annotate_feed(feed, lane)
         raw = unicode(feed)
         parsed = feedparser.parse(raw)['feed']
-        links = parsed['links'] 
+        links = parsed['links']
         # This lane isn't based on a custom list, so there's no crawlable link.
         crawlable_links = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
         eq_(0, len(crawlable_links))
@@ -1142,7 +1142,7 @@ class TestLibraryAnnotator(VendorIDTest):
         annotator.annotate_feed(feed, lane)
         raw = unicode(feed)
         parsed = feedparser.parse(raw)['feed']
-        links = parsed['links'] 
+        links = parsed['links']
 
         [crawlable_link] = [x for x in links if x['rel'].lower() == "http://opds-spec.org/crawlable".lower()]
         assert '/crawlable_list_feed' in crawlable_link['href']
@@ -1166,7 +1166,7 @@ class TestLibraryAnnotator(VendorIDTest):
         # Loan of a licensed book.
         work2 = self._work(with_license_pool=True)
         loan2, ignore = work2.license_pools[0].loan_to(patron, start=now, end=tomorrow)
-        
+
         # Hold on a licensed book.
         work3 = self._work(with_license_pool=True)
         hold, ignore = work3.license_pools[0].on_hold_to(patron, start=now, end=tomorrow)
@@ -1343,7 +1343,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         identifier = pool.identifier
 
         annotator = SharedCollectionLoanAndHoldAnnotator(self.collection, None, test_mode=True)
-        
+
         # If there's no way to fulfill the book, borrow_link raises
         # UnfulfillableWork.
         assert_raises(
@@ -1383,7 +1383,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         # Loan of a licensed book.
         work2 = self._work(with_license_pool=True)
         loan2, ignore = work2.license_pools[0].loan_to(client, start=now, end=tomorrow)
-        
+
         # Hold on a licensed book.
         work3 = self._work(with_license_pool=True)
         hold, ignore = work3.license_pools[0].on_hold_to(client, start=now, end=tomorrow)
@@ -1432,8 +1432,3 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         [borrow] = work4_links
         assert "shared_collection_borrow" in borrow.attrib.get("href")
         eq_('http://opds-spec.org/acquisition/borrow', borrow.attrib.get("rel"))
-
-            
-        
-
-
