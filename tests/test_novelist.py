@@ -398,12 +398,12 @@ class TestNoveListAPI(DatabaseTest):
             "Records": []
         })
 
-        data = [u"12345", u"12346", u"12347"]
+        data = ["12345", "12346", "12347"]
         result = self.novelist.make_novelist_data_object(data)
 
         eq_(result, {
             "Customer": "library:yep",
-            "Records": [{"ISBN": u"12345"}, {"ISBN": u"12346"}, {"ISBN": u"12347"}]
+            "Records": [{"Isbn": "12345"}, {"Isbn": "12346"}, {"Isbn": "12347"}]
         })
 
     def mockHTTPPut(self, *args, **kwargs):
