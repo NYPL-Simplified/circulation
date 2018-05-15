@@ -104,7 +104,7 @@ class SimplifiedOPDSLookup(object):
 
     def _get(self, url, **kwargs):
         """Make an HTTP request. This method is overridden in the mock class."""
-        kwargs['timeout'] = kwargs.get('timeout', 120)
+        kwargs['timeout'] = kwargs.get('timeout', 300)
         kwargs['allowed_response_codes'] = kwargs.get('allowed_response_codes', [])
         kwargs['allowed_response_codes'] += ['2xx', '3xx']
         return HTTP.get_with_timeout(url, **kwargs)
