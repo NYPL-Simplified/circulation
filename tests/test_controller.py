@@ -49,6 +49,7 @@ from core.metadata_layer import Metadata
 from core import model
 from core.entrypoint import (
     EbooksEntryPoint,
+    EntryPoint,
     AudiobooksEntryPoint,
 )
 from core.model import (
@@ -2807,16 +2808,13 @@ class TestFeedController(CirculationControllerTest):
         # Verify that AcquisitionFeed.search() is passed the
         # appropriate faceting object when we try to search a
         # different EntryPoint.
-        #
-        # This is a little messy because to do this we have to replace the
-        # top-level Lane with a WorkList.
+
+        # By default, the library only has one entry point enabled.
+        # We need to enable more than one so it's a real choice.
         library = self._default_library
-        worklist = WorkList.top_level_for_library(self._db, library)
-        worklist.initialize(
-            self._default_library, display_name="top level",
-            entrypoints=[EbooksEntryPoint, AudiobooksEntryPoint]
+        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
         )
-        self.manager.top_level_lanes[library.id] = worklist
         with self.request_context_with_library("/?q=t&entrypoint=Audio"):
             self.manager.opds_feeds.search(None)
             (s, args) = self.called_with
