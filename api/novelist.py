@@ -491,8 +491,11 @@ class NoveListAPI(object):
         if isbns:
             response = self.put(
                 self.COLLECTION_DATA_API,
-                { "AuthorizedIdentifier": self.AUTHORIZED_IDENTIFIER },
-                data=self.make_novelist_data_object(isbns)
+                {
+                    "AuthorizedIdentifier": self.AUTHORIZED_IDENTIFIER,
+                    "Content-Type": "application/json; charset=utf-8"
+                },
+                data=json.dumps(self.make_novelist_data_object(isbns))
             )
 
             if (response.status_code == 200):
@@ -501,7 +504,7 @@ class NoveListAPI(object):
         return content
 
     def make_novelist_data_object(self, data):
-        isbns = list(map(lambda isbn: {"ISBN": isbn}, data))
+        isbns = list(map(lambda isbn: {"Isbn": isbn}, data))
 
         return {
             "Customer": "%s:%s" % (self.profile, self.password),
