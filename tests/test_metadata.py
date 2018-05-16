@@ -493,6 +493,94 @@ class TestMetadataImporter(DatabaseTest):
         # if fetch failed on getting an Hyperlink.OPEN_ACCESS_DOWNLOAD-type epub.
         eq_(None, pool.license_exception)
 
+    def test_mirror_link_bad_media_type(self):
+        edition, pool = self._edition(with_license_pool=True)
+
+        data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
+        m = Metadata(data_source=data_source)
+
+        mirror = MockS3Uploader()
+        h = DummyHTTPClient()
+
+        policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
+
+        content = open(self.sample_cover_path("test-book-cover.png")).read()
+
+        # We thought this link was for an image file.
+        link = LinkData(
+            rel=Hyperlink.IMAGE,
+            media_type=Representation.JPEG_MEDIA_TYPE,
+            href="http://example.com/",
+            content=content
+        )
+        link_obj, ignore = edition.primary_identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+        )
+
+        # But for some reason the remote server says it's XML.
+        h.queue_response(200, media_type=Representation.APPLICATION_XML_MEDIA_TYPE, content=content)
+        
+        m.mirror_link(edition, data_source, link, link_obj, policy)
+        representation = link_obj.resource.representation
+
+        # The representation was fetched and mirrored successfully.
+        # We assumed the original image media type was correct.
+        eq_(None, representation.fetch_exception)
+        assert representation.fetched_at != None
+        eq_(None, representation.mirror_exception)
+        assert representation.mirrored_at != None
+        eq_(Representation.JPEG_MEDIA_TYPE, representation.media_type)
+        eq_(link.href, representation.url)
+        assert "Gutenberg" in representation.mirror_url
+        assert representation.mirror_url.endswith("%s/cover.jpg" % edition.primary_identifier.identifier)
+
+        # We don't know the media type for this link, but it has a file extension.
+        link = LinkData(
+            rel=Hyperlink.IMAGE,
+            href="http://example.com/image.png",
+            content=content
+        )
+        link_obj, ignore = edition.primary_identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+        )
+        h.queue_response(200, media_type=Representation.APPLICATION_XML_MEDIA_TYPE, content=content)
+        m.mirror_link(edition, data_source, link, link_obj, policy)
+        representation = link_obj.resource.representation
+
+        # The representation is still fetched and mirrored successfully.
+        # We used the media type from the file extension.
+        eq_(None, representation.fetch_exception)
+        assert representation.fetched_at != None
+        eq_(None, representation.mirror_exception)
+        assert representation.mirrored_at != None
+        eq_(Representation.PNG_MEDIA_TYPE, representation.media_type)
+        eq_(link.href, representation.url)
+        assert "Gutenberg" in representation.mirror_url
+        assert representation.mirror_url.endswith("%s/image.png" % edition.primary_identifier.identifier)
+
+        # We don't know the media type of this link, and there's no extension.
+        link = LinkData(
+            rel=Hyperlink.IMAGE,
+            href="http://example.com/unknown",
+            content=content
+        )
+        link_obj, ignore = edition.primary_identifier.add_link(
+            rel=link.rel, href=link.href, data_source=data_source,
+        )
+        h.queue_response(200, media_type=Representation.APPLICATION_XML_MEDIA_TYPE, content=content)
+        m.mirror_link(edition, data_source, link, link_obj, policy)
+        representation = link_obj.resource.representation
+
+        # The representation is fetched, but we don't try to mirror it
+        # since it doesn't have a mirrorable media type.
+        eq_(None, representation.fetch_exception)
+        assert representation.fetched_at != None
+        eq_(None, representation.mirror_exception)
+        eq_(None, representation.mirrored_at)
+        eq_(Representation.APPLICATION_XML_MEDIA_TYPE, representation.media_type)
+        eq_(link.href, representation.url)
+        eq_(None, representation.mirror_url)
+
     def test_non_open_access_book_not_mirrored(self):        
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)

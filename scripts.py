@@ -73,6 +73,7 @@ from model import (
     LicensePoolDeliveryMechanism,
     Patron,
     PresentationCalculationPolicy,
+    Representation,
     SessionManager,
     Subject,
     Timestamp,
@@ -1900,7 +1901,8 @@ class MirrorResourcesScript(CollectionInputScript):
         """
         return ReplacementPolicy(
             mirror=uploader, link_content=True,
-            even_if_not_apparently_updated=True
+            even_if_not_apparently_updated=True,
+            http_get=Representation.cautious_http_get,
         )
 
     def process_collection(self, collection, policy, unmirrored=None):
