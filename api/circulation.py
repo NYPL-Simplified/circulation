@@ -162,7 +162,7 @@ class FulfillmentInfo(CirculationInfo):
 
     def __init__(self, collection, data_source_name, identifier_type,
                  identifier, content_link, content_type, content,
-                 content_expires, mirrored=False):
+                 content_expires):
         """Constructor.
 
         One and only one of `content_link` and `content` should be
@@ -188,8 +188,6 @@ class FulfillmentInfo(CirculationInfo):
             `content_type`).
         :param content_expires: A time after which the "next step"
             link or content will no longer be usable.
-        :param mirrored: Should be true if the content link points to a local
-            mirror of the content.
 
         """
         super(FulfillmentInfo, self).__init__(
@@ -199,7 +197,6 @@ class FulfillmentInfo(CirculationInfo):
         self.content_type = content_type
         self.content = content
         self.content_expires = content_expires
-        self.mirrored = mirrored
     
     def __repr__(self):
         if self.content:
@@ -749,19 +746,17 @@ class CirculationAPI(object):
             raise FormatNotAvailable()
 
         rep = fulfillment.resource.representation
-        if rep.mirror_url:
-            mirrored = True
-            content_link = cdnify(rep.mirror_url)
+        if rep:
+            content_link = cdnify(rep.mirror_url or rep.url)
         else:
-            mirrored = False
-            content_link = cdnify(rep.url)
+            content_link = cdnify(fulfillment.resource.url)
         media_type = rep.media_type
         return FulfillmentInfo(
             licensepool.collection, licensepool.data_source,
             identifier_type=licensepool.identifier.type,
             identifier=licensepool.identifier.identifier,
             content_link=content_link, content_type=media_type, content=None, 
-            content_expires=None, mirrored=mirrored
+            content_expires=None,
         )
 
     def revoke_loan(self, patron, pin, licensepool):

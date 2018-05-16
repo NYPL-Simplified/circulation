@@ -1108,14 +1108,25 @@ class TestLoanController(CirculationControllerTest):
             # The mechanism we used has been registered with the loan.
             eq_(fulfillable_mechanism, loan.fulfillment)
 
-            # Set the representation to be unmirrored, so we have to make an
+            # Set the pool to be non-open-access, so we have to make an
             # external request to obtain the book.
-            fulfillable_mechanism.resource.representation.mirror_url = None
+            self.pool.open_access = False
 
             http = DummyHTTPClient()
 
+            fulfillment = FulfillmentInfo(
+                self.pool.collection,
+                self.pool.data_source,
+                self.pool.identifier.type,
+                self.pool.identifier.identifier,
+                content_link=fulfillable_mechanism.resource.url,
+                content_type=fulfillable_mechanism.resource.representation.media_type,
+                content=None,
+                content_expires=None)
+
             # Now that we've set a mechanism, we can fulfill the loan
             # again without specifying a mechanism.
+            self.manager.d_circulation.queue_fulfill(self.pool, fulfillment)
             http.queue_response(200, content="I am an ACSM file")
 
             response = self.manager.loans.fulfill(
@@ -1138,6 +1149,7 @@ class TestLoanController(CirculationControllerTest):
             # If the remote server fails, we get a problem detail.
             def doomed_get(url, headers, **kwargs):
                 raise RemoteIntegrationException("fulfill service", "Error!")
+            self.manager.d_circulation.queue_fulfill(self.pool, fulfillment)
 
             response = self.manager.loans.fulfill(
                 self.pool.id, do_get=doomed_get

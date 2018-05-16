@@ -1137,12 +1137,14 @@ class LoanController(CirculationManagerController):
                 # If we have a link to the content on a remote server, web clients may not
                 # be able to access it if the remote server does not support CORS requests.
 
-                # If we've mirrored the content locally, we can assume CORS is enabled.
-                if fulfillment.mirrored:
+                # If the pool is open access though, the web client can link directly to the
+                # file to download it, so it's safe to redirect.
+                if requested_license_pool.open_access:
                     return redirect(fulfillment.content_link)
 
                 # Otherwise, we need to fetch the content and return it instead
-                # of redirecting to it.
+                # of redirecting to it, since it may be downloaded through an
+                # indirect acquisition link.
                 try:
                     status_code, headers, content = do_get(fulfillment.content_link, headers=encoding_header)
                     headers = dict(headers)
