@@ -1424,7 +1424,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
         assert "shared_collection_fulfill" in fulfill.attrib.get("href")
         eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
-        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.url, open_access.attrib.get("href"))
+        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.representation.mirror_url, open_access.attrib.get("href"))
         eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
         assert 'shared_collection_loan_info' in info.attrib.get("href")
         eq_("self", info.attrib.get("rel"))
