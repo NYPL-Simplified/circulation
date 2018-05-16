@@ -1207,7 +1207,7 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
         assert "fulfill" in fulfill.attrib.get("href")
         eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
-        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.url, open_access.attrib.get("href"))
+        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.representation.mirror_url, open_access.attrib.get("href"))
         eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
 
         loan2_links = annotator.acquisition_links(
