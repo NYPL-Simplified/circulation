@@ -330,11 +330,30 @@ class CirculationManagerAnnotator(Annotator):
     def open_access_link(self, pool, lpdm):
         _db = Session.object_session(lpdm)
         url = cdnify(lpdm.resource.url)
-        kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
+        kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, type='')
+
+        # Start off assuming that the URL associated with the
+        # LicensePoolDeliveryMechanism's Resource is the URL we should
+        # send for download purposes. This will be the case unless we
+        # previously mirrored that URL somewhere else.
+        href = lpdm.resource.url
 
         rep = lpdm.resource.representation
-        if rep and rep.media_type:
-            kw['type'] = rep.media_type
+        if rep:
+            if rep.media_type:
+                kw['type'] = rep.media_type
+            if rep.mirror_url:
+                # The Representation was mirrored to some other URL
+                # under our control. In this situation, Resource.url
+                # is probably the original, pre-mirror URL, and
+                # mirror_url should take precedence.
+                href = rep.mirror_url
+            elif rep.url:
+                # This is probably the same as the resource URL, but
+                # if they are different this one is probably preferable.
+                href = rep.url
+        kw['href'] = cdnify(href)
+
         link_tag = AcquisitionFeed.link(**kw)
         link_tag.attrib.update(self.rights_attributes(lpdm))
         always_available = OPDSFeed.makeelement(

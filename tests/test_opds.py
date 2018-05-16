@@ -93,6 +93,12 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # becomes the `href` of an open-access `link` tag.
         pool = self.work.license_pools[0]
         [lpdm] = pool.delivery_mechanisms
+
+        # Temporarily disconnect the Resource's Representation so we
+        # can verify that this works even if there is no
+        # Representation.
+        representation = lpdm.resource.representation
+        lpdm.resource.representation = None
         lpdm.resource.url = "http://foo.com/thefile.epub"
         link_tag = self.annotator.open_access_link(pool, lpdm)
         eq_(lpdm.resource.url, link_tag.get('href'))
@@ -112,6 +118,25 @@ class TestCirculationManagerAnnotator(DatabaseTest):
 
         link_url = link_tag.get('href')
         eq_("https://cdn.com/thefile.epub", link_url)
+
+        # If the Resource has a Representation that has been mirrored
+        # somewhere else, the mirror URL is used instead of the original
+        # Resource URL.
+        lpdm.resource.representation = representation
+        link_tag = self.annotator.open_access_link(pool, lpdm)
+        eq_(representation.mirror_url, link_tag.get('href'))
+
+        # If the Representation exists but hasn't been mirrored,
+        # the Representation's original URL is used instead.
+        representation.mirror_url = None
+        representation.url = self._url
+        link_tag = self.annotator.open_access_link(pool, lpdm)
+        eq_(representation.url, link_tag.get('href'))
+
+        # If neither is present, the Resource's original URL is used.
+        representation.url = None
+        link_tag = self.annotator.open_access_link(pool, lpdm)
+        eq_(lpdm.resource.url, link_tag.get('href'))
 
     def test_default_lane_url(self):
         default_lane_url = self.annotator.default_lane_url()
@@ -1400,7 +1425,7 @@ class TestSharedCollectionAnnotator(DatabaseTest):
         eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
         assert "shared_collection_fulfill" in fulfill.attrib.get("href")
         eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
-        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.url, open_access.attrib.get("href"))
+        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.representation.mirror_url, open_access.attrib.get("href"))
         eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
         assert 'shared_collection_loan_info' in info.attrib.get("href")
         eq_("self", info.attrib.get("rel"))
