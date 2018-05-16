@@ -28,13 +28,29 @@ from core.model import (
     Session,
     Subject,
     get_one,
+    Equivalency,
+    LicensePool,
+    Collection,
 )
 from core.util import TitleProcessor
+from sqlalchemy.sql import (
+    select,
+    join,
+    and_,
+    or_,
+)
+from sqlalchemy.orm import aliased
+from core.util.http import HTTP
 
 class NoveListAPI(object):
 
     PROTOCOL = ExternalIntegration.NOVELIST
     NAME = _("Novelist API")
+
+    # Hardcoded authentication key used as a Header for calling the NoveList
+    # Collections API. It identifies the client, and lets NoveList know that
+    # SimplyE is making the requests.
+    AUTHORIZED_IDENTIFIER = u"62521fa1-bdbb-4939-84aa-aee2a52c8d59"
 
     SETTINGS = [
         { "key": ExternalIntegration.USERNAME, "label": _("Profile") },
@@ -60,6 +76,7 @@ class NoveListAPI(object):
         "https://novselect.ebscohost.com/Data/ContentByQuery?"
         "ISBN=%(ISBN)s&ClientIdentifier=%(ClientIdentifier)s&version=%(version)s"
     )
+    COLLECTION_DATA_API = "http://www.noveListcollectiondata.com/api/collections"
     AUTH_PARAMS = "&profile=%(profile)s&password=%(password)s"
     MAX_REPRESENTATION_AGE = 7*24*60*60      # one week
 
@@ -80,6 +97,7 @@ class NoveListAPI(object):
             _db, ExternalIntegration.NOVELIST,
             ExternalIntegration.METADATA_GOAL, library=library
         )
+
         if not integration:
             return (None, None)
 
@@ -432,6 +450,74 @@ class NoveListAPI(object):
             for book_info in related_books:
                 metadata.recommendations += self._extract_isbns(book_info)
         return metadata
+
+    def get_isbns_from_query(self, library):
+        collectionList = []
+        for c in library.collections:
+            collectionList.append(c.id)
+
+        LEFT_OUTER_JOIN = True
+        i1 = aliased(Identifier)
+        i2 = aliased(Identifier)
+
+        isbnQuery = select(
+            [i1.identifier, i1.type, i2.identifier]
+        ).select_from(
+            join(LicensePool, i1, i1.id==LicensePool.identifier_id)
+            .join(Equivalency, i1.id==Equivalency.input_id, LEFT_OUTER_JOIN)
+            .join(i2, Equivalency.output_id==i2.id, LEFT_OUTER_JOIN)
+        ).where(
+            and_(
+                LicensePool.collection_id.in_(collectionList),
+                or_(i1.type=="ISBN", i2.type=="ISBN")
+            )
+        ).alias('lp_isbns')
+
+        result = self._db.execute(isbnQuery)
+
+        isbns = []
+        for res in result:
+            if (res[1] == Identifier.ISBN):
+                isbns.append(res[0])
+            elif res[2] is not None:
+                isbns.append(res[2])
+
+        return isbns
+
+    def put_isbns_novelist(self, library):
+        isbns = self.get_isbns_from_query(library)
+
+        content = None
+        if isbns:
+            response = self.put(
+                self.COLLECTION_DATA_API,
+                {
+                    "AuthorizedIdentifier": self.AUTHORIZED_IDENTIFIER,
+                    "Content-Type": "application/json; charset=utf-8"
+                },
+                data=json.dumps(self.make_novelist_data_object(isbns))
+            )
+
+            if (response.status_code == 200):
+                content = json.loads(response.content)
+
+        return content
+
+    def make_novelist_data_object(self, data):
+        isbns = list(map(lambda isbn: {"Isbn": isbn}, data))
+
+        return {
+            "Customer": "%s:%s" % (self.profile, self.password),
+            "Records": isbns,
+        }
+
+    def put(self, url, headers, **kwargs):
+        data = kwargs.get('data')
+        if 'data' in kwargs:
+            del kwargs['data']
+
+        response = HTTP.put_with_timeout(url, data, headers=headers, **kwargs)
+        return response
 
 
 class MockNoveListAPI(NoveListAPI):
