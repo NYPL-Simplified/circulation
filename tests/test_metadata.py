@@ -517,8 +517,8 @@ class TestMetadataImporter(DatabaseTest):
             rel=link.rel, href=link.href, data_source=data_source,
         )
 
-        # But for some reason the remote server says it's XML.
-        h.queue_response(200, media_type=Representation.APPLICATION_XML_MEDIA_TYPE, content=content)
+        # The remote server told us a generic media type.
+        h.queue_response(200, media_type=Representation.OCTET_STREAM_MEDIA_TYPE, content=content)
         
         m.mirror_link(edition, data_source, link, link_obj, policy)
         representation = link_obj.resource.representation
@@ -543,7 +543,7 @@ class TestMetadataImporter(DatabaseTest):
         link_obj, ignore = edition.primary_identifier.add_link(
             rel=link.rel, href=link.href, data_source=data_source,
         )
-        h.queue_response(200, media_type=Representation.APPLICATION_XML_MEDIA_TYPE, content=content)
+        h.queue_response(200, media_type=Representation.OCTET_STREAM_MEDIA_TYPE, content=content)
         m.mirror_link(edition, data_source, link, link_obj, policy)
         representation = link_obj.resource.representation
 
@@ -567,7 +567,7 @@ class TestMetadataImporter(DatabaseTest):
         link_obj, ignore = edition.primary_identifier.add_link(
             rel=link.rel, href=link.href, data_source=data_source,
         )
-        h.queue_response(200, media_type=Representation.APPLICATION_XML_MEDIA_TYPE, content=content)
+        h.queue_response(200, media_type=Representation.OCTET_STREAM_MEDIA_TYPE, content=content)
         m.mirror_link(edition, data_source, link, link_obj, policy)
         representation = link_obj.resource.representation
 
@@ -577,7 +577,7 @@ class TestMetadataImporter(DatabaseTest):
         assert representation.fetched_at != None
         eq_(None, representation.mirror_exception)
         eq_(None, representation.mirrored_at)
-        eq_(Representation.APPLICATION_XML_MEDIA_TYPE, representation.media_type)
+        eq_(Representation.OCTET_STREAM_MEDIA_TYPE, representation.media_type)
         eq_(link.href, representation.url)
         eq_(None, representation.mirror_url)
 

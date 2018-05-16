@@ -566,13 +566,6 @@ class MetaToModelUtility(object):
             # hasn't changed, we'll keep using the one we have.
             max_age = 0
 
-        # If we don't have any information about this link's media type, but the
-        # the file extension is a mirrorable media type, assume that's correct.
-        if not link.media_type:
-            media_type_from_extension = Representation.guess_media_type(link.href)
-            if media_type_from_extension in Representation.MIRRORABLE_MEDIA_TYPES:
-                link.media_type = media_type_from_extension
-
         # This will fetch a representation of the original and 
         # store it in the database.
         representation, is_new = Representation.get(

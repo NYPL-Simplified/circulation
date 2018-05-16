@@ -8331,9 +8331,6 @@ class Representation(Base):
     # to stick with A.
     GENERIC_MEDIA_TYPES = [OCTET_STREAM_MEDIA_TYPE]
 
-    # These media types are the kind of thing we mirror.
-    MIRRORABLE_MEDIA_TYPES = BOOK_MEDIA_TYPES + IMAGE_MEDIA_TYPES
-
     FILE_EXTENSIONS = {
         EPUB_MEDIA_TYPE: "epub",
         MOBI_MEDIA_TYPE: "mobi",
@@ -8750,7 +8747,9 @@ class Representation(Base):
         Basically, images and books.
         """
         return any(
-            self.media_type in x for x in Representation.MIRRORABLE_MEDIA_TYPES
+            self.media_type in x for x in
+            (Representation.BOOK_MEDIA_TYPES,
+             Representation.IMAGE_MEDIA_TYPES)
         )
 
     def update_image_size(self):
