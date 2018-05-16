@@ -1098,22 +1098,21 @@ class TestLoanController(CirculationControllerTest):
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
 
-            http = DummyHTTPClient()
-
             # Now let's try to fulfill the loan.
-            http.queue_response(200, content="I am an ACSM file")
-
             response = self.manager.loans.fulfill(
                 self.pool.id, fulfillable_mechanism.delivery_mechanism.id,
-                do_get=http.do_get
             )
-            eq_(200, response.status_code)
-            eq_(["I am an ACSM file"],
-                response.response)
-            eq_(http.requests, [fulfillable_mechanism.resource.url])
+            eq_(302, response.status_code)
+            eq_(fulfillable_mechanism.resource.representation.mirror_url, response.headers.get("Location"))
 
             # The mechanism we used has been registered with the loan.
             eq_(fulfillable_mechanism, loan.fulfillment)
+
+            # Set the representation to be unmirrored, so we have to make an
+            # external request to obtain the book.
+            fulfillable_mechanism.resource.representation.mirror_url = None
+
+            http = DummyHTTPClient()
 
             # Now that we've set a mechanism, we can fulfill the loan
             # again without specifying a mechanism.
@@ -1125,7 +1124,7 @@ class TestLoanController(CirculationControllerTest):
             eq_(200, response.status_code)
             eq_(["I am an ACSM file"],
                 response.response)
-            eq_(http.requests, [fulfillable_mechanism.resource.url, fulfillable_mechanism.resource.url])
+            eq_(http.requests, [fulfillable_mechanism.resource.url])
 
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.

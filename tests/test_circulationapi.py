@@ -558,8 +558,9 @@ class TestCirculationAPI(DatabaseTest):
             self.pool, broken_lpdm
         )
         assert isinstance(result, FulfillmentInfo)
-        eq_(result.content_link, link.resource.url)
+        eq_(result.content_link, link.resource.representation.mirror_url)
         eq_(result.content_type, i_want_an_epub.content_type)
+        eq_(result.mirrored, True)
 
         # Now, if we try to call fulfill() with the broken
         # LicensePoolDeliveryMechanism we get a result from the
@@ -568,8 +569,9 @@ class TestCirculationAPI(DatabaseTest):
             self.patron, '1234', self.pool, broken_lpdm
         )
         assert isinstance(result, FulfillmentInfo)
-        eq_(result.content_link, link.resource.url)
+        eq_(result.content_link, link.resource.representation.mirror_url)
         eq_(result.content_type, i_want_an_epub.content_type)
+        eq_(result.mirrored, True)
         
         # We get the right result even if the code calling
         # fulfill_open_access() is incorrectly written and passes in
@@ -579,8 +581,9 @@ class TestCirculationAPI(DatabaseTest):
             self.pool, broken_lpdm
         )
         assert isinstance(result, FulfillmentInfo)
-        eq_(result.content_link, link.resource.url)
+        eq_(result.content_link, link.resource.representation.mirror_url)
         eq_(result.content_type, i_want_an_epub.content_type)
+        eq_(result.mirrored, True)
 
         # If we change the working LPDM so that it serves a different
         # media type than the one we're asking for, we're back to
@@ -880,6 +883,9 @@ class TestCirculationAPI(DatabaseTest):
         circulation.api_for_collection = {}
         eq_(False, circulation.can_fulfill_without_loan(None, pool, None))
 
+        # An open access pool can be fulfilled even without the BaseCirculationAPI.
+        pool.open_access = True
+        eq_(True, circulation.can_fulfill_without_loan(None, pool, object()))
 
 class TestBaseCirculationAPI(object):
 

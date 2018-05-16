@@ -91,9 +91,10 @@ class TestCirculationManagerAnnotator(DatabaseTest):
     def test_open_access_link(self):
         # The resource URL associated with a LicensePoolDeliveryMechanism
         # becomes the `href` of an open-access `link` tag.
-        [lpdm] = self.work.license_pools[0].delivery_mechanisms
+        pool = self.work.license_pools[0]
+        [lpdm] = pool.delivery_mechanisms
         lpdm.resource.url = "http://foo.com/thefile.epub"
-        link_tag = self.annotator.open_access_link(lpdm)
+        link_tag = self.annotator.open_access_link(pool, lpdm)
         eq_(lpdm.resource.url, link_tag.get('href'))
 
         # The dcterms:rights attribute may provide a more detailed
@@ -107,7 +108,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             config[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
                 'foo.com' : 'https://cdn.com/'
             }
-            link_tag = self.annotator.open_access_link(lpdm)
+            link_tag = self.annotator.open_access_link(pool, lpdm)
 
         link_url = link_tag.get('href')
         eq_("https://cdn.com/thefile.epub", link_url)
@@ -1182,7 +1183,7 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
         assert "fulfill" in fulfill.attrib.get("href")
         eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
-        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.url, open_access.attrib.get("href"))
+        assert 'fulfill' in open_access.attrib.get("href")
         eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
 
         loan2_links = annotator.acquisition_links(
