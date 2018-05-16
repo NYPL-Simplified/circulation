@@ -39,6 +39,7 @@ from model import (
     SessionManager,
     Subject,
     Work,
+    get_one,
 )
 
 from facets import FacetConstants
@@ -593,7 +594,7 @@ class TestOPDS(DatabaseTest):
             lane, TestAnnotator, facets=facets
         )
 
-        u = unicode(cached_feed.content)
+        u = unicode(cached_feed)
         parsed = feedparser.parse(u)
         by_title = parsed['feed']
 
@@ -974,7 +975,7 @@ class TestOPDS(DatabaseTest):
                 pagination=pagination
             )
         cached_works = make_page(pagination)
-        parsed = feedparser.parse(unicode(cached_works.content))
+        parsed = feedparser.parse(unicode(cached_works))
         eq_(work1.title, parsed['entries'][0]['title'])
 
         # Make sure the links are in place.
@@ -994,14 +995,14 @@ class TestOPDS(DatabaseTest):
 
         # Now get the second page and make sure it has a 'previous' link.
         cached_works = make_page(pagination.next_page)
-        parsed = feedparser.parse(cached_works.content)
+        parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
         eq_(work2.title, parsed['entries'][0]['title'])
 
         # The feed has breadcrumb links
         parentage = list(lane.parentage)
-        root = ET.fromstring(cached_works.content)
+        root = ET.fromstring(cached_works)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
 
@@ -1048,7 +1049,7 @@ class TestOPDS(DatabaseTest):
                 pagination=pagination
             )
         cached_works = make_page(pagination)
-        parsed = feedparser.parse(unicode(cached_works.content))
+        parsed = feedparser.parse(unicode(cached_works))
         eq_(work1.title, parsed['entries'][0]['title'])
 
         # Make sure the links are in place.
@@ -1067,13 +1068,13 @@ class TestOPDS(DatabaseTest):
 
         # Now get the second page and make sure it has a 'previous' link.
         cached_works = make_page(pagination.next_page)
-        parsed = feedparser.parse(cached_works.content)
+        parsed = feedparser.parse(cached_works)
         [previous] = self.links(parsed, 'previous')
         eq_(TestAnnotator.feed_url(lane, facets, pagination), previous['href'])
         eq_(work2.title, parsed['entries'][0]['title'])
 
         # The feed has no parents, so no breadcrumbs.
-        root = ET.fromstring(cached_works.content)
+        root = ET.fromstring(cached_works)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         eq_(None, breadcrumbs)
 
@@ -1118,7 +1119,7 @@ class TestOPDS(DatabaseTest):
             self._db, "test", self._url, self.fantasy, annotator,
             force_refresh=True
         )
-        parsed = feedparser.parse(cached_groups.content)
+        parsed = feedparser.parse(cached_groups)
 
         # There are four entries in three lanes.
         e1, e2, e3, e4 = parsed['entries']
@@ -1152,7 +1153,7 @@ class TestOPDS(DatabaseTest):
 
         # The feed has breadcrumb links
         ancestors = list(self.fantasy.parentage)
-        root = ET.fromstring(cached_groups.content)
+        root = ET.fromstring(cached_groups)
         breadcrumbs = root.find("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
         links = breadcrumbs.getchildren()
         eq_(len(ancestors) + 1, len(links))
@@ -1201,9 +1202,10 @@ class TestOPDS(DatabaseTest):
 
         # The feed is filed as a groups feed, even though in
         # form it is a page feed.
-        eq_(CachedFeed.GROUPS_TYPE, feed.type)
+        cached = get_one(self._db, CachedFeed, lane=test_lane)
+        eq_(CachedFeed.GROUPS_TYPE, cached.type)
 
-        parsed = feedparser.parse(feed.content)
+        parsed = feedparser.parse(feed)
 
         # There are two entries, one for each work.
         e1, e2 = parsed['entries']
@@ -1290,9 +1292,10 @@ class TestOPDS(DatabaseTest):
             self._db, af.NONGROUPED_MAX_AGE_POLICY)
         policy.value = "10"
 
-        cached1 = make_page()
-        assert work1.title in cached1.content
-        old_timestamp = cached1.timestamp
+        feed1 = make_page()
+        assert work1.title in feed1
+        cached = get_one(self._db, CachedFeed, lane=fantasy_lane) 
+        old_timestamp = cached.timestamp
 
         work2 = self._work(
             title="A Brand New Title",
@@ -1302,17 +1305,17 @@ class TestOPDS(DatabaseTest):
 
         # The new work does not show up in the feed because
         # we get the old cached version.
-        cached2 = make_page()
-        assert work2.title not in cached2.content
-        assert cached2.timestamp == old_timestamp
+        feed2 = make_page()
+        assert work2.title not in feed2
+        assert cached.timestamp == old_timestamp
 
         # Change the policy to disable caching, and we get
         # a brand new page with the new work.
         policy.value = "0"
 
-        cached3 = make_page()
-        assert cached3.timestamp > old_timestamp
-        assert work2.title in cached3.content
+        feed3 = make_page()
+        assert cached.timestamp > old_timestamp
+        assert work2.title in feed3
 
 
 class TestAcquisitionFeed(DatabaseTest):
