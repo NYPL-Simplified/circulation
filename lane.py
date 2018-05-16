@@ -1729,6 +1729,13 @@ class Lane(Base, WorkList):
     # This is almost never necessary.
     root_for_patron_type = Column(ARRAY(Unicode), nullable=True)
 
+    # When a lanes with sublanes is made into a grouped feed, that
+    # feed contains a swim lane from each sublane, plus a swim lane at
+    # the bottom for the lane itself. In some cases that final 
+    exclude_self_from_grouped_feed = Column(
+        Boolean, default=False, nullable=False
+    )
+
     # Only a visible lane will show up in the user interface.  The
     # admin interface can see all the lanes, visible or not.
     _visible = Column(Boolean, default=True, nullable=False, name="visible")
