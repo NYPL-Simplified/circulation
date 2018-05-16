@@ -5229,18 +5229,37 @@ class TestRepresentation(DatabaseTest):
 
         # If there are no headers or no content-type header, the
         # presumed media type takes precedence.
-        eq_("text/plain", m(None, "text/plain"))
-        eq_("text/plain", m({}, "text/plain"))
+        eq_("text/plain", m("http://text/all.about.jpeg", None, "text/plain"))
+        eq_("text/plain", m(None, {}, "text/plain"))
 
         # Most of the time, the content-type header takes precedence over
         # the presumed media type.
-        eq_("image/gif", m({"content-type": "image/gif"}, "text/plain"))
+        eq_("image/gif", m(None, {"content-type": "image/gif"}, "text/plain"))
 
         # Except when the content-type header is so generic as to be uselses.
         eq_("text/plain", m(
+            None,
             {"content-type": "application/octet-stream;profile=foo"}, 
             "text/plain")
         )
+
+        # If no default media type is specified, but one can be derived from
+        # the URL, that one is used as the default.
+        eq_("image/jpeg", m(
+            "http://images-galore/cover.jpeg",
+            {"content-type": "application/octet-stream;profile=foo"},
+            None)
+        )
+
+        # But a default media type doesn't override a specific
+        # Content-Type from the server, even if it superficially makes
+        # more sense.
+        eq_("image/png", m(
+            "http://images-galore/cover.jpeg",
+            {"content-type": "image/png"},
+            None)
+        )
+
 
     def test_mirrorable_media_type(self):
         representation, ignore = self._representation(self._url)
