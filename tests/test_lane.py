@@ -2714,6 +2714,10 @@ class TestWorkListGroups(DatabaseTest):
                     (i, expect_item, actual_item,
                      expect, actual)
                 )
+            eq_(len(expect), len(actual),
+               "Expect matches actual, but actual has extra members.\nOverall, expected:\n%r\nGot:\n%r:" %
+               (expect, actual)
+            )
 
         fiction.groups(self._db)
         assert_contents(
@@ -2774,7 +2778,7 @@ class TestWorkListGroups(DatabaseTest):
         # If we exclude 'Fiction' from its own grouped feed, we get
         # all the other books/lane combinations except for the books
         # associated directly with 'Fiction'.
-        fiction.exclude_self_from_grouped_feed = True
+        fiction.include_self_in_grouped_feed = False
         assert_contents(
             fiction.groups(self._db),
             [
@@ -2787,7 +2791,7 @@ class TestWorkListGroups(DatabaseTest):
                 (nonfiction, discredited_nonfiction),
             ]
         )
-        fiction.exclude_self_from_grouped_feed = False
+        fiction.include_self_in_grouped_feed = True
 
         # When a lane has no sublanes, its behavior is the same whether
         # it is called with include_sublanes true or false.
