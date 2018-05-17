@@ -8611,7 +8611,7 @@ class Representation(Base):
                 # post response isn't worth caching.
                 response_reviewer((status_code, headers, content))
             exception = None
-            media_type = cls._best_media_type(headers, presumed_media_type)
+            media_type = cls._best_media_type(url, headers, presumed_media_type)
             if isinstance(content, unicode):
                 content = content.encode("utf8")
         except Exception, fetch_exception:
@@ -8695,15 +8695,17 @@ class Representation(Base):
         return representation, False
 
     @classmethod
-    def _best_media_type(cls, headers, default):
+    def _best_media_type(cls, url, headers, default):
         """Determine the most likely media type for the given HTTP headers.
 
         Almost all the time, this is the value of the content-type
         header, if present. However, if the content-type header has a
         really generic value like "application/octet-stream" (as often
         happens with binary files hosted on Github), we'll privilege
-        the default value.
+        the default value. If there's no default value, we'll try to
+        derive one from the URL extension.
         """
+        default = default or cls.guess_media_type(url)
         if not headers or not 'content-type' in headers:
             return default
         headers_type = headers['content-type'].lower()

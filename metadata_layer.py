@@ -611,15 +611,23 @@ class MetaToModelUtility(object):
             policy.content_modifier(representation)
 
         # The metadata may have some idea about the media type for this
-        # LinkObject, but the media type we actually just saw takes 
-        # precedence.
-        if representation.media_type:
+        # LinkObject, but it could be wrong. If the representation we
+        # actually just saw is a mirrorable media type, that takes
+        # precedence. If we were expecting this link to be mirrorable
+        # but we actually saw something that's not, assume our original
+        # metadata was right and the server told us the wrong media type.
+        if representation.media_type and representation.mirrorable_media_type:
             link.media_type = representation.media_type
 
         if not representation.mirrorable_media_type:
-            self.log.info("Not mirroring %s: unsupported media type %s",
-                          representation.url, representation.media_type)
-            return
+            if link.media_type:
+                self.log.info("Saw unsupported media type for %s: %s. Assuming original media type %s is correct",
+                              representation.url, representation.media_type, link.media_type)
+                representation.media_type = link.media_type
+            else:
+                self.log.info("Not mirroring %s: unsupported media type %s",
+                              representation.url, representation.media_type)
+                return
 
         # Determine the best URL to use when mirroring this
         # representation.
