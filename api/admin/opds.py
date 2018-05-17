@@ -1,5 +1,6 @@
 from nose.tools import set_trace
 
+from sqlalchemy import and_
 from api.opds import LibraryAnnotator
 from core.opds import VerboseAnnotator
 from core.lane import Facets, Pagination
@@ -135,9 +136,13 @@ class AdminFeed(AcquisitionFeed):
         pagination = pagination or Pagination.default()
 
         q = _db.query(LicensePool).filter(
-            LicensePool.suppressed == True).order_by(
-                LicensePool.id
+            and_(
+                LicensePool.suppressed == True,
+                LicensePool.superceded == False,
             )
+        ).order_by(
+            LicensePool.id
+        )
         pools = pagination.apply(q).all()
 
         works = [pool.work for pool in pools]

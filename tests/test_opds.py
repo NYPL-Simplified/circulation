@@ -91,7 +91,8 @@ class TestCirculationManagerAnnotator(DatabaseTest):
     def test_open_access_link(self):
         # The resource URL associated with a LicensePoolDeliveryMechanism
         # becomes the `href` of an open-access `link` tag.
-        [lpdm] = self.work.license_pools[0].delivery_mechanisms
+        pool = self.work.license_pools[0]
+        [lpdm] = pool.delivery_mechanisms
 
         # Temporarily disconnect the Resource's Representation so we
         # can verify that this works even if there is no
@@ -99,7 +100,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         representation = lpdm.resource.representation
         lpdm.resource.representation = None
         lpdm.resource.url = "http://foo.com/thefile.epub"
-        link_tag = self.annotator.open_access_link(lpdm)
+        link_tag = self.annotator.open_access_link(pool, lpdm)
         eq_(lpdm.resource.url, link_tag.get('href'))
 
         # The dcterms:rights attribute may provide a more detailed
@@ -113,7 +114,7 @@ class TestCirculationManagerAnnotator(DatabaseTest):
             config[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {
                 'foo.com' : 'https://cdn.com/'
             }
-            link_tag = self.annotator.open_access_link(lpdm)
+            link_tag = self.annotator.open_access_link(pool, lpdm)
 
         link_url = link_tag.get('href')
         eq_("https://cdn.com/thefile.epub", link_url)
@@ -122,19 +123,19 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         # somewhere else, the mirror URL is used instead of the original
         # Resource URL.
         lpdm.resource.representation = representation
-        link_tag = self.annotator.open_access_link(lpdm)
+        link_tag = self.annotator.open_access_link(pool, lpdm)
         eq_(representation.mirror_url, link_tag.get('href'))
 
         # If the Representation exists but hasn't been mirrored,
         # the Representation's original URL is used instead.
         representation.mirror_url = None
         representation.url = self._url
-        link_tag = self.annotator.open_access_link(lpdm)
+        link_tag = self.annotator.open_access_link(pool, lpdm)
         eq_(representation.url, link_tag.get('href'))
 
         # If neither is present, the Resource's original URL is used.
         representation.url = None
-        link_tag = self.annotator.open_access_link(lpdm)
+        link_tag = self.annotator.open_access_link(pool, lpdm)
         eq_(lpdm.resource.url, link_tag.get('href'))
 
     def test_default_lane_url(self):
@@ -1207,7 +1208,7 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_('http://librarysimplified.org/terms/rel/revoke', revoke.attrib.get("rel"))
         assert "fulfill" in fulfill.attrib.get("href")
         eq_('http://opds-spec.org/acquisition', fulfill.attrib.get("rel"))
-        eq_(work1.license_pools[0].delivery_mechanisms[0].resource.representation.mirror_url, open_access.attrib.get("href"))
+        assert 'fulfill' in open_access.attrib.get("href")
         eq_('http://opds-spec.org/acquisition/open-access', open_access.attrib.get("rel"))
 
         loan2_links = annotator.acquisition_links(
