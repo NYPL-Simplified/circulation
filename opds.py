@@ -490,7 +490,7 @@ class AcquisitionFeed(OPDSFeed):
                 force_refresh=force_refresh,
             )
             if usable:
-                return cached
+                return cached.content
 
         works_and_lanes = lane.groups(_db, facets=facets)
         if not works_and_lanes:
@@ -564,7 +564,6 @@ class AcquisitionFeed(OPDSFeed):
         content = unicode(feed)
         if cached and use_cache:
             cached.update(_db, content)
-            return cached
         return content
 
     @classmethod
@@ -599,7 +598,7 @@ class AcquisitionFeed(OPDSFeed):
                 force_refresh=force_refresh,
             )
             if usable:
-                return cached
+                return cached.content
 
         works_q = lane.works(_db, facets, pagination)
         if not works_q:
@@ -648,7 +647,6 @@ class AcquisitionFeed(OPDSFeed):
         content = unicode(feed)
         if cached and use_cache:
             cached.update(_db, content)
-            return cached
         return content
 
     @classmethod
