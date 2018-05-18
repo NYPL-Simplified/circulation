@@ -2714,6 +2714,10 @@ class TestWorkListGroups(DatabaseTest):
                     (i, expect_item, actual_item,
                      expect, actual)
                 )
+            eq_(len(expect), len(actual),
+               "Expect matches actual, but actual has extra members.\nOverall, expected:\n%r\nGot:\n%r:" %
+               (expect, actual)
+            )
 
         fiction.groups(self._db)
         assert_contents(
@@ -2760,7 +2764,7 @@ class TestWorkListGroups(DatabaseTest):
         )
 
         # If we ask only about 'Fiction', not including its sublanes,
-        # we get the same results.
+        # we get the same books associated with that lane.
         #
         # hq_ro shows up before hq_litfic because its .random is a
         # larger number. In the previous example, hq_ro showed up
@@ -2770,6 +2774,24 @@ class TestWorkListGroups(DatabaseTest):
             fiction.groups(self._db, include_sublanes=False),
             [(hq_ro, fiction), (hq_litfic, fiction)]
         )
+
+        # If we exclude 'Fiction' from its own grouped feed, we get
+        # all the other books/lane combinations except for the books
+        # associated directly with 'Fiction'.
+        fiction.include_self_in_grouped_feed = False
+        assert_contents(
+            fiction.groups(self._db),
+            [
+                (mq_sf, best_sellers),
+                (mq_sf, staff_picks),
+                (hq_sf, sf_lane),
+                (mq_sf, sf_lane),
+                (hq_ro, romance_lane),
+                (mq_ro, romance_lane),
+                (nonfiction, discredited_nonfiction),
+            ]
+        )
+        fiction.include_self_in_grouped_feed = True
 
         # When a lane has no sublanes, its behavior is the same whether
         # it is called with include_sublanes true or false.

@@ -1397,7 +1397,6 @@ class WorkList(object):
             parent_lane = None
 
         queryable_lane_set = set(queryable_lanes)
-
         work_quality_tier_lane = list(
             self._featured_works_with_lanes(_db, queryable_lanes, facets=facets)
         )
@@ -1728,6 +1727,17 @@ class Lane(Base, WorkList):
     #
     # This is almost never necessary.
     root_for_patron_type = Column(ARRAY(Unicode), nullable=True)
+
+    # A grouped feed for a Lane contains a swim lane from each
+    # sublane, plus a swim lane at the bottom for the Lane itself. In
+    # some cases that final swim lane should not be shown. This
+    # generally happens because a) the sublanes are so varied that no
+    # one would want to see a big list containing everything, and b)
+    # the sublanes are exhaustive of the Lane's content, so there's
+    # nothing new to be seen by going into that big list.
+    include_self_in_grouped_feed = Column(
+        Boolean, default=True, nullable=False
+    )
 
     # Only a visible lane will show up in the user interface.  The
     # admin interface can see all the lanes, visible or not.
@@ -2102,7 +2112,10 @@ class Lane(Base, WorkList):
         library = self.get_library(_db)
         target_size = library.featured_lane_size
 
-        relevant_lanes = [self]
+        if self.include_self_in_grouped_feed:
+            relevant_lanes = [self]
+        else:
+            relevant_lanes = []
         if include_sublanes:
             # The child lanes go first.
             relevant_lanes = list(self.visible_children) + relevant_lanes
