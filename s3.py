@@ -244,8 +244,7 @@ class S3Uploader(MirrorUploader):
         # Turn the original URL into an s3.amazonaws.com URL.
         bucket, filename = self.bucket_and_filename(mirror_to)
         media_type = representation.external_media_type
-        bucket, remote_filename = self.bucket_and_filename(
-            representation.mirror_url)
+        bucket, remote_filename = self.bucket_and_filename(mirror_to)
         fh = representation.external_content()
         try:
             result = self.client.upload_fileobj(
@@ -299,19 +298,18 @@ class MockS3Uploader(S3Uploader):
     def __init__(self, fail=False, *args, **kwargs):
         self.uploaded = []
         self.content = []
+        self.destinations = []
         self.fail = fail
 
-    def mirror_batch(self, representations):
-        self.uploaded.extend(representations)
-        self.content.extend([r.content for r in representations])
-        for representation in representations:
-            if self.fail:
-                representation.mirror_exception = "Exception"
-                representation.mirrored_at = None
-            else:
-                if not representation.mirror_url:
-                    representation.mirror_url = representation.url
-                representation.set_as_mirrored()
+    def mirror_one(self, representation, mirror_to):
+        self.uploaded.append(representation)
+        self.destinations.append(mirror_to)
+        self.content.append(representation.content)
+        if self.fail:
+            representation.mirror_exception = "Exception"
+            representation.mirrored_at = None
+        else:
+            representation.set_as_mirrored(mirror_to)
 
 
 class MockS3Client(object):

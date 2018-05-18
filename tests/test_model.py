@@ -795,9 +795,19 @@ class TestIdentifier(DatabaseTest):
         [cover_link] = entry.links
         eq_('http://cover', cover_link.href)
 
-        # Its updated time is set to the cover representation time.
-        expected = cover.resource.representation.mirrored_at
-        eq_(format_timestamp(expected), entry.updated)
+        # The 'updated' time is set to the latest timestamp associated
+        # with the Identifier. 
+        eq_([], identifier.coverage_records)
+
+        # This may be the time the cover image was mirrored.
+        cover.resource.representation.set_as_mirrored(self._url)
+        now = datetime.datetime.utcnow()
+        cover.resource.representation.mirrored_at = now
+        entry = get_entry_dict(identifier.opds_entry())
+        eq_(format_timestamp(now), entry.updated)
+
+        # Or it may be a timestamp on a coverage record associated
+        # with the Identifier.
 
         # For whatever reason, this coverage record is missing its
         # timestamp. This indicates an error elsewhere, but it
@@ -807,14 +817,18 @@ class TestIdentifier(DatabaseTest):
         )
         no_timestamp.timestamp = None
 
-        # If a coverage record is dated after the representation time,
-        # That becomes the new updated time.
+        # If a coverage record is dated after the cover image's mirror
+        # time, That becomes the new updated time.
         record = self._coverage_record(identifier, source)
+        the_future = now + datetime.timedelta(minutes=60)
+        record.timestamp = the_future
+        identifier.opds_entry()
         entry = get_entry_dict(identifier.opds_entry())
         eq_(format_timestamp(record.timestamp), entry.updated)
 
         # Basically the latest date is taken from either a coverage record
         # or a representation.
+        even_later = now + datetime.timedelta(minutes=120)
         thumbnail = identifier.add_link(
             Hyperlink.THUMBNAIL_IMAGE, 'http://thumb', source,
             media_type=Representation.JPEG_MEDIA_TYPE
@@ -823,6 +837,7 @@ class TestIdentifier(DatabaseTest):
         cover_rep = cover.resource.representation
         thumbnail.resource.representation.thumbnail_of_id = cover_rep.id
         cover_rep.thumbnails.append(thumb_rep)
+        thumbnail.resource.representation.mirrored_at = even_later
 
         entry = get_entry_dict(identifier.opds_entry())
         # The thumbnail has been added to the links.
@@ -830,7 +845,7 @@ class TestIdentifier(DatabaseTest):
         assert any(filter(lambda l: l.href=='http://thumb', entry.links))
         # And the updated time has been changed accordingly.
         expected = thumbnail.resource.representation.mirrored_at
-        eq_(format_timestamp(expected), entry.updated)
+        eq_(format_timestamp(even_later), entry.updated)
 
 
 class TestGenre(DatabaseTest):
@@ -1677,17 +1692,11 @@ class TestEdition(DatabaseTest):
         # but there is no evidence that they are the _same_ image.
         main_image, ignore = edition.primary_identifier.add_link(
             Hyperlink.IMAGE, self._url,
-            edition.data_source
-        )
-        main_image.resource.set_mirrored_elsewhere(
-            Representation.PNG_MEDIA_TYPE
+            edition.data_source, Representation.PNG_MEDIA_TYPE
         )
         thumbnail_image, ignore = edition.primary_identifier.add_link(
             Hyperlink.THUMBNAIL_IMAGE, self._url,
-            edition.data_source
-        )
-        thumbnail_image.resource.set_mirrored_elsewhere(
-            Representation.PNG_MEDIA_TYPE
+            edition.data_source, Representation.PNG_MEDIA_TYPE
         )
 
         # Nonetheless, Edition.choose_cover() will assign the
@@ -1702,10 +1711,7 @@ class TestEdition(DatabaseTest):
         # full-sized image...
         thumbnail_2, ignore = edition.primary_identifier.add_link(
             Hyperlink.THUMBNAIL_IMAGE, self._url,
-            edition.data_source
-        )
-        thumbnail_2.resource.set_mirrored_elsewhere(
-            Representation.PNG_MEDIA_TYPE
+            edition.data_source, Representation.PNG_MEDIA_TYPE
         )
         thumbnail_2.resource.representation.thumbnail_of = main_image.resource.representation
         edition.choose_cover()
@@ -5163,22 +5169,26 @@ class TestHyperlink(DatabaseTest):
         eq_([], m())
 
         # Hyperlink rel is not mirrorable.
-        wrong_type, ignore = i1.add_link("not mirrorable", self._url, ds)
-        wrong_type.resource.set_mirrored_elsewhere("text/plain")
+        wrong_type, ignore = i1.add_link(
+            "not mirrorable", self._url, ds, "text/plain"
+        )
         eq_([], m())
 
         # Hyperlink has no associated representation -- it needs to be
         # mirrored, which will create one!
-        hyperlink, ignore = i1.add_link(Hyperlink.IMAGE, self._url, ds)
+        hyperlink, ignore = i1.add_link(
+            Hyperlink.IMAGE, self._url, ds, "image/png"
+        )
         eq_([hyperlink], m())
 
-        # Hyperlink is already mirrored.
-        hyperlink.resource.set_mirrored_elsewhere("image/png")
+        # Representation is already mirrored, so does not show up
+        # in the unmirrored list.
+        representation = hyperlink.resource.representation
+        representation.set_as_mirrored(self._url)
         eq_([], m())
 
         # Representation exists in database but is not mirrored -- it needs
         # to be mirrored!
-        representation = hyperlink.resource.representation
         representation.mirror_url = None
         eq_([hyperlink], m())
 
@@ -5769,8 +5779,7 @@ class TestCoverResource(DatabaseTest):
             Hyperlink.IMAGE, original, edition.data_source, "image/png",
             content=open(sample_cover_path).read())
         full_rep = hyperlink.resource.representation
-        full_rep.mirror_url = mirror
-        full_rep.set_as_mirrored()
+        full_rep.set_as_mirrored(mirror)
 
         edition.set_cover(hyperlink.resource)
         eq_(mirror, edition.cover_full_url)
@@ -5779,8 +5788,7 @@ class TestCoverResource(DatabaseTest):
         # Now scale the cover.
         thumbnail, ignore = self._representation()
         thumbnail.thumbnail_of = full_rep
-        thumbnail.mirror_url = thumbnail_mirror
-        thumbnail.set_as_mirrored()
+        thumbnail.set_as_mirrored(thumbnail_mirror)
         edition.set_cover(hyperlink.resource)
         eq_(mirror, edition.cover_full_url)
         eq_(thumbnail_mirror, edition.cover_thumbnail_url)
@@ -5794,8 +5802,7 @@ class TestCoverResource(DatabaseTest):
             Hyperlink.IMAGE, original, edition.data_source, "image/png",
             open(sample_cover_path).read())
         full_rep = hyperlink.resource.representation
-        full_rep.mirror_url = mirror
-        full_rep.set_as_mirrored()
+        full_rep.set_as_mirrored(mirror)
 
         edition.set_cover(hyperlink.resource)
         eq_(mirror, edition.cover_full_url)
@@ -5810,8 +5817,7 @@ class TestCoverResource(DatabaseTest):
             Hyperlink.IMAGE, original, edition.data_source, "image/png",
             open(sample_cover_path).read())
         full_rep = hyperlink.resource.representation
-        full_rep.mirror_url = mirror
-        full_rep.set_as_mirrored()
+        full_rep.set_as_mirrored(mirror)
 
         # For purposes of this test, pretend that the full-sized image is 
         # larger than a thumbnail, but not terribly large.

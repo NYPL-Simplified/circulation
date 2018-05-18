@@ -2452,10 +2452,17 @@ class Identifier(Base):
 
         Currently the only things in this OPDS entry will be description,
         cover image, and popularity.
+
+        NOTE: The timestamp doesn't take into consideration when the
+        description was added. Rather than fixing this it's probably
+        better to get rid of this hack and create real Works where we
+        would be using this method.
         """
         id = self.urn
         cover_image = None
         description = None
+        most_recent_update = None
+        timestamps = []
         for link in self.links:
             resource = link.resource
             if link.rel == Hyperlink.IMAGE:
@@ -2463,22 +2470,29 @@ class Identifier(Base):
                         not cover_image.representation.thumbnails and
                         resource.representation.thumbnails):
                     cover_image = resource
+                    if cover_image.representation:
+                        # This is technically redundant because
+                        # minimal_opds_entry will redo this work work,
+                        # but just to be safe.
+                        mirrored_at = cover_image.representation.mirrored_at
+                        if mirrored_at:
+                            timestamps.append(mirrored_at)
             elif link.rel == Hyperlink.DESCRIPTION:
                 if not description or resource.quality > description.quality:
                     description = resource
 
-        last_coverage_update = None
         if self.coverage_records:
-            timestamps = [
+            timestamps.extend([
                 c.timestamp for c in self.coverage_records if c.timestamp
-            ]
-            last_coverage_update = max(timestamps)
+            ])
+        if timestamps:
+            most_recent_update = max(timestamps)
 
         quality = Measurement.overall_quality(self.measurements)
         from opds import AcquisitionFeed
         return AcquisitionFeed.minimal_opds_entry(
             identifier=self, cover=cover_image, description=description,
-            quality=quality, most_recent_update=last_coverage_update
+            quality=quality, most_recent_update=most_recent_update
         )
 
 
@@ -3317,7 +3331,7 @@ class Edition(Base):
         old_cover = self.cover
         old_cover_full_url = self.cover_full_url
         self.cover = resource
-        self.cover_full_url = resource.representation.mirror_url
+        self.cover_full_url = resource.representation.public_url
 
         # TODO: In theory there could be multiple scaled-down
         # versions of this representation and we need some way of
@@ -3635,11 +3649,11 @@ class Edition(Base):
                     )
                 else:
                     rep = best_cover.representation
-                    if not rep.mirrored_at and not rep.thumbnails:
+                    if not rep.thumbnails:
                         logging.warn(
-                            "Best cover for %r (%s) was never mirrored or thumbnailed!",
+                            "Best cover for %r (%s) was never thumbnailed!",
                             self.primary_identifier,
-                            rep.url
+                            rep.public_url
                         )
                 self.set_cover(best_cover)
                 break
@@ -3671,14 +3685,8 @@ class Edition(Base):
                         )
                     else:
                         rep = best_thumbnail.representation
-                        if not rep.mirrored_at:
-                            logging.warn(
-                                "Best thumbnail for %r (%s) was never mirrored!",
-                                self.primary_identifier, rep.url
-                            )
-                            self.cover_thumbnail_url = rep.url
-                        else:
-                            self.cover_thumbnail_url = rep.mirror_url
+                        if rep:
+                            self.cover_thumbnail_url = rep.public_url
                         break
             else:
                 # No thumbnail was found. If the Edition references a thumbnail,

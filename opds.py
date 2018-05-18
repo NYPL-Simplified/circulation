@@ -1234,7 +1234,6 @@ class AcquisitionFeed(OPDSFeed):
     ):
         elements = []
         representations = []
-        most_recent_update = None
         if cover:
             cover_representation = cover.representation
             representations.append(cover.representation)
