@@ -311,7 +311,7 @@ class CirculationManagerAnnotator(Annotator):
         if active_license_pool and active_license_pool.open_access:
             for lpdm in active_license_pool.delivery_mechanisms:
                 if lpdm.resource:
-                    open_access_links.append(self.open_access_link(lpdm))
+                    open_access_links.append(self.open_access_link(active_license_pool, lpdm))
 
         return [x for x in borrow_links + fulfill_links + open_access_links + revoke_links
                 if x is not None]
@@ -327,14 +327,33 @@ class CirculationManagerAnnotator(Annotator):
                      rel=OPDSFeed.ACQUISITION_REL):
         return None
 
-    def open_access_link(self, lpdm):
+    def open_access_link(self, pool, lpdm):
         _db = Session.object_session(lpdm)
         url = cdnify(lpdm.resource.url)
-        kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, href=url)
+        kw = dict(rel=OPDSFeed.OPEN_ACCESS_REL, type='')
+
+        # Start off assuming that the URL associated with the
+        # LicensePoolDeliveryMechanism's Resource is the URL we should
+        # send for download purposes. This will be the case unless we
+        # previously mirrored that URL somewhere else.
+        href = lpdm.resource.url
 
         rep = lpdm.resource.representation
-        if rep and rep.media_type:
-            kw['type'] = rep.media_type
+        if rep:
+            if rep.media_type:
+                kw['type'] = rep.media_type
+            if rep.mirror_url:
+                # The Representation was mirrored to some other URL
+                # under our control. In this situation, Resource.url
+                # is probably the original, pre-mirror URL, and
+                # mirror_url should take precedence.
+                href = rep.mirror_url
+            elif rep.url:
+                # This is probably the same as the resource URL, but
+                # if they are different this one is probably preferable.
+                href = rep.url
+        kw['href'] = cdnify(href)
+
         link_tag = AcquisitionFeed.link(**kw)
         link_tag.attrib.update(self.rights_attributes(lpdm))
         always_available = OPDSFeed.makeelement(
@@ -900,6 +919,18 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             license_pool, active_loan, delivery_mechanism
         )
         link_tag.extend(children)
+        return link_tag
+
+    def open_access_link(self, pool, lpdm):
+        link_tag = super(LibraryAnnotator, self).open_access_link(pool, lpdm)
+        fulfill_url = self.url_for(
+            "fulfill",
+            license_pool_id=pool.id,
+            mechanism_id=lpdm.delivery_mechanism.id,
+            library_short_name=self.library.short_name,
+            _external=True
+        )
+        link_tag.attrib.update(dict(href=fulfill_url))
         return link_tag
 
     @classmethod

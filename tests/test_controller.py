@@ -49,6 +49,7 @@ from core.metadata_layer import Metadata
 from core import model
 from core.entrypoint import (
     EbooksEntryPoint,
+    EntryPoint,
     AudiobooksEntryPoint,
 )
 from core.model import (
@@ -1097,25 +1098,35 @@ class TestLoanController(CirculationControllerTest):
                                _external=True) for mech in [mech1, mech2]]
             eq_(set(expects), set(fulfillment_links))
 
-            http = DummyHTTPClient()
-
             # Now let's try to fulfill the loan.
-            http.queue_response(200, content="I am an ACSM file")
-
             response = self.manager.loans.fulfill(
                 self.pool.id, fulfillable_mechanism.delivery_mechanism.id,
-                do_get=http.do_get
             )
-            eq_(200, response.status_code)
-            eq_(["I am an ACSM file"],
-                response.response)
-            eq_(http.requests, [fulfillable_mechanism.resource.url])
+            eq_(302, response.status_code)
+            eq_(fulfillable_mechanism.resource.representation.mirror_url, response.headers.get("Location"))
 
             # The mechanism we used has been registered with the loan.
             eq_(fulfillable_mechanism, loan.fulfillment)
 
+            # Set the pool to be non-open-access, so we have to make an
+            # external request to obtain the book.
+            self.pool.open_access = False
+
+            http = DummyHTTPClient()
+
+            fulfillment = FulfillmentInfo(
+                self.pool.collection,
+                self.pool.data_source,
+                self.pool.identifier.type,
+                self.pool.identifier.identifier,
+                content_link=fulfillable_mechanism.resource.url,
+                content_type=fulfillable_mechanism.resource.representation.media_type,
+                content=None,
+                content_expires=None)
+
             # Now that we've set a mechanism, we can fulfill the loan
             # again without specifying a mechanism.
+            self.manager.d_circulation.queue_fulfill(self.pool, fulfillment)
             http.queue_response(200, content="I am an ACSM file")
 
             response = self.manager.loans.fulfill(
@@ -1124,7 +1135,7 @@ class TestLoanController(CirculationControllerTest):
             eq_(200, response.status_code)
             eq_(["I am an ACSM file"],
                 response.response)
-            eq_(http.requests, [fulfillable_mechanism.resource.url, fulfillable_mechanism.resource.url])
+            eq_(http.requests, [fulfillable_mechanism.resource.url])
 
             # But we can't use some other mechanism -- we're stuck with
             # the first one we chose.
@@ -1138,6 +1149,7 @@ class TestLoanController(CirculationControllerTest):
             # If the remote server fails, we get a problem detail.
             def doomed_get(url, headers, **kwargs):
                 raise RemoteIntegrationException("fulfill service", "Error!")
+            self.manager.d_circulation.queue_fulfill(self.pool, fulfillment)
 
             response = self.manager.loans.fulfill(
                 self.pool.id, do_get=doomed_get
@@ -2674,7 +2686,7 @@ class TestFeedController(CirculationControllerTest):
             eq_(0, len([link for link in links if link.get("rel") == Hyperlink.BORROW]))
             [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
             pool = self.english_2.license_pools[0]
-            eq_(pool.identifier.links[0].resource.url, open_access_link.get("href"))
+            eq_(pool.identifier.links[0].resource.representation.mirror_url, open_access_link.get("href"))
 
         # The collection must exist.
         with self.app.test_request_context("/?size=1"):
@@ -2807,16 +2819,13 @@ class TestFeedController(CirculationControllerTest):
         # Verify that AcquisitionFeed.search() is passed the
         # appropriate faceting object when we try to search a
         # different EntryPoint.
-        #
-        # This is a little messy because to do this we have to replace the
-        # top-level Lane with a WorkList.
+
+        # By default, the library only has one entry point enabled.
+        # We need to enable more than one so it's a real choice.
         library = self._default_library
-        worklist = WorkList.top_level_for_library(self._db, library)
-        worklist.initialize(
-            self._default_library, display_name="top level",
-            entrypoints=[EbooksEntryPoint, AudiobooksEntryPoint]
+        library.setting(EntryPoint.ENABLED_SETTING).value = json.dumps(
+            [AudiobooksEntryPoint.INTERNAL_NAME, EbooksEntryPoint.INTERNAL_NAME]
         )
-        self.manager.top_level_lanes[library.id] = worklist
         with self.request_context_with_library("/?q=t&entrypoint=Audio"):
             self.manager.opds_feeds.search(None)
             (s, args) = self.called_with

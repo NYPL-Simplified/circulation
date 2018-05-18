@@ -657,7 +657,7 @@ class OPDSFeedController(CirculationManagerController):
         feed = AcquisitionFeed.groups(
             self._db, title, url, lane, annotator, facets=facets
         )
-        return feed_response(feed.content)
+        return feed_response(feed)
 
     def feed(self, lane_identifier):
         """Build or retrieve a paginated acquisition feed."""
@@ -685,7 +685,7 @@ class OPDSFeedController(CirculationManagerController):
             facets=facets,
             pagination=pagination,
         )
-        return feed_response(feed.content)
+        return feed_response(feed)
 
     def crawlable_library_feed(self):
         """Build or retrieve a crawlable acquisition feed for the
@@ -749,7 +749,7 @@ class OPDSFeedController(CirculationManagerController):
             facets=facets,
             pagination=pagination,
         )
-        return feed_response(feed.content)
+        return feed_response(feed)
 
     def search(self, lane_identifier):
 
@@ -1136,7 +1136,15 @@ class LoanController(CirculationManagerController):
             if fulfillment.content_link:
                 # If we have a link to the content on a remote server, web clients may not
                 # be able to access it if the remote server does not support CORS requests.
-                # We need to fetch the content and return it instead of redirecting to it.
+
+                # If the pool is open access though, the web client can link directly to the
+                # file to download it, so it's safe to redirect.
+                if requested_license_pool.open_access:
+                    return redirect(fulfillment.content_link)
+
+                # Otherwise, we need to fetch the content and return it instead
+                # of redirecting to it, since it may be downloaded through an
+                # indirect acquisition link.
                 try:
                     status_code, headers, content = do_get(fulfillment.content_link, headers=encoding_header)
                     headers = dict(headers)
@@ -1375,7 +1383,7 @@ class WorkController(CirculationManagerController):
             facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.CONTRIBUTOR_TYPE
         )
-        return feed_response(unicode(feed.content))
+        return feed_response(unicode(feed))
 
     def permalink(self, identifier_type, identifier):
         """Serve an entry for a single book.
@@ -1436,7 +1444,7 @@ class WorkController(CirculationManagerController):
             self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator,
             facets=facets
         )
-        return feed_response(unicode(feed.content))
+        return feed_response(unicode(feed))
 
     def recommendations(self, identifier_type, identifier, novelist_api=None):
         """Serve a feed of recommendations related to a given book."""
@@ -1473,7 +1481,7 @@ class WorkController(CirculationManagerController):
             facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.RECOMMENDATIONS_TYPE
         )
-        return feed_response(unicode(feed.content))
+        return feed_response(unicode(feed))
 
     def report(self, identifier_type, identifier):
         """Report a problem with a book."""
@@ -1541,7 +1549,7 @@ class WorkController(CirculationManagerController):
             facets=facets, pagination=pagination,
             annotator=annotator, cache_type=CachedFeed.SERIES_TYPE
         )
-        return feed_response(unicode(feed.content))
+        return feed_response(unicode(feed))
 
 
 class ProfileController(CirculationManagerController):
