@@ -2209,7 +2209,7 @@ class Identifier(Base):
             # We know the type of the resource, so make a
             # Representation for it.
             resource.representation, is_new = get_one_or_create(
-                _db, Representation, url=self.url, media_type=media_type
+                _db, Representation, url=resource.url, media_type=media_type
             )
 
         # TODO: This is where we would mirror the resource if we 
@@ -5975,7 +5975,7 @@ class Resource(Base):
             # In order, our criteria are: whether we
             # mirrored the representation (which means we directly
             # control it), image quality, and media type suitability.
-            compare_key = (r.mirror_url is not None, quality, media_priority)
+            compare_key = (rep.mirror_url is not None, quality, media_priority)
             if not champion_key or (compare_key > champion_key):
                 # A new champion.
                 champions = [r]
