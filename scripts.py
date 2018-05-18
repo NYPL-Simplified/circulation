@@ -19,7 +19,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.orm import (
-    contains_eager, 
+    contains_eager,
     defer
 )
 from psycopg2.extras import NumericRange
@@ -81,7 +81,7 @@ from core.opds_import import (
 from core.opds import (
     AcquisitionFeed,
 )
-from core.util.opds_writer import (    
+from core.util.opds_writer import (
      OPDSFeed,
 )
 from core.external_list import CustomListFromCSV
@@ -127,6 +127,9 @@ from api.odl import (
     SharedODLImportMonitor,
 )
 from core.scripts import OPDSImportScript
+from api.novelist import (
+    NoveListAPI
+)
 
 class Script(CoreScript):
     def load_config(self):
@@ -187,7 +190,7 @@ class CreateWorksForIdentifiersScript(Script):
 
         if response.status_code != 200:
             raise Exception(response.text)
-            
+
         content_type = response.headers['content-type']
         if content_type != OPDSFeed.ACQUISITION_FEED_TYPE:
             raise Exception("Wrong media type: %s" % content_type)
@@ -196,7 +199,7 @@ class CreateWorksForIdentifiersScript(Script):
             self._db, response.text,
             overwrite_rels=[Hyperlink.DESCRIPTION, Hyperlink.IMAGE])
         imported, messages_by_id = importer.import_from_feed()
-        self.log.info("%d successes, %d failures.", 
+        self.log.info("%d successes, %d failures.",
                       len(imported), len(messages_by_id))
         self._db.commit()
 
@@ -301,10 +304,10 @@ class UpdateStaffPicksScript(Script):
             self._db, url, do_get=Representation.browser_http_get,
             accept="text/csv", max_age=timedelta(days=1))
         if representation.status_code != 200:
-            raise ValueError("Unexpected status code %s" % 
+            raise ValueError("Unexpected status code %s" %
                              representation.status_code)
         if not representation.media_type.startswith("text/csv"):
-            raise ValueError("Unexpected media type %s" % 
+            raise ValueError("Unexpected media type %s" %
                              representation.media_type)
         return StringIO(representation.content)
 
@@ -317,18 +320,18 @@ class CacheRepresentationPerLane(LaneSweeperScript):
     def arg_parser(cls, _db):
         parser = LaneSweeperScript.arg_parser(_db)
         parser.add_argument(
-            '--language', 
+            '--language',
             help='Process only lanes that include books in this language.',
             action='append'
         )
         parser.add_argument(
-            '--max-depth', 
+            '--max-depth',
             help='Stop processing lanes once you reach this depth.',
             type=int,
             default=None
         )
         parser.add_argument(
-            '--min-depth', 
+            '--min-depth',
             help='Start processing lanes once you reach this depth.',
             type=int,
             default=1
@@ -342,7 +345,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         app.manager = CirculationManager(self._db, testing=testing)
         self.app = app
         self.base_url = ConfigurationSetting.sitewide(self._db, Configuration.BASE_URL_KEY).value
-        
+
     def parse_args(self, cmd_args=None):
         parser = self.arg_parser(self._db)
         parsed = parser.parse_args(cmd_args)
@@ -360,7 +363,7 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         # Return the parsed arguments in case a subclass needs to
         # process more args.
         return parsed
-    
+
     def should_process_lane(self, lane):
         if not isinstance(lane, Lane):
             return False
@@ -369,23 +372,23 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         if not self.languages:
             # We are considering lanes for every single language.
             language_ok = True
-        
+
         if not lane.languages:
             # The lane has no language restrictions.
             language_ok = True
-        
+
         for language in self.languages:
             if language in lane.languages:
                 language_ok = True
                 break
         if not language_ok:
             return False
-        
+
         if self.max_depth is not None and lane.depth > self.max_depth:
             return False
         if self.min_depth is not None and lane.depth < self.min_depth:
             return False
-        
+
         return True
 
     def cache_url(self, annotator, lane, languages):
@@ -418,18 +421,18 @@ class CacheRepresentationPerLane(LaneSweeperScript):
         self.log.info("Generating feed(s) for %s", lane.full_identifier)
         cached_feeds = list(self.do_generate(lane))
         b = time.time()
-        total_size = sum(len(x.content) for x in cached_feeds if x)
+        total_size = sum(len(x) for x in cached_feeds if x)
         self.log.info(
             "Generated %d feed(s) for %s. Took %.2fsec to make %d bytes.",
             len(cached_feeds), lane.full_identifier, (b-a), total_size
         )
         return cached_feeds
-        
+
 class CacheFacetListsPerLane(CacheRepresentationPerLane):
     """Cache the first two pages of every relevant facet list for this lane."""
 
     name = "Cache OPDS feeds"
-    
+
     @classmethod
     def arg_parser(cls, _db):
         parser = CacheRepresentationPerLane.arg_parser(_db)
@@ -465,7 +468,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             action='append',
             default=[],
         )
-        
+
         default_pages = 2
         parser.add_argument(
             '--pages',
@@ -474,7 +477,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             default=default_pages
         )
         return parser
-    
+
     def parse_args(self, cmd_args=None):
         parsed = super(CacheFacetListsPerLane, self).parse_args(cmd_args)
         self.orders = parsed.order
@@ -501,7 +504,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
         default_order = library.default_facet(Facets.ORDER_FACET_GROUP_NAME)
         allowed_orders = library.enabled_facets(Facets.ORDER_FACET_GROUP_NAME)
         chosen_orders = self.orders or [default_order]
-        
+
         default_availability = library.default_facet(
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
@@ -509,15 +512,15 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
             Facets.AVAILABILITY_FACET_GROUP_NAME
         )
         chosen_availabilities = self.availabilities or [default_availability]
-        
+
         default_collection = library.default_facet(
             Facets.COLLECTION_FACET_GROUP_NAME
         )
         allowed_collections = library.enabled_facets(
             Facets.COLLECTION_FACET_GROUP_NAME
-        )        
+        )
         chosen_collections = self.collections or [default_collection]
-        
+
         for order in chosen_orders:
             if order not in allowed_orders:
                 logging.warn("Ignoring unsupported ordering %s" % order)
@@ -539,7 +542,7 @@ class CacheFacetListsPerLane(CacheRepresentationPerLane):
                     title = lane.display_name
                     for pagenum in range(0, self.pages):
                         yield AcquisitionFeed.page(
-                            self._db, title, url, lane, annotator, 
+                            self._db, title, url, lane, annotator,
                             facets=facets, pagination=pagination,
                             force_refresh=True
                         )
@@ -562,7 +565,7 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
         feeds = []
         annotator = self.app.manager.annotator(lane)
         title = lane.display_name
-        
+
         if isinstance(lane, Lane):
             lane_id = lane.id
         else:
@@ -602,7 +605,7 @@ class AdobeAccountIDResetScript(PatronInputScript):
             action='store_true'
         )
         return parser
-    
+
     def do_run(self, *args, **kwargs):
         parsed = self.parse_command_line(self._db, *args, **kwargs)
         patrons = parsed.patrons
@@ -630,7 +633,7 @@ You'll get another chance to back out before the database session is committed."
             self.log.warn("All done. Sleeping for five seconds before committing.")
             time.sleep(5)
             self._db.commit()
-        
+
     def process_patron(self, patron):
         """Delete all of a patron's Credentials that contain an Adobe account
         ID _or_ connect the patron to a DelegatedPatronIdentifier that
@@ -686,7 +689,7 @@ class AvailabilityRefreshScript(IdentifierInputScript):
             raise Exception(
                 "You must specify at least one identifier to refresh."
             )
-        
+
         # We don't know exactly how big to make these batches, but 10 is
         # always safe.
         start = 0
@@ -713,7 +716,7 @@ class AvailabilityRefreshScript(IdentifierInputScript):
         else:
             self.log.warn("Cannot update coverage for %r" % identifier.type)
 
-    
+
 class LanguageListScript(LibraryInputScript):
     """List all the languages with at least one non-open access work
     in the collection.
@@ -750,7 +753,7 @@ class CompileTranslationsScript(Script):
 
             os.system("rm %(path)s/messages.po" % dict(path=base_path))
             os.system("cat %(path)s/*.po > %(path)s/messages.po" % dict(path=base_path))
-        
+
         os.system("pybabel compile -f -d translations")
 
 
@@ -845,7 +848,7 @@ class DisappearingBookReportScript(Script):
     """Print a TSV-format report on books that used to be in the
     collection, or should be in the collection, but aren't.
     """
-    
+
     def do_run(self):
         qu = self._db.query(LicensePool).filter(
             LicensePool.open_access==False).filter(
@@ -902,7 +905,7 @@ class DisappearingBookReportScript(Script):
             for item in l:
                 if not last_seen or item.start > last_seen:
                     last_seen = item.start
-                    
+
         # Now we look for relevant circulation events. First, an event
         # where the title was explicitly removed is pretty clearly
         # a 'last seen'.
@@ -917,7 +920,7 @@ class DisappearingBookReportScript(Script):
             candidate = title_removal_events[-1].start
             if not last_seen or candidate > last_seen:
                 last_seen = candidate
-        
+
         # Also look for an event where the title went from a nonzero
         # number of licenses to a zero number of licenses. That's a
         # good 'last seen'.
@@ -931,7 +934,7 @@ class DisappearingBookReportScript(Script):
             candidate = license_removal_events[-1].start
             if not last_seen or candidate > last_seen:
                 last_seen = candidate
-        
+
         return last_seen, title_removal_events, license_removal_events
 
     format = "%Y-%m-%d"
@@ -971,7 +974,7 @@ class DisappearingBookReportScript(Script):
         title_removals = [event.start.strftime(self.format)
                           for event in title_removal_events]
         data.append(", ".join(title_removals))
-        
+
         print "\t".join([unicode(x).encode("utf8") for x in data])
 
 
@@ -1103,7 +1106,7 @@ class DirectoryImportScript(Script):
         metadata_records = self.load_metadata(metadata_file)
         for metadata in metadata_records:
             self.work_from_metadata(
-                collection, metadata, replacement_policy, cover_directory, 
+                collection, metadata, replacement_policy, cover_directory,
                 ebook_directory, rights_uri
             )
             if not dry_run:
@@ -1172,7 +1175,7 @@ class DirectoryImportScript(Script):
             # We cannot actually provide access to the book so there
             # is no point in proceeding with the import.
             return
-        
+
         edition, new = metadata.edition(self._db)
         metadata.apply(edition, collection, replace=policy)
         data_source = metadata.data_source(self._db)
@@ -1192,7 +1195,7 @@ class DirectoryImportScript(Script):
         return work
 
 
-    def annotate_metadata(self, metadata, policy, 
+    def annotate_metadata(self, metadata, policy,
                           cover_directory, ebook_directory, rights_uri):
         """Add a CirculationData and possibly an extra LinkData
         to `metadata`.
@@ -1223,7 +1226,7 @@ class DirectoryImportScript(Script):
                 identifier
             )
 
-    def load_circulation_data(self, identifier, data_source, ebook_directory, 
+    def load_circulation_data(self, identifier, data_source, ebook_directory,
                               mirror, title, rights_uri):
         """Load an actual copy of a book from disk.
 
@@ -1275,7 +1278,7 @@ class DirectoryImportScript(Script):
        if no book cover can be found.
        """
        cover_filename, cover_media_type, cover_content = self._locate_file(
-           identifier.identifier, cover_directory, 
+           identifier.identifier, cover_directory,
            Representation.COMMON_IMAGE_EXTENSIONS, "cover image"
        )
 
@@ -1414,6 +1417,21 @@ You'll get another chance to back out before the database session is committed."
 
     def process_library(self, library):
         create_default_lanes(self._db, library)
+
+class NovelistSnapshotScript(LibraryInputScript):
+
+    def do_run(self, output=sys.stdout, *args, **kwargs):
+        parsed = self.parse_command_line(self._db, *args, **kwargs)
+        api = NoveListAPI.from_config(parsed.libraries[0])
+        if (api):
+            response = api.put_isbns_novelist(parsed.libraries[0])
+
+            if (response):
+                result = "NoveList Snapshot"
+                result += "\nRecords sent: " + str(response["RecordsReceived"])
+                result += "\nInvalid Records: " + str(response["InvalidRecords"]) + "\n"
+
+                output.write(result)
 
 class ODLBibliographicImportScript(OPDSImportScript):
     """Import bibliographic information from the feed associated

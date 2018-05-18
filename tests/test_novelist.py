@@ -23,6 +23,10 @@ from api.novelist import (
     NoveListAPI,
     NoveListCoverageProvider,
 )
+from core.util.http import (
+    HTTP
+)
+from core.testing import MockRequestsResponse
 
 
 class TestNoveListAPI(DatabaseTest):
@@ -33,7 +37,7 @@ class TestNoveListAPI(DatabaseTest):
         self.integration = self._external_integration(
             ExternalIntegration.NOVELIST,
             ExternalIntegration.METADATA_GOAL, username=u'library',
-            password=u'yep', libraries=[self._default_library]
+            password=u'yep', libraries=[self._default_library],
         )
         self.novelist = NoveListAPI.from_config(self._default_library)
 
@@ -352,6 +356,75 @@ class TestNoveListAPI(DatabaseTest):
         eq_(True, isinstance(metadata, Metadata))
         eq_(0.67, round(confidence, 2))
         eq_(more_identifier, metadata.primary_identifier)
+
+    def test_get_isbns_from_query(self):
+        isbns = self.novelist.get_isbns_from_query(self._default_library)
+        eq_(isbns, [])
+
+        edition = self._edition(identifier_type=Identifier.ISBN)
+        pool = self._licensepool(edition, collection=self._default_collection)
+
+        isbns = self.novelist.get_isbns_from_query(self._default_library)
+
+        eq_(isbns, [edition.primary_identifier.identifier])
+
+    def test_put_isbns_novelist(self):
+        response = self.novelist.put_isbns_novelist(self._default_library)
+
+        eq_(response, None)
+
+        edition = self._edition(identifier_type=Identifier.ISBN)
+        pool = self._licensepool(edition, collection=self._default_collection)
+        mock_response = {'Customer': 'NYPL','RecordsReceived':10}
+
+        def mockHTTPPut(url, headers, **kwargs):
+            return MockRequestsResponse(200, content=json.dumps(mock_response))
+
+        oldPut = self.novelist.put
+        self.novelist.put = mockHTTPPut
+
+        response = self.novelist.put_isbns_novelist(self._default_library)
+
+        eq_(response, mock_response)
+
+        self.novelist.put = oldPut
+
+    def test_make_novelist_data_object(self):
+        bad_data = []
+        result = self.novelist.make_novelist_data_object(bad_data)
+
+        eq_(result, {
+            "Customer": "library:yep",
+            "Records": []
+        })
+
+        data = ["12345", "12346", "12347"]
+        result = self.novelist.make_novelist_data_object(data)
+
+        eq_(result, {
+            "Customer": "library:yep",
+            "Records": [{"Isbn": "12345"}, {"Isbn": "12346"}, {"Isbn": "12347"}]
+        })
+
+    def mockHTTPPut(self, *args, **kwargs):
+        self.called_with = (args, kwargs)
+
+    def test_put(self):
+        oldPut = HTTP.put_with_timeout
+
+        HTTP.put_with_timeout = self.mockHTTPPut
+
+        headers = {"AuthorizedIdentifier": "authorized!"}
+        isbns = ["12345", "12346", "12347"]
+        data = self.novelist.make_novelist_data_object(isbns)
+
+        response = self.novelist.put("http://apiendpoint.com", headers, data=data)
+        (params, args) = self.called_with
+
+        eq_(params, ("http://apiendpoint.com", data))
+        eq_(args["headers"], headers)
+
+        HTTP.put_with_timeout = oldPut
 
 
 class TestNoveListCoverageProvider(DatabaseTest):

@@ -3,6 +3,7 @@ from circulation_exceptions import *
 import datetime
 from collections import defaultdict
 from threading import Thread
+import flask
 import logging
 import re
 import time
@@ -634,6 +635,8 @@ class CirculationAPI(object):
         """
         if not lpdm or not pool:
             return False
+        if pool.open_access:
+            return True
         api = self.api_for_license_pool(pool)
         if not api:
             return False
@@ -698,6 +701,8 @@ class CirculationAPI(object):
         if self.analytics:
             if patron:
                 library = patron.library
+            elif flask.request:
+                library = flask.request.library
             else:
                 library = None
             self.analytics.collect_event(
@@ -741,14 +746,17 @@ class CirculationAPI(object):
             raise FormatNotAvailable()
 
         rep = fulfillment.resource.representation
-        content_link = cdnify(rep.url)
+        if rep:
+            content_link = cdnify(rep.mirror_url or rep.url)
+        else:
+            content_link = cdnify(fulfillment.resource.url)
         media_type = rep.media_type
         return FulfillmentInfo(
             licensepool.collection, licensepool.data_source,
             identifier_type=licensepool.identifier.type,
             identifier=licensepool.identifier.identifier,
             content_link=content_link, content_type=media_type, content=None, 
-            content_expires=None
+            content_expires=None,
         )
 
     def revoke_loan(self, patron, pin, licensepool):
