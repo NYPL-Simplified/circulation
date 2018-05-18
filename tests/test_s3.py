@@ -216,17 +216,6 @@ class TestS3Uploader(S3UploaderTest):
             m("http://book-covers.nypl.org/directory/filename.jpg"))
 
     def test_mirror_one(self):
-        """mirror_one just calls mirror_batch on a one-item list."""
-        class Mock(S3Uploader):
-            def mirror_batch(self, batch):
-                self.batch = batch
-
-        uploader = self._uploader(uploader_class=Mock)
-        obj = object()
-        uploader.mirror_one(obj)
-        eq_([obj], uploader.batch)
-
-    def test_mirror_batch(self):
         edition, pool = self._edition(with_license_pool=True)
         original_cover_location = "http://example.com/a-cover.png"
         content = open(self.sample_cover_path("test-book-cover.png")).read()
@@ -261,7 +250,7 @@ class TestS3Uploader(S3UploaderTest):
         to_mirror = [
             cover.resource.representation, epub.resource.representation
         ]
-        s3.mirror_batch(to_mirror)
+        s3.mirror_one(cover.resource.representation, self._url)
         [[data1, bucket1, key1, args1, ignore1],
          [data2, bucket2, key2, args2, ignore2],] = s3.client.uploads
 
@@ -300,7 +289,7 @@ class TestS3Uploader(S3UploaderTest):
 
         # A network failure is treated as a transient error.
         uploader.client.fail_with = BotoCoreError()
-        uploader.mirror_one(epub_rep)
+        uploader.mirror_one(epub_rep, self._url)
         eq_(None, epub_rep.mirrored_at)
         eq_(None, epub_rep.mirror_exception)
 
@@ -312,19 +301,19 @@ class TestS3Uploader(S3UploaderTest):
             )
         )
         uploader.client.fail_with = ClientError(response, "SomeOperation")
-        uploader.mirror_one(epub_rep)
+        uploader.mirror_one(epub_rep, self._url)
         eq_(None, epub_rep.mirrored_at)
         eq_(None, epub_rep.mirror_exception)
 
         # Because the file was not successfully uploaded,
         # final_mirror_url was never called and mirror_url is
-        # the same as the original URL.
-        eq_(epub_rep.url, epub_rep.mirror_url)
+        # was not set.
+        eq_(None, epub_rep.mirror_url)
 
         # A bug in the code is not treated as a transient error --
         # the exception propagates through.
         uploader.client.fail_with = Exception("crash!")
-        assert_raises(Exception, uploader.mirror_one, epub_rep)
+        assert_raises(Exception, uploader.mirror_one, epub_rep, self._url)
 
     def test_automatic_conversion_while_mirroring(self):
         edition, pool = self._edition(with_license_pool=True)
@@ -344,7 +333,7 @@ class TestS3Uploader(S3UploaderTest):
 
         # 'Upload' it to S3.
         s3 = self._uploader(MockS3Client)
-        s3.mirror_one(hyperlink.resource.representation)
+        s3.mirror_one(hyperlink.resource.representation, self._url)
         [[data, bucket, key, args, ignore]] = s3.client.uploads
 
         # The thing that got uploaded was a PNG, not the original SVG
