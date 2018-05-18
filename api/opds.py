@@ -342,16 +342,7 @@ class CirculationManagerAnnotator(Annotator):
         if rep:
             if rep.media_type:
                 kw['type'] = rep.media_type
-            if rep.mirror_url:
-                # The Representation was mirrored to some other URL
-                # under our control. In this situation, Resource.url
-                # is probably the original, pre-mirror URL, and
-                # mirror_url should take precedence.
-                href = rep.mirror_url
-            elif rep.url:
-                # This is probably the same as the resource URL, but
-                # if they are different this one is probably preferable.
-                href = rep.url
+            href = rep.public_url
         kw['href'] = cdnify(href)
 
         link_tag = AcquisitionFeed.link(**kw)
