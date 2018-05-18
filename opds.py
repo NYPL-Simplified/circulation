@@ -1239,14 +1239,14 @@ class AcquisitionFeed(OPDSFeed):
             cover_representation = cover.representation
             representations.append(cover.representation)
             cover_link = AtomFeed.makeelement(
-                "link", href=cover_representation.mirror_url,
+                "link", href=cover_representation.public_url,
                 type=cover_representation.media_type, rel=Hyperlink.IMAGE)
             elements.append(cover_link)
             if cover_representation.thumbnails:
                 thumbnail = cover_representation.thumbnails[0]
                 representations.append(thumbnail)
                 thumbnail_link = AtomFeed.makeelement(
-                    "link", href=thumbnail.mirror_url,
+                    "link", href=thumbnail.public_url,
                     type=thumbnail.media_type,
                     rel=Hyperlink.THUMBNAIL_IMAGE
                 )

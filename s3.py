@@ -222,8 +222,9 @@ class S3Uploader(MirrorUploader):
         return bucket, urllib.unquote_plus(filename)
 
     def final_mirror_url(self, bucket, key):
-        """Determine the URL to use as Representation.mirror_url, assuming
-        that it was successfully uploaded to the given `bucket` as `key`.
+        """Determine the URL to pass into Representation.set_as_mirrored,
+        assuming that it was successfully uploaded to the given
+        `bucket` as `key`.
 
         Depending on ExternalIntegration configuration this may 
         be any of the following:
@@ -237,65 +238,50 @@ class S3Uploader(MirrorUploader):
         template = templates.get(self.url_transform, default)
         return template % dict(bucket=bucket, key=self.key_join(key))
 
-    def mirror_one(self, representation):
-        """Mirror a single representation."""
-        return self.mirror_batch([representation])
+    def mirror_one(self, representation, mirror_to):
+        """Mirror a single representation to the given URL."""
 
-    def mirror_batch(self, representations):
-        """Mirror a bunch of Representations at once."""
-        for representation in representations:
-            # TODO: It's strange that we're setting mirror_url to the
-            # original URL when the file hasn't been mirrored and that
-            # may not end up being the final URL. We should be able to
-            # simplify this.
-            if not representation.mirror_url:
-                representation.mirror_url = representation.url
-            # Turn the mirror URL into an s3.amazonaws.com URL.
-            bucket, filename = self.bucket_and_filename(
-                representation.mirror_url
+        # Turn the original URL into an s3.amazonaws.com URL.
+        bucket, filename = self.bucket_and_filename(mirror_to)
+        media_type = representation.external_media_type
+        bucket, remote_filename = self.bucket_and_filename(
+            representation.mirror_url)
+        fh = representation.external_content()
+        try:
+            result = self.client.upload_fileobj(
+                Fileobj=fh,
+                Bucket=bucket,
+                Key=remote_filename,
+                ExtraArgs=dict(ContentType=media_type)
             )
-            media_type = representation.external_media_type
-            bucket, remote_filename = self.bucket_and_filename(
-                representation.mirror_url)
-            fh = representation.external_content()
-            try:
-                result = self.client.upload_fileobj(
-                    Fileobj=fh,
-                    Bucket=bucket,
-                    Key=remote_filename,
-                    ExtraArgs=dict(ContentType=media_type)
-                )
 
-                # Since upload_fileobj completed without a problem, we
-                # know the file is available at
-                # https://s3.amazonaws.com/{bucket}/{remote_filename}. But
-                # that may not be the URL we want to store.
-                representation.mirror_url = self.final_mirror_url(
-                    bucket, remote_filename
-                )
+            # Since upload_fileobj completed without a problem, we
+            # know the file is available at
+            # https://s3.amazonaws.com/{bucket}/{remote_filename}. But
+            # that may not be the URL we want to store.
+            mirror_url = self.final_mirror_url(bucket, remote_filename)
+            representation.set_as_mirrored(mirror_url)
 
-                source = representation.local_content_path
-                if representation.url != representation.mirror_url:
-                    source = representation.url
-                if source:
-                    logging.info("MIRRORED %s => %s",
-                                 source, representation.mirror_url)
-                else:
-                    logging.info("MIRRORED %s", representation.mirror_url)
-                representation.set_as_mirrored()
-            except (BotoCoreError, ClientError), e:
-                # BotoCoreError happens when there's a problem with
-                # the network transport. ClientError happens when
-                # there's a problem with the credentials. Either way,
-                # the best thing to do is treat this as a transient
-                # error and try again later. There's no scenario where
-                # giving up is the right move.
-                logging.error(
-                    "Error uploading %s: %r", representation.mirror_url,
-                    e, exc_info=e
-                )
-            finally:
-                fh.close()
+            source = representation.local_content_path
+            if representation.url != mirror_url:
+                source = representation.url
+            if source:
+                logging.info("MIRRORED %s => %s",
+                             source, representation.mirror_url)
+            else:
+                logging.info("MIRRORED %s", representation.mirror_url)
+        except (BotoCoreError, ClientError), e:
+            # BotoCoreError happens when there's a problem with
+            # the network transport. ClientError happens when
+            # there's a problem with the credentials. Either way,
+            # the best thing to do is treat this as a transient
+            # error and try again later. There's no scenario where
+            # giving up is the right move.
+            logging.error(
+                "Error uploading %s: %r", mirror_to, e, exc_info=e
+            )
+        finally:
+            fh.close()
 
 # MirrorUploader.implementation will instantiate an S3Uploader
 # for storage integrations with protocol 'Amazon S3'.

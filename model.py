@@ -2205,18 +2205,15 @@ class Identifier(Base):
         if content or content_path:
             # We have content for this resource.
             resource.set_fetched_content(media_type, content, content_path)
-        elif (media_type and (
-                not resource.representation
-                or not resource.representation.mirrored_at)
-        ):
-            # There's a version of this resource stored elsewhere that we
-            # can use.
-            #
-            # TODO: just because we know the type and URL of the
-            # resource doesn't mean we can actually serve that URL
-            # to patrons. This needs some work.
-            resource.set_mirrored_elsewhere(media_type)
+        elif (media_type and not resource.representation):
+            # We know the type of the resource, so make a
+            # Representation for it.
+            resource.representation, is_new = get_one_or_create(
+                _db, Representation, url=self.url, media_type=media_type
+            )
 
+        # TODO: This is where we would mirror the resource if we 
+        # wanted to.
         return link, new_link
 
     def add_measurement(self, data_source, quantity_measured, value,
@@ -2338,8 +2335,6 @@ class Identifier(Base):
         images = cls.resources_for_identifier_ids(
             _db, identifier_ids, rel)
         images = images.join(Resource.representation)
-        images = images.filter(Representation.mirrored_at != None).\
-            filter(Representation.mirror_url != None)
         images = images.all()
 
         champions = Resource.best_covers_among(images)
@@ -5836,17 +5831,6 @@ class Resource(Base):
             if lpdm.resource == self:
                 return lpdm
 
-    def set_mirrored_elsewhere(self, media_type):
-        """We don't need our own copy of this resource's representation--
-        a copy of it has been mirrored already.
-        """
-        _db = Session.object_session(self)
-        if not self.representation:
-            self.representation, is_new = get_one_or_create(
-                _db, Representation, url=self.url, media_type=media_type)
-        self.representation.mirror_url = self.url
-        self.representation.set_as_mirrored()
-
     def set_fetched_content(self, media_type, content, content_path):
         """Simulate a successful HTTP request for a representation
         of this resource.
@@ -5970,8 +5954,7 @@ class Resource(Base):
 
         """Choose the best covers from a list of Resources."""
         champions = []
-        champion_score = None
-        champion_media_type_score = None
+        champion_key = None
 
         for r in resources:
             rep = r.representation
@@ -5988,22 +5971,18 @@ class Resource(Base):
                 # A Resource below the minimum quality threshold is not
                 # usable, period.
                 continue
-            if not champions or quality > champion_score:
+
+            # In order, our criteria are: whether we
+            # mirrored the representation (which means we directly
+            # control it), image quality, and media type suitability.
+            compare_key = (r.mirror_url is not None, quality, media_priority)
+            if not champion_key or (compare_key > champion_key):
+                # A new champion.
                 champions = [r]
-                champion_score = r.quality
-                champion_media_type_priority = media_priority
-            elif quality == champion_score:
-                # We have two images with the same score. One might be
-                # in a format we prefer.
-                if (champion_media_type_priority is None
-                    or (media_priority is not None
-                        and media_priority < champion_media_type_priority)):
-                    champions = [r]
-                    champion_score = r.quality
-                    champion_media_type_priority = media_priority
-                elif media_priority == champion_media_type_priority:
-                    # Same score, same format. We have two champions.
-                    champions.append(r)
+                champion_key = compare_key
+            elif compare_key == champion_key:
+                # This image is equally good as the existing champion.
+                champions.append(r)
 
         return champions
 
@@ -7691,7 +7670,7 @@ class LicensePool(Base):
             url = None
             resource = self.best_open_access_resource
             if resource and resource.representation:
-                url = resource.representation.mirror_url
+                url = resource.representation.public_url
             self._open_access_download_url = url
         return self._open_access_download_url
 
@@ -8381,7 +8360,7 @@ class Representation(Base):
     # we tried to fetch the representation
     fetch_exception = Column(Unicode, index=True)
 
-    # A URL under our control to which this representation will be
+    # A URL under our control to which this representation has been
     # mirrored.
     mirror_url = Column(Unicode, index=True)
 
@@ -8469,6 +8448,20 @@ class Representation(Base):
         if self.local_content_path and os.path.exists(self.local_content_path) and self.fetch_exception is None:
             return True
         return False
+
+    @property
+    def public_url(self):
+        """Find the best URL to publish when referencing this Representation
+        in a public space.
+        """
+        if self.mirror_url:
+            return self.mirror_url
+        if self.url:
+            return self.url
+
+        # This really shouldn't happen.
+        if self.resource:
+            return self.resource.url
 
     @property
     def is_usable(self):
@@ -8806,10 +8799,14 @@ class Representation(Base):
         self.fetch_exception = None
         self.update_image_size()
 
-    def set_as_mirrored(self):
+    def set_as_mirrored(self, mirror_url):
         """Record the fact that the representation has been mirrored
-        to its .mirror_url.
+        to the given URL.
+
+        This should only be called upon successful completion of the
+        mirror operation.
         """
+        self.mirror_url = mirror_url
         self.mirrored_at = datetime.datetime.utcnow()
         self.mirror_exception = None
 
@@ -9193,7 +9190,6 @@ class Representation(Base):
         # Because the representation of this image is being
         # changed, it will need to be mirrored later on.
         now = datetime.datetime.utcnow()
-        thumbnail.mirror_url = thumbnail.url
         thumbnail.mirrored_at = None
         thumbnail.mirror_exception = None
 
