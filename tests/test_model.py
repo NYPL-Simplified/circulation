@@ -1714,7 +1714,6 @@ class TestEdition(DatabaseTest):
             edition.data_source, Representation.PNG_MEDIA_TYPE
         )
         thumbnail_2.resource.representation.thumbnail_of = main_image.resource.representation
-        set_trace()
         edition.choose_cover()
         
         # ...That thumbnail will be chosen in preference to the

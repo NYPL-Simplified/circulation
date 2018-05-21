@@ -5950,7 +5950,7 @@ class Resource(Base):
         """Where does the given image media type rank on our list of
         preferences?
 
-        :return: A lower number is better. None means it's not an
+        :return: A lower number is better. float('inf') means it's not an
         image type or we don't care about it at all.
         """
         if media_type in Representation.IMAGE_MEDIA_TYPES:
@@ -5969,7 +5969,10 @@ class Resource(Base):
             if not rep:
                 # A Resource with no Representation is not usable, period
                 continue
-            media_priority = cls.image_type_priority(rep.media_type)
+            media_priority = (
+                cls.image_type_priority(rep.media_type) or
+                float('inf')
+            )
 
             # This method will set the quality if it hasn't been set before.
             r.quality_as_thumbnail_image
