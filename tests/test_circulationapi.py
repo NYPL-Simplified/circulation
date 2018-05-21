@@ -558,7 +558,7 @@ class TestCirculationAPI(DatabaseTest):
             self.pool, broken_lpdm
         )
         assert isinstance(result, FulfillmentInfo)
-        eq_(result.content_link, link.resource.representation.mirror_url)
+        eq_(result.content_link, link.resource.representation.public_url)
         eq_(result.content_type, i_want_an_epub.content_type)
 
         # Now, if we try to call fulfill() with the broken
@@ -568,7 +568,7 @@ class TestCirculationAPI(DatabaseTest):
             self.patron, '1234', self.pool, broken_lpdm
         )
         assert isinstance(result, FulfillmentInfo)
-        eq_(result.content_link, link.resource.representation.mirror_url)
+        eq_(result.content_link, link.resource.representation.public_url)
         eq_(result.content_type, i_want_an_epub.content_type)
         
         # We get the right result even if the code calling
@@ -579,7 +579,7 @@ class TestCirculationAPI(DatabaseTest):
             self.pool, broken_lpdm
         )
         assert isinstance(result, FulfillmentInfo)
-        eq_(result.content_link, link.resource.representation.mirror_url)
+        eq_(result.content_link, link.resource.representation.public_url)
         eq_(result.content_type, i_want_an_epub.content_type)
 
         # If we change the working LPDM so that it serves a different
