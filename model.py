@@ -8467,15 +8467,20 @@ class Representation(Base):
     def public_url(self):
         """Find the best URL to publish when referencing this Representation
         in a public space.
-        """
-        if self.mirror_url:
-            return self.mirror_url
-        if self.url:
-            return self.url
 
-        # This really shouldn't happen.
-        if self.resource:
-            return self.resource.url
+        :return: a bytestring
+        """
+        url = None
+        if self.mirror_url:
+            url = self.mirror_url
+        elif self.url:
+            url = self.url
+        elif self.resource:
+            # This really shouldn't happen.
+            url = self.resource.url
+        if isinstance(url, unicode):
+            url = url.encode("utf8")
+        return url
 
     @property
     def is_usable(self):
