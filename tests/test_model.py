@@ -796,7 +796,7 @@ class TestIdentifier(DatabaseTest):
         eq_('http://cover', cover_link.href)
 
         # The 'updated' time is set to the latest timestamp associated
-        # with the Identifier. 
+        # with the Identifier.
         eq_([], identifier.coverage_records)
 
         # This may be the time the cover image was mirrored.
@@ -1691,11 +1691,11 @@ class TestEdition(DatabaseTest):
         # This edition has a full-sized image and a thumbnail image,
         # but there is no evidence that they are the _same_ image.
         main_image, ignore = edition.primary_identifier.add_link(
-            Hyperlink.IMAGE, self._url,
+            Hyperlink.IMAGE, "http://main/",
             edition.data_source, Representation.PNG_MEDIA_TYPE
         )
         thumbnail_image, ignore = edition.primary_identifier.add_link(
-            Hyperlink.THUMBNAIL_IMAGE, self._url,
+            Hyperlink.THUMBNAIL_IMAGE, "http://thumbnail/",
             edition.data_source, Representation.PNG_MEDIA_TYPE
         )
 
@@ -1710,10 +1710,11 @@ class TestEdition(DatabaseTest):
         # associated with the identifier is a thumbnail _of_ the
         # full-sized image...
         thumbnail_2, ignore = edition.primary_identifier.add_link(
-            Hyperlink.THUMBNAIL_IMAGE, self._url,
+            Hyperlink.THUMBNAIL_IMAGE, "http://thumbnail2/",
             edition.data_source, Representation.PNG_MEDIA_TYPE
         )
         thumbnail_2.resource.representation.thumbnail_of = main_image.resource.representation
+        set_trace()
         edition.choose_cover()
         
         # ...That thumbnail will be chosen in preference to the
@@ -5766,6 +5767,25 @@ class TestRepresentation(DatabaseTest):
                         check_for_redirect=['questionable-site.org'],
                         head_client=bad_redirect))
 
+    def test_best_thumbnail(self):
+        # This Representation has no thumbnails.
+        representation, ignore = self._representation()
+        eq_(None, representation.best_thumbnail)
+
+        # Now it has two thumbnails, neither of which is mirrored.
+        t1, ignore = self._representation()
+        t2, ignore = self._representation()
+        for i in t1, t2:
+            representation.thumbnails.append(i)
+        
+        # There's no distinction between the thumbnails, so the first one
+        # is selected as 'best'.
+        eq_(t1, representation.best_thumbnail)
+        
+        # If one of the thumbnails is mirrored, it becomes the 'best'
+        # thumbnail.
+        t2.set_as_mirrored(self._url)
+        eq_(t2, representation.best_thumbnail)
 
 class TestCoverResource(DatabaseTest):
 

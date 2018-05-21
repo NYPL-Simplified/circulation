@@ -2472,7 +2472,7 @@ class Identifier(Base):
                     cover_image = resource
                     if cover_image.representation:
                         # This is technically redundant because
-                        # minimal_opds_entry will redo this work work,
+                        # minimal_opds_entry will redo this work,
                         # but just to be safe.
                         mirrored_at = cover_image.representation.mirrored_at
                         if mirrored_at:
@@ -3340,12 +3340,12 @@ class Edition(Base):
         if (resource.representation.image_height
             and resource.representation.image_height <= self.MAX_THUMBNAIL_HEIGHT):
             # This image doesn't need a thumbnail.
-            self.cover_thumbnail_url = resource.representation.mirror_url
+            self.cover_thumbnail_url = resource.representation.public_url
         else:
-            for scaled_down in resource.representation.thumbnails:
-                if scaled_down.mirror_url and scaled_down.mirrored_at:
-                    self.cover_thumbnail_url = scaled_down.mirror_url
-                    break
+            # Use the best available thumbnail for this image.
+            best_thumbnail = resource.representation.best_thumbnail
+            if best_thumbnail:
+                self.cover_thumbnail_url = best_thumbnail.public_url
         if (not self.cover_thumbnail_url and
             resource.representation.image_height
             and resource.representation.image_height <= self.MAX_FALLBACK_THUMBNAIL_HEIGHT):
@@ -9299,6 +9299,21 @@ class Representation(Base):
             quotient *= (1+height_shortfall)
         return quotient
 
+    @property
+    def best_thumbnail(self):
+        """Find the best thumbnail among all the thumbnails associated with
+        this Representation.
+
+        Basically, we prefer a thumbnail that has been mirrored.
+        """
+        champion = None
+        for thumbnail in self.thumbnails:
+            if thumbnail.mirror_url:
+                champion = thumbnail
+                break
+            elif not champion:
+                champion = thumbnail
+        return champion
 
 class DeliveryMechanism(Base, HasFullTableCache):
     """A technique for delivering a book to a patron.
