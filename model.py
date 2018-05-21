@@ -3351,7 +3351,7 @@ class Edition(Base):
             and resource.representation.image_height <= self.MAX_FALLBACK_THUMBNAIL_HEIGHT):
             # The full-sized image is too large to be a thumbnail, but it's
             # not huge, and there is no other thumbnail, so use it.
-            self.cover_thumbnail_url = resource.representation.mirror_url
+            self.cover_thumbnail_url = resource.representation.public_url
         if old_cover != self.cover or old_cover_full_url != self.cover_full_url:
             logging.debug(
                 "Setting cover for %s/%s: full=%s thumb=%s",
@@ -3601,7 +3601,7 @@ class Edition(Base):
                     self.permanent_work_id, self.language
             ]
             if self.cover and self.cover.representation:
-                args.append(self.cover.representation.mirror_url)
+                args.append(self.cover.representation.public_url)
             else:
                 args.append(None)
             level(msg, *args)
@@ -7715,8 +7715,8 @@ class LicensePool(Base):
 
             if (best.data_source.name==DataSource.GUTENBERG
                 and resource.data_source.name==DataSource.GUTENBERG
-                and 'noimages' in best.representation.mirror_url
-                and not 'noimages' in resource.representation.mirror_url):
+                and 'noimages' in best.representation.public_url
+                and not 'noimages' in resource.representation.public_url):
                 # A Project Gutenberg-ism: an epub without 'noimages'
                 # in the filename is better than an epub with
                 # 'noimages' in the filename.
