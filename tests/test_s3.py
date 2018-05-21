@@ -225,7 +225,6 @@ class TestS3Uploader(S3UploaderTest):
             content=content
         )
         cover_rep = cover.resource.representation
-        cover_rep.mirror_url = "http://covers-go/here.png"
         eq_(None, cover_rep.mirrored_at)
 
         original_epub_location = "https://books.com/a-book.epub"
@@ -247,33 +246,39 @@ class TestS3Uploader(S3UploaderTest):
             )
         s3.final_mirror_url = mock_final_mirror_url
 
-        to_mirror = [
-            cover.resource.representation, epub.resource.representation
-        ]
-        s3.mirror_one(cover.resource.representation, self._url)
+        book_url = "http://books-go/here.epub"
+        cover_url = "http://s3.amazonaws.com/covers-go/here.png"
+        s3.mirror_one(cover.resource.representation, cover_url)
+        s3.mirror_one(epub.resource.representation, book_url)
         [[data1, bucket1, key1, args1, ignore1],
          [data2, bucket2, key2, args2, ignore2],] = s3.client.uploads
 
-        # Both representations have been mirrored to their .mirror_urls
+        # Both representations have had .mirror_url set and been
+        # mirrored to those URLs.
         assert data1.startswith(b'\x89')
         eq_("covers-go", bucket1)
         eq_("here.png", key1)
         eq_(Representation.PNG_MEDIA_TYPE, args1['ContentType'])
         assert (datetime.datetime.utcnow() - cover_rep.mirrored_at).seconds < 10
 
-        # Since the epub_rep didn't have a .mirror_url, the .url was used
-        # to determine which bucket to mirror to. The .mirror_url was then
-        # set to the result of calling final_mirror_url on the bucket
-        # and filename.
+        eq_("i'm an epub", data2)
+        eq_("books-go", bucket2)
+        eq_("here.epub", key2)
+        eq_(Representation.EPUB_MEDIA_TYPE, args2['ContentType'])
+
+        # In both cases, mirror_url was set to the result of final_mirror_url.
         eq_(
-            u'final_mirror_url was called with bucket books.com, key a-book.epub',
+            u'final_mirror_url was called with bucket books-go, key here.epub',
             epub_rep.mirror_url
         )
-        eq_("i'm an epub", data2)
-        eq_("books.com", bucket2)
-        eq_("a-book.epub", key2)
-        eq_(Representation.EPUB_MEDIA_TYPE, args2['ContentType'])
-        assert (datetime.datetime.utcnow() - epub_rep.mirrored_at).seconds < 10
+        eq_(
+            u'final_mirror_url was called with bucket covers-go, key here.png',
+            cover_rep.mirror_url
+        )
+
+        # mirrored-at was set when the representation was 'mirrored'
+        for rep in epub_rep, cover_rep:
+            assert (datetime.datetime.utcnow() - rep.mirrored_at).seconds < 10
 
     def test_mirror_failure(self):
         edition, pool = self._edition(with_license_pool=True)
