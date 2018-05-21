@@ -5855,7 +5855,7 @@ class TestCoverResource(DatabaseTest):
         thumbnail, is_new = cover.scale(300, 600, url, "image/png")
         eq_(True, is_new)
         eq_(url, thumbnail.url)
-        eq_(url, thumbnail.mirror_url)
+        eq_(None, thumbnail.mirror_url)
         eq_(None, thumbnail.mirrored_at)
         eq_(cover, thumbnail.thumbnail_of)
         eq_("image/png", thumbnail.media_type)
@@ -5870,7 +5870,7 @@ class TestCoverResource(DatabaseTest):
         eq_(False, is_new)
 
         # Let's say the thumbnail has been mirrored.
-        thumbnail.mirrored_at = datetime.datetime.utcnow()
+        thumbnail.set_as_mirrored(self._url)
 
         old_content = thumbnail.content
         # With the force argument we can forcibly re-scale an image,

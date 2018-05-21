@@ -2212,7 +2212,7 @@ class Identifier(Base):
                 _db, Representation, url=resource.url, media_type=media_type
             )
 
-        # TODO: This is where we would mirror the resource if we 
+        # TODO: This is where we would mirror the resource if we
         # wanted to.
         return link, new_link
 
