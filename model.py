@@ -5950,7 +5950,7 @@ class Resource(Base):
         """Where does the given image media type rank on our list of
         preferences?
 
-        :return: A lower number is better. float('inf') means it's not an
+        :return: A lower number is better. None means it's not an
         image type or we don't care about it at all.
         """
         if media_type in Representation.IMAGE_MEDIA_TYPES:
