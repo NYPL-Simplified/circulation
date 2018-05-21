@@ -705,9 +705,8 @@ class TestMetaToModelUtility(DatabaseTest):
         eq_(link.media_type, representation.media_type)
         eq_(link.href, representation.url)
 
-        # The mirror url should still be set.
-        assert "Gutenberg" in representation.mirror_url
-        assert representation.mirror_url.endswith("%s.epub" % edition.title)
+        # The mirror url was never set.
+        eq_(None, representation.mirror_url)
 
         # Book content is still there since it wasn't mirrored.
         assert representation.content != None

@@ -5969,10 +5969,9 @@ class Resource(Base):
             if not rep:
                 # A Resource with no Representation is not usable, period
                 continue
-            media_priority = (
-                cls.image_type_priority(rep.media_type) or
-                float('inf')
-            )
+            media_priority = cls.image_type_priority(rep.media_type)
+            if media_priority is None:
+                media_priority = float('inf')
 
             # This method will set the quality if it hasn't been set before.
             r.quality_as_thumbnail_image
