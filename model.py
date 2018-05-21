@@ -5983,7 +5983,11 @@ class Resource(Base):
             # In order, our criteria are: whether we
             # mirrored the representation (which means we directly
             # control it), image quality, and media type suitability.
-            compare_key = (rep.mirror_url is not None, quality, media_priority)
+            #
+            # We invert media type suitability because it's given to us
+            # as a priority (where smaller is better), but we want to compare
+            # it as a quantity (where larger is better).
+            compare_key = (rep.mirror_url is not None, quality, -media_priority)
             if not champion_key or (compare_key > champion_key):
                 # A new champion.
                 champions = [r]
