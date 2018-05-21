@@ -645,8 +645,7 @@ class MetaToModelUtility(object):
             )
 
         # Mirror it.
-        representation.mirror_url = mirror_url
-        mirror.mirror_one(representation)
+        mirror.mirror_one(representation, mirror_url)
 
         # If we couldn't mirror an open access link representation, suppress
         # the license pool until someone fixes it manually.
@@ -676,12 +675,12 @@ class MetaToModelUtility(object):
             if is_new:
                 # A thumbnail was created distinct from the original
                 # image. Mirror it as well.
-                mirror.mirror_one(thumbnail)
+                mirror.mirror_one(thumbnail, thumbnail_url)
 
         if link_obj.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
-            # If we mirrored book content successfully, don't keep it in
+            # If we mirrored book content successfully, remove it from
             # the database to save space. We do keep images in case we
-            # ever need to resize them.
+            # ever need to resize them or mirror them elsewhere.
             if representation.mirrored_at and not representation.mirror_exception:
                 representation.content = None
 

@@ -2205,18 +2205,15 @@ class Identifier(Base):
         if content or content_path:
             # We have content for this resource.
             resource.set_fetched_content(media_type, content, content_path)
-        elif (media_type and (
-                not resource.representation
-                or not resource.representation.mirrored_at)
-        ):
-            # There's a version of this resource stored elsewhere that we
-            # can use.
-            #
-            # TODO: just because we know the type and URL of the
-            # resource doesn't mean we can actually serve that URL
-            # to patrons. This needs some work.
-            resource.set_mirrored_elsewhere(media_type)
+        elif (media_type and not resource.representation):
+            # We know the type of the resource, so make a
+            # Representation for it.
+            resource.representation, is_new = get_one_or_create(
+                _db, Representation, url=resource.url, media_type=media_type
+            )
 
+        # TODO: This is where we would mirror the resource if we
+        # wanted to.
         return link, new_link
 
     def add_measurement(self, data_source, quantity_measured, value,
@@ -2338,8 +2335,6 @@ class Identifier(Base):
         images = cls.resources_for_identifier_ids(
             _db, identifier_ids, rel)
         images = images.join(Resource.representation)
-        images = images.filter(Representation.mirrored_at != None).\
-            filter(Representation.mirror_url != None)
         images = images.all()
 
         champions = Resource.best_covers_among(images)
@@ -2457,10 +2452,17 @@ class Identifier(Base):
 
         Currently the only things in this OPDS entry will be description,
         cover image, and popularity.
+
+        NOTE: The timestamp doesn't take into consideration when the
+        description was added. Rather than fixing this it's probably
+        better to get rid of this hack and create real Works where we
+        would be using this method.
         """
         id = self.urn
         cover_image = None
         description = None
+        most_recent_update = None
+        timestamps = []
         for link in self.links:
             resource = link.resource
             if link.rel == Hyperlink.IMAGE:
@@ -2468,22 +2470,29 @@ class Identifier(Base):
                         not cover_image.representation.thumbnails and
                         resource.representation.thumbnails):
                     cover_image = resource
+                    if cover_image.representation:
+                        # This is technically redundant because
+                        # minimal_opds_entry will redo this work,
+                        # but just to be safe.
+                        mirrored_at = cover_image.representation.mirrored_at
+                        if mirrored_at:
+                            timestamps.append(mirrored_at)
             elif link.rel == Hyperlink.DESCRIPTION:
                 if not description or resource.quality > description.quality:
                     description = resource
 
-        last_coverage_update = None
         if self.coverage_records:
-            timestamps = [
+            timestamps.extend([
                 c.timestamp for c in self.coverage_records if c.timestamp
-            ]
-            last_coverage_update = max(timestamps)
+            ])
+        if timestamps:
+            most_recent_update = max(timestamps)
 
         quality = Measurement.overall_quality(self.measurements)
         from opds import AcquisitionFeed
         return AcquisitionFeed.minimal_opds_entry(
             identifier=self, cover=cover_image, description=description,
-            quality=quality, most_recent_update=last_coverage_update
+            quality=quality, most_recent_update=most_recent_update
         )
 
 
@@ -3322,7 +3331,7 @@ class Edition(Base):
         old_cover = self.cover
         old_cover_full_url = self.cover_full_url
         self.cover = resource
-        self.cover_full_url = resource.representation.mirror_url
+        self.cover_full_url = resource.representation.public_url
 
         # TODO: In theory there could be multiple scaled-down
         # versions of this representation and we need some way of
@@ -3331,18 +3340,18 @@ class Edition(Base):
         if (resource.representation.image_height
             and resource.representation.image_height <= self.MAX_THUMBNAIL_HEIGHT):
             # This image doesn't need a thumbnail.
-            self.cover_thumbnail_url = resource.representation.mirror_url
+            self.cover_thumbnail_url = resource.representation.public_url
         else:
-            for scaled_down in resource.representation.thumbnails:
-                if scaled_down.mirror_url and scaled_down.mirrored_at:
-                    self.cover_thumbnail_url = scaled_down.mirror_url
-                    break
+            # Use the best available thumbnail for this image.
+            best_thumbnail = resource.representation.best_thumbnail
+            if best_thumbnail:
+                self.cover_thumbnail_url = best_thumbnail.public_url
         if (not self.cover_thumbnail_url and
             resource.representation.image_height
             and resource.representation.image_height <= self.MAX_FALLBACK_THUMBNAIL_HEIGHT):
             # The full-sized image is too large to be a thumbnail, but it's
             # not huge, and there is no other thumbnail, so use it.
-            self.cover_thumbnail_url = resource.representation.mirror_url
+            self.cover_thumbnail_url = resource.representation.public_url
         if old_cover != self.cover or old_cover_full_url != self.cover_full_url:
             logging.debug(
                 "Setting cover for %s/%s: full=%s thumb=%s",
@@ -3592,7 +3601,7 @@ class Edition(Base):
                     self.permanent_work_id, self.language
             ]
             if self.cover and self.cover.representation:
-                args.append(self.cover.representation.mirror_url)
+                args.append(self.cover.representation.public_url)
             else:
                 args.append(None)
             level(msg, *args)
@@ -3640,11 +3649,11 @@ class Edition(Base):
                     )
                 else:
                     rep = best_cover.representation
-                    if not rep.mirrored_at and not rep.thumbnails:
+                    if not rep.thumbnails:
                         logging.warn(
-                            "Best cover for %r (%s) was never mirrored or thumbnailed!",
+                            "Best cover for %r (%s) was never thumbnailed!",
                             self.primary_identifier,
-                            rep.url
+                            rep.public_url
                         )
                 self.set_cover(best_cover)
                 break
@@ -3676,14 +3685,8 @@ class Edition(Base):
                         )
                     else:
                         rep = best_thumbnail.representation
-                        if not rep.mirrored_at:
-                            logging.warn(
-                                "Best thumbnail for %r (%s) was never mirrored!",
-                                self.primary_identifier, rep.url
-                            )
-                            self.cover_thumbnail_url = rep.url
-                        else:
-                            self.cover_thumbnail_url = rep.mirror_url
+                        if rep:
+                            self.cover_thumbnail_url = rep.public_url
                         break
             else:
                 # No thumbnail was found. If the Edition references a thumbnail,
@@ -5836,17 +5839,6 @@ class Resource(Base):
             if lpdm.resource == self:
                 return lpdm
 
-    def set_mirrored_elsewhere(self, media_type):
-        """We don't need our own copy of this resource's representation--
-        a copy of it has been mirrored already.
-        """
-        _db = Session.object_session(self)
-        if not self.representation:
-            self.representation, is_new = get_one_or_create(
-                _db, Representation, url=self.url, media_type=media_type)
-        self.representation.mirror_url = self.url
-        self.representation.set_as_mirrored()
-
     def set_fetched_content(self, media_type, content, content_path):
         """Simulate a successful HTTP request for a representation
         of this resource.
@@ -5970,8 +5962,7 @@ class Resource(Base):
 
         """Choose the best covers from a list of Resources."""
         champions = []
-        champion_score = None
-        champion_media_type_score = None
+        champion_key = None
 
         for r in resources:
             rep = r.representation
@@ -5979,6 +5970,8 @@ class Resource(Base):
                 # A Resource with no Representation is not usable, period
                 continue
             media_priority = cls.image_type_priority(rep.media_type)
+            if media_priority is None:
+                media_priority = float('inf')
 
             # This method will set the quality if it hasn't been set before.
             r.quality_as_thumbnail_image
@@ -5988,22 +5981,22 @@ class Resource(Base):
                 # A Resource below the minimum quality threshold is not
                 # usable, period.
                 continue
-            if not champions or quality > champion_score:
+
+            # In order, our criteria are: whether we
+            # mirrored the representation (which means we directly
+            # control it), image quality, and media type suitability.
+            #
+            # We invert media type suitability because it's given to us
+            # as a priority (where smaller is better), but we want to compare
+            # it as a quantity (where larger is better).
+            compare_key = (rep.mirror_url is not None, quality, -media_priority)
+            if not champion_key or (compare_key > champion_key):
+                # A new champion.
                 champions = [r]
-                champion_score = r.quality
-                champion_media_type_priority = media_priority
-            elif quality == champion_score:
-                # We have two images with the same score. One might be
-                # in a format we prefer.
-                if (champion_media_type_priority is None
-                    or (media_priority is not None
-                        and media_priority < champion_media_type_priority)):
-                    champions = [r]
-                    champion_score = r.quality
-                    champion_media_type_priority = media_priority
-                elif media_priority == champion_media_type_priority:
-                    # Same score, same format. We have two champions.
-                    champions.append(r)
+                champion_key = compare_key
+            elif compare_key == champion_key:
+                # This image is equally good as the existing champion.
+                champions.append(r)
 
         return champions
 
@@ -7691,7 +7684,7 @@ class LicensePool(Base):
             url = None
             resource = self.best_open_access_resource
             if resource and resource.representation:
-                url = resource.representation.mirror_url
+                url = resource.representation.public_url
             self._open_access_download_url = url
         return self._open_access_download_url
 
@@ -7721,8 +7714,8 @@ class LicensePool(Base):
 
             if (best.data_source.name==DataSource.GUTENBERG
                 and resource.data_source.name==DataSource.GUTENBERG
-                and 'noimages' in best.representation.mirror_url
-                and not 'noimages' in resource.representation.mirror_url):
+                and 'noimages' in best.representation.public_url
+                and not 'noimages' in resource.representation.public_url):
                 # A Project Gutenberg-ism: an epub without 'noimages'
                 # in the filename is better than an epub with
                 # 'noimages' in the filename.
@@ -8381,7 +8374,7 @@ class Representation(Base):
     # we tried to fetch the representation
     fetch_exception = Column(Unicode, index=True)
 
-    # A URL under our control to which this representation will be
+    # A URL under our control to which this representation has been
     # mirrored.
     mirror_url = Column(Unicode, index=True)
 
@@ -8469,6 +8462,25 @@ class Representation(Base):
         if self.local_content_path and os.path.exists(self.local_content_path) and self.fetch_exception is None:
             return True
         return False
+
+    @property
+    def public_url(self):
+        """Find the best URL to publish when referencing this Representation
+        in a public space.
+
+        :return: a bytestring
+        """
+        url = None
+        if self.mirror_url:
+            url = self.mirror_url
+        elif self.url:
+            url = self.url
+        elif self.resource:
+            # This really shouldn't happen.
+            url = self.resource.url
+        if isinstance(url, unicode):
+            url = url.encode("utf8")
+        return url
 
     @property
     def is_usable(self):
@@ -8806,10 +8818,14 @@ class Representation(Base):
         self.fetch_exception = None
         self.update_image_size()
 
-    def set_as_mirrored(self):
+    def set_as_mirrored(self, mirror_url):
         """Record the fact that the representation has been mirrored
-        to its .mirror_url.
+        to the given URL.
+
+        This should only be called upon successful completion of the
+        mirror operation.
         """
+        self.mirror_url = mirror_url
         self.mirrored_at = datetime.datetime.utcnow()
         self.mirror_exception = None
 
@@ -9193,7 +9209,6 @@ class Representation(Base):
         # Because the representation of this image is being
         # changed, it will need to be mirrored later on.
         now = datetime.datetime.utcnow()
-        thumbnail.mirror_url = thumbnail.url
         thumbnail.mirrored_at = None
         thumbnail.mirror_exception = None
 
@@ -9295,6 +9310,21 @@ class Representation(Base):
             quotient *= (1+height_shortfall)
         return quotient
 
+    @property
+    def best_thumbnail(self):
+        """Find the best thumbnail among all the thumbnails associated with
+        this Representation.
+
+        Basically, we prefer a thumbnail that has been mirrored.
+        """
+        champion = None
+        for thumbnail in self.thumbnails:
+            if thumbnail.mirror_url:
+                champion = thumbnail
+                break
+            elif not champion:
+                champion = thumbnail
+        return champion
 
 class DeliveryMechanism(Base, HasFullTableCache):
     """A technique for delivering a book to a patron.

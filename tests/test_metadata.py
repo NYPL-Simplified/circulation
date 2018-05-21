@@ -472,15 +472,14 @@ class TestMetadataImporter(DatabaseTest):
         eq_(None, representation.fetch_exception)
         assert representation.fetched_at != None
 
-        # But mirroing failed.
+        # But mirroring failed.
         assert representation.mirror_exception != None
         eq_(None, representation.mirrored_at)
         eq_(link.media_type, representation.media_type)
         eq_(link.href, representation.url)
 
-        # The mirror url should still be set.
-        assert "Gutenberg" in representation.mirror_url
-        assert representation.mirror_url.endswith("%s/cover.jpg" % edition.primary_identifier.identifier)
+        # The mirror url is not set.
+        eq_(None, representation.mirror_url)
 
         # Book content is still there since it wasn't mirrored.
         assert representation.content != None
