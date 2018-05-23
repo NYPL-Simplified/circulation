@@ -495,7 +495,7 @@ class TestLibraryAnnotator(VendorIDTest):
                 library_identifies_patrons=auth
             )
             feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
-            entry = feed._make_entry_xml(work, pool, edition, identifier)
+            entry = feed._make_entry_xml(work, edition)
             annotator.annotate_work_entry(
                 work, pool, edition, identifier, feed, entry
             )
