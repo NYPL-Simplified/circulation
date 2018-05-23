@@ -185,7 +185,7 @@ class TestBaseAnnotator(DatabaseTest):
         [pool] = work.license_pools
 
         entry = []
-        Annotator.annotate_work_entry(work, pool, None, None, None, entry)
+        Annotator().annotate_work_entry(work, pool, None, None, None, entry)
         eq_(2, len(entry))
         [distributor, updated] = entry
         assert 'ProviderName="Gutenberg"' in etree.tostring(distributor)
@@ -364,7 +364,7 @@ class TestAnnotators(DatabaseTest):
         work.rating = 0.6
         work.calculate_opds_entries(verbose=True)
         feed = AcquisitionFeed(
-            self._db, self._str, self._url, [work], VerboseAnnotator
+            self._db, self._str, self._url, [work], VerboseAnnotator()
         )
         url = self._url
         tag = feed.create_entry(work, None)
@@ -386,7 +386,7 @@ class TestAnnotators(DatabaseTest):
         work.calculate_opds_entries()
 
         raw_feed = unicode(AcquisitionFeed(
-            self._db, self._str, self._url, [work], Annotator
+            self._db, self._str, self._url, [work], Annotator()
         ))
         assert "schema:alternativeHeadline" in raw_feed
         assert work.presentation_edition.subtitle in raw_feed
@@ -399,7 +399,7 @@ class TestAnnotators(DatabaseTest):
         work.presentation_edition.subtitle = None
         work.calculate_opds_entries()
         raw_feed = unicode(AcquisitionFeed(
-            self._db, self._str, self._url, [work], Annotator
+            self._db, self._str, self._url, [work], Annotator()
         ))
 
         assert "schema:alternativeHeadline" not in raw_feed
@@ -414,7 +414,7 @@ class TestAnnotators(DatabaseTest):
         work.calculate_opds_entries()
 
         raw_feed = unicode(AcquisitionFeed(
-            self._db, self._str, self._url, [work], Annotator
+            self._db, self._str, self._url, [work], Annotator()
         ))
         assert "schema:Series" in raw_feed
         assert work.presentation_edition.series in raw_feed
@@ -429,7 +429,7 @@ class TestAnnotators(DatabaseTest):
         work.calculate_opds_entries()
 
         raw_feed = unicode(AcquisitionFeed(
-            self._db, self._str, self._url, [work], Annotator
+            self._db, self._str, self._url, [work], Annotator()
         ))
         assert "schema:Series" in raw_feed
         assert work.presentation_edition.series in raw_feed
@@ -443,7 +443,7 @@ class TestAnnotators(DatabaseTest):
         work.presentation_edition.series = None
         work.calculate_opds_entries()
         raw_feed = unicode(AcquisitionFeed(
-            self._db, self._str, self._url, [work], Annotator
+            self._db, self._str, self._url, [work], Annotator()
         ))
 
         assert "schema:Series" not in raw_feed
@@ -584,7 +584,7 @@ class TestOPDS(DatabaseTest):
 
         cached_feed = AcquisitionFeed.page(
             self._db, "title", "http://the-url.com/",
-            lane, TestAnnotator, facets=facets
+            lane, TestAnnotator(), facets=facets
         )
 
         u = unicode(cached_feed)
@@ -670,7 +670,7 @@ class TestOPDS(DatabaseTest):
         self._db.commit()
         works = self._db.query(Work)
         with_times = AcquisitionFeed(
-            self._db, "test", "url", works, TestAnnotator)
+            self._db, "test", "url", works, TestAnnotator())
         u = unicode(with_times)
         assert 'dcterms:issued' in u
 
@@ -720,7 +720,7 @@ class TestOPDS(DatabaseTest):
 
         works = self._db.query(Work)
         with_publisher = AcquisitionFeed(
-            self._db, "test", "url", works, TestAnnotator)
+            self._db, "test", "url", works, TestAnnotator())
         with_publisher = feedparser.parse(unicode(with_publisher))
         entries = sorted(with_publisher['entries'], key = lambda x: x['title'])
         eq_('The Publisher', entries[0]['dcterms_publisher'])
@@ -964,7 +964,7 @@ class TestOPDS(DatabaseTest):
 
         def make_page(pagination):
             return AcquisitionFeed.page(
-                self._db, "test", self._url, lane, TestAnnotator,
+                self._db, "test", self._url, lane, TestAnnotator(),
                 pagination=pagination
             )
         cached_works = make_page(pagination)
@@ -1012,7 +1012,7 @@ class TestOPDS(DatabaseTest):
         # CachedFeeds aren't used.
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
-            self._db, "test", self._url, lane, TestAnnotator,
+            self._db, "test", self._url, lane, TestAnnotator(),
             pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE
         )
 
@@ -1038,7 +1038,7 @@ class TestOPDS(DatabaseTest):
 
         def make_page(pagination):
             return AcquisitionFeed.page(
-                self._db, "test", self._url, lane, TestAnnotator,
+                self._db, "test", self._url, lane, TestAnnotator(),
                 pagination=pagination
             )
         cached_works = make_page(pagination)
@@ -1075,7 +1075,7 @@ class TestOPDS(DatabaseTest):
         # CachedFeeds aren't used.
         old_cache_count = self._db.query(CachedFeed).count()
         raw_page = AcquisitionFeed.page(
-            self._db, "test", self._url, lane, TestAnnotator,
+            self._db, "test", self._url, lane, TestAnnotator(),
             pagination=pagination.next_page, cache_type=AcquisitionFeed.NO_CACHE
         )
 
@@ -1224,7 +1224,7 @@ class TestOPDS(DatabaseTest):
                 self._db, "test", self._url, fantasy_lane, search_client,
                 "fantasy",
                 pagination=pagination,
-                annotator=TestAnnotator,
+                annotator=TestAnnotator(),
             )
         feed = make_page(pagination)
         parsed = feedparser.parse(feed)
@@ -1276,7 +1276,7 @@ class TestOPDS(DatabaseTest):
 
         def make_page():
             return AcquisitionFeed.page(
-                self._db, "test", self._url, fantasy_lane, TestAnnotator,
+                self._db, "test", self._url, fantasy_lane, TestAnnotator(),
                 pagination=Pagination.default()
             )
 
@@ -1560,7 +1560,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # This is the edition used when we create an <entry> tag for
         # this Work.
         entry = AcquisitionFeed.single_entry(
-            self._db, work, TestAnnotator
+            self._db, work, TestAnnotator()
         )
         entry = etree.tostring(entry)
         assert original_pool.presentation_edition.title in entry
@@ -1574,7 +1574,7 @@ class TestAcquisitionFeed(DatabaseTest):
             datetime.datetime.utcnow() - five_hundred_years
         )
 
-        entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator)
+        entry = AcquisitionFeed.single_entry(self._db, work, TestAnnotator())
 
         expected = str(work.presentation_edition.issued.date())
         assert expected in etree.tostring(entry)
@@ -1601,7 +1601,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # The entry is retrieved from cache and the appropriate
         # namespace inserted.
         entry = AcquisitionFeed.single_entry(
-            self._db, work, AddDRMTagAnnotator
+            self._db, work, AddDRMTagAnnotator()
         )
         eq_('<entry xmlns:drm="http://librarysimplified.org/terms/drm"><foo>bar</foo><drm:licensor/></entry>',
             etree.tostring(entry)
@@ -1615,14 +1615,14 @@ class TestAcquisitionFeed(DatabaseTest):
         work.license_pools[0].identifier = None
         work.presentation_edition.primary_identifier = None
         entry = AcquisitionFeed.single_entry(
-            self._db, work, TestAnnotator
+            self._db, work, TestAnnotator()
         )
         eq_(entry, None)
 
     def test_error_when_work_has_no_licensepool(self):
         work = self._work()
         feed = AcquisitionFeed(
-            self._db, self._str, self._url, [], annotator=Annotator
+            self._db, self._str, self._url, [], annotator=Annotator()
         )
         entry = feed.create_entry(work)
         expect = AcquisitionFeed.error_message(
@@ -1640,7 +1640,7 @@ class TestAcquisitionFeed(DatabaseTest):
         work.license_pools[0].presentation_edition = None
         work.presentation_edition = None
         feed = AcquisitionFeed(
-            self._db, self._str, self._url, [], annotator=Annotator
+            self._db, self._str, self._url, [], annotator=Annotator()
         )
         entry = feed.create_entry(work)
         eq_(None, entry)
@@ -1648,7 +1648,7 @@ class TestAcquisitionFeed(DatabaseTest):
     def test_cache_usage(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(
-            self._db, self._str, self._url, [], annotator=Annotator
+            self._db, self._str, self._url, [], annotator=Annotator()
         )
 
         # Set the Work's cached OPDS entry to something that's clearly wrong.
@@ -1664,7 +1664,8 @@ class TestAcquisitionFeed(DatabaseTest):
         # run through `Annotator.annotate_work_entry`.
         [pool] = work.license_pools
         xml = etree.fromstring(work.simple_opds_entry)
-        Annotator.annotate_work_entry(
+        annotator = Annotator()
+        annotator.annotate_work_entry(
             work, pool, pool.presentation_edition, pool.identifier, feed,
             xml
         )
@@ -1686,7 +1687,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # Again, we got entry_string by running the (new) cached value
         # through `Annotator.annotate_work_entry`.
         full_entry = etree.fromstring(work.simple_opds_entry)
-        Annotator.annotate_work_entry(
+        annotator.annotate_work_entry(
             work, pool, pool.presentation_edition, pool.identifier, feed,
             full_entry
         )
@@ -1699,7 +1700,7 @@ class TestAcquisitionFeed(DatabaseTest):
             def _create_entry(self, *args, **kwargs):
                 raise Exception("I'm doomed!")
         feed = DoomedFeed(
-            self._db, self._str, self._url, [], annotator=Annotator
+            self._db, self._str, self._url, [], annotator=Annotator()
         )
         work = self._work(with_open_access_download=True)
 
@@ -1712,7 +1713,7 @@ class TestAcquisitionFeed(DatabaseTest):
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
         entry = AcquisitionFeed.single_entry(
-            self._db, work, TestUnfulfillableAnnotator
+            self._db, work, TestUnfulfillableAnnotator()
         )
         expect = AcquisitionFeed.error_message(
             pool.identifier, 403,
@@ -1800,6 +1801,8 @@ class TestLookupAcquisitionFeed(DatabaseTest):
 
     def entry(self, identifier, work, annotator=VerboseAnnotator, **kwargs):
         """Helper method to create an entry."""
+        if callable(annotator):
+            annotator = annotator()
         feed = self.feed(annotator, **kwargs)
         entry = feed.create_entry((identifier, work))
         if isinstance(entry, OPDSMessage):
@@ -1882,7 +1885,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
         feed, entry = self.entry(pool.identifier, work,
-                                 TestUnfulfillableAnnotator)
+                                 TestUnfulfillableAnnotator())
         expect = AcquisitionFeed.error_message(
             pool.identifier, 403,
             "I know about this work but can offer no way of fulfilling it."
@@ -1904,7 +1907,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             @classmethod
             def active_licensepool_for(cls, work):
                 return cls.ACTIVE
-        feed = self.feed(annotator=InstrumentableActiveLicensePool)
+        feed = self.feed(annotator=InstrumentableActiveLicensePool())
 
         # Here are two completely different LicensePools for the same
         # identifier.

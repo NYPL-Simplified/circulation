@@ -79,10 +79,7 @@ class Annotator(object):
 
     opds_cache_field = Work.simple_opds_entry.name
 
-    # TODO: it's a pain to make this an instance method but I think it
-    # needs to happen.
-    @classmethod
-    def annotate_work_entry(cls, work, active_license_pool, edition,
+    def annotate_work_entry(self, work, active_license_pool, edition,
                             identifier, feed, entry, updated=None):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
@@ -101,7 +98,7 @@ class Annotator(object):
         :param entry: An lxml Element object, the entry that will be added
            to the feed.
         """
-        permalink = cls.permalink_for(work, active_license_pool, identifier)
+        permalink = self.permalink_for(work, active_license_pool, identifier)
         entry.append(AtomFeed.id(permalink))
 
         if active_license_pool:
@@ -130,11 +127,11 @@ class Annotator(object):
         # If this OPDS entry is being used as part of a grouped feed
         # (which is up to the Annotator subclass), we need to add a
         # group link.
-        group_uri, group_title = cls.group_uri(
+        group_uri, group_title = self.group_uri(
             work, active_license_pool, identifier
         )
         if group_uri:
-            cls.add_link_to_entry(
+            OPDSFeed.add_link_to_entry(
                 entry, rel=OPDSFeed.GROUP_REL, href=group_uri,
                 title=unicode(group_title)
             )
@@ -343,6 +340,10 @@ class Annotator(object):
         """In the absence of any specific URLs, the best we can do
         is a URN.
         """
+        if not license_pool and not identifier:
+            return None
+        if not identifier:
+            identifier = license_pool.identifier
         return identifier.urn
 
     @classmethod
@@ -1094,6 +1095,8 @@ class AcquisitionFeed(OPDSFeed):
 
         # Now add the stuff specific to the selected Identifier
         # and LicensePool.
+        if not isinstance(self.annotator, Annotator):
+            set_trace()
         self.annotator.annotate_work_entry(
             work, active_license_pool, edition, identifier, self, xml)
 
