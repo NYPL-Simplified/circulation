@@ -4746,11 +4746,11 @@ class Work(Base):
         )
         _db = Session.object_session(self)
         simple = AcquisitionFeed.single_entry(
-            _db, self, Annotator(), force_create=True
+            _db, self, Annotator, force_create=True
         )
         if verbose is True:
             verbose = AcquisitionFeed.single_entry(
-                _db, self, VerboseAnnotator(), force_create=True
+                _db, self, VerboseAnnotator, force_create=True
             )
         WorkCoverageRecord.add_for(
             self, operation=WorkCoverageRecord.GENERATE_OPDS_OPERATION

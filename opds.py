@@ -405,6 +405,7 @@ class Annotator(object):
                 active_license_pool = p
         return active_license_pool
 
+    @classmethod
     def sort_works_for_groups_feed(self, works, **kwargs):
         return works
 
