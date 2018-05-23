@@ -158,7 +158,7 @@ class TestBaseAnnotator(DatabaseTest):
         edition.add_contributor(
             "Jonathan Frakes", Contributor.NARRATOR_ROLE
         )
-        author, contributor = Annotator.authors(None, None, edition, None)
+        author, contributor = Annotator.authors(None, edition)
 
         # The <author> tag indicates a role of 'author', so there's no
         # need for an explicitly specified role property.
@@ -305,9 +305,7 @@ class TestAnnotators(DatabaseTest):
         work = self._work(authors=[], with_license_pool=True)
         work.presentation_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
 
-        [same_tag] = VerboseAnnotator.authors(
-            work, work.license_pools[0], work.presentation_edition,
-            work.presentation_edition.primary_identifier)
+        [same_tag] = VerboseAnnotator.authors(work, work.presentation_edition)
         eq_(tag_string, etree.tostring(same_tag))
 
     def test_duplicate_author_names_are_ignored(self):
@@ -319,9 +317,7 @@ class TestAnnotators(DatabaseTest):
         edition = work.presentation_edition
         edition.add_contributor(duplicate, Contributor.AUTHOR_ROLE)
 
-        eq_(1, len(Annotator.authors(
-            work, work.license_pools[0], edition, edition.primary_identifier
-        )))
+        eq_(1, len(Annotator.authors(work, edition)))
 
     def test_all_annotators_mention_every_relevant_author(self):
         work = self._work(authors=[], with_license_pool=True)
@@ -351,10 +347,7 @@ class TestAnnotators(DatabaseTest):
         ]
 
         for annotator in Annotator, VerboseAnnotator:
-            tags = Annotator.authors(
-                work, work.license_pools[0], edition,
-                edition.primary_identifier
-            )
+            tags = Annotator.authors(work, edition)
             # We made two <author> tags and one <contributor>
             # tag, for the illustrator.
             eq_(['author', 'author', 'contributor'],
