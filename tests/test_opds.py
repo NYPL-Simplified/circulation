@@ -1801,8 +1801,6 @@ class TestLookupAcquisitionFeed(DatabaseTest):
 
     def entry(self, identifier, work, annotator=VerboseAnnotator, **kwargs):
         """Helper method to create an entry."""
-        if callable(annotator):
-            annotator = annotator()
         feed = self.feed(annotator, **kwargs)
         entry = feed.create_entry((identifier, work))
         if isinstance(entry, OPDSMessage):
@@ -1821,7 +1819,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         )
         work.license_pools.append(new_pool)
 
-        # We can generate two different OPDS feeds for a single work
+        # We can generate two different OPDS entries for a single work
         # depending on which identifier we look up.
         ignore, e1 = self.entry(original_pool.identifier, work)
         assert original_pool.identifier.urn in e1
@@ -1829,11 +1827,16 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         assert new_pool.identifier.urn not in e1
         assert new_pool.presentation_edition.title not in e1
 
-        ignore, e2 = self.entry(new_pool.identifier, work)
+        # Passing in the other identifier gives an OPDS entry with the
+        # same bibliographic data (taken from the original pool's
+        # presentation edition) but with different identifier
+        # information.
+        i = new_pool.identifier
+        ignore, e2 = self.entry(i, work)
         assert new_pool.identifier.urn in e2
-        assert new_pool.presentation_edition.title in e2
+        assert new_pool.presentation_edition.title not in e2
+        assert original_pool.presentation_edition.title in e2
         assert original_pool.identifier.urn not in e2
-        assert original_pool.presentation_edition.title not in e2
 
     def test_error_on_mismatched_identifier(self):
         """We get an error if we try to make it look like an Identifier lookup

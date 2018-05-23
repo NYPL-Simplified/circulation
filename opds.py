@@ -419,18 +419,20 @@ class VerboseAnnotator(Annotator):
 
     opds_cache_field = Work.verbose_opds_entry.name
 
-    @classmethod
-    def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
-                            entry):
+    def annotate_work_entry(self, work, active_license_pool, edition,
+                            identifier, feed, entry):
         """Add a quality rating to the work.
         """
+        super(VerboseAnnotator, self).annotate_work_entry(
+            work, active_license_pool, edition, identifier, feed, entry
+        )
         for type_uri, value in [
                 (Measurement.QUALITY, work.quality),
                 (None, work.rating),
                 (Measurement.POPULARITY, work.popularity),
         ]:
             if value:
-                entry.append(cls.rating_tag(type_uri, value))
+                entry.append(self.rating_tag(type_uri, value))
 
     @classmethod
     def categories(cls, work, identifier_cutoff=100):
@@ -1098,8 +1100,6 @@ class AcquisitionFeed(OPDSFeed):
 
         # Now add the stuff specific to the selected Identifier
         # and LicensePool.
-        if not isinstance(self.annotator, Annotator):
-            set_trace()
         self.annotator.annotate_work_entry(
             work, active_license_pool, edition, identifier, self, xml)
 
@@ -1535,11 +1535,11 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         # (e.g. the Identifier is not really associated with the
         # Work), we should be able to use the cached OPDS entry for
         # the Work.
-        default_licensepool = self.annotator.active_licensepool_for(work)
         if identifier.licensed_through:
             active_licensepool = identifier.licensed_through[0]
         else:
-            active_licensepool = default_licensepool
+            # Use the default active LicensePool for the Work.
+            active_licensepool = self.annotator.active_licensepool_for(work)
 
         error_status = error_message = None
         if not active_licensepool:
