@@ -1892,10 +1892,10 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         )
         eq_(expect, entry)
 
-    def test_create_entry_uses_cache_for_all_licensepools_with_identifier(self):
-        """A Work's cached OPDS entries are based on a specific identifier,
-        but they can be reused by all LicensePools with that identifier,
-        even LicensePools not directly associated with that Work.
+    def test_create_entry_uses_cache_for_all_licensepools_for_work(self):
+        """A Work's cached OPDS entries can be reused by all LicensePools for
+        that Work, even LicensePools associated with different
+        identifiers.
         """
         class InstrumentableActiveLicensePool(VerboseAnnotator):
             """A mock class that lets us control the output of
@@ -1909,19 +1909,17 @@ class TestLookupAcquisitionFeed(DatabaseTest):
                 return cls.ACTIVE
         feed = self.feed(annotator=InstrumentableActiveLicensePool())
 
-        # Here are two completely different LicensePools for the same
-        # identifier.
+        # Here are two completely different LicensePools for the same work.
         work = self._work(with_license_pool=True)
         work.verbose_opds_entry = "<entry>Cached</entry>"
         [pool1] = work.license_pools
-        identifier = pool1.identifier
+        identifier1 = pool1.identifier
 
         collection2 = self._collection()
-        edition2 = self._edition(
-            identifier_type=identifier.type,
-            identifier_id=identifier.identifier
-        )
+        edition2 = self._edition()
         pool2 = self._licensepool(edition=edition2, collection=collection2)
+        identifier2 = pool2.identifier
+        work.license_pools.append(pool2)
 
         # Regardless of which LicensePool the annotator thinks is
         # 'active', passing in (identifier, work) will use the cache.
@@ -1929,16 +1927,21 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         annotator = feed.annotator
 
         annotator.ACTIVE = pool1
-        eq_("Cached", m((identifier, work)).text)
+        eq_("Cached", m((pool1.identifier, work)).text)
 
         annotator.ACTIVE = pool2
-        eq_("Cached", m((identifier, work)).text)
+        eq_("Cached", m((pool2.identifier, work)).text)
 
         # If for some reason we pass in an identifier that is not
-        # associated with the active license pool, the cache is not used.
-        identifier2 = self._identifier()
+        # associated with the active license pool, we don't get
+        # anything.
+        work.license_pools = [pool1]
         result = m((identifier2, work))
         assert isinstance(result, OPDSMessage)
+        assert (
+            'using a Work not associated with that identifier.'
+            in result.message
+        )
 
 
 class TestEntrypointLinkInsertion(DatabaseTest):

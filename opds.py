@@ -1531,27 +1531,15 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         """
         identifier, work = work
 
-        # Most of the time we can use the cached OPDS entry for the
-        # Work. However, that cached OPDS feed is designed around one
-        # specific Identifier, and it's possible that the client is
-        # asking for a lookup centered around a different edition of the
-        # same book.
+        # Unless the client is asking for something impossible
+        # (e.g. the Identifier is not really associated with the
+        # Work), we should be able to use the cached OPDS entry for
+        # the Work.
         default_licensepool = self.annotator.active_licensepool_for(work)
         if identifier.licensed_through:
             active_licensepool = identifier.licensed_through[0]
         else:
             active_licensepool = default_licensepool
-
-        # A cached OPDS entry contains information keyed to a specific
-        # Work and Identifier, but not to a specific LicensePool.
-        # Assuming the identifier of the active licensepool matches
-        # the identifier of the default licensepool (and there is
-        # already a cached entry), we can avoid the expense of
-        # creating a new one.
-        use_cache = (
-            active_licensepool and default_licensepool
-            and active_licensepool.identifier == default_licensepool.identifier
-        )
 
         error_status = error_message = None
         if not active_licensepool:
@@ -1570,8 +1558,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             edition = work.presentation_edition
         try:
             return self._create_entry(
-                work, active_licensepool, edition, identifier,
-                use_cache=use_cache
+                work, active_licensepool, edition, identifier
             )
         except UnfulfillableWork, e:
             logging.info(
