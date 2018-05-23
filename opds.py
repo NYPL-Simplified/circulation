@@ -958,7 +958,9 @@ class AcquisitionFeed(OPDSFeed):
         into a feed.
         """
         if not annotator:
-            annotator = Annotator()
+            annotator = Annotator
+        if callable(annotator):
+            annotator = annotator()
         self.annotator = annotator
 
         super(AcquisitionFeed, self).__init__(title, url)
