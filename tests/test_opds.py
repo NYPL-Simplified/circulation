@@ -178,25 +178,44 @@ class TestBaseAnnotator(DatabaseTest):
         eq_(Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE],
             contributor.attrib[role_attrib])
 
-    def test_annotate_work_entry_adds_distributor_and_updated(self):
+    def test_annotate_work_entry_adds_tags(self):
         work = self._work(with_license_pool=True,
                           with_open_access_download=True)
         work.last_update_time = datetime.datetime(2018, 2, 5, 7, 39, 49, 580651)
         [pool] = work.license_pools
+        pool.availability_time = datetime.datetime(2015, 1, 1)
 
         entry = []
-        Annotator().annotate_work_entry(work, pool, None, None, None, entry)
-        eq_(2, len(entry))
-        [distributor, updated] = entry
+        # This will create four extra tags which could not be
+        # generated in the cached entry because they depend on the
+        # active LicensePool or identifier: the Atom ID, the distributor,
+        # the date published and the date updated.
+        annotator = Annotator()
+        annotator.annotate_work_entry(work, pool, None, None, None, entry)
+        [id, distributor, published, updated] = entry
+
+        id_tag = etree.tostring(id)
+        assert 'id' in id_tag
+        assert pool.identifier.urn in id_tag
+
         assert 'ProviderName="Gutenberg"' in etree.tostring(distributor)
-        assert 'updated' in etree.tostring(updated)
-        assert '2018-02-05' in etree.tostring(updated)
+
+        published_tag = etree.tostring(published)
+        assert 'published' in published_tag
+        assert '2015-01-01' in published_tag
+
+        updated_tag = etree.tostring(updated)
+        assert 'updated' in updated_tag
+        assert '2018-02-05' in updated_tag
 
         entry = []
-        Annotator.annotate_work_entry(work, None, None, None, None, entry,
-                                      updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651))
-        eq_(1, len(entry))
-        [updated] = entry
+        # We can pass in a specific update time to override the one
+        # found in work.last_update_time.
+        annotator.annotate_work_entry(
+            work, pool, None, None, None, entry,
+            updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651)
+        )
+        [id, distributor, published, updated] = entry
         assert 'updated' in etree.tostring(updated)
         assert '2017-01-02' in etree.tostring(updated)
 
