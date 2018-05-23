@@ -421,11 +421,15 @@ class VerboseAnnotator(Annotator):
 
     def annotate_work_entry(self, work, active_license_pool, edition,
                             identifier, feed, entry):
-        """Add a quality rating to the work.
-        """
         super(VerboseAnnotator, self).annotate_work_entry(
             work, active_license_pool, edition, identifier, feed, entry
         )
+        self.add_ratings(work, entry)
+
+    @classmethod
+    def add_ratings(cls, work):
+        """Add a quality rating to the work.
+        """
         for type_uri, value in [
                 (Measurement.QUALITY, work.quality),
                 (None, work.rating),
