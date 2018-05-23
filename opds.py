@@ -1679,6 +1679,5 @@ class TestAnnotatorWithGroup(TestAnnotator):
 class TestUnfulfillableAnnotator(TestAnnotator):
     """Raise an UnfulfillableWork exception when asked to annotate an entry."""
 
-    @classmethod
     def annotate_work_entry(self, *args, **kwargs):
         raise UnfulfillableWork()
