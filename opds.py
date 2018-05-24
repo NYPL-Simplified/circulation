@@ -114,7 +114,7 @@ class Annotator(object):
         permalink_uri = self.permalink_for(
             work, active_license_pool, identifier
         )
-        if permalink:
+        if permalink_uri:
             OPDSFeed.add_link_to_entry(
                 entry, rel='alternate', href=permalink_uri
             )
