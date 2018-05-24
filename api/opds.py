@@ -3,7 +3,6 @@ import copy
 import logging
 from nose.tools import set_trace
 from flask import url_for
-from flask_babel import lazy_gettext as _
 from lxml import etree
 from collections import defaultdict
 import uuid
