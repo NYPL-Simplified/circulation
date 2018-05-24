@@ -8719,6 +8719,15 @@ class TestCollection(DatabaseTest):
         self.collection.catalog_identifier(w1.license_pools[0].identifier)
         self.collection.catalog_identifier(w2.license_pools[0].identifier)
 
+        # This Work is catalogued in another catalog and will never show up.
+        collection2 = self._collection()
+        in_other_catalog = self._work(
+            with_license_pool=True, collection=collection2
+        )
+        collection2.catalog_identifier(
+            in_other_catalog.license_pools[0].identifier
+        )
+
         # When no timestamp is passed, all works in the catalog are returned.
         # in order of their WorkCoverageRecord timestamp.
         t1, t2 = self.collection.works_updated_since(self._db, None).all()
@@ -8730,14 +8739,10 @@ class TestCollection(DatabaseTest):
         # CollectionIdentifier). This gives the caller all the information
         # necessary to understand the path by which a given Work belongs to
         # a given Collection.
-        _w1, lp1, i1, wc1, ci1 = t1
+        _w1, lp1, i1 = t1
         [pool] = w1.license_pools
         eq_(pool, lp1)
         eq_(pool.identifier, i1)
-        eq_(w1, wc1.work)
-        eq_(WorkCoverageRecord.GENERATE_OPDS_OPERATION, wc1.operation)
-        eq_(self.collection.id, ci1.collection_id)
-        eq_(pool.identifier.id, ci1.identifier_id)
 
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
