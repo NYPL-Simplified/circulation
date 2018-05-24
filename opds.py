@@ -111,7 +111,9 @@ class Annotator(object):
             entry.append(AtomFeed.id(identifier.urn))
 
         # Add a permalink if one is available.
-        permalink = self.permalink_for(work, active_license_pool, identifier)
+        permalink_uri = self.permalink_for(
+            work, active_license_pool, identifier
+        )
         if permalink:
             OPDSFeed.add_link_to_entry(
                 entry, rel='alternate', href=permalink_uri
