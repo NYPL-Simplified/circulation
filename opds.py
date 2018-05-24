@@ -111,12 +111,13 @@ class Annotator(object):
             entry.append(AtomFeed.id(identifier.urn))
 
         # Add a permalink if one is available.
-        permalink_uri = self.permalink_for(
+        permalink_uri, permalink_type = self.permalink_for(
             work, active_license_pool, identifier
         )
         if permalink_uri:
             OPDSFeed.add_link_to_entry(
-                entry, rel='alternate', href=permalink_uri
+                entry, rel='alternate', href=permalink_uri,
+                type=permalink_type
             )
 
         if active_license_pool:
@@ -355,13 +356,19 @@ class Annotator(object):
 
     @classmethod
     def permalink_for(cls, work, license_pool, identifier):
-        """In the absence of any specific controllers,
-        there is no permalink.
+        """Generate a permanent link a client can follow for information about
+        this entry, and only this entry.
 
         Note that permalink is distinct from the Atom <id>,
         which is always the identifier's URN.
+
+        :return: A 2-tuple (URL, media type). If a single value is
+        returned, the media type will be presumed to be that of an
+        OPDS entry.
         """
-        return None
+        # In the absence of any specific controllers, there is no
+        # permalink. This method must be defined in a subclass.
+        return None, None
 
     @classmethod
     def lane_url(cls, lane, facets=None):
