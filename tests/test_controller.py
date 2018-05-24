@@ -1103,7 +1103,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.id, fulfillable_mechanism.delivery_mechanism.id,
             )
             eq_(302, response.status_code)
-            eq_(fulfillable_mechanism.resource.representation.mirror_url, response.headers.get("Location"))
+            eq_(fulfillable_mechanism.resource.representation.public_url, response.headers.get("Location"))
 
             # The mechanism we used has been registered with the loan.
             eq_(fulfillable_mechanism, loan.fulfillment)
@@ -2686,7 +2686,7 @@ class TestFeedController(CirculationControllerTest):
             eq_(0, len([link for link in links if link.get("rel") == Hyperlink.BORROW]))
             [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
             pool = self.english_2.license_pools[0]
-            eq_(pool.identifier.links[0].resource.representation.mirror_url, open_access_link.get("href"))
+            eq_(pool.identifier.links[0].resource.representation.public_url, open_access_link.get("href"))
 
         # The collection must exist.
         with self.app.test_request_context("/?size=1"):
