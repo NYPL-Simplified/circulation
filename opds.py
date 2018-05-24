@@ -429,7 +429,6 @@ class Annotator(object):
                 active_license_pool = p
         return active_license_pool
 
-    @classmethod
     def sort_works_for_groups_feed(self, works, **kwargs):
         return works
 
@@ -560,6 +559,10 @@ class AcquisitionFeed(OPDSFeed):
 
         :return: CachedFeed (if use_cache is True) or unicode
         """
+        if not annotator:
+            annotator = Annotator
+        if callable(annotator):
+            annotator = annotator()
         cached = None
         use_cache = cache_type != cls.NO_CACHE
         facets = facets or lane.default_featured_facets(_db)
