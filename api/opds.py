@@ -3,6 +3,7 @@ import copy
 import logging
 from nose.tools import set_trace
 from flask import url_for
+from flask_babel import lazy_gettext as _
 from lxml import etree
 from collections import defaultdict
 import uuid
@@ -436,13 +437,14 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return self._top_level_title
 
     def permalink_for(self, work, license_pool, identifier):
-        return self.url_for(
+        url = self.url_for(
             'permalink',
             identifier_type=identifier.type,
             identifier=identifier.identifier,
             library_short_name=self.library.short_name,
             _external=True
         )
+        return url, OPDSFeed.ENTRY_TYPE
 
     def groups_url(self, lane, facets=None):
         lane_identifier = self._lane_identifier(lane)
@@ -536,16 +538,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         updated = None
         if isinstance(self.lane, CrawlableCustomListBasedLane) and isinstance(work, BaseMaterializedWork):
             updated = max(work.last_update_time, work.first_appearance, work.availability_time)
-
-        # First, add a permalink.
-        feed.add_link_to_entry(
-            entry, 
-            rel='alternate',
-            type=OPDSFeed.ENTRY_TYPE,
-            href=self.permalink_for(
-                work, active_license_pool, identifier
-            )
-        )
 
         # Add a link for reporting problems.
         feed.add_link_to_entry(

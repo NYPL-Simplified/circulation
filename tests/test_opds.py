@@ -468,9 +468,12 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(entry['id'], pool.identifier.urn)
 
         [(alternate, type)] = [(x['href'], x['type']) for x in entry['links'] if x['rel'] == 'alternate']
-        permalink = self.annotator.permalink_for(work, pool, pool.identifier)
+        permalink, permalink_type = self.annotator.permalink_for(
+            work, pool, pool.identifier
+        )
         eq_(alternate, permalink)
         eq_(OPDSFeed.ENTRY_TYPE, type)
+        eq_(permalink_type, type)
 
         # Make sure we are using the 'permalink' controller -- we were using
         # 'work' and that was wrong.
@@ -531,7 +534,7 @@ class TestLibraryAnnotator(VendorIDTest):
             library_identifies_patrons=True
         )
         feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
-        entry = feed._make_entry_xml(work, None, edition, identifier)
+        entry = feed._make_entry_xml(work, edition)
         annotator.annotate_work_entry(
             work, None, edition, identifier, feed, entry
         )
