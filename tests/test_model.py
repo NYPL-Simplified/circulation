@@ -8719,10 +8719,30 @@ class TestCollection(DatabaseTest):
         self.collection.catalog_identifier(w1.license_pools[0].identifier)
         self.collection.catalog_identifier(w2.license_pools[0].identifier)
 
+        # This Work is catalogued in another catalog and will never show up.
+        collection2 = self._collection()
+        in_other_catalog = self._work(
+            with_license_pool=True, collection=collection2
+        )
+        collection2.catalog_identifier(
+            in_other_catalog.license_pools[0].identifier
+        )
+
         # When no timestamp is passed, all works in the catalog are returned.
         # in order of their WorkCoverageRecord timestamp.
-        updated_works = self.collection.works_updated_since(self._db, None).all()
-        eq_([w1, w2], updated_works)
+        t1, t2 = self.collection.works_updated_since(self._db, None).all()
+        eq_(w1, t1[0])
+        eq_(w2, t2[0])
+
+        # The return value is a sequence of 5-tuples, each containing
+        # (Work, LicensePool, Identifier, WorkCoverageRecord,
+        # CollectionIdentifier). This gives the caller all the information
+        # necessary to understand the path by which a given Work belongs to
+        # a given Collection.
+        _w1, lp1, i1 = t1
+        [pool] = w1.license_pools
+        eq_(pool, lp1)
+        eq_(pool.identifier, i1)
 
         # When a timestamp is passed, only works that have been updated
         # since then will be returned
@@ -8731,7 +8751,7 @@ class TestCollection(DatabaseTest):
             if c.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION
         ]
         w1_coverage_record.timestamp = datetime.datetime.utcnow()
-        eq_([w1], self.collection.works_updated_since(self._db, timestamp).all())
+        eq_([w1], [x[0] for x in self.collection.works_updated_since(self._db, timestamp)])
 
     def test_isbns_updated_since(self):
         i1 = self._identifier(identifier_type=Identifier.ISBN, foreign_id=self._isbn)

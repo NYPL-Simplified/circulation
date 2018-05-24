@@ -79,12 +79,47 @@ class Annotator(object):
 
     opds_cache_field = Work.simple_opds_entry.name
 
-    @classmethod
-    def annotate_work_entry(cls, work, active_license_pool, edition,
+    def annotate_work_entry(self, work, active_license_pool, edition,
                             identifier, feed, entry, updated=None):
         """Make any custom modifications necessary to integrate this
         OPDS entry into the application's workflow.
+
+        :work: The Work whose OPDS entry is being annotated.
+        :active_license_pool: Of all the LicensePools associated with this
+           Work, the client has expressed interest in this one.
+        :edition: The Edition to use when associating bibliographic
+           metadata with this entry. You will probably not need to use
+           this, because bibliographic metadata was associated with
+           the entry when it was created.
+        :identifier: Of all the Identifiers associated with this
+           Work, the client has expressed interest in this one.
+        :param feed: An OPDSFeed -- the feed in which this entry will be
+           situated.
+        :param entry: An lxml Element object, the entry that will be added
+           to the feed.
         """
+
+        # First, try really hard to find an Identifier that we can
+        # use to make the <id> tag.
+        if not identifier:
+            if active_license_pool:
+                identifier = active_license_pool.identifier
+            elif edition:
+                identifier = edition.primary_identifier
+
+        if identifier:
+            entry.append(AtomFeed.id(identifier.urn))
+
+        # Add a permalink if one is available.
+        permalink_uri, permalink_type = self.permalink_for(
+            work, active_license_pool, identifier
+        )
+        if permalink_uri:
+            OPDSFeed.add_link_to_entry(
+                entry, rel='alternate', href=permalink_uri,
+                type=permalink_type
+            )
+
         if active_license_pool:
             provider_name_attr = "{%s}ProviderName" % AtomFeed.BIBFRAME_NS
             kwargs = {provider_name_attr : active_license_pool.data_source.name}
@@ -94,6 +129,33 @@ class Annotator(object):
             )
             entry.extend([data_source_tag])
 
+            # We use Atom 'published' for the date the book first became
+            # available to people using this application.
+            avail = active_license_pool.availability_time
+            if avail:
+                now = datetime.datetime.utcnow()
+                today = datetime.date.today()
+                if isinstance(avail, datetime.datetime):
+                    avail = avail.date()
+                if avail <= today: # Avoid obviously wrong values.
+                    availability_tag = AtomFeed.makeelement("published")
+                    # TODO: convert to local timezone.
+                    availability_tag.text = AtomFeed._strftime(avail)
+                entry.extend([availability_tag])
+
+        # If this OPDS entry is being used as part of a grouped feed
+        # (which is up to the Annotator subclass), we need to add a
+        # group link.
+        group_uri, group_title = self.group_uri(
+            work, active_license_pool, identifier
+        )
+        if group_uri:
+            OPDSFeed.add_link_to_entry(
+                entry, rel=OPDSFeed.GROUP_REL, href=group_uri,
+                title=unicode(group_title)
+            )
+
+        # TODO: maybe we can do better than this in calculating updated()
         if not updated and work.last_update_time:
             updated = work.last_update_time
         if updated:
@@ -108,6 +170,14 @@ class Annotator(object):
 
     @classmethod
     def group_uri(cls, work, license_pool, identifier):
+        """The URI to be associated with this Work when making it part of
+        a grouped feed.
+
+        By default, this does nothing. See circulation/LibraryAnnotator
+        for a subclass that does something.
+
+        :return: A 2-tuple (URI, title)
+        """
         return None, ""
 
     @classmethod
@@ -130,7 +200,6 @@ class Annotator(object):
         a large number of links.
 
         :return: A 2-tuple (thumbnail_links, full_links)
-
         """
         thumbnails = []
         full = []
@@ -219,7 +288,7 @@ class Annotator(object):
         return categories
 
     @classmethod
-    def authors(cls, work, license_pool, edition, identifier):
+    def authors(cls, work, edition):
         """Create one or more <author> and <contributor> tags for the given
         work."""
         authors = list()
@@ -287,10 +356,19 @@ class Annotator(object):
 
     @classmethod
     def permalink_for(cls, work, license_pool, identifier):
-        """In the absence of any specific URLs, the best we can do
-        is a URN.
+        """Generate a permanent link a client can follow for information about
+        this entry, and only this entry.
+
+        Note that permalink is distinct from the Atom <id>,
+        which is always the identifier's URN.
+
+        :return: A 2-tuple (URL, media type). If a single value is
+        returned, the media type will be presumed to be that of an
+        OPDS entry.
         """
-        return identifier.urn
+        # In the absence of any specific controllers, there is no
+        # permalink. This method must be defined in a subclass.
+        return None, None
 
     @classmethod
     def lane_url(cls, lane, facets=None):
@@ -364,9 +442,15 @@ class VerboseAnnotator(Annotator):
 
     opds_cache_field = Work.verbose_opds_entry.name
 
+    def annotate_work_entry(self, work, active_license_pool, edition,
+                            identifier, feed, entry):
+        super(VerboseAnnotator, self).annotate_work_entry(
+            work, active_license_pool, edition, identifier, feed, entry
+        )
+        self.add_ratings(work, entry)
+
     @classmethod
-    def annotate_work_entry(cls, work, license_pool, edition, identifier, feed,
-                            entry):
+    def add_ratings(cls, work, entry):
         """Add a quality rating to the work.
         """
         for type_uri, value in [
@@ -418,7 +502,7 @@ class VerboseAnnotator(Annotator):
         return by_scheme
 
     @classmethod
-    def authors(cls, work, license_pool, edition, identifier):
+    def authors(cls, work, edition):
         """Create a detailed <author> tag for each author."""
         return [cls.detailed_author(author)
                 for author in edition.author_contributors]
@@ -475,6 +559,10 @@ class AcquisitionFeed(OPDSFeed):
 
         :return: CachedFeed (if use_cache is True) or unicode
         """
+        if not annotator:
+            annotator = Annotator
+        if callable(annotator):
+            annotator = annotator()
         cached = None
         use_cache = cache_type != cls.NO_CACHE
         facets = facets or lane.default_featured_facets(_db)
@@ -904,7 +992,9 @@ class AcquisitionFeed(OPDSFeed):
         into a feed.
         """
         if not annotator:
-            annotator = Annotator()
+            annotator = Annotator
+        if callable(annotator):
+            annotator = annotator()
         self.annotator = annotator
 
         super(AcquisitionFeed, self).__init__(title, url)
@@ -978,8 +1068,10 @@ class AcquisitionFeed(OPDSFeed):
             )
 
         try:
-            return self._create_entry(work, active_license_pool, active_edition,
-                                      identifier, force_create, use_cache)
+            return self._create_entry(
+                work, active_license_pool, active_edition, identifier, 
+                force_create, use_cache
+            )
         except UnfulfillableWork, e:
             logging.info(
                 "Work %r is not fulfillable, refusing to create an <entry>.",
@@ -997,8 +1089,30 @@ class AcquisitionFeed(OPDSFeed):
             )
             return None
 
-    def _create_entry(self, work, license_pool, edition, identifier,
-                      force_create=False, use_cache=True):
+    def _create_entry(self, work, active_license_pool, edition,
+                      identifier, force_create=False, use_cache=True):
+        """Build a complete OPDS entry for the given Work.
+
+        The OPDS entry will contain bibliographic information about
+        the Work, as well as information derived from a specific
+        LicensePool and Identifier associated with the Work.
+
+        :param work: The Work whose OPDS entry the client is interested in.
+        :active_license_pool: Of all the LicensePools associated with this
+           Work, the client has expressed interest in this one.
+        :param edition: The edition to use as the presentation edition
+            when creating the entry. If this is not present, the work's
+            existing presentation edition will be used.
+        :identifier: Of all the Identifiers associated with this
+           Work, the client has expressed interest in this one.
+        :param force_create: Create this entry even if there's already
+            a cached one.
+        :param use_cache: If true, a newly created entry will be cached
+            in the appropriate storage field of Work -- either
+            simple_opds_entry or verbose_opds_entry. (NOTE: this has some
+            overlap with force_create which is difficult to explain.)
+        :return: An lxml Element object
+        """
         xml = None
         field = self.annotator.opds_cache_field
         if field and work and not force_create and use_cache:
@@ -1010,26 +1124,32 @@ class AcquisitionFeed(OPDSFeed):
             if isinstance(work, BaseMaterializedWork):
                 raise Exception(
                     "Cannot build an OPDS entry for a MaterializedWork.")
-            xml = self._make_entry_xml(work, license_pool, edition, identifier)
+            xml = self._make_entry_xml(work, edition)
             data = etree.tostring(xml)
             if field and use_cache:
                 setattr(work, field, data)
 
+        # Now add the stuff specific to the selected Identifier
+        # and LicensePool.
         self.annotator.annotate_work_entry(
-            work, license_pool, edition, identifier, self, xml)
-
-        group_uri, group_title = self.annotator.group_uri(
-            work, license_pool, identifier)
-        if group_uri:
-            self.add_link_to_entry(
-                xml, rel=OPDSFeed.GROUP_REL, href=group_uri,
-                title=unicode(group_title))
+            work, active_license_pool, edition, identifier, self, xml)
 
         return xml
 
-    def _make_entry_xml(self, work, license_pool, edition, identifier):
+    def _make_entry_xml(self, work, edition):
+        """Create a new (incomplete) OPDS entry for the given work.
 
-        if work and not edition:
+        It will be completed later, in an application-specific way,
+        in annotate_work_entry().
+
+        :param work: The Work that needs an OPDS entry.
+        :param edition: The edition to use as the presentation edition
+            when creating the entry.
+        """
+        if not work:
+            return None
+
+        if not edition:
             edition = work.presentation_edition
 
         # Find the .epub link
@@ -1048,6 +1168,13 @@ class AcquisitionFeed(OPDSFeed):
                 (Hyperlink.IMAGE, full_urls),
                 (Hyperlink.THUMBNAIL_IMAGE, thumbnail_urls)):
             for url in urls:
+                # TODO: This is suboptimal. We know the media types
+                # associated with these URLs when they are
+                # Representations, but we don't have a way to connect
+                # the cover_full_url with the corresponding
+                # Representation, and performance considerations make
+                # it impractical to follow the object reference every
+                # time.
                 image_type = "image/png"
                 if url.endswith(".jpeg") or url.endswith(".jpg"):
                     image_type = "image/jpeg"
@@ -1055,8 +1182,6 @@ class AcquisitionFeed(OPDSFeed):
                     image_type = "image/gif"
                 links.append(AtomFeed.link(rel=rel, href=url, type=image_type))
 
-
-        permalink = self.annotator.permalink_for(work, license_pool, identifier)
         content = self.annotator.content(work)
         if isinstance(content, str):
             content = content.decode("utf8")
@@ -1073,7 +1198,6 @@ class AcquisitionFeed(OPDSFeed):
             kw[additional_type_field] = additional_type
 
         entry = AtomFeed.entry(
-            AtomFeed.id(permalink),
             AtomFeed.title(edition.title or OPDSFeed.NO_TITLE),
             **kw
         )
@@ -1082,7 +1206,7 @@ class AcquisitionFeed(OPDSFeed):
             subtitle_tag.text = edition.subtitle
             entry.append(subtitle_tag)
 
-        author_tags = self.annotator.authors(work, license_pool, edition, identifier)
+        author_tags = self.annotator.authors(work, edition)
         entry.extend(author_tags)
 
         if edition.series:
@@ -1126,20 +1250,6 @@ class AcquisitionFeed(OPDSFeed):
             imprint_tag.text = edition.imprint
             entry.extend([imprint_tag])
 
-        # We use Atom 'published' for the date the book first became
-        # available to people using this application.
-        now = datetime.datetime.utcnow()
-        today = datetime.date.today()
-        if license_pool and license_pool.availability_time:
-            avail = license_pool.availability_time
-            if isinstance(avail, datetime.datetime):
-                avail = avail.date()
-            if avail <= today:
-                availability_tag = AtomFeed.makeelement("published")
-                # TODO: convert to local timezone.
-                availability_tag.text = AtomFeed._strftime(license_pool.availability_time)
-                entry.extend([availability_tag])
-
         # Entry.issued is the date the ebook came out, as distinct
         # from Entry.published (which may refer to the print edition
         # or some original edition way back when).
@@ -1158,6 +1268,8 @@ class AcquisitionFeed(OPDSFeed):
         issued = edition.issued or edition.published
         if (isinstance(issued, datetime.datetime)
             or isinstance(issued, datetime.date)):
+            now = datetime.datetime.utcnow()
+            today = datetime.date.today()
             issued_already = False
             if isinstance(issued, datetime.datetime):
                 issued_already = (issued <= now)
@@ -1450,27 +1562,15 @@ class LookupAcquisitionFeed(AcquisitionFeed):
         """
         identifier, work = work
 
-        # Most of the time we can use the cached OPDS entry for the
-        # Work. However, that cached OPDS feed is designed around one
-        # specific Identifier, and it's possible that the client is
-        # asking for a lookup centered around a different edition of the
-        # same book.
-        default_licensepool = self.annotator.active_licensepool_for(work)
+        # Unless the client is asking for something impossible
+        # (e.g. the Identifier is not really associated with the
+        # Work), we should be able to use the cached OPDS entry for
+        # the Work.
         if identifier.licensed_through:
             active_licensepool = identifier.licensed_through[0]
         else:
-            active_licensepool = default_licensepool
-
-        # A cached OPDS entry contains information keyed to a specific
-        # Work and Identifier, but not to a specific LicensePool.
-        # Assuming the identifier of the active licensepool matches
-        # the identifier of the default licensepool (and there is
-        # already a cached entry), we can avoid the expense of
-        # creating a new one.
-        use_cache = (
-            active_licensepool and default_licensepool
-            and active_licensepool.identifier == default_licensepool.identifier
-        )
+            # Use the default active LicensePool for the Work.
+            active_licensepool = self.annotator.active_licensepool_for(work)
 
         error_status = error_message = None
         if not active_licensepool:
@@ -1489,8 +1589,7 @@ class LookupAcquisitionFeed(AcquisitionFeed):
             edition = work.presentation_edition
         try:
             return self._create_entry(
-                work, active_licensepool, edition, identifier,
-                use_cache=use_cache
+                work, active_licensepool, edition, identifier
             )
         except UnfulfillableWork, e:
             logging.info(
@@ -1611,6 +1710,5 @@ class TestAnnotatorWithGroup(TestAnnotator):
 class TestUnfulfillableAnnotator(TestAnnotator):
     """Raise an UnfulfillableWork exception when asked to annotate an entry."""
 
-    @classmethod
     def annotate_work_entry(self, *args, **kwargs):
         raise UnfulfillableWork()
