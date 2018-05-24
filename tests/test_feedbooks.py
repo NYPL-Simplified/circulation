@@ -349,14 +349,12 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
         [mechanism] = pool.delivery_mechanisms
         eq_(RightsStatus.IN_COPYRIGHT, mechanism.rights_status.uri)
 
-        # The DeliveryMechanism is set as mirrored, but its 'mirror
-        # URL' is the same as the original URL. This is not the best
-        # outcome--it happens in Identifier.add_link--but it should be
-        # okay.
-
-        eq_('http://www.feedbooks.com/book/677.epub',
-            mechanism.resource.representation.mirror_url
-        )
+        # The DeliveryMechanism has a Representation but the Representation
+        # has not been set as mirrored, because nothing was uploaded.
+        rep = mechanism.resource.representation
+        eq_('http://www.feedbooks.com/book/677.epub', rep.url)
+        eq_(None, rep.mirror_url)
+        eq_(None, rep.mirror_exception)
 
         # The pool is not marked as open-access because although it
         # has open-access links, they're not licensed under terms we
