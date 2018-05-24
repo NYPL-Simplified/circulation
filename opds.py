@@ -98,8 +98,24 @@ class Annotator(object):
         :param entry: An lxml Element object, the entry that will be added
            to the feed.
         """
+
+        # First, try really hard to find an Identifier that we can
+        # use to make the <id> tag.
+        if not identifier:
+            if active_license_pool:
+                identifier = active_license_pool.identifier
+            elif edition:
+                identifier = edition.primary_identifier
+
+        if identifier:
+            entry.append(AtomFeed.id(identifier.urn))
+
+        # Add a permalink if one is available.
         permalink = self.permalink_for(work, active_license_pool, identifier)
-        entry.append(AtomFeed.id(permalink))
+        if permalink:
+            OPDSFeed.add_link_to_entry(
+                entry, rel='alternate', href=permalink_uri
+            )
 
         if active_license_pool:
             provider_name_attr = "{%s}ProviderName" % AtomFeed.BIBFRAME_NS
@@ -337,14 +353,13 @@ class Annotator(object):
 
     @classmethod
     def permalink_for(cls, work, license_pool, identifier):
-        """In the absence of any specific URLs, the best we can do
-        is a URN.
+        """In the absence of any specific controllers,
+        there is no permalink.
+
+        Note that permalink is distinct from the Atom <id>,
+        which is always the identifier's URN.
         """
-        if not license_pool and not identifier:
-            return None
-        if not identifier:
-            identifier = license_pool.identifier
-        return identifier.urn
+        return None
 
     @classmethod
     def lane_url(cls, lane, facets=None):
@@ -427,7 +442,7 @@ class VerboseAnnotator(Annotator):
         self.add_ratings(work, entry)
 
     @classmethod
-    def add_ratings(cls, work):
+    def add_ratings(cls, work, entry):
         """Add a quality rating to the work.
         """
         for type_uri, value in [
@@ -436,7 +451,7 @@ class VerboseAnnotator(Annotator):
                 (Measurement.POPULARITY, work.popularity),
         ]:
             if value:
-                entry.append(self.rating_tag(type_uri, value))
+                entry.append(cls.rating_tag(type_uri, value))
 
     @classmethod
     def categories(cls, work, identifier_cutoff=100):
