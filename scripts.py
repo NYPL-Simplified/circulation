@@ -2768,6 +2768,11 @@ class CheckContributorNamesInDB(IdentifierInputScript):
 
 class Explain(IdentifierInputScript):
     """Explain everything known about a given work."""
+
+    # Where to go to get best available metadata about a work.
+    METADATA_URL_TEMPLATE = "http://metadata.librarysimplified.org/lookup?urn=%s"
+    TIME_FORMAT = "%Y-%m-%d %H:%M"
+
     def do_run(self, cmd_args=None, stdin=sys.stdin, stdout=sys.stdout):
         param_args = self.parse_command_line(self._db, cmd_args=cmd_args, stdin=stdin)
         identifier_ids = [x.id for x in param_args.identifiers]
@@ -2798,7 +2803,7 @@ class Explain(IdentifierInputScript):
         output = "%s (%s, %s) according to %s" % (edition.title, edition.author, edition.medium, edition.data_source.name)
         self.write(output)
         self.write(" Permanent work ID: %s" % edition.permanent_work_id)
-        self.write(" Metadata URL: http://metadata.alpha.librarysimplified.org/lookup?urn=%s" % edition.primary_identifier.urn)
+        self.write(" Metadata URL: %s " % (self.METADATA_URL_TEMPLATE % edition.primary_identifier.urn))
 
         seen = set()
         self.explain_identifier(edition.primary_identifier, True, seen, 1, 0)
@@ -2871,6 +2876,12 @@ class Explain(IdentifierInputScript):
             output = equivalency.output
             self.explain_identifier(output, False, seen,
                                     equivalency.strength, level+1)
+        if primary:
+            crs = identifier.coverage_records
+            if crs:
+                self.write("  %d coverage records:" % len(crs))
+                for cr in sorted(crs, key=lambda x: x.timestamp):
+                    self.explain_coverage_record(cr)
 
     def explain_license_pool(self, pool):
         self.write("Licensepool info:")
@@ -2915,7 +2926,47 @@ class Explain(IdentifierInputScript):
             active = "SUPERCEDED"
             if not pool.superceded:
                 active = "ACTIVE"
-            self.write("  %s: %r" % (active, pool.identifier))
+            if pool.collection:
+                collection = pool.collection.name
+            else:
+                collection = '!collection'
+            self.write("  %s: %r %s" % (active, pool.identifier, collection))
+        wcrs = sorted(work.coverage_records, key=lambda x: x.timestamp)
+        if wcrs:
+            self.write(" %s work coverage records" % len(wcrs))
+            for wcr in wcrs:
+                self.explain_work_coverage_record(wcr)
+
+    def explain_coverage_record(self, cr):
+        self._explain_coverage_record(
+            cr.timestamp, cr.data_source, cr.operation, cr.status,
+            cr.exception
+        )
+
+    def explain_work_coverage_record(self, cr):
+        self._explain_coverage_record(
+            cr.timestamp, None, cr.operation, cr.status, cr.exception
+        )
+
+    def _explain_coverage_record(self, timestamp, data_source, operation,
+                                 status, exception):
+        timestamp = timestamp.strftime(self.TIME_FORMAT)
+        if data_source:
+            data_source = data_source.name + ' | '
+        else:
+            data_source = ''
+        if operation:
+            operation = operation + ' | '
+        else:
+            operation = ''
+        if exception:
+            exception = ' | ' + exception
+        else:
+            exception = ''
+        self.write("   %s | %s%s%s%s" % (
+            timestamp, data_source, operation, status,
+            exception
+        ))
 
 
 class FixInvisibleWorksScript(CollectionInputScript):
