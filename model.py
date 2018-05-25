@@ -5529,7 +5529,7 @@ class LicensePoolDeliveryMechanism(Base):
             identifier=identifier,
             data_source=data_source,
             delivery_mechanism=delivery_mechanism,
-            resource=resource
+            resource=resource,
         )
         if not lpdm.rights_status or rights_status.uri != RightsStatus.UNKNOWN:
             # We have better information available about the
@@ -10683,6 +10683,13 @@ class ExternalIntegration(Base, HasFullTableCache):
     settings = relationship(
         "ConfigurationSetting", backref="external_integration",
         lazy="joined", cascade="all, delete-orphan",
+    )
+
+    # Any number of Collections may designate an ExternalIntegration
+    # as the source of their configuration
+    collections = relationship(
+        "Collection", backref="external_integration",
+        foreign_keys='Collection.external_integration_id',
     )
 
     # An ExternalIntegration may be used by many Collections
