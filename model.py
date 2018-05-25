@@ -2012,8 +2012,28 @@ class Identifier(Base):
         return (type, identifier_string)
 
     @classmethod
-    def parse_urns(cls, _db, identifier_strings, autocreate=True):
-        """Batch processes URNs"""
+    def parse_urns(cls, _db, identifier_strings, autocreate=True,
+                   allowed_types=None):
+        """Converts a batch of URNs into Identifier objects.
+
+        :param _db: A database connection
+        :param identifier_strings: A list of strings, each a URN
+           identifying some identifier.
+
+        :param autocreate: Create an Identifier for a URN if none
+            presently exists.
+
+        :param allowed_types: If this is a non-empty set of Identifier
+            types, only identifiers of those types may be looked
+            up. All other identifier types will be treated as though
+            they did not exist.
+
+        :return: A 2-tuple (identifiers, failures). `identifiers` is a
+            list of Identifiers. `failures` is a list of URNs that
+            did not become Identifiers.
+        """
+        if allowed_types is not None:
+            allowed_types = set(allowed_types)
         failures = list()
         identifier_details = dict()
         for urn in identifier_strings:
@@ -2022,7 +2042,8 @@ class Identifier(Base):
                 (type, identifier) = cls.prepare_foreign_type_and_identifier(
                     *cls.type_and_identifier_for_urn(urn)
                 )
-                if type and identifier:
+                if (type and identifier and
+                    (allowed_types is None or type in allowed_types)):
                     identifier_details[urn] = (type, identifier)
                 else:
                     failures.append(urn)
