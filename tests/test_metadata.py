@@ -149,6 +149,44 @@ class TestMetadataImporter(DatabaseTest):
         eq_(Hyperlink.DESCRIPTION, description.rel)
         eq_("foo", description.resource.representation.content)
 
+    def test_image_with_original_and_rights(self):
+        edition = self._edition()
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+        original = LinkData(rel=Hyperlink.IMAGE,
+                            href="http://example.com/",
+                            media_type=Representation.PNG_MEDIA_TYPE,
+                            rights_uri=RightsStatus.PUBLIC_DOMAIN_USA,
+                            rights_explanation="This image is from 1922",
+                            )
+        image_data = '\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x01\x03\x00\x00\x00%\xdbV\xca\x00\x00\x00\x06PLTE\xffM\x00\x01\x01\x01\x8e\x1e\xe5\x1b\x00\x00\x00\x01tRNS\xcc\xd24V\xfd\x00\x00\x00\nIDATx\x9cc`\x00\x00\x00\x02\x00\x01H\xaf\xa4q\x00\x00\x00\x00IEND\xaeB`\x82'
+        derivative = LinkData(rel=Hyperlink.IMAGE,
+                              href="generic uri",
+                              content=image_data,
+                              media_type=Representation.PNG_MEDIA_TYPE,
+                              rights_uri=RightsStatus.PUBLIC_DOMAIN_USA,
+                              rights_explanation="This image is from 1922",
+                              original=original,
+                              derivation_settings=dict(position='top')
+                              )
+
+        metadata = Metadata(links=[derivative], data_source=data_source)
+        metadata.apply(edition, None)
+        [image] = edition.primary_identifier.links
+        eq_(Hyperlink.IMAGE, image.rel)
+        eq_("generic uri", image.resource.url)
+        eq_(image_data, image.resource.representation.content)
+        eq_(RightsStatus.PUBLIC_DOMAIN_USA, image.resource.rights_status.uri)
+        eq_("This image is from 1922", image.resource.rights_explanation)
+
+        eq_([], image.resource.derivative_derivations)
+        derivation = image.resource.derivation
+        eq_(image.resource, derivation.derivative)
+
+        eq_("http://example.com/", derivation.original.url)
+        eq_(RightsStatus.PUBLIC_DOMAIN_USA, derivation.original.rights_status.uri)
+        eq_("This image is from 1922", derivation.original.rights_explanation)
+        eq_("top", derivation.settings.get("position"))
+
     def test_image_and_thumbnail(self):
         edition = self._edition()
         l2 = LinkData(
