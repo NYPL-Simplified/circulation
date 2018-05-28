@@ -1262,6 +1262,10 @@ class WorkController(AdminCirculationManagerController):
                        collection,
                        replace=replacement_policy)
 
+        # metadata.apply only updates the edition, so we also need
+        # to update the work.
+        work.calculate_presentation(policy=presentation_policy)
+
         return Response(_("Success"), 200)
 
     def _count_complaints_for_work(self, work):
