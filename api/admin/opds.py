@@ -7,6 +7,7 @@ from core.lane import Facets, Pagination
 from core.model import (
     BaseMaterializedWork,
     DataSource,
+    ExternalIntegration,
     LicensePool,
     Measurement,
     Session,
@@ -66,7 +67,22 @@ class AdminAnnotator(LibraryAnnotator):
                 identifier_type=identifier.type,
                 identifier=identifier.identifier, _external=True)
         )
-            
+
+        # If there is a storage integration, changing the cover is allowed.
+        _db = Session.object_session(identifier)
+        storage_integrations = _db.query(ExternalIntegration).filter(
+            ExternalIntegration.goal==ExternalIntegration.STORAGE_GOAL
+        )
+        if storage_integrations.count() > 0:
+            feed.add_link_to_entry(
+                entry,
+                rel="http://librarysimplified.org/terms/rel/change_cover",
+                href=self.url_for(
+                    "work_change_book_cover",
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier, _external=True)
+            )
+
     def complaints_url(self, facets, pagination):
         kwargs = dict(facets.items())
         kwargs.update(dict(pagination.items()))

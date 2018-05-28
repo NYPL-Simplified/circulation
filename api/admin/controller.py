@@ -18,7 +18,8 @@ from flask import (
 from flask_babel import lazy_gettext as _
 import jwt
 from sqlalchemy.exc import ProgrammingError
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
+import textwrap
 from StringIO import StringIO
 import feedparser
 from Crypto.PublicKey import RSA
@@ -51,6 +52,8 @@ from core.model import (
     Patron,
     PresentationCalculationPolicy,
     Representation,
+    RightsStatus,
+    Session,
     Subject,
     Work,
     WorkGenre,
@@ -60,6 +63,11 @@ from core.log import (LogConfiguration, SysLogger, Loggly)
 from core.util.problem_detail import (
     ProblemDetail,
     JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
+)
+from core.metadata_layer import (
+    Metadata,
+    LinkData,
+    ReplacementPolicy,
 )
 from core.mirror import MirrorUploader
 from core.util.http import HTTP
@@ -529,6 +537,14 @@ class WorkController(AdminCirculationManagerController):
     def media(self):
         """Return the supported media types for a work and their schema.org values."""
         return Edition.additional_type_to_medium
+
+    def rights_status(self):
+        """Return the supported rights status values with their names and whether
+        they are open access."""
+        return {uri: dict(name=name,
+                          open_access=(uri in RightsStatus.OPEN_ACCESS),
+                          allows_derivatives=(uri in RightsStatus.ALLOWS_DERIVATIVES))
+                for uri, name in RightsStatus.NAMES.iteritems()}
 
     def edit(self, identifier_type, identifier):
         """Edit a work's metadata."""
@@ -1029,6 +1045,224 @@ class WorkController(AdminCirculationManagerController):
         work.calculate_presentation(policy=policy)
 
         return Response("", 200)
+
+    def _validate_cover_image(self, image):
+        image_width, image_height = image.size
+        if image_width < 600 or image_height < 900:
+           return INVALID_COVER_IMAGE.detailed(_("Cover image must be at least 600px in width and 900px in height."))
+        return True
+
+    def _process_cover_image(self, work, image, title_position):
+        title = work.presentation_edition.title
+        author = work.presentation_edition.author
+        if author == Edition.UNKNOWN_AUTHOR:
+            author = ""
+
+        if title_position in ["top", "center", "bottom"]:
+            draw = ImageDraw.Draw(image)
+            image_width, image_height = image.size
+
+            admin_dir = os.path.split(__file__)[0]
+            package_dir = os.path.join(admin_dir, "../..")
+            bold_font_path = os.path.join(package_dir, "resources/OpenSans-Bold.ttf")
+            regular_font_path = os.path.join(package_dir, "resources/OpenSans-Regular.ttf")
+            font_size = image_width / 20
+            bold_font = ImageFont.truetype(bold_font_path, font_size)
+            regular_font = ImageFont.truetype(regular_font_path, font_size)
+
+            padding = image_width / 40
+
+            max_line_width = 0
+            bold_char_width = bold_font.getsize("n")[0]
+            bold_char_count = image_width / bold_char_width
+            regular_char_width = regular_font.getsize("n")[0]
+            regular_char_count = image_width / regular_char_width
+            title_lines = textwrap.wrap(title, bold_char_count)
+            author_lines = textwrap.wrap(author, regular_char_count)
+            for lines, font in [(title_lines, bold_font), (author_lines, regular_font)]:
+                for line in lines:
+                    line_width, ignore = font.getsize(line)
+                    if line_width > max_line_width:
+                        max_line_width = line_width
+
+            ascent, descent = bold_font.getmetrics()
+            line_height = ascent + descent
+
+            total_text_height = line_height * (len(title_lines) + len(author_lines))
+            rectangle_height = total_text_height + line_height
+
+            rectangle_width = max_line_width + 2 * padding
+
+            start_x = (image_width - rectangle_width) / 2
+            if title_position == "bottom":
+                start_y = image_height - rectangle_height - image_height / 14
+            elif title_position == "center":
+                start_y = (image_height - rectangle_height) / 2
+            else:
+                start_y = image_height / 14
+
+            draw.rectangle([(start_x, start_y),
+                            (start_x + rectangle_width, start_y + rectangle_height)],
+                           fill=(255,255,255,255))
+
+            current_y = start_y + line_height / 2
+            for lines, font in [(title_lines, bold_font), (author_lines, regular_font)]:
+                for line in lines:
+                    line_width, ignore = font.getsize(line)
+                    draw.text((start_x + (rectangle_width - line_width) / 2, current_y),
+                              line, font=font, fill=(0,0,0,255))
+                    current_y += line_height
+
+            del draw
+
+        return True
+
+    def preview_book_cover(self, identifier_type, identifier):
+        """Return a preview of the submitted cover image information."""
+        self.require_librarian(flask.request.library)
+
+        work = self.load_work(flask.request.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
+        image_file = flask.request.files.get("cover_file")
+        image_url = flask.request.form.get("cover_url")
+        if not image_file and not image_url:
+            return INVALID_COVER_IMAGE.detailed(_("Image file or image URL is required."))
+
+        title_position = flask.request.form.get("title_position")
+
+        if image_url and not image_file:
+            image_file = StringIO(urllib.urlopen(image_url).read())
+        
+        image = Image.open(image_file)
+        result = self._validate_cover_image(image)
+        if isinstance(result, ProblemDetail):
+            return result
+        if title_position and title_position != "none":
+            self._process_cover_image(work, image, title_position)
+
+        buffer = StringIO()
+        image.save(buffer, format="PNG")
+        b64 = base64.b64encode(buffer.getvalue())
+        value = "data:image/png;base64,%s" % b64
+
+        return Response(value, 200)
+
+    def change_book_cover(self, identifier_type, identifier, mirror=None):
+        """Save a new book cover based on the submitted form."""
+        self.require_librarian(flask.request.library)
+
+        data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        work = self.load_work(flask.request.library, identifier_type, identifier)
+        if isinstance(work, ProblemDetail):
+            return work
+
+        pools = self.load_licensepools(flask.request.library, identifier_type, identifier)
+        if isinstance(pools, ProblemDetail):
+            return pools
+
+        if not pools:
+            return NO_LICENSES
+
+        collection = pools[0].collection
+
+        image_file = flask.request.files.get("cover_file")
+        image_url = flask.request.form.get("cover_url")
+        if not image_file and not image_url:
+            return INVALID_COVER_IMAGE.detailed(_("Image file or image URL is required."))
+
+        title_position = flask.request.form.get("title_position") or 'none'
+
+        rights_uri = flask.request.form.get("rights_status")
+        rights_explanation = flask.request.form.get("rights_explanation")
+
+        if not rights_uri:
+            return INVALID_COVER_IMAGE.detailed(_("You must specify the image's license."))
+
+        # Look for an appropriate mirror to store this cover image.
+        mirror = mirror or MirrorUploader.for_collection(collection)
+        if not mirror:
+            try:
+                _db = Session.object_session(work)
+                mirror = MirrorUploader.sitewide(_db)
+            except CannotLoadConfiguration, e:
+                pass
+        if not mirror:
+            return INVALID_CONFIGURATION_OPTION.detailed(_("Could not find a storage integration for uploading the cover."))
+
+        if image_url and not image_file:
+            image_file = StringIO(urllib.urlopen(image_url).read())
+        
+        image = Image.open(image_file)
+        result = self._validate_cover_image(image)
+        if isinstance(result, ProblemDetail):
+            return result
+
+        cover_href = None
+
+        if title_position != "none":
+            original_href = image_url
+            original_buffer = StringIO()
+            image.save(original_buffer, format="PNG")
+            original_content = original_buffer.getvalue()
+            if not original_href:
+                original_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
+                
+            self._process_cover_image(work, image, title_position)
+
+            original = LinkData(
+                Hyperlink.IMAGE, original_href, rights_uri=rights_uri,
+                rights_explanation=rights_explanation, content=original_content,
+            )
+            derivation_settings = dict(title_position=title_position)
+        else:
+            original = None
+            derivation_settings = None
+            cover_href = image_url
+
+        buffer = StringIO()
+        image.save(buffer, format="PNG")
+        content = buffer.getvalue()
+
+        if not cover_href:
+            cover_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=content)
+
+        cover_data = LinkData(
+            Hyperlink.IMAGE, href=cover_href,
+            media_type=Representation.PNG_MEDIA_TYPE,
+            content=content, rights_uri=rights_uri,
+            rights_explanation=rights_explanation,
+            original=original, derivation_settings=derivation_settings,
+        )
+
+        presentation_policy = PresentationCalculationPolicy(
+            choose_edition=False,
+            set_edition_metadata=False,
+            classify=False,
+            choose_summary=False,
+            calculate_quality=False,
+            choose_cover=True,
+            regenerate_opds_entries=True,
+            update_search_index=False,
+        )
+
+        replacement_policy = ReplacementPolicy(
+            links=True,
+            # link_content is false because we already have the content.
+            # We don't want the metadata layer to try to fetch it again.
+            link_content=False,
+            mirror=mirror,
+            presentation_calculation_policy=presentation_policy,
+        )
+
+        metadata = Metadata(data_source, links=[cover_data])
+        metadata.apply(work.presentation_edition,
+                       collection,
+                       replace=replacement_policy)
+
+        return Response(_("Success"), 200)
 
     def _count_complaints_for_work(self, work):
         complaint_types = [complaint.type for complaint in work.complaints if not complaint.resolved]

@@ -142,6 +142,13 @@ INVALID_RATING = pd(
     detail=_("The rating must be a number in the rating scale."),
 )
 
+INVALID_COVER_IMAGE = pd(
+    "http://librarysimplified.org/terms/problem/invalid-cover-image",
+    status_code=400,
+    title=_("Invalid cover image"),
+    detail=_("The submitted cover image is invalid."),
+)
+
 MISSING_LIBRARY_SHORT_NAME = pd(
     "http://librarysimplified.org/terms/problem/missing-library-short-name",
     status_code=400,
