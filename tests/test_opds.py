@@ -158,7 +158,7 @@ class TestBaseAnnotator(DatabaseTest):
         edition.add_contributor(
             "Jonathan Frakes", Contributor.NARRATOR_ROLE
         )
-        author, contributor = Annotator.authors(None, None, edition, None)
+        author, contributor = Annotator.authors(None, edition)
 
         # The <author> tag indicates a role of 'author', so there's no
         # need for an explicitly specified role property.
@@ -178,25 +178,44 @@ class TestBaseAnnotator(DatabaseTest):
         eq_(Contributor.MARC_ROLE_CODES[Contributor.NARRATOR_ROLE],
             contributor.attrib[role_attrib])
 
-    def test_annotate_work_entry_adds_distributor_and_updated(self):
+    def test_annotate_work_entry_adds_tags(self):
         work = self._work(with_license_pool=True,
                           with_open_access_download=True)
         work.last_update_time = datetime.datetime(2018, 2, 5, 7, 39, 49, 580651)
         [pool] = work.license_pools
+        pool.availability_time = datetime.datetime(2015, 1, 1)
 
         entry = []
-        Annotator.annotate_work_entry(work, pool, None, None, None, entry)
-        eq_(2, len(entry))
-        [distributor, updated] = entry
+        # This will create four extra tags which could not be
+        # generated in the cached entry because they depend on the
+        # active LicensePool or identifier: the Atom ID, the distributor,
+        # the date published and the date updated.
+        annotator = Annotator()
+        annotator.annotate_work_entry(work, pool, None, None, None, entry)
+        [id, distributor, published, updated] = entry
+
+        id_tag = etree.tostring(id)
+        assert 'id' in id_tag
+        assert pool.identifier.urn in id_tag
+
         assert 'ProviderName="Gutenberg"' in etree.tostring(distributor)
-        assert 'updated' in etree.tostring(updated)
-        assert '2018-02-05' in etree.tostring(updated)
+
+        published_tag = etree.tostring(published)
+        assert 'published' in published_tag
+        assert '2015-01-01' in published_tag
+
+        updated_tag = etree.tostring(updated)
+        assert 'updated' in updated_tag
+        assert '2018-02-05' in updated_tag
 
         entry = []
-        Annotator.annotate_work_entry(work, None, None, None, None, entry,
-                                      updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651))
-        eq_(1, len(entry))
-        [updated] = entry
+        # We can pass in a specific update time to override the one
+        # found in work.last_update_time.
+        annotator.annotate_work_entry(
+            work, pool, None, None, None, entry,
+            updated=datetime.datetime(2017, 1, 2, 3, 39, 49, 580651)
+        )
+        [id, distributor, published, updated] = entry
         assert 'updated' in etree.tostring(updated)
         assert '2017-01-02' in etree.tostring(updated)
 
@@ -305,9 +324,7 @@ class TestAnnotators(DatabaseTest):
         work = self._work(authors=[], with_license_pool=True)
         work.presentation_edition.add_contributor(c, Contributor.PRIMARY_AUTHOR_ROLE)
 
-        [same_tag] = VerboseAnnotator.authors(
-            work, work.license_pools[0], work.presentation_edition,
-            work.presentation_edition.primary_identifier)
+        [same_tag] = VerboseAnnotator.authors(work, work.presentation_edition)
         eq_(tag_string, etree.tostring(same_tag))
 
     def test_duplicate_author_names_are_ignored(self):
@@ -319,9 +336,7 @@ class TestAnnotators(DatabaseTest):
         edition = work.presentation_edition
         edition.add_contributor(duplicate, Contributor.AUTHOR_ROLE)
 
-        eq_(1, len(Annotator.authors(
-            work, work.license_pools[0], edition, edition.primary_identifier
-        )))
+        eq_(1, len(Annotator.authors(work, edition)))
 
     def test_all_annotators_mention_every_relevant_author(self):
         work = self._work(authors=[], with_license_pool=True)
@@ -351,10 +366,7 @@ class TestAnnotators(DatabaseTest):
         ]
 
         for annotator in Annotator, VerboseAnnotator:
-            tags = Annotator.authors(
-                work, work.license_pools[0], edition,
-                edition.primary_identifier
-            )
+            tags = Annotator.authors(work, edition)
             # We made two <author> tags and one <contributor>
             # tag, for the illustrator.
             eq_(['author', 'author', 'contributor'],
@@ -1461,7 +1473,7 @@ class TestAcquisitionFeed(DatabaseTest):
         facets = object()
 
         AcquisitionFeed.groups(
-            self._db, "title", "url", lane, TestAnnotator(), facets=facets
+            self._db, "title", "url", lane, TestAnnotator, facets=facets
         )
         # We called CachedFeed.fetch with the given facets object.
         eq_(facets, mock.fetch_called_with)
@@ -1671,7 +1683,8 @@ class TestAcquisitionFeed(DatabaseTest):
         # run through `Annotator.annotate_work_entry`.
         [pool] = work.license_pools
         xml = etree.fromstring(work.simple_opds_entry)
-        Annotator.annotate_work_entry(
+        annotator = Annotator()
+        annotator.annotate_work_entry(
             work, pool, pool.presentation_edition, pool.identifier, feed,
             xml
         )
@@ -1693,7 +1706,7 @@ class TestAcquisitionFeed(DatabaseTest):
         # Again, we got entry_string by running the (new) cached value
         # through `Annotator.annotate_work_entry`.
         full_entry = etree.fromstring(work.simple_opds_entry)
-        Annotator.annotate_work_entry(
+        annotator.annotate_work_entry(
             work, pool, pool.presentation_edition, pool.identifier, feed,
             full_entry
         )
@@ -1757,7 +1770,7 @@ class TestAcquisitionFeed(DatabaseTest):
             def show_current_entrypoint(self, entrypoint):
                 self.current_entrypoint = entrypoint
 
-        annotator = TestAnnotator()
+        annotator = TestAnnotator
         feed = MockFeed(self._db, "title", "url", [], annotator=annotator)
 
         lane = self._lane()
@@ -1825,7 +1838,7 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         )
         work.license_pools.append(new_pool)
 
-        # We can generate two different OPDS feeds for a single work
+        # We can generate two different OPDS entries for a single work
         # depending on which identifier we look up.
         ignore, e1 = self.entry(original_pool.identifier, work)
         assert original_pool.identifier.urn in e1
@@ -1833,11 +1846,16 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         assert new_pool.identifier.urn not in e1
         assert new_pool.presentation_edition.title not in e1
 
-        ignore, e2 = self.entry(new_pool.identifier, work)
+        # Passing in the other identifier gives an OPDS entry with the
+        # same bibliographic data (taken from the original pool's
+        # presentation edition) but with different identifier
+        # information.
+        i = new_pool.identifier
+        ignore, e2 = self.entry(i, work)
         assert new_pool.identifier.urn in e2
-        assert new_pool.presentation_edition.title in e2
+        assert new_pool.presentation_edition.title not in e2
+        assert original_pool.presentation_edition.title in e2
         assert original_pool.identifier.urn not in e2
-        assert original_pool.presentation_edition.title not in e2
 
     def test_error_on_mismatched_identifier(self):
         """We get an error if we try to make it look like an Identifier lookup
@@ -1896,10 +1914,10 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         )
         eq_(expect, entry)
 
-    def test_create_entry_uses_cache_for_all_licensepools_with_identifier(self):
-        """A Work's cached OPDS entries are based on a specific identifier,
-        but they can be reused by all LicensePools with that identifier,
-        even LicensePools not directly associated with that Work.
+    def test_create_entry_uses_cache_for_all_licensepools_for_work(self):
+        """A Work's cached OPDS entries can be reused by all LicensePools for
+        that Work, even LicensePools associated with different
+        identifiers.
         """
         class InstrumentableActiveLicensePool(VerboseAnnotator):
             """A mock class that lets us control the output of
@@ -1911,21 +1929,19 @@ class TestLookupAcquisitionFeed(DatabaseTest):
             @classmethod
             def active_licensepool_for(cls, work):
                 return cls.ACTIVE
-        feed = self.feed(annotator=InstrumentableActiveLicensePool)
+        feed = self.feed(annotator=InstrumentableActiveLicensePool())
 
-        # Here are two completely different LicensePools for the same
-        # identifier.
+        # Here are two completely different LicensePools for the same work.
         work = self._work(with_license_pool=True)
         work.verbose_opds_entry = "<entry>Cached</entry>"
         [pool1] = work.license_pools
-        identifier = pool1.identifier
+        identifier1 = pool1.identifier
 
         collection2 = self._collection()
-        edition2 = self._edition(
-            identifier_type=identifier.type,
-            identifier_id=identifier.identifier
-        )
+        edition2 = self._edition()
         pool2 = self._licensepool(edition=edition2, collection=collection2)
+        identifier2 = pool2.identifier
+        work.license_pools.append(pool2)
 
         # Regardless of which LicensePool the annotator thinks is
         # 'active', passing in (identifier, work) will use the cache.
@@ -1933,16 +1949,21 @@ class TestLookupAcquisitionFeed(DatabaseTest):
         annotator = feed.annotator
 
         annotator.ACTIVE = pool1
-        eq_("Cached", m((identifier, work)).text)
+        eq_("Cached", m((pool1.identifier, work)).text)
 
         annotator.ACTIVE = pool2
-        eq_("Cached", m((identifier, work)).text)
+        eq_("Cached", m((pool2.identifier, work)).text)
 
         # If for some reason we pass in an identifier that is not
-        # associated with the active license pool, the cache is not used.
-        identifier2 = self._identifier()
+        # associated with the active license pool, we don't get
+        # anything.
+        work.license_pools = [pool1]
         result = m((identifier2, work))
         assert isinstance(result, OPDSMessage)
+        assert (
+            'using a Work not associated with that identifier.'
+            in result.message
+        )
 
 
 class TestEntrypointLinkInsertion(DatabaseTest):
@@ -1981,7 +2002,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         self.no_eps.works = works
         self.wl.works = works
 
-        self.annotator = TestAnnotator()
+        self.annotator = TestAnnotator
         self.old_add_entrypoint_links = AcquisitionFeed.add_entrypoint_links
         AcquisitionFeed.add_entrypoint_links = self.mock.add_entrypoint_links
 

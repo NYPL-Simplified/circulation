@@ -11664,15 +11664,27 @@ class Collection(Base, HasFullTableCache):
         """Finds all works in a collection's catalog that have been updated
            since the timestamp. Used in the metadata wrangler.
 
-           :return: a Query
+           :return: a Query that yields (Work, LicensePool,
+              Identifier) 3-tuples. This gives caller all the
+              information necessary to create full OPDS entries for
+              the works.
         """
         opds_operation = WorkCoverageRecord.GENERATE_OPDS_OPERATION
-        qu = _db.query(Work).join(Work.coverage_records)\
-            .join(Work.license_pools).join(Identifier)\
-            .join(Identifier.collections).filter(
-                Collection.id==self.id,
-                WorkCoverageRecord.operation==opds_operation,
-            ).options(joinedload(Work.license_pools, LicensePool.identifier))
+        qu = _db.query(
+            Work, LicensePool, Identifier
+        ).join(
+            Work.coverage_records,
+        ).join(
+            Identifier.collections,
+        )
+        qu = qu.filter(
+            Work.id==WorkCoverageRecord.work_id,
+            Work.id==LicensePool.work_id,
+            LicensePool.identifier_id==Identifier.id,
+            WorkCoverageRecord.operation==opds_operation,
+            CollectionIdentifier.identifier_id==Identifier.id,
+            CollectionIdentifier.collection_id==self.id
+        ).options(joinedload(Work.license_pools, LicensePool.identifier))
 
         if timestamp:
             qu = qu.filter(
