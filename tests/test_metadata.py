@@ -166,7 +166,7 @@ class TestMetadataImporter(DatabaseTest):
                               rights_uri=RightsStatus.PUBLIC_DOMAIN_USA,
                               rights_explanation="This image is from 1922",
                               original=original,
-                              derivation_settings=dict(position='top')
+                              transformation_settings=dict(position='top')
                               )
 
         metadata = Metadata(links=[derivative], data_source=data_source)
@@ -178,14 +178,14 @@ class TestMetadataImporter(DatabaseTest):
         eq_(RightsStatus.PUBLIC_DOMAIN_USA, image.resource.rights_status.uri)
         eq_("This image is from 1922", image.resource.rights_explanation)
 
-        eq_([], image.resource.derivative_derivations)
-        derivation = image.resource.derivation
-        eq_(image.resource, derivation.derivative)
+        eq_([], image.resource.transformations)
+        transformation = image.resource.derived_through
+        eq_(image.resource, transformation.derivative)
 
-        eq_("http://example.com/", derivation.original.url)
-        eq_(RightsStatus.PUBLIC_DOMAIN_USA, derivation.original.rights_status.uri)
-        eq_("This image is from 1922", derivation.original.rights_explanation)
-        eq_("top", derivation.settings.get("position"))
+        eq_("http://example.com/", transformation.original.url)
+        eq_(RightsStatus.PUBLIC_DOMAIN_USA, transformation.original.rights_status.uri)
+        eq_("This image is from 1922", transformation.original.rights_explanation)
+        eq_("top", transformation.settings.get("position"))
 
     def test_image_and_thumbnail(self):
         edition = self._edition()

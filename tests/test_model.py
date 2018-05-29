@@ -5134,7 +5134,7 @@ class TestHyperlink(DatabaseTest):
             Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
             "text/plain", "The content", None, RightsStatus.CC_BY,
             "The rights explanation", original,
-            derivation_settings=dict(setting="a setting"))
+            transformation_settings=dict(setting="a setting"))
         eq_(True, is_new)
         rep = hyperlink.resource.representation
         eq_("text/plain", rep.media_type)
@@ -5143,11 +5143,11 @@ class TestHyperlink(DatabaseTest):
         eq_(identifier, hyperlink.identifier)
         eq_(RightsStatus.CC_BY, hyperlink.resource.rights_status.uri)
         eq_("The rights explanation", hyperlink.resource.rights_explanation)
-        derivation = hyperlink.resource.derivation
-        eq_(hyperlink.resource, derivation.derivative)
-        eq_(original, derivation.original)
-        eq_("a setting", derivation.settings.get("setting"))
-        eq_([derivation], original.derivative_derivations)
+        transformation = hyperlink.resource.derived_through
+        eq_(hyperlink.resource, transformation.derivative)
+        eq_(original, transformation.original)
+        eq_("a setting", transformation.settings.get("setting"))
+        eq_([transformation], original.transformations)
 
     def test_default_filename(self):
         m = Hyperlink._default_filename

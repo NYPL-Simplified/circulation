@@ -413,7 +413,7 @@ class IdentifierData(object):
 class LinkData(object):
     def __init__(self, rel, href=None, media_type=None, content=None,
                  thumbnail=None, rights_uri=None, rights_explanation=None,
-                 original=None, derivation_settings=None):
+                 original=None, transformation_settings=None):
         if not rel:
             raise ValueError("rel is required")
 
@@ -429,9 +429,9 @@ class LinkData(object):
         self.rights_uri = rights_uri
         self.rights_explanation = rights_explanation
         # If this LinkData is a derivative, it may also contain the original link
-        # and the settings used to derive it.
+        # and the settings used to transform the original into the derivative.
         self.original = original
-        self.derivation_settings = derivation_settings or {}
+        self.transformation_settings = transformation_settings or {}
 
     @property
     def guessed_media_type(self):
@@ -1569,7 +1569,8 @@ class Metadata(MetaToModelUtility):
                     original_resource, ignore = get_one_or_create(
                         _db, Resource, url=link.original.href,
                     )
-                    original_resource.data_source = data_source
+                    if not original_resource.data_source:
+                        original_resource.data_source = data_source
                     original_resource.rights_status = rights_status
                     original_resource.rights_explanation = link.original.rights_explanation
                     if link.original.content:
@@ -1583,7 +1584,7 @@ class Metadata(MetaToModelUtility):
                     content=link.content, rights_status_uri=link.rights_uri,
                     rights_explanation=link.rights_explanation,
                     original_resource=original_resource,
-                    derivation_settings=link.derivation_settings,
+                    transformation_settings=link.transformation_settings,
                 )
             link_objects[link] = link_obj
             if link.thumbnail:

@@ -2179,7 +2179,7 @@ class Identifier(Base):
 
     def add_link(self, rel, href, data_source, media_type=None, content=None,
                  content_path=None, rights_status_uri=None, rights_explanation=None,
-                 original_resource=None, derivation_settings=None):
+                 original_resource=None, transformation_settings=None):
         """Create a link between this Identifier and a (potentially new)
         Resource.
 
@@ -2219,7 +2219,7 @@ class Identifier(Base):
             )
 
         if original_resource:
-            original_resource.add_derivative(link.resource, derivation_settings)
+            original_resource.add_derivative(link.resource, transformation_settings)
 
         # TODO: This is where we would mirror the resource if we
         # wanted to.
@@ -5810,10 +5810,10 @@ class Resource(Base):
     # An optional explanation of the rights status.
     rights_explanation = Column(Unicode)
 
-    # Many derivatives may be derived from a Resource.
-    derivative_derivations = relationship(
-        'ResourceDerivation',
-        primaryjoin="ResourceDerivation.original_id==Resource.id",
+    # A Resource may be transformed into many derivatives.
+    transformations = relationship(
+        'ResourceTransformation',
+        primaryjoin="ResourceTransformation.original_id==Resource.id",
         foreign_keys=id,
         lazy="joined",
         backref=backref('original', uselist=False),
@@ -5821,9 +5821,9 @@ class Resource(Base):
     )
 
     # A derivative resource may have one original.
-    derivation = relationship(
-        'ResourceDerivation',
-        primaryjoin="ResourceDerivation.derivative_id==Resource.id",
+    derived_through = relationship(
+        'ResourceTransformation',
+        primaryjoin="ResourceTransformation.derivative_id==Resource.id",
         foreign_keys=id,
         backref=backref('derivative', uselist=False),
         lazy="joined",
@@ -6070,28 +6070,28 @@ class Resource(Base):
     def add_derivative(self, derivative_resource, settings=None):
         _db = Session.object_session(self)
 
-        derivation, ignore = get_one_or_create(
-            _db, ResourceDerivation, derivative_id=derivative_resource.id)
-        derivation.original_id = self.id
-        derivation.settings = settings or {}
-        return derivation
+        transformation, ignore = get_one_or_create(
+            _db, ResourceTransformation, derivative_id=derivative_resource.id)
+        transformation.original_id = self.id
+        transformation.settings = settings or {}
+        return transformation
 
-class ResourceDerivation(Base):
+class ResourceTransformation(Base):
     """A record that a resource is a derivative of another resource,
-    and the settings that were used to derive it.
+    and the settings that were used to transform the original into it.
     """
 
-    __tablename__ = 'resourcederivations'
+    __tablename__ = 'resourcetransformations'
 
     # The derivative resource. A resource can only be derived from one other resource.
     derivative_id = Column(
         Integer, ForeignKey('resources.id'), index=True, primary_key=True)
 
-    # The original resource that was used to create the derivative.
+    # The original resource that was transformed into the derivative.
     original_id = Column(
         Integer, ForeignKey('resources.id'), index=True)
 
-    # The settings used to create the derivative.
+    # The settings used for the transformation.
     settings = Column(MutableDict.as_mutable(JSON), default={})
 
 class Genre(Base, HasFullTableCache):
@@ -7146,7 +7146,7 @@ class LicensePool(Base):
     def add_link(self, rel, href, data_source, media_type=None,
                  content=None, content_path=None, 
                  rights_status_uri=None, rights_explanation=None,
-                 original_resource=None, derivation_settings=None,
+                 original_resource=None, transformation_settings=None,
                  ):
         """Add a link between this LicensePool and a Resource.
 
@@ -7163,13 +7163,13 @@ class LicensePool(Base):
         :param rights_explanation: A free text explanation of why the RightsStatus
                applies.
         :param original_resource: Another resource that this resource was derived from.
-        :param derivation_settings: The settings used to derive this resource from
-               the original resource.
+        :param transformation_settings: The settings used to transform the original
+               resource into this resource.
         """
         return self.identifier.add_link(
             rel, href, data_source, media_type, content, content_path,
             rights_status_uri, rights_explanation, original_resource,
-            derivation_settings)
+            transformation_settings)
 
     def needs_update(self):
         """Is it time to update the circulation info for this license pool?"""
@@ -7890,6 +7890,8 @@ class RightsStatus(Base):
         GENERIC_OPEN_ACCESS,
     ]
 
+    # These open access rights allow derivative works to be created, but may
+    # require attribution or prohibit commercial use.
     ALLOWS_DERIVATIVES = [
         PUBLIC_DOMAIN_USA,
         CC0,
@@ -7897,7 +7899,6 @@ class RightsStatus(Base):
         CC_BY_SA,
         CC_BY_NC,
         CC_BY_NC_SA,
-        GENERIC_OPEN_ACCESS,
     ]
 
     NAMES = {
