@@ -1234,7 +1234,7 @@ class WorkController(AdminCirculationManagerController):
             media_type=Representation.PNG_MEDIA_TYPE,
             content=content, rights_uri=rights_uri,
             rights_explanation=rights_explanation,
-            original=original, derivation_settings=derivation_settings,
+            original=original, transformation_settings=derivation_settings,
         )
 
         presentation_policy = PresentationCalculationPolicy(

@@ -59,7 +59,7 @@ from core.model import (
     Identifier,
     Library,
     Representation,
-    ResourceDerivation,
+    ResourceTransformation,
     RightsStatus,
     SessionManager,
     Subject,
@@ -1318,8 +1318,8 @@ class TestWorkController(AdminControllerTest):
             eq_(RightsStatus.CC_BY, resource.rights_status.uri)
             eq_("explanation", resource.rights_explanation)
 
-            derivation = self._db.query(ResourceDerivation).filter(ResourceDerivation.derivative_id==resource.id).one()
-            original_resource = derivation.original
+            transformation = self._db.query(ResourceTransformation).filter(ResourceTransformation.derivative_id==resource.id).one()
+            original_resource = transformation.original
             assert resource != original_resource
             assert identifier.urn in original_resource.url
             eq_(staff_data_source, original_resource.data_source)
@@ -1327,7 +1327,7 @@ class TestWorkController(AdminControllerTest):
             eq_("explanation", original_resource.rights_explanation)
             eq_(image_data, original_resource.representation.content)
             eq_(None, original_resource.representation.mirror_url)
-            eq_("center", derivation.settings.get("title_position"))
+            eq_("center", transformation.settings.get("title_position"))
             assert resource.representation.content != original_resource.representation.content
             assert image_data != resource.representation.content
 
