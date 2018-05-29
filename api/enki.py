@@ -205,7 +205,7 @@ class EnkiAPI(BaseCirculationAPI):
         try:
             return HTTP.request_with_timeout(
                 method, url, headers=headers, data=data,
-                params=params, timeout=20, **kwargs
+                params=params, timeout=60, **kwargs
             )
         except RequestTimedOut, e:
             self.log.info("Request to %s timed out once. Trying again with longer timeout parameter.", url)
