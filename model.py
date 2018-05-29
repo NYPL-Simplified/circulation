@@ -2023,7 +2023,7 @@ class Identifier(Base):
         :param autocreate: Create an Identifier for a URN if none
             presently exists.
 
-        :param allowed_types: If this is a non-empty set of Identifier
+        :param allowed_types: If this is a list of Identifier
             types, only identifiers of those types may be looked
             up. All other identifier types will be treated as though
             they did not exist.
