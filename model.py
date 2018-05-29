@@ -5529,7 +5529,7 @@ class LicensePoolDeliveryMechanism(Base):
             identifier=identifier,
             data_source=data_source,
             delivery_mechanism=delivery_mechanism,
-            resource=resource,
+            resource=resource
         )
         if not lpdm.rights_status or rights_status.uri != RightsStatus.UNKNOWN:
             # We have better information available about the
