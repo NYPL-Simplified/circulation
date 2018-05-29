@@ -10688,7 +10688,7 @@ class ExternalIntegration(Base, HasFullTableCache):
     # Any number of Collections may designate an ExternalIntegration
     # as the source of their configuration
     collections = relationship(
-        "Collection", backref="external_integration",
+        "Collection", backref="_external_integration",
         foreign_keys='Collection.external_integration_id',
     )
 
@@ -11393,12 +11393,15 @@ class Collection(Base, HasFullTableCache):
         from_metadata_identifier both create ExternalIntegrations for the
         Collections they create.
         """
+        # We don't enforce this on the database level because it is
+        # legitimate for a newly created Collection to have no
+        # ExternalIntegration. But by the time it's being used for real,
+        # it needs to have one.
         if not self.external_integration_id:
             raise ValueError(
                 "No known external integration for collection %s" % self.name
             )
-        _db = Session.object_session(self)
-        return ExternalIntegration.by_id(_db, self.external_integration_id)
+        return self._external_integration
 
     @property
     def unique_account_id(self):
