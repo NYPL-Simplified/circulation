@@ -1316,7 +1316,7 @@ class TestWorkController(AdminControllerTest):
             assert identifier.urn in resource.url
             eq_(staff_data_source, resource.data_source)
             eq_(RightsStatus.CC_BY, resource.rights_status.uri)
-            eq_("explanation", resource.rights_explanation)
+            eq_("The original image license allows derivatives.", resource.rights_explanation)
 
             transformation = self._db.query(ResourceTransformation).filter(ResourceTransformation.derivative_id==resource.id).one()
             original_resource = transformation.original

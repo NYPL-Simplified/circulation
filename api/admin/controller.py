@@ -1203,6 +1203,7 @@ class WorkController(AdminCirculationManagerController):
             return result
 
         cover_href = None
+        cover_rights_explanation = rights_explanation
 
         if title_position in self.TITLE_POSITIONS:
             original_href = image_url
@@ -1214,11 +1215,16 @@ class WorkController(AdminCirculationManagerController):
                 
             self._process_cover_image(work, image, title_position)
 
+            original_rights_explanation = None
+            if rights_uri != RightsStatus.IN_COPYRIGHT:
+                original_rights_explanation = rights_explanation
             original = LinkData(
                 Hyperlink.IMAGE, original_href, rights_uri=rights_uri,
-                rights_explanation=rights_explanation, content=original_content,
+                rights_explanation=original_rights_explanation, content=original_content,
             )
             derivation_settings = dict(title_position=title_position)
+            if rights_uri in RightsStatus.ALLOWS_DERIVATIVES:
+                cover_rights_explanation = "The original image license allows derivatives."
         else:
             original = None
             derivation_settings = None
@@ -1235,7 +1241,7 @@ class WorkController(AdminCirculationManagerController):
             Hyperlink.IMAGE, href=cover_href,
             media_type=Representation.PNG_MEDIA_TYPE,
             content=content, rights_uri=rights_uri,
-            rights_explanation=rights_explanation,
+            rights_explanation=cover_rights_explanation,
             original=original, transformation_settings=derivation_settings,
         )
 
