@@ -1182,13 +1182,7 @@ class WorkController(AdminCirculationManagerController):
             return INVALID_COVER_IMAGE.detailed(_("You must specify the image's license."))
 
         # Look for an appropriate mirror to store this cover image.
-        mirror = mirror or MirrorUploader.for_collection(collection)
-        if not mirror:
-            try:
-                _db = Session.object_session(work)
-                mirror = MirrorUploader.sitewide(_db)
-            except CannotLoadConfiguration, e:
-                pass
+        mirror = mirror or MirrorUploader.for_collection(collection, use_sitewide=True)
         if not mirror:
             return INVALID_CONFIGURATION_OPTION.detailed(_("Could not find a storage integration for uploading the cover."))
 

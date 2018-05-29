@@ -87,6 +87,8 @@ class TestOPDS(DatabaseTest):
         eq_([], [x for x in entry['links'] if x['rel'] == "http://librarysimplified.org/terms/rel/change_cover"])
 
         storage = self._external_integration(ExternalIntegration.S3, ExternalIntegration.STORAGE_GOAL)
+        storage.username = "user"
+        storage.password = "pass"
 
         feed = AcquisitionFeed(self._db, "test", "url", [work], AdminAnnotator(None, self._default_library, test_mode=True))
         [entry] = feedparser.parse(unicode(feed))['entries']

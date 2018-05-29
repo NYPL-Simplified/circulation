@@ -7,13 +7,13 @@ from core.lane import Facets, Pagination
 from core.model import (
     BaseMaterializedWork,
     DataSource,
-    ExternalIntegration,
     LicensePool,
     Measurement,
     Session,
 )
 from core.opds import AcquisitionFeed
 from core.util.opds_writer import AtomFeed
+from core.mirror import MirrorUploader
 
 class AdminAnnotator(LibraryAnnotator):
 
@@ -68,12 +68,9 @@ class AdminAnnotator(LibraryAnnotator):
                 identifier=identifier.identifier, _external=True)
         )
 
-        # If there is a storage integration, changing the cover is allowed.
-        _db = Session.object_session(identifier)
-        storage_integrations = _db.query(ExternalIntegration).filter(
-            ExternalIntegration.goal==ExternalIntegration.STORAGE_GOAL
-        )
-        if storage_integrations.count() > 0:
+        # If there is a storage integration for the collection, changing the cover is allowed.
+        mirror = MirrorUploader.for_collection(active_license_pool.collection, use_sitewide=True)
+        if mirror:
             feed.add_link_to_entry(
                 entry,
                 rel="http://librarysimplified.org/terms/rel/change_cover",
