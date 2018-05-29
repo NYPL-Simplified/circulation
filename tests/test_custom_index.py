@@ -223,12 +223,13 @@ class TestCOPPAGate(DatabaseTest):
         assert "<gate/>" in feed
         eq_(2, feed.count("<entry/>"))
 
-        # There's also a self link, a title and an ID, which were
-        # inserted by the OPDSFeed constructor.
+        # There's also a self link, a title, an ID, and an updated
+        # time, which were inserted by the OPDSFeed constructor.
         index = mock_url_for("index", self._default_library.short_name)
         assert ('<link href="%s" rel="self"/>' % index) in feed
         assert ("<title>%s</title>" % self._default_library.name) in feed
-        assert ('<id>%s</id>' % index)
+        assert ('<id>%s</id>' % index) in feed
+        assert '<updated>' in feed
 
     def test_navigation_entry(self):
         """navigation_entry creates an OPDS entry with a subsection link."""
@@ -242,7 +243,8 @@ class TestCOPPAGate(DatabaseTest):
                 '<id>some href</id>',
                 '<title>some title</title>',
                 '<content type="text">some content</content>',
-                '<link href="some href" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection"/>'
+                '<link href="some href" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection"/>',
+                '<updated',
         ):
             assert expect in entry
 
