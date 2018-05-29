@@ -1204,7 +1204,7 @@ class TestWorkController(AdminControllerTest):
         process_called_with = []
         def mock_process(work, image, position):
             # Modify the image to ensure it gets a different generic URI.
-            image.thumbnail((200, 200))
+            image.thumbnail((500, 500))
             process_called_with.append((work, image, position))
             return True
         old_process = self.manager.admin_work_controller._process_cover_image
@@ -1333,6 +1333,17 @@ class TestWorkController(AdminControllerTest):
 
             eq_(work, process_called_with[0][0])
             eq_("center", process_called_with[0][2])
+
+            eq_([], original_resource.representation.thumbnails)
+            [thumbnail] = resource.representation.thumbnails
+            eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
+            assert image_data != thumbnail.content
+            assert resource.representation.content != thumbnail.content
+            assert identifier.identifier in resource.representation.mirror_url
+            assert identifier.identifier in thumbnail.mirror_url
+
+            eq_([resource.representation, thumbnail], mirror.uploaded[2:])
+            eq_([resource.representation.mirror_url, thumbnail.mirror_url], mirror.destinations[2:])
 
         self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
         with self.request_context_with_library_and_admin("/"):
