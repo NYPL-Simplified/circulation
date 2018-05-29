@@ -1046,10 +1046,18 @@ class WorkController(AdminCirculationManagerController):
 
         return Response("", 200)
 
+    MINIMUM_COVER_WIDTH = 600
+    MINIMUM_COVER_HEIGHT = 900
+    TOP = 'top'
+    CENTER = 'center'
+    BOTTOM = 'bottom'
+    TITLE_POSITIONS = [TOP, CENTER, BOTTOM]
+
     def _validate_cover_image(self, image):
         image_width, image_height = image.size
-        if image_width < 600 or image_height < 900:
-           return INVALID_COVER_IMAGE.detailed(_("Cover image must be at least 600px in width and 900px in height."))
+        if image_width < self.MINIMUM_COVER_WIDTH or image_height < self.MINIMUM_COVER_HEIGHT:
+           return INVALID_IMAGE.detailed(_("Cover image must be at least %(width)spx in width and %(height)spx in height.",
+                                                 width=self.MINIMUM_COVER_WIDTH, height=self.MINIMUM_COVER_HEIGHT))
         return True
 
     def _process_cover_image(self, work, image, title_position):
@@ -1058,7 +1066,7 @@ class WorkController(AdminCirculationManagerController):
         if author == Edition.UNKNOWN_AUTHOR:
             author = ""
 
-        if title_position in ["top", "center", "bottom"]:
+        if title_position in self.TITLE_POSITIONS:
             draw = ImageDraw.Draw(image)
             image_width, image_height = image.size
 
@@ -1094,9 +1102,9 @@ class WorkController(AdminCirculationManagerController):
             rectangle_width = max_line_width + 2 * padding
 
             start_x = (image_width - rectangle_width) / 2
-            if title_position == "bottom":
+            if title_position == self.BOTTOM:
                 start_y = image_height - rectangle_height - image_height / 14
-            elif title_position == "center":
+            elif title_position == self.CENTER:
                 start_y = (image_height - rectangle_height) / 2
             else:
                 start_y = image_height / 14
@@ -1128,7 +1136,7 @@ class WorkController(AdminCirculationManagerController):
         image_file = flask.request.files.get("cover_file")
         image_url = flask.request.form.get("cover_url")
         if not image_file and not image_url:
-            return INVALID_COVER_IMAGE.detailed(_("Image file or image URL is required."))
+            return INVALID_IMAGE.detailed(_("Image file or image URL is required."))
 
         title_position = flask.request.form.get("title_position")
 
@@ -1139,7 +1147,7 @@ class WorkController(AdminCirculationManagerController):
         result = self._validate_cover_image(image)
         if isinstance(result, ProblemDetail):
             return result
-        if title_position and title_position != "none":
+        if title_position and title_position in self.TITLE_POSITIONS:
             self._process_cover_image(work, image, title_position)
 
         buffer = StringIO()
@@ -1171,15 +1179,15 @@ class WorkController(AdminCirculationManagerController):
         image_file = flask.request.files.get("cover_file")
         image_url = flask.request.form.get("cover_url")
         if not image_file and not image_url:
-            return INVALID_COVER_IMAGE.detailed(_("Image file or image URL is required."))
+            return INVALID_IMAGE.detailed(_("Image file or image URL is required."))
 
-        title_position = flask.request.form.get("title_position") or 'none'
+        title_position = flask.request.form.get("title_position")
 
         rights_uri = flask.request.form.get("rights_status")
         rights_explanation = flask.request.form.get("rights_explanation")
 
         if not rights_uri:
-            return INVALID_COVER_IMAGE.detailed(_("You must specify the image's license."))
+            return INVALID_IMAGE.detailed(_("You must specify the image's license."))
 
         # Look for an appropriate mirror to store this cover image.
         mirror = mirror or MirrorUploader.for_collection(collection, use_sitewide=True)
@@ -1196,7 +1204,7 @@ class WorkController(AdminCirculationManagerController):
 
         cover_href = None
 
-        if title_position != "none":
+        if title_position in self.TITLE_POSITIONS:
             original_href = image_url
             original_buffer = StringIO()
             image.save(original_buffer, format="PNG")

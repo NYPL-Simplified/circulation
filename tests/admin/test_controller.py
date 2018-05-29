@@ -1120,7 +1120,7 @@ class TestWorkController(AdminControllerTest):
         too_small = Image.open(path)
 
         result = self.manager.admin_work_controller._validate_cover_image(too_small)
-        eq_(INVALID_COVER_IMAGE.uri, result.uri)
+        eq_(INVALID_IMAGE.uri, result.uri)
         eq_("Cover image must be at least 600px in width and 900px in height.", result.detail)
 
         path = os.path.join(resource_path, "blue.jpg")
@@ -1168,7 +1168,7 @@ class TestWorkController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
-            eq_(INVALID_COVER_IMAGE.uri, response.uri)
+            eq_(INVALID_IMAGE.uri, response.uri)
             eq_("Image file or image URL is required.", response.detail)
 
         class TestFileUpload(StringIO):
@@ -1215,7 +1215,7 @@ class TestWorkController(AdminControllerTest):
 
         with self.request_context_with_library_and_admin("/"):
             response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier)
-            eq_(INVALID_COVER_IMAGE.uri, response.uri)
+            eq_(INVALID_IMAGE.uri, response.uri)
             eq_("Image file or image URL is required.", response.detail)
 
         with self.request_context_with_library_and_admin("/"):
@@ -1225,7 +1225,7 @@ class TestWorkController(AdminControllerTest):
             ])
             flask.request.files = MultiDict([])
             response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier)
-            eq_(INVALID_COVER_IMAGE.uri, response.uri)
+            eq_(INVALID_IMAGE.uri, response.uri)
             eq_("You must specify the image's license.", response.detail)
 
         with self.request_context_with_library_and_admin("/"):
