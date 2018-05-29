@@ -2,6 +2,7 @@
 something other than the default.
 """
 
+import datetime
 from nose.tools import set_trace
 
 from flask import Response
@@ -185,10 +186,12 @@ class COPPAGate(CustomIndexView):
         E = OPDSFeed.E
         content_tag = E.content(type="text")
         content_tag.text = unicode(content)
+        now = datetime.datetime.utcnow()
         entry = E.entry(
             E.id(href),
             E.title(unicode(title)),
             content_tag,
+            E.updated(OPDSFeed._strftime(now))
         )
         OPDSFeed.add_link_to_entry(
             entry, href=href, rel="subsection",

@@ -242,7 +242,8 @@ class TestCOPPAGate(DatabaseTest):
                 '<id>some href</id>',
                 '<title>some title</title>',
                 '<content type="text">some content</content>',
-                '<link href="some href" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection"/>'
+                '<link href="some href" type="application/atom+xml;profile=opds-catalog;kind=acquisition" rel="subsection"/>',
+                '<updated',
         ):
             assert expect in entry
 
