@@ -152,6 +152,7 @@ class COPPAGate(CustomIndexView):
         # An entry for grown-ups.
         feed = OPDSFeed(title=library.name, url=base_url)
         opds = feed.feed
+
         yes_url = url_for(
             'acquisition_groups',
             library_short_name=library.short_name,
@@ -178,6 +179,9 @@ class COPPAGate(CustomIndexView):
         # the link to its authentication document.
         if annotator:
             annotator.annotate_feed(feed, None)
+
+        now = datetime.datetime.utcnow()
+        opds.append(OPDSFeed.E.updated(OPDSFeed._strftime(now)))
         return feed
 
     @classmethod
