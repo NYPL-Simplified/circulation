@@ -2,6 +2,7 @@
 something other than the default.
 """
 
+import datetime
 from nose.tools import set_trace
 
 from flask import Response
@@ -151,6 +152,7 @@ class COPPAGate(CustomIndexView):
         # An entry for grown-ups.
         feed = OPDSFeed(title=library.name, url=base_url)
         opds = feed.feed
+
         yes_url = url_for(
             'acquisition_groups',
             library_short_name=library.short_name,
@@ -177,6 +179,9 @@ class COPPAGate(CustomIndexView):
         # the link to its authentication document.
         if annotator:
             annotator.annotate_feed(feed, None)
+
+        now = datetime.datetime.utcnow()
+        opds.append(OPDSFeed.E.updated(OPDSFeed._strftime(now)))
         return feed
 
     @classmethod
@@ -185,10 +190,12 @@ class COPPAGate(CustomIndexView):
         E = OPDSFeed.E
         content_tag = E.content(type="text")
         content_tag.text = unicode(content)
+        now = datetime.datetime.utcnow()
         entry = E.entry(
             E.id(href),
             E.title(unicode(title)),
             content_tag,
+            E.updated(OPDSFeed._strftime(now))
         )
         OPDSFeed.add_link_to_entry(
             entry, href=href, rel="subsection",
