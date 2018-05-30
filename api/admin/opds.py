@@ -23,7 +23,7 @@ class AdminAnnotator(LibraryAnnotator):
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
 
         super(AdminAnnotator, self).annotate_work_entry(work, active_license_pool, edition, identifier, feed, entry)
-        VerboseAnnotator.annotate_work_entry(work, active_license_pool, edition, identifier, feed, entry)
+        VerboseAnnotator.add_ratings(work, entry)
 
         # Find staff rating and add a tag for it.
         for measurement in identifier.measurements:

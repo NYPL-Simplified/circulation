@@ -145,7 +145,7 @@ class CirculationManagerAnnotator(Annotator):
                 CirculationManagerAnnotator, self).active_licensepool_for(work)
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry, updated=None):
-        Annotator.annotate_work_entry(
+        super(CirculationManagerAnnotator, self).annotate_work_entry(
             work, active_license_pool, edition, identifier, feed, entry, updated
         )
         active_loan = self.active_loans_by_work.get(work)
@@ -342,16 +342,7 @@ class CirculationManagerAnnotator(Annotator):
         if rep:
             if rep.media_type:
                 kw['type'] = rep.media_type
-            if rep.mirror_url:
-                # The Representation was mirrored to some other URL
-                # under our control. In this situation, Resource.url
-                # is probably the original, pre-mirror URL, and
-                # mirror_url should take precedence.
-                href = rep.mirror_url
-            elif rep.url:
-                # This is probably the same as the resource URL, but
-                # if they are different this one is probably preferable.
-                href = rep.url
+            href = rep.public_url
         kw['href'] = cdnify(href)
 
         link_tag = AcquisitionFeed.link(**kw)
@@ -436,13 +427,14 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         return self._top_level_title
 
     def permalink_for(self, work, license_pool, identifier):
-        return self.url_for(
+        url = self.url_for(
             'permalink',
             identifier_type=identifier.type,
             identifier=identifier.identifier,
             library_short_name=self.library.short_name,
             _external=True
         )
+        return url, OPDSFeed.ENTRY_TYPE
 
     def groups_url(self, lane, facets=None):
         lane_identifier = self._lane_identifier(lane)
@@ -536,16 +528,6 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         updated = None
         if isinstance(self.lane, CrawlableCustomListBasedLane) and isinstance(work, BaseMaterializedWork):
             updated = max(work.last_update_time, work.first_appearance, work.availability_time)
-
-        # First, add a permalink.
-        feed.add_link_to_entry(
-            entry, 
-            rel='alternate',
-            type=OPDSFeed.ENTRY_TYPE,
-            href=self.permalink_for(
-                work, active_license_pool, identifier
-            )
-        )
 
         # Add a link for reporting problems.
         feed.add_link_to_entry(
