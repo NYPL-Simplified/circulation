@@ -9,7 +9,7 @@ It depends on the [LS Server Core](https://github.com/NYPL-Simplified/server_cor
 
 * [How to install Docker images](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment:-Quickstart-with-Docker)
 * [How to set up a development environment](https://github.com/NYPL-Simplified/Simplified/wiki/Deployment-Instructions)
-* Two sets of Ansible playbooks are in development: [One developed by Minitex](https://github.com/alsrlw/ansible-playbook-libsimple) and [a derivative developed by Amigos Library Services](https://github.com/alsrlw/ansible-playbook-libsimple)
+* Two sets of Ansible playbooks are in development: [One developed by Minitex](https://github.com/Minitex/ansible-playbook-libsimple) and [a derivative developed by Amigos Library Services](https://github.com/alsrlw/ansible-playbook-libsimple)
 
 ## License
 
