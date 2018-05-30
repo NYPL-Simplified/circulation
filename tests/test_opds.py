@@ -536,7 +536,7 @@ class TestOPDS(DatabaseTest):
         self.add_to_materialized_view([work])
         from model import MaterializedWorkWithGenre
         [mw] = self._db.query(MaterializedWorkWithGenre).all()
-        
+
         mw_uri, mw_title = annotator.group_uri(mw, lp, lp.identifier)
         eq_(mw_uri, expect_uri)
         assert str(mw.works_id) in mw_uri
@@ -1294,7 +1294,7 @@ class TestOPDS(DatabaseTest):
 
         feed1 = make_page()
         assert work1.title in feed1
-        cached = get_one(self._db, CachedFeed, lane=fantasy_lane) 
+        cached = get_one(self._db, CachedFeed, lane=fantasy_lane)
         old_timestamp = cached.timestamp
 
         work2 = self._work(
@@ -1742,6 +1742,29 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_([OPDSFeed.ENTRY_TYPE, Representation.TEXT_HTML_MEDIA_TYPE + DeliveryMechanism.STREAMING_PROFILE],
             AcquisitionFeed.format_types(overdrive_streaming_text))
 
+    def test_add_breadcrumbs(self):
+        wl = WorkList()
+        wl.initialize(
+            library=self._default_library, display_name="no_eps"
+        )
+        # Annotator.active_licensepool_for(wl)
+        # work = self._work(with_open_access_download=True)
+
+        entrypoints = [AudiobooksEntryPoint, EbooksEntryPoint]
+        wl2 = WorkList()
+        wl2.initialize(library=self._default_library, display_name="wl",
+                           entrypoints=entrypoints)
+        wl2.lane = self._lane()
+
+        wl.lane = self._lane()
+        work = self._work()
+        annotator = TestAnnotator()
+        feed = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=annotator
+        )
+        feed.add_breadcrumbs(wl2.lane)
+
+
     def test_add_breadcrumb_links(self):
 
         class MockFeed(AcquisitionFeed):
@@ -1993,7 +2016,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         """When AcquisitionFeed.groups() generates a grouped
         feed, it will link to different entry points into the feed,
         assuming the WorkList has different entry points.
-        """        
+        """
         def run(wl=None, facets=None):
             """Call groups() and see what add_entrypoint_links
             was called with.

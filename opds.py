@@ -759,12 +759,13 @@ class AcquisitionFeed(OPDSFeed):
             parent_title = parent.display_name
         else:
             parent_title = top_level_title
+
         if parent:
             up_uri = annotator.lane_url(parent)
             self.add_link_to_feed(
                 feed=xml, href=up_uri, rel="up", title=parent_title
             )
-            self.add_breadcrumbs(lane, entrypoint)
+        self.add_breadcrumbs(lane, entrypoint=entrypoint)
 
         # Annotate the feed with a simplified:entryPoint for the
         # current EntryPoint.
@@ -1211,19 +1212,24 @@ class AcquisitionFeed(OPDSFeed):
                 AtomFeed.link(title=annotator.top_level_title(), href=root_url)
             )
 
+            if entrypoint:
+                breadcrumbs.append(
+                    AtomFeed.link(title=entrypoint.INTERNAL_NAME, href=root_url + "?entrypoint=" + entrypoint.URI)
+                )
+
             # Add links for all visible ancestors that aren't root
             for ancestor in reversed(list(lane.parentage)):
                 lane_url = annotator.lane_url(ancestor)
                 if lane_url != root_url:
                     breadcrumbs.append(
-                        AtomFeed.link(title=ancestor.display_name, href=lane_url)
+                        AtomFeed.link(title=ancestor.display_name, href=lane_url + "?entrypoint=" + entrypoint.URI)
                     )
 
             # Include link to lane
             # For search, breadcrumbs include the searched lane
             if include_lane:
                 breadcrumbs.append(
-                    AtomFeed.link(title=lane.display_name, href=annotator.lane_url(lane))
+                    AtomFeed.link(title=lane.display_name, href=annotator.lane_url(lane) + "?entrypoint=" + entrypoint.URI)
                 )
 
             self.feed.append(breadcrumbs)
