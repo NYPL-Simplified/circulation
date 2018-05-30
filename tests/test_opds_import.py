@@ -1705,8 +1705,14 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         # If there's no new data, follow_one_link returns no next
         # links and no content.
         #
-        # Note that this works even though the feed type is inaccurately
-        # stated as Atom rather than OPDS.
+        # Note that this works even when the media type is imprecisely
+        # specified as Atom or bare XML.
+        for imprecise_media_type in OPDSFeed.ATOM_LIKE_TYPES:
+            http.queue_response(200, imprecise_media_type, content=feed)
+            next_links, content = follow()
+            eq_(0, len(next_links))
+            eq_(None, content)
+
         http.queue_response(200, AtomFeed.ATOM_TYPE, content=feed)
         next_links, content = follow()
         eq_(0, len(next_links))

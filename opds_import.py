@@ -1644,7 +1644,9 @@ class OPDSImportMonitor(CollectionMonitor):
         # Make sure we got an OPDS feed, and not an error page that was
         # sent with a 200 status code.
         media_type = headers.get('content-type')
-        if not media_type or OPDSFeed.ATOM_TYPE not in media_type:
+        if not media_type or not any(
+            x in media_type for x in (OPDSFeed.ATOM_LIKE_TYPES)
+        ):
             message = "Expected Atom feed, got %s" % media_type
             raise BadResponseException(
                 url, message=message, debug_message=feed,
