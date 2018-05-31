@@ -1196,7 +1196,17 @@ class TestOPDS(DatabaseTest):
         feed has no books in the groups.
         """
         library = self._default_library
+
         test_lane = self._lane("Test Lane", genres=['Mystery'])
+
+        # If groups()
+        class MockGroups(object):
+            called_with = None
+            def groups(self, *args, **kwargs):
+                self.called_with = (args, kwargs)
+                return []
+        mock = MockGroups()
+        test_lane.groups = mock.groups
 
         work1 = self._work(genre=Mystery, with_open_access_download=True)
         work1.quality = 0.75
@@ -1212,8 +1222,8 @@ class TestOPDS(DatabaseTest):
             force_refresh=True
         )
 
-        # The feed is filed as a groups feed, even though in
-        # form it is a page feed.
+        # The lane has no sublanes, so a page feed was created for it
+        # and filed as a groups feed.
         cached = get_one(self._db, CachedFeed, lane=test_lane)
         eq_(CachedFeed.GROUPS_TYPE, cached.type)
 
@@ -1223,6 +1233,26 @@ class TestOPDS(DatabaseTest):
         e1, e2 = parsed['entries']
 
         # The entries have no links (no collection links).
+        assert all('links' not in entry for entry in [e1, e2])
+
+        # groups() was never called.
+        eq_(None, mock.called_with)
+
+        # Now the lane has a sublane, but Lane.groups(), once called,
+        # returns nothing.
+        self._db.delete(cached)
+        sublane = self._lane(parent=test_lane)
+        feed = AcquisitionFeed.groups(
+            self._db, "test", self._url, test_lane, annotator,
+            force_refresh=True
+        )
+        assert mock.called_with is not None
+
+        # So again, we get a page-type feed filed as a groups-type
+        # feed, containing two entries with no collection links.
+        eq_(CachedFeed.GROUPS_TYPE, cached.type)
+        parsed = feedparser.parse(feed)
+        e1, e2 = parsed['entries']
         assert all('links' not in entry for entry in [e1, e2])
 
     def test_search_feed(self):
@@ -1464,6 +1494,7 @@ class TestAcquisitionFeed(DatabaseTest):
         CachedFeed.fetch = mock.fetch
 
         lane = self._lane()
+        sublane = self._lane(parent=lane)
         lane.groups = mock.groups
 
         old_acquisitionfeed_page = AcquisitionFeed.page
@@ -1991,8 +2022,11 @@ class TestEntrypointLinkInsertion(DatabaseTest):
         # depending on circumstances.
         self.entrypoints = [AudiobooksEntryPoint, EbooksEntryPoint]
         self.wl = WorkList()
+        # The WorkList must have at least one child, or we won't generate
+        # a real groups feed for it.
+        self.lane = self._lane()
         self.wl.initialize(library=self._default_library, display_name="wl",
-                           entrypoints=self.entrypoints)
+        entrypoints=self.entrypoints, children=[self.lane])
 
         def works(_db, facets=None, pagination=None):
             """Mock WorkList.works so we don't need any actual works
