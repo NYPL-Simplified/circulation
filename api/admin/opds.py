@@ -13,6 +13,7 @@ from core.model import (
 )
 from core.opds import AcquisitionFeed
 from core.util.opds_writer import AtomFeed
+from core.mirror import MirrorUploader
 
 class AdminAnnotator(LibraryAnnotator):
 
@@ -66,7 +67,19 @@ class AdminAnnotator(LibraryAnnotator):
                 identifier_type=identifier.type,
                 identifier=identifier.identifier, _external=True)
         )
-            
+
+        # If there is a storage integration for the collection, changing the cover is allowed.
+        mirror = MirrorUploader.for_collection(active_license_pool.collection, use_sitewide=True)
+        if mirror:
+            feed.add_link_to_entry(
+                entry,
+                rel="http://librarysimplified.org/terms/rel/change_cover",
+                href=self.url_for(
+                    "work_change_book_cover",
+                    identifier_type=identifier.type,
+                    identifier=identifier.identifier, _external=True)
+            )
+
     def complaints_url(self, facets, pagination):
         kwargs = dict(facets.items())
         kwargs.update(dict(pagination.items()))
