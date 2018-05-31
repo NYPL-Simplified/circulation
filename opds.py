@@ -559,41 +559,53 @@ class AcquisitionFeed(OPDSFeed):
 
         :return: CachedFeed (if use_cache is True) or unicode
         """
-        if not annotator:
-            annotator = Annotator
-        if callable(annotator):
-            annotator = annotator()
-        cached = None
-        use_cache = cache_type != cls.NO_CACHE
-        facets = facets or lane.default_featured_facets(_db)
-        if use_cache:
-            cache_type = cache_type or CachedFeed.GROUPS_TYPE
-            cached, usable = CachedFeed.fetch(
-                _db,
-                lane=lane,
-                type=cache_type,
-                facets=facets,
-                pagination=None,
-                annotator=annotator,
-                force_refresh=force_refresh,
-            )
-            if usable:
-                return cached.content
+        works_and_lanes = None
+        if lane.children:
+            # Since this lane has children, it's reasonable to at least
+            # try to create a groups feed for it.
+            if not annotator:
+                annotator = Annotator
+            if callable(annotator):
+                annotator = annotator()
+            cached = None
+            use_cache = cache_type != cls.NO_CACHE
+            facets = facets or lane.default_featured_facets(_db)
+            if use_cache:
+                cache_type = cache_type or CachedFeed.GROUPS_TYPE
+                cached, usable = CachedFeed.fetch(
+                    _db,
+                    lane=lane,
+                    type=cache_type,
+                    facets=facets,
+                    pagination=None,
+                    annotator=annotator,
+                    force_refresh=force_refresh,
+                )
+                if usable:
+                    return cached.content
+            works_and_lanes = lane.groups(_db, facets=facets)
 
-        works_and_lanes = lane.groups(_db, facets=facets)
         if not works_and_lanes:
-            # We did not find enough works for a groups feed.
-            # Instead we need to display a flat feed--the
-            # contents of what would have been the 'all' feed.
+            # We cannot generate a groups feed, either because we
+            # tried and did not find enough works, or because the lane
+            # has no sublanes. So we need to display a paginated feed
+            # instead.
             #
-            # Generate a page-type feed that is filed as a
-            # groups-type feed so it will show up when the client
-            # asks for it.
+            # Generate a page-type feed with a default set of facets.
+            # File it as a groups-type feed, so it will show up when
+            # the client asks for it.
+            #
+            # TODO: In theory, this lane might have multiple entry
+            # points. Since entry points are only associated with
+            # grouped feeds, the generated feed will not mention entry
+            # points.  However this is not likely to be a problem in
+            # real life.
+            cache_type = cache_type or CachedFeed.GROUPS_TYPE
             cached = cls.page(
                 _db, title, url, lane, annotator,
                 cache_type=cache_type,
                 force_refresh=force_refresh,
-                facets=facets,
+                facets=None,
             )
             return cached
 

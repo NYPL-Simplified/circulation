@@ -2012,8 +2012,28 @@ class Identifier(Base):
         return (type, identifier_string)
 
     @classmethod
-    def parse_urns(cls, _db, identifier_strings, autocreate=True):
-        """Batch processes URNs"""
+    def parse_urns(cls, _db, identifier_strings, autocreate=True,
+                   allowed_types=None):
+        """Converts a batch of URNs into Identifier objects.
+
+        :param _db: A database connection
+        :param identifier_strings: A list of strings, each a URN
+           identifying some identifier.
+
+        :param autocreate: Create an Identifier for a URN if none
+            presently exists.
+
+        :param allowed_types: If this is a list of Identifier
+            types, only identifiers of those types may be looked
+            up. All other identifier types will be treated as though
+            they did not exist.
+
+        :return: A 2-tuple (identifiers, failures). `identifiers` is a
+            list of Identifiers. `failures` is a list of URNs that
+            did not become Identifiers.
+        """
+        if allowed_types is not None:
+            allowed_types = set(allowed_types)
         failures = list()
         identifier_details = dict()
         for urn in identifier_strings:
@@ -2022,7 +2042,8 @@ class Identifier(Base):
                 (type, identifier) = cls.prepare_foreign_type_and_identifier(
                     *cls.type_and_identifier_for_urn(urn)
                 )
-                if type and identifier:
+                if (type and identifier and
+                    (allowed_types is None or type in allowed_types)):
                     identifier_details[urn] = (type, identifier)
                 else:
                     failures.append(urn)
@@ -10750,6 +10771,13 @@ class ExternalIntegration(Base, HasFullTableCache):
         lazy="joined", cascade="all, delete-orphan",
     )
 
+    # Any number of Collections may designate an ExternalIntegration
+    # as the source of their configuration
+    collections = relationship(
+        "Collection", backref="_external_integration",
+        foreign_keys='Collection.external_integration_id',
+    )
+
     # An ExternalIntegration may be used by many Collections
     # to mirror book covers or other files.
     mirror_for = relationship(
@@ -11451,12 +11479,15 @@ class Collection(Base, HasFullTableCache):
         from_metadata_identifier both create ExternalIntegrations for the
         Collections they create.
         """
+        # We don't enforce this on the database level because it is
+        # legitimate for a newly created Collection to have no
+        # ExternalIntegration. But by the time it's being used for real,
+        # it needs to have one.
         if not self.external_integration_id:
             raise ValueError(
                 "No known external integration for collection %s" % self.name
             )
-        _db = Session.object_session(self)
-        return ExternalIntegration.by_id(_db, self.external_integration_id)
+        return self._external_integration
 
     @property
     def unique_account_id(self):

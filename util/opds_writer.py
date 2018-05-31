@@ -10,6 +10,8 @@ class AtomFeed(object):
 
     ATOM_TYPE = 'application/atom+xml'
 
+    ATOM_LIKE_TYPES = [ATOM_TYPE, 'application/xml']
+
     TIME_FORMAT = '%Y-%m-%dT%H:%M:%SZ%z'
 
     ATOM_NS = 'http://www.w3.org/2005/Atom'

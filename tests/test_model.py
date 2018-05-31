@@ -423,6 +423,38 @@ class TestIdentifier(DatabaseTest):
         eq_(Identifier.OVERDRIVE_ID, new_identifier.type)
         eq_("nosuchidentifier", new_identifier.identifier)
 
+        # By passing in a list of allowed_types we can stop certain
+        # types of Identifiers from being looked up, even if they
+        # already exist.
+        isbn_urn = "urn:isbn:9781453219539"
+        urns = [new_urn, isbn_urn]
+        only_overdrive = [Identifier.OVERDRIVE_ID]
+        only_isbn = [Identifier.OVERDRIVE_ID]
+        everything = []
+
+        success, failure = Identifier.parse_urns(
+            self._db, urns, allowed_types=[Identifier.OVERDRIVE_ID]
+        )
+        assert new_urn in success
+        assert isbn_urn in failure
+
+        success, failure = Identifier.parse_urns(
+            self._db, urns, allowed_types=[
+                Identifier.OVERDRIVE_ID, Identifier.ISBN
+            ]
+        )
+        assert new_urn in success
+        assert isbn_urn in success
+        eq_([], failure)
+
+        # If the allowed_types is empty, no URNs can be looked up
+        # -- this is most likely the caller's mistake.
+        success, failure = Identifier.parse_urns(
+            self._db, urns, allowed_types=[]
+        )
+        assert new_urn in failure
+        assert isbn_urn in failure
+
     def test_parse_urn(self):
 
         # We can parse our custom URNs back into identifiers.

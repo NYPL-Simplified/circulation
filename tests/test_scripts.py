@@ -2363,6 +2363,8 @@ class TestExplain(DatabaseTest):
         [pool] = work.license_pools
         edition = work.presentation_edition
         identifier = pool.identifier
+        source = DataSource.lookup(self._db, DataSource.OCLC_LINKED_DATA)
+        CoverageRecord.add_for(identifier, source, "an operation")
         input = StringIO()
         output = StringIO()
         args = ["--identifier-type", "Database ID", str(identifier.id)]
@@ -2378,6 +2380,14 @@ class TestExplain(DatabaseTest):
         assert "Science Fiction" in output
         for contributor in edition.contributors:
             assert contributor.sort_name in output
+
+        # CoverageRecords associated with the primary identifier were
+        # printed out.
+        assert 'OCLC Linked Data | an operation | success' in output
+
+        # WorkCoverageRecords associated with the work were
+        # printed out.
+        assert 'generate-opds | success' in output
 
         # There is an active LicensePool that is fulfillable and has
         # copies owned.
