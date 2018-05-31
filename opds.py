@@ -141,7 +141,7 @@ class Annotator(object):
                     availability_tag = AtomFeed.makeelement("published")
                     # TODO: convert to local timezone.
                     availability_tag.text = AtomFeed._strftime(avail)
-                entry.extend([availability_tag])
+                    entry.extend([availability_tag])
 
         # If this OPDS entry is being used as part of a grouped feed
         # (which is up to the Annotator subclass), we need to add a

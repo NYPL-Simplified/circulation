@@ -2199,7 +2199,8 @@ class Identifier(Base):
                 return lp
 
     def add_link(self, rel, href, data_source, media_type=None, content=None,
-                 content_path=None):
+                 content_path=None, rights_status_uri=None, rights_explanation=None,
+                 original_resource=None, transformation_settings=None):
         """Create a link between this Identifier and a (potentially new)
         Resource.
 
@@ -2212,9 +2213,14 @@ class Identifier(Base):
         # Find or create the Resource.
         if not href:
             href = Hyperlink.generic_uri(data_source, self, rel, content)
+        rights_status = None
+        if rights_status_uri:
+            rights_status = RightsStatus.lookup(_db, rights_status_uri)
         resource, new_resource = get_one_or_create(
             _db, Resource, url=href,
-            create_method_kwargs=dict(data_source=data_source)
+            create_method_kwargs=dict(data_source=data_source, 
+                                      rights_status=rights_status,
+                                      rights_explanation=rights_explanation)
         )
 
         # Find or create the Hyperlink.
@@ -2232,6 +2238,9 @@ class Identifier(Base):
             resource.representation, is_new = get_one_or_create(
                 _db, Representation, url=resource.url, media_type=media_type
             )
+
+        if original_resource:
+            original_resource.add_derivative(link.resource, transformation_settings)
 
         # TODO: This is where we would mirror the resource if we
         # wanted to.
@@ -5816,6 +5825,32 @@ class Resource(Base):
     representation_id = Column(
         Integer, ForeignKey('representations.id'), index=True)
 
+    # The rights status of this Resource.
+    rights_status_id = Column(Integer, ForeignKey('rightsstatus.id'))
+
+    # An optional explanation of the rights status.
+    rights_explanation = Column(Unicode)
+
+    # A Resource may be transformed into many derivatives.
+    transformations = relationship(
+        'ResourceTransformation',
+        primaryjoin="ResourceTransformation.original_id==Resource.id",
+        foreign_keys=id,
+        lazy="joined",
+        backref=backref('original', uselist=False),
+        uselist=True,
+    )
+
+    # A derivative resource may have one original.
+    derived_through = relationship(
+        'ResourceTransformation',
+        primaryjoin="ResourceTransformation.derivative_id==Resource.id",
+        foreign_keys=id,
+        backref=backref('derivative', uselist=False),
+        lazy="joined",
+        uselist=False,
+    )
+
     # A calculated value for the quality of this resource, based on an
     # algorithmic treatment of its content.
     estimated_quality = Column(Float)
@@ -6053,6 +6088,32 @@ class Resource(Base):
         self.set_estimated_quality(quality)
         return quality
 
+    def add_derivative(self, derivative_resource, settings=None):
+        _db = Session.object_session(self)
+
+        transformation, ignore = get_one_or_create(
+            _db, ResourceTransformation, derivative_id=derivative_resource.id)
+        transformation.original_id = self.id
+        transformation.settings = settings or {}
+        return transformation
+
+class ResourceTransformation(Base):
+    """A record that a resource is a derivative of another resource,
+    and the settings that were used to transform the original into it.
+    """
+
+    __tablename__ = 'resourcetransformations'
+
+    # The derivative resource. A resource can only be derived from one other resource.
+    derivative_id = Column(
+        Integer, ForeignKey('resources.id'), index=True, primary_key=True)
+
+    # The original resource that was transformed into the derivative.
+    original_id = Column(
+        Integer, ForeignKey('resources.id'), index=True)
+
+    # The settings used for the transformation.
+    settings = Column(MutableDict.as_mutable(JSON), default={})
 
 class Genre(Base, HasFullTableCache):
     """A subject-matter classification for a book.
@@ -7104,7 +7165,10 @@ class LicensePool(Base):
         )
 
     def add_link(self, rel, href, data_source, media_type=None,
-                 content=None, content_path=None):
+                 content=None, content_path=None, 
+                 rights_status_uri=None, rights_explanation=None,
+                 original_resource=None, transformation_settings=None,
+                 ):
         """Add a link between this LicensePool and a Resource.
 
         :param rel: The relationship between this LicensePool and the resource
@@ -7116,9 +7180,17 @@ class LicensePool(Base):
                resource.
         :param content_path: Path (relative to DATA_DIRECTORY) of the
                representation associated with the resource.
+        :param rights_status_uri: The URI of the RightsStatus for this resource.
+        :param rights_explanation: A free text explanation of why the RightsStatus
+               applies.
+        :param original_resource: Another resource that this resource was derived from.
+        :param transformation_settings: The settings used to transform the original
+               resource into this resource.
         """
         return self.identifier.add_link(
-            rel, href, data_source, media_type, content, content_path)
+            rel, href, data_source, media_type, content, content_path,
+            rights_status_uri, rights_explanation, original_resource,
+            transformation_settings)
 
     def needs_update(self):
         """Is it time to update the circulation info for this license pool?"""
@@ -7839,6 +7911,17 @@ class RightsStatus(Base):
         GENERIC_OPEN_ACCESS,
     ]
 
+    # These open access rights allow derivative works to be created, but may
+    # require attribution or prohibit commercial use.
+    ALLOWS_DERIVATIVES = [
+        PUBLIC_DOMAIN_USA,
+        CC0,
+        CC_BY,
+        CC_BY_SA,
+        CC_BY_NC,
+        CC_BY_NC_SA,
+    ]
+
     NAMES = {
         IN_COPYRIGHT: "In Copyright",
         PUBLIC_DOMAIN_USA: "Public domain in the USA",
@@ -7876,6 +7959,9 @@ class RightsStatus(Base):
 
     # One RightsStatus may apply to many LicensePoolDeliveryMechanisms.
     licensepooldeliverymechanisms = relationship("LicensePoolDeliveryMechanism", backref="rights_status")
+
+    # One RightsStatus may apply to many Resources.
+    resources = relationship("Resource", backref="rights_status")
 
     @classmethod
     def lookup(cls, _db, uri):

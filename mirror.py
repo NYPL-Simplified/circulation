@@ -54,17 +54,28 @@ class MirrorUploader(object):
         return integration
 
     @classmethod
-    def for_collection(cls, collection):
+    def for_collection(cls, collection, use_sitewide=False):
         """Create a MirrorUploader for the given Collection.
 
         :param collection: Use the mirror configuration for this Collection.
+
+        :param use_sitewide: If there's no mirror for this specific Collection,
+            should we return a sitewide mirror instead?
 
         :return: A MirrorUploader, or None if the Collection has no
             mirror integration.
         """
         integration = collection.mirror_integration
         if not integration:
-            return None
+            if use_sitewide:
+                try:
+                    from model import Session
+                    _db = Session.object_session(collection)
+                    return cls.sitewide(_db)
+                except CannotLoadConfiguration, e:
+                    return None
+            else:
+                return None
         return cls.implementation(integration)
 
     @classmethod

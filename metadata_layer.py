@@ -46,6 +46,7 @@ from model import (
     PresentationCalculationPolicy,
     RightsStatus,
     Representation,
+    Resource,
     Work,
 )
 from classifier import NO_VALUE, NO_NUMBER
@@ -411,7 +412,8 @@ class IdentifierData(object):
 
 class LinkData(object):
     def __init__(self, rel, href=None, media_type=None, content=None,
-                 thumbnail=None, rights_uri=None):
+                 thumbnail=None, rights_uri=None, rights_explanation=None,
+                 original=None, transformation_settings=None):
         if not rel:
             raise ValueError("rel is required")
 
@@ -423,8 +425,13 @@ class LinkData(object):
         self.content = content
         self.thumbnail = thumbnail
         # This handles content sources like unglue.it that have rights for each link
-        # rather than each edition.
+        # rather than each edition, and rights for cover images.
         self.rights_uri = rights_uri
+        self.rights_explanation = rights_explanation
+        # If this LinkData is a derivative, it may also contain the original link
+        # and the settings used to transform the original into the derivative.
+        self.original = original
+        self.transformation_settings = transformation_settings or {}
 
     @property
     def guessed_media_type(self):
@@ -1556,10 +1563,28 @@ class Metadata(MetaToModelUtility):
 
         for link in self.links:
             if link.rel in Hyperlink.METADATA_ALLOWED:
+                original_resource = None
+                if link.original:
+                    rights_status = RightsStatus.lookup(_db, link.original.rights_uri)
+                    original_resource, ignore = get_one_or_create(
+                        _db, Resource, url=link.original.href,
+                    )
+                    if not original_resource.data_source:
+                        original_resource.data_source = data_source
+                    original_resource.rights_status = rights_status
+                    original_resource.rights_explanation = link.original.rights_explanation
+                    if link.original.content:
+                        original_resource.set_fetched_content(
+                            link.original.guessed_media_type,
+                            link.original.content, None)
+
                 link_obj, ignore = identifier.add_link(
                     rel=link.rel, href=link.href, data_source=data_source, 
                     media_type=link.guessed_media_type,
-                    content=link.content
+                    content=link.content, rights_status_uri=link.rights_uri,
+                    rights_explanation=link.rights_explanation,
+                    original_resource=original_resource,
+                    transformation_settings=link.transformation_settings,
                 )
             link_objects[link] = link_obj
             if link.thumbnail:
@@ -1597,13 +1622,6 @@ class Metadata(MetaToModelUtility):
                 measurement.value, measurement.weight,
                 measurement.taken_at
             )
-
-        # Make sure the work we just did shows up.
-        made_changes = edition.calculate_presentation(
-            policy=replace.presentation_calculation_policy
-        )
-        if made_changes:
-            made_core_changes = True
 
         if not edition.sort_author:
             # This may be a situation like the NYT best-seller list where
@@ -1647,6 +1665,14 @@ class Metadata(MetaToModelUtility):
                 # to make sure that its thumbnail exists locally and
                 # is associated with the original image.
                 self.make_thumbnail(data_source, link, link_obj)
+
+        # Make sure the work we just did shows up. This needs to happen after mirroring
+        # so mirror urls are available.
+        made_changes = edition.calculate_presentation(
+            policy=replace.presentation_calculation_policy
+        )
+        if made_changes:
+            made_core_changes = True
 
         # The metadata wrangler doesn't need information from these data sources.
         # We don't need to send it information it originally provided, and

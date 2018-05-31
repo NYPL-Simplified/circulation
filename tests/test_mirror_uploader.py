@@ -67,6 +67,13 @@ class TestInitialization(DatabaseTest):
         collection = self._collection()
         eq_(None, MirrorUploader.for_collection(collection))
 
+        # We can tell the method that we're okay with a sitewide
+        # integration instead of an integration specifically for this
+        # collection.
+        sitewide_integration = self._integration
+        uploader = MirrorUploader.for_collection(collection, use_sitewide=True)
+        assert isinstance(uploader, MirrorUploader)
+
         # This collection has a properly configured mirror_integration,
         # so it can have an MirrorUploader.
         collection.mirror_integration = self._integration
