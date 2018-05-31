@@ -1202,6 +1202,8 @@ class AcquisitionFeed(OPDSFeed):
         its own breadcrumb link.
         """
         # Ensure that lane isn't top-level before proceeding
+
+        entrypointQuery = ("?entrypoint=" + entrypoint.URI) if entrypoint != None else ""
         annotator = self.annotator
         if annotator.lane_url(lane) != annotator.default_lane_url():
             breadcrumbs = AtomFeed.makeelement("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
@@ -1214,7 +1216,7 @@ class AcquisitionFeed(OPDSFeed):
 
             if entrypoint:
                 breadcrumbs.append(
-                    AtomFeed.link(title=entrypoint.INTERNAL_NAME, href=root_url + "?entrypoint=" + entrypoint.URI)
+                    AtomFeed.link(title=entrypoint.INTERNAL_NAME, href=root_url + entrypointQuery)
                 )
 
             # Add links for all visible ancestors that aren't root
@@ -1222,14 +1224,14 @@ class AcquisitionFeed(OPDSFeed):
                 lane_url = annotator.lane_url(ancestor)
                 if lane_url != root_url:
                     breadcrumbs.append(
-                        AtomFeed.link(title=ancestor.display_name, href=lane_url + "?entrypoint=" + entrypoint.URI)
+                        AtomFeed.link(title=ancestor.display_name, href=lane_url + entrypointQuery)
                     )
 
             # Include link to lane
             # For search, breadcrumbs include the searched lane
             if include_lane:
                 breadcrumbs.append(
-                    AtomFeed.link(title=lane.display_name, href=annotator.lane_url(lane) + "?entrypoint=" + entrypoint.URI)
+                    AtomFeed.link(title=lane.display_name, href=annotator.lane_url(lane) + entrypointQuery)
                 )
 
             self.feed.append(breadcrumbs)

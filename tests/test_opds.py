@@ -1743,26 +1743,57 @@ class TestAcquisitionFeed(DatabaseTest):
             AcquisitionFeed.format_types(overdrive_streaming_text))
 
     def test_add_breadcrumbs(self):
-        wl = WorkList()
-        wl.initialize(
-            library=self._default_library, display_name="no_eps"
+        # Testing not passing an entrypoint when creating the breadcrumbs
+        no_entrypoint_wl = WorkList()
+        no_entrypoint_wl.initialize(
+            library=self._default_library, display_name="no_entrypoint"
         )
-        # Annotator.active_licensepool_for(wl)
-        # work = self._work(with_open_access_download=True)
+        no_entrypoint_wl.lane = self._lane()
 
+        feed_no_eps = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=TestAnnotator
+        )
+        feed_no_eps.add_breadcrumbs(no_entrypoint_wl.lane)
+        feed = feedparser.parse(unicode(feed_no_eps))['feed']
+
+        eq_(len(feed.links), 2)
+        eq_(feed.links[1].href, TestAnnotator.default_lane_url())
+        eq_(feed.links[1].title, TestAnnotator.top_level_title())
+
+        # Passing ebook entrypoint to a single lane feed
         entrypoints = [AudiobooksEntryPoint, EbooksEntryPoint]
-        wl2 = WorkList()
-        wl2.initialize(library=self._default_library, display_name="wl",
+        with_entrypoints_wl = WorkList()
+        with_entrypoints_wl.initialize(library=self._default_library, display_name="wl",
                            entrypoints=entrypoints)
-        wl2.lane = self._lane()
+        with_entrypoints_wl.lane = self._lane()
 
-        wl.lane = self._lane()
-        work = self._work()
-        annotator = TestAnnotator()
-        feed = AcquisitionFeed(
-            self._db, self._str, self._url, [], annotator=annotator
+        single_lane_feed_with_eps = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=TestAnnotator
         )
-        feed.add_breadcrumbs(wl2.lane)
+        single_lane_feed_with_eps.add_breadcrumbs(with_entrypoints_wl.lane, entrypoint=EbooksEntryPoint)
+        feed = feedparser.parse(unicode(single_lane_feed_with_eps))['feed']
+
+        eq_(len(feed.links), 3)
+        eq_(feed.links[1].href, TestAnnotator.default_lane_url())
+        eq_(feed.links[1].title, TestAnnotator.top_level_title())
+        eq_(feed.links[2].href, TestAnnotator.default_lane_url() + "?entrypoint=" + EbooksEntryPoint.URI)
+        eq_(feed.links[2].title, EbooksEntryPoint.INTERNAL_NAME)
+
+        # Passing audio entrypoint to a two level lane feed
+        with_entrypoints_wl.lane = self._lane(parent=self._lane())
+        multi_lane_feed_with_eps = AcquisitionFeed(
+            self._db, self._str, self._url, [], annotator=TestAnnotator
+        )
+        multi_lane_feed_with_eps.add_breadcrumbs(with_entrypoints_wl.lane, entrypoint=AudiobooksEntryPoint)
+        feed = feedparser.parse(unicode(multi_lane_feed_with_eps))['feed']
+
+        eq_(len(feed.links), 4)
+        eq_(feed.links[1].href, TestAnnotator.default_lane_url())
+        eq_(feed.links[1].title, TestAnnotator.top_level_title())
+        eq_(feed.links[2].href, TestAnnotator.default_lane_url() + "?entrypoint=" + AudiobooksEntryPoint.URI)
+        eq_(feed.links[2].title, AudiobooksEntryPoint.INTERNAL_NAME)
+        eq_(feed.links[3].href, feed.link)
+        eq_(feed.links[3].title, "2007")
 
 
     def test_add_breadcrumb_links(self):
