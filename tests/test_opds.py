@@ -1794,7 +1794,7 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(children[0].attrib.get("href"), TestAnnotator.default_lane_url())
         eq_(children[0].attrib.get("title"), TestAnnotator.top_level_title())
         assert(("?entrypoint=" + ep.URI) not in children[1].attrib.get("href"))
-        eq_(children[1].attrib.get("title"), "2001")
+        eq_(children[1].attrib.get("title"), lane.display_name)
 
         # One lane level down and with an entrypoint
         # Each sublane will have the entrypoint propagated down to its link
@@ -1809,7 +1809,7 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(children[1].attrib.get("href"), TestAnnotator.default_lane_url() + "?entrypoint=" + ep.URI)
         eq_(children[1].attrib.get("title"), ep.INTERNAL_NAME)
         assert(("?entrypoint=" + ep.URI) in children[2].attrib.get("href"))
-        eq_(children[2].attrib.get("title"), "2001")
+        eq_(children[2].attrib.get("title"), lane.display_name)
 
         # Two lane levels down but no entrypoint
         # Top Level Title > 2001 > 2002
@@ -1821,9 +1821,9 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(children[0].attrib.get("href"), TestAnnotator.default_lane_url())
         eq_(children[0].attrib.get("title"), TestAnnotator.top_level_title())
         assert(("?entrypoint=" + ep.URI) not in children[1].attrib.get("href"))
-        eq_(children[1].attrib.get("title"), "2001")
+        eq_(children[1].attrib.get("title"), lane.display_name)
         assert(("?entrypoint=" + ep.URI) not in children[1].attrib.get("href"))
-        eq_(children[2].attrib.get("title"), "2002")
+        eq_(children[2].attrib.get("title"), sublane.display_name)
 
         # Two lane levels down after the entrypoint
         # Each sublane will have the entrypoint propagated down to its link
@@ -1838,9 +1838,9 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(children[1].attrib.get("href"), TestAnnotator.default_lane_url() + "?entrypoint=" + ep.URI)
         eq_(children[1].attrib.get("title"), ep.INTERNAL_NAME)
         assert(("?entrypoint=" + ep.URI) in children[2].attrib.get("href"))
-        eq_(children[2].attrib.get("title"), "2001")
+        eq_(children[2].attrib.get("title"), lane.display_name)
         assert(("?entrypoint=" + ep.URI) in children[3].attrib.get("href"))
-        eq_(children[3].attrib.get("title"), "2002")
+        eq_(children[3].attrib.get("title"), sublane.display_name)
 
 
     def test_add_breadcrumb_links(self):
