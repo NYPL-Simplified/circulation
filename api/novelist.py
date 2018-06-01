@@ -31,6 +31,9 @@ from core.model import (
     Equivalency,
     LicensePool,
     Collection,
+    Edition,
+    Contribution,
+    Contributor,
 )
 from core.util import TitleProcessor
 from sqlalchemy.sql import (
@@ -461,11 +464,14 @@ class NoveListAPI(object):
         i2 = aliased(Identifier)
 
         isbnQuery = select(
-            [i1.identifier, i1.type, i2.identifier]
+            [i1.identifier, i1.type, i2.identifier, Edition.title, Edition.medium, Contribution.role]
         ).select_from(
             join(LicensePool, i1, i1.id==LicensePool.identifier_id)
             .join(Equivalency, i1.id==Equivalency.input_id, LEFT_OUTER_JOIN)
             .join(i2, Equivalency.output_id==i2.id, LEFT_OUTER_JOIN)
+            .join(Edition, Edition.primary_identifier_id==i1.id)
+            .join(Contribution, Contribution.edition_id==Edition.primary_identifier_id)
+            .join(Contributor, Contributor.id==Contribution.contributor_id)
         ).where(
             and_(
                 LicensePool.collection_id.in_(collectionList),
@@ -482,7 +488,9 @@ class NoveListAPI(object):
             elif res[2] is not None:
                 isbns.append(res[2])
 
-        return isbns
+        print isbnQuery
+        # return isbns
+        return None
 
     def put_isbns_novelist(self, library):
         isbns = self.get_isbns_from_query(library)
