@@ -1148,6 +1148,9 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
         if title_position and title_position in self.TITLE_POSITIONS:
+            # Convert image to 'RGB' mode if it's not already, so drawing on it works.
+            if image.mode != 'RGB':
+                image = image.convert("RGB")
             self._process_cover_image(work, image, title_position)
 
         buffer = StringIO()
@@ -1213,6 +1216,10 @@ class WorkController(AdminCirculationManagerController):
             if not original_href:
                 original_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
                 
+            # Convert image to 'RGB' mode if it's not already, so drawing on it works.
+            if image.mode != 'RGB':
+                image = image.convert("RGB")
+
             self._process_cover_image(work, image, title_position)
 
             original_rights_explanation = None
