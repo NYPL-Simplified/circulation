@@ -1987,7 +1987,7 @@ class TestCustomListsController(AdminControllerTest):
         with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "List"),
-                ("entries", json.dumps([dict(pwid=work.presentation_edition.permanent_work_id)])),
+                ("entries", json.dumps([dict(identifier_urn=work.presentation_edition.primary_identifier.urn)])),
                 ("collections", json.dumps([collection.id])),
             ])
 
@@ -2024,12 +2024,11 @@ class TestCustomListsController(AdminControllerTest):
             eq_(1, response.get("entry_count"))
             eq_(1, len(response.get("entries")))
             [entry] = response.get("entries")
-            eq_(edition.permanent_work_id, entry.get("pwid"))
+            eq_(edition.primary_identifier.urn, entry.get("identifier_urn"))
             eq_(edition.title, entry.get("title"))
             eq_(2, len(entry.get("authors")))
             eq_(Edition.medium_to_additional_type[Edition.BOOK_MEDIUM], entry.get("medium"))
             eq_(edition.language, entry.get("language"))
-            eq_(edition.data_source.name, entry.get("data_source"))
             eq_(set([c1.display_name, c2.display_name]),
                 set(entry.get("authors")))
             eq_(1, len(response.get("collections")))
@@ -2073,9 +2072,9 @@ class TestCustomListsController(AdminControllerTest):
         list.add_entry(w2)
         self.add_to_materialized_view([w1, w2, w3])
 
-        new_entries = [dict(pwid=work.presentation_edition.permanent_work_id,
-            medium=Edition.medium_to_additional_type[work.presentation_edition.medium],
-            data_source=work.presentation_edition.data_source.name) for work in [w2, w3]]
+        new_entries = [dict(identifier_urn=work.presentation_edition.primary_identifier.urn,
+                            medium=Edition.medium_to_additional_type[work.presentation_edition.medium])
+                       for work in [w2, w3]]
 
         c1 = self._collection()
         c1.libraries = [self._default_library]
