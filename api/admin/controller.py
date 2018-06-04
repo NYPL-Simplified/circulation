@@ -1067,6 +1067,10 @@ class WorkController(AdminCirculationManagerController):
             author = ""
 
         if title_position in self.TITLE_POSITIONS:
+            # Convert image to 'RGB' mode if it's not already, so drawing on it works.
+            if image.mode != 'RGB':
+                image = image.convert("RGB")
+
             draw = ImageDraw.Draw(image)
             image_width, image_height = image.size
 
@@ -1123,7 +1127,7 @@ class WorkController(AdminCirculationManagerController):
 
             del draw
 
-        return True
+        return image
 
     def preview_book_cover(self, identifier_type, identifier):
         """Return a preview of the submitted cover image information."""
@@ -1148,10 +1152,7 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
         if title_position and title_position in self.TITLE_POSITIONS:
-            # Convert image to 'RGB' mode if it's not already, so drawing on it works.
-            if image.mode != 'RGB':
-                image = image.convert("RGB")
-            self._process_cover_image(work, image, title_position)
+            image = self._process_cover_image(work, image, title_position)
 
         buffer = StringIO()
         image.save(buffer, format="PNG")
@@ -1216,11 +1217,7 @@ class WorkController(AdminCirculationManagerController):
             if not original_href:
                 original_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
                 
-            # Convert image to 'RGB' mode if it's not already, so drawing on it works.
-            if image.mode != 'RGB':
-                image = image.convert("RGB")
-
-            self._process_cover_image(work, image, title_position)
+            image = self._process_cover_image(work, image, title_position)
 
             original_rights_explanation = None
             if rights_uri != RightsStatus.IN_COPYRIGHT:
