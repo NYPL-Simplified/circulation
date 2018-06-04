@@ -1138,7 +1138,7 @@ class TestWorkController(AdminControllerTest):
         processed = Image.open(path)
 
         # Without a title position, the image won't be changed.
-        self.manager.admin_work_controller._process_cover_image(work, processed, "none")
+        processed = self.manager.admin_work_controller._process_cover_image(work, processed, "none")
 
         image_histogram = original.histogram()
         expected_histogram = processed.histogram()
@@ -1150,7 +1150,7 @@ class TestWorkController(AdminControllerTest):
         # Here the title and author are added in the center. Compare the result
         # with a pre-generated version.
         processed = Image.open(path)
-        self.manager.admin_work_controller._process_cover_image(work, processed, "center")
+        processed = self.manager.admin_work_controller._process_cover_image(work, processed, "center")
 
         path = os.path.join(resource_path, "blue_with_title_author.png")
         expected_image = Image.open(path)
@@ -1206,7 +1206,7 @@ class TestWorkController(AdminControllerTest):
             # Modify the image to ensure it gets a different generic URI.
             image.thumbnail((500, 500))
             process_called_with.append((work, image, position))
-            return True
+            return image
         old_process = self.manager.admin_work_controller._process_cover_image
         self.manager.admin_work_controller._process_cover_image = mock_process
 
