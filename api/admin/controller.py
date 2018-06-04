@@ -1446,13 +1446,11 @@ class CustomListsController(AdminCirculationManagerController):
             query = self._db.query(
                 Work
             ).join(
-                Edition, Edition.id==Work.presentation_edition_id
-            ).join(
                 LicensePool, LicensePool.work_id==Work.id
             ).join(
                 Collection, LicensePool.collection_id==Collection.id
             ).filter(
-                Edition.primary_identifier_id==identifier.id
+                LicensePool.identifier_id==identifier.id
             ).filter(
                 Collection.id.in_([c.id for c in library.all_collections])
             )
