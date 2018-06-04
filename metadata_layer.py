@@ -646,7 +646,9 @@ class MetaToModelUtility(object):
                 extension=extension
             )
         else:
-            filename = representation.default_filename(link_obj)
+            filename = representation.default_filename(
+                link_obj, representation.media_type
+            )
             mirror_url = mirror.cover_image_url(
                 data_source, identifier, filename
             )
