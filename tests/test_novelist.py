@@ -357,25 +357,39 @@ class TestNoveListAPI(DatabaseTest):
         eq_(0.67, round(confidence, 2))
         eq_(more_identifier, metadata.primary_identifier)
 
-    def test_get_isbns_from_query(self):
-        isbns = self.novelist.get_isbns_from_query(self._default_library)
-        eq_(isbns, [])
+    def test_get_items_from_query(self):
+        items = self.novelist.get_items_from_query(self._default_library)
+        eq_(items, [])
 
         edition = self._edition(identifier_type=Identifier.ISBN)
         pool = self._licensepool(edition, collection=self._default_collection)
 
-        isbns = self.novelist.get_isbns_from_query(self._default_library)
+        items = self.novelist.get_items_from_query(self._default_library)
+        item = dict(
+            Author=edition.author,
+            Title=edition.title,
+            MediaType=Edition.medium_to_additional_type[edition.medium],
+            ISBN=edition.primary_identifier.identifier
+        )
 
-        eq_(isbns, [edition.primary_identifier.identifier])
+        eq_(items, [item])
 
-    def test_put_isbns_novelist(self):
-        response = self.novelist.put_isbns_novelist(self._default_library)
+    def test_create_item_object(self):
+        item = self.novelist.create_item_object(None)
+        eq_(item, None)
+
+        item_from_query = ("12345", "Axis 360 ID", "23456", "Book 1", "Book", "Author 1")
+        item = self.novelist.create_item_object(item_from_query)
+        eq_(item, {"ISBN":"23456", "MediaType": "http://schema.org/EBook", "Title": "Book 1", "Author": "Author 1"})
+
+    def test_put_items_novelist(self):
+        response = self.novelist.put_items_novelist(self._default_library)
 
         eq_(response, None)
 
         edition = self._edition(identifier_type=Identifier.ISBN)
         pool = self._licensepool(edition, collection=self._default_collection)
-        mock_response = {'Customer': 'NYPL','RecordsReceived':10}
+        mock_response = {'Customer': 'NYPL', 'RecordsReceived': 10}
 
         def mockHTTPPut(url, headers, **kwargs):
             return MockRequestsResponse(200, content=json.dumps(mock_response))
@@ -383,7 +397,7 @@ class TestNoveListAPI(DatabaseTest):
         oldPut = self.novelist.put
         self.novelist.put = mockHTTPPut
 
-        response = self.novelist.put_isbns_novelist(self._default_library)
+        response = self.novelist.put_items_novelist(self._default_library)
 
         eq_(response, mock_response)
 
@@ -398,12 +412,15 @@ class TestNoveListAPI(DatabaseTest):
             "Records": []
         })
 
-        data = ["12345", "12346", "12347"]
+        data = [
+            {"ISBN":"12345", "MediaType": "http://schema.org/EBook", "Title": "Book 1", "Author": "Author 1" },
+            {"ISBN":"12346", "MediaType": "http://schema.org/EBook", "Title": "Book 2", "Author": "Author 2" },
+        ]
         result = self.novelist.make_novelist_data_object(data)
 
         eq_(result, {
             "Customer": "library:yep",
-            "Records": [{"Isbn": "12345"}, {"Isbn": "12346"}, {"Isbn": "12347"}]
+            "Records": data
         })
 
     def mockHTTPPut(self, *args, **kwargs):

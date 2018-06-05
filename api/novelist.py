@@ -454,7 +454,7 @@ class NoveListAPI(object):
                 metadata.recommendations += self._extract_isbns(book_info)
         return metadata
 
-    def get_isbns_from_query(self, library):
+    def get_items_from_query(self, library):
         collectionList = []
         for c in library.collections:
             collectionList.append(c.id)
@@ -464,46 +464,63 @@ class NoveListAPI(object):
         i2 = aliased(Identifier)
 
         isbnQuery = select(
-            [i1.identifier, i1.type, i2.identifier, Edition.title, Edition.medium, Contribution.role]
+            [i1.identifier, i1.type, i2.identifier,
+            Edition.title, Edition.medium, Edition.author],
         ).select_from(
             join(LicensePool, i1, i1.id==LicensePool.identifier_id)
             .join(Equivalency, i1.id==Equivalency.input_id, LEFT_OUTER_JOIN)
             .join(i2, Equivalency.output_id==i2.id, LEFT_OUTER_JOIN)
-            .join(Edition, Edition.primary_identifier_id==i1.id)
-            .join(Contribution, Contribution.edition_id==Edition.primary_identifier_id)
-            .join(Contributor, Contributor.id==Contribution.contributor_id)
+            .join(
+                Edition,
+                or_(Edition.primary_identifier_id==i1.id, Edition.primary_identifier_id==i2.id)
+            )
         ).where(
             and_(
                 LicensePool.collection_id.in_(collectionList),
-                or_(i1.type=="ISBN", i2.type=="ISBN")
+                or_(i1.type=="ISBN", i2.type=="ISBN"),
             )
-        ).alias('lp_isbns')
+        )
 
         result = self._db.execute(isbnQuery)
 
-        isbns = []
+        items = []
         for res in result:
-            if (res[1] == Identifier.ISBN):
-                isbns.append(res[0])
-            elif res[2] is not None:
-                isbns.append(res[2])
+            item = self.create_item_object(res)
+            if item:
+                items.append(item)
 
-        print isbnQuery
-        # return isbns
-        return None
+        return items
 
-    def put_isbns_novelist(self, library):
-        isbns = self.get_isbns_from_query(library)
+    def create_item_object(self, object):
+        if not object:
+            return None
+
+        if (object[1] == Identifier.ISBN):
+            isbn = object[0]
+        elif object[2] is not None:
+            isbn = object[2]
+
+        mediaType = Edition.medium_to_additional_type[object[4]]
+
+        return dict(
+            ISBN=isbn,
+            Title=object[3],
+            MediaType=mediaType,
+            Author=object[5],
+        )
+
+    def put_items_novelist(self, library):
+        items = self.get_items_from_query(library)
 
         content = None
-        if isbns:
+        if items:
             response = self.put(
                 self.COLLECTION_DATA_API,
                 {
                     "AuthorizedIdentifier": self.AUTHORIZED_IDENTIFIER,
                     "Content-Type": "application/json; charset=utf-8"
                 },
-                data=json.dumps(self.make_novelist_data_object(isbns))
+                data=json.dumps(self.make_novelist_data_object(items))
             )
 
             if (response.status_code == 200):
@@ -511,12 +528,10 @@ class NoveListAPI(object):
 
         return content
 
-    def make_novelist_data_object(self, data):
-        isbns = list(map(lambda isbn: {"Isbn": isbn}, data))
-
+    def make_novelist_data_object(self, items):
         return {
             "Customer": "%s:%s" % (self.profile, self.password),
-            "Records": isbns,
+            "Records": items,
         }
 
     def put(self, url, headers, **kwargs):
