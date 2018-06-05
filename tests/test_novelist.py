@@ -365,11 +365,13 @@ class TestNoveListAPI(DatabaseTest):
         pool = self._licensepool(edition, collection=self._default_collection)
 
         items = self.novelist.get_items_from_query(self._default_library)
+
         item = dict(
-            Author=edition.author,
+            Author=edition.sort_author or edition.author,
             Title=edition.title,
             MediaType=Edition.medium_to_additional_type[edition.medium],
-            ISBN=edition.primary_identifier.identifier
+            ISBN=edition.primary_identifier.identifier,
+            Narrator=""
         )
 
         eq_(items, [item])
@@ -378,9 +380,22 @@ class TestNoveListAPI(DatabaseTest):
         item = self.novelist.create_item_object(None)
         eq_(item, None)
 
-        item_from_query = ("12345", "Axis 360 ID", "23456", "Book 1", "Book", "Author 1")
+        # Item row from the db query
+        # (identifier, identifier type, identifier,
+        # edition title, edition medium, edition sort author, edition author,
+        # contribution role, contributor sort name)
+        item_from_query = (
+            "12345", "Axis 360 ID", "23456",
+            "Title 1", "Book", "Author 1; Author 2", "Author 1", "Primary Author", "Author 1")
         item = self.novelist.create_item_object(item_from_query)
-        eq_(item, {"ISBN":"23456", "MediaType": "http://schema.org/EBook", "Title": "Book 1", "Author": "Author 1"})
+        eq_(
+            item,
+            {"ISBN":"23456",
+            "MediaType": "http://schema.org/EBook",
+            "Title": "Title 1",
+            "Author": "Author 1",
+            "Narrator": ""}
+        )
 
     def test_put_items_novelist(self):
         response = self.novelist.put_items_novelist(self._default_library)

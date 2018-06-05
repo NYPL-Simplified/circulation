@@ -32,6 +32,8 @@ from core.model import (
     LicensePool,
     Collection,
     Edition,
+    Contributor,
+    Contribution,
 )
 from core.util import TitleProcessor
 from sqlalchemy.sql import (
@@ -463,7 +465,8 @@ class NoveListAPI(object):
 
         isbnQuery = select(
             [i1.identifier, i1.type, i2.identifier,
-            Edition.title, Edition.medium, Edition.author],
+            Edition.title, Edition.medium, Edition.sort_author, Edition.author,
+            Contribution.role, Contributor.sort_name],
         ).select_from(
             join(LicensePool, i1, i1.id==LicensePool.identifier_id)
             .join(Equivalency, i1.id==Equivalency.input_id, LEFT_OUTER_JOIN)
@@ -472,10 +475,13 @@ class NoveListAPI(object):
                 Edition,
                 or_(Edition.primary_identifier_id==i1.id, Edition.primary_identifier_id==i2.id)
             )
+            .join(Contribution, Edition.id==Contribution.edition_id)
+            .join(Contributor, Contribution.contributor_id==Contributor.id)
         ).where(
             and_(
                 LicensePool.collection_id.in_(collectionList),
                 or_(i1.type=="ISBN", i2.type=="ISBN"),
+                or_(Contribution.role=="Primary Author", Contribution.role=="Narrator"),
             )
         )
 
@@ -498,13 +504,18 @@ class NoveListAPI(object):
         elif object[2] is not None:
             isbn = object[2]
 
+        title = object[3]
         mediaType = Edition.medium_to_additional_type[object[4]]
+        author = object[5].split(';')[0] if object[5] else object[6]
+        role = object[7]
+        narrator = object[8] if role == "Narrator" else ""
 
         return dict(
             ISBN=isbn,
-            Title=object[3],
+            Title=title,
             MediaType=mediaType,
-            Author=object[5],
+            Author=author,
+            Narrator=narrator
         )
 
     def put_items_novelist(self, library):
