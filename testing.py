@@ -1102,6 +1102,9 @@ class DummyHTTPClient(object):
 
     def queue_response(self, response_code, media_type="text/html",
                        other_headers=None, content=''):
+        """Queue a response of the type produced by
+        Representation.simple_http_get.
+        """
         headers = {}
         if media_type:
             headers["content-type"] = media_type
@@ -1109,6 +1112,17 @@ class DummyHTTPClient(object):
             for k, v in other_headers.items():
                 headers[k.lower()] = v
         self.responses.append((response_code, headers, content))
+
+    def queue_requests_response(
+            self, response_code, media_type="text/html",
+            other_headers=None, content=''
+    ):
+        """Queue a response of the type produced by HTTP.get_with_timeout."""
+        headers = dict(other_headers or {})
+        if media_type:
+            headers['Content-Type'] = media_type
+        response = MockRequestsResponse(response_code, headers, content)
+        self.responses.append(response)
 
     def do_get(self, url, *args, **kwargs):
         self.requests.append(url)
