@@ -14,6 +14,7 @@ from core.opds_import import (
     OPDSXMLParser,
 )
 from core.model import (
+    Collection,
     DataSource,
     ExternalIntegration,
     Hyperlink,
@@ -27,7 +28,6 @@ from core.util.epub import EpubAccessor
 class FeedbooksOPDSImporter(OPDSImporter):
 
     REALLY_IMPORT_KEY = 'really_import'
-    LANGUAGE_KEY = 'language'
     REPLACEMENT_CSS_KEY = 'replacement_css'
 
     NAME = ExternalIntegration.FEEDBOOKS
@@ -45,7 +45,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
           "default": "false"
         },
         {
-            "key": LANGUAGE_KEY,
+            "key": Collection.EXTERNAL_ACCOUNT_ID_KEY,
             "label": _("Import books in this language"),
             "description": _("Feedbooks offers separate feeds for different languages. Each one can be made into a separate collection."),
             "type": "select",
@@ -83,7 +83,7 @@ class FeedbooksOPDSImporter(OPDSImporter):
         if not really_import:
             raise Exception("Refusing to instantiate a Feedbooks importer because it's configured to not actually do an import.")
 
-        self.language = integration.setting(self.LANGUAGE_KEY).value
+        self.language = collection.external_account_id
 
         super(FeedbooksOPDSImporter, self).__init__(_db, collection, **kwargs)
 
@@ -452,7 +452,5 @@ class FeedbooksImportMonitor(OPDSImportMonitor):
 
         This is the base URL plus the language setting.
         """
-        language = collection.external_integration.setting(
-            FeedbooksOPDSImporter.LANGUAGE_KEY
-        ).value_or_default('en')
+        language = collection.external_account_id or 'en'
         return FeedbooksOPDSImporter.BASE_OPDS_URL % dict(language=language)
