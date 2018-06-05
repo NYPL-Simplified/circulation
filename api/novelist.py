@@ -32,8 +32,6 @@ from core.model import (
     LicensePool,
     Collection,
     Edition,
-    Contribution,
-    Contributor,
 )
 from core.util import TitleProcessor
 from sqlalchemy.sql import (
