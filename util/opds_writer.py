@@ -22,7 +22,7 @@ class AtomFeed(object):
     SCHEMA_NS = 'http://schema.org/'
     DRM_NS = 'http://librarysimplified.org/terms/drm'
     OPF_NS = 'http://www.idpf.org/2007/opf'
-    
+
     SIMPLIFIED_NS = "http://librarysimplified.org/terms/"
     BIBFRAME_NS = "http://bibframe.org/vocab/"
     BIB_SCHEMA_NS = "http://bib.schema.org/"
@@ -165,7 +165,7 @@ class OPDSFeed(AtomFeed):
     OPEN_ACCESS_REL = "http://opds-spec.org/acquisition/open-access"
     ACQUISITION_REL = "http://opds-spec.org/acquisition"
     BORROW_REL = "http://opds-spec.org/acquisition/borrow"
-    FULL_IMAGE_REL = "http://opds-spec.org/image" 
+    FULL_IMAGE_REL = "http://opds-spec.org/image"
     EPUB_MEDIA_TYPE = "application/epub+zip"
 
     REVOKE_LOAN_REL = "http://librarysimplified.org/terms/rel/revoke"
@@ -206,7 +206,7 @@ class OPDSMessage(object):
             or self.message != other.message):
             return False
         return True
-        
+
     @property
     def tag(self):
         message_tag = AtomFeed.SIMPLIFIED.message()
