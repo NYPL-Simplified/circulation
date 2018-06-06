@@ -130,6 +130,7 @@ from core.scripts import OPDSImportScript
 from api.novelist import (
     NoveListAPI
 )
+from api.marc import MARCExtractor
 
 class Script(CoreScript):
     def load_config(self):
@@ -1103,7 +1104,7 @@ class DirectoryImportScript(Script):
 
         replacement_policy = ReplacementPolicy.from_license_source(self._db)
         replacement_policy.mirror = mirror
-        metadata_records = self.load_metadata(metadata_file)
+        metadata_records = self.load_metadata(metadata_file, data_source_name)
         for metadata in metadata_records:
             self.work_from_metadata(
                 collection, metadata, replacement_policy, cover_directory,
@@ -1167,6 +1168,13 @@ class DirectoryImportScript(Script):
                 )
         mirror = MirrorUploader.for_collection(collection)
         return collection, mirror
+
+    def load_metadata(self, metadata_file, data_source_name):
+        """Read a MARC metadata file and convert the data into Metadata records."""
+        metadata_records = []
+        with open(marc_file) as f:
+            metadata_records.extend(MARCExtractor().parse(f, data_source_name))
+        return metadata_records
 
     def work_from_metadata(self, collection, metadata, policy, *args, **kwargs):
         self.annotate_metadata(metadata, policy, *args, **kwargs)
