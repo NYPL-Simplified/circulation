@@ -372,6 +372,16 @@ class BaseCoverageProvider(object):
         """
         self._db.commit()
 
+    def can_cover(self, identifier):
+        """Can this CoverageProvider do anything with the given Identifier?
+
+        This is not needed in the normal course of events, but a
+        caller may need to decide whether to pass an Identifier
+        into ensure_coverage() or register().
+        """
+        return (not self.input_identifier_types
+                or identifier.type in self.input_identifier_types)
+
     #
     # Subclasses must implement these virtual methods.
     #
@@ -719,11 +729,22 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             identifier = item
         else:
             identifier = item.primary_identifier
+
+        if self.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
+            # We need to cover this Identifier once, and then we're
+            # done, for all collections.
+            collection = None
+        else:
+            # We need separate coverage for the specific Collection
+            # associated with this CoverageProvider.
+            collection = self.collection
+
         coverage_record = get_one(
             self._db, CoverageRecord,
             identifier=identifier,
+            collection=collection,
             data_source=self.data_source,
-            operation=self.operation,
+            operation=self.get_operation(),
             on_multiple='interchangeable',
         )
         if not force and not self.should_update(coverage_record):
@@ -962,7 +983,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         )
         return qu
 
-    def license_pool(self, identifier):
+    def license_pool(self, identifier, data_source=None):
         """Finds this Collection's LicensePool for the given Identifier,
         creating one if necessary.
         """
@@ -973,6 +994,10 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             # A given Collection may have at most one LicensePool for
             # a given identifier.
             return license_pools[0]
+
+        data_source = data_source or self.data_source
+        if isinstance(data_source, basestring):
+            data_source = DataSource.lookup(self._db, data_source)
 
         # This Collection has no LicensePool for the given Identifier.
         # Create one.
@@ -985,12 +1010,12 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         # which typically has to manage information about books it has no
         # rights to.
         license_pool, ignore = LicensePool.for_foreign_id(
-            self._db, self.data_source, identifier.type, 
+            self._db, data_source, identifier.type,
             identifier.identifier, collection=self.collection
         )
         return license_pool
 
-    def work(self, identifier):
+    def work(self, identifier, license_pool=None):
         """Finds or creates a Work for this Identifier as licensed through
         this Collection.
 
@@ -1000,8 +1025,9 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         
         However, if there is no current Work, a Work will only be
         created if the given Identifier already has a LicensePool in
-        the Collection associated with this CoverageProvider. This method
-        will not create new LicensePools.
+        the Collection associated with this CoverageProvider (or if a
+        LicensePool to use is provided.) This method will not create
+        new LicensePools.
 
         :return: A Work, if possible. Otherwise, a CoverageFailure explaining
         why no Work could be created.
@@ -1017,15 +1043,15 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         # a LicensePool, beyond this point the CoverageProvider
         # needs to have a Collection associated with it.
         error = None
-        pool = None
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, self.data_source, identifier.type, 
-            identifier.identifier, collection=self.collection,
-            autocreate=False
-        )
+        if not license_pool:
+            license_pool, ignore = LicensePool.for_foreign_id(
+                self._db, self.data_source, identifier.type,
+                identifier.identifier, collection=self.collection,
+                autocreate=False
+            )
             
-        if pool:
-            work, created = pool.calculate_work(
+        if license_pool:
+            work, created = license_pool.calculate_work(
                 even_if_no_author=True, exclude_search=self.EXCLUDE_SEARCH_INDEX
             )
             if not work:

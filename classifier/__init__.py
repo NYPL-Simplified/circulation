@@ -3160,6 +3160,10 @@ class WorkClassifier(object):
     def fiction(self, default_fiction=False):
         """Is it more likely this is a fiction or nonfiction book?"""
         # Default to nonfiction.
+        if not self.fiction_weights:
+            # We have absolutely no idea one way or the other, and it
+            # would be irresponsible to guess.
+            return None
         is_fiction = default_fiction
         if self.fiction_weights[True] > self.fiction_weights[False]:
             is_fiction = True
@@ -3184,6 +3188,11 @@ class WorkClassifier(object):
             return Classifier.AUDIENCE_ADULTS_ONLY
 
         w = self.audience_weights
+        if not self.audience_weights:
+            # We have absolutely no idea, and it would be
+            # irresponsible to guess.
+            return None
+
         children_weight = w.get(Classifier.AUDIENCE_CHILDREN, 0)
         ya_weight = w.get(Classifier.AUDIENCE_YOUNG_ADULT, 0)
         adult_weight = w.get(Classifier.AUDIENCE_ADULT, 0)
@@ -3248,6 +3257,11 @@ class WorkClassifier(object):
 
     def target_age(self, audience):
         """Derive a target age from the gathered data."""
+        if not audience:
+            # We have absolutely no idea, and it would be
+            # irresponsible to guess.
+            return None
+
         if audience not in (
                 Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
         ):
@@ -3306,6 +3320,11 @@ class WorkClassifier(object):
         # science fiction. (It's probably a history of science fiction
         # or something.)
         genres = dict(self.genre_weights)
+        if not genres:
+            # We have absolutely no idea, and it would be
+            # irresponsible to guess.
+            return {}
+
         for genre in list(genres.keys()):
             if genre.default_fiction != fiction:
                 del genres[genre]
