@@ -1425,13 +1425,14 @@ class TestMirroring(OPDSImporterTest):
         # Project Gutenberg, its data source.
         #
         # The images were mirrored to a bucket corresponding to the
-        # open-access content server, _their_ data source.
+        # open-access content server, _their_ data source. Each image
+        # has an extension befitting its media type.
         #
         # The "crow" book was mirrored to a bucket corresponding to
         # the open-access content source, the default data source used
         # when no distributor was specified for a book.
         url0 = 'https://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg+ID/10441/The+Green+Mouse.epub.images'
-        url1 = u'https://s3.amazonaws.com/test.cover.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.png'
+        url1 = u'https://s3.amazonaws.com/test.cover.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.svg'
         url2 = u'https://s3.amazonaws.com/test.cover.bucket/scaled/300/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.png'
         url3 = 'https://s3.amazonaws.com/test.content.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/Johnny+Crow%27s+Party.epub.images'
         uploaded_urls = [x.mirror_url for x in s3.uploaded]

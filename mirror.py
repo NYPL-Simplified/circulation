@@ -1,3 +1,4 @@
+from nose.tools import set_trace
 import datetime
 from config import CannotLoadConfiguration
 
