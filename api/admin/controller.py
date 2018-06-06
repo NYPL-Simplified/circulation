@@ -1067,6 +1067,10 @@ class WorkController(AdminCirculationManagerController):
             author = ""
 
         if title_position in self.TITLE_POSITIONS:
+            # Convert image to 'RGB' mode if it's not already, so drawing on it works.
+            if image.mode != 'RGB':
+                image = image.convert("RGB")
+
             draw = ImageDraw.Draw(image)
             image_width, image_height = image.size
 
@@ -1123,7 +1127,7 @@ class WorkController(AdminCirculationManagerController):
 
             del draw
 
-        return True
+        return image
 
     def preview_book_cover(self, identifier_type, identifier):
         """Return a preview of the submitted cover image information."""
@@ -1148,7 +1152,7 @@ class WorkController(AdminCirculationManagerController):
         if isinstance(result, ProblemDetail):
             return result
         if title_position and title_position in self.TITLE_POSITIONS:
-            self._process_cover_image(work, image, title_position)
+            image = self._process_cover_image(work, image, title_position)
 
         buffer = StringIO()
         image.save(buffer, format="PNG")
@@ -1213,7 +1217,7 @@ class WorkController(AdminCirculationManagerController):
             if not original_href:
                 original_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
                 
-            self._process_cover_image(work, image, title_position)
+            image = self._process_cover_image(work, image, title_position)
 
             original_rights_explanation = None
             if rights_uri != RightsStatus.IN_COPYRIGHT:
@@ -1440,38 +1444,20 @@ class CustomListsController(AdminCirculationManagerController):
         old_entries = [x for x in list.entries if x.edition]
         membership_change = False
         for entry in entries:
-            pwid = entry.get("pwid")
-            medium = entry.get("medium")
-            language = entry.get("language")
-            data_source = entry.get("data_source")
+            urn = entry.get("identifier_urn")
 
-            data_source = DataSource.lookup(self._db, data_source)
-            if data_source:
-                data_source_id = data_source.id
-            else:
-                data_source_id = None
-
+            identifier, ignore = Identifier.parse_urn(self._db, urn)
             query = self._db.query(
                 Work
             ).join(
-                Edition, Edition.id==Work.presentation_edition_id
+                LicensePool, LicensePool.work_id==Work.id
+            ).join(
+                Collection, LicensePool.collection_id==Collection.id
             ).filter(
-                Edition.permanent_work_id==pwid
+                LicensePool.identifier_id==identifier.id
+            ).filter(
+                Collection.id.in_([c.id for c in library.all_collections])
             )
-
-            if data_source_id:
-                query = query.filter(
-                    Edition.data_source_id==data_source_id
-                )
-            if medium:
-                query = query.filter(
-                    Edition.medium==Edition.additional_type_to_medium[medium]
-                )
-            if language:
-                query = query.filter(
-                    Edition.language==LanguageCodes.iso_639_2_for_locale(language)
-                )
-
             work = query.one()
 
             if work:
@@ -1479,9 +1465,9 @@ class CustomListsController(AdminCirculationManagerController):
                 if entry_is_new:
                     membership_change = True
 
-        new_pwids = [entry.get("pwid") for entry in entries]
+        new_urns = [entry.get("identifier_urn") for entry in entries]
         for entry in old_entries:
-            if entry.edition.permanent_work_id not in new_pwids:
+            if entry.edition.primary_identifier.urn not in new_urns:
                 list.remove_entry(entry.edition)
                 membership_change = True
 
@@ -1531,13 +1517,12 @@ class CustomListsController(AdminCirculationManagerController):
                         identifier=entry.edition.primary_identifier.identifier,
                         library_short_name=library.short_name,
                     )
-                    entries.append(dict(pwid=entry.edition.permanent_work_id,
+                    entries.append(dict(identifier_urn=entry.edition.primary_identifier.urn,
                                         title=entry.edition.title,
                                         authors=[author.display_name for author in entry.edition.author_contributors],
                                         medium=Edition.medium_to_additional_type.get(entry.edition.medium, None),
                                         url=url,
                                         language=entry.edition.language,
-                                        data_source=entry.edition.data_source.name
                     ))
             collections = []
             for collection in list.collections:
