@@ -363,11 +363,12 @@ class TestNoveListAPI(DatabaseTest):
 
         edition = self._edition(identifier_type=Identifier.ISBN)
         pool = self._licensepool(edition, collection=self._default_collection)
+        contributor = self._contributor(sort_name=edition.sort_author, name=edition.author)
 
         items = self.novelist.get_items_from_query(self._default_library)
 
         item = dict(
-            Author=edition.sort_author or edition.author,
+            Author=contributor[0]._sort_name,
             Title=edition.title,
             MediaType=Edition.medium_to_additional_type[edition.medium],
             ISBN=edition.primary_identifier.identifier,
@@ -382,11 +383,11 @@ class TestNoveListAPI(DatabaseTest):
 
         # Item row from the db query
         # (identifier, identifier type, identifier,
-        # edition title, edition medium, edition sort author, edition author,
+        # edition title, edition medium,
         # contribution role, contributor sort name)
         item_from_query = (
             "12345", "Axis 360 ID", "23456",
-            "Title 1", "Book", "Author 1; Author 2", "Author 1", "Primary Author", "Author 1")
+            "Title 1", "Book", "Primary Author", "Author 1")
         item = self.novelist.create_item_object(item_from_query)
         eq_(
             item,

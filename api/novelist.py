@@ -462,10 +462,12 @@ class NoveListAPI(object):
         LEFT_OUTER_JOIN = True
         i1 = aliased(Identifier)
         i2 = aliased(Identifier)
+        roles = list(Contributor.AUTHOR_ROLES)
+        roles.append(Contributor.NARRATOR_ROLE)
 
         isbnQuery = select(
             [i1.identifier, i1.type, i2.identifier,
-            Edition.title, Edition.medium, Edition.sort_author, Edition.author,
+            Edition.title, Edition.medium,
             Contribution.role, Contributor.sort_name],
         ).select_from(
             join(LicensePool, i1, i1.id==LicensePool.identifier_id)
@@ -481,7 +483,7 @@ class NoveListAPI(object):
             and_(
                 LicensePool.collection_id.in_(collectionList),
                 or_(i1.type=="ISBN", i2.type=="ISBN"),
-                or_(Contribution.role=="Primary Author", Contribution.role=="Narrator"),
+                or_(Contribution.role.in_(roles))
             )
         )
 
@@ -504,11 +506,11 @@ class NoveListAPI(object):
         elif object[2] is not None:
             isbn = object[2]
 
+        role = object[5]
         title = object[3]
         mediaType = Edition.medium_to_additional_type[object[4]]
-        author = object[5].split(';')[0] if object[5] else object[6]
-        role = object[7]
-        narrator = object[8] if role == "Narrator" else ""
+        author = object[6] if role in Contributor.AUTHOR_ROLES else ""
+        narrator = object[6] if role == Contributor.NARRATOR_ROLE else ""
 
         return dict(
             ISBN=isbn,
