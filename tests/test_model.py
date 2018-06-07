@@ -8886,6 +8886,7 @@ class TestCollection(DatabaseTest):
         eq_(0, len(list1.entries))
         eq_(1, len(list2.entries))
 
+
 class TestCollectionForMetadataWrangler(DatabaseTest):
 
     """Tests that requirements to the metadata wrangler's use of Collection

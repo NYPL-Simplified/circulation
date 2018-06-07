@@ -1395,6 +1395,11 @@ class CoverageRecord(Base, BaseCoverageRecord):
     )
 
     def __repr__(self):
+        template = '<CoverageRecord: %(timestamp)s identifier=%(identifier_type)s/%(identifier)s data_source="%(data_source)s"%(operation)s status="%(status)s" %(exception)s>'
+        return self.human_readable(template)
+
+    def human_readable(self, template):
+        """Interpolate data into a human-readable template."""
         if self.operation:
             operation = ' operation="%s"' % self.operation
         else:
@@ -1403,15 +1408,16 @@ class CoverageRecord(Base, BaseCoverageRecord):
             exception = ' exception="%s"' % self.exception
         else:
             exception = ''
-        template = '<CoverageRecord: identifier=%s/%s data_source="%s"%s timestamp="%s"%s>'
-        return template % (
-            self.identifier.type,
-            self.identifier.identifier,
-            self.data_source.name,
-            operation,
-            self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            exception
+        return template % dict(
+            timestamp=self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            identifier_type=self.identifier.type,
+            identifier=self.identifier.identifier,
+            data_source=self.data_source.name,
+            operation=operation,
+            status=self.status,
+            exception=exception,
         )
+
 
     @classmethod
     def lookup(cls, edition_or_identifier, data_source, operation=None,

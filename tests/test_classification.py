@@ -815,6 +815,16 @@ class TestWorkClassifier(DatabaseTest):
         expected_genre, ignore = Genre.lookup(self._db, genre_data.name)
         return expected_genre
 
+    def test_no_assumptions(self):
+        """If we have no data whatsoever, we make no assumptions
+        about a work's classification.
+        """
+        self.classifier.weigh_metadata()
+        eq_(None, self.classifier.fiction())
+        eq_(None, self.classifier.audience())
+        eq_({}, self.classifier.genres(None))
+        eq_((None, None), self.classifier.target_age(None))
+
     def test_weight_metadata_title(self):
         self.work.presentation_edition.title = u"Star Trek: The Book"
         expected_genre = self._genre(classifier.Media_Tie_in_SF)
@@ -938,17 +948,6 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.add(c)
         eq_(50000, self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN])
 
-    def test_default_nonfiction(self):
-        # In the absence of any information we assume a book is nonfiction.
-        eq_(False, self.classifier.fiction())
-
-        # Put a tiny bit of evidence on the scale, and the balance tips.
-        new_classifier = WorkClassifier(self.work, test_session=self._db) 
-        source = DataSource.lookup(self._db, DataSource.OCLC)
-        c = self.identifier.classify(source, Subject.TAG, u"Fiction", weight=1)
-        new_classifier.add(c)
-        eq_(True, new_classifier.fiction())
-
     def test_juvenile_classification_is_split_between_children_and_ya(self):
 
         # LCC files both children's and YA works under 'PZ'.
@@ -987,9 +986,6 @@ class TestWorkClassifier(DatabaseTest):
         # cause the work to be mistakenly classified as Adult.
         for aud in Classifier.AUDIENCES_ADULT:
             eq_(-50, weights[aud])
-
-    def test_adult_book_by_default(self):
-        eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
 
     def test_childrens_book_when_evidence_is_overwhelming(self):
         # There is some evidence in the 'adult' and 'adults only'
@@ -1276,7 +1272,7 @@ class TestWorkClassifier(DatabaseTest):
         eq_(False, fiction)
 
     def test_classify_uses_default_audience(self):
-        genres, fiction, audience, target_age = self.classifier.classify(default_audience=None)
+        genres, fiction, audience, target_age = self.classifier.classify()
         eq_(None, audience)
         genres, fiction, audience, target_age = self.classifier.classify(default_audience=Classifier.AUDIENCE_ADULT)
         eq_(Classifier.AUDIENCE_ADULT, audience)

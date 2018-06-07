@@ -121,13 +121,19 @@ class Annotator(object):
             )
 
         if active_license_pool:
-            provider_name_attr = "{%s}ProviderName" % AtomFeed.BIBFRAME_NS
-            kwargs = {provider_name_attr : active_license_pool.data_source.name}
-            data_source_tag = AtomFeed.makeelement(
-                "{%s}distribution" % AtomFeed.BIBFRAME_NS,
-                **kwargs
-            )
-            entry.extend([data_source_tag])
+            data_source = active_license_pool.data_source.name
+            if data_source != DataSource.INTERNAL_PROCESSING:
+                # INTERNAL_PROCESSING indicates a dummy LicensePool
+                # created as a stand-in, e.g. by the metadata wrangler.
+                # This component is not actually distributing the book,
+                # so it should not have a bibframe:distribution tag.
+                provider_name_attr = "{%s}ProviderName" % AtomFeed.BIBFRAME_NS
+                kwargs = {provider_name_attr : data_source}
+                data_source_tag = AtomFeed.makeelement(
+                    "{%s}distribution" % AtomFeed.BIBFRAME_NS,
+                    **kwargs
+                )
+                entry.extend([data_source_tag])
 
             # We use Atom 'published' for the date the book first became
             # available to people using this application.
