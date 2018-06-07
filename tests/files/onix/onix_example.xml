@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ONIXmessage release="3.0">
+  <product>
+    <a001>001043-32582478</a001>
+    <a002>03</a002>
+    <productidentifier>
+      <b221>02</b221>
+      <b244>0262343665</b244>
+    </productidentifier>
+    <productidentifier>
+      <b221>03</b221>
+      <b244>9780262343664</b244>
+    </productidentifier>
+    <productidentifier>
+      <b221>15</b221>
+      <b244>9780262343664</b244>
+    </productidentifier>
+    <productidentifier>
+      <b221>01</b221>
+      <b233>MIT Press Title ID</b233>
+      <b244>11245</b244>
+    </productidentifier>
+    <descriptivedetail>
+      <x314>00</x314>
+      <b012>EA</b012>
+      <b014>Open Ebook Format</b014>
+      <measure>
+        <x315>01</x315>
+        <c094>8</c094>
+        <c095>in</c095>
+      </measure>
+      <measure>
+        <x315>01</x315>
+        <c094>203.2</c094>
+        <c095>mm</c095>
+      </measure>
+      <measure>
+        <x315>02</x315>
+        <c094>5.375</c094>
+        <c095>in</c095>
+      </measure>
+      <measure>
+        <x315>02</x315>
+        <c094>136.52</c094>
+        <c095>mm</c095>
+      </measure>
+      <measure>
+        <x315>03</x315>
+        <c094>0.5</c094>
+        <c095>in</c095>
+      </measure>
+      <measure>
+        <x315>03</x315>
+        <c094>12.7</c094>
+        <c095>mm</c095>
+      </measure>
+      <x316>US</x316>
+      <collection>
+        <x329>10</x329>
+        <titledetail>
+          <b202>01</b202>
+          <titleelement>
+            <x409>02</x409>
+            <b203>MIT Press</b203>
+          </titleelement>
+        </titledetail>
+      </collection>
+      <titledetail>
+        <b202>01</b202>
+        <titleelement>
+          <x409>01</x409>
+          <b203>Safe Spaces, Brave Spaces</b203>
+          <b029>Diversity and Free Expression in Education</b029>
+        </titleelement>
+      </titledetail>
+      <contributor>
+        <b034>1</b034>
+        <b035>A01</b035>
+        <b036>John Palfrey</b036>
+        <b037>Palfrey, John</b037>
+        <b039>John</b039>
+        <b040>Palfrey</b040>
+        <professionalaffiliation>
+          <b046>Phillips Academy</b046>
+        </professionalaffiliation>
+        <b044><![CDATA[<DIV>John Palfrey is Head of School at Phillips Academy, Andover, coauthor of<I> Born Digital: How Children Grow Up in a Digital Age</I>, and author of the MIT Press Essential Knowledge volume <I>Intellectual Property Strategy</I>.</DIV>]]></b044>
+        <contributorplace>
+          <x418>04</x418>
+          <b251>US</b251>
+          <b398>US-MA</b398>
+        </contributorplace>
+      </contributor>
+      <contributor>
+        <b034>2</b034>
+        <b035>A23</b035>
+        <b036>Alberto Ibarg&#252;en</b036>
+        <b037>Ibarg&#252;en, Alberto</b037>
+        <b039>Alberto</b039>
+        <b040>Ibarg&#252;en</b040>
+        <professionalaffiliation>
+          <b045>President and CEO</b045>
+          <b046>John S. and James L. Knight Foundation</b046>
+        </professionalaffiliation>
+      </contributor>
+      <b049>John Palfrey. foreword by Alberto Ibarg&#252;en</b049>
+      <n386/>
+      <language>
+        <b253>01</b253>
+        <b252>eng</b252>
+      </language>
+      <extent>
+        <b218>00</b218>
+        <b219>192</b219>
+        <b220>03</b220>
+      </extent>
+      <b125>2</b125>
+      <b062><![CDATA[1 b&amp;w illus.]]></b062>
+      <subject>
+        <x425/>
+        <b067>10</b067>
+        <b069>EDU015000</b069>
+      </subject>
+      <subject>
+        <b067>10</b067>
+        <b069>POL035000</b069>
+      </subject>
+      <subject>
+        <b067>10</b067>
+        <b069>POL039000</b069>
+      </subject>
+      <subject>
+        <x425/>
+        <b067>12</b067>
+        <b069>JNMN</b069>
+      </subject>
+      <subject>
+        <b067>12</b067>
+        <b069>JPWS</b069>
+      </subject>
+      <subject>
+        <b067>12</b067>
+        <b069>JFMD</b069>
+      </subject>
+      <subject>
+        <b067>20</b067>
+        <b070>free speech;freedom of speech;free expression;freedom of expression;diversity in education;equity;inclusion;racial diversity;students;campus;universities;schools;colleges;student activism;student protests;1st Amendment;1st Amendment protections;United States Constitution;Supreme Court;safe zones;safe spaces;microaggressions;stereotypes;trigger warnings;speech codes;policies;harassment;hate speech;bullying;race;discrimination;minorities;intolerance;tolerance;religious freedom;freedom of assembly;academic freedom;student journalism;free press;student surveys;Knight Foundation;Black Lives Matter;Adams;Justice Holmes;Fisher I;Fisher II</b070>
+      </subject>
+      <subject>
+        <b067>24</b067>
+        <b171>Proprietary Category</b171>
+        <b070>Education/General</b070>
+      </subject>
+      <subject>
+        <b067>24</b067>
+        <b171>Proprietary Category</b171>
+        <b070>Social Sciences/Political Science/Public Policy &amp; Law</b070>
+      </subject>
+      <audience>
+        <b204>01</b204>
+        <b206>01</b206>
+      </audience>
+      <audiencerange>
+        <b074>11</b074>
+        <b075>03</b075>
+        <b076>17</b076>
+      </audiencerange>
+    </descriptivedetail>
+    <collateraldetail>
+      <textcontent>
+        <x426>03</x426>
+        <x427>00</x427>
+        <d104><![CDATA[<P><B>How the essential democratic values of diversity and free expression can coexist on campus.</B></P><P>Safe spaces, trigger warnings, microaggressions, the disinvitation of speakers, demands to rename campus landmarks—debate over these issues began in lecture halls and on college quads but ended up on op-ed pages in the <I>New York Times</I> and the <I>Wall Street Journal</I>, on cable news, and on social media. Some of these critiques had merit, but others took a series of cheap shots at “crybullies” who needed to be coddled and protected from the real world. Few questioned the assumption that colleges must choose between free expression and diversity. In <I>Safe Spaces, Brave Spaces</I>, John Palfrey argues that the essential democratic values of diversity and free expression can, and should, coexist on campus. </P><P>Palfrey, currently Head of School at Phillips Academy, Andover, and formerly Professor and Vice Dean at Harvard Law School, writes that free expression and diversity are more compatible than opposed. Free expression can serve everyone—even if it has at times been dominated by white, male, Christian, heterosexual, able-bodied citizens. Diversity is about self-expression, learning from one another, and working together across differences; it can encompass academic freedom without condoning hate speech.</P><P>Palfrey proposes an innovative way to support both diversity and free expression on campus: creating safe spaces and brave spaces. In safe spaces, students can explore ideas and express themselves with without feeling marginalized. In brave spaces—classrooms, lecture halls, public forums—the search for knowledge is paramount, even if some discussions may make certain students uncomfortable. The strength of our democracy, says Palfrey, depends on a commitment to upholding both diversity and free expression, especially when it is hardest to do so.</P>]]></d104>
+      </textcontent>
+      <textcontent>
+        <x426>02</x426>
+        <x427>00</x427>
+        <d104><![CDATA[<Text>How the essential democratic values of diversity and free expression can coexist on campus.]]></d104>
+      </textcontent>
+      <textcontent>
+        <x426>09</x426>
+        <x427>00</x427>
+        <d104><![CDATA[<P><I>Safe Spaces, Brave Spaces</I> is a must read for faculty and administrators, but also for students, parents, and the wider public. Grounded in history, attuned to new technologies, honest about the challenges of an increasingly diverse society, <I>Safe Spaces, Brave Spaces</I> charts a path forward that is realistic, but ultimately hopeful. Building inclusive educational institutions that honor freedom of expression and create an environment for learning and growth is the path forward to a healthy and inclusive democracy.</P>—<B>Jonathan Fanton</B>, President, American Academy of Arts and Sciences; author of <I>The University and Civil Society</I>]]></d104>
+        <x428>Endorsement</x428>
+      </textcontent>
+      <textcontent>
+        <x426>09</x426>
+        <x427>00</x427>
+        <d104><![CDATA[<P>This is a sophisticated exploration of two crucial values—diversity and free expression—and a cogent, persuasive argument that the two are inextricably intertwined. Palfrey's sketch of a society in which citizens enjoy liberty and equality in equal measure is appealing and even inspiring.</P>—<B>Jameel Jaffer</B>, Executive Director, Knight First Amendment Institute, Columbia University; former Deputy Legal Director, ACLU]]></d104>
+        <x428>Endorsement</x428>
+      </textcontent>
+      <textcontent>
+        <x426>09</x426>
+        <x427>00</x427>
+        <d104><![CDATA[<P><I>Safe Spaces, Brave Spaces</I> is a useful, balanced summary of some of the most contentious issues on college campuses in the United States today. Recognizing the opportunity and the responsibility that learning communities have to educate about the value of diversity, inclusion, equity, and freedom of expression, the author takes on the challenge of this topic with courage, empathy, and a call to action for all of us to understand what is really at stake for how we educate citizens for democracy. I recommend it to leaders and scholars both in and outside of the academy who genuinely want to honor both sides of the debate and who want to be part of the urgent change needed for a more just society.</P>—<B>Marilyn Sanders Mobley</B>, Vice President, Office for Inclusion, Diversity and Equal Opportunity, Case Western Reserve University]]></d104>
+        <x428>Endorsement</x428>
+      </textcontent>
+    </collateraldetail>
+    <publishingdetail>
+      <imprint>
+        <imprintidentifier>
+          <x445>01</x445>
+          <b233>Firebrand Cloud Imprint Key</b233>
+          <b244>4031541</b244>
+        </imprintidentifier>
+        <b079>The MIT Press</b079>
+      </imprint>
+      <publisher>
+        <b291>01</b291>
+        <publisheridentifier>
+          <x447>01</x447>
+          <b233>Firebrand Cloud Publisher Key</b233>
+          <b244>4031540</b244>
+        </publisheridentifier>
+        <b081>The MIT Press</b081>
+        <website>
+          <b367>02</b367>
+          <b294>Publisher’s website for a specified work</b294>
+          <b295>http://mitpress.mit.edu/9780262343664</b295>
+        </website>
+      </publisher>
+      <b209>Cambridge</b209>
+      <b083>US</b083>
+      <productcontact>
+        <x482>01</x482>
+        <productcontactidentifier>
+          <x483>07</x483>
+          <b244>6318126</b244>
+        </productcontactidentifier>
+        <x484>The MIT Press</x484>
+        <j272>mitpress-orders@mit.edu</j272>
+      </productcontact>
+      <b394>04</b394>
+      <publishingdate>
+        <x448>01</x448>
+        <b306>20171006</b306>
+      </publishingdate>
+      <publishingdate>
+        <x448>02</x448>
+        <b306>20171006</b306>
+      </publishingdate>
+      <copyrightstatement>
+        <b087>2017</b087>
+        <copyrightowner>
+          <b047>MIT</b047>
+        </copyrightowner>
+      </copyrightstatement>
+      <salesrights>
+        <b089>01</b089>
+        <territory>
+          <x449>AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE VG VI VN VU WF WS YE YT ZA ZM ZW</x449>
+        </territory>
+      </salesrights>
+      <x456>00</x456>
+    </publishingdetail>
+    <relatedmaterial>
+      <relatedwork>
+        <x454>01</x454>
+        <workidentifier>
+          <b201>15</b201>
+          <b244>9780262037143</b244>
+        </workidentifier>
+      </relatedwork>
+      <relatedproduct>
+        <x455>13</x455>
+        <productidentifier>
+          <b221>15</b221>
+          <b244>9780262037143</b244>
+        </productidentifier>
+      </relatedproduct>
+    </relatedmaterial>
+    <productsupply>
+      <market>
+        <territory>
+          <x450>WORLD</x450>
+        </territory>
+      </market>
+      <supplydetail>
+        <supplier>
+          <j292>00</j292>
+          <j137>MIT Press</j137>
+        </supplier>
+        <j396>20</j396>
+        <price>
+          <x462>01</x462>
+          <discountcoded>
+            <j363>02</j363>
+            <j364>T</j364>
+          </discountcoded>
+          <j151>29.95</j151>
+          <j152>USD</j152>
+          <pricedate>
+            <x476>14</x476>
+            <j260>00</j260>
+            <b306>20180513</b306>
+          </pricedate>
+        </price>
+        <price>
+          <x462>01</x462>
+          <j261>06</j261>
+          <discountcoded>
+            <j363>02</j363>
+            <j364>T</j364>
+          </discountcoded>
+          <j151>29.95</j151>
+          <j152>USD</j152>
+          <pricedate>
+            <x476>14</x476>
+            <j260>00</j260>
+            <b306>20180513</b306>
+          </pricedate>
+        </price>
+        <price>
+          <x462>01</x462>
+          <discountcoded>
+            <j363>02</j363>
+            <j364>T</j364>
+          </discountcoded>
+          <j151>29.95</j151>
+          <j152>USD</j152>
+          <pricedate>
+            <x476>14</x476>
+            <j260>00</j260>
+            <b306>20180513</b306>
+          </pricedate>
+        </price>
+      </supplydetail>
+    </productsupply>
+  </product>
+</ONIXmessage>

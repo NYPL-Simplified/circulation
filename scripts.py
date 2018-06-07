@@ -131,6 +131,7 @@ from api.novelist import (
     NoveListAPI
 )
 from api.marc import MARCExtractor
+from api.onix import ONIXExtractor
 
 class Script(CoreScript):
     def load_config(self):
@@ -1044,8 +1045,13 @@ class DirectoryImportScript(Script):
         )
         parser.add_argument(
             '--metadata-file',
-            help=u'Path to a file containing MARC metadata for every title in the collection',
+            help=u'Path to a file containing MARC or ONIX 3.0 metadata for every title in the collection',
             required=True
+        )
+        parser.add_argument(
+            '--metadata-format',
+            help=u'Format of the metadata file ("marc" or "onix")',
+            default='marc',
         )
         parser.add_argument(
             '--cover-directory',
@@ -1076,19 +1082,20 @@ class DirectoryImportScript(Script):
         collection_name = parsed.collection_name
         data_source_name = parsed.data_source_name
         metadata_file = parsed.metadata_file
+        metadata_format = parsed.metadata_format
         cover_directory = parsed.cover_directory
         ebook_directory = parsed.ebook_directory
         rights_uri = parsed.rights_uri
         dry_run = parsed.dry_run
         return self.run_with_arguments(
             collection_name, data_source_name,
-            metadata_file, cover_directory,
+            metadata_file, metadata_format, cover_directory,
             ebook_directory, rights_uri, dry_run
         )
 
     def run_with_arguments(
-            self, collection_name, data_source_name,
-            metadata_file, cover_directory, ebook_directory, rights_uri,
+            self, collection_name, data_source_name, metadata_file,
+            metadata_format, cover_directory, ebook_directory, rights_uri,
             dry_run
     ):
         if dry_run:
@@ -1104,7 +1111,7 @@ class DirectoryImportScript(Script):
 
         replacement_policy = ReplacementPolicy.from_license_source(self._db)
         replacement_policy.mirror = mirror
-        metadata_records = self.load_metadata(metadata_file, data_source_name)
+        metadata_records = self.load_metadata(metadata_file, metadata_format, data_source_name)
         for metadata in metadata_records:
             self.work_from_metadata(
                 collection, metadata, replacement_policy, cover_directory,
@@ -1169,11 +1176,17 @@ class DirectoryImportScript(Script):
         mirror = MirrorUploader.for_collection(collection)
         return collection, mirror
 
-    def load_metadata(self, metadata_file, data_source_name):
-        """Read a MARC metadata file and convert the data into Metadata records."""
+    def load_metadata(self, metadata_file, metadata_format, data_source_name):
+        """Read a metadata file and convert the data into Metadata records."""
         metadata_records = []
+
+        if metadata_format == 'marc':
+            extractor = MARCExtractor()
+        elif metadata_format == 'onix':
+            extractor = ONIXExtractor()
+
         with open(metadata_file) as f:
-            metadata_records.extend(MARCExtractor().parse(f, data_source_name))
+            metadata_records.extend(extractor.parse(f, data_source_name))
         return metadata_records
 
     def work_from_metadata(self, collection, metadata, policy, *args, **kwargs):
@@ -1223,9 +1236,11 @@ class DirectoryImportScript(Script):
 
         # If a cover image is available, add it to the Metadata
         # as a link.
-        cover_link = self.load_cover_link(
-            identifier, data_source, cover_directory, mirror
-        )
+        cover_link = None
+        if cover_directory:
+            cover_link = self.load_cover_link(
+                identifier, data_source, cover_directory, mirror
+            )
         if cover_link:
             metadata.links.append(cover_link)
         else:
@@ -1251,12 +1266,17 @@ class DirectoryImportScript(Script):
             # no point in proceeding.
             return
 
-        book_url = mirror.book_url(
-            identifier,
-            '.' + Representation.FILE_EXTENSIONS[book_media_type],
-            data_source=data_source,
-            title=title
-        )
+        if mirror:
+            book_url = mirror.book_url(
+                identifier,
+                '.' + Representation.FILE_EXTENSIONS[book_media_type],
+                data_source=data_source,
+                title=title
+            )
+        else:
+            # This is a dry run and we won't be mirroring anything.
+            book_url = identifier.identifier + "." + Representation.FILE_EXTENSIONS[book_media_type]
+
         book_link = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD,
             href=book_url,
@@ -1296,9 +1316,15 @@ class DirectoryImportScript(Script):
            identifier.identifier
            + '.' + Representation.FILE_EXTENSIONS[cover_media_type]
        )
-       cover_url = mirror.cover_image_url(
-           data_source, identifier, cover_filename
-       )
+
+       if mirror:
+           cover_url = mirror.cover_image_url(
+               data_source, identifier, cover_filename
+           )
+       else:
+           # This is a dry run and we won't be mirroring anything.
+           cover_url = cover_filename
+
        cover_link = LinkData(
            rel=Hyperlink.IMAGE,
            href=cover_url,
