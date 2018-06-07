@@ -83,6 +83,8 @@ class NoveListAPI(object):
     AUTH_PARAMS = "&profile=%(profile)s&password=%(password)s"
     MAX_REPRESENTATION_AGE = 7*24*60*60      # one week
 
+    currentQueryIdentifier = None
+
     @classmethod
     def from_config(cls, library):
         profile, password = cls.values(library)
@@ -485,21 +487,34 @@ class NoveListAPI(object):
                 or_(i1.type=="ISBN", i2.type=="ISBN"),
                 or_(Contribution.role.in_(roles))
             )
-        )
+        ).order_by(i1.identifier, i2.identifier)
 
         result = self._db.execute(isbnQuery)
 
         items = []
-        for res in result:
-            item = self.create_item_object(res)
-            if item:
-                items.append(item)
+        newItem = None
+        existingItem = None
+        currentIdentifier = None
+        for item in result:
+            if newItem:
+                existingItem = newItem
+            (currentIdentifier, existingItem, newItem, addItem) = (
+                self.create_item_object(item, currentIdentifier, existingItem)
+            )
+
+            if addItem and existingItem:
+                items.append(existingItem)
+            print item
+
+        # For the case when there's only one item in `result`
+        if newItem:
+            items.append(newItem)
 
         return items
 
-    def create_item_object(self, object):
+    def create_item_object(self, object, currentIdentifier, existingItem):
         if not object:
-            return None
+            return (None, existingItem, None, False)
 
         if (object[1] == Identifier.ISBN):
             isbn = object[0]
@@ -507,18 +522,24 @@ class NoveListAPI(object):
             isbn = object[2]
 
         role = object[5]
-        title = object[3]
-        mediaType = Edition.medium_to_additional_type[object[4]]
         author = object[6] if role in Contributor.AUTHOR_ROLES else ""
-        narrator = object[6] if role == Contributor.NARRATOR_ROLE else ""
 
-        return dict(
-            ISBN=isbn,
-            Title=title,
-            MediaType=mediaType,
-            Author=author,
-            Narrator=narrator
-        )
+        if isbn == currentIdentifier and existingItem:
+            existingItem['Author'].append(author)
+            return (currentIdentifier, existingItem, None, False)
+        else:
+            title = object[3]
+            mediaType = Edition.medium_to_additional_type[object[4]]
+            narrator = object[6] if role == Contributor.NARRATOR_ROLE else ""
+
+            newItem = dict(
+                ISBN=isbn,
+                Title=title,
+                MediaType=mediaType,
+                Author=[author],
+                Narrator=narrator
+            )
+            return (isbn, existingItem, newItem, True)
 
     def put_items_novelist(self, library):
         items = self.get_items_from_query(library)

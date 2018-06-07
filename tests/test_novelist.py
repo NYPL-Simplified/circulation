@@ -368,7 +368,7 @@ class TestNoveListAPI(DatabaseTest):
         items = self.novelist.get_items_from_query(self._default_library)
 
         item = dict(
-            Author=contributor[0]._sort_name,
+            Author=[contributor[0]._sort_name],
             Title=edition.title,
             MediaType=Edition.medium_to_additional_type[edition.medium],
             ISBN=edition.primary_identifier.identifier,
@@ -378,8 +378,11 @@ class TestNoveListAPI(DatabaseTest):
         eq_(items, [item])
 
     def test_create_item_object(self):
-        item = self.novelist.create_item_object(None)
-        eq_(item, None)
+        (currentIdentifier, existingItem, newItem, addItem) = self.novelist.create_item_object(None, None, None)
+        eq_(currentIdentifier, None)
+        eq_(existingItem, None)
+        eq_(newItem, None)
+        eq_(addItem, False)
 
         # Item row from the db query
         # (identifier, identifier type, identifier,
@@ -387,16 +390,41 @@ class TestNoveListAPI(DatabaseTest):
         # contribution role, contributor sort name)
         item_from_query = (
             "12345", "Axis 360 ID", "23456",
-            "Title 1", "Book", "Primary Author", "Author 1")
-        item = self.novelist.create_item_object(item_from_query)
+            "Title 1", "Book",
+            "Primary Author", "Author 1")
+        second_item_from_query = (
+            "12345", "Axis 360 ID", "23456",
+            "Title 1", "Book",
+            "Author", "Author 2")
+        (currentIdentifier, existingItem, newItem, addItem) = self.novelist.create_item_object(item_from_query, None, None)
+        eq_(currentIdentifier, item_from_query[2])
+        eq_(existingItem,
+            None
+        )
         eq_(
-            item,
-            {"ISBN":"23456",
+            newItem,
+            {"ISBN": "23456",
             "MediaType": "http://schema.org/EBook",
             "Title": "Title 1",
-            "Author": "Author 1",
+            "Author": ["Author 1"],
             "Narrator": ""}
         )
+        eq_(addItem, True)
+
+        (currentIdentifier, existingItem, newItem, addItem) = self.novelist.create_item_object(second_item_from_query, "23456", existingItem)
+        eq_(currentIdentifier, item_from_query[2])
+        eq_(existingItem,
+            None
+        )
+        eq_(
+            newItem,
+            {"ISBN": "23456",
+            "MediaType": "http://schema.org/EBook",
+            "Title": "Title 1",
+            "Author": ["Author 2"],
+            "Narrator": ""}
+        )
+        eq_(addItem, True)
 
     def test_put_items_novelist(self):
         response = self.novelist.put_items_novelist(self._default_library)
