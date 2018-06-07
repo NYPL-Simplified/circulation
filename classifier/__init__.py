@@ -3257,11 +3257,6 @@ class WorkClassifier(object):
 
     def target_age(self, audience):
         """Derive a target age from the gathered data."""
-        if not audience:
-            # We have absolutely no idea, and it would be
-            # irresponsible to guess.
-            return None
-
         if audience not in (
                 Classifier.AUDIENCE_CHILDREN, Classifier.AUDIENCE_YOUNG_ADULT
         ):

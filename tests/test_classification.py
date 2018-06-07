@@ -815,6 +815,16 @@ class TestWorkClassifier(DatabaseTest):
         expected_genre, ignore = Genre.lookup(self._db, genre_data.name)
         return expected_genre
 
+    def test_no_assumptions(self):
+        """If we have no data whatsoever, we make no assumptions
+        about a work's classification.
+        """
+        self.classifier.weigh_metadata()
+        eq_(None, self.classifier.fiction())
+        eq_(None, self.classifier.audience())
+        eq_({}, self.classifier.genres(None))
+        eq_((None, None), self.classifier.target_age(None))
+
     def test_weight_metadata_title(self):
         self.work.presentation_edition.title = u"Star Trek: The Book"
         expected_genre = self._genre(classifier.Media_Tie_in_SF)
