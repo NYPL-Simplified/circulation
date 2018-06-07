@@ -446,7 +446,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # This provider doesn't.
         provider.input_identifier_types = [Identifier.OVERDRIVE_ID]
         eq_(False, m(identifier))
-        
+
 
 class TestIdentifierCoverageProvider(CoverageProviderTest):
 
