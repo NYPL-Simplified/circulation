@@ -578,6 +578,17 @@ class TestOPDS(DatabaseTest):
         )
         assert (1, unicode(feed).count(expect))
 
+        # If the LicensePool is a stand-in produced for internal
+        # processing purposes, it does not represent an actual license for
+        # the book, and the <bibframe:distribution> tag is not
+        # included.
+        internal = DataSource.lookup(self._db, DataSource.INTERNAL_PROCESSING)
+        work.license_pools[0].data_source = internal
+        feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
+                               [work])
+        assert '<bibframe:distribution' not in unicode(feed)
+
+
     def test_acquisition_feed_includes_author_tag_even_when_no_author(self):
         work = self._work(with_open_access_download=True)
         feed = AcquisitionFeed(self._db, "test", "http://the-url.com/",
