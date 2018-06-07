@@ -425,6 +425,28 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         record.status = CoverageRecord.REGISTERED
         eq_(True, provider.should_update(record))
 
+    def test_can_cover(self):
+        """Verify that can_cover gives the correct answer when
+        asked if a BaseCoverageProvider can handle a given Identifier.
+        """
+        provider = AlwaysSuccessfulCoverageProvider(self._db)
+        identifier = self._identifier(identifier_type=Identifier.ISBN)
+        m = provider.can_cover
+
+        # This provider handles all identifier types.
+        provider.input_identifier_types = None
+        eq_(True, m(identifier))
+
+        # This provider handles ISBNs.
+        provider.input_identifier_types = [
+            Identifier.OVERDRIVE_ID, Identifier.ISBN
+        ]
+        eq_(True, m(identifier))
+
+        # This provider doesn't.
+        provider.input_identifier_types = [Identifier.OVERDRIVE_ID]
+        eq_(False, m(identifier))
+        
 
 class TestIdentifierCoverageProvider(CoverageProviderTest):
 
