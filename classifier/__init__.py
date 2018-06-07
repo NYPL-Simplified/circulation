@@ -3321,6 +3321,11 @@ class WorkClassifier(object):
             return {}
 
         for genre in list(genres.keys()):
+            # If we have a fiction determination, that lets us eliminate
+            # possible genres that conflict with that determination.
+            #
+            # TODO: If we don't have a fiction determination, the
+            # genres we end up with may help us make one.
             if fiction is not None and (genre.default_fiction != fiction):
                 del genres[genre]
 
