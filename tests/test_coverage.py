@@ -158,7 +158,7 @@ class TestBaseCoverageProvider(CoverageProviderTest):
         # Class variables defined in subclasses become appropriate
         # instance variables.
         eq_("A Service (An Operation)", provider.service_name)
-        eq_("An Operation", provider.operation)
+        eq_("An Operation", provider.get_operation())
         eq_(50, provider.batch_size)
         eq_(now, provider.cutoff_time)
         
@@ -612,10 +612,12 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         provider = AlwaysSuccessfulCollectionCoverageProvider(
             self._default_collection
         )
+        provider.OPERATION = self._str
         record = provider.ensure_coverage(self.identifier)
         assert isinstance(record, CoverageRecord)
         eq_(self.identifier, record.identifier)
         eq_(provider.data_source, record.data_source)
+        eq_(provider.OPERATION, record.operation)
         eq_(None, record.exception)
 
         # There is now one CoverageRecord -- the one returned by
@@ -989,7 +991,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         # appropriate arguments.
         record2, is_new = CoverageRecord.add_for(
             identifier, data_source=provider.data_source, 
-            operation=provider.operation,
+            operation=provider.get_operation(),
             collection=provider.collection_or_not
         )
         eq_(False, is_new)
@@ -1008,7 +1010,7 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
 
         record2, is_new = CoverageRecord.add_for(
             identifier, data_source=provider.data_source, 
-            operation=provider.operation,
+            operation=provider.get_operation(),
             collection=provider.collection_or_not
         )
         eq_(False, is_new)
@@ -1696,7 +1698,7 @@ class TestWorkCoverageProvider(DatabaseTest):
         # There is now one relevant WorkCoverageRecord, for our single work.
         [record] = qu.all()
         eq_(self.work, record.work)
-        eq_(provider.operation, record.operation)
+        eq_(provider.get_operation(), record.operation)
 
         # The timestamp is now set.
         timestamp = Timestamp.value(self._db, provider.service_name, collection=None)
@@ -1709,7 +1711,7 @@ class TestWorkCoverageProvider(DatabaseTest):
             
         # We start with no relevant WorkCoverageRecords.
         qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==provider.operation
+            WorkCoverageRecord.operation==provider.get_operation()
         )
         eq_([], qu.all())
 
@@ -1717,7 +1719,7 @@ class TestWorkCoverageProvider(DatabaseTest):
 
         # We now have a CoverageRecord for the transient failure.
         [failure] = [x for x in self.work.coverage_records if 
-                     x.operation==provider.operation]
+                     x.operation==provider.get_operation()]
         eq_(CoverageRecord.TRANSIENT_FAILURE, failure.status)
 
         # The timestamp is now set to a recent value.
@@ -1732,7 +1734,7 @@ class TestWorkCoverageProvider(DatabaseTest):
 
         # We start with no relevant WorkCoverageRecords.
         qu = self._db.query(WorkCoverageRecord).filter(
-            WorkCoverageRecord.operation==provider.operation
+            WorkCoverageRecord.operation==provider.get_operation()
         )
         eq_([], qu.all())
 
@@ -1758,7 +1760,7 @@ class TestWorkCoverageProvider(DatabaseTest):
         w3 = self._work(with_license_pool=True)
         
         # w2 has coverage, the other two do not.
-        record = self._work_coverage_record(w2, provider.operation)
+        record = self._work_coverage_record(w2, provider.get_operation())
 
         # By default, items_that_need_coverage returns the two
         # works that don't have coverage.

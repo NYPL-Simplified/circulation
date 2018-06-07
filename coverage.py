@@ -137,10 +137,9 @@ class BaseCoverageProvider(object):
                 "%s must define SERVICE_NAME." % self.__class__.__name__
             )
         service_name = self.__class__.SERVICE_NAME
-        self.operation = self.get_operation()
-        
-        if self.operation:
-            service_name += ' (%s)' % self.operation
+        operation = self.get_operation()
+        if operation:
+            service_name += ' (%s)' % operation
         self.service_name = service_name
         if not batch_size or batch_size < 0:
             batch_size = self.DEFAULT_BATCH_SIZE
@@ -826,7 +825,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         """
         qu = Identifier.missing_coverage_from(
             self._db, self.input_identifier_types, self.data_source,
-            count_as_missing_before=self.cutoff_time, operation=self.operation,
+            count_as_missing_before=self.cutoff_time, operation=self.get_operation(),
             identifiers=self.input_identifiers, collection=self.collection_or_not,
             **kwargs
         )
@@ -849,7 +848,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         Edition/Identifier, as a CoverageRecord.
         """
         record, is_new = CoverageRecord.add_for(
-            item, data_source=self.data_source, operation=self.operation,
+            item, data_source=self.data_source, operation=self.get_operation(),
             collection=self.collection_or_not
         )
         record.status = CoverageRecord.SUCCESS
@@ -858,7 +857,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
 
     def record_failure_as_coverage_record(self, failure):
         """Turn a CoverageFailure into a CoverageRecord object."""
-        return failure.to_coverage_record(operation=self.operation)
+        return failure.to_coverage_record(operation=self.get_operation())
 
     def failure_for_ignored_item(self, item):
         """Create a CoverageFailure recording the CoverageProvider's
@@ -1242,7 +1241,7 @@ class WorkCoverageProvider(BaseCoverageProvider):
         are chosen.
         """
         qu = Work.missing_coverage_from(
-            self._db, operation=self.operation, 
+            self._db, operation=self.get_operation(),
             count_as_missing_before=self.cutoff_time,
             **kwargs
         )
@@ -1276,7 +1275,7 @@ class WorkCoverageProvider(BaseCoverageProvider):
         each of which was successful.
         """
         WorkCoverageRecord.bulk_add(
-            works, operation=self.operation
+            works, operation=self.get_operation()
         )
 
         # We can't return the specific WorkCoverageRecords that were
@@ -1288,11 +1287,11 @@ class WorkCoverageProvider(BaseCoverageProvider):
         """Record this CoverageProvider's coverage for the given
         Edition/Identifier, as a WorkCoverageRecord.
         """
-        return WorkCoverageRecord.add_for(work, operation=self.operation)
+        return WorkCoverageRecord.add_for(work, operation=self.get_operation())
 
     def record_failure_as_coverage_record(self, failure):
         """Turn a CoverageFailure into a WorkCoverageRecord object."""
-        return failure.to_work_coverage_record(operation=self.operation)
+        return failure.to_work_coverage_record(operation=self.get_operation())
 
 
 class PresentationReadyWorkCoverageProvider(WorkCoverageProvider):
