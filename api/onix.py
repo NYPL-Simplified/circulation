@@ -170,58 +170,41 @@ class ONIXExtractor(object):
         root = tree.getroot()
 
         for record in root.findall('product'):
-            title_tag = parser._xpath(record, 'descriptivedetail/titledetail/titleelement/b203')
-            title = None
-            if title_tag:
-                title = title_tag[0].text
-            else:
-                title_prefix_tag = parser._xpath(record, 'descriptivedetail/titledetail/titleelement/b030')
-                title_without_prefix_tag = parser._xpath(record, 'descriptivedetail/titledetail/titleelement/b031')
-                if title_prefix_tag and title_without_prefix_tag:
-                    title = title_prefix_tag[0].text + ' ' + title_without_prefix_tag[0].text
+            title = parser.text_of_optional_subtag(record, 'descriptivedetail/titledetail/titleelement/b203')
+            if not title:
+                title_prefix = parser.text_of_optional_subtag(record, 'descriptivedetail/titledetail/titleelement/b030')
+                title_without_prefix = parser.text_of_optional_subtag(record, 'descriptivedetail/titledetail/titleelement/b031')
+                if title_prefix and title_without_prefix:
+                    title = title_prefix + " " + title_without_prefix
 
-            subtitle_tag = parser._xpath(record, 'descriptivedetail/titledetail/titleelement/b029')
-            subtitle = None
-            if subtitle_tag:
-                subtitle = subtitle_tag[0].text
-
-            language_tag = parser._xpath(record, 'descriptivedetail/language/b252')
-            language = 'eng'
-            if language_tag:
-                language = language_tag[0].text
-
-            publisher_tag = parser._xpath(record, 'publishingdetail/publisher/b081')
-            publisher = None
-            if publisher_tag:
-                publisher = publisher_tag[0].text
-
-            imprint_tag = parser._xpath(record, 'publishingdetail/imprint/b079')
-            imprint = None
-            if imprint_tag and imprint_tag[0].text != publisher:
-                imprint = imprint_tag[0].text
+            subtitle = parser.text_of_optional_subtag(record, 'descriptivedetail/titledetail/titleelement/b029')
+            language = parser.text_of_optional_subtag(record, 'descriptivedetail/language/b252') or "eng"
+            publisher = parser.text_of_optional_subtag(record, 'publishingdetail/publisher/b081')
+            imprint = parser.text_of_optional_subtag(record, 'publishingdetail/imprint/b079')
+            if imprint == publisher:
+                imprint = None
            
-            publishing_date_tag = parser._xpath(record, 'publishingdetail/publishingdate/b306')
+            publishing_date = parser.text_of_optional_subtag(record, 'publishingdetail/publishingdate/b306')
             issued = None
-            if publishing_date_tag:
-                date = publishing_date_tag[0].text
-                issued = datetime.datetime.strptime(date, "%Y%m%d")
+            if publishing_date:
+                issued = datetime.datetime.strptime(publishing_date, "%Y%m%d")
 
             identifier_tags = parser._xpath(record, 'productidentifier')
             identifiers = []
             primary_identifier = None
             for tag in identifier_tags:
-                type = tag.find('b221').text
+                type = parser.text_of_subtag(tag, "b221")
                 if type == '02' or type == '15':
-                    primary_identifier = IdentifierData(Identifier.ISBN, tag.find('b244').text)
+                    primary_identifier = IdentifierData(Identifier.ISBN, parser.text_of_subtag(tag, 'b244'))
                     identifiers.append(primary_identifier)
 
             subject_tags = parser._xpath(record, 'descriptivedetail/subject')
             subjects = []
             for tag in subject_tags:
-                type = tag.find('b067').text
+                type = parser.text_of_subtag(tag, 'b067')
                 if type in cls.SUBJECT_TYPES:
                     subjects.append(SubjectData(cls.SUBJECT_TYPES[type],
-                                                tag.find('b069').text))
+                                                parser.text_of_subtag(tag, 'b069')))
                     
             audience_tags = parser._xpath(record, 'descriptivedetail/audience/b204')
             audiences = []
@@ -233,18 +216,12 @@ class ONIXExtractor(object):
             contributor_tags = parser._xpath(record, 'descriptivedetail/contributor')
             contributors = []
             for tag in contributor_tags:
-                type = tag.find('b035').text
+                type = parser.text_of_subtag(tag, 'b035')
                 if type in cls.CONTRIBUTOR_TYPES:
-                    display_name = tag.find('b036').text
-                    sort_name = tag.find('b037').text
-                    family_name = None
-                    family_name_tag = tag.find('b040')
-                    if family_name_tag != None:
-                        family_name = family_name_tag.text
-                    bio = None
-                    bio_tag = tag.find('b044')
-                    if bio_tag != None:
-                        bio = bio_tag.text
+                    display_name = parser.text_of_subtag(tag, 'b036')
+                    sort_name = parser.text_of_optional_subtag(tag, 'b037')
+                    family_name = parser.text_of_optional_subtag(tag, 'b040')
+                    bio = parser.text_of_optional_subtag(tag, 'b044')
                     contributors.append(ContributorData(sort_name=sort_name,
                                                         display_name=display_name,
                                                         family_name=family_name,
@@ -254,11 +231,11 @@ class ONIXExtractor(object):
             collateral_tags = parser._xpath(record, 'collateraldetail/textcontent')
             links = []
             for tag in collateral_tags:
-                type = tag.find('x426').text
+                type = parser.text_of_subtag(tag, 'x426')
                 # TODO: '03' is the summary in the example I'm testing, but that
                 # might not be generally true.
                 if type == '03':
-                    text = tag.find('d104').text
+                    text = parser.text_of_subtag(tag, 'd104')
                     links.append(LinkData(rel=Hyperlink.DESCRIPTION,
                                           media_type=Representation.TEXT_HTML_MEDIA_TYPE,
                                           content=text))
