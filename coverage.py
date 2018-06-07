@@ -103,7 +103,7 @@ class BaseCoverageProvider(object):
 
     # In your subclass, you _may_ set this to a string that distinguishes
     # two different CoverageProviders from the same data source.
-    # (You may also override the get_operation() method, if you need 
+    # (You may also override the operation method, if you need 
     # database access to determine which operation to use.)
     OPERATION = None
     
@@ -137,7 +137,7 @@ class BaseCoverageProvider(object):
                 "%s must define SERVICE_NAME." % self.__class__.__name__
             )
         service_name = self.__class__.SERVICE_NAME
-        operation = self.get_operation()
+        operation = self.operation
         if operation:
             service_name += ' (%s)' % operation
         self.service_name = service_name
@@ -163,7 +163,8 @@ class BaseCoverageProvider(object):
             return None
         return get_one(self._db, Collection, id=self.collection_id)
 
-    def get_operation(self):
+    @property
+    def operation(self):
         """Which operation should this CoverageProvider use to
         distinguish between multiple CoverageRecords from the same data
         source?
@@ -743,7 +744,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             identifier=identifier,
             collection=collection,
             data_source=self.data_source,
-            operation=self.get_operation(),
+            operation=self.operation,
             on_multiple='interchangeable',
         )
         if not force and not self.should_update(coverage_record):
@@ -825,7 +826,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         """
         qu = Identifier.missing_coverage_from(
             self._db, self.input_identifier_types, self.data_source,
-            count_as_missing_before=self.cutoff_time, operation=self.get_operation(),
+            count_as_missing_before=self.cutoff_time, operation=self.operation,
             identifiers=self.input_identifiers, collection=self.collection_or_not,
             **kwargs
         )
@@ -848,7 +849,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         Edition/Identifier, as a CoverageRecord.
         """
         record, is_new = CoverageRecord.add_for(
-            item, data_source=self.data_source, operation=self.get_operation(),
+            item, data_source=self.data_source, operation=self.operation,
             collection=self.collection_or_not
         )
         record.status = CoverageRecord.SUCCESS
@@ -857,7 +858,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
 
     def record_failure_as_coverage_record(self, failure):
         """Turn a CoverageFailure into a CoverageRecord object."""
-        return failure.to_coverage_record(operation=self.get_operation())
+        return failure.to_coverage_record(operation=self.operation)
 
     def failure_for_ignored_item(self, item):
         """Create a CoverageFailure recording the CoverageProvider's
@@ -1241,7 +1242,7 @@ class WorkCoverageProvider(BaseCoverageProvider):
         are chosen.
         """
         qu = Work.missing_coverage_from(
-            self._db, operation=self.get_operation(),
+            self._db, operation=self.operation,
             count_as_missing_before=self.cutoff_time,
             **kwargs
         )
@@ -1275,7 +1276,7 @@ class WorkCoverageProvider(BaseCoverageProvider):
         each of which was successful.
         """
         WorkCoverageRecord.bulk_add(
-            works, operation=self.get_operation()
+            works, operation=self.operation
         )
 
         # We can't return the specific WorkCoverageRecords that were
@@ -1287,11 +1288,11 @@ class WorkCoverageProvider(BaseCoverageProvider):
         """Record this CoverageProvider's coverage for the given
         Edition/Identifier, as a WorkCoverageRecord.
         """
-        return WorkCoverageRecord.add_for(work, operation=self.get_operation())
+        return WorkCoverageRecord.add_for(work, operation=self.operation)
 
     def record_failure_as_coverage_record(self, failure):
         """Turn a CoverageFailure into a WorkCoverageRecord object."""
-        return failure.to_work_coverage_record(operation=self.get_operation())
+        return failure.to_work_coverage_record(operation=self.operation)
 
 
 class PresentationReadyWorkCoverageProvider(WorkCoverageProvider):
