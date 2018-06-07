@@ -1488,7 +1488,7 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # Once an identifier has a work associated with it,
         # that's always the one that's used, and the value of license_pool
         # is ignored.
-        work3 = provider.work(identifier, object())
+        work3 = provider.work(identifier2, object())
         eq_(work2, work3)
         
     def test_set_metadata_and_circulationdata(self):
