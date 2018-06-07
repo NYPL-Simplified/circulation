@@ -1464,6 +1464,32 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         work = provider.work(identifier)
         assert isinstance(work, Work)
         eq_(u"A title", work.title)
+
+        # If necessary, we can tell work() to use a specific
+        # LicensePool when calculating the Work. This is an extreme
+        # example in which the LicensePool to use has a different
+        # Identifier (identifier2) than the Identifier we're
+        # processing (identifier1).
+        #
+        # In a real case, this would be used by a CoverageProvider
+        # that just had to create a LicensePool using an
+        # INTERNAL_PROCESSING DataSource rather than the DataSource
+        # associated with the CoverageProvider.
+        identifier2 = self._identifier()
+        identifier.licensed_through = []
+        collection2 = self._collection()
+        edition2 = self._edition(identifier_type=identifier2.type,
+                                 identifier_id=identifier2.identifier)
+        pool2 = self._licensepool(edition=edition2, collection=collection2)
+        work2 = provider.work(identifier, pool2)
+        assert work2 != work
+        eq_([pool2], work2.license_pools)
+
+        # Once an identifier has a work associated with it,
+        # that's always the one that's used, and the value of license_pool
+        # is ignored.
+        work3 = provider.work(identifier, object())
+        eq_(work2, work3)
         
     def test_set_metadata_and_circulationdata(self):
         """Verify that a CollectionCoverageProvider can set both
