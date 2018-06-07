@@ -1172,7 +1172,7 @@ class DirectoryImportScript(Script):
     def load_metadata(self, metadata_file, data_source_name):
         """Read a MARC metadata file and convert the data into Metadata records."""
         metadata_records = []
-        with open(marc_file) as f:
+        with open(metadata_file) as f:
             metadata_records.extend(MARCExtractor().parse(f, data_source_name))
         return metadata_records
 
