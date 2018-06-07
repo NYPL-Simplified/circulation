@@ -478,8 +478,8 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_([('collection name', 'data source name')],
             script.load_collection_calls)
 
-        # load_metadata was called with the metadata file.
-        eq_([('metadata file',)], script.load_metadata_calls)
+        # load_metadata was called with the metadata file and data source name.
+        eq_([('metadata file', 'data source name')], script.load_metadata_calls)
 
         # work_from_metadata was called twice, once on each metadata
         # object.
