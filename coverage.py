@@ -372,16 +372,6 @@ class BaseCoverageProvider(object):
         """
         self._db.commit()
 
-    def can_cover(self, identifier):
-        """Can this CoverageProvider do anything with the given Identifier?
-
-        This is not needed in the normal course of events, but a
-        caller may need to decide whether to pass an Identifier
-        into ensure_coverage() or register().
-        """
-        return (not self.input_identifier_types
-                or identifier.type in self.input_identifier_types)
-
     #
     # Subclasses must implement these virtual methods.
     #
@@ -669,6 +659,17 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             transient=transient,
             collection=self.collection_or_not,
         )
+
+    def can_cover(self, identifier):
+        """Can this IdentifierCoverageProvider do anything with the given
+        Identifier?
+
+        This is not needed in the normal course of events, but a
+        caller may need to decide whether to pass an Identifier
+        into ensure_coverage() or register().
+        """
+        return (not self.input_identifier_types
+                or identifier.type in self.input_identifier_types)
     
     def run_on_specific_identifiers(self, identifiers):
         """Split a specific set of Identifiers into batches and process one
