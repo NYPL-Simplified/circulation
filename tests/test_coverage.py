@@ -609,7 +609,9 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         """Verify that ensure_coverage creates a CoverageRecord for an
         Identifier, assuming that the CoverageProvider succeeds.
         """
-        provider = AlwaysSuccessfulCoverageProvider(self._db)
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
+        )
         record = provider.ensure_coverage(self.identifier)
         assert isinstance(record, CoverageRecord)
         eq_(self.identifier, record.identifier)
@@ -621,11 +623,27 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         [record2] = self._db.query(CoverageRecord).all()
         eq_(record2, record)
 
+        # Because this provider counts coverage in one Collection as
+        # coverage for all Collections, the coverage record was not
+        # associated with any particular collection.
+        eq_(True, provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION)
+        eq_(None, record2.collection)
+
         # The coverage provider's timestamp was not updated, because
         # we're using ensure_coverage on a single record.
         eq_(None,
             Timestamp.value(self._db, provider.service_name, collection=None)
         )
+
+        # Now let's try a CollectionCoverageProvider that needs to
+        # grant coverage separately for every collection.
+        provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+        record3 = provider.ensure_coverage(self.identifier)
+
+        # This creates a new CoverageRecord associated with the
+        # provider's collection.
+        assert record3 != record2
+        eq_(provider.collection, record3.collection)
 
     def test_ensure_coverage_works_on_edition(self):
         """Verify that ensure_coverage() works on an Edition by covering
