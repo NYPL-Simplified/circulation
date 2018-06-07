@@ -1569,7 +1569,32 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # as before.
         pool2 = provider.license_pool(identifier)
         eq_(pool, pool2)
-        
+
+        # It's possible for a CollectionCoverageProvider to create a
+        # LicensePool for a different DataSource than the one
+        # associated with the Collection. Only the metadata wrangler
+        # needs to do this -- it's so a CoverageProvider for a
+        # third-party DataSource can create an 'Internal Processing'
+        # LicensePool when some other part of the metadata wrangler
+        # failed to do this earlier.
+
+        # If a working pool already exists, it's returned and no new
+        # pool is created.
+        same_pool = provider.license_pool(
+            identifier, DataSource.INTERNAL_PROCESSING
+        )
+        eq_(same_pool, pool2)
+        eq_(provider.data_source, same_pool.data_source)
+
+        # A new pool is only created if no working pool can be found.
+        identifier2 = self._identifier()
+        new_pool = provider.license_pool(
+            identifier2, DataSource.INTERNAL_PROCESSING
+        )
+        eq_(new_pool.data_source.name, DataSource.INTERNAL_PROCESSING)
+        eq_(new_pool.identifier, identifier2)
+        eq_(new_pool.collection, provider.collection)
+
     def test_set_presentation_ready(self):
         """Test that a CollectionCoverageProvider can set a Work
         as presentation-ready.

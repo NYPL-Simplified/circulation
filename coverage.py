@@ -103,7 +103,7 @@ class BaseCoverageProvider(object):
 
     # In your subclass, you _may_ set this to a string that distinguishes
     # two different CoverageProviders from the same data source.
-    # (You may also override the operation method, if you need 
+    # (You may also override the operation method, if you need
     # database access to determine which operation to use.)
     OPERATION = None
     
@@ -986,9 +986,16 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     def license_pool(self, identifier, data_source=None):
         """Finds this Collection's LicensePool for the given Identifier,
         creating one if necessary.
+
+        :param data_source: If it's necessary to create a LicensePool,
+        the new LicensePool will have this DataSource. The default is to
+        use the DataSource associated with the CoverageProvider. This
+        should only be needed by the metadata wrangler.
         """
-        license_pools = [p for p in identifier.licensed_through
-                         if self.collection==p.collection]
+        license_pools = [
+            p for p in identifier.licensed_through
+            if self.collection==p.collection
+        ]
             
         if license_pools:
             # A given Collection may have at most one LicensePool for
