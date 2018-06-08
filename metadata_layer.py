@@ -225,7 +225,7 @@ class ContributorData(object):
         :return: the possibly changed Contributor object and a flag of whether it's been changed.
         """
         log = logging.getLogger("Abstract metadata layer")
-        log.debug(u"Applying %r (%s) into %r (%s)", self, self.viaf, destination, destination.viaf)
+        log.debug("Applying %r (%s) into %r (%s)", self, self.viaf, destination, destination.viaf)
 
         made_changes = False
 
@@ -882,10 +882,10 @@ class CirculationData(MetaToModelUtility):
             raise ValueError(
                 "Cannot find license pool: CirculationData has no primary identifier."
             )
-        
-        data_source = self.data_source(_db)
+
+        data_source_obj = self.data_source(_db)
         license_pool, is_new = LicensePool.for_foreign_id(
-            _db, data_source=self.data_source_obj,
+            _db, data_source=data_source_obj,
             foreign_id_type=identifier.type, 
             foreign_id=identifier.identifier,
             collection=collection

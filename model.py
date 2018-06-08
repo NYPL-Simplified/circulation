@@ -2887,6 +2887,7 @@ class Contributor(Base):
 
     @classmethod
     def _default_names(cls, name, default_display_name=None):
+        name = name or ""
         original_name = name
         """Split out from default_names to make it easy to test."""
         display_name = default_display_name
