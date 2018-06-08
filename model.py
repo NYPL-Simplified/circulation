@@ -4574,7 +4574,7 @@ class Work(Base):
 
     def calculate_presentation(
         self, policy=None, search_index_client=None, exclude_search=False,
-        default_fiction=False, default_audience=Classifier.AUDIENCE_ADULT
+        default_fiction=None, default_audience=None
     ):
         """Make a Work ready to show to patrons.
 

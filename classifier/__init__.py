@@ -3159,7 +3159,6 @@ class WorkClassifier(object):
 
     def fiction(self, default_fiction=None):
         """Is it more likely this is a fiction or nonfiction book?"""
-        # Default to nonfiction.
         if not self.fiction_weights:
             # We have absolutely no idea one way or the other, and it
             # would be irresponsible to guess.
