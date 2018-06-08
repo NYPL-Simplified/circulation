@@ -396,11 +396,11 @@ class TestNoveListAPI(DatabaseTest):
             "12345", "Axis 360 ID", "23456",
             "Title 1", "Book",
             "Author", "Author 2")
-        (currentIdentifier, existingItem, newItem, addItem) = self.novelist.create_item_object(item_from_query, None, None)
-        eq_(currentIdentifier, item_from_query[2])
-        eq_(existingItem,
-            None
+        (currentIdentifier, existingItem, newItem, addItem) = (
+            self.novelist.create_item_object(item_from_query, None, None)
         )
+        eq_(currentIdentifier, item_from_query[2])
+        eq_(existingItem, None)
         eq_(
             newItem,
             {"ISBN": "23456",
@@ -411,20 +411,19 @@ class TestNoveListAPI(DatabaseTest):
         )
         eq_(addItem, True)
 
-        (currentIdentifier, existingItem, newItem, addItem) = self.novelist.create_item_object(second_item_from_query, "23456", existingItem)
+        (currentIdentifier, existingItem, newItem, addItem) = (
+            self.novelist.create_item_object(second_item_from_query, second_item_from_query[2], newItem)
+        )
         eq_(currentIdentifier, item_from_query[2])
         eq_(existingItem,
-            None
-        )
-        eq_(
-            newItem,
             {"ISBN": "23456",
             "MediaType": "http://schema.org/EBook",
             "Title": "Title 1",
-            "Author": ["Author 2"],
+            "Author": ["Author 1", "Author 2"],
             "Narrator": ""}
         )
-        eq_(addItem, True)
+        eq_(newItem, None)
+        eq_(addItem, False)
 
     def test_put_items_novelist(self):
         response = self.novelist.put_items_novelist(self._default_library)

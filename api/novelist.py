@@ -457,6 +457,13 @@ class NoveListAPI(object):
         return metadata
 
     def get_items_from_query(self, library):
+        """Gets identifiers and its related title, medium, and authors from the
+        database.
+        Keeps track of the current 'ISBN' identifier and current item object that
+        is being processed. If the next ISBN being processed is new, the existing one
+        gets added to the list of items. If the ISBN is the same, then we append
+        the Author property since there are multiple contributors.
+        """
         collectionList = []
         for c in library.collections:
             collectionList.append(c.id)
@@ -513,8 +520,13 @@ class NoveListAPI(object):
         return items
 
     def create_item_object(self, object, currentIdentifier, existingItem):
+        """Returns a new item if the current identifier that was processed
+        is not the same as the new object's ISBN being processed. If the new
+        object's ISBN matches the current identifier, the previous object's
+        Author property is updated.
+        """
         if not object:
-            return (None, existingItem, None, False)
+            return (None, None, None, False)
 
         if (object[1] == Identifier.ISBN):
             isbn = object[0]
