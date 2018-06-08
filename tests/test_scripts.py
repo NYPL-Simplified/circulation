@@ -428,13 +428,14 @@ class TestDirectoryImportScript(DatabaseTest):
                 "--collection-name=coll1",
                 "--data-source-name=ds1",
                 "--metadata-file=metadata",
+                "--metadata-format=marc",
                 "--cover-directory=covers",
                 "--ebook-directory=ebooks",
                 "--rights-uri=rights",
                 "--dry-run"
             ]
         )
-        eq_(('coll1', 'ds1', 'metadata', 'covers', 'ebooks', 'rights', True),
+        eq_(('coll1', 'ds1', 'metadata', 'marc', 'covers', 'ebooks', 'rights', True),
             script.ran_with)
 
     def test_run_with_arguments(self):
@@ -470,7 +471,7 @@ class TestDirectoryImportScript(DatabaseTest):
         self._default_collection.name = 'changed'
 
         script = Mock(self._db)
-        basic_args = ["collection name", "data source name", "metadata file",
+        basic_args = ["collection name", "data source name", "metadata file", "marc",
                       "cover directory", "ebook directory", "rights URI"]
         script.run_with_arguments(*(basic_args + [True]))
 
@@ -478,8 +479,8 @@ class TestDirectoryImportScript(DatabaseTest):
         eq_([('collection name', 'data source name')],
             script.load_collection_calls)
 
-        # load_metadata was called with the metadata file.
-        eq_([('metadata file',)], script.load_metadata_calls)
+        # load_metadata was called with the metadata file and data source name.
+        eq_([('metadata file', 'marc', 'data source name')], script.load_metadata_calls)
 
         # work_from_metadata was called twice, once on each metadata
         # object.
