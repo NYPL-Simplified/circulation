@@ -1061,6 +1061,7 @@ class WorkList(object):
         # against LicensePool. If nothing else, the `facets` may
         # restrict the query to currently available items.
         qu = qu.join(mw.license_pool)
+
         if self.collection_ids is not None:
             qu = qu.filter(
                 LicensePool.collection_id.in_(self.collection_ids)
@@ -2258,8 +2259,12 @@ class Lane(Base, WorkList):
         # materialized view. For a lane derived from the intersection
         # of two or more custom lists, we may be joining
         # CustomListEntry multiple times. To avoid confusion, we make
-        # a new alias for the table every time.
-        a_entry = aliased(CustomListEntry)
+        # a new alias for the table every time except the first time.
+        if already_filtered_customlist_on_materialized_view:
+            a_entry = aliased(CustomListEntry)
+        else:
+            a_entry = CustomListEntry
+
         clause = a_entry.work_id==work_model.works_id
         if not already_filtered_customlist_on_materialized_view:
             # Since this is the first join, we're treating
