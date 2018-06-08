@@ -1120,4 +1120,11 @@ class OverdriveBibliographicCoverageProvider(BibliographicCoverageProvider):
             e = "Could not extract metadata from Overdrive data: %r" % info
             return self.failure(identifier, e)
 
+        self.metadata_pre_hook(metadata)
         return self.set_metadata(identifier, metadata)
+
+    def metadata_pre_hook(self, metadata):
+        """A hook method that allows subclasses to modify a Metadata
+        object derived from Overdrive before it's applied.
+        """
+        return metadata

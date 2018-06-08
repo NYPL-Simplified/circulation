@@ -2887,6 +2887,7 @@ class Contributor(Base):
 
     @classmethod
     def _default_names(cls, name, default_display_name=None):
+        name = name or ""
         original_name = name
         """Split out from default_names to make it easy to test."""
         display_name = default_display_name
@@ -4573,7 +4574,7 @@ class Work(Base):
 
     def calculate_presentation(
         self, policy=None, search_index_client=None, exclude_search=False,
-        default_fiction=False, default_audience=Classifier.AUDIENCE_ADULT
+        default_fiction=None, default_audience=None
     ):
         """Make a Work ready to show to patrons.
 
