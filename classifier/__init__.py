@@ -3129,7 +3129,7 @@ class WorkClassifier(object):
 
         self.prepared = True
 
-    def classify(self, default_fiction=False, default_audience=Classifier.AUDIENCE_ADULT):
+    def classify(self, default_fiction=None, default_audience=None):
         # Do a little prep work.
         if not self.prepared:
             self.prepare_to_classify()
@@ -3157,9 +3157,12 @@ class WorkClassifier(object):
                 self.log.debug(" %s: %s", v, k)
         return genres, fiction, audience, target_age
 
-    def fiction(self, default_fiction=False):
+    def fiction(self, default_fiction=None):
         """Is it more likely this is a fiction or nonfiction book?"""
-        # Default to nonfiction.
+        if not self.fiction_weights:
+            # We have absolutely no idea one way or the other, and it
+            # would be irresponsible to guess.
+            return default_fiction
         is_fiction = default_fiction
         if self.fiction_weights[True] > self.fiction_weights[False]:
             is_fiction = True
@@ -3167,7 +3170,7 @@ class WorkClassifier(object):
             is_fiction = False
         return is_fiction
 
-    def audience(self, genres=[], default_audience=Classifier.AUDIENCE_ADULT):
+    def audience(self, genres=[], default_audience=None):
         """What's the most likely audience for this book?
         :param default_audience: To avoid embarassing situations we will
         classify works as being intended for adults absent convincing
@@ -3184,6 +3187,11 @@ class WorkClassifier(object):
             return Classifier.AUDIENCE_ADULTS_ONLY
 
         w = self.audience_weights
+        if not self.audience_weights:
+            # We have absolutely no idea, and it would be
+            # irresponsible to guess.
+            return default_audience
+
         children_weight = w.get(Classifier.AUDIENCE_CHILDREN, 0)
         ya_weight = w.get(Classifier.AUDIENCE_YOUNG_ADULT, 0)
         adult_weight = w.get(Classifier.AUDIENCE_ADULT, 0)
@@ -3306,8 +3314,18 @@ class WorkClassifier(object):
         # science fiction. (It's probably a history of science fiction
         # or something.)
         genres = dict(self.genre_weights)
+        if not genres:
+            # We have absolutely no idea, and it would be
+            # irresponsible to guess.
+            return {}
+
         for genre in list(genres.keys()):
-            if genre.default_fiction != fiction:
+            # If we have a fiction determination, that lets us eliminate
+            # possible genres that conflict with that determination.
+            #
+            # TODO: If we don't have a fiction determination, the
+            # genres we end up with may help us make one.
+            if fiction is not None and (genre.default_fiction != fiction):
                 del genres[genre]
 
         # Consolidate parent genres into their heaviest subgenre.

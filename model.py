@@ -1395,6 +1395,11 @@ class CoverageRecord(Base, BaseCoverageRecord):
     )
 
     def __repr__(self):
+        template = '<CoverageRecord: %(timestamp)s identifier=%(identifier_type)s/%(identifier)s data_source="%(data_source)s"%(operation)s status="%(status)s" %(exception)s>'
+        return self.human_readable(template)
+
+    def human_readable(self, template):
+        """Interpolate data into a human-readable template."""
         if self.operation:
             operation = ' operation="%s"' % self.operation
         else:
@@ -1403,15 +1408,16 @@ class CoverageRecord(Base, BaseCoverageRecord):
             exception = ' exception="%s"' % self.exception
         else:
             exception = ''
-        template = '<CoverageRecord: identifier=%s/%s data_source="%s"%s timestamp="%s"%s>'
-        return template % (
-            self.identifier.type,
-            self.identifier.identifier,
-            self.data_source.name,
-            operation,
-            self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
-            exception
+        return template % dict(
+            timestamp=self.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            identifier_type=self.identifier.type,
+            identifier=self.identifier.identifier,
+            data_source=self.data_source.name,
+            operation=operation,
+            status=self.status,
+            exception=exception,
         )
+
 
     @classmethod
     def lookup(cls, edition_or_identifier, data_source, operation=None,
@@ -2881,6 +2887,7 @@ class Contributor(Base):
 
     @classmethod
     def _default_names(cls, name, default_display_name=None):
+        name = name or ""
         original_name = name
         """Split out from default_names to make it easy to test."""
         display_name = default_display_name
@@ -4567,7 +4574,7 @@ class Work(Base):
 
     def calculate_presentation(
         self, policy=None, search_index_client=None, exclude_search=False,
-        default_fiction=False, default_audience=Classifier.AUDIENCE_ADULT
+        default_fiction=None, default_audience=None
     ):
         """Make a Work ready to show to patrons.
 
@@ -7543,7 +7550,8 @@ class LicensePool(Base):
 
 
     def calculate_work(
-        self, even_if_no_author=False, known_edition=None, exclude_search=False
+        self, even_if_no_author=False, known_edition=None, exclude_search=False,
+        even_if_no_title=False
     ):
         """Find or create a Work for this LicensePool.
 
@@ -7553,15 +7561,23 @@ class LicensePool(Base):
         of the LicensePool's presentation edition.
 
         :param even_if_no_author: Ordinarily this method will refuse
-        to create a Work for a LicensePool whose Edition has no title
-        or author. But sometimes a book just has no known author. If
+        to create a Work for a LicensePool whose Edition has no
+        author. But sometimes a book just has no known author. If
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
+
+        :param even_if_no_title: Ordinarily this method will refuse to
+        create a Work for a LicensePool whose Edition has no title.
+        However, in components that don't present information directly
+        to readers, it's sometimes useful to create a Work even if the
+        title is unknown. In that case, pass in even_if_no_title=True
+        and the Work will be created.
 
         TODO: I think known_edition is mostly useless. We should
         either remove it or replace it with a boolean that stops us
         from calling set_presentation_edition() and assumes we've
         already done that work.
+
         """
         if not self.identifier:
             # A LicensePool with no Identifier should never have a Work.
@@ -7595,7 +7611,7 @@ class LicensePool(Base):
         if not presentation_edition.title or not presentation_edition.author:
             presentation_edition.calculate_presentation()
 
-        if not presentation_edition.title:
+        if not presentation_edition.title and not even_if_no_title:
             if presentation_edition.work:
                 logging.warn(
                     "Edition %r has no title but has a Work assigned. This will not stand.", presentation_edition
@@ -11896,6 +11912,11 @@ def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initia
 
     if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
         for pool in pools:
+            if not pool.collection:
+                # This shouldn't happen, but don't crash if it does --
+                # the correct behavior is that the work not be added to
+                # any CustomLists.
+                continue
             for list in pool.collection.customlists:
                 # Since the work was just created, we can assume that
                 # there's already a pending registration for updating the

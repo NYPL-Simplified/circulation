@@ -103,7 +103,7 @@ class BaseCoverageProvider(object):
 
     # In your subclass, you _may_ set this to a string that distinguishes
     # two different CoverageProviders from the same data source.
-    # (You may also override the get_operation() method, if you need 
+    # (You may also override the operation method, if you need
     # database access to determine which operation to use.)
     OPERATION = None
     
@@ -137,10 +137,9 @@ class BaseCoverageProvider(object):
                 "%s must define SERVICE_NAME." % self.__class__.__name__
             )
         service_name = self.__class__.SERVICE_NAME
-        self.operation = self.get_operation()
-        
-        if self.operation:
-            service_name += ' (%s)' % self.operation
+        operation = self.operation
+        if operation:
+            service_name += ' (%s)' % operation
         self.service_name = service_name
         if not batch_size or batch_size < 0:
             batch_size = self.DEFAULT_BATCH_SIZE
@@ -164,7 +163,8 @@ class BaseCoverageProvider(object):
             return None
         return get_one(self._db, Collection, id=self.collection_id)
 
-    def get_operation(self):
+    @property
+    def operation(self):
         """Which operation should this CoverageProvider use to
         distinguish between multiple CoverageRecords from the same data
         source?
@@ -659,6 +659,17 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             transient=transient,
             collection=self.collection_or_not,
         )
+
+    def can_cover(self, identifier):
+        """Can this IdentifierCoverageProvider do anything with the given
+        Identifier?
+
+        This is not needed in the normal course of events, but a
+        caller may need to decide whether to pass an Identifier
+        into ensure_coverage() or register().
+        """
+        return (not self.input_identifier_types
+                or identifier.type in self.input_identifier_types)
     
     def run_on_specific_identifiers(self, identifiers):
         """Split a specific set of Identifiers into batches and process one
@@ -719,9 +730,20 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             identifier = item
         else:
             identifier = item.primary_identifier
+
+        if self.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
+            # We need to cover this Identifier once, and then we're
+            # done, for all collections.
+            collection = None
+        else:
+            # We need separate coverage for the specific Collection
+            # associated with this CoverageProvider.
+            collection = self.collection
+
         coverage_record = get_one(
             self._db, CoverageRecord,
             identifier=identifier,
+            collection=collection,
             data_source=self.data_source,
             operation=self.operation,
             on_multiple='interchangeable',
@@ -962,17 +984,28 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         )
         return qu
 
-    def license_pool(self, identifier):
+    def license_pool(self, identifier, data_source=None):
         """Finds this Collection's LicensePool for the given Identifier,
         creating one if necessary.
+
+        :param data_source: If it's necessary to create a LicensePool,
+        the new LicensePool will have this DataSource. The default is to
+        use the DataSource associated with the CoverageProvider. This
+        should only be needed by the metadata wrangler.
         """
-        license_pools = [p for p in identifier.licensed_through
-                         if self.collection==p.collection]
-            
+        license_pools = [
+            p for p in identifier.licensed_through
+            if self.collection==p.collection
+        ]
+
         if license_pools:
             # A given Collection may have at most one LicensePool for
             # a given identifier.
             return license_pools[0]
+
+        data_source = data_source or self.data_source
+        if isinstance(data_source, basestring):
+            data_source = DataSource.lookup(self._db, data_source)
 
         # This Collection has no LicensePool for the given Identifier.
         # Create one.
@@ -985,12 +1018,12 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         # which typically has to manage information about books it has no
         # rights to.
         license_pool, ignore = LicensePool.for_foreign_id(
-            self._db, self.data_source, identifier.type, 
+            self._db, data_source, identifier.type,
             identifier.identifier, collection=self.collection
         )
         return license_pool
 
-    def work(self, identifier):
+    def work(self, identifier, license_pool=None, **calculate_work_kwargs):
         """Finds or creates a Work for this Identifier as licensed through
         this Collection.
 
@@ -1000,8 +1033,9 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         
         However, if there is no current Work, a Work will only be
         created if the given Identifier already has a LicensePool in
-        the Collection associated with this CoverageProvider. This method
-        will not create new LicensePools.
+        the Collection associated with this CoverageProvider (or if a
+        LicensePool to use is provided.) This method will not create
+        new LicensePools.
 
         :return: A Work, if possible. Otherwise, a CoverageFailure explaining
         why no Work could be created.
@@ -1017,16 +1051,22 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         # a LicensePool, beyond this point the CoverageProvider
         # needs to have a Collection associated with it.
         error = None
-        pool = None
-        pool, ignore = LicensePool.for_foreign_id(
-            self._db, self.data_source, identifier.type, 
-            identifier.identifier, collection=self.collection,
-            autocreate=False
-        )
+        if not license_pool:
+            license_pool, ignore = LicensePool.for_foreign_id(
+                self._db, self.data_source, identifier.type,
+                identifier.identifier, collection=self.collection,
+                autocreate=False
+            )
             
-        if pool:
-            work, created = pool.calculate_work(
-                even_if_no_author=True, exclude_search=self.EXCLUDE_SEARCH_INDEX
+        if license_pool:
+            for (v, default) in (
+                ('even_if_no_author', True),
+                ('exclude_search', self.EXCLUDE_SEARCH_INDEX)
+            ):
+                if not v in calculate_work_kwargs:
+                    calculate_work_kwargs[v] = default
+            work, created = license_pool.calculate_work(
+                **calculate_work_kwargs
             )
             if not work:
                 error = "Work could not be calculated"
@@ -1216,7 +1256,7 @@ class WorkCoverageProvider(BaseCoverageProvider):
         are chosen.
         """
         qu = Work.missing_coverage_from(
-            self._db, operation=self.operation, 
+            self._db, operation=self.operation,
             count_as_missing_before=self.cutoff_time,
             **kwargs
         )

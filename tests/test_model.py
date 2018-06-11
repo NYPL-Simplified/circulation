@@ -3826,6 +3826,15 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(None, work)
         eq_(False, new)
 
+        # even_if_no_title means we don't need a title.
+        work, new = p.calculate_work(
+            even_if_no_author=True, even_if_no_title=True
+        )
+        assert isinstance(work, Work)
+        eq_(True, new)
+        eq_(None, work.title)
+        eq_(None, work.presentation_edition.permanent_work_id)
+
     def test_calculate_work_bails_out_if_no_author(self):
         e, p = self._edition(with_license_pool=True, authors=[])
         work, new = p.calculate_work(even_if_no_author=False)
@@ -8885,6 +8894,7 @@ class TestCollection(DatabaseTest):
         pool.work = new_work
         eq_(0, len(list1.entries))
         eq_(1, len(list2.entries))
+
 
 class TestCollectionForMetadataWrangler(DatabaseTest):
 

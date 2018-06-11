@@ -470,6 +470,28 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
             self._db
         )
 
+    def test_can_cover(self):
+        """Verify that can_cover gives the correct answer when
+        asked if an IdentifierCoverageProvider can handle a given Identifier.
+        """
+        provider = AlwaysSuccessfulCoverageProvider(self._db)
+        identifier = self._identifier(identifier_type=Identifier.ISBN)
+        m = provider.can_cover
+
+        # This provider handles all identifier types.
+        provider.input_identifier_types = None
+        eq_(True, m(identifier))
+
+        # This provider handles ISBNs.
+        provider.input_identifier_types = [
+            Identifier.OVERDRIVE_ID, Identifier.ISBN
+        ]
+        eq_(True, m(identifier))
+
+        # This provider doesn't.
+        provider.input_identifier_types = [Identifier.OVERDRIVE_ID]
+        eq_(False, m(identifier))
+
     def test_replacement_policy(self):
         """Unless a different replacement policy is passed in, the
         default is ReplacementPolicy.from_metadata_source().
@@ -587,11 +609,15 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         """Verify that ensure_coverage creates a CoverageRecord for an
         Identifier, assuming that the CoverageProvider succeeds.
         """
-        provider = AlwaysSuccessfulCoverageProvider(self._db)
+        provider = AlwaysSuccessfulCollectionCoverageProvider(
+            self._default_collection
+        )
+        provider.OPERATION = self._str
         record = provider.ensure_coverage(self.identifier)
         assert isinstance(record, CoverageRecord)
         eq_(self.identifier, record.identifier)
         eq_(provider.data_source, record.data_source)
+        eq_(provider.OPERATION, record.operation)
         eq_(None, record.exception)
 
         # There is now one CoverageRecord -- the one returned by
@@ -599,11 +625,27 @@ class TestIdentifierCoverageProvider(CoverageProviderTest):
         [record2] = self._db.query(CoverageRecord).all()
         eq_(record2, record)
 
+        # Because this provider counts coverage in one Collection as
+        # coverage for all Collections, the coverage record was not
+        # associated with any particular collection.
+        eq_(True, provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION)
+        eq_(None, record2.collection)
+
         # The coverage provider's timestamp was not updated, because
         # we're using ensure_coverage on a single record.
         eq_(None,
             Timestamp.value(self._db, provider.service_name, collection=None)
         )
+
+        # Now let's try a CollectionCoverageProvider that needs to
+        # grant coverage separately for every collection.
+        provider.COVERAGE_COUNTS_FOR_EVERY_COLLECTION = False
+        record3 = provider.ensure_coverage(self.identifier)
+
+        # This creates a new CoverageRecord associated with the
+        # provider's collection.
+        assert record3 != record2
+        eq_(provider.collection, record3.collection)
 
     def test_ensure_coverage_works_on_edition(self):
         """Verify that ensure_coverage() works on an Edition by covering
@@ -1422,7 +1464,42 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         work = provider.work(identifier)
         assert isinstance(work, Work)
         eq_(u"A title", work.title)
-        
+
+        # If necessary, we can tell work() to use a specific
+        # LicensePool when calculating the Work. This is an extreme
+        # example in which the LicensePool to use has a different
+        # Identifier (identifier2) than the Identifier we're
+        # processing (identifier1).
+        #
+        # In a real case, this would be used by a CoverageProvider
+        # that just had to create a LicensePool using an
+        # INTERNAL_PROCESSING DataSource rather than the DataSource
+        # associated with the CoverageProvider.
+        identifier2 = self._identifier()
+        identifier.licensed_through = []
+        collection2 = self._collection()
+        edition2 = self._edition(identifier_type=identifier2.type,
+                                 identifier_id=identifier2.identifier)
+        pool2 = self._licensepool(edition=edition2, collection=collection2)
+        work2 = provider.work(identifier, pool2)
+        assert work2 != work
+        eq_([pool2], work2.license_pools)
+
+        # Once an identifier has a work associated with it,
+        # that's always the one that's used, and the value of license_pool
+        # is ignored.
+        work3 = provider.work(identifier2, object())
+        eq_(work2, work3)
+
+        # Any keyword arguments passed into work() are propagated to
+        # calculate_work(). This lets use (e.g.) create a Work even
+        # when there is no title.
+        edition, pool = self._edition(with_license_pool=True)
+        edition.title = None
+        work = provider.work(pool.identifier, pool, even_if_no_title=True)
+        assert isinstance(work, Work)
+        eq_(None, work.title)
+
     def test_set_metadata_and_circulationdata(self):
         """Verify that a CollectionCoverageProvider can set both
         metadata (on an Edition) and circulation data (on a LicensePool).
@@ -1527,7 +1604,32 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # as before.
         pool2 = provider.license_pool(identifier)
         eq_(pool, pool2)
-        
+
+        # It's possible for a CollectionCoverageProvider to create a
+        # LicensePool for a different DataSource than the one
+        # associated with the Collection. Only the metadata wrangler
+        # needs to do this -- it's so a CoverageProvider for a
+        # third-party DataSource can create an 'Internal Processing'
+        # LicensePool when some other part of the metadata wrangler
+        # failed to do this earlier.
+
+        # If a working pool already exists, it's returned and no new
+        # pool is created.
+        same_pool = provider.license_pool(
+            identifier, DataSource.INTERNAL_PROCESSING
+        )
+        eq_(same_pool, pool2)
+        eq_(provider.data_source, same_pool.data_source)
+
+        # A new pool is only created if no working pool can be found.
+        identifier2 = self._identifier()
+        new_pool = provider.license_pool(
+            identifier2, DataSource.INTERNAL_PROCESSING
+        )
+        eq_(new_pool.data_source.name, DataSource.INTERNAL_PROCESSING)
+        eq_(new_pool.identifier, identifier2)
+        eq_(new_pool.collection, provider.collection)
+
     def test_set_presentation_ready(self):
         """Test that a CollectionCoverageProvider can set a Work
         as presentation-ready.
