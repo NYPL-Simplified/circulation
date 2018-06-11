@@ -1490,7 +1490,16 @@ class TestCollectionCoverageProvider(CoverageProviderTest):
         # is ignored.
         work3 = provider.work(identifier2, object())
         eq_(work2, work3)
-        
+
+        # Any keyword arguments passed into work() are propagated to
+        # calculate_work(). This lets use (e.g.) create a Work even
+        # when there is no title.
+        edition, pool = self._edition(with_license_pool=True)
+        edition.title = None
+        work = provider.work(pool.identifier, pool, even_if_no_title=True)
+        assert isinstance(work, Work)
+        eq_(None, work.title)
+
     def test_set_metadata_and_circulationdata(self):
         """Verify that a CollectionCoverageProvider can set both
         metadata (on an Edition) and circulation data (on a LicensePool).

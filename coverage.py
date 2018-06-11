@@ -997,7 +997,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             p for p in identifier.licensed_through
             if self.collection==p.collection
         ]
-            
+
         if license_pools:
             # A given Collection may have at most one LicensePool for
             # a given identifier.
@@ -1023,7 +1023,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         )
         return license_pool
 
-    def work(self, identifier, license_pool=None):
+    def work(self, identifier, license_pool=None, **calculate_work_kwargs):
         """Finds or creates a Work for this Identifier as licensed through
         this Collection.
 
@@ -1059,8 +1059,14 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
             )
             
         if license_pool:
+            for (v, default) in (
+                ('even_if_no_author', True),
+                ('exclude_search', self.EXCLUDE_SEARCH_INDEX)
+            ):
+                if not v in calculate_work_kwargs:
+                    calculate_work_kwargs[v] = default
             work, created = license_pool.calculate_work(
-                even_if_no_author=True, exclude_search=self.EXCLUDE_SEARCH_INDEX
+                **calculate_work_kwargs
             )
             if not work:
                 error = "Work could not be calculated"
