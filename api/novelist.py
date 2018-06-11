@@ -510,11 +510,13 @@ class NoveListAPI(object):
             )
 
             if addItem and existingItem:
+                # The Role property isn't needed in the actual request.
+                del existingItem['Role']
                 items.append(existingItem)
-            print item
 
         # For the case when there's only one item in `result`
         if newItem:
+            del newItem['Role']
             items.append(newItem)
 
         return items
@@ -536,19 +538,26 @@ class NoveListAPI(object):
         role = object[5]
         author = object[6] if role in Contributor.AUTHOR_ROLES else ""
 
+        # If we encounter an existing ISBN and its role is "Primary Author",
+        # then that value overrides the existing Author property.
         if isbn == currentIdentifier and existingItem:
-            existingItem['Author'].append(author)
+            if role == Contributor.PRIMARY_AUTHOR_ROLE:
+                existingItem['Author'] = author
+                existingItem['Role'] = role
             return (currentIdentifier, existingItem, None, False)
         else:
+            # If we encounter a new ISBN, we take whatever author value is
+            # initially given to us.
             title = object[3]
-            mediaType = Edition.medium_to_additional_type[object[4]]
+            mediaType = Edition.medium_to_book_format_type_values[object[4]]
             narrator = object[6] if role == Contributor.NARRATOR_ROLE else ""
 
             newItem = dict(
                 ISBN=isbn,
                 Title=title,
                 MediaType=mediaType,
-                Author=[author],
+                Author=author,
+                Role=role,
                 Narrator=narrator
             )
             return (isbn, existingItem, newItem, True)

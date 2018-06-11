@@ -368,9 +368,9 @@ class TestNoveListAPI(DatabaseTest):
         items = self.novelist.get_items_from_query(self._default_library)
 
         item = dict(
-            Author=[contributor[0]._sort_name],
+            Author=contributor[0]._sort_name,
             Title=edition.title,
-            MediaType=Edition.medium_to_additional_type[edition.medium],
+            MediaType=Edition.medium_to_book_format_type_values[edition.medium],
             ISBN=edition.primary_identifier.identifier,
             Narrator=""
         )
@@ -391,11 +391,11 @@ class TestNoveListAPI(DatabaseTest):
         item_from_query = (
             "12345", "Axis 360 ID", "23456",
             "Title 1", "Book",
-            "Primary Author", "Author 1")
+            "Author", "Author 1")
         second_item_from_query = (
             "12345", "Axis 360 ID", "23456",
             "Title 1", "Book",
-            "Author", "Author 2")
+            "Primary Author", "Author 2")
         (currentIdentifier, existingItem, newItem, addItem) = (
             self.novelist.create_item_object(item_from_query, None, None)
         )
@@ -404,9 +404,10 @@ class TestNoveListAPI(DatabaseTest):
         eq_(
             newItem,
             {"ISBN": "23456",
-            "MediaType": "http://schema.org/EBook",
+            "MediaType": "EBook",
             "Title": "Title 1",
-            "Author": ["Author 1"],
+            "Role": "Author",
+            "Author": "Author 1",
             "Narrator": ""}
         )
         eq_(addItem, True)
@@ -417,9 +418,10 @@ class TestNoveListAPI(DatabaseTest):
         eq_(currentIdentifier, item_from_query[2])
         eq_(existingItem,
             {"ISBN": "23456",
-            "MediaType": "http://schema.org/EBook",
+            "MediaType": "EBook",
             "Title": "Title 1",
-            "Author": ["Author 1", "Author 2"],
+            "Author": "Author 2",
+            "Role": "Primary Author",
             "Narrator": ""}
         )
         eq_(newItem, None)
