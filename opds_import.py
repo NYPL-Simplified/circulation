@@ -618,6 +618,9 @@ class OPDSImporter(object):
         engineer an identifier mapping.
         """
         if self.identifier_mapping or not self.collection:
+            # NOTE: This is problematic, because a single OPDSImporter
+            # may be used to import a multi-page OPDS feed, and the
+            # identifier mapping will be different on each page.
             return
 
         mapping = dict()
@@ -651,6 +654,13 @@ class OPDSImporter(object):
         xml_data_meta, xml_failures = self.extract_metadata_from_elementtree(
             feed, data_source=data_source, feed_url=feed_url
         )
+
+        # Clear out any old identifier mapping, so the second page of
+        # an import doesn't use the mapping from the first page.
+        #
+        # NOTE: Obviously this is a hack and it would be better if the
+        # identifier mapping wasn't instance data.
+        self.identifier_mapping = None
 
         if self.map_from_collection:
             # Build the identifier_mapping based on the Collection.

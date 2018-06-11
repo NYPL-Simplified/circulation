@@ -274,9 +274,15 @@ class TestOPDSImporter(OPDSImporterTest):
         importer = OPDSImporter(
             self._db, collection=None, data_source_name=data_source_name
         )
+
+        importer.identifier_mapping = object()
+
         metadata, failures = importer.extract_feed_data(
             self.content_server_mini_feed
         )
+
+        # Any identifier mapping left over from a prior import was cleared out.
+        eq_(None, importer.identifier_mapping)
 
         m1 = metadata['http://www.gutenberg.org/ebooks/10441']
         m2 = metadata['http://www.gutenberg.org/ebooks/10557']
