@@ -274,15 +274,9 @@ class TestOPDSImporter(OPDSImporterTest):
         importer = OPDSImporter(
             self._db, collection=None, data_source_name=data_source_name
         )
-
-        importer.identifier_mapping = object()
-
         metadata, failures = importer.extract_feed_data(
             self.content_server_mini_feed
         )
-
-        # Any identifier mapping left over from a prior import was cleared out.
-        eq_(None, importer.identifier_mapping)
 
         m1 = metadata['http://www.gutenberg.org/ebooks/10441']
         m2 = metadata['http://www.gutenberg.org/ebooks/10557']
@@ -1174,11 +1168,10 @@ class TestOPDSImporter(OPDSImporterTest):
         expected = { isbn1 : lp.identifier }
         eq_(expected, importer.identifier_mapping)
 
-        # If we already have one, it isn't overwritten.
+        # If we already have one, it's overwritten.
         importer.build_identifier_mapping([isbn2.urn])
         overwrite = { isbn2 : lp.identifier }
-        eq_(False, importer.identifier_mapping==overwrite)
-        eq_(expected, importer.identifier_mapping)
+        eq_(importer.identifier_mapping, overwrite)
 
         # If the importer doesn't have a collection, we can't build
         # its mapping.
