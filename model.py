@@ -7550,7 +7550,8 @@ class LicensePool(Base):
 
 
     def calculate_work(
-        self, even_if_no_author=False, known_edition=None, exclude_search=False
+        self, even_if_no_author=False, known_edition=None, exclude_search=False,
+        even_if_no_title=False
     ):
         """Find or create a Work for this LicensePool.
 
@@ -7560,15 +7561,23 @@ class LicensePool(Base):
         of the LicensePool's presentation edition.
 
         :param even_if_no_author: Ordinarily this method will refuse
-        to create a Work for a LicensePool whose Edition has no title
-        or author. But sometimes a book just has no known author. If
+        to create a Work for a LicensePool whose Edition has no
+        author. But sometimes a book just has no known author. If
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
+
+        :param even_if_no_title: Ordinarily this method will refuse to
+        create a Work for a LicensePool whose Edition has no title.
+        However, in components that don't present information directly
+        to readers, it's sometimes useful to create a Work even if the
+        title is unknown. In that case, pass in even_if_no_title=True
+        and the Work will be created.
 
         TODO: I think known_edition is mostly useless. We should
         either remove it or replace it with a boolean that stops us
         from calling set_presentation_edition() and assumes we've
         already done that work.
+
         """
         if not self.identifier:
             # A LicensePool with no Identifier should never have a Work.
@@ -7602,7 +7611,7 @@ class LicensePool(Base):
         if not presentation_edition.title or not presentation_edition.author:
             presentation_edition.calculate_presentation()
 
-        if not presentation_edition.title:
+        if not presentation_edition.title and not even_if_no_title:
             if presentation_edition.work:
                 logging.warn(
                     "Edition %r has no title but has a Work assigned. This will not stand.", presentation_edition
@@ -11903,6 +11912,11 @@ def add_work_to_customlists_for_collection(pool_or_work, value, oldvalue, initia
 
     if (not oldvalue or oldvalue is NO_VALUE) and value and work and work.presentation_edition:
         for pool in pools:
+            if not pool.collection:
+                # This shouldn't happen, but don't crash if it does --
+                # the correct behavior is that the work not be added to
+                # any CustomLists.
+                continue
             for list in pool.collection.customlists:
                 # Since the work was just created, we can assume that
                 # there's already a pending registration for updating the
