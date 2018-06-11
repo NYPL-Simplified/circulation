@@ -7561,7 +7561,7 @@ class LicensePool(Base):
         of the LicensePool's presentation edition.
 
         :param even_if_no_author: Ordinarily this method will refuse
-        to create a Work for a LicensePool whose Edition has
+        to create a Work for a LicensePool whose Edition has no
         author. But sometimes a book just has no known author. If
         that's really the case, pass in even_if_no_author=True and the
         Work will be created.
