@@ -199,7 +199,7 @@ class BaseCoverageProvider(object):
         count_as_covered = count_as_covered or BaseCoverageRecord.DEFAULT_COUNT_AS_COVERED
         # Make it clear which class of items we're covering on this
         # run.
-        count_as_covered_message = '(counting %s as covered)' % (', '.join(count_as_covered))
+        count_as_covered_message = ' (counting %s as covered)' % (', '.join(count_as_covered))
 
         qu = self.items_that_need_coverage(count_as_covered=count_as_covered)
         self.log.info("%d items need coverage%s", qu.count(),
@@ -971,6 +971,12 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         """
         for collection in cls.collections(_db):
             yield cls(collection, **kwargs)
+
+    def run_once(self, *args, **kwargs):
+        self.log.info("Considering collection %s", self.collection.name)
+        return super(CollectionCoverageProvider, self).run_once(
+            *args, **kwargs
+        )
 
     def items_that_need_coverage(self, identifiers=None, **kwargs):
         """Find all Identifiers associated with this Collection but lacking
