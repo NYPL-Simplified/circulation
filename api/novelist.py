@@ -85,6 +85,11 @@ class NoveListAPI(object):
 
     currentQueryIdentifier = None
 
+    medium_to_book_format_type_values = {
+        Edition.BOOK_MEDIUM : u"EBook",
+        Edition.AUDIO_MEDIUM : u"AudiobookFormat",
+    }
+
     @classmethod
     def from_config(cls, library):
         profile, password = cls.values(library)
@@ -549,7 +554,7 @@ class NoveListAPI(object):
             # If we encounter a new ISBN, we take whatever author value is
             # initially given to us.
             title = object[3]
-            mediaType = Edition.medium_to_book_format_type_values[object[4]]
+            mediaType = self.medium_to_book_format_type_values[object[4]]
             narrator = object[6] if role == Contributor.NARRATOR_ROLE else ""
 
             newItem = dict(
