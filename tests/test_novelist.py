@@ -370,7 +370,7 @@ class TestNoveListAPI(DatabaseTest):
         item = dict(
             Author=contributor[0]._sort_name,
             Title=edition.title,
-            MediaType=Edition.medium_to_book_format_type_values[edition.medium],
+            MediaType=self.novelist.medium_to_book_format_type_values.get(edition.medium, ""),
             ISBN=edition.primary_identifier.identifier,
             Narrator=""
         )

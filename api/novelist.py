@@ -554,7 +554,7 @@ class NoveListAPI(object):
             # If we encounter a new ISBN, we take whatever author value is
             # initially given to us.
             title = object[3]
-            mediaType = self.medium_to_book_format_type_values[object[4]]
+            mediaType = self.medium_to_book_format_type_values.get(object[4], "")
             narrator = object[6] if role == Contributor.NARRATOR_ROLE else ""
 
             newItem = dict(
