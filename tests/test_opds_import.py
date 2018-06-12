@@ -1168,11 +1168,10 @@ class TestOPDSImporter(OPDSImporterTest):
         expected = { isbn1 : lp.identifier }
         eq_(expected, importer.identifier_mapping)
 
-        # If we already have one, it isn't overwritten.
+        # If we already have one, it's overwritten.
         importer.build_identifier_mapping([isbn2.urn])
         overwrite = { isbn2 : lp.identifier }
-        eq_(False, importer.identifier_mapping==overwrite)
-        eq_(expected, importer.identifier_mapping)
+        eq_(importer.identifier_mapping, overwrite)
 
         # If the importer doesn't have a collection, we can't build
         # its mapping.

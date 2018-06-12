@@ -616,8 +616,13 @@ class OPDSImporter(object):
     def build_identifier_mapping(self, external_urns):
         """Uses the given Collection and a list of URNs to reverse
         engineer an identifier mapping.
+
+        NOTE: It would be better if .identifier_mapping weren't
+        instance data, since a single OPDSImporter might import
+        multiple pages of a feed. However, the code as written should
+        work.
         """
-        if self.identifier_mapping or not self.collection:
+        if not self.collection:
             return
 
         mapping = dict()
