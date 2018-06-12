@@ -2266,7 +2266,7 @@ class TestWorkController(CirculationControllerTest):
             )
         eq_(200, response.status_code)
         feed = feedparser.parse(response.data)
-        eq_(5, len(feed['entries']))
+        eq_(2, len(feed['entries']))
 
         def collection_link(entry):
             [link] = [l for l in entry['links'] if l['rel']=='collection']
