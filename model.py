@@ -2163,7 +2163,7 @@ class Identifier(Base):
 
     @classmethod
     def recursively_equivalent_identifier_ids(
-            cls, _db, identifier_ids, levels=5, threshold=0.50, cutoff=None):
+            cls, _db, identifier_ids, levels=3, threshold=0.50, cutoff=None):
         """All Identifier IDs equivalent to the given set of Identifier
         IDs at the given confidence threshold.
 
@@ -4444,7 +4444,7 @@ class Work(Base):
         )
         return q
 
-    def all_identifier_ids(self, recursion_level=5, cutoff=None):
+    def all_identifier_ids(self, recursion_level=3, cutoff=None):
         _db = Session.object_session(self)
         primary_identifier_ids = [
             lp.identifier.id for lp in self.license_pools
@@ -7674,7 +7674,7 @@ class LicensePool(Base):
         existing_works = set([x.work for x in self.identifier.licensed_through])
         if len(existing_works) > 1:
             logging.warn(
-                "LicensePools for %r have more than one Work between them. Removing them all and starting over."
+                "LicensePools for %r have more than one Work between them. Removing them all and starting over.", self.identifier
             )
             for lp in self.identifier.licensed_through:
                 lp.work = None
@@ -7712,7 +7712,11 @@ class LicensePool(Base):
                     continue
                 if not (self.open_access and pool.open_access):
                     pool.work = None
-                    pool.calculate_work(exclude_search=exclude_search)
+                    pool.calculate_work(
+                        exclude_search=exclude_search,
+                        even_if_no_author=even_if_no_author,
+                        even_if_no_title=even_if_no_title
+                    )
                     licensepools_changed = True
 
         else:
