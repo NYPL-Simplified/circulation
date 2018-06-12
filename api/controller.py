@@ -1440,6 +1440,7 @@ class WorkController(CirculationManagerController):
             pagination=pagination,
         )
 
+        set_trace()
         feed = AcquisitionFeed.groups(
             self._db, lane.DISPLAY_NAME, url, lane, annotator=annotator,
             facets=facets
