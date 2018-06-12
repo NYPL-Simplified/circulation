@@ -624,10 +624,12 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         audiences = None
         if work.audience == Classifier.AUDIENCE_CHILDREN:
             audiences = [Classifier.AUDIENCE_CHILDREN]
-        if work.audience == Classifier.AUDIENCE_YOUNG_ADULT:
+        elif work.audience == Classifier.AUDIENCE_YOUNG_ADULT:
             audiences = Classifier.AUDIENCES_JUVENILE
-        if work.audience in Classifier.AUDIENCES_ADULT:
+        elif work.audience in Classifier.AUDIENCES_ADULT:
             audiences = list(Classifier.AUDIENCES)
+        else:
+            audiences = []
 
         audience_key=None
         if audiences:
