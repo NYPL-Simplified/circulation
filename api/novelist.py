@@ -31,6 +31,9 @@ from core.model import (
     Equivalency,
     LicensePool,
     Collection,
+    Edition,
+    Contributor,
+    Contribution,
 )
 from core.util import TitleProcessor
 from sqlalchemy.sql import (
@@ -79,6 +82,13 @@ class NoveListAPI(object):
     COLLECTION_DATA_API = "http://www.noveListcollectiondata.com/api/collections"
     AUTH_PARAMS = "&profile=%(profile)s&password=%(password)s"
     MAX_REPRESENTATION_AGE = 7*24*60*60      # one week
+
+    currentQueryIdentifier = None
+
+    medium_to_book_format_type_values = {
+        Edition.BOOK_MEDIUM : u"EBook",
+        Edition.AUDIO_MEDIUM : u"AudiobookFormat",
+    }
 
     @classmethod
     def from_config(cls, library):
@@ -451,7 +461,14 @@ class NoveListAPI(object):
                 metadata.recommendations += self._extract_isbns(book_info)
         return metadata
 
-    def get_isbns_from_query(self, library):
+    def get_items_from_query(self, library):
+        """Gets identifiers and its related title, medium, and authors from the
+        database.
+        Keeps track of the current 'ISBN' identifier and current item object that
+        is being processed. If the next ISBN being processed is new, the existing one
+        gets added to the list of items. If the ISBN is the same, then we append
+        the Author property since there are multiple contributors.
+        """
         collectionList = []
         for c in library.collections:
             collectionList.append(c.id)
@@ -459,43 +476,109 @@ class NoveListAPI(object):
         LEFT_OUTER_JOIN = True
         i1 = aliased(Identifier)
         i2 = aliased(Identifier)
+        roles = list(Contributor.AUTHOR_ROLES)
+        roles.append(Contributor.NARRATOR_ROLE)
 
         isbnQuery = select(
-            [i1.identifier, i1.type, i2.identifier]
+            [i1.identifier, i1.type, i2.identifier,
+            Edition.title, Edition.medium,
+            Contribution.role, Contributor.sort_name],
         ).select_from(
             join(LicensePool, i1, i1.id==LicensePool.identifier_id)
             .join(Equivalency, i1.id==Equivalency.input_id, LEFT_OUTER_JOIN)
             .join(i2, Equivalency.output_id==i2.id, LEFT_OUTER_JOIN)
+            .join(
+                Edition,
+                or_(Edition.primary_identifier_id==i1.id, Edition.primary_identifier_id==i2.id)
+            )
+            .join(Contribution, Edition.id==Contribution.edition_id)
+            .join(Contributor, Contribution.contributor_id==Contributor.id)
         ).where(
             and_(
                 LicensePool.collection_id.in_(collectionList),
-                or_(i1.type=="ISBN", i2.type=="ISBN")
+                or_(i1.type=="ISBN", i2.type=="ISBN"),
+                or_(Contribution.role.in_(roles))
             )
-        ).alias('lp_isbns')
+        ).order_by(i1.identifier, i2.identifier)
 
         result = self._db.execute(isbnQuery)
 
-        isbns = []
-        for res in result:
-            if (res[1] == Identifier.ISBN):
-                isbns.append(res[0])
-            elif res[2] is not None:
-                isbns.append(res[2])
+        items = []
+        newItem = None
+        existingItem = None
+        currentIdentifier = None
+        for item in result:
+            if newItem:
+                existingItem = newItem
+            (currentIdentifier, existingItem, newItem, addItem) = (
+                self.create_item_object(item, currentIdentifier, existingItem)
+            )
 
-        return isbns
+            if addItem and existingItem:
+                # The Role property isn't needed in the actual request.
+                del existingItem['Role']
+                items.append(existingItem)
 
-    def put_isbns_novelist(self, library):
-        isbns = self.get_isbns_from_query(library)
+        # For the case when there's only one item in `result`
+        if newItem:
+            del newItem['Role']
+            items.append(newItem)
+
+        return items
+
+    def create_item_object(self, object, currentIdentifier, existingItem):
+        """Returns a new item if the current identifier that was processed
+        is not the same as the new object's ISBN being processed. If the new
+        object's ISBN matches the current identifier, the previous object's
+        Author property is updated.
+        """
+        if not object:
+            return (None, None, None, False)
+
+        if (object[1] == Identifier.ISBN):
+            isbn = object[0]
+        elif object[2] is not None:
+            isbn = object[2]
+
+        role = object[5]
+        author = object[6] if role in Contributor.AUTHOR_ROLES else ""
+
+        # If we encounter an existing ISBN and its role is "Primary Author",
+        # then that value overrides the existing Author property.
+        if isbn == currentIdentifier and existingItem:
+            if role == Contributor.PRIMARY_AUTHOR_ROLE:
+                existingItem['Author'] = author
+                existingItem['Role'] = role
+            return (currentIdentifier, existingItem, None, False)
+        else:
+            # If we encounter a new ISBN, we take whatever author value is
+            # initially given to us.
+            title = object[3]
+            mediaType = self.medium_to_book_format_type_values.get(object[4], "")
+            narrator = object[6] if role == Contributor.NARRATOR_ROLE else ""
+
+            newItem = dict(
+                ISBN=isbn,
+                Title=title,
+                MediaType=mediaType,
+                Author=author,
+                Role=role,
+                Narrator=narrator
+            )
+            return (isbn, existingItem, newItem, True)
+
+    def put_items_novelist(self, library):
+        items = self.get_items_from_query(library)
 
         content = None
-        if isbns:
+        if items:
             response = self.put(
                 self.COLLECTION_DATA_API,
                 {
                     "AuthorizedIdentifier": self.AUTHORIZED_IDENTIFIER,
                     "Content-Type": "application/json; charset=utf-8"
                 },
-                data=json.dumps(self.make_novelist_data_object(isbns))
+                data=json.dumps(self.make_novelist_data_object(items))
             )
 
             if (response.status_code == 200):
@@ -503,12 +586,10 @@ class NoveListAPI(object):
 
         return content
 
-    def make_novelist_data_object(self, data):
-        isbns = list(map(lambda isbn: {"Isbn": isbn}, data))
-
+    def make_novelist_data_object(self, items):
         return {
             "Customer": "%s:%s" % (self.profile, self.password),
-            "Records": isbns,
+            "Records": items,
         }
 
     def put(self, url, headers, **kwargs):
