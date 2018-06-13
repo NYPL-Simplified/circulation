@@ -33,6 +33,7 @@ from core.util import LanguageCodes
 from core.util.http import (
     HTTP,
     RemoteIntegrationException,
+    RequestTimedOut,
 )
 
 from core.coverage import (
@@ -201,10 +202,17 @@ class EnkiAPI(BaseCirculationAPI):
     def _make_request(self, url, method, headers, data=None, params=None,
                       **kwargs):
         """Actually make an HTTP request."""
-        return HTTP.request_with_timeout(
-            method, url, headers=headers, data=data,
-            params=params, **kwargs
-        )
+        try:
+            return HTTP.request_with_timeout(
+                method, url, headers=headers, data=data,
+                params=params, timeout=90, **kwargs
+            )
+        except RequestTimedOut, e:
+            self.log.info("Request to %s timed out once. Trying a second time.", url)
+            return HTTP.request_with_timeout(
+                method, url, headers=headers, data=data,
+                params=params, timeout=90, **kwargs
+            )
 
     def reaper_request(self, identifier):
         self.log.debug ("Checking availability for " + str(identifier.identifier))

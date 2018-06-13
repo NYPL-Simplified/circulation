@@ -119,22 +119,14 @@ class TestCirculationManagerAnnotator(DatabaseTest):
         link_url = link_tag.get('href')
         eq_("https://cdn.com/thefile.epub", link_url)
 
-        # If the Resource has a Representation that has been mirrored
-        # somewhere else, the mirror URL is used instead of the original
-        # Resource URL.
+        # If the Resource has a Representation, the public URL is used
+        # instead of the original Resource URL.
         lpdm.resource.representation = representation
         link_tag = self.annotator.open_access_link(pool, lpdm)
-        eq_(representation.mirror_url, link_tag.get('href'))
+        eq_(representation.public_url, link_tag.get('href'))
 
-        # If the Representation exists but hasn't been mirrored,
-        # the Representation's original URL is used instead.
-        representation.mirror_url = None
-        representation.url = self._url
-        link_tag = self.annotator.open_access_link(pool, lpdm)
-        eq_(representation.url, link_tag.get('href'))
-
-        # If neither is present, the Resource's original URL is used.
-        representation.url = None
+        # If there is no Representation, the Resource's original URL is used.
+        lpdm.resource.representation = None
         link_tag = self.annotator.open_access_link(pool, lpdm)
         eq_(lpdm.resource.url, link_tag.get('href'))
 
@@ -468,9 +460,12 @@ class TestLibraryAnnotator(VendorIDTest):
         eq_(entry['id'], pool.identifier.urn)
 
         [(alternate, type)] = [(x['href'], x['type']) for x in entry['links'] if x['rel'] == 'alternate']
-        permalink = self.annotator.permalink_for(work, pool, pool.identifier)
+        permalink, permalink_type = self.annotator.permalink_for(
+            work, pool, pool.identifier
+        )
         eq_(alternate, permalink)
         eq_(OPDSFeed.ENTRY_TYPE, type)
+        eq_(permalink_type, type)
 
         # Make sure we are using the 'permalink' controller -- we were using
         # 'work' and that was wrong.
@@ -495,7 +490,7 @@ class TestLibraryAnnotator(VendorIDTest):
                 library_identifies_patrons=auth
             )
             feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
-            entry = feed._make_entry_xml(work, pool, edition, identifier)
+            entry = feed._make_entry_xml(work, edition)
             annotator.annotate_work_entry(
                 work, pool, edition, identifier, feed, entry
             )
@@ -531,7 +526,7 @@ class TestLibraryAnnotator(VendorIDTest):
             library_identifies_patrons=True
         )
         feed = AcquisitionFeed(self._db, "test", "url", [], annotator)
-        entry = feed._make_entry_xml(work, None, edition, identifier)
+        entry = feed._make_entry_xml(work, edition)
         annotator.annotate_work_entry(
             work, None, edition, identifier, feed, entry
         )

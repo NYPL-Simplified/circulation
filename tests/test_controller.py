@@ -43,6 +43,7 @@ from api.authenticator import (
 from core.app_server import (
     load_lending_policy
 )
+from core.classifier import Classifier
 from core.config import CannotLoadConfiguration
 from core.external_search import DummyExternalSearchIndex
 from core.metadata_layer import Metadata
@@ -69,6 +70,7 @@ from core.model import (
     Complaint,
     Library,
     SessionManager,
+    Subject,
     CachedFeed,
     Work,
     CirculationEvent,
@@ -1103,7 +1105,7 @@ class TestLoanController(CirculationControllerTest):
                 self.pool.id, fulfillable_mechanism.delivery_mechanism.id,
             )
             eq_(302, response.status_code)
-            eq_(fulfillable_mechanism.resource.representation.mirror_url, response.headers.get("Location"))
+            eq_(fulfillable_mechanism.resource.representation.public_url, response.headers.get("Location"))
 
             # The mechanism we used has been registered with the loan.
             eq_(fulfillable_mechanism, loan.fulfillment)
@@ -2244,8 +2246,16 @@ class TestWorkController(CirculationControllerTest):
 
         same_series_work = self._work(
             title="ZZZ", authors="ZZZ ZZZ", with_license_pool=True,
-            series="Around the World", data_source_name=DataSource.OVERDRIVE)
+            series="Around the World", data_source_name=DataSource.OVERDRIVE
+        )
         same_series_work.presentation_edition.series_position = 0
+        # Classify this work under a Subject that indicates an adult
+        # audience, so that when we recalculate its presentation there
+        # will be evidence for audience=Adult.  Otherwise
+        # recalculating the presentation will set audience=None.
+        self.work.license_pools[0].identifier.classify(
+            self.edition.data_source, Subject.OVERDRIVE, "Law"
+        )
         self.work.calculate_presentation(
             PresentationCalculationPolicy(regenerate_opds_entries=True),
             DummyExternalSearchIndex()
@@ -2273,7 +2283,9 @@ class TestWorkController(CirculationControllerTest):
             return link['title'], link['href']
 
         # This feed contains five books: one recommended,
-        # one in the same series, and two by the same author.
+        # two in the same series, and two by the same author.
+        # One of the 'same series' books is the same title as the
+        # 'same author' book.
         recommendations = []
         same_series = []
         same_contributor = []
@@ -2686,7 +2698,7 @@ class TestFeedController(CirculationControllerTest):
             eq_(0, len([link for link in links if link.get("rel") == Hyperlink.BORROW]))
             [open_access_link] = [link for link in links if link.get("rel") == Hyperlink.OPEN_ACCESS_DOWNLOAD]
             pool = self.english_2.license_pools[0]
-            eq_(pool.identifier.links[0].resource.representation.mirror_url, open_access_link.get("href"))
+            eq_(pool.identifier.links[0].resource.representation.public_url, open_access_link.get("href"))
 
         # The collection must exist.
         with self.app.test_request_context("/?size=1"):

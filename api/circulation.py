@@ -747,7 +747,7 @@ class CirculationAPI(object):
 
         rep = fulfillment.resource.representation
         if rep:
-            content_link = cdnify(rep.mirror_url or rep.url)
+            content_link = cdnify(rep.public_url)
         else:
             content_link = cdnify(fulfillment.resource.url)
         media_type = rep.media_type

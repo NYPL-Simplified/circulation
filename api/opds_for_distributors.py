@@ -76,7 +76,10 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
         # need to find the authenticate url in the OPDS
         # authentication document.
         if not self.auth_url:
-            response = self._request_with_timeout('GET', self.feed_url)
+            # Keep track of the most recent URL we retrieved for error
+            # reporting purposes.
+            current_url = self.feed_url
+            response = self._request_with_timeout('GET', current_url)
 
             if response.status_code != 401:
                 # This feed doesn't require authentication, so
@@ -85,24 +88,24 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
                 links = feed.get('feed', {}).get('links', [])
                 auth_doc_links = [l for l in links if l['rel'] == "http://opds-spec.org/auth/document"]
                 if not auth_doc_links:
-                    raise LibraryAuthorizationFailedException()
-                auth_doc_link = auth_doc_links[0].get("href")
+                    raise LibraryAuthorizationFailedException("No authentication document link found in %s" % current_url)
+                current_url = auth_doc_links[0].get("href")
 
-                response = self._request_with_timeout('GET', auth_doc_link)
+                response = self._request_with_timeout('GET', current_url)
 
             try:
                 auth_doc = json.loads(response.content)
             except Exception, e:
-                raise LibraryAuthorizationFailedException()
+                raise LibraryAuthorizationFailedException("Could not load authentication document from %s" % current_url)
             auth_types = auth_doc.get('authentication', [])
             credentials_types = [t for t in auth_types if t['type'] == "http://opds-spec.org/auth/oauth/client_credentials"]
             if not credentials_types:
-                raise LibraryAuthorizationFailedException()
+                raise LibraryAuthorizationFailedException("Could not find any credential-based authentication mechanisms in %s" % current_url)
 
             links = credentials_types[0].get('links', [])
             auth_links = [l for l in links if l.get("rel") == "authenticate"]
             if not auth_links:
-                raise LibraryAuthorizationFailedException()
+                raise LibraryAuthorizationFailedException("Could not find any authentication links in %s" % current_url)
             self.auth_url = auth_links[0].get("href")
 
         def refresh(credential):
@@ -116,7 +119,11 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
             access_token = token.get("access_token")
             expires_in = token.get("expires_in")
             if not access_token or not expires_in:
-                raise LibraryAuthorizationFailedException()
+                raise LibraryAuthorizationFailedException(
+                    "Document retrieved from %s is not a bearer token: %s" % (
+                        self.auth_url, token_response.content
+                    )
+                )
             credential.credential = access_token
             expires_in = expires_in
             # We'll avoid edge cases by assuming the token expires 75%

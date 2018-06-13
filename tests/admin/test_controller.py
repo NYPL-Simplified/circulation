@@ -16,7 +16,11 @@ import base64
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from contextlib import contextmanager
+from PIL import Image
+import math
+import operator
 
+from .. import sample_data
 from ..test_controller import CirculationControllerTest
 from api.admin.controller import (
     setup_admin_controllers,
@@ -51,14 +55,18 @@ from core.model import (
     Genre,
     get_one,
     get_one_or_create,
+    Hyperlink,
     Identifier,
     Library,
+    Representation,
+    ResourceTransformation,
+    RightsStatus,
     SessionManager,
     Subject,
     WorkGenre
 )
 from core.lane import Lane
-from core.s3 import S3Uploader
+from core.s3 import S3Uploader, MockS3Uploader
 from core.testing import (
     AlwaysSuccessfulCoverageProvider,
     NeverSuccessfulCoverageProvider,
@@ -369,6 +377,29 @@ class TestWorkController(AdminControllerTest):
         media = self.manager.admin_work_controller.media()
         assert Edition.BOOK_MEDIUM in media.values()
         assert Edition.medium_to_additional_type[Edition.BOOK_MEDIUM] in media.keys()
+
+    def test_rights_status(self):
+        rights_status = self.manager.admin_work_controller.rights_status()
+
+        public_domain = rights_status.get(RightsStatus.PUBLIC_DOMAIN_USA)
+        eq_(RightsStatus.NAMES.get(RightsStatus.PUBLIC_DOMAIN_USA), public_domain.get("name"))
+        eq_(True, public_domain.get("open_access"))
+        eq_(True, public_domain.get("allows_derivatives"))
+
+        cc_by = rights_status.get(RightsStatus.CC_BY)
+        eq_(RightsStatus.NAMES.get(RightsStatus.CC_BY), cc_by.get("name"))
+        eq_(True, cc_by.get("open_access"))
+        eq_(True, cc_by.get("allows_derivatives"))
+
+        cc_by_nd = rights_status.get(RightsStatus.CC_BY_ND)
+        eq_(RightsStatus.NAMES.get(RightsStatus.CC_BY_ND), cc_by_nd.get("name"))
+        eq_(True, cc_by_nd.get("open_access"))
+        eq_(False, cc_by_nd.get("allows_derivatives"))
+
+        copyright = rights_status.get(RightsStatus.IN_COPYRIGHT)
+        eq_(RightsStatus.NAMES.get(RightsStatus.IN_COPYRIGHT), copyright.get("name"))
+        eq_(False, copyright.get("open_access"))
+        eq_(False, copyright.get("allows_derivatives"))
 
     def _make_test_edit_request(self, data):
         [lp] = self.english_1.license_pools
@@ -1081,6 +1112,247 @@ class TestWorkController(AdminControllerTest):
                           self.manager.admin_work_controller.classifications,
                           lp.identifier.type, lp.identifier.identifier)
 
+    def test_validate_cover_image(self):
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "..", "files", "images")
+
+        path = os.path.join(resource_path, "blue_small.jpg")
+        too_small = Image.open(path)
+
+        result = self.manager.admin_work_controller._validate_cover_image(too_small)
+        eq_(INVALID_IMAGE.uri, result.uri)
+        eq_("Cover image must be at least 600px in width and 900px in height.", result.detail)
+
+        path = os.path.join(resource_path, "blue.jpg")
+        valid = Image.open(path)
+        result = self.manager.admin_work_controller._validate_cover_image(valid)
+        eq_(True, result)
+
+    def test_process_cover_image(self):
+        work = self._work(with_license_pool=True, title="Title", authors="Authpr")
+
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "..", "files", "images")
+        path = os.path.join(resource_path, "blue.jpg")
+        original = Image.open(path)
+        processed = Image.open(path)
+
+        # Without a title position, the image won't be changed.
+        processed = self.manager.admin_work_controller._process_cover_image(work, processed, "none")
+
+        image_histogram = original.histogram()
+        expected_histogram = processed.histogram()
+
+        root_mean_square = math.sqrt(reduce(operator.add,
+                                            map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
+        assert root_mean_square < 10
+
+        # Here the title and author are added in the center. Compare the result
+        # with a pre-generated version.
+        processed = Image.open(path)
+        processed = self.manager.admin_work_controller._process_cover_image(work, processed, "center")
+
+        path = os.path.join(resource_path, "blue_with_title_author.png")
+        expected_image = Image.open(path)
+
+        image_histogram = processed.histogram()
+        expected_histogram = expected_image.histogram()
+
+        root_mean_square = math.sqrt(reduce(operator.add,
+                                            map(lambda a,b: (a-b)**2, image_histogram, expected_histogram))/len(image_histogram))
+        assert root_mean_square < 10
+
+    def test_preview_book_cover(self):
+        work = self._work(with_license_pool=True)
+        identifier = work.license_pools[0].identifier
+
+        with self.request_context_with_library_and_admin("/"):
+            response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
+            eq_(INVALID_IMAGE.uri, response.uri)
+            eq_("Image file or image URL is required.", response.detail)
+
+        class TestFileUpload(StringIO):
+            headers = { "Content-Type": "image/png" }
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "..", "files", "images")
+        path = os.path.join(resource_path, "blue.jpg")
+        original = Image.open(path)
+        buffer = StringIO()
+        original.save(buffer, format="PNG")
+        image_data = buffer.getvalue()
+
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = MultiDict([
+                ("title_position", "none")
+            ])
+            flask.request.files = MultiDict([
+                ("cover_file", TestFileUpload(image_data)),
+            ])
+            response = self.manager.admin_work_controller.preview_book_cover(identifier.type, identifier.identifier)
+            eq_(200, response.status_code)
+            eq_("data:image/png;base64,%s" % base64.b64encode(image_data), response.data)
+
+        self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
+        with self.request_context_with_library_and_admin("/"):
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.preview_book_cover,
+                          identifier.type, identifier.identifier)
+        
+
+    def test_change_book_cover(self):
+        # Mock image processing which has been tested in other methods.
+        process_called_with = []
+        def mock_process(work, image, position):
+            # Modify the image to ensure it gets a different generic URI.
+            image.thumbnail((500, 500))
+            process_called_with.append((work, image, position))
+            return image
+        old_process = self.manager.admin_work_controller._process_cover_image
+        self.manager.admin_work_controller._process_cover_image = mock_process
+
+        work = self._work(with_license_pool=True)
+        identifier = work.license_pools[0].identifier
+
+        with self.request_context_with_library_and_admin("/"):
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier)
+            eq_(INVALID_IMAGE.uri, response.uri)
+            eq_("Image file or image URL is required.", response.detail)
+
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = MultiDict([
+                ("cover_url", "http://example.com"),
+                ("title_position", "none"),
+            ])
+            flask.request.files = MultiDict([])
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier)
+            eq_(INVALID_IMAGE.uri, response.uri)
+            eq_("You must specify the image's license.", response.detail)
+
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = MultiDict([
+                ("cover_url", "http://example.com"),
+                ("title_position", "none"),
+                ("rights_status", RightsStatus.CC_BY),
+                ("rights_explanation", "explanation"),
+            ])
+            flask.request.files = MultiDict([])
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier)
+            eq_(INVALID_CONFIGURATION_OPTION.uri, response.uri)
+            assert "Could not find a storage integration" in response.detail
+
+        mirror = MockS3Uploader()
+
+        class TestFileUpload(StringIO):
+            headers = { "Content-Type": "image/png" }
+        base_path = os.path.split(__file__)[0]
+        resource_path = os.path.join(base_path, "..", "files", "images")
+        path = os.path.join(resource_path, "blue.jpg")
+        original = Image.open(path)
+        buffer = StringIO()
+        original.save(buffer, format="PNG")
+        image_data = buffer.getvalue()
+
+        staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
+
+        # Upload a new cover image but don't modify it.
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = MultiDict([
+                ("title_position", "none"),
+                ("rights_status", RightsStatus.CC_BY),
+                ("rights_explanation", "explanation"),
+            ])
+            flask.request.files = MultiDict([
+                ("cover_file", TestFileUpload(image_data)),
+            ])
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirror)
+            eq_(200, response.status_code)
+
+            [link] = identifier.links
+            eq_(Hyperlink.IMAGE, link.rel)
+            eq_(staff_data_source, link.data_source)
+
+            resource = link.resource
+            assert identifier.urn in resource.url
+            eq_(staff_data_source, resource.data_source)
+            eq_(RightsStatus.CC_BY, resource.rights_status.uri)
+            eq_("explanation", resource.rights_explanation)
+
+            representation = resource.representation
+            [thumbnail] = resource.representation.thumbnails
+
+            eq_(resource.url, representation.url)
+            eq_(Representation.PNG_MEDIA_TYPE, representation.media_type)
+            eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
+            eq_(image_data, representation.content)
+            assert identifier.identifier in representation.mirror_url
+            assert identifier.identifier in thumbnail.mirror_url
+
+            eq_([], process_called_with)
+            eq_([representation, thumbnail], mirror.uploaded)
+            eq_([representation.mirror_url, thumbnail.mirror_url], mirror.destinations)
+
+        work = self._work(with_license_pool=True)
+        identifier = work.license_pools[0].identifier
+
+        # Upload a new cover image and add the title and author to it.
+        # Both the original image and the generated image will become resources.
+        with self.request_context_with_library_and_admin("/"):
+            flask.request.form = MultiDict([
+                ("title_position", "center"),
+                ("rights_status", RightsStatus.CC_BY),
+                ("rights_explanation", "explanation"),
+            ])
+            flask.request.files = MultiDict([
+                ("cover_file", TestFileUpload(image_data)),
+            ])
+            response = self.manager.admin_work_controller.change_book_cover(identifier.type, identifier.identifier, mirror)
+            eq_(200, response.status_code)
+
+            [link] = identifier.links
+            eq_(Hyperlink.IMAGE, link.rel)
+            eq_(staff_data_source, link.data_source)
+
+            resource = link.resource
+            assert identifier.urn in resource.url
+            eq_(staff_data_source, resource.data_source)
+            eq_(RightsStatus.CC_BY, resource.rights_status.uri)
+            eq_("The original image license allows derivatives.", resource.rights_explanation)
+
+            transformation = self._db.query(ResourceTransformation).filter(ResourceTransformation.derivative_id==resource.id).one()
+            original_resource = transformation.original
+            assert resource != original_resource
+            assert identifier.urn in original_resource.url
+            eq_(staff_data_source, original_resource.data_source)
+            eq_(RightsStatus.CC_BY, original_resource.rights_status.uri)
+            eq_("explanation", original_resource.rights_explanation)
+            eq_(image_data, original_resource.representation.content)
+            eq_(None, original_resource.representation.mirror_url)
+            eq_("center", transformation.settings.get("title_position"))
+            assert resource.representation.content != original_resource.representation.content
+            assert image_data != resource.representation.content
+
+            eq_(work, process_called_with[0][0])
+            eq_("center", process_called_with[0][2])
+
+            eq_([], original_resource.representation.thumbnails)
+            [thumbnail] = resource.representation.thumbnails
+            eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
+            assert image_data != thumbnail.content
+            assert resource.representation.content != thumbnail.content
+            assert identifier.identifier in resource.representation.mirror_url
+            assert identifier.identifier in thumbnail.mirror_url
+
+            eq_([resource.representation, thumbnail], mirror.uploaded[2:])
+            eq_([resource.representation.mirror_url, thumbnail.mirror_url], mirror.destinations[2:])
+
+        self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
+        with self.request_context_with_library_and_admin("/"):
+            assert_raises(AdminNotAuthorized,
+                          self.manager.admin_work_controller.preview_book_cover,
+                          identifier.type, identifier.identifier)
+
+        self.manager.admin_work_controller._process_cover_image = old_process
+        
     def test_custom_lists_get(self):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)
@@ -1715,7 +1987,7 @@ class TestCustomListsController(AdminControllerTest):
         with self.request_context_with_library_and_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("name", "List"),
-                ("entries", json.dumps([dict(pwid=work.presentation_edition.permanent_work_id)])),
+                ("entries", json.dumps([dict(identifier_urn=work.presentation_edition.primary_identifier.urn)])),
                 ("collections", json.dumps([collection.id])),
             ])
 
@@ -1752,12 +2024,11 @@ class TestCustomListsController(AdminControllerTest):
             eq_(1, response.get("entry_count"))
             eq_(1, len(response.get("entries")))
             [entry] = response.get("entries")
-            eq_(edition.permanent_work_id, entry.get("pwid"))
+            eq_(edition.primary_identifier.urn, entry.get("identifier_urn"))
             eq_(edition.title, entry.get("title"))
             eq_(2, len(entry.get("authors")))
             eq_(Edition.medium_to_additional_type[Edition.BOOK_MEDIUM], entry.get("medium"))
             eq_(edition.language, entry.get("language"))
-            eq_(edition.data_source.name, entry.get("data_source"))
             eq_(set([c1.display_name, c2.display_name]),
                 set(entry.get("authors")))
             eq_(1, len(response.get("collections")))
@@ -1801,9 +2072,9 @@ class TestCustomListsController(AdminControllerTest):
         list.add_entry(w2)
         self.add_to_materialized_view([w1, w2, w3])
 
-        new_entries = [dict(pwid=work.presentation_edition.permanent_work_id,
-            medium=Edition.medium_to_additional_type[work.presentation_edition.medium],
-            data_source=work.presentation_edition.data_source.name) for work in [w2, w3]]
+        new_entries = [dict(identifier_urn=work.presentation_edition.primary_identifier.urn,
+                            medium=Edition.medium_to_additional_type[work.presentation_edition.medium])
+                       for work in [w2, w3]]
 
         c1 = self._collection()
         c1.libraries = [self._default_library]

@@ -955,7 +955,7 @@ class SeriesLane(DynamicLane):
         self.series = series_name
         display_name = self.series
 
-        if parent and isinstance(parent, WorkBasedLane):
+        if parent and parent.source_audience and isinstance(parent, WorkBasedLane):
             # In an attempt to secure the accurate series, limit the
             # listing to the source's audience sourced from parent data.
             audiences = [parent.source_audience]
