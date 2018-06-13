@@ -47,13 +47,13 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
 
         defaults = {
             FeedbooksOPDSImporter.REALLY_IMPORT_KEY: "true",
-            FeedbooksOPDSImporter.LANGUAGE_KEY: "de",
             FeedbooksOPDSImporter.REPLACEMENT_CSS_KEY: None,
         }
         for setting, value in defaults.items():
             if setting not in settings:
                 settings[setting] = value
 
+        collection.external_account_id = settings.pop('language', 'de')
         for setting, value in settings.items():
             if value is None:
                 continue
@@ -88,6 +88,11 @@ class TestFeedbooksOPDSImporter(DatabaseTest):
             Exception, "configured to not actually do an import",
             self._importer, **settings
         )
+
+    def test_unique_identifier(self):
+        # The unique account ID is the language of the Feedbooks
+        # feed in use.
+        eq_('de', self.collection.unique_account_id)
 
     def test_error_retrieving_replacement_css(self):
         """The importer cannot be instantiated if a replacement CSS
@@ -457,11 +462,10 @@ class TestFeedbooksImportMonitor(DatabaseTest):
         Feedbooks logic.
         """
         collection = self._collection(protocol=ExternalIntegration.FEEDBOOKS)
-        for k, v in (
-                (FeedbooksOPDSImporter.LANGUAGE_KEY, "somelanguage"),
-                (FeedbooksOPDSImporter.REALLY_IMPORT_KEY, "true")
-        ):
-            collection.external_integration.set_setting(k, v)
+        collection.external_account_id = "somelanguage"
+        collection.external_integration.set_setting(
+            FeedbooksOPDSImporter.REALLY_IMPORT_KEY, "true"
+        )
 
         monitor = FeedbooksImportMonitor(
             self._db, collection, import_class=FeedbooksOPDSImporter,

@@ -73,10 +73,13 @@ class CirculationManagerAnnotator(Annotator):
         return None
 
     def top_level_title(self):
-        return None
+        return ""
 
     def default_lane_url(self):
         return self.feed_url(None)
+
+    def lane_url(self, lane):
+        return self.feed_url(lane)
 
     def url_for(self, *args, **kwargs):
         if self.test_mode:
@@ -454,6 +457,9 @@ class LibraryAnnotator(CirculationManagerAnnotator):
     def default_lane_url(self):
         return self.groups_url(None)
 
+    def lane_url(self, lane):
+        return self.groups_url(lane)
+
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
         extra_kwargs = dict(library_short_name=self.library.short_name)
         return super(LibraryAnnotator, self).feed_url(lane, facets, pagination, default_route, extra_kwargs)
@@ -617,10 +623,12 @@ class LibraryAnnotator(CirculationManagerAnnotator):
 
         if work.audience == Classifier.AUDIENCE_CHILDREN:
             audiences = [Classifier.AUDIENCE_CHILDREN]
-        if work.audience == Classifier.AUDIENCE_YOUNG_ADULT:
+        elif work.audience == Classifier.AUDIENCE_YOUNG_ADULT:
             audiences = Classifier.AUDIENCES_JUVENILE
-        if work.audience in Classifier.AUDIENCES_ADULT:
+        elif work.audience in Classifier.AUDIENCES_ADULT:
             audiences = list(Classifier.AUDIENCES)
+        else:
+            audiences = []
 
         audience_key=None
         if audiences:
@@ -1055,6 +1063,9 @@ class SharedCollectionAnnotator(CirculationManagerAnnotator):
 
     def default_lane_url(self):
         return self.feed_url(None, default_route='crawlable_collection_feed')
+
+    def lane_url(self, lane):
+        return self.feed_url(lane, default_route='crawlable_collection_feed')
 
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
         extra_kwargs = dict(collection_name=self.collection.name)
