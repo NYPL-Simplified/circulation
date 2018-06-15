@@ -14,8 +14,37 @@ from entrypoint import EntryPoint
 
 from sqlalchemy.exc import ArgumentError
 
-class CannotLoadConfiguration(Exception):
+
+class IntegrationException(Exception):
+    """There was a problem in the setup or usage of an external integration.
+    """
+    def __init__(self, message, diagnostic=None):
+        """Constructor.
+
+        :param message: The normal message passed to any Exception
+        constructor.
+
+        :param diagnostic: An extra human-readable explanation of the
+        problem.  This may include instructions on what bits of the
+        integration configuration might need to be changed.
+
+        For example, an API key might be wrong, or the API key might
+        be correct but the API provider might not have granted that
+        key enough permissions.
+        """
+        super(IntegrationSetupException, self).__init__(message)
+        self.diagnostic = diagnostic
+
+
+class CannotLoadConfiguration(IntegrationException):
+    """The current configuration of an external integration, or of the
+    site as a whole, is in an incomplete or inconsistent state.
+
+    This is more specific than an IntegrationException because it assumes the
+    problem is evident just by looking at the current configuration.
+    """
     pass
+
 
 @contextlib.contextmanager
 def temp_config(new_config=None, replacement_classes=None):
