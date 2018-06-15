@@ -14,6 +14,10 @@ from flask_babel import lazy_gettext as _
 
 from config import CannotLoadConfiguration
 
+from core.external_integration import (
+    HasSelfTest,
+    IntegrationSetupException,
+)
 from core.opds_import import MetadataWranglerOPDSLookup
 from core.metadata_layer import (
     Metadata,
@@ -43,9 +47,10 @@ class NYTAPI(object):
         return d.strftime(self.DATE_FORMAT)
 
 
-class NYTBestSellerAPI(NYTAPI):
+class NYTBestSellerAPI(NYTAPI, HasSelfTest):
     
     PROTOCOL = ExternalIntegration.NYT
+    GOAL = ExternalIntegration.METADATA_GOAL
     NAME = _("NYT Best Seller API")
     CARDINALITY = 1
 
@@ -83,12 +88,25 @@ class NYTBestSellerAPI(NYTAPI):
         return cls(_db, api_key=integration.password, **kwargs)
 
     def __init__(self, _db, api_key=None, do_get=None, metadata_client=None):
+        self.log = logging.getLogger("NYT API")
         self._db = _db
         self.api_key = api_key
         self.do_get = do_get or Representation.simple_http_get
         if not metadata_client:
-            metadata_client = MetadataWranglerOPDSLookup.from_config(self._db)
+            try:
+                metadata_client = MetadataWranglerOPDSLookup.from_config(
+                    self._db
+                )
+            except CannotLoadConfiguration, e:
+                self.log.error(
+                    "Metadata wrangler integration is not configured, proceeding without one."
+                )
         self.metadata_client = metadata_client
+
+    def self_test(self):
+        yield self.run_test(
+            "Getting list of best-seller lists", self.list_of_lists
+        )
 
     @property
     def source(self):
@@ -108,8 +126,25 @@ class NYTBestSellerAPI(NYTAPI):
         representation, cached = Representation.get(
             self._db, url, do_get=self.do_get, max_age=max_age, debug=True,
             pause_before=0.1)
-        content = json.loads(representation.content)
-        return content
+        status = representation.status_code
+        if status == 200:
+            # Everything's fine.
+            content = json.loads(representation.content)
+            return content
+
+        diagnostic = "Response from %s was: %r" % (
+            url, representation.content
+        )
+
+        if status == 403:
+            raise IntegrationSetupException(
+                "API authentication failed",
+                "API key is most likely wrong. %s" % diagnostic
+            )
+        else:
+            raise IntegrationSetupException(
+                "Unknown API error", diagnostic
+            )
 
     def list_of_lists(self, max_age=LIST_OF_LISTS_MAX_AGE):
         return self.request(self.LIST_NAMES_URL, max_age=max_age)
@@ -143,6 +178,8 @@ class NYTBestSellerAPI(NYTAPI):
         for date in list.all_dates:
             self.update(list, date, self.HISTORICAL_LIST_MAX_AGE)
             self._db.commit()
+NYTBestSellerAPI.register_self_test()
+
 
 class NYTBestSellerList(list):
 
@@ -183,16 +220,16 @@ class NYTBestSellerList(list):
                     book.get('primary_isbn13') or book.get('primary_isbn10'))
                 if key in self.items_by_isbn:
                     item = self.items_by_isbn[key]
-                    logging.debug("Previously seen ISBN: %r", key)
+                    self.log.debug("Previously seen ISBN: %r", key)
                 else:
                     item = NYTBestSellerListTitle(li_data)
                     self.items_by_isbn[key] = item
                     self.append(item)
-                    # logging.debug("Newly seen ISBN: %r, %s", key, len(self))
+                    # self.log.debug("Newly seen ISBN: %r, %s", key, len(self))
             except ValueError, e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
-                logging.error("No identifier for %r", li_data)
+                self.log.error("No identifier for %r", li_data)
                 item = None
                 continue              
 
