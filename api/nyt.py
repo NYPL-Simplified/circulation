@@ -12,11 +12,13 @@ from sqlalchemy.orm.exc import (
 )
 from flask_babel import lazy_gettext as _
 
-from config import CannotLoadConfiguration
+from config import (
+    CannotLoadConfiguration,
+    IntegrationException,
+)
 
 from core.external_integration import (
     HasSelfTest,
-    IntegrationSetupException,
 )
 from core.opds_import import MetadataWranglerOPDSLookup
 from core.metadata_layer import (
@@ -103,7 +105,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTest):
                 )
         self.metadata_client = metadata_client
 
-    def self_test(self):
+    def self_test(self, _db):
         yield self.run_test(
             "Getting list of best-seller lists", self.list_of_lists
         )
@@ -137,12 +139,12 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTest):
         )
 
         if status == 403:
-            raise IntegrationSetupException(
+            raise IntegrationException(
                 "API authentication failed",
                 "API key is most likely wrong. %s" % diagnostic
             )
         else:
-            raise IntegrationSetupException(
+            raise IntegrationException(
                 "Unknown API error", diagnostic
             )
 
@@ -178,7 +180,6 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTest):
         for date in list.all_dates:
             self.update(list, date, self.HISTORICAL_LIST_MAX_AGE)
             self._db.commit()
-NYTBestSellerAPI.register_self_test()
 
 
 class NYTBestSellerList(list):
