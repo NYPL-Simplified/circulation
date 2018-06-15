@@ -20,7 +20,7 @@ class SelfTestResult(object):
 
         # The return value of the test method, assuming it ran to
         # completion.
-        self.result = result
+        self.result = None
 
         # Start time of the test.
         self.start = datetime.datetime.utcnow()
@@ -30,7 +30,7 @@ class SelfTestResult(object):
 
     def __repr__(self):
         if self.exception:
-            if (isinstance(self.exception, IntegrationSetupException)
+            if (isinstance(self.exception, IntegrationException)
                 and self.exception.diagnostic):
                 exception = " exception=%r diagnostic=%r" % (
                     self.exception.message, self.exception.diagnostic
@@ -50,7 +50,7 @@ class HasSelfTest(object):
     self-test.
     """
 
-    def self_test(self):
+    def self_test(self, _db):
         """Verify that this integration is properly configured and working.
 
         :return: A list of SelfTestResult objects.
@@ -70,9 +70,9 @@ class HasSelfTest(object):
         """
         result = SelfTestResult(name)
         try:
-            result = method(*args, **kwargs)
+            return_value = method(*args, **kwargs)
             result.success = True
-            result.result = result
+            result.result = return_value
         except Exception, e:
             result.exception = e
             result.success = False

@@ -32,7 +32,7 @@ class IntegrationException(Exception):
         be correct but the API provider might not have granted that
         key enough permissions.
         """
-        super(IntegrationSetupException, self).__init__(message)
+        super(IntegrationException, self).__init__(message)
         self.diagnostic = diagnostic
 
 
