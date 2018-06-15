@@ -24,6 +24,7 @@ from core.model import (
     Identifier
 )
 
+from core.external_integration import HasSelfTest
 from core.monitor import (
     CollectionMonitor,
 )
@@ -32,7 +33,7 @@ from core.util.http import HTTP
 from circulation_exceptions import *
 
 
-class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
+class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTest):
     NAME = ExternalIntegration.ODILO
     DESCRIPTION = _("Integrate an Odilo library collection.")
     SETTINGS = [

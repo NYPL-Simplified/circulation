@@ -15,6 +15,7 @@ from circulation import (
     FulfillmentInfo,
     BaseCirculationAPI,
 )
+from core.external_integration import HasSelfTest
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
@@ -49,7 +50,7 @@ from core.scripts import Script
 from circulation_exceptions import *
 from core.analytics import Analytics
 
-class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
+class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTest):
 
     NAME = ExternalIntegration.OVERDRIVE
     DESCRIPTION = _("Integrate an Overdrive collection. For an Overdrive Advantage collection, select the consortium's Overdrive collection as the parent.")
@@ -108,6 +109,52 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
                 collection, api_class=self
             )
         )
+
+    def default_patrons(self, _db):
+        """Find a usable default Patron for each of the libraries associated
+        with this collection.
+
+        :yield: A sequence of (Library, Patron, password) 3-tuples.
+            If a library does not have a default patron configured, yields
+            (Library, None, None).
+        """
+        from authenticator import LibraryAuthenticator
+        for library in self.collection.libraries:
+            library_authenticator = LibraryAuthenticator.from_config(
+                _db, library
+            )
+            patron = pin = None
+            auth = library_authenticator.basic_auth_provider
+            if auth:
+                patron, password = auth.testing_patron(_db)
+            yield (library, patron, pin)
+                
+    def self_test(self, _db):
+        yield self.run_test(
+            "Testing checking Client Authentication privileges", 
+            self.check_creds, force_refresh=True
+        )
+
+        default_patrons = []
+        try:
+            default_patrons = list(self._default_patrons(_db))
+        except Exception, e:
+            yield self.test_failure(
+                "Exception getting list of default patrons", exception=e
+            )
+            return
+        for library, patron, pin in default_patrons:
+            task = "Checking Patron Authentication, using test patron for library %s" % library.name
+            if patron:
+                yield self.run_test(
+                    task, self.get_patron_credential, patron, pin
+                )
+            else:
+                yield self.test_failure(
+                    task,
+                    "Library has no test patron configured.",
+                    "You can specify a test patron when you configure the library's patron authentication service."
+                )
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None,
                        exception_on_401=False, method=None):
