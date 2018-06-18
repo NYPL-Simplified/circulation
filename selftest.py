@@ -15,7 +15,7 @@ class SelfTestResult(object):
         # Name of the test.
         self.name = name
 
-        # The test ran without raising an exception.
+        # Set to True when the test runs without raising an exception.
         self.success = False
 
         # The exception raised, if any.
@@ -54,7 +54,7 @@ class HasSelfTests(object):
     """
 
     def run_self_tests(self, _db):
-        """Run a series of self tests. 
+        """Run a series of self-tests.
 
         :return: A list of SelfTestResult objects.
         """
