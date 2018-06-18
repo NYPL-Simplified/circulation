@@ -112,7 +112,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 collection, api_class=self
             )
         )
-                
+
     def run_self_tests(self, _db):
         result = self.run_test(
             "Checking global Client Authentication privileges",
