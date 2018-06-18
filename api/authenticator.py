@@ -1458,16 +1458,18 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         raising CannotLoadConfiguration if none is configured.
         """
         if self.test_username is None:
-            raise CannotLoadConfiguration("No test identifier is configured.")
+            raise CannotLoadConfiguration(
+                "No test patron identifier is configured."
+            )
 
         patron, password = self.testing_patron(_db)
         if not patron:
             # We ran to completion but ended up with no patron.
             raise IntegrationException(
-                "Remote refused to authenticate the test patron.",
+                "Remote declined to authenticate the test patron.",
                 "The patron may not exist or its password may be wrong."
             )
-
+        return patron, password
 
     def run_self_tests(self, _db):
         patron_test = self.run_test(

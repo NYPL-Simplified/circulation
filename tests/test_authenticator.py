@@ -38,6 +38,7 @@ from core.util.problem_detail import (
 from core.util.authentication_for_opds import (
     AuthenticationForOPDSDocument,
 )
+from core.util.http import IntegrationException
 from core.mock_analytics_provider import MockAnalyticsProvider
 
 from api.millenium_patron import MilleniumPatronAPI
@@ -1567,6 +1568,15 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         )
         eq_((None, None), no_testing_patron.testing_patron(self._db))
 
+        # But if you don't, testing_patron_or_bust() will raise an
+        # exception.
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "No test patron identifier is configured",
+            no_testing_patron.testing_patron_or_bust,
+            self._db
+        )
+
         # We configure a testing patron but their username and
         # password don't actually authenticate anyone. We don't crash,
         # but we can't look up the testing patron either.
@@ -1580,6 +1590,14 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         value = missing_patron.testing_patron(self._db)
         eq_((None, "2"), value)
 
+        # And testing_patron_or_bust() still doesn't work.
+        assert_raises_regexp(
+            IntegrationException,
+            "Remote declined to authenticate the test patron.",
+            missing_patron.testing_patron_or_bust,
+            self._db
+        )
+
         # Here, we configure a testing patron who is authenticated by
         # their username and password.
         patron = self._patron()
@@ -1589,6 +1607,54 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         )
         value = present_patron.testing_patron(self._db)
         eq_((patron, "2"), value)
+
+        # Finally, testing_patron_or_bust works, returning the same
+        # value as testing_patron()
+        eq_(value, present_patron.testing_patron_or_bust(self._db))
+
+    def test_run_self_tests(self):
+        _db = object()
+        class CantAuthenticateTestPatron(BasicAuthenticationProvider):
+            def __init__(self):
+                pass
+            def testing_patron_or_bust(self, _db):
+                self.called_with = _db
+                raise Exception("Nope")
+
+        # If we can't authenticate a test patron, the rest of the tests
+        # aren't even run.
+        provider = CantAuthenticateTestPatron()
+        [result] = list(provider.run_self_tests(_db))
+        eq_(_db, provider.called_with)
+        eq_(False, result.success)
+        eq_("Nope", result.exception.message)
+
+        # If we can authenticate a test patron, the patron and their
+        # password are passed into the next test.
+
+        class Mock(BasicAuthenticationProvider):
+            def __init__(self, patron, password):
+                self.patron = patron
+                self.password = password
+
+            def testing_patron_or_bust(self, _db):
+                return self.patron, self.password
+
+            def update_patron_metadata(self, patron):
+                # The patron obtained from testing_patron_or_bust
+                # is passed into update_patron_metadata.
+                eq_(patron, self.patron)
+                return "some metadata"
+
+        provider = Mock("patron", "password")
+        [get_patron, update_metadata] = provider.run_self_tests(object())
+        eq_("Authenticating test patron", get_patron.name)
+        eq_(True, get_patron.success)
+        eq_((provider.patron, provider.password), get_patron.result)
+
+        eq_("Syncing patron metadata", update_metadata.name)
+        eq_(True, update_metadata.success)
+        eq_("some metadata", update_metadata.result)
 
     def test_client_configuration(self):
         """Test that client-side configuration settings are retrieved from
