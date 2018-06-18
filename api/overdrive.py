@@ -15,7 +15,7 @@ from circulation import (
     FulfillmentInfo,
     BaseCirculationAPI,
 )
-from core.external_integration import HasSelfTest
+from core.selftest import HasSelfTests
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
@@ -50,7 +50,7 @@ from core.scripts import Script
 from circulation_exceptions import *
 from core.analytics import Analytics
 
-class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTest):
+class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
     NAME = ExternalIntegration.OVERDRIVE
     DESCRIPTION = _("Integrate an Overdrive collection. For an Overdrive Advantage collection, select the consortium's Overdrive collection as the parent.")
@@ -129,7 +129,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTest):
                 patron, password = auth.testing_patron(_db)
             yield (library, patron, pin)
                 
-    def self_test(self, _db):
+    def run_self_tests(self, _db):
         yield self.run_test(
             "Testing checking Client Authentication privileges", 
             self.check_creds, force_refresh=True

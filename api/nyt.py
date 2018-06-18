@@ -17,8 +17,8 @@ from config import (
     IntegrationException,
 )
 
-from core.external_integration import (
-    HasSelfTest,
+from core.selftest import (
+    HasSelfTests,
 )
 from core.opds_import import MetadataWranglerOPDSLookup
 from core.metadata_layer import (
@@ -49,7 +49,7 @@ class NYTAPI(object):
         return d.strftime(self.DATE_FORMAT)
 
 
-class NYTBestSellerAPI(NYTAPI, HasSelfTest):
+class NYTBestSellerAPI(NYTAPI, HasSelfTests):
     
     PROTOCOL = ExternalIntegration.NYT
     GOAL = ExternalIntegration.METADATA_GOAL
@@ -105,7 +105,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTest):
                 )
         self.metadata_client = metadata_client
 
-    def self_test(self, _db):
+    def run_self_tests(self, _db):
         yield self.run_test(
             "Getting list of best-seller lists", self.list_of_lists
         )

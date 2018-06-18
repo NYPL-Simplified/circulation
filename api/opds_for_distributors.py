@@ -26,7 +26,7 @@ from core.model import (
     get_one_or_create,
 )
 from core.metadata_layer import FormatData
-from core.external_integration import HasSelfTest
+from core.selftest import HasSelfTests
 from circulation import (
     BaseCirculationAPI,
     LoanInfo,
@@ -40,7 +40,7 @@ from core.testing import (
 from config import IntegrationException
 from circulation_exceptions import *
 
-class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTest):
+class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
     NAME = "OPDS for Distributors"
     DESCRIPTION = _("Import books from a distributor that requires authentication to get the OPDS feed and download books.")
 
@@ -69,7 +69,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTest):
         self.feed_url = collection.external_account_id
         self.auth_url = None
 
-    def self_test(self, _db):
+    def run_self_tests(self, _db):
         """Try to get a token."""
         yield self.run_test(
             "Negotiate a fulfillment token", self._get_token, _db

@@ -24,7 +24,7 @@ from core.model import (
     Identifier
 )
 
-from core.external_integration import HasSelfTest
+from core.selftest import HasSelfTests
 from core.monitor import (
     CollectionMonitor,
 )
@@ -33,7 +33,7 @@ from core.util.http import HTTP
 from circulation_exceptions import *
 
 
-class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTest):
+class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
     NAME = ExternalIntegration.ODILO
     DESCRIPTION = _("Integrate an Odilo library collection.")
     SETTINGS = [
@@ -68,6 +68,10 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTest):
                 collection, api_class=self
             )
         )
+
+    def run_self_tests(self, _db):
+        set_trace()
+        pass
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None, exception_on_401=False, method=None):
         """Make an HTTP request on behalf of a patron.

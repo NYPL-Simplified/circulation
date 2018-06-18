@@ -4,8 +4,8 @@ from config import (
     CannotLoadConfiguration,
     IntegrationException,
 )
-from core.external_integration import (
-    HasSelfTest,
+from core.selftest import (
+    HasSelfTests,
 )
 from core.opds import OPDSFeed
 from core.model import (
@@ -1217,7 +1217,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         raise NotImplementedError()
 
 
-class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTest):
+class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     """Verify a username/password, obtained through HTTP Basic Auth, with
     a remote source of truth.
     """
@@ -1469,7 +1469,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTest):
             )
 
 
-    def self_test(self, _db):
+    def run_self_tests(self, _db):
         patron_test = self.run_test(
             "Authenticating test patron", self.testing_patron_or_bust, _db
         )
