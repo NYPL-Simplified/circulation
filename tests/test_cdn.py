@@ -23,7 +23,7 @@ class TestCDN(DatabaseTest):
 
     def test_no_cdns(self):
         url = "http://foo/"
-        self.unchanged(url, None)
+        self.unchanged(url, Configuration.UNINITIALIZED_CDNS)
 
     def test_non_matching_cdn(self):
         url = "http://foo.com/bar"
