@@ -27,7 +27,10 @@ from core.model import (
     Resource,
     CustomListEntry,
 )
-from core.opds_import import MockMetadataWranglerOPDSLookup
+from core.opds_import import (
+    MetadataWranglerOPDSLookup,
+    MockMetadataWranglerOPDSLookup
+)
 
 class DummyNYTBestSellerAPI(NYTBestSellerAPI):
 
@@ -84,21 +87,23 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
 
         integration.password = "api key"
 
-        # The Metadata Wrangler must also be configured.
-        assert_raises_regexp(
-            CannotLoadConfiguration, 
-            "No ExternalIntegration found for the Metadata Wrangler.",
-            NYTBestSellerAPI.from_config, self._db
-        )
+        # It's okay if you don't have a Metadata Wrangler configuration
+        # configured.
+        api = NYTBestSellerAPI.from_config(self._db)
+        eq_("api key", api.api_key)
+        eq_(None, api.metadata_client)
+
+        # But if you do, it's picked up.
         mw = self._external_integration(
             protocol=ExternalIntegration.METADATA_WRANGLER,
             goal=ExternalIntegration.METADATA_GOAL
         )        
         mw.url = self._url
 
-        # Now it works.
-        nyt = NYTBestSellerAPI.from_config(self._db)
-        eq_("api key", nyt.api_key)
+        api = NYTBestSellerAPI.from_config(self._db)
+        assert isinstance(api.metadata_client, MetadataWranglerOPDSLookup)
+        assert api.metadata_client.base_url.startswith(mw.url)
+
 
     def test_list_of_lists(self):
         all_lists = self.api.list_of_lists()

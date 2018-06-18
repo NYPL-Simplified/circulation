@@ -196,6 +196,7 @@ class NYTBestSellerList(list):
         self.frequency = timedelta(frequency)
         self.items_by_isbn = dict()
         self.metadata_client = metadata_client
+        self.log = logging.getLogger("NYT Best-seller list %s" % self.name)
 
     @property
     def all_dates(self):
