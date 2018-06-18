@@ -47,6 +47,25 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         self.collection = MockOPDSForDistributorsAPI.mock_collection(self._db)
         self.api = MockOPDSForDistributorsAPI(self._db, self.collection)
 
+    def test_run_self_tests(self):
+        """The self-test for OPDSForDistributorsAPI just tries to negotiate
+        a fulfillment token.
+        """
+        class Mock(OPDSForDistributorsAPI):
+            def __init__(self):
+                pass
+
+            def _get_token(self, _db):
+                self.called_with = _db
+                return "a token"
+
+        api = Mock()
+        [result] = api.run_self_tests(self._db)
+        eq_(self._db, api.called_with)
+        eq_("Negotiate a fulfillment token", result.name)
+        eq_(True, result.success)
+        eq_("a token", result.result)
+
     def test_can_fulfill_without_loan(self):
         """A book made available through OPDS For Distributors can be
         fulfilled with no underlying loan, if its delivery mechanism

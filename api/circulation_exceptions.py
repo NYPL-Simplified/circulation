@@ -15,6 +15,11 @@ class CirculationException(IntegrationException):
     """
     status_code = 400
 
+    def __init__(self, message=None, debug_info=None):
+        message = message or self.__class__.__name__
+        super(CirculationException, self).__init__(message, debug_info)
+
+
 class InternalServerError(IntegrationException):
     status_code = 500
 
