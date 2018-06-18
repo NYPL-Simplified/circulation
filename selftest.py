@@ -86,7 +86,11 @@ class HasSelfTests(object):
         return result
 
     def test_failure(self, name, message, debug_message=None):
-        """Create a SelfTestResult for a known failure."""
+        """Create a SelfTestResult for a known failure.
+
+        This is useful when you can't even get the data necessary to
+        run a test method.
+        """
         result = SelfTestResult(name)
         result.end = result.start
         result.success = False
