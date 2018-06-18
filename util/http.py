@@ -43,7 +43,7 @@ class IntegrationException(Exception):
         self.debug_message = debug_message
 
 
-class RemoteIntegrationException(Exception):
+class RemoteIntegrationException(IntegrationException):
     """An exception that happens when we try and fail to communicate
     with a third-party service over HTTP.
     """

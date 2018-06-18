@@ -35,7 +35,7 @@ class SelfTestResult(object):
         if self.exception:
             if (isinstance(self.exception, IntegrationException)
                 and self.exception.debug_message):
-                exception = " exception=%r diagnostic=%r" % (
+                exception = " exception=%r debug=%r" % (
                     self.exception.message, self.exception.debug_message
                 )
             else:
@@ -85,7 +85,7 @@ class HasSelfTests(object):
                 result.end = datetime.datetime.utcnow()
         return result
 
-    def test_failure(self, name, message, diagnostic=None):
+    def test_failure(self, name, message, debug_message=None):
         """Create a SelfTestResult for a known failure."""
         result = SelfTestResult(name)
         result.end = result.start
@@ -93,6 +93,6 @@ class HasSelfTests(object):
         if isinstance(message, Exception):
             exception = message
         else:
-            exception = IntegrationException(message, diagnostic)
+            exception = IntegrationException(message, debug_message)
         result.exception = exception
         return result

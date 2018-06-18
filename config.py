@@ -14,6 +14,9 @@ from entrypoint import EntryPoint
 from sqlalchemy.exc import ArgumentError
 
 from util import LanguageCodes
+
+# It's convenient for other modules import IntegrationException
+# from this module, alongside CannotLoadConfiguration.
 from util.http import IntegrationException
 
 
