@@ -1,5 +1,4 @@
-"""A module to support the classes that implement the code
-configured by various ExternalIntegrations.
+"""Define the interfaces used by ExternalIntegration self-tests.
 """
 from nose.tools import set_trace
 from config import IntegrationException
@@ -7,6 +6,10 @@ import datetime
 
 
 class SelfTestResult(object):
+    """The result of running a single self-test.
+
+    HasSelfTest.run_self_tests() returns a list of these
+    """
 
     def __init__(self, name):
         # Name of the test.
@@ -45,13 +48,13 @@ class SelfTestResult(object):
         )
 
 
-class HasSelfTest(object):
-    """An object capable of verifying its own configuration by running a
-    self-test.
+class HasSelfTests(object):
+    """An object capable of verifying its own setup by running a
+    series of self-tests.
     """
 
-    def self_test(self, _db):
-        """Verify that this integration is properly configured and working.
+    def run_self_tests(self, _db):
+        """Run a series of self tests. 
 
         :return: A list of SelfTestResult objects.
         """
@@ -63,7 +66,7 @@ class HasSelfTest(object):
 
         :param name: The name of the test to be run.
         :param method: A method to call to run the test.
-        :param args: Position arguments to `method`.
+        :param args: Positional arguments to `method`.
         :param kwargs: Keyword arguments to `method`.
 
         :return: A filled-in SelfTestResult.
