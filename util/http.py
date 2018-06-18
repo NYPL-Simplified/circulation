@@ -58,14 +58,15 @@ class RemoteIntegrationException(IntegrationException):
         `param url_or_service` The name of the service that failed
            (e.g. "Overdrive"), or the specific URL that had the problem.
         """
-        super(RemoteIntegrationException, self).__init__(message)
         if (url_or_service and
             any(url_or_service.startswith(x) for x in ('http:', 'https:'))):
             self.url = url_or_service
             self.service = urlparse.urlparse(url_or_service).netloc
         else:
             self.url = self.service = url_or_service
-        self.debug_message = debug_message
+        if not debug_message:
+            debug_message = self.internal_message % (self.url, message)
+        super(RemoteIntegrationException, self).__init__(message, debug_message)
 
     def __str__(self):
         return self.internal_message % (self.url, self.message)

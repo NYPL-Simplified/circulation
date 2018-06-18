@@ -42,7 +42,7 @@ class SelfTestResult(object):
                 exception = " exception=%r" % self.exception
         else:
             exception = ""
-        return "<SelfTestResult: name=%r timing=%.2fsec success=%r%s result=%s>" % (
+        return "<SelfTestResult: name=%r timing=%.2fsec success=%r%s result=%r>" % (
             self.name, (self.end-self.start).total_seconds(), self.success,
             exception, self.result
         )
