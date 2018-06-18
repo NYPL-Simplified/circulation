@@ -15,7 +15,10 @@ from circulation import (
     FulfillmentInfo,
     BaseCirculationAPI,
 )
-from core.selftest import HasSelfTests
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
@@ -109,52 +112,47 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 collection, api_class=self
             )
         )
-
-    def default_patrons(self, _db):
-        """Find a usable default Patron for each of the libraries associated
-        with this collection.
-
-        :yield: A sequence of (Library, Patron, password) 3-tuples.
-            If a library does not have a default patron configured, yields
-            (Library, None, None).
-        """
-        from authenticator import LibraryAuthenticator
-        for library in self.collection.libraries:
-            library_authenticator = LibraryAuthenticator.from_config(
-                _db, library
-            )
-            patron = pin = None
-            auth = library_authenticator.basic_auth_provider
-            if auth:
-                patron, password = auth.testing_patron(_db)
-            yield (library, patron, pin)
                 
     def run_self_tests(self, _db):
-        yield self.run_test(
-            "Testing checking Client Authentication privileges", 
+        result = self.run_test(
+            "Checking global Client Authentication privileges",
             self.check_creds, force_refresh=True
+        )
+        yield result
+        if not result.success:
+            # There is no point in running the other tests if we
+            # can't even get a token.
+            return
+
+        def _count_advantage():
+            """Count the Overdrive Advantage accounts"""
+            accounts = list(self.get_advantage_accounts())
+            return "Found %d Overdrive Advantage account(s)." % len(accounts)
+        yield self.run_test(
+            "Looking up Overdrive Advantage accounts",
+            _count_advantage
+        )
+
+        def _count_books():
+            """Count the titles in the collection."""
+            url = self._all_products_link
+            status, headers, body = self.get(url, {})
+            body = json.loads(body)
+            return "%d item(s) in collection." % body['totalItems']
+        yield self.run_test(
+            "Counting size of collection", _count_books
         )
 
         default_patrons = []
-        try:
-            default_patrons = list(self._default_patrons(_db))
-        except Exception, e:
-            yield self.test_failure(
-                "Exception getting list of default patrons", exception=e
+        for result in self.default_patrons(self.collection):
+            if isinstance(result, SelfTestResult):
+                yield result
+                continue
+            library, patron, pin = result
+            task = "Checking Patron Authentication privileges, using test patron for library %s" % library.name
+            yield self.run_test(
+                task, self.get_patron_credential, patron, pin
             )
-            return
-        for library, patron, pin in default_patrons:
-            task = "Checking Patron Authentication, using test patron for library %s" % library.name
-            if patron:
-                yield self.run_test(
-                    task, self.get_patron_credential, patron, pin
-                )
-            else:
-                yield self.test_failure(
-                    task,
-                    "Library has no test patron configured.",
-                    "You can specify a test patron when you configure the library's patron authentication service."
-                )
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None,
                        exception_on_401=False, method=None):
@@ -178,7 +176,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
-                raise Exception("Something's wrong with the patron OAuth Bearer Token!")
+                raise IntegrationException(
+                    "Something's wrong with the patron OAuth Bearer Token!"
+                )
             else:
                 # Refresh the token and try again.
                 self.refresh_patron_access_token(
@@ -227,9 +227,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
         elif response.status_code == 400:
             response = response.json()
             message = response['error']
-            if 'error_description' in response:
-                message += '/' + response['error_description']
-            raise PatronAuthorizationFailedException(message)
+            error = response.get('error_description')
+            if error:
+                message += '/' + error
+            diagnostic = None
+            if error == 'Requested record not found':
+                diagnostic = "The patron failed Overdrive's cross-check against the library's ILS."
+            raise PatronAuthorizationFailedException(message, diagnostic)
         return credential
 
     def checkout(self, patron, pin, licensepool, internal_format):

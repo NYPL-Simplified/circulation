@@ -24,7 +24,10 @@ from core.model import (
     Identifier
 )
 
-from core.selftest import HasSelfTests
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 from core.monitor import (
     CollectionMonitor,
 )
@@ -70,8 +73,24 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
         )
 
     def run_self_tests(self, _db):
-        set_trace()
-        pass
+        yield self.run_test(
+            "Obtaining a sitewide access token", self.check_creds,
+            force_refresh=True
+        )
+        for result in self.default_patrons(self.collection):
+            if isinstance(result, SelfTestResult):
+                yield result
+                continue
+            library, patron, pin = result
+            task = "Obtaining a patron access token for the test patron for library %s" % library.name
+
+            # Fetch the Credential without refreshing it.
+            credential = self._patron_credential_lookup(patron, None)
+
+            # Forcibly refresh the credential.
+            yield self.run_test(
+                task, self.get_patron_access_token, credential, patron, pin
+            )
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None, exception_on_401=False, method=None):
         """Make an HTTP request on behalf of a patron.
@@ -121,6 +140,9 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
         def refresh(credential):
             return self.get_patron_access_token(credential, patron, pin)
 
+        return self._credential_lookup(patron, refresh)
+
+    def _patron_credential_lookup(self, patron, refresh):
         return Credential.lookup(self._db, DataSource.ODILO, "OAuth Token", patron, refresh)
 
     def get_patron_access_token(self, credential, patron, pin):
