@@ -1449,7 +1449,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         :return: A 2-tuple (Patron, password)
         """
         if self.test_username is None:
-            return None, None
+            return self.test_username, self.test_password
         header = dict(username=self.test_username, password=self.test_password)
         return self.authenticated_patron(_db, header), self.test_password
 
