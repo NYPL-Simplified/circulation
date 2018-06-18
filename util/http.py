@@ -15,11 +15,39 @@ INTEGRATION_ERROR = pd(
       _("A third-party service has failed."),
 )
 
-class RemoteIntegrationException(Exception):
+class IntegrationException(Exception):
+    """An exception that happens when the site's connection to a
+    third-party service is broken.
 
-    """An exception that happens when communicating with a third-party
-    service over HTTP.
+    This may be because communication failed
+    (RemoteIntegrationException), or because local configuration is
+    missing or obviously wrong (CannotLoadConfiguration).
     """
+
+    def __init__(self, message, debug_message=None):
+        """Constructor.
+
+        :param message: The normal message passed to any Exception
+        constructor.
+
+        :param debug_message: An extra human-readable explanation of the
+        problem, shown to admins but not to patrons. This may include
+        instructions on what bits of the integration configuration might need
+        to be changed.
+
+        For example, an API key might be wrong, or the API key might
+        be correct but the API provider might not have granted that
+        key enough permissions.
+        """
+        super(IntegrationException, self).__init__(message)
+        self.debug_message = debug_message
+
+
+class RemoteIntegrationException(Exception):
+    """An exception that happens when we try and fail to communicate
+    with a third-party service over HTTP.
+    """
+
     title = _("Failure contacting external service")
     detail = _("The server tried to access %(service)s but the third-party service experienced an error.")
     internal_message = "Error accessing %s: %s"

@@ -1,7 +1,7 @@
 """Define the interfaces used by ExternalIntegration self-tests.
 """
 from nose.tools import set_trace
-from config import IntegrationException
+from util.http import IntegrationException
 import datetime
 
 
@@ -25,10 +25,6 @@ class SelfTestResult(object):
         # completion.
         self.result = None
 
-        # Any extra diagnostic information that's useful for
-        # understanding the test results.
-        self.diagnostic = None
-
         # Start time of the test.
         self.start = datetime.datetime.utcnow()
 
@@ -38,9 +34,9 @@ class SelfTestResult(object):
     def __repr__(self):
         if self.exception:
             if (isinstance(self.exception, IntegrationException)
-                and self.exception.diagnostic):
+                and self.exception.debug_message):
                 exception = " exception=%r diagnostic=%r" % (
-                    self.exception.message, self.exception.diagnostic
+                    self.exception.message, self.exception.debug_message
                 )
             else:
                 exception = " exception=%r" % self.exception
