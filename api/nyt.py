@@ -145,7 +145,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
             )
         else:
             raise IntegrationException(
-                "Unknown API error", diagnostic
+                "Unknown API error (status %s)" % status, diagnostic
             )
 
     def list_of_lists(self, max_age=LIST_OF_LISTS_MAX_AGE):

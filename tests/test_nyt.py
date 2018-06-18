@@ -31,6 +31,8 @@ from core.opds_import import (
     MetadataWranglerOPDSLookup,
     MockMetadataWranglerOPDSLookup
 )
+from core.util.http import IntegrationException
+
 
 class DummyNYTBestSellerAPI(NYTBestSellerAPI):
 
@@ -104,6 +106,17 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         assert isinstance(api.metadata_client, MetadataWranglerOPDSLookup)
         assert api.metadata_client.base_url.startswith(mw.url)
 
+    def test_run_self_tests(self):
+        class Mock(NYTBestSellerAPI):
+            def __init__(self):
+                pass
+            def list_of_lists(self):
+                return "some lists"
+
+        [list_test] = Mock().run_self_tests(object())
+        eq_("Getting list of best-seller lists", list_test.name)
+        eq_(True, list_test.success)
+        eq_("some lists", list_test.result)
 
     def test_list_of_lists(self):
         all_lists = self.api.list_of_lists()
@@ -114,6 +127,30 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
     def test_list_info(self):
         list_info = self.api.list_info("combined-print-and-e-book-fiction")
         eq_("Combined Print & E-Book Fiction", list_info['display_name'])
+
+    def test_request_failure(self):
+        """Verify that certain unexpected HTTP results are turned into
+        IntegrationExceptions.
+        """
+        self.api.api_key = "some key"
+        def result_403(*args, **kwargs):
+            return 403, None, None
+        self.api.do_get = result_403
+        assert_raises_regexp(
+            IntegrationException, "API authentication failed",
+            self.api.request, "some path"
+        )
+
+        def result_500(*args, **kwargs):
+            return 500, {}, "bad value"
+        self.api.do_get = result_500
+        try:
+            self.api.request("some path")
+            raise Exception("Expected an IntegrationException!")
+        except IntegrationException, e:
+            eq_("Unknown API error (status 500)", e.message)
+            assert e.debug_message.startswith("Response from")
+            assert e.debug_message.endswith("was: 'bad value'")
 
 class TestNYTBestSellerList(NYTBestSellerAPITest):
 
