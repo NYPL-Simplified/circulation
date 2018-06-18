@@ -25,6 +25,10 @@ class SelfTestResult(object):
         # completion.
         self.result = None
 
+        # Any extra diagnostic information that's useful for
+        # understanding the test results.
+        self.diagnostic = None
+
         # Start time of the test.
         self.start = datetime.datetime.utcnow()
 
@@ -42,9 +46,9 @@ class SelfTestResult(object):
                 exception = " exception=%r" % self.exception
         else:
             exception = ""
-        return "<SelfTestResult: name=%r timing=%.2fsec success=%r%s>" % (
+        return "<SelfTestResult: name=%r timing=%.2fsec success=%r%s result=%s>" % (
             self.name, (self.end-self.start).total_seconds(), self.success,
-            exception
+            exception, self.result
         )
 
 
@@ -83,4 +87,16 @@ class HasSelfTests(object):
         finally:
             if not result.end:
                 result.end = datetime.datetime.utcnow()
+        return result
+
+    def test_failure(self, name, message, diagnostic=None):
+        """Create a SelfTestResult for a known failure."""
+        result = SelfTestResult(name)
+        result.end = result.start
+        result.success = False
+        if isinstance(message, Exception):
+            exception = message
+        else:
+            exception = IntegrationException(message, diagnostic)
+        result.exception = exception
         return result
