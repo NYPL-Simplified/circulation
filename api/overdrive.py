@@ -232,8 +232,8 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
                 message += '/' + error
             diagnostic = None
             if error == 'Requested record not found':
-                diagnostic = "The patron failed Overdrive's cross-check against the library's ILS."
-            raise PatronAuthorizationFailedException(message, diagnostic)
+                debug = "The patron failed Overdrive's cross-check against the library's ILS."
+            raise PatronAuthorizationFailedException(message, debug)
         return credential
 
     def checkout(self, patron, pin, licensepool, internal_format):
