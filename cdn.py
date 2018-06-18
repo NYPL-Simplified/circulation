@@ -3,12 +3,16 @@ import os, sys
 import urlparse
 from nose.tools import set_trace
 
-from config import Configuration
+from config import Configuration, CannotLoadConfiguration
 from s3 import S3Uploader
 
 def cdnify(url, cdns=None):
     """Turn local URLs into CDN URLs"""
-    cdns = cdns or Configuration.cdns()
+    try:
+        cdns = cdns or Configuration.cdns()
+    except CannotLoadConfiguration, e:
+        pass
+
     if not cdns:
         # No CDNs configured
         return url
