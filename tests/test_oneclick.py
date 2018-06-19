@@ -402,12 +402,17 @@ class TestOneClickSyncMonitor(DatabaseTest):
             self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
             "9780062231727", collection=self.collection
         )
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
+
         eq_(False, made_new)
         pool, made_new = LicensePool.for_foreign_id(
             self._db, DataSource.ONECLICK, Identifier.ONECLICK_ID,
             "9781615730186", collection=self.collection
         )
         eq_(False, made_new)
+        eq_(1, pool.licenses_owned)
+        eq_(1, pool.licenses_available)
 
         # make sure there are 8 LicensePools
         pools = self._db.query(LicensePool).all()
