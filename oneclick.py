@@ -403,8 +403,14 @@ class OneClickAPI(object):
                     # NOTE:  TODO later:  For the 4 out of 2000 libraries that chose to display 
                     # books they don't own, we'd need to call the search endpoint to get 
                     # the interest field, and then deal with licenses_owned. 
-                    if result.licensed_through:
-                        result.licensed_through.licenses_owned = 1
+                    for lp in result.licensed_through:
+                        if lp.collection == self.collection:
+                            lp.licenses_owned = 1
+
+                            # Start off by assuming the book is available.
+                            # If it's not, we'll hear differently the
+                            # next time we use the collection delta API.
+                            lp.licenses_available = 1
             if not items_created % 100:
                 # Periodically commit the work done so that if there's
                 # a failure, the subsequent run through this code will
