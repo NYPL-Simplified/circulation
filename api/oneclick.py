@@ -269,7 +269,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
         if not found_checkout:
             raise NoActiveLoan(
                 "Cannot fulfill %s - patron %s/%s has no such checkout." % (
-                    item_oneclick_, patron.authorization_identifier,
+                    item_oneclick_id, patron.authorization_identifier,
                     patron_oneclick_id
                 )
             )
