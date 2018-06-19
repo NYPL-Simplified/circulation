@@ -58,11 +58,14 @@ class HasSelfTests(object):
         """Instantiate this class and call _run_self_tests on it.
 
         :param _db: A database connection. Will be passed into
-        _run_self_tests as well as the first argument of the constructor
-        method.
+        _run_self_tests. This connection may need to be used again
+        in *args, if the constructor needs it.
 
         :param constructor_method: Method to use to instantiate the
         class, if different from the default constructor.
+
+        :param args: Positional arguments to pass into the constructor.
+        :param kwargs: Keyword arguments to pass into the constructor.
 
         :return: An iterator of SelfTestResult objects, starting with
         the attempt to instantiate the test class in the first place.
@@ -71,7 +74,7 @@ class HasSelfTests(object):
         result = SelfTestResult("Initial setup.")
         instance = None
         try:
-            instance = constructor_method(_db, *args, **kwargs)
+            instance = constructor_method(*args, **kwargs)
             result.success = True
             result.result = instance
         except Exception, e:
