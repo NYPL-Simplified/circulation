@@ -15,11 +15,39 @@ INTEGRATION_ERROR = pd(
       _("A third-party service has failed."),
 )
 
-class RemoteIntegrationException(Exception):
+class IntegrationException(Exception):
+    """An exception that happens when the site's connection to a
+    third-party service is broken.
 
-    """An exception that happens when communicating with a third-party
-    service.
+    This may be because communication failed
+    (RemoteIntegrationException), or because local configuration is
+    missing or obviously wrong (CannotLoadConfiguration).
     """
+
+    def __init__(self, message, debug_message=None):
+        """Constructor.
+
+        :param message: The normal message passed to any Exception
+        constructor.
+
+        :param debug_message: An extra human-readable explanation of the
+        problem, shown to admins but not to patrons. This may include
+        instructions on what bits of the integration configuration might need
+        to be changed.
+
+        For example, an API key might be wrong, or the API key might
+        be correct but the API provider might not have granted that
+        key enough permissions.
+        """
+        super(IntegrationException, self).__init__(message)
+        self.debug_message = debug_message
+
+
+class RemoteIntegrationException(IntegrationException):
+    """An exception that happens when we try and fail to communicate
+    with a third-party service over HTTP.
+    """
+
     title = _("Failure contacting external service")
     detail = _("The server tried to access %(service)s but the third-party service experienced an error.")
     internal_message = "Error accessing %s: %s"
@@ -30,14 +58,15 @@ class RemoteIntegrationException(Exception):
         `param url_or_service` The name of the service that failed
            (e.g. "Overdrive"), or the specific URL that had the problem.
         """
-        super(RemoteIntegrationException, self).__init__(message)
         if (url_or_service and
             any(url_or_service.startswith(x) for x in ('http:', 'https:'))):
             self.url = url_or_service
             self.service = urlparse.urlparse(url_or_service).netloc
         else:
             self.url = self.service = url_or_service
-        self.debug_message = debug_message
+        if not debug_message:
+            debug_message = self.internal_message % (self.url, message)
+        super(RemoteIntegrationException, self).__init__(message, debug_message)
 
     def __str__(self):
         return self.internal_message % (self.url, self.message)
@@ -233,7 +262,9 @@ class HTTP(object):
         """
         if allowed_response_codes:
             allowed_response_codes = map(str, allowed_response_codes)
-            status_code_not_in_allowed = "Got status code %%s from external server, but can only continue on: %s." % ", ".join(sorted(allowed_response_codes))
+            status_code_not_in_allowed = "Got status code %%s from external server, but can only continue on: %s." % (
+                ", ".join(sorted(allowed_response_codes)),
+            )
         if disallowed_response_codes:
             disallowed_response_codes = map(str, disallowed_response_codes)
         else:
