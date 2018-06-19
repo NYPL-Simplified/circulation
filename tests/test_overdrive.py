@@ -82,8 +82,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         methods.
         """
         class Mock(MockOverdriveAPI):
-
-            # Mock every method used by OverdriveAPI.run_self_tests.
+            "Mock every method used by OverdriveAPI.run_self_tests."
 
             # First we will call check_creds() to get a fresh credential.
             mock_credential = object()
@@ -102,7 +101,7 @@ class TestOverdriveAPI(OverdriveAPITest):
                 return 200, {}, json.dumps(dict(totalItems=2010))
 
             # Finally, for every library associated with this
-            # collection, we'll call get_patron_credential using
+            # collection, we'll call get_patron_credential() using
             # the credentials of that library's test patron.
             mock_patron_credential = object()
             get_patron_credential_called_with = []
@@ -188,7 +187,7 @@ class TestOverdriveAPI(OverdriveAPITest):
 
         # Only one test will be run.
         [check_creds] = self.api.run_self_tests(self._db)
-        eq_("Failure!", check_creds.exception.message)        
+        eq_("Failure!", check_creds.exception.message)
 
     def test_default_notification_email_address(self):
         """Test the ability of the Overdrive API to detect an email address
