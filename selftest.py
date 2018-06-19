@@ -69,7 +69,6 @@ class HasSelfTests(object):
         """
         constructor_method = constructor_method or cls
         result = SelfTestResult("Initial setup.")
-        result.start = datetime.datetime.utcnow()
         instance = None
         try:
             instance = constructor_method(_db, *args, **kwargs)
