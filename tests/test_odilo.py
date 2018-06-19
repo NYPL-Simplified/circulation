@@ -8,6 +8,7 @@ from nose.tools import (
     set_trace,
 )
 
+from api.authenticator import BasicAuthenticationProvider
 from api.odilo import (
     OdiloAPI,
     MockOdiloAPI,
@@ -75,6 +76,110 @@ class OdiloAPITest(DatabaseTest):
         token = token or self._str
         data = dict(errorCode=error_code, message=message, token=token)
         return json.dumps(data)
+
+
+class TestOdiloAPI(OdiloAPITest):
+
+    def test_run_self_tests(self):
+        """Verify that OdiloAPI.run_self_tests() calls the right
+        methods.
+        """
+        class Mock(MockOdiloAPI):
+            "Mock every method used by OdiloAPI.run_self_tests."
+
+            def __init__(self, _db, collection):
+                """Stop the default constructor from running."""
+                self._db = _db
+                self.collection_id = collection.id
+
+            # First we will call check_creds() to get a fresh credential.
+            mock_credential = object()
+            def check_creds(self, force_refresh=False):
+                self.check_creds_called_with = force_refresh
+                return self.mock_credential
+
+            # Finally, for every library associated with this
+            # collection, we'll call get_patron_credential() using
+            # the credentials of that library's test patron.
+            mock_patron_credential = object()
+            get_patron_access_token_called_with = []
+            def get_patron_access_token(self, credential, patron, pin):
+                self.get_patron_access_token_called_with.append(
+                    (credential, patron, pin)
+                )
+                return self.mock_patron_credential
+
+        # Now let's make sure two Libraries have access to this
+        # Collection -- one library with a default patron and one
+        # without.
+        no_default_patron = self._library(name="no patron")
+        self.collection.libraries.append(no_default_patron)
+
+        with_default_patron = self._default_library
+        integration = self._external_integration(
+            "api.simple_authentication",
+            ExternalIntegration.PATRON_AUTH_GOAL,
+            libraries=[with_default_patron]
+        )
+        p = BasicAuthenticationProvider
+        integration.setting(p.TEST_IDENTIFIER).value = "username1"
+        integration.setting(p.TEST_PASSWORD).value = "password1"
+
+        # Now that everything is set up, run the self-test.
+        api = Mock(self._db, self.collection)
+        results = sorted(
+            api.run_self_tests(self._db), key=lambda x: x.name
+        )
+        token_failure, token_success, sitewide = results
+
+        # Make sure all three tests were run and got the expected result.
+        #
+
+        # We got a sitewide access token.
+        eq_('Obtaining a sitewide access token', sitewide.name)
+        eq_(True, sitewide.success)
+        eq_(api.mock_credential, sitewide.result)
+        eq_(True, api.check_creds_called_with)
+
+        # We got a patron access token for the library that had
+        # a default patron configured.
+        eq_(
+            'Obtaining a patron access token for the test patron for library %s' % with_default_patron.name,
+            token_success.name
+        )
+        eq_(True, token_success.success)
+        # get_patron_access_token was only called once.
+        [(credential, patron, pin)] = api.get_patron_access_token_called_with
+        eq_(patron, credential.patron)
+        eq_("username1", patron.authorization_identifier)
+        eq_("password1", pin)
+        eq_(api.mock_patron_credential, token_success.result)
+
+        # We couldn't get a patron access token for the other library.
+        eq_(
+            'Acquiring test patron credentials for library %s' % no_default_patron.name,
+            token_failure.name
+        )
+        eq_(False, token_failure.success)
+        eq_("Library has no test patron configured.",
+            token_failure.exception.message)
+
+    def test_run_self_tests_short_circuit(self):
+        """If OdiloAPI.check_creds can't get credentials, the rest of
+        the self-tests aren't even run.
+        """
+
+        # NOTE: this isn't as foolproof as it seems. If there's a
+        # problem getting the credentials, that problem will most
+        # likely happen during the OdiloAPI constructor, and
+        # we won't even get a chance to run the tests.
+        def explode(*args, **kwargs):
+            raise Exception("Failure!")
+        self.api.check_creds = explode
+
+        # Only one test will be run.
+        [check_creds] = self.api.run_self_tests(self._db)
+        eq_("Failure!", check_creds.exception.message)
 
 
 class TestOdiloCirculationAPI(OdiloAPITest):

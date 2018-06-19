@@ -73,10 +73,16 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
         )
 
     def run_self_tests(self, _db):
-        yield self.run_test(
+        result = self.run_test(
             "Obtaining a sitewide access token", self.check_creds,
             force_refresh=True
         )
+        yield result
+        if not result.success:
+            # We couldn't get a sitewide token, so there is no
+            # point in continuing.
+            return
+
         for result in self.default_patrons(self.collection):
             if isinstance(result, SelfTestResult):
                 yield result
