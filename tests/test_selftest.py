@@ -54,6 +54,69 @@ class TestSelfTestResult(object):
 
 class TestHasSelfTests(object):
 
+    def test_run_self_tests(self):
+        """See what might happen when run_self_tests tries to instantiate an
+        object and run its self-tests.
+        """
+        class Tester(HasSelfTests):
+            def __init__(self, _db, extra_arg=None):
+                """This constructor works."""
+                self.invoked_with = (_db, extra_arg)
+
+            @classmethod
+            def good_alternate_constructor(self, _db, another_extra_arg=None):
+                """This alternate constructor works."""
+                tester = Tester(_db)
+                tester.another_extra_arg = another_extra_arg
+                return tester
+
+            @classmethod
+            def bad_alternate_constructor(self, _db):
+                """This constructor doesn't work."""
+                raise Exception("I don't work!")
+
+            def _run_self_tests(self, _db):
+                self._run_self_tests_called_with = _db
+                return ["a result"]
+        mock_db = object()
+
+        # By default, the default constructor is instantiated and its
+        # _run_self_tests method is called.
+        [setup, test] = list(
+            Tester.run_self_tests(mock_db, extra_arg="a value")
+        )
+
+        # There are two results -- one from the initial setup
+        # and one from the _run_self_tests call.
+        eq_("Initial setup.", setup.name)
+        eq_(True, setup.success)
+        eq_((mock_db, "a value"), setup.result.invoked_with)
+
+        eq_("a result", test)
+
+        # You can specify a different class method to use as the
+        # constructor. Once the object is instantiated, the same basic
+        # code runs.
+        [setup, test] = Tester.run_self_tests(
+            mock_db, Tester.good_alternate_constructor,
+            another_extra_arg="another value"
+        )
+        eq_("Initial setup.", setup.name)
+        eq_(True, setup.success)
+        eq_((mock_db, None), setup.result.invoked_with)
+        eq_("another value", setup.result.another_extra_arg)
+        eq_("a result", test)
+
+        # If there's an exception in the constructor, the result is a
+        # single SelfTestResult describing that failure. Since there is
+        # no instance, _run_self_tests can't be called.
+        [result] = Tester.run_self_tests(
+            mock_db, Tester.bad_alternate_constructor,
+        )
+        assert isinstance(result, SelfTestResult)
+        eq_(False, result.success)
+        eq_("I don't work!", result.exception.message)
+
     def test_run_test_success(self):
         o = HasSelfTests()
         # This self-test method will succeed.
