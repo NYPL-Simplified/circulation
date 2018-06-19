@@ -77,12 +77,12 @@ class OverdriveAPITest(DatabaseTest):
 
 class TestOverdriveAPI(OverdriveAPITest):
 
-    def test_run_self_tests(self):
-        """Verify that OverdriveAPI.run_self_tests() calls the right
+    def test__run_self_tests(self):
+        """Verify that OverdriveAPI._run_self_tests() calls the right
         methods.
         """
         class Mock(MockOverdriveAPI):
-            "Mock every method used by OverdriveAPI.run_self_tests."
+            "Mock every method used by OverdriveAPI._run_self_tests."
 
             # First we will call check_creds() to get a fresh credential.
             mock_credential = object()
@@ -128,7 +128,7 @@ class TestOverdriveAPI(OverdriveAPITest):
         # Now that everything is set up, run the self-test.
         api = Mock(self._db, self.collection)
         results = sorted(
-            api.run_self_tests(self._db), key=lambda x: x.name
+            api._run_self_tests(self._db), key=lambda x: x.name
         )
         [no_patron_credential, default_patron_credential,
          global_privileges, collection_size, advantage] = results
@@ -175,18 +175,16 @@ class TestOverdriveAPI(OverdriveAPITest):
     def test_run_self_tests_short_circuit(self):
         """If OverdriveAPI.check_creds can't get credentials, the rest of
         the self-tests aren't even run.
-        """
 
-        # NOTE: this isn't as foolproof as it seems. If there's a
-        # problem getting the credentials, that problem will most
-        # likely happen during the OverdriveAPI constructor, and
-        # we won't even get a chance to run the tests.
+        This probably doesn't matter much, because if check_creds doesn't
+        work we won't be able to instantiate the OverdriveAPI class.
+        """
         def explode(*args, **kwargs):
             raise Exception("Failure!")
         self.api.check_creds = explode
 
         # Only one test will be run.
-        [check_creds] = self.api.run_self_tests(self._db)
+        [check_creds] = self.api._run_self_tests(self._db)
         eq_("Failure!", check_creds.exception.message)
 
     def test_default_notification_email_address(self):

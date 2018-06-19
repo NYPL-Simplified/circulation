@@ -1471,7 +1471,10 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             )
         return patron, password
 
-    def run_self_tests(self, _db):
+    def _run_self_tests(self, _db):
+        """Verify the credentials of the test patron for this integration,
+        and update its metadata.
+        """
         patron_test = self.run_test(
             "Authenticating test patron", self.testing_patron_or_bust, _db
         )

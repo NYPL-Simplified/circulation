@@ -69,7 +69,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
         self.feed_url = collection.external_account_id
         self.auth_url = None
 
-    def run_self_tests(self, _db):
+    def _run_self_tests(self, _db):
         """Try to get a token."""
         yield self.run_test(
             "Negotiate a fulfillment token", self._get_token, _db

@@ -1612,7 +1612,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         # value as testing_patron()
         eq_(value, present_patron.testing_patron_or_bust(self._db))
 
-    def test_run_self_tests(self):
+    def test__run_self_tests(self):
         _db = object()
         class CantAuthenticateTestPatron(BasicAuthenticationProvider):
             def __init__(self):
@@ -1624,7 +1624,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         # If we can't authenticate a test patron, the rest of the tests
         # aren't even run.
         provider = CantAuthenticateTestPatron()
-        [result] = list(provider.run_self_tests(_db))
+        [result] = list(provider._run_self_tests(_db))
         eq_(_db, provider.called_with)
         eq_(False, result.success)
         eq_("Nope", result.exception.message)
@@ -1647,7 +1647,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
                 return "some metadata"
 
         provider = Mock("patron", "password")
-        [get_patron, update_metadata] = provider.run_self_tests(object())
+        [get_patron, update_metadata] = provider._run_self_tests(object())
         eq_("Authenticating test patron", get_patron.name)
         eq_(True, get_patron.success)
         eq_((provider.patron, provider.password), get_patron.result)

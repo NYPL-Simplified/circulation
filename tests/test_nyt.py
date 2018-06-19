@@ -113,7 +113,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
             def list_of_lists(self):
                 return "some lists"
 
-        [list_test] = Mock().run_self_tests(object())
+        [list_test] = Mock()._run_self_tests(object())
         eq_("Getting list of best-seller lists", list_test.name)
         eq_(True, list_test.success)
         eq_("some lists", list_test.result)

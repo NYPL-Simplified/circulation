@@ -80,12 +80,12 @@ class OdiloAPITest(DatabaseTest):
 
 class TestOdiloAPI(OdiloAPITest):
 
-    def test_run_self_tests(self):
-        """Verify that OdiloAPI.run_self_tests() calls the right
+    def test__run_self_tests(self):
+        """Verify that OdiloAPI._run_self_tests() calls the right
         methods.
         """
         class Mock(MockOdiloAPI):
-            "Mock every method used by OdiloAPI.run_self_tests."
+            "Mock every method used by OdiloAPI._run_self_tests."
 
             def __init__(self, _db, collection):
                 """Stop the default constructor from running."""
@@ -128,7 +128,7 @@ class TestOdiloAPI(OdiloAPITest):
         # Now that everything is set up, run the self-test.
         api = Mock(self._db, self.collection)
         results = sorted(
-            api.run_self_tests(self._db), key=lambda x: x.name
+            api._run_self_tests(self._db), key=lambda x: x.name
         )
         token_failure, token_success, sitewide = results
 
@@ -167,18 +167,16 @@ class TestOdiloAPI(OdiloAPITest):
     def test_run_self_tests_short_circuit(self):
         """If OdiloAPI.check_creds can't get credentials, the rest of
         the self-tests aren't even run.
-        """
 
-        # NOTE: this isn't as foolproof as it seems. If there's a
-        # problem getting the credentials, that problem will most
-        # likely happen during the OdiloAPI constructor, and
-        # we won't even get a chance to run the tests.
+        This probably doesn't matter much, because if check_creds doesn't
+        work we won't be able to instantiate the OdiloAPI class.
+        """
         def explode(*args, **kwargs):
             raise Exception("Failure!")
         self.api.check_creds = explode
 
         # Only one test will be run.
-        [check_creds] = self.api.run_self_tests(self._db)
+        [check_creds] = self.api._run_self_tests(self._db)
         eq_("Failure!", check_creds.exception.message)
 
 

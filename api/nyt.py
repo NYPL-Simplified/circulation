@@ -105,7 +105,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
                 )
         self.metadata_client = metadata_client
 
-    def run_self_tests(self, _db):
+    def _run_self_tests(self, _db):
         yield self.run_test(
             "Getting list of best-seller lists", self.list_of_lists
         )

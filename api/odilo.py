@@ -72,7 +72,7 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
             )
         )
 
-    def run_self_tests(self, _db):
+    def _run_self_tests(self, _db):
         result = self.run_test(
             "Obtaining a sitewide access token", self.check_creds,
             force_refresh=True

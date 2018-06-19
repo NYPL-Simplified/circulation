@@ -113,7 +113,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             )
         )
 
-    def run_self_tests(self, _db):
+    def _run_self_tests(self, _db):
         result = self.run_test(
             "Checking global Client Authentication privileges",
             self.check_creds, force_refresh=True

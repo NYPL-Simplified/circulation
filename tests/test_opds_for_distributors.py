@@ -47,7 +47,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         self.collection = MockOPDSForDistributorsAPI.mock_collection(self._db)
         self.api = MockOPDSForDistributorsAPI(self._db, self.collection)
 
-    def test_run_self_tests(self):
+    def test__run_self_tests(self):
         """The self-test for OPDSForDistributorsAPI just tries to negotiate
         a fulfillment token.
         """
@@ -60,7 +60,7 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
                 return "a token"
 
         api = Mock()
-        [result] = api.run_self_tests(self._db)
+        [result] = api._run_self_tests(self._db)
         eq_(self._db, api.called_with)
         eq_("Negotiate a fulfillment token", result.name)
         eq_(True, result.success)
