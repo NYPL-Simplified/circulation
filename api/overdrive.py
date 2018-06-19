@@ -138,7 +138,7 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
             url = self._all_products_link
             status, headers, body = self.get(url, {})
             body = json.loads(body)
-            return "%d item(s) in collection." % body['totalItems']
+            return "%d item(s) in collection" % body['totalItems']
         yield self.run_test(
             "Counting size of collection", _count_books
         )

@@ -16,6 +16,7 @@ from api.overdrive import (
     OverdriveFormatSweep,
 )
 
+from api.authenticator import BasicAuthenticationProvider
 from api.circulation import (
     CirculationAPI,
 )
@@ -75,6 +76,119 @@ class OverdriveAPITest(DatabaseTest):
         return json.dumps(data)
 
 class TestOverdriveAPI(OverdriveAPITest):
+
+    def test_run_self_tests(self):
+        """Verify that OverdriveAPI.run_self_tests() calls the right
+        methods.
+        """
+        class Mock(MockOverdriveAPI):
+
+            # Mock every method used by OverdriveAPI.run_self_tests.
+
+            # First we will call check_creds() to get a fresh credential.
+            mock_credential = object()
+            def check_creds(self, force_refresh=False):
+                self.check_creds_called_with = force_refresh
+                return self.mock_credential
+
+            # Then we will call get_advantage_accounts().
+            mock_advantage_accounts = [object(), object()]
+            def get_advantage_accounts(self):
+                return self.mock_advantage_accounts
+
+            # Then we will call get() on the _all_products_link.
+            def get(self, url, extra_headers, exception_on_401=False):
+                self.get_called_with = (url, extra_headers, exception_on_401)
+                return 200, {}, json.dumps(dict(totalItems=2010))
+
+            # Finally, for every library associated with this
+            # collection, we'll call get_patron_credential using
+            # the credentials of that library's test patron.
+            mock_patron_credential = object()
+            get_patron_credential_called_with = []
+            def get_patron_credential(self, patron, pin):
+                self.get_patron_credential_called_with.append((patron, pin))
+                return self.mock_patron_credential
+
+        # Now let's make sure two Libraries have access to this
+        # Collection -- one library with a default patron and one
+        # without.
+        no_default_patron = self._library()
+        self.collection.libraries.append(no_default_patron)
+
+        with_default_patron = self._default_library
+        integration = self._external_integration(
+            "api.simple_authentication",
+            ExternalIntegration.PATRON_AUTH_GOAL,
+            libraries=[with_default_patron]
+        )
+        p = BasicAuthenticationProvider
+        integration.setting(p.TEST_IDENTIFIER).value = "username1"
+        integration.setting(p.TEST_PASSWORD).value = "password1"
+
+        # Now that everything is set up, run the self-test.
+        api = Mock(self._db, self.collection)
+        results = sorted(
+            api.run_self_tests(self._db), key=lambda x: x.name
+        )
+        [no_patron_credential, default_patron_credential,
+         global_privileges, collection_size, advantage] = results
+
+        # Verify that each test method was called and returned the
+        # expected SelfTestResult object.
+        eq_('Checking global Client Authentication privileges',
+            global_privileges.name)
+        eq_(True, global_privileges.success)
+        eq_(api.mock_credential, global_privileges.result)
+
+        eq_('Looking up Overdrive Advantage accounts', advantage.name)
+        eq_(True, advantage.success)
+        eq_('Found 2 Overdrive Advantage account(s).', advantage.result)
+
+        eq_('Counting size of collection', collection_size.name)
+        eq_(True, collection_size.success)
+        eq_('2010 item(s) in collection', collection_size.result)
+        url, headers, error_on_401 = api.get_called_with
+        eq_(api._all_products_link, url)
+
+        eq_(
+            "Acquiring test patron credentials for library %s" % no_default_patron.name,
+            no_patron_credential.name
+        )
+        eq_(False, no_patron_credential.success)
+        eq_("Library has no test patron configured.",
+            no_patron_credential.exception.message)
+
+        eq_(
+            "Checking Patron Authentication privileges, using test patron for library %s" % with_default_patron.name,
+            default_patron_credential.name
+        )
+        eq_(True, default_patron_credential.success)
+        eq_(api.mock_patron_credential, default_patron_credential.result)
+
+        # Although there are two libraries associated with this
+        # collection, get_patron_credential was only called once, because
+        # one of the libraries doesn't have a default patron.
+        [(patron1, password1)] = api.get_patron_credential_called_with
+        eq_("username1", patron1.authorization_identifier)
+        eq_("password1", password1)
+
+    def test_run_self_tests_short_circuit(self):
+        """If OverdriveAPI.check_creds can't get credentials, the rest of
+        the self-tests aren't even run.
+        """
+
+        # NOTE: this isn't as foolproof as it seems. If there's a
+        # problem getting the credentials, that problem will most
+        # likely happen during the OverdriveAPI constructor, and
+        # we won't even get a chance to run the tests.
+        def explode(*args, **kwargs):
+            raise Exception("Failure!")
+        self.api.check_creds = explode
+
+        # Only one test will be run.
+        [check_creds] = self.api.run_self_tests(self._db)
+        eq_("Failure!", check_creds.exception.message)        
 
     def test_default_notification_email_address(self):
         """Test the ability of the Overdrive API to detect an email address
