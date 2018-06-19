@@ -83,7 +83,7 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         # It has to have the api key in its 'password' setting.
         assert_raises_regexp(
             CannotLoadConfiguration, 
-            "NYT integration improperly configured.",
+            "No NYT API key is specified.",
             NYTBestSellerAPI.from_config, self._db
         )
 

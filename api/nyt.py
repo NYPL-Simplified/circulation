@@ -83,15 +83,13 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
             message = "No ExternalIntegration found for the NYT."
             raise CannotLoadConfiguration(message)
 
-        if not integration.password:
-            message = "NYT integration improperly configured."
-            raise CannotLoadConfiguration(message)
-
         return cls(_db, api_key=integration.password, **kwargs)
 
     def __init__(self, _db, api_key=None, do_get=None, metadata_client=None):
         self.log = logging.getLogger("NYT API")
         self._db = _db
+        if not api_key:
+            raise CannotLoadConfiguration("No NYT API key is specified")
         self.api_key = api_key
         self.do_get = do_get or Representation.simple_http_get
         if not metadata_client:
