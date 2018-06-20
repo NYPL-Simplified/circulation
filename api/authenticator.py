@@ -2,6 +2,10 @@ from nose.tools import set_trace
 from config import (
     Configuration,
     CannotLoadConfiguration,
+    IntegrationException,
+)
+from core.selftest import (
+    HasSelfTests,
 )
 from core.opds import OPDSFeed
 from core.model import (
@@ -1213,7 +1217,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         raise NotImplementedError()
 
 
-class BasicAuthenticationProvider(AuthenticationProvider):
+class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     """Verify a username/password, obtained through HTTP Basic Auth, with
     a remote source of truth.
     """
@@ -1444,10 +1448,47 @@ class BasicAuthenticationProvider(AuthenticationProvider):
 
         :return: A 2-tuple (Patron, password)
         """
-        if self.test_username is None or self.test_password is None:
-            return None, None
+        if self.test_username is None:
+            return self.test_username, self.test_password
         header = dict(username=self.test_username, password=self.test_password)
         return self.authenticated_patron(_db, header), self.test_password
+
+    def testing_patron_or_bust(self, _db):
+        """Look up the Patron object reserved for testing purposes,
+        raising CannotLoadConfiguration if none is configured.
+        """
+        if self.test_username is None:
+            raise CannotLoadConfiguration(
+                "No test patron identifier is configured."
+            )
+
+        patron, password = self.testing_patron(_db)
+        if not patron:
+            # We ran to completion but ended up with no patron.
+            raise IntegrationException(
+                "Remote declined to authenticate the test patron.",
+                "The patron may not exist or its password may be wrong."
+            )
+        return patron, password
+
+    def _run_self_tests(self, _db):
+        """Verify the credentials of the test patron for this integration,
+        and update its metadata.
+        """
+        patron_test = self.run_test(
+            "Authenticating test patron", self.testing_patron_or_bust, _db
+        )
+        yield patron_test
+
+        if not patron_test.success:
+            # We can't run the rest of the tests.
+            return
+
+        patron, password = patron_test.result
+        yield self.run_test(
+            "Syncing patron metadata", self.update_patron_metadata,
+            patron
+        )
     
     def authenticate(self, _db, credentials):
         """Turn a set of credentials into a Patron object.

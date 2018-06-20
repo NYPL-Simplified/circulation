@@ -143,8 +143,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             return True
 
         # should never happen
-        raise CirculationException("Unknown error %s/%s checking in %s.", patron.authorization_identifier, 
-            patron_oneclick_id, item_oneclick_id)
+        raise CirculationException(
+            "Unknown error %s/%s checking in %s." % (
+                patron.authorization_identifier, patron_oneclick_id,
+                item_oneclick_id
+            )
+        )
 
 
     def checkout(self, patron, pin, licensepool, internal_format):
@@ -263,8 +267,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 found_checkout = checkout
                 break
         if not found_checkout:
-            raise NoActiveLoan("Cannot fulfill %s - patron %s/%s has no such checkout.", item_oneclick_id, 
-                patron.authorization_identifier, patron_oneclick_id)
+            raise NoActiveLoan(
+                "Cannot fulfill %s - patron %s/%s has no such checkout." % (
+                    item_oneclick_id, patron.authorization_identifier,
+                    patron_oneclick_id
+                )
+            )
 
         return found_checkout.fulfillment_info
 
@@ -337,8 +345,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             return True
 
         # should never happen
-        raise CirculationException("Unknown error %s/%s releasing %s.", patron.authorization_identifier, 
-            patron_oneclick_id, item_oneclick_id)
+        raise CirculationException(
+            "Unknown error %s/%s releasing %s." % (
+                patron.authorization_identifier, patron_oneclick_id,
+                item_oneclick_id
+            )
+        )
 
     @property
     def default_circulation_replacement_policy(self):

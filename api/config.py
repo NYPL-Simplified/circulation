@@ -7,6 +7,7 @@ from flask_babel import lazy_gettext as _
 from core.config import (
     Configuration as CoreConfiguration,
     CannotLoadConfiguration,
+    IntegrationException,
     empty_config as core_empty_config,
     temp_config as core_temp_config,
 )

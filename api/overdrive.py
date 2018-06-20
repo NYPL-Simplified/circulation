@@ -15,6 +15,10 @@ from circulation import (
     FulfillmentInfo,
     BaseCirculationAPI,
 )
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 from core.overdrive import (
     OverdriveAPI as BaseOverdriveAPI,
     OverdriveRepresentationExtractor,
@@ -49,7 +53,7 @@ from core.scripts import Script
 from circulation_exceptions import *
 from core.analytics import Analytics
 
-class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
+class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI, HasSelfTests):
 
     NAME = ExternalIntegration.OVERDRIVE
     DESCRIPTION = _("Integrate an Overdrive collection. For an Overdrive Advantage collection, select the consortium's Overdrive collection as the parent.")
@@ -109,6 +113,47 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
             )
         )
 
+    def _run_self_tests(self, _db):
+        result = self.run_test(
+            "Checking global Client Authentication privileges",
+            self.check_creds, force_refresh=True
+        )
+        yield result
+        if not result.success:
+            # There is no point in running the other tests if we
+            # can't even get a token.
+            return
+
+        def _count_advantage():
+            """Count the Overdrive Advantage accounts"""
+            accounts = list(self.get_advantage_accounts())
+            return "Found %d Overdrive Advantage account(s)." % len(accounts)
+        yield self.run_test(
+            "Looking up Overdrive Advantage accounts",
+            _count_advantage
+        )
+
+        def _count_books():
+            """Count the titles in the collection."""
+            url = self._all_products_link
+            status, headers, body = self.get(url, {})
+            body = json.loads(body)
+            return "%d item(s) in collection" % body['totalItems']
+        yield self.run_test(
+            "Counting size of collection", _count_books
+        )
+
+        default_patrons = []
+        for result in self.default_patrons(self.collection):
+            if isinstance(result, SelfTestResult):
+                yield result
+                continue
+            library, patron, pin = result
+            task = "Checking Patron Authentication privileges, using test patron for library %s" % library.name
+            yield self.run_test(
+                task, self.get_patron_credential, patron, pin
+            )
+
     def patron_request(self, patron, pin, url, extra_headers={}, data=None,
                        exception_on_401=False, method=None):
         """Make an HTTP request on behalf of a patron.
@@ -131,7 +176,9 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         if response.status_code == 401:
             if exception_on_401:
                 # This is our second try. Give up.
-                raise Exception("Something's wrong with the patron OAuth Bearer Token!")
+                raise IntegrationException(
+                    "Something's wrong with the patron OAuth Bearer Token!"
+                )
             else:
                 # Refresh the token and try again.
                 self.refresh_patron_access_token(
@@ -180,9 +227,13 @@ class OverdriveAPI(BaseOverdriveAPI, BaseCirculationAPI):
         elif response.status_code == 400:
             response = response.json()
             message = response['error']
-            if 'error_description' in response:
-                message += '/' + response['error_description']
-            raise PatronAuthorizationFailedException(message)
+            error = response.get('error_description')
+            if error:
+                message += '/' + error
+            diagnostic = None
+            if error == 'Requested record not found':
+                debug = "The patron failed Overdrive's cross-check against the library's ILS."
+            raise PatronAuthorizationFailedException(message, debug)
         return credential
 
     def checkout(self, patron, pin, licensepool, internal_format):
