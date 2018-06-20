@@ -258,7 +258,7 @@ def create_lanes_for_large_collection(_db, library, languages, priority=0):
 
     common_args = dict(
         languages=languages,
-        media=[Edition.BOOK_MEDIUM]
+        media=None
     )
     adult_common_args = dict(common_args)
     adult_common_args['audiences'] = ADULT
