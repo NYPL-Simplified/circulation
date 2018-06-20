@@ -320,10 +320,7 @@ class OverdriveAPI(object):
         """Get IDs for every book in the system, with the most recently added
         ones at the front.
         """
-        params = dict(collection_token=self.collection_token,
-                      sort="dateAdded:desc")
-        next_link = self.make_link_safe(
-            self.ALL_PRODUCTS_ENDPOINT % params)
+        next_link = self._all_products_link
         while next_link:
             page_inventory, next_link = self._get_book_list_page(
                 next_link, 'next'
@@ -331,6 +328,12 @@ class OverdriveAPI(object):
 
             for i in page_inventory:
                 yield i
+
+    @property
+    def _all_products_link(self):
+        params = dict(collection_token=self.collection_token,
+                      sort="dateAdded:desc")
+        return self.make_link_safe(self.ALL_PRODUCTS_ENDPOINT % params)
 
     def _get_book_list_page(self, link, rel_to_follow='next'):
         """Process a page of inventory whose circulation we need to check.

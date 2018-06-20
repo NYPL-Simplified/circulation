@@ -5,7 +5,6 @@ import os
 import json
 import logging
 import copy
-from util import LanguageCodes
 from sqlalchemy.engine.url import make_url
 from flask_babel import lazy_gettext as _
 
@@ -14,8 +13,24 @@ from entrypoint import EntryPoint
 
 from sqlalchemy.exc import ArgumentError
 
-class CannotLoadConfiguration(Exception):
+from util import LanguageCodes
+
+# It's convenient for other modules import IntegrationException
+# from this module, alongside CannotLoadConfiguration.
+from util.http import IntegrationException
+
+
+class CannotLoadConfiguration(IntegrationException):
+    """The current configuration of an external integration, or of the
+    site as a whole, is in an incomplete or inconsistent state.
+
+    This is more specific than a base IntegrationException because it
+    assumes the problem is evident just by looking at the current
+    configuration, with no need to actually talk to the foreign
+    server.
+    """
     pass
+
 
 @contextlib.contextmanager
 def temp_config(new_config=None, replacement_classes=None):

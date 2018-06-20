@@ -8407,6 +8407,7 @@ class Representation(Base):
     EPUB_MEDIA_TYPE = u"application/epub+zip"
     PDF_MEDIA_TYPE = u"application/pdf"
     MOBI_MEDIA_TYPE = u"application/x-mobipocket-ebook"
+    AMAZON_KF8_MEDIA_TYPE = u"application/x-mobi8-ebook"
     TEXT_XML_MEDIA_TYPE = u"text/xml"
     TEXT_HTML_MEDIA_TYPE = u"text/html"
     APPLICATION_XML_MEDIA_TYPE = u"application/xml"
@@ -8428,6 +8429,7 @@ class Representation(Base):
         PDF_MEDIA_TYPE,
         MOBI_MEDIA_TYPE,
         MP3_MEDIA_TYPE,
+        AMAZON_KF8_MEDIA_TYPE,
     ]
 
     # These media types are in the order we would prefer to use them.
