@@ -1836,7 +1836,7 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(len(children), 2)
         eq_(children[0].attrib.get("href"), TestAnnotator.default_lane_url())
         eq_(children[0].attrib.get("title"), TestAnnotator.top_level_title())
-        eq_(children[1].attrib.get("href"), TestAnnotator.default_lane_url() + "?entrypoint=" + ep.URI)
+        eq_(children[1].attrib.get("href"), TestAnnotator.default_lane_url() + "?entrypoint=" + ep.INTERNAL_NAME)
         eq_(children[1].attrib.get("title"), ep.INTERNAL_NAME)
 
         # One lane level down but with no entrypoint
@@ -1848,7 +1848,7 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(len(children), 2)
         eq_(children[0].attrib.get("href"), TestAnnotator.default_lane_url())
         eq_(children[0].attrib.get("title"), TestAnnotator.top_level_title())
-        assert(("?entrypoint=" + ep.URI) not in children[1].attrib.get("href"))
+        assert(("?entrypoint=" + ep.INTERNAL_NAME) not in children[1].attrib.get("href"))
         eq_(children[1].attrib.get("title"), lane.display_name)
 
         # One lane level down and with an entrypoint
@@ -1861,9 +1861,9 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(len(children), 3)
         eq_(children[0].attrib.get("href"), TestAnnotator.default_lane_url())
         eq_(children[0].attrib.get("title"), TestAnnotator.top_level_title())
-        eq_(children[1].attrib.get("href"), TestAnnotator.default_lane_url() + "?entrypoint=" + ep.URI)
+        eq_(children[1].attrib.get("href"), TestAnnotator.default_lane_url() + "?entrypoint=" + ep.INTERNAL_NAME)
         eq_(children[1].attrib.get("title"), ep.INTERNAL_NAME)
-        assert(("?entrypoint=" + ep.URI) in children[2].attrib.get("href"))
+        assert(("?entrypoint=" + ep.INTERNAL_NAME) in children[2].attrib.get("href"))
         eq_(children[2].attrib.get("title"), lane.display_name)
 
         # Two lane levels down but no entrypoint
@@ -1875,9 +1875,9 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(len(children), 3)
         eq_(children[0].attrib.get("href"), TestAnnotator.default_lane_url())
         eq_(children[0].attrib.get("title"), TestAnnotator.top_level_title())
-        assert(("?entrypoint=" + ep.URI) not in children[1].attrib.get("href"))
+        assert(("?entrypoint=" + ep.INTERNAL_NAME) not in children[1].attrib.get("href"))
         eq_(children[1].attrib.get("title"), lane.display_name)
-        assert(("?entrypoint=" + ep.URI) not in children[1].attrib.get("href"))
+        assert(("?entrypoint=" + ep.INTERNAL_NAME) not in children[1].attrib.get("href"))
         eq_(children[2].attrib.get("title"), sublane.display_name)
 
         # Two lane levels down after the entrypoint
@@ -1890,11 +1890,11 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_(len(children), 4)
         eq_(children[0].attrib.get("href"), TestAnnotator.default_lane_url())
         eq_(children[0].attrib.get("title"), TestAnnotator.top_level_title())
-        eq_(children[1].attrib.get("href"), TestAnnotator.default_lane_url() + "?entrypoint=" + ep.URI)
+        eq_(children[1].attrib.get("href"), TestAnnotator.default_lane_url() + "?entrypoint=" + ep.INTERNAL_NAME)
         eq_(children[1].attrib.get("title"), ep.INTERNAL_NAME)
-        assert(("?entrypoint=" + ep.URI) in children[2].attrib.get("href"))
+        assert(("?entrypoint=" + ep.INTERNAL_NAME) in children[2].attrib.get("href"))
         eq_(children[2].attrib.get("title"), lane.display_name)
-        assert(("?entrypoint=" + ep.URI) in children[3].attrib.get("href"))
+        assert(("?entrypoint=" + ep.INTERNAL_NAME) in children[3].attrib.get("href"))
         eq_(children[3].attrib.get("title"), sublane.display_name)
 
 
