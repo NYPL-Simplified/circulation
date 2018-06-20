@@ -60,6 +60,7 @@ from util.opds_writer import (
     OPDSMessage,
 )
 from mirror import MirrorUploader
+from selftest import HasSelfTests
 
 
 class AccessNotAuthenticated(Exception):
@@ -1455,7 +1456,7 @@ class OPDSImporter(object):
         return series_name, series_position
 
 
-class OPDSImportMonitor(CollectionMonitor):
+class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
 
     """Periodically monitor a Collection's OPDS archive feed and import
     every title it mentions.
@@ -1493,6 +1494,7 @@ class OPDSImportMonitor(CollectionMonitor):
                 "Collection %s has no associated data source." % collection.name
             )
 
+        self.external_integration_id = collection.external_integration.id
         self.feed_url = self.opds_url(collection)
         self.force_reimport = force_reimport
         self.username = collection.external_integration.username
@@ -1501,6 +1503,17 @@ class OPDSImportMonitor(CollectionMonitor):
             _db, collection=collection, **import_class_kwargs
         )
         super(OPDSImportMonitor, self).__init__(_db, collection)
+
+    def external_integration(self, _db):
+        return get_one(_db, ExternalIntegration,
+                       id=self.external_integration_id)
+
+    def _run_self_tests(self, _db):
+        """Retrieve the first page of the OPDS feed"""
+        yield self.run_test(
+            "Retrieve the first page of the OPDS feed (%s)" % self.feed_url,
+            self.follow_one_link, self.feed_url
+        )
     
     def _get(self, url, headers):
         """Make the sort of HTTP request that's normal for an OPDS feed.

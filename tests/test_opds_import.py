@@ -1573,6 +1573,35 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             OPDSImporter,
         )
 
+    def test_external_integration(self):
+        monitor = OPDSImportMonitor(
+            self._db, self._default_collection,
+            import_class=OPDSImporter,
+        )
+        eq_(self._default_collection.external_integration,
+            monitor.external_integration(self._db))
+
+    def test__run_self_tests(self):
+        """Verify the self-tests of an OPDS collection."""
+        class Mock(OPDSImportMonitor):
+            follow_one_link_called_with = []
+            def follow_one_link(self, url):
+                self.follow_one_link_called_with.append(url)
+                return "some content"
+        feed_url = self._url
+        self._default_collection.external_account_id = feed_url
+        monitor = Mock(self._db, self._default_collection,
+                       import_class=OPDSImporter)
+        [result] = monitor._run_self_tests(self._db)
+        expect = "Retrieve the first page of the OPDS feed (%s)" % feed_url
+        eq_(expect, result.name)
+        eq_(True, result.success)
+        eq_("some content", result.result)
+
+        # follow_one_link was called once.
+        [link] = monitor.follow_one_link_called_with
+        eq_(monitor.feed_url, link)
+
     def test_hook_methods(self):
         """By default, the OPDS URL and data source used by the importer 
         come from the collection configuration.
