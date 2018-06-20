@@ -173,11 +173,11 @@ class AuthenticatorTest(DatabaseTest):
         """Convenience method to instantiate a MockBasic object with the 
         default library.
         """
-        integration = self._external_integration(
+        self.mock_basic_integration = self._external_integration(
             self._str, ExternalIntegration.PATRON_AUTH_GOAL
         )
         return MockBasic(
-            self._default_library, integration, *args, **kwargs
+            self._default_library, self.mock_basic_integration, *args, **kwargs
         )
 
         
@@ -1200,6 +1200,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 class TestAuthenticationProvider(AuthenticatorTest):
 
     credentials = dict(username='user', password='')
+
+    def test_external_integration(self):
+        provider = self.mock_basic(patrondata=None)
+        eq_(self.mock_basic_integration,
+            provider.external_integration(self._db))
     
     def test_authenticated_patron_passes_on_none(self):
         provider = self.mock_basic(patrondata=None)

@@ -74,10 +74,7 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
 
     @classmethod
     def from_config(cls, _db, **kwargs):
-        integration = ExternalIntegration.lookup(
-            _db, ExternalIntegration.NYT,
-            ExternalIntegration.METADATA_GOAL
-        )
+        integration = cls.external_integration(_db)
 
         if not integration:
             message = "No ExternalIntegration found for the NYT."
@@ -102,6 +99,13 @@ class NYTBestSellerAPI(NYTAPI, HasSelfTests):
                     "Metadata wrangler integration is not configured, proceeding without one."
                 )
         self.metadata_client = metadata_client
+
+    @classmethod
+    def external_integration(cls, _db):
+        return ExternalIntegration.lookup(
+            _db, ExternalIntegration.NYT,
+            ExternalIntegration.METADATA_GOAL
+        )
 
     def _run_self_tests(self, _db):
         yield self.run_test(
