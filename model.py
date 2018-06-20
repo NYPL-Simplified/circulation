@@ -3066,7 +3066,7 @@ class Edition(Base):
 
     # These are the media types currently fulfillable by the default
     # client.
-    FULFILLABLE_MEDIA = [BOOK_MEDIUM]
+    FULFILLABLE_MEDIA = [BOOK_MEDIUM, AUDIO_MEDIUM]
 
     medium_to_additional_type = {
         BOOK_MEDIUM : u"http://schema.org/EBook",
