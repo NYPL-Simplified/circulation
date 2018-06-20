@@ -131,6 +131,7 @@ class TestBibliothecaAPI(BibliothecaAPITest):
 
         eq_("Asking for circulation events for the last five minutes",
             recent_circulation_events.name)
+        eq_(True, recent_circulation_events.success)
         eq_("Found 3 event(s)", recent_circulation_events.result)
         start, end = api.get_events_between_called_with
         eq_(5*60, (end-start).total_seconds())
