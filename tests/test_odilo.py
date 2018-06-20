@@ -99,15 +99,15 @@ class TestOdiloAPI(OdiloAPITest):
                 return self.mock_credential
 
             # Finally, for every library associated with this
-            # collection, we'll call get_patron_credential() using
+            # collection, we'll call get_patron_checkouts() using
             # the credentials of that library's test patron.
-            mock_patron_credential = object()
-            get_patron_access_token_called_with = []
-            def get_patron_access_token(self, credential, patron, pin):
-                self.get_patron_access_token_called_with.append(
-                    (credential, patron, pin)
+            mock_patron_checkouts = object()
+            get_patron_checkouts_called_with = []
+            def get_patron_checkouts(self, patron, pin):
+                self.get_patron_checkouts_called_with.append(
+                    (patron, pin)
                 )
-                return self.mock_patron_credential
+                return self.mock_patron_checkouts
 
         # Now let's make sure two Libraries have access to this
         # Collection -- one library with a default patron and one
@@ -130,7 +130,7 @@ class TestOdiloAPI(OdiloAPITest):
         results = sorted(
             api._run_self_tests(self._db), key=lambda x: x.name
         )
-        token_failure, token_success, sitewide = results
+        loans_failure, sitewide, loans_success = results
 
         # Make sure all three tests were run and got the expected result.
         #
@@ -141,28 +141,27 @@ class TestOdiloAPI(OdiloAPITest):
         eq_(api.mock_credential, sitewide.result)
         eq_(True, api.check_creds_called_with)
 
-        # We got a patron access token for the library that had
+        # We got the default patron's checkouts for the library that had
         # a default patron configured.
         eq_(
-            'Obtaining a patron access token for the test patron for library %s' % with_default_patron.name,
-            token_success.name
+            'Viewing the active loans for the test patron for library %s' % with_default_patron.name,
+            loans_success.name
         )
-        eq_(True, token_success.success)
-        # get_patron_access_token was only called once.
-        [(credential, patron, pin)] = api.get_patron_access_token_called_with
-        eq_(patron, credential.patron)
+        eq_(True, loans_success.success)
+        # get_patron_checkouts was only called once.
+        [(patron, pin)] = api.get_patron_checkouts_called_with
         eq_("username1", patron.authorization_identifier)
         eq_("password1", pin)
-        eq_(api.mock_patron_credential, token_success.result)
+        eq_(api.mock_patron_checkouts, loans_success.result)
 
         # We couldn't get a patron access token for the other library.
         eq_(
             'Acquiring test patron credentials for library %s' % no_default_patron.name,
-            token_failure.name
+            loans_failure.name
         )
-        eq_(False, token_failure.success)
+        eq_(False, loans_failure.success)
         eq_("Library has no test patron configured.",
-            token_failure.exception.message)
+            loans_failure.exception.message)
 
     def test_run_self_tests_short_circuit(self):
         """If OdiloAPI.check_creds can't get credentials, the rest of

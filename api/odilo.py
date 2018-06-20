@@ -87,15 +87,11 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
             if isinstance(result, SelfTestResult):
                 yield result
                 continue
+
             library, patron, pin = result
-            task = "Obtaining a patron access token for the test patron for library %s" % library.name
-
-            # Fetch the Credential without refreshing it.
-            credential = self._patron_credential_lookup(patron, None)
-
-            # Forcibly refresh the credential.
+            task = "Viewing the active loans for the test patron for library %s" % library.name
             yield self.run_test(
-                task, self.get_patron_access_token, credential, patron, pin
+                task, self.get_patron_checkouts, patron, pin
             )
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None, exception_on_401=False, method=None):
@@ -141,12 +137,14 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
         return url
 
     def get_patron_credential(self, patron, pin):
-        """Create an OAuth token for the given patron."""
+        """Create an OAuth token for the given patron.
+
+        TODO: This code does nothing and should be removed.
+        """
 
         def refresh(credential):
             return self.get_patron_access_token(credential, patron, pin)
-
-        return self._credential_lookup(patron, refresh)
+        return self._patron_credential_lookup(patron, refresh)
 
     def _patron_credential_lookup(self, patron, refresh):
         return Credential.lookup(self._db, DataSource.ODILO, "OAuth Token", patron, refresh)
@@ -154,6 +152,8 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
     def get_patron_access_token(self, credential, patron, pin):
         """Request an OAuth bearer token that allows us to act on
         behalf of a specific patron.
+
+        TODO: This code does nothing and should be removed.
         """
 
         self.client_key = patron
@@ -190,7 +190,6 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
             patron, pin, self.CHECKOUT_ENDPOINT.format(recordId=record_id),
             extra_headers={'Content-Type': 'application/x-www-form-urlencoded'},
             data=payload)
-
         if response.content:
             response_json = response.json()
             if response.status_code == 404:
