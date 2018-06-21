@@ -232,8 +232,11 @@ class TestHasSelfTests(DatabaseTest):
         exception = Exception("argh")
         now = datetime.datetime.utcnow()
         result = o.test_failure("a failure", exception)
+
+        # ...which will be turned into an IntegrationException.
         eq_("a failure", result.name)
-        eq_(exception, result.exception)
+        assert isinstance(result.exception, IntegrationException)
+        eq_("argh", result.exception.message)
         assert (result.start-now).total_seconds() < 1
 
         # ... or you can pass in arguments to an IntegrationException
