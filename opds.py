@@ -1088,7 +1088,7 @@ class AcquisitionFeed(OPDSFeed):
 
         try:
             return self._create_entry(
-                work, active_license_pool, active_edition, identifier, 
+                work, active_license_pool, active_edition, identifier,
                 force_create, use_cache
             )
         except UnfulfillableWork, e:
@@ -1333,7 +1333,7 @@ class AcquisitionFeed(OPDSFeed):
         """
         # Ensure that lane isn't top-level before proceeding
 
-        entrypointQuery = ("?entrypoint=" + entrypoint.URI) if entrypoint != None else ""
+        entrypointQuery = ("?entrypoint=" + entrypoint.INTERNAL_NAME) if entrypoint != None else ""
         annotator = self.annotator
         if annotator.lane_url(lane) != annotator.default_lane_url():
             breadcrumbs = AtomFeed.makeelement("{%s}breadcrumbs" % AtomFeed.SIMPLIFIED_NS)
