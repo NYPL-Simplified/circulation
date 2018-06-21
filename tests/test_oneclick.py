@@ -174,6 +174,10 @@ class TestOneClickAPI(OneClickAPITest):
         eq_("Invalid library id is provided or permission denied", result.exception.message)
         eq_(repr(error), result.exception.debug_message)
 
+    def test_external_integration(self):
+        eq_(self.collection.external_integration,
+            self.api.external_integration(self._db))
+
     def queue_initial_patron_id_lookup(self):
         """All the OneClickAPI methods that take a Patron object call
         self.patron_remote_identifier() immediately, to find the

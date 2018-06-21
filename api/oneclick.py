@@ -112,6 +112,9 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
             )
         )
 
+    def external_integration(self, _db):
+        return self.collection.external_integration
+
     def _run_self_tests(self, _db):
         def count(media_type):
             # Call get_ebook_availability_info and count how many titles
