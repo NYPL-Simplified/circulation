@@ -29,6 +29,11 @@ from circulation import (
 
 from circulation_exceptions import *
 
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
+
 from core.util import LanguageCodes
 from core.util.http import (
     HTTP,
@@ -82,7 +87,7 @@ from core.testing import DatabaseTest
 
 #TODO: Remove unnecessary imports (once the classes are more or less complete)
 
-class EnkiAPI(BaseCirculationAPI):
+class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     PRODUCTION_BASE_URL = "https://enkilibrary.org/API/"
 
@@ -138,9 +143,39 @@ class EnkiAPI(BaseCirculationAPI):
             )
         )
 
+    def external_integration(self, _db):
+        return self.collection.external_integration
+
     @property
     def collection(self):
         return Collection.by_id(self._db, id=self.collection_id)
+
+    def _run_self_tests(self, _db):
+
+        def count_events():
+            now = datetime.datetime.utcnow()
+            one_hour_ago = datetime.timedelta(minutes=5)
+            availability = self.availability(since=one_hour_ago)
+            set_trace()
+            pass
+
+        #yield self.run_test(
+        #    "Counting circulation events in the last hour",
+        #    count_events
+        #)
+
+        for result in self.default_patrons(self.collection):
+            if isinstance(result, SelfTestResult):
+                yield result
+                continue
+            library, patron, pin = result
+            task = "Checking patron activity, using test patron for library %s" % library.name
+            def count_loans_and_holds(patron, pin):
+                activity = list(self.patron_activity(patron, pin))
+                return "Total loans and holds: %s" % len(activity)
+            yield self.run_test(
+                task, count_loans_and_holds, patron, pin
+            )
 
     def request(self, url, method='get', extra_headers={}, data=None,
                 params=None, exception_on_401=False):
@@ -171,10 +206,10 @@ class EnkiAPI(BaseCirculationAPI):
             return response
 
     def availability(self, patron_id=None, since=None, title_ids=[], strt=0, qty=2000):
+        qty = 10
         self.log.debug ("requesting : "+ str(qty) + " books starting at econtentRecord" +  str(strt))
         url = str(self.base_url) + str(self.availability_endpoint)
         args = dict()
-        args['method'] = "getAllTitles"
         args['id'] = "secontent"
         args['strt'] = strt
         args['qty'] = qty
@@ -385,8 +420,9 @@ class EnkiAPI(BaseCirculationAPI):
                 raise CirculationException()
         for loan in result['checkedOutItems']:
             yield self.parse_patron_loans(loan)
-        for hold in result['holds']:
-            yield self.parse_patron_holds(hold)
+        for type, holds in result['holds'].items():
+            for hold in holds:
+                yield self.parse_patron_holds(hold)
 
     def patron_request(self, patron, pin):
         self.log.debug ("Querying Enki for information on patron %s" % patron)
@@ -401,6 +437,7 @@ class EnkiAPI(BaseCirculationAPI):
 
     def parse_patron_loans(self, checkout_data):
         # We should receive a list of JSON objects
+        set_trace()
         enki_id = checkout_data['recordId']
         start_date = self.epoch_to_struct(checkout_data['checkoutdate'])
         end_date = self.epoch_to_struct(checkout_data['duedate'])
