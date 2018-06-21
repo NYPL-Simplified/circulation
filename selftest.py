@@ -4,6 +4,7 @@ from nose.tools import set_trace
 from util.http import IntegrationException
 import datetime
 import json
+import traceback
 from util.opds_writer import AtomFeed
 
 
@@ -141,8 +142,16 @@ class HasSelfTests(object):
         results.append(result)
 
         if instance:
-            for result in instance._run_self_tests(_db):
-                results.append(result)
+            try:
+                for result in instance._run_self_tests(_db):
+                    results.append(result)
+            except Exception, e:
+                # This should only happen when there's a bug in the
+                # self-test method itself.
+                failure = instance.test_failure(
+                    "Uncaught exception in the self-test method itself.", e
+                )
+                results.append(failure)
             integration = instance.external_integration(_db)
         end = datetime.datetime.utcnow()
 
@@ -229,7 +238,9 @@ class HasSelfTests(object):
         result.success = False
         if isinstance(message, Exception):
             exception = message
-        else:
-            exception = IntegrationException(message, debug_message)
+            message = exception.message
+            if not debug_message:
+                debug_message = traceback.format_exc()
+        exception = IntegrationException(message, debug_message)
         result.exception = exception
         return result

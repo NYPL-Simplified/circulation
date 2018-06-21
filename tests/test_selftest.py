@@ -175,6 +175,28 @@ class TestHasSelfTests(DatabaseTest):
         eq_(False, result.success)
         eq_("I don't work!", result.exception.message)
 
+    def test_exception_in_has_self_tests(self):
+        """An exception raised in has_self_tests itself is converted into a
+        test failure.
+        """
+        class Tester(HasSelfTests):
+            def _run_self_tests(self, _db):
+                yield SelfTestResult("everything's ok so far")
+                raise Exception("oh no")
+                yield SelfTestResult("i'll never be called.")
+
+        status, [init, success, failure] = Tester.run_self_tests(object())
+        eq_("Initial setup.", init.name)
+        eq_("everything's ok so far", success.name)
+
+        eq_("Uncaught exception in the self-test method itself.", failure.name)
+        eq_(False, failure.success)
+        # The Exception was turned into an IntegrationException so that
+        # its traceback could be included as debug_message.
+        assert isinstance(failure.exception, IntegrationException)
+        eq_("oh no", failure.exception.message)
+        assert failure.exception.debug_message.startswith("Traceback")
+
     def test_run_test_success(self):
         o = HasSelfTests()
         # This self-test method will succeed.
