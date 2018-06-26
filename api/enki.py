@@ -152,25 +152,28 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def _run_self_tests(self, _db):
 
-        def count_loans_and_holds(minutes):
+        def count_loans_and_holds():
             """Count recent circulation events that affected loans or holds.
             """
-            return len(list(self.recent_activity(minutes=minutes)))
+            count = len(list(self.recent_activity(minutes=60)))
+            return "%s circulation events in the last hour" % count
 
         yield self.run_test(
-            "Counting circulation events in the last hour",
-            count_loans_and_holds, 60
+            "Counting recent circulation changes.",
+            count_loans_and_holds
         )
 
-        def count_title_changes(minutes):
+        def count_title_changes():
             """Count changes to title metadata (usually because of
             new titles).
             """
-            return len(list(self.updated_titles(minutes=minutes)))
+            return "%s titles added/updated in the last day" % (
+                len(list(self.updated_titles(minutes=60*24)))
+            )
 
         yield self.run_test(
-            "Counting added/updated titles in the last day",
-            count_title_changes, 60*24
+            "Counting recent collection changes.",
+            count_title_changes,
         )
 
         for result in self.default_patrons(self.collection):
@@ -229,7 +232,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, params=args)
         data = json.loads(response.content)
         parser = BibliographicParser()
-        for element in data['recentactivity']:
+        for element in data['result']['recentactivity']:
             identifier = IdentifierData(Identifier.ISBN, element['isbn'])
             yield parser.extract_circulation(
                 identifier, element['availability']
@@ -240,7 +243,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
         :yield: A sequence of Metadata objects.
         """
-        url = self.base_url + self.list_endpoint
+        url = self.base_url + self.availability_endpoint
         args = dict(
             method='getUpdateTitles',
             minutes=minutes,
