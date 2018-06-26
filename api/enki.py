@@ -152,17 +152,26 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def _run_self_tests(self, _db):
 
-        def count_events():
-            now = datetime.datetime.utcnow()
-            one_hour_ago = datetime.timedelta(minutes=5)
-            availability = self.availability(since=one_hour_ago)
-            set_trace()
-            pass
+        def count_loans_and_holds(minutes):
+            """Count recent circulation events that affected loans or holds.
+            """
+            return len(list(self.recent_activity(minutes=minutes)))
 
-        #yield self.run_test(
-        #    "Counting circulation events in the last hour",
-        #    count_events
-        #)
+        yield self.run_test(
+            "Counting circulation events in the last hour",
+            count_loans_and_holds, 60
+        )
+
+        def count_title_changes(minutes):
+            """Count changes to title metadata (usually because of
+            new titles).
+            """
+            return len(list(self.updated_titles(minutes=minutes)))
+
+        yield self.run_test(
+            "Counting added/updated titles in the last day",
+            count_title_changes, 60*24
+        )
 
         for result in self.default_patrons(self.collection):
             if isinstance(result, SelfTestResult):
@@ -205,7 +214,50 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         else:
             return response
 
+
+    def recent_activity(self, minutes=5):
+        """Find recent circulation events that affected loans or holds.
+
+        :yield: A sequence of CirculationData objects.
+        """
+        url = self.base_url + self.item_endpoint
+        args = dict(
+            method='getRecentActivity',
+            minutes=minutes,
+            lib=self.library_id
+        )
+        response = self.request(url, params=args)
+        data = json.loads(response.content)
+        parser = BibliographicParser()
+        for element in data['recentactivity']:
+            identifier = IdentifierData(Identifier.ISBN, element['isbn'])
+            yield parser.extract_circulation(
+                identifier, element['availability']
+            )
+
+    def updated_titles(self, minutes=5):
+        """Find recent changes to book metadata.
+
+        :yield: A sequence of Metadata objects.
+        """
+        url = self.base_url + self.list_endpoint
+        args = dict(
+            method='getUpdateTitles',
+            minutes=minutes,
+            id='secontent',
+            lib=self.library_id
+        )
+        response = self.request(url, params=args)
+        for i in BibliographicParser().process_all(response.content):
+            yield i
+
+
     def availability(self, patron_id=None, since=None, title_ids=[], strt=0, qty=2000):
+        """Get *all* titles in a paginated list.
+
+        This is a very expensive API call and should only be used
+        during initial data population.
+        """
         qty = 10
         self.log.debug ("requesting : "+ str(qty) + " books starting at econtentRecord" +  str(strt))
         url = str(self.base_url) + str(self.availability_endpoint)
@@ -437,7 +489,6 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def parse_patron_loans(self, checkout_data):
         # We should receive a list of JSON objects
-        set_trace()
         enki_id = checkout_data['recordId']
         start_date = self.epoch_to_struct(checkout_data['checkoutdate'])
         end_date = self.epoch_to_struct(checkout_data['duedate'])
@@ -615,10 +666,17 @@ class BibliographicParser(object):
             contributors=contributors,
             links=images,
         )
-        licenses_owned=element["availability"]["totalCopies"]
-        licenses_available=element["availability"]["availableCopies"]
-        hold=element["availability"]["onHold"]
-        drm_type = EnkiAPI.adobe_drm if (element["availability"]["accessType"] == 'acs') else EnkiAPI.no_drm
+        circulationdata = self.extract_circulation(
+            primary_identifier, element['availability']
+        )
+        metadata.circulation = circulationdata
+        return metadata
+
+    def extract_circulation(self, primary_identifier, availability):
+        licenses_owned=availability["totalCopies"]
+        licenses_available=availability["availableCopies"]
+        hold=availability["onHold"]
+        drm_type = EnkiAPI.adobe_drm if (availability["accessType"] == 'acs') else EnkiAPI.no_drm
         formats = []
         formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=drm_type))
 
@@ -630,10 +688,7 @@ class BibliographicParser(object):
             licenses_available = int(licenses_available),
             patrons_in_hold_queue = int(hold)
         )
-
-        metadata.circulation = circulationdata
-        return metadata
-
+        return circulationdata
 
     def process_one(self, element):
         if self.include_bibliographic:
