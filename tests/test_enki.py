@@ -32,11 +32,15 @@ from api.enki import (
     EnkiImport,
     BibliographicParser,
 )
+from core.metadata_layer import (
+    CirculationData,
+    Metadata,
+)
 from core.scripts import RunCollectionCoverageProviderScript
 from core.util.http import BadResponseException
 from core.testing import MockRequestsResponse
 
-class BaseEnkiTest(object):
+class BaseEnkiTest(DatabaseTest):
 
     base_path = os.path.split(__file__)[0]
     resource_path = os.path.join(base_path, "files", "enki")
@@ -46,13 +50,13 @@ class BaseEnkiTest(object):
         path = os.path.join(cls.resource_path, filename)
         return open(path).read()
 
-
-class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
-
     def setup(self):
-        super(TestEnkiAPI, self).setup()
+        super(BaseEnkiTest, self).setup()
         self.collection = self._collection(protocol=EnkiAPI.ENKI)
         self.api = MockEnkiAPI(self._db)
+
+
+class TestEnkiAPI(BaseEnkiTest):
 
     def test_create_identifier_strings(self):
         identifier = self._identifier(identifier_type=Identifier.ENKI_ID)
@@ -141,7 +145,33 @@ class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
 
         loan = self.api.checkout(patron,'1234',pool,None)
 
-class TestBibliographicCoverageProvider(TestEnkiAPI):
+    def test_recent_activity(self):
+        data = self.get_data("get_recent_activity.json")
+        self.api.queue_response(200, content=data)
+        activity = list(self.api.recent_activity(minutes=22))
+        eq_(43, len(activity))
+        for i in activity:
+            assert isinstance(i, CirculationData)
+        [url, args, kwargs] = self.api.requests.pop()
+        eq_(22, kwargs['params']['minutes'])
+
+    def test_updated_titles(self):
+        data = self.get_data("get_update_titles.json")
+        self.api.queue_response(200, content=data)
+        activity = list(self.api.updated_titles(minutes=22))
+
+        eq_(6, len(activity))
+        for i in activity:
+            assert isinstance(i, Metadata)
+
+        eq_("Nervous System", activity[0].title)
+        eq_(1, activity[0].circulation.licenses_owned)
+
+
+        [url, args, kwargs] = self.api.requests.pop()
+        eq_(22, kwargs['params']['minutes'])
+
+class TestBibliographicCoverageProvider(BaseEnkiTest):
 
     """Test the code that looks up bibliographic information from Enki."""
 
@@ -178,7 +208,7 @@ class TestBibliographicCoverageProvider(TestEnkiAPI):
         eq_("https://enkilibrary.org/bookcover.php?id=1&isn=9780547249643&size=large&upc=English&category=EMedia&econtent=true",pool.presentation_edition.cover_full_url)
         eq_("https://enkilibrary.org/bookcover.php?id=1&isn=9780547249643&size=large&upc=English&category=EMedia&econtent=true",pool.presentation_edition.cover_thumbnail_url)
 
-class TestEnkiCollectionReaper(TestEnkiAPI):
+class TestEnkiCollectionReaper(BaseEnkiTest):
 
     def test_reaped_book_has_zero_licenses(self):
         data = "<html></html>"

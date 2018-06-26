@@ -251,8 +251,10 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             lib=self.library_id
         )
         response = self.request(url, params=args)
-        for i in BibliographicParser().process_all(response.content):
-            yield i
+        for metadata, availability in BibliographicParser().process_all(
+            response.content
+        ):
+            yield metadata
 
 
     def availability(self, patron_id=None, since=None, title_ids=[], strt=0, qty=2000):
