@@ -3,6 +3,8 @@
 from nose.tools import set_trace
 from util.http import IntegrationException
 import datetime
+import json
+from util.opds_writer import AtomFeed
 
 
 class SelfTestResult(object):
@@ -31,27 +33,73 @@ class SelfTestResult(object):
         # End time of the test.
         self.end = None
 
+    @property
+    def to_dict(self):
+        """Convert this SelfTestResult to a dictionary for use in
+        JSON serialization.
+        """
+        # Time formatting method
+        f = AtomFeed._strftime
+        if self.exception:
+            exception = { "class": self.exception.__class__.__name__,
+                          "message": self.exception.message,
+                          "debug_message" : self.debug_message }
+        else:
+            exception = None
+        value = dict(
+            name=self.name, success=self.success,
+            duration=self.duration,
+            exception=exception
+        )
+        if self.start:
+            value['start'] = f(self.start)
+        if self.end:
+            value['end'] = f(self.end)
+        if isinstance(self.result, basestring):
+            value['result'] = self.result
+        else:
+            value['result'] = None
+        return value
+
     def __repr__(self):
         if self.exception:
-            if (isinstance(self.exception, IntegrationException)
-                and self.exception.debug_message):
+            if isinstance(self.exception, IntegrationException):
                 exception = " exception=%r debug=%r" % (
-                    self.exception.message, self.exception.debug_message
+                    self.exception.message,
+                    self.debug_message
                 )
             else:
                 exception = " exception=%r" % self.exception
         else:
             exception = ""
-        return "<SelfTestResult: name=%r timing=%.2fsec success=%r%s result=%r>" % (
-            self.name, (self.end-self.start).total_seconds(), self.success,
+        return "<SelfTestResult: name=%r duration=%.2fsec success=%r%s result=%r>" % (
+            self.name, self.duration, self.success,
             exception, self.result
         )
+
+    @property
+    def duration(self):
+        """How long the test took to run."""
+        if not self.start or not self.end:
+            return 0
+        return (self.end-self.start).total_seconds()
+
+    @property
+    def debug_message(self):
+        """The debug message associated with the Exception, if any."""
+        if not self.exception:
+            return None
+        return getattr(self.exception, 'debug_message', None)
 
 
 class HasSelfTests(object):
     """An object capable of verifying its own setup by running a
     series of self-tests.
     """
+
+    # Self-test results are stored in a ConfigurationSetting with this name,
+    # associated with the appropriate ExternalIntegration.
+    SELF_TEST_RESULTS_SETTING = 'self_test_results'
 
     @classmethod
     def run_self_tests(cls, _db, constructor_method=None, *args, **kwargs):
@@ -67,12 +115,20 @@ class HasSelfTests(object):
         :param args: Positional arguments to pass into the constructor.
         :param kwargs: Keyword arguments to pass into the constructor.
 
-        :return: An iterator of SelfTestResult objects, starting with
-        the attempt to instantiate the test class in the first place.
+        :return: A 2-tuple (results_dict, results_list) `results_dict`
+        is a JSON-serializable dictionary describing the results of
+        the self-test. `results_list` is a list of SelfTestResult
+        objects.
         """
         constructor_method = constructor_method or cls
+        start = datetime.datetime.utcnow()
         result = SelfTestResult("Initial setup.")
         instance = None
+        integration = None
+        results = []
+
+        # Treat the construction of the integration code as its own
+        # test.
         try:
             instance = constructor_method(*args, **kwargs)
             result.success = True
@@ -82,11 +138,52 @@ class HasSelfTests(object):
             result.success = False
         finally:
             result.end = datetime.datetime.utcnow()
-        yield result
+        results.append(result)
 
         if instance:
             for result in instance._run_self_tests(_db):
-                yield result
+                results.append(result)
+            integration = instance.external_integration(_db)
+        end = datetime.datetime.utcnow()
+
+        # Format the results in a useful way.
+        value = dict(
+            start=AtomFeed._strftime(start),
+            end=AtomFeed._strftime(end),
+            duration = (end-start).total_seconds(),
+            results = [x.to_dict for x in results]
+        )
+
+        # Store the formatted results in the database, if we can find
+        # a place to store them.
+        if integration:
+            integration.setting(
+                cls.SELF_TEST_RESULTS_SETTING
+            ).value = json.dumps(value)
+        return value, results
+
+    @classmethod
+    def prior_test_results(cls, _db, constructor_method=None, *args, **kwargs):
+        """Retrieve the last set of test results from the database.
+
+        The arguments here are the same as the arguments to run_self_tests.
+        """
+        constructor_method = constructor_method or cls
+        integration = None
+        instance = constructor_method(*args, **kwargs)
+        integration = instance.external_integration(_db)
+        if integration:
+            return integration.setting(cls.SELF_TEST_RESULTS_SETTING).json_value
+
+    def external_integration(self, _db):
+        """Locate the ExternalIntegration associated with this object.
+        The status of the self-tests will be stored as a ConfigurationSetting
+        on this ExternalIntegration.
+
+        By default, there is no way to get from an object to its
+        ExternalIntegration, and self-test status will not be stored.
+        """
+        return None
 
     def _run_self_tests(self, _db):
         """Run a series of self-tests.

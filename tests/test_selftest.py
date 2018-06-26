@@ -11,6 +11,8 @@ from nose.tools import (
 
 import datetime
 
+from . import DatabaseTest
+
 from selftest import (
     SelfTestResult,
     HasSelfTests,
@@ -23,8 +25,10 @@ class TestSelfTestResult(object):
     now = datetime.datetime.utcnow()
     future = now + datetime.timedelta(seconds=5)
 
-    def test_repr_success(self):
-        """Show the string representation of a successful test result."""
+    def test_success_representation(self):
+        """Show the string and dictionary representations of a successful
+        test result.
+        """
         # A successful result
         result = SelfTestResult("success1")
         result.start = self.now
@@ -32,12 +36,19 @@ class TestSelfTestResult(object):
         result.result = "The result"
         result.success = True
         eq_(
-            "<SelfTestResult: name='success1' timing=5.00sec success=False result='The result'>",
+            "<SelfTestResult: name='success1' duration=5.00sec success=True result='The result'>",
             repr(result)
         )
 
-    def test_repr_success(self):
-        """Show the string representation of a successful test result."""
+        d = result.to_dict
+        eq_("success1", d['name'])
+        eq_("The result", d['result'])
+        eq_(5.0, d['duration'])
+        eq_(True, d['success'])
+        eq_(None, d['exception'])
+
+    def test_repr_failure(self):
+        """Show the string representation of a failed test result."""
 
         exception = IntegrationException("basic info", "debug info")
 
@@ -47,17 +58,27 @@ class TestSelfTestResult(object):
         result.exception = exception
         result.result = "The result"
         eq_(
-            "<SelfTestResult: name='failure1' timing=5.00sec success=False exception='basic info' debug='debug info' result='The result'>",
+            "<SelfTestResult: name='failure1' duration=5.00sec success=False exception='basic info' debug='debug info' result='The result'>",
             repr(result)
         )
 
+        d = result.to_dict
+        eq_("failure1", d['name'])
+        eq_("The result", d['result'])
+        eq_(5.0, d['duration'])
+        eq_(False, d['success'])
+        eq_('IntegrationException', d['exception']['class'])
+        eq_('basic info', d['exception']['message'])
+        eq_('debug info', d['exception']['debug_message'])
 
-class TestHasSelfTests(object):
+
+class TestHasSelfTests(DatabaseTest):
 
     def test_run_self_tests(self):
         """See what might happen when run_self_tests tries to instantiate an
         object and run its self-tests.
         """
+
         class Tester(HasSelfTests):
             def __init__(self, extra_arg=None):
                 """This constructor works."""
@@ -75,30 +96,61 @@ class TestHasSelfTests(object):
                 """This constructor doesn't work."""
                 raise Exception("I don't work!")
 
+            def external_integration(self, _db):
+                """This integration will be used to store the test results."""
+                return self.integration
+
             def _run_self_tests(self, _db):
                 self._run_self_tests_called_with = _db
-                return ["a result"]
+                return [SelfTestResult("a test result")]
         mock_db = object()
+
+        # This integration will be used to store the test results.
+        integration = self._external_integration(self._str)
+        Tester.integration = integration
 
         # By default, the default constructor is instantiated and its
         # _run_self_tests method is called.
-        [setup, test] = list(
-            Tester.run_self_tests(mock_db, extra_arg="a value")
+        data, [setup, test] = Tester.run_self_tests(
+            mock_db, extra_arg="a value"
         )
         eq_(mock_db, setup.result._run_self_tests_called_with)
 
-        # There are two results -- one from the initial setup
-        # and one from the _run_self_tests call.
+        # There are two results -- `setup` from the initial setup
+        # and `test` from the _run_self_tests call.
         eq_("Initial setup.", setup.name)
         eq_(True, setup.success)
         eq_("a value", setup.result.invoked_with)
+        eq_("a test result", test.name)
 
-        eq_("a result", test)
+        # The `data` variable contains a dictionary describing the test
+        # suite as a whole.
+        assert data['duration'] < 1
+        for key in 'start', 'end':
+            assert key in data
+
+        # `data['results']` contains dictionary versions of the self-tests
+        # that were returned separately.
+        r1, r2 = data['results']
+        eq_(r1, setup.to_dict)
+        eq_(r2, test.to_dict)
+
+        # A JSON version of `data` is stored in the
+        # ExternalIntegration returned by the external_integration()
+        # method.
+        [result_setting] = integration.settings
+        eq_(HasSelfTests.SELF_TEST_RESULTS_SETTING, result_setting.key)
+        eq_(data, result_setting.json_value)
+
+        # Remove the testing integration to show what happens when
+        # HasSelfTests doesn't support the storage of test results.
+        Tester.integration = None
+        result_setting.value = "this value will not be changed"
 
         # You can specify a different class method to use as the
         # constructor. Once the object is instantiated, the same basic
         # code runs.
-        [setup, test] = Tester.run_self_tests(
+        data, [setup, test] = Tester.run_self_tests(
             mock_db, Tester.good_alternate_constructor,
             another_extra_arg="another value"
         )
@@ -106,12 +158,17 @@ class TestHasSelfTests(object):
         eq_(True, setup.success)
         eq_(None, setup.result.invoked_with)
         eq_("another value", setup.result.another_extra_arg)
-        eq_("a result", test)
+        eq_("a test result", test.name)
+
+        # Since the HasSelfTests object no longer has an associated
+        # ExternalIntegration, the test results are not persisted
+        # anywhere.
+        eq_("this value will not be changed", result_setting.value)
 
         # If there's an exception in the constructor, the result is a
         # single SelfTestResult describing that failure. Since there is
         # no instance, _run_self_tests can't be called.
-        [result] = Tester.run_self_tests(
+        data, [result] = Tester.run_self_tests(
             mock_db, Tester.bad_alternate_constructor,
         )
         assert isinstance(result, SelfTestResult)
