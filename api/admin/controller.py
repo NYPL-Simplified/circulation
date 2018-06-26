@@ -140,6 +140,12 @@ from api.adobe_vendor_id import AuthdataUtility
 
 from core.external_search import ExternalSearchIndex
 
+from api.circulation import CirculationAPI
+from api.selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
+
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
     if not manager.testing:
@@ -1146,7 +1152,7 @@ class WorkController(AdminCirculationManagerController):
 
         if image_url and not image_file:
             image_file = StringIO(urllib.urlopen(image_url).read())
-        
+
         image = Image.open(image_file)
         result = self._validate_cover_image(image)
         if isinstance(result, ProblemDetail):
@@ -1200,7 +1206,7 @@ class WorkController(AdminCirculationManagerController):
 
         if image_url and not image_file:
             image_file = StringIO(urllib.urlopen(image_url).read())
-        
+
         image = Image.open(image_file)
         result = self._validate_cover_image(image)
         if isinstance(result, ProblemDetail):
@@ -1216,7 +1222,7 @@ class WorkController(AdminCirculationManagerController):
             original_content = original_buffer.getvalue()
             if not original_href:
                 original_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
-                
+
             image = self._process_cover_image(work, image, title_position)
 
             original_rights_explanation = None
@@ -2296,6 +2302,7 @@ class SettingsController(AdminCirculationManagerController):
                         libraries.append(self._get_integration_library_info(
                                 c.external_integration, library, protocol))
                     collection['libraries'] = libraries
+
                     for setting in protocol.get("settings"):
                         key = setting.get("key")
                         if key not in collection["settings"]:
@@ -2306,6 +2313,15 @@ class SettingsController(AdminCirculationManagerController):
                             else:
                                 value = c.external_integration.setting(key).value
                             collection["settings"][key] = value
+
+                    [protocolClass] = [p for p in provider_apis if p.NAME == c.protocol]
+                    self_test_results = None
+
+                    if issubclass(protocolClass, HasSelfTests):
+                        # value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, c)
+                        self_test_results = protocolClass.prior_test_results(self._db, protocolClass, self._db, c)
+
+                    collection["settings"]["self_test_results"] = self_test_results
                 collections.append(collection)
 
             return dict(
