@@ -105,8 +105,9 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 "Collection protocol is %s, but passed into EnkiAPI!" %
                 collection.protocol
             )
+
         self.collection_id = collection.id
-        self.library_id = collection.external_account_id.encode("utf8")
+        self.library_id = collection.external_account_id
         self.base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
 
         if not self.library_id or not self.base_url:
@@ -194,14 +195,15 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             **kwargs
         )
 
-    def _minutes_since(self, since):
+    @classmethod
+    def _minutes_since(cls, since):
         """How many minutes have elapsed since `since`?
 
         This is a helper method to create the `minutes` parameter to
         the API.
         """
         now = datetime.datetime.utcnow()
-        return (now - since).total_seconds() / 60
+        return int((now - since).total_seconds() / 60)
 
     def recent_activity(self, since):
         """Find recent circulation events that affected loans or holds.
@@ -295,7 +297,8 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         for metadata in BibliographicParser().process_all(response.content):
             yield metadata
 
-    def epoch_to_struct(self, epoch_string):
+    @classmethod
+    def _epoch_to_struct(cls, epoch_string):
         # This will turn the time string we get from Enki into a
         # struct that the Circulation Manager can make use of.
         time_format = "%Y-%m-%dT%H:%M:%S"
@@ -321,7 +324,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                     % (patron.authorization_identifier, pin))
                 raise AuthorizationFailedException()
         due_date = result['checkedOutItems'][0]['duedate']
-        expires = self.epoch_to_struct(due_date)
+        expires = self._epoch_to_struct(due_date)
 
         # Create the loan info.
         loan = LoanInfo(
@@ -392,22 +395,24 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         url = links['url']
         item_type = links['item_type']
         due_date = result['checkedOutItems'][0]['duedate']
-        expires = self.epoch_to_struct(due_date)
+        expires = self._epoch_to_struct(due_date)
         return (url, item_type, expires)
 
     def patron_activity(self, patron, pin):
         response = self.patron_request(patron.authorization_identifier, pin)
         if response.status_code != 200:
             raise PatronNotFoundOnRemote(response.status_code)
-        result = json.loads(response.content)['result']
-        if not result['success']:
-            message = result['message']
+        result = json.loads(response.content).get('result', {})
+        if not result.get('success'):
+            message = result.get('message', '')
             if "Login unsuccessful" in message:
-                self.log.error("User validation against Enki server with %s / %s was unsuccessful." % (patron, pin))
                 raise AuthorizationFailedException()
             else:
-                self.log.error("Something happened in patron_activity.")
-                raise CirculationException()
+                self.log.error(
+                    "Unexpected error in patron_activity: %r",
+                    response.content
+                )
+                raise CirculationException(response.content)
         for loan in result['checkedOutItems']:
             yield self.parse_patron_loans(loan)
         for type, holds in result['holds'].items():
@@ -428,8 +433,8 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
     def parse_patron_loans(self, checkout_data):
         # We should receive a list of JSON objects
         enki_id = checkout_data['recordId']
-        start_date = self.epoch_to_struct(checkout_data['checkoutdate'])
-        end_date = self.epoch_to_struct(checkout_data['duedate'])
+        start_date = self._epoch_to_struct(checkout_data['checkoutdate'])
+        end_date = self._epoch_to_struct(checkout_data['duedate'])
         return LoanInfo(
             self.collection,
             DataSource.ENKI,
@@ -456,12 +461,14 @@ class MockEnkiAPI(EnkiAPI):
         self.requests = []
 
         library = DatabaseTest.make_default_library(_db)
-        collection, ignore = Collection.by_name_and_protocol(
-            _db, name="Test Enki Collection", protocol=EnkiAPI.ENKI
-        )
-        collection.protocol=EnkiAPI.ENKI
-        collection.external_account_id=u'c';
-        library.collections.append(collection)
+        if not collection:
+            collection, ignore = Collection.by_name_and_protocol(
+                _db, name="Test Enki Collection", protocol=EnkiAPI.ENKI
+            )
+            collection.protocol=EnkiAPI.ENKI
+            collection.external_account_id=u'c';
+        if collection not in library.collections:
+            library.collections.append(collection)
         super(MockEnkiAPI, self).__init__(
             _db, collection, *args, **kwargs
         )
@@ -624,7 +631,11 @@ class EnkiImport(CollectionMonitor):
         """Constructor."""
         super(EnkiImport, self).__init__(_db, collection)
         self._db = _db
-        self.api = api_class(_db, collection)
+        if callable(api_class):
+            api = api_class(_db, collection)
+        else:
+            api = api_class
+        self.api = api
         self.collection_id = collection.id
         self.analytics = Analytics(_db)
 

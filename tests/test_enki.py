@@ -1,4 +1,5 @@
 from nose.tools import (
+    assert_raises,
     assert_raises_regexp,
     set_trace,
     eq_,
@@ -26,11 +27,12 @@ from core.model import (
 )
 from . import DatabaseTest
 from api.authenticator import BasicAuthenticationProvider
+from api.circulation import LoanInfo
 from api.circulation_exceptions import *
+from api.config import CannotLoadConfiguration
 from api.enki import (
     EnkiAPI,
     MockEnkiAPI,
-    EnkiBibliographicCoverageProvider,
     EnkiImport,
     BibliographicParser,
 )
@@ -39,7 +41,10 @@ from core.metadata_layer import (
     Metadata,
 )
 from core.scripts import RunCollectionCoverageProviderScript
-from core.util.http import BadResponseException
+from core.util.http import (
+    BadResponseException,
+    RequestTimedOut,
+)
 from core.testing import MockRequestsResponse
 
 class BaseEnkiTest(DatabaseTest):
@@ -54,11 +59,41 @@ class BaseEnkiTest(DatabaseTest):
 
     def setup(self):
         super(BaseEnkiTest, self).setup()
-        self.collection = self._collection(protocol=EnkiAPI.ENKI)
         self.api = MockEnkiAPI(self._db)
+        self.collection = self.api.collection
 
 
 class TestEnkiAPI(BaseEnkiTest):
+
+    def test_constructor(self):
+
+        bad_collection = self._collection(
+            protocol=ExternalIntegration.OVERDRIVE
+        )
+        assert_raises_regexp(
+            ValueError,
+            "Collection protocol is Overdrive, but passed into EnkiAPI!",
+            EnkiAPI, self._db, bad_collection
+        )
+
+        # Without an external_account_id, an EnkiAPI cannot be instantiated.
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "Enki configuration is incomplete.",
+            EnkiAPI,
+            self._db,
+            self.collection
+        )
+
+        self.collection.external_account_id = "1"
+        EnkiAPI(self._db, self.collection)
+
+    def test_external_integration(self):
+        integration = self.api.external_integration(self._db)
+        eq_(ExternalIntegration.ENKI, integration.protocol)
+
+    def test_collection(self):
+        eq_(self.collection, self.api.collection)
 
     def test__run_self_tests(self):
         # Mock every method that will be called by the self-test.
@@ -128,33 +163,145 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_(True, default_patron_activity.success)
         eq_("Total loans and holds: 1", default_patron_activity.result)
 
-    def test_create_identifier_strings(self):
-        identifier = self._identifier(identifier_type=Identifier.ENKI_ID)
-        values = EnkiAPI.create_identifier_strings(["foo", identifier])
-        eq_(["foo", identifier.identifier], values)
 
-    def test_import_instantiation(self):
-        """Test that EnkiImport can be instantiated"""
-        imp = EnkiImport(self._db, self.collection, api_class=self.api.__class__)
-        assert_not_equal(None, imp)
+    def test_request_retried_once(self):
+        """A request that times out is retried."""
+        class TimesOutOnce(EnkiAPI):
+            timeout = True
+            called_with = []
+            def _request(self, *args, **kwargs):
+                self.called_with.append((args, kwargs))
+                if self.timeout:
+                    self.timeout = False
+                    raise RequestTimedOut("url", "timeout")
+                else:
+                    return MockRequestsResponse(200, content="content")
 
-    def test_fulfillment_open_access(self):
-        """Test that fulfillment info for non-ACS Enki books is parsed correctly."""
-        data = self.get_data("checked_out_direct.json")
+        api = TimesOutOnce(self._db, self.collection)
+        response = api.request("url")
+
+        # Two identical requests were made.
+        r1, r2 = api.called_with
+        eq_(r1, r2)
+
+        # The timeout was 90 seconds.
+        args, kwargs = r1
+        eq_(90, kwargs['timeout'])
+        eq_(None, kwargs['disallowed_response_codes'])
+
+        # In the end, we got our content.
+        eq_(200, response.status_code)
+        eq_("content", response.content)
+
+    def test_request_retried_only_once(self):
+        """A request that times out twice is not retried."""
+        class TimesOut(EnkiAPI):
+            calls = 0
+            def _request(self, *args, **kwargs):
+                self.calls += 1
+                raise RequestTimedOut("url", "timeout")
+
+        api = TimesOut(self._db, self.collection)
+        assert_raises(RequestTimedOut, api.request, "url")
+
+        # Only two requests were made.
+        eq_(2, api.calls)
+
+    def test__minutes_since(self):
+        """Test the _minutes_since helper method."""
+        an_hour_ago = datetime.datetime.utcnow() - datetime.timedelta(
+            minutes=60
+        )
+        eq_(60, EnkiAPI._minutes_since(an_hour_ago))
+
+    def test_recent_activity(self):
+        one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(
+            minutes=1
+        )
+        data = self.get_data("get_recent_activity.json")
         self.api.queue_response(200, content=data)
-        result = json.loads(data)
-        fulfill_data = self.api.parse_fulfill_result(result['result'])
-        eq_(fulfill_data[0], """http://cccl.enkilibrary.org/API/UserAPI?method=downloadEContentFile&username=21901000008080&password=deng&lib=1&recordId=2""")
-        eq_(fulfill_data[1], 'epub')
+        activity = list(self.api.recent_activity(one_minute_ago))
+        eq_(43, len(activity))
+        for i in activity:
+            assert isinstance(i, CirculationData)
+        [method, url, headers, data, params, kwargs] = self.api.requests.pop()
+        eq_("get", method)
+        eq_("https://enkilibrary.org/API/ItemAPI", url)
+        eq_("getRecentActivity", params['method'])
+        eq_("c", params['lib'])
+        eq_(1, params['minutes'])
 
-    def test_fulfillment_acs(self):
-        """Test that fulfillment info for ACS Enki books is parsed correctly."""
-        data = self.get_data("checked_out_acs.json")
+    def test_updated_titles(self):
+        one_minute_ago = datetime.datetime.utcnow() - datetime.timedelta(
+            minutes=1
+        )
+        data = self.get_data("get_update_titles.json")
         self.api.queue_response(200, content=data)
-        result = json.loads(data)
-        fulfill_data = self.api.parse_fulfill_result(result['result'])
-        eq_(fulfill_data[0], """http://afs.enkilibrary.org/fulfillment/URLLink.acsm?action=enterloan&ordersource=Califa&orderid=ACS4-9243146841581187248119581&resid=urn%3Auuid%3Ad5f54da9-8177-43de-a53d-ef521bc113b4&gbauthdate=Wed%2C+23+Aug+2017+19%3A42%3A35+%2B0000&dateval=1503517355&rights=%24lat%231505331755%24&gblver=4&auth=8604f0fc3f014365ea8d3c4198c721ed7ed2c16d""")
-        eq_(fulfill_data[1], 'epub')
+        activity = list(self.api.updated_titles(since=one_minute_ago))
+
+        eq_(6, len(activity))
+        for i in activity:
+            assert isinstance(i, Metadata)
+
+        eq_("Nervous System", activity[0].title)
+        eq_(1, activity[0].circulation.licenses_owned)
+
+        [method, url, headers, data, params, kwargs] = self.api.requests.pop()
+        eq_("get", method)
+        eq_("https://enkilibrary.org/API/ListAPI", url)
+        eq_("getUpdateTitles", params['method'])
+        eq_("c", params['lib'])
+        eq_(1, params['minutes'])    
+
+    def test_get_item(self):
+        data = self.get_data("get_item_french_title.json")
+        self.api.queue_response(200, content=data)
+        metadata = self.api.get_item("an id")
+
+        # We get a Metadata with associated CirculationData.
+        assert isinstance(metadata, Metadata)
+        eq_("Le But est le Seul Choix", metadata.title)
+        eq_(1, metadata.circulation.licenses_owned)
+        
+        [method, url, headers, data, params, kwargs] = self.api.requests.pop()
+        eq_("get", method)
+        eq_("https://enkilibrary.org/API/ItemAPI", url)
+        eq_("an id", params["recordid"])
+        eq_("getItem", params["method"])
+        eq_("c", params['lib'])
+
+        # We asked for a large cover image in case this Metadata is
+        # to be used to form a local picture of the book's metadata.
+        eq_("large", params['size'])
+
+    def test_get_item_not_found(self):
+        self.api.queue_response(200, content="<html>No such book</html>")
+        metadata = self.api.get_item("an id")
+        eq_(None, metadata)
+
+    def test_get_all_titles(self):
+        # get_all_titles and get_update_titles return data in the same
+        # format, so we can use one to mock the other.
+        data = self.get_data("get_update_titles.json")        
+        self.api.queue_response(200, content=data)
+
+        results = list(self.api.get_all_titles())
+        eq_(6, len(results))
+        metadata = results[0]
+        assert isinstance(metadata, Metadata)
+        eq_("Nervous System", metadata.title)
+        eq_(1, metadata.circulation.licenses_owned)
+
+        [method, url, headers, data, params, kwargs] = self.api.requests.pop()
+        eq_("get", method)
+        eq_("https://enkilibrary.org/API/ListAPI", url)
+        eq_("c", params['lib'])
+        eq_("getAllTitles", params['method'])
+        eq_("secontent", params['id'])
+        
+    def test__epoch_to_struct(self):
+        """Test the _epoch_to_struct helper method."""
+        eq_(datetime.datetime(1970, 1, 1), EnkiAPI._epoch_to_struct("0"))
 
     def test_checkout_open_access(self):
         """Test that checkout info for non-ACS Enki books is parsed correctly."""
@@ -181,7 +328,7 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_(loan.end_date, datetime.datetime(2017, 9, 13, 19, 42, 35, 0))
 
     @raises(AuthorizationFailedException)
-    def test_login_fail(self):
+    def test_checkout_bad_authorization(self):
         """Test that the correct exception is thrown upon an unsuccessful login."""
         data = self.get_data("login_unsuccessful.json")
         self.api.queue_response(200, content=data)
@@ -199,7 +346,7 @@ class TestEnkiAPI(BaseEnkiTest):
         loan = self.api.checkout(patron,'notapin',pool,None)
 
     @raises(NoAvailableCopies)
-    def test_login_fail(self):
+    def test_checkout_not_available(self):
         """Test that the correct exception is thrown upon an unsuccessful login."""
         data = self.get_data("no_copies.json")
         self.api.queue_response(200, content=data)
@@ -215,31 +362,63 @@ class TestEnkiAPI(BaseEnkiTest):
 
         loan = self.api.checkout(patron,'1234',pool,None)
 
-    def test_recent_activity(self):
-        data = self.get_data("get_recent_activity.json")
+    def test_fulfillment_open_access(self):
+        """Test that fulfillment info for non-ACS Enki books is parsed correctly."""
+        data = self.get_data("checked_out_direct.json")
         self.api.queue_response(200, content=data)
-        activity = list(self.api.recent_activity(minutes=22))
-        eq_(43, len(activity))
-        for i in activity:
-            assert isinstance(i, CirculationData)
-        [url, args, kwargs] = self.api.requests.pop()
-        eq_(22, kwargs['params']['minutes'])
+        result = json.loads(data)
+        fulfill_data = self.api.parse_fulfill_result(result['result'])
+        eq_(fulfill_data[0], """http://cccl.enkilibrary.org/API/UserAPI?method=downloadEContentFile&username=21901000008080&password=deng&lib=1&recordId=2""")
+        eq_(fulfill_data[1], 'epub')
 
-    def test_updated_titles(self):
-        data = self.get_data("get_update_titles.json")
+    def test_fulfillment_acs(self):
+        """Test that fulfillment info for ACS Enki books is parsed correctly."""
+        data = self.get_data("checked_out_acs.json")
         self.api.queue_response(200, content=data)
-        activity = list(self.api.updated_titles(minutes=22))
+        result = json.loads(data)
+        fulfill_data = self.api.parse_fulfill_result(result['result'])
+        eq_(fulfill_data[0], """http://afs.enkilibrary.org/fulfillment/URLLink.acsm?action=enterloan&ordersource=Califa&orderid=ACS4-9243146841581187248119581&resid=urn%3Auuid%3Ad5f54da9-8177-43de-a53d-ef521bc113b4&gbauthdate=Wed%2C+23+Aug+2017+19%3A42%3A35+%2B0000&dateval=1503517355&rights=%24lat%231505331755%24&gblver=4&auth=8604f0fc3f014365ea8d3c4198c721ed7ed2c16d""")
+        eq_(fulfill_data[1], 'epub')
 
-        eq_(6, len(activity))
-        for i in activity:
-            assert isinstance(i, Metadata)
+    def test_patron_activity(self):
+        data = self.get_data("patron_response.json")
+        self.api.queue_response(200, content=data)
+        patron = self._patron()
+        [loan] = self.api.patron_activity(patron, 'pin')
+        assert isinstance(loan, LoanInfo)
 
-        eq_("Nervous System", activity[0].title)
-        eq_(1, activity[0].circulation.licenses_owned)
+        eq_(Identifier.ENKI_ID, loan.identifier_type)
+        eq_(DataSource.ENKI, loan.data_source_name)
+        eq_("econtentRecord231", loan.identifier)
+        eq_(self.collection, loan.collection(self._db))
+        eq_(datetime.datetime(2017, 8, 15, 14, 56, 51), loan.start_date)
+        eq_(datetime.datetime(2017, 9, 5, 14, 56, 51), loan.end_date)
+
+    def test_patron_activity_failure(self):
+        patron = self._patron()
+        self.api.queue_response(404, "No such patron")
+        collect = lambda: list(self.api.patron_activity(patron, 'pin'))
+        assert_raises(PatronNotFoundOnRemote, collect)
+
+        msg = dict(result=dict(message="Login unsuccessful."))
+        self.api.queue_response(200, content=json.dumps(msg))
+        assert_raises(AuthorizationFailedException, collect)
+
+        msg = dict(result=dict(message="Some other error."))
+        self.api.queue_response(200, content=json.dumps(msg))
+        assert_raises(CirculationException, collect)
+
+class TestBibliographicParser(object):
+    """TODO"""
 
 
-        [url, args, kwargs] = self.api.requests.pop()
-        eq_(22, kwargs['params']['minutes'])
+class TestEnkiImport(BaseEnkiTest):
+    """TODO starting here"""
+
+    def test_import_instantiation(self):
+        """Test that EnkiImport can be instantiated"""
+        importer = EnkiImport(self._db, self.collection, api_class=self.api)
+        eq_(self.api, importer.api)
 
 
 class TestEnkiCollectionReaper(BaseEnkiTest):
