@@ -267,6 +267,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         self.log.debug ("requesting : "+ str(qty) + " books starting at econtentRecord" +  str(strt))
         url = str(self.base_url) + str(self.availability_endpoint)
         args = dict()
+        args['method'] = "getAllTitles"
         args['id'] = "secontent"
         args['strt'] = strt
         args['qty'] = qty
