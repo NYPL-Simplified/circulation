@@ -742,7 +742,11 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
     def __init__(self, _db, collection, api_class=EnkiAPI):
         self._db = _db
         super(EnkiCollectionReaper, self).__init__(self._db, collection)
-        self.api = api_class(self._db, collection)
+        if callable(api_class):
+            api = api_class(self._db, collection)
+        else:
+            api = api_class
+        self.api = api
 
     def process_item(self, identifier):
         self.log.debug(
@@ -772,6 +776,7 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
                 identifier.identifier
             )
 
+        now = datetime.datetime.utcnow()
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
             primary_identifier= IdentifierData(

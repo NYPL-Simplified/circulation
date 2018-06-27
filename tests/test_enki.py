@@ -31,10 +31,11 @@ from api.circulation import LoanInfo
 from api.circulation_exceptions import *
 from api.config import CannotLoadConfiguration
 from api.enki import (
-    EnkiAPI,
-    MockEnkiAPI,
-    EnkiImport,
     BibliographicParser,
+    EnkiAPI,
+    EnkiCollectionReaper,
+    EnkiImport,
+    MockEnkiAPI,
 )
 from core.metadata_layer import (
     CirculationData,
@@ -251,7 +252,7 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_("https://enkilibrary.org/API/ListAPI", url)
         eq_("getUpdateTitles", params['method'])
         eq_("c", params['lib'])
-        eq_(1, params['minutes'])    
+        eq_(1, params['minutes'])
 
     def test_get_item(self):
         data = self.get_data("get_item_french_title.json")
@@ -262,7 +263,7 @@ class TestEnkiAPI(BaseEnkiTest):
         assert isinstance(metadata, Metadata)
         eq_("Le But est le Seul Choix", metadata.title)
         eq_(1, metadata.circulation.licenses_owned)
-        
+
         [method, url, headers, data, params, kwargs] = self.api.requests.pop()
         eq_("get", method)
         eq_("https://enkilibrary.org/API/ItemAPI", url)
@@ -282,7 +283,7 @@ class TestEnkiAPI(BaseEnkiTest):
     def test_get_all_titles(self):
         # get_all_titles and get_update_titles return data in the same
         # format, so we can use one to mock the other.
-        data = self.get_data("get_update_titles.json")        
+        data = self.get_data("get_update_titles.json")
         self.api.queue_response(200, content=data)
 
         results = list(self.api.get_all_titles())
@@ -298,7 +299,7 @@ class TestEnkiAPI(BaseEnkiTest):
         eq_("c", params['lib'])
         eq_("getAllTitles", params['method'])
         eq_("secontent", params['id'])
-        
+
     def test__epoch_to_struct(self):
         """Test the _epoch_to_struct helper method."""
         eq_(datetime.datetime(1970, 1, 1), EnkiAPI._epoch_to_struct("0"))
@@ -424,13 +425,12 @@ class TestEnkiImport(BaseEnkiTest):
 class TestEnkiCollectionReaper(BaseEnkiTest):
 
     def test_reaped_book_has_zero_licenses(self):
-        data = "<html></html>"
-
         # Create a LicensePool that needs updating.
         edition, pool = self._edition(
             identifier_type=Identifier.ENKI_ID,
             data_source_name=DataSource.ENKI,
-            with_license_pool=True
+            with_license_pool=True,
+            collection=self.collection
         )
 
         # This is a specific record ID that should never exist
@@ -445,14 +445,20 @@ class TestEnkiCollectionReaper(BaseEnkiTest):
         pool.identifier.identifier = nonexistent_id
         eq_(None, pool.last_checked)
 
-        # Modify the data so that it appears to be talking about the
-        # book we just created.
-
+        # Enki will claim it doesn't know about this book
+        # by sending an HTML error instead of JSON data.
+        data = "<html></html>"
         self.api.queue_response(200, content=data)
 
-        circulationdata = self.api.reaper_request(pool.identifier)
+        reaper = EnkiCollectionReaper(
+            self._db, self.collection, api_class=self.api
+        )
 
-        eq_(0, circulationdata.licenses_owned)
-        eq_(0, circulationdata.licenses_available)
-        eq_(0, circulationdata.patrons_in_hold_queue)
+        # Run the identifier through the reaper.
+        reaper.process_item(pool.identifier)
+
+        # The item's circulation information has been zeroed out.
+        eq_(0, pool.licenses_owned)
+        eq_(0, pool.licenses_available)
+        eq_(0, pool.patrons_in_hold_queue)
 
