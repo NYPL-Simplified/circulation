@@ -241,42 +241,6 @@ class TestEnkiAPI(BaseEnkiTest):
         [url, args, kwargs] = self.api.requests.pop()
         eq_(22, kwargs['params']['minutes'])
 
-class TestBibliographicCoverageProvider(BaseEnkiTest):
-
-    """Test the code that looks up bibliographic information from Enki."""
-
-    def test_process_item_creates_presentation_ready_work(self):
-        """Test the normal workflow where we ask Enki for data,
-        Enki provides it, and we create a presentation-ready work.
-        """
-
-        data = self.get_data("item_metadata_single.json")
-        self.api.queue_response(200, content=data)
-
-        identifier = self._identifier(identifier_type=Identifier.ENKI_ID)
-        identifier.identifier = 'econtentRecord1'
-
-        # This book has no LicensePool.
-        eq_([], identifier.licensed_through)
-
-        # Run it through the EnkiBibliographicCoverageProvider
-        provider = EnkiBibliographicCoverageProvider(
-            self.collection, api_class=self.api
-        )
-        [result] = provider.process_batch([identifier])
-        eq_(identifier, result)
-
-        # A LicensePool was created, not because we know anything
-        # about how we've licensed this book, but to have a place to
-        # store the information about what formats the book is
-        # available in.
-        pool = identifier.licensed_through[0]
-        eq_(999, pool.licenses_owned)
-        # A Work was created and made presentation ready.
-        eq_("1984", pool.work.title)
-        eq_(True, pool.work.presentation_ready)
-        eq_("https://enkilibrary.org/bookcover.php?id=1&isn=9780547249643&size=large&upc=English&category=EMedia&econtent=true",pool.presentation_edition.cover_full_url)
-        eq_("https://enkilibrary.org/bookcover.php?id=1&isn=9780547249643&size=large&upc=English&category=EMedia&econtent=true",pool.presentation_edition.cover_thumbnail_url)
 
 class TestEnkiCollectionReaper(BaseEnkiTest):
 
