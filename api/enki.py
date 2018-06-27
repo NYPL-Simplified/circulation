@@ -1,29 +1,18 @@
 from nose.tools import set_trace
-from collections import defaultdict
 import time
 import datetime
-import base64
 import os
 import json
 import logging
-import re
 from flask_babel import lazy_gettext as _
 
-from sqlalchemy.orm import contains_eager
-
-from lxml import etree
-
-from authenticator import Authenticator
-
 from config import (
-    Configuration,
-    temp_config,
+    CannotLoadConfiguration,
 )
 
 from circulation import (
     LoanInfo,
     FulfillmentInfo,
-    HoldInfo,
     BaseCirculationAPI
 )
 
@@ -34,39 +23,35 @@ from selftest import (
     SelfTestResult,
 )
 
-from core.util import LanguageCodes
 from core.util.http import (
     HTTP,
-    RemoteIntegrationException,
     RequestTimedOut,
 )
 
 from core.model import (
-    get_one_or_create,
-    Collection,
-    Contributor,
     CirculationEvent,
+    Collection,
     DataSource,
     DeliveryMechanism,
-    LicensePool,
     Edition,
-    Identifier,
-    Representation,
-    Subject,
     ExternalIntegration,
-    Session,
     Hyperlink,
+    Identifier,
+    LicensePool,
+    Representation,
+    Session,
+    Subject,
 )
 
 from core.metadata_layer import (
-    SubjectData,
+    CirculationData,
     ContributorData,
     FormatData,
     IdentifierData,
-    CirculationData,
+    LinkData,
     Metadata,
     ReplacementPolicy,
-    LinkData,
+    SubjectData,
 )
 
 from core.monitor import (
@@ -75,11 +60,9 @@ from core.monitor import (
     CollectionMonitor,
 )
 
-from core.opds_import import SimplifiedOPDSLookup
 from core.analytics import Analytics
 from core.testing import DatabaseTest
 
-#TODO: Remove unnecessary imports (once the classes are more or less complete)
 
 class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
@@ -179,15 +162,14 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def request(self, url, method='get', extra_headers={}, data=None,
                 params=None, retry_on_timeout=True, **kwargs):
-        """Make an HTTP request to the Enki API.
-
-        MockEnkiAPI overrides this method.
-        """
+        """Make an HTTP request to the Enki API."""
         headers = dict(extra_headers)
         try:
-            return HTTP.request_with_timeout(
+            return self._request(
                 method, url, headers=headers, data=data,
-                params=params, timeout=90, **kwargs
+                params=params, timeout=90,
+                disallowed_response_codes=None,
+                **kwargs
             )
         except RequestTimedOut, e:
             if not retry_on_timeout:
@@ -201,11 +183,33 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 **kwargs
             )
 
-    def recent_activity(self, minutes=5):
+    def _request(self, method, url, headers, data, params, **kwargs):
+        """Actually make an HTTP request.
+
+        MockEnkiAPI overrides this method.
+        """
+        return HTTP.request_with_timeout(
+            method, url, headers=headers, data=data,
+            params=params, timeout=90, disallowed_response_codes=None,
+            **kwargs
+        )
+
+    def _minutes_since(self, since):
+        """How many minutes have elapsed since `since`?
+
+        This is a helper method to create the `minutes` parameter to
+        the API.
+        """
+        now = datetime.datetime.utcnow()
+        return (now - since).total_seconds() / 60
+
+    def recent_activity(self, since):
         """Find recent circulation events that affected loans or holds.
 
+        :param since: A DateTime
         :yield: A sequence of CirculationData objects.
         """
+        minutes = self._minutes_since(since)
         url = self.base_url + self.item_endpoint
         args = dict(
             method='getRecentActivity',
@@ -221,15 +225,17 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 identifier, element['availability']
             )
 
-    def updated_titles(self, minutes=5):
+    def updated_titles(self, since):
         """Find recent changes to book metadata.
 
         NOTE: getUpdateTitles will return a maximum of 1000 items, so
         in theory this may need to be paginated. This shouldn't be a
         problem assuming the monitor is run regularly.
 
+        :param since: A DateTime
         :yield: A sequence of Metadata objects.
         """
+        minutes = self._minutes_since(since)
         url = self.base_url + self.list_endpoint
         args = dict(
             method='getUpdateTitles',
@@ -246,9 +252,8 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         a specific title.
 
         :param enki_id: An Enki record ID.
-        :return: A Metadata object with attached CirculationData, or
-            None if Enki doesn't know about this book (e.g. it's been
-            removed from the library's collection).
+        :return: If the book is in the library's collection, a
+            Metadata object with attached CirculationData. Otherwise, None.
         """
         url = self.base_url + self.item_endpoint
         args = dict(
@@ -262,10 +267,6 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             data = json.loads(response.content)
         except ValueError, e:
             # This is most likely a 'not found' error.
-            self.log.error(
-                "Could not parse get_item response as JSON: params %r, result %s",
-                args, response.content
-            )
             return None
 
         book = data.get('result', {})
@@ -471,15 +472,15 @@ class MockEnkiAPI(EnkiAPI):
             0, MockRequestsResponse(status_code, headers, content)
         )
 
-    def request(self, url, *args, **kwargs):
-        """Override EnkiAPI.request to pull responses from a
+    def _request(self, method, url, headers, data, params, **kwargs):
+        """Override EnkiAPI._request to pull responses from a
         queue instead of making real HTTP requests
         """
-        self.requests.append([url, args, kwargs])
+        self.requests.append([method, url, headers, data, params, kwargs])
         response = self.responses.pop()
         return HTTP._process_response(
             url, response, kwargs.get('allowed_response_codes'),
-            kwargs.get('disallowed_response_codes')
+            kwargs.get('disallowed_response_codes'),
         )
 
 
@@ -578,14 +579,24 @@ class BibliographicParser(object):
         return metadata
 
     def extract_circulation(self, primary_identifier, availability):
+        """Turn the 'availability' portion of an Enki API response into
+        a CirculationData.
+        """
         if not availability:
             return None
-        licenses_owned=availability["totalCopies"]
-        licenses_available=availability["availableCopies"]
-        hold=availability["onHold"]
-        drm_type = EnkiAPI.adobe_drm if (availability["accessType"] == 'acs') else EnkiAPI.no_drm
+        licenses_owned=availability.get("totalCopies", 0)
+        licenses_available=availability.get("availableCopies", 0)
+        hold=availability.get("onHold", 0)
+        drm_type = EnkiAPI.no_drm
+        if availability.get('accessType') == 'acs':
+            drm_type = EnkiAPI.adobe_drm
         formats = []
-        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=drm_type))
+        formats.append(
+            FormatData(
+                content_type=Representation.EPUB_MEDIA_TYPE,
+                drm_scheme=drm_type
+            )
+        )
 
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
@@ -599,7 +610,8 @@ class BibliographicParser(object):
 
 
 class EnkiImport(CollectionMonitor):
-    """Import content from Enki that we don't yet have in our collection
+    """Make sure our local collection is up-to-date with the remote
+    Enki collection.
     """
     SERVICE_NAME = "Enki Circulation Monitor"
     INTERVAL_SECONDS = 500
@@ -633,8 +645,13 @@ class EnkiImport(CollectionMonitor):
             # Give us five minutes of overlap because it's very important
             # we don't miss anything.
             since = start-self.FIVE_MINUTES
-            self.update_collection(since)
+
+            # Take care of new titles and titles with updated metadata.
+            for metadata in self.api.updated_titles(since):
+                self.process_book(metadata)
             self._db.commit()
+
+            # Take care of titles whose circulation status changed.
             self.update_circulation(since)
             self._db.commit()
 
@@ -650,25 +667,14 @@ class EnkiImport(CollectionMonitor):
                 self.process_book(bibliographic)
                 items_this_page += 1
             self._db.commit()
-            break
             if items_this_page == 0:
                 # When we get an empty page we know it's time to stop.
                 break
             id_start += self.DEFAULT_BATCH_SIZE
 
-    def _minutes_since(self, since):
-        """How many minutes have elapsed since `since`?
-
-        This is a helper method to create the `minutes` parameter to
-        the Enki API.
-        """
-        now = datetime.datetime.utcnow()
-        return (now - since).total_seconds() / 60
-
     def update_circulation(self, since):
         """Process circulation events that happened since `since`."""
-        minutes = self._minutes_since(since)
-        for circulation in self.api.recent_activity(minutes):
+        for circulation in self.api.recent_activity(since):
             license_pool, made_changes = circulation.apply(
                 self._db, self.collection
             )
@@ -681,17 +687,9 @@ class EnkiImport(CollectionMonitor):
                 if metadata:
                     self.process_book(metadata)
 
-    def update_collection(self, since):
-        """Process titles that were added or had metadata updates since
-        `since`.
-        """
-        minutes = self._minutes_since(since)
-        for metadata in self.api.updated_titles(minutes):
-            self.process_book(metadata)
-
     def process_book(self, bibliographic):
         """Make the local database reflect the state of the remote Enki
-        collection.
+        collection for the given book.
 
         :param bibliographic: A Metadata object with attached
         CirculationData
