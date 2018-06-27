@@ -51,7 +51,6 @@ from core.model import (
     LicensePool,
     Edition,
     Identifier,
-    Library,
     Representation,
     Subject,
     ExternalIntegration,
@@ -115,7 +114,6 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
     SERVICE_NAME = "Enki"
     log = logging.getLogger("Enki API")
-    log.setLevel(logging.DEBUG)
 
     def __init__(self, _db, collection):
         self._db = _db
@@ -180,32 +178,28 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             )
 
     def request(self, url, method='get', extra_headers={}, data=None,
-                params=None, exception_on_401=False):
-        """Make an HTTP request, acquiring/refreshing a bearer token
-        if necessary.
+                params=None, retry_on_timeout=True, **kwargs):
+        """Make an HTTP request to the Enki API.
+
+        MockEnkiAPI overrides this method.
         """
         headers = dict(extra_headers)
-        if exception_on_401:
-            disallowed_response_codes = ["401"]
-        else:
-            disallowed_response_codes = None
-            response = self._make_request(
-                url=url, method=method, headers=headers,
-                data=data, params=params,
-                disallowed_response_codes=disallowed_response_codes
+        try:
+            return HTTP.request_with_timeout(
+                method, url, headers=headers, data=data,
+                params=params, timeout=90, **kwargs
             )
-        if response.status_code == 401:
-            # This must be our first 401, since our second 401 will
-            # make _make_request raise a RemoteIntegrationException.
-            #
-            # The token has expired. Get a new token and try again.
-            self.token = None
+        except RequestTimedOut, e:
+            if not retry_on_timeout:
+                raise e
+            self.log.info(
+                "Request to %s timed out once. Trying a second time.", url
+            )
             return self.request(
-                url=url, method=method, extra_headers=extra_headers,
-                data=data, params=params, exception_on_401=True
+                url, method, extra_headers,
+                data, params, retry_on_timeout=False,
+                **kwargs
             )
-        else:
-            return response
 
     def recent_activity(self, minutes=5):
         """Find recent circulation events that affected loans or holds.
@@ -253,8 +247,8 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
         :param enki_id: An Enki record ID.
         :return: A Metadata object with attached CirculationData, or
-            None if Enki doesn't know about this book (e.g. it was removed
-            from the library's collection).
+            None if Enki doesn't know about this book (e.g. it's been
+            removed from the library's collection).
         """
         url = self.base_url + self.item_endpoint
         args = dict(
@@ -285,7 +279,8 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         Iterating over the entire collection is very expensive and
         should only happen during initial data population.
 
-        :yield: A sequence of Metadata objects.
+        :yield: A sequence of Metadata objects, each with a
+            CirculationData attached.
         """
         self.log.debug ("requesting : "+ str(qty) + " books starting at econtentRecord" +  str(strt))
         url = str(self.base_url) + str(self.list_endpoint)
@@ -298,26 +293,6 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         response = self.request(url, params=args)
         for metadata in BibliographicParser().process_all(response.content):
             yield metadata
-
-    @classmethod
-    def parse_token(cls, token):
-        data = json.loads(token)
-        return data['access_token']
-
-    def _make_request(self, url, method, headers, data=None, params=None,
-                      **kwargs):
-        """Actually make an HTTP request."""
-        try:
-            return HTTP.request_with_timeout(
-                method, url, headers=headers, data=data,
-                params=params, timeout=90, **kwargs
-            )
-        except RequestTimedOut, e:
-            self.log.info("Request to %s timed out once. Trying a second time.", url)
-            return HTTP.request_with_timeout(
-                method, url, headers=headers, data=data,
-                params=params, timeout=90, **kwargs
-            )
 
     def epoch_to_struct(self, epoch_string):
         # This will turn the time string we get from Enki into a
@@ -387,11 +362,18 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 self.log.error("User validation against Enki server with %s / %s was unsuccessful."
                     % (patron.authorization_identifier, pin))
                 raise AuthorizationFailedException()
-        drm_type = self.get_enki_drm_type(book_id)
-        url, item_type, expires = self.parse_fulfill_result(result)
 
-        if not drm_type and item_type == 'epub':
-            drm_type = self.no_drm
+        url, item_type, expires = self.parse_fulfill_result(result)
+        # We don't know for sure which DRM scheme is in use, (that is,
+        # whether the content link points to the actual book or an
+        # ACSM file) but since Enki titles only have a single delivery
+        # mechanism, it's easy to make a guess.
+        drm_type = self.no_drm
+        for lpdm in licensepool.delivery_mechanisms:
+            delivery_mechanism = lpdm.delivery_mechanism
+            if delivery_mechanism:
+                drm_type = delivery_mechanism.drm_scheme
+                break
 
         return FulfillmentInfo(
             licensepool.collection,
@@ -403,23 +385,6 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             content=None,
             content_expires=expires
         )
-
-    def get_enki_drm_type(self, book_id):
-        url = str(self.base_url) + str(self.item_endpoint)
-        args = dict()
-        args['method'] = 'getItem'
-        args['recordid'] = book_id
-        args['lib'] = self.library_id
-        response = self.request(url, method='get', params=args)
-        if response.status_code != 200:
-            return None
-        drm_type = json.loads(response.content)['result']['availability']['accessType']
-        if drm_type == 'acs':
-            return self.adobe_drm
-        elif drm_type == 'free':
-            return self.no_drm
-        else:
-            return None
 
     def parse_fulfill_result(self, result):
         links = result['checkedOutItems'][0]['links'][0]
@@ -483,6 +448,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
     def release_hold(self, patron, pin, licensepool):
         pass
 
+
 class MockEnkiAPI(EnkiAPI):
     def __init__(self, _db, collection=None, *args, **kwargs):
         self.responses = []
@@ -505,27 +471,16 @@ class MockEnkiAPI(EnkiAPI):
             0, MockRequestsResponse(status_code, headers, content)
         )
 
-    def _make_request(self, url, *args, **kwargs):
+    def request(self, url, *args, **kwargs):
+        """Override EnkiAPI.request to pull responses from a
+        queue instead of making real HTTP requests
+        """
         self.requests.append([url, args, kwargs])
         response = self.responses.pop()
         return HTTP._process_response(
             url, response, kwargs.get('allowed_response_codes'),
             kwargs.get('disallowed_response_codes')
         )
-
-    def _request_with_timeout(self, method, url, *args, **kwargs):
-        """Simulate HTTP.request_with_timeout."""
-        self.requests.append([method, url, args, kwargs])
-        response = self.responses.pop()
-        return HTTP._process_response(
-            url, response, kwargs.get('allowed_response_codes'),
-            kwargs.get('disallowed_response_codes')
-        )
-
-    def _simple_http_get(self, url, headers, *args, **kwargs):
-        """Simulate Representation.simple_http_get."""
-        response = self._request_with_timeout('GET', url, *args, **kwargs)
-        return response.status_code, response.headers, response.content
 
 
 class BibliographicParser(object):
@@ -570,9 +525,12 @@ class BibliographicParser(object):
         contributors.append(ContributorData(sort_name=sort_name))
 
         links = []
-        # NOTE: The 'cover' link only shows up in the response
-        # to EnkiAPI.get_item(). In that method we ask for a 'large' image,
-        # so if it shows up we file it as a normal-sized image.
+        # NOTE: When this method is called by, e.g. updated_titles(),
+        # the large and small images are available separately. When
+        # this method is called by get_item(), we only get a single
+        # image, in 'cover'. In get_item() we ask that that image be 'large',
+        # which means we'll be filing it as a normal-sized image.
+        #
         for key, rel in (
                 ('cover', Hyperlink.IMAGE),
                 ('small_image', Hyperlink.THUMBNAIL_IMAGE),
