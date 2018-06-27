@@ -13,6 +13,7 @@ from core.model import (
     CirculationEvent,
     Contributor,
     DataSource,
+    ExternalIntegration,
     LicensePool,
     Resource,
     Hyperlink,
@@ -24,6 +25,7 @@ from core.model import (
     Work,
 )
 from . import DatabaseTest
+from api.authenticator import BasicAuthenticationProvider
 from api.circulation_exceptions import *
 from api.enki import (
     EnkiAPI,
@@ -32,11 +34,15 @@ from api.enki import (
     EnkiImport,
     BibliographicParser,
 )
+from core.metadata_layer import (
+    CirculationData,
+    Metadata,
+)
 from core.scripts import RunCollectionCoverageProviderScript
 from core.util.http import BadResponseException
 from core.testing import MockRequestsResponse
 
-class BaseEnkiTest(object):
+class BaseEnkiTest(DatabaseTest):
 
     base_path = os.path.split(__file__)[0]
     resource_path = os.path.join(base_path, "files", "enki")
@@ -46,13 +52,81 @@ class BaseEnkiTest(object):
         path = os.path.join(cls.resource_path, filename)
         return open(path).read()
 
-
-class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
-
     def setup(self):
-        super(TestEnkiAPI, self).setup()
+        super(BaseEnkiTest, self).setup()
         self.collection = self._collection(protocol=EnkiAPI.ENKI)
         self.api = MockEnkiAPI(self._db)
+
+
+class TestEnkiAPI(BaseEnkiTest):
+
+    def test__run_self_tests(self):
+        # Mock every method that will be called by the self-test.
+        class Mock(MockEnkiAPI):
+            def recent_activity(self, minutes):
+                self.recent_activity_called_with = minutes
+                yield 1
+                yield 2
+
+            def updated_titles(self, minutes):
+                self.updated_titles_called_with = minutes
+                yield 1
+                yield 2
+                yield 3
+
+            patron_activity_called_with = []
+            def patron_activity(self, patron, pin):
+                self.patron_activity_called_with.append((patron, pin))
+                yield 1
+
+        api = Mock(self._db)
+
+        # Now let's make sure two Libraries have access to the
+        # Collection used in the API -- one library with a default
+        # patron and one without.
+        no_default_patron = self._library()
+        api.collection.libraries.append(no_default_patron)
+
+        with_default_patron = self._default_library
+        integration = self._external_integration(
+            "api.simple_authentication",
+            ExternalIntegration.PATRON_AUTH_GOAL,
+            libraries=[with_default_patron]
+        )
+        p = BasicAuthenticationProvider
+        integration.setting(p.TEST_IDENTIFIER).value = "username1"
+        integration.setting(p.TEST_PASSWORD).value = "password1"
+
+        # Now that everything is set up, run the self-test.
+        no_patron_activity, default_patron_activity, circulation_changes, collection_changes = sorted(
+            api._run_self_tests(self._db),
+            key=lambda x: x.name
+        )
+
+        # Verify that each test method was called and returned the
+        # expected SelfTestResult object.
+        eq_(60, api.recent_activity_called_with)
+        eq_(True, circulation_changes.success)
+        eq_("2 circulation events in the last hour", circulation_changes.result)
+
+        eq_(1440, api.updated_titles_called_with)
+        eq_(True, collection_changes.success)
+        eq_("3 titles added/updated in the last day", collection_changes.result)
+
+        eq_(
+            "Acquiring test patron credentials for library %s" % no_default_patron.name,
+            no_patron_activity.name
+        )
+        eq_(False, no_patron_activity.success)
+        eq_("Library has no test patron configured.",
+            no_patron_activity.exception.message)
+
+        eq_(
+            "Checking patron activity, using test patron for library %s" % with_default_patron.name,
+            default_patron_activity.name
+        )
+        eq_(True, default_patron_activity.success)
+        eq_("Total loans and holds: 1", default_patron_activity.result)
 
     def test_create_identifier_strings(self):
         identifier = self._identifier(identifier_type=Identifier.ENKI_ID)
@@ -141,7 +215,33 @@ class TestEnkiAPI(DatabaseTest, BaseEnkiTest):
 
         loan = self.api.checkout(patron,'1234',pool,None)
 
-class TestBibliographicCoverageProvider(TestEnkiAPI):
+    def test_recent_activity(self):
+        data = self.get_data("get_recent_activity.json")
+        self.api.queue_response(200, content=data)
+        activity = list(self.api.recent_activity(minutes=22))
+        eq_(43, len(activity))
+        for i in activity:
+            assert isinstance(i, CirculationData)
+        [url, args, kwargs] = self.api.requests.pop()
+        eq_(22, kwargs['params']['minutes'])
+
+    def test_updated_titles(self):
+        data = self.get_data("get_update_titles.json")
+        self.api.queue_response(200, content=data)
+        activity = list(self.api.updated_titles(minutes=22))
+
+        eq_(6, len(activity))
+        for i in activity:
+            assert isinstance(i, Metadata)
+
+        eq_("Nervous System", activity[0].title)
+        eq_(1, activity[0].circulation.licenses_owned)
+
+
+        [url, args, kwargs] = self.api.requests.pop()
+        eq_(22, kwargs['params']['minutes'])
+
+class TestBibliographicCoverageProvider(BaseEnkiTest):
 
     """Test the code that looks up bibliographic information from Enki."""
 
@@ -178,7 +278,7 @@ class TestBibliographicCoverageProvider(TestEnkiAPI):
         eq_("https://enkilibrary.org/bookcover.php?id=1&isn=9780547249643&size=large&upc=English&category=EMedia&econtent=true",pool.presentation_edition.cover_full_url)
         eq_("https://enkilibrary.org/bookcover.php?id=1&isn=9780547249643&size=large&upc=English&category=EMedia&econtent=true",pool.presentation_edition.cover_thumbnail_url)
 
-class TestEnkiCollectionReaper(TestEnkiAPI):
+class TestEnkiCollectionReaper(BaseEnkiTest):
 
     def test_reaped_book_has_zero_licenses(self):
         data = "<html></html>"
