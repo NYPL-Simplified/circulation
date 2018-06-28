@@ -584,6 +584,115 @@ class TestEnkiImport(BaseEnkiTest):
         # Every item on every 'page' of results was processed.
         eq_([1,2,3], importer.processed)
 
+    def test_incremental_import(self):
+        """incremental_import calls process_book() on the output of
+        EnkiAPI.updated_titles(), and then calls update_circulation().
+        """
+        class MockAPI(object):
+            def updated_titles(self, since):
+                self.updated_titles_called_with = since
+                yield 1
+                yield 2
+
+        class Mock(EnkiImport):
+            processed = []
+            def process_book(self, data):
+                self.processed.append(data)
+
+            def update_circulation(self, since):
+                self.update_circulation_called_with = since
+
+        api = MockAPI()
+        importer = Mock(self._db, self.collection, api_class=api)
+        since = object()
+        importer.incremental_import(since)
+
+        # The 'since' value was passed into both methods.
+        eq_(since, api.updated_titles_called_with)
+        eq_(since, importer.update_circulation_called_with)
+
+        # The two items yielded by updated_titles() were run
+        # through process_book().
+        eq_([1,2], importer.processed)
+
+    def test_update_circulation(self):
+
+        # Here's information about a book we didn't know about before.
+        circ_data = {"result":{"records":1,"recentactivity":[{"historyid":"3738","id":"34278","recordId":"econtentRecord34278","time":"2018-06-26 10:08:23","action":"Checked Out","isbn":"9781618856050","availability":{"accessType":"acs","totalCopies":"1","availableCopies":0,"onHold":0}}]}}
+
+        # Because the book is unknown, update_circulation will do a follow-up
+        # call to api.get_item to get bibliographic information.
+        bib_data = {"result":{"id":"34278","recordId":"econtentRecord34278","isbn":"9781618856050","title":"A book","availability":{"accessType":"acs","totalCopies":"1","availableCopies":0,"onHold":0}}}
+
+        api = MockEnkiAPI(self._db)
+        api.queue_response(200, content=json.dumps(circ_data))
+        api.queue_response(200, content=json.dumps(bib_data))
+
+        from core.mock_analytics_provider import MockAnalyticsProvider
+        analytics = MockAnalyticsProvider()
+        monitor = EnkiImport(self._db, self.collection, api_class=api,
+                             analytics=analytics)
+        since = datetime.datetime.utcnow()
+        monitor.update_circulation(since)
+
+        # Two requests were made -- one to getRecentActivity
+        # and one to getItem.
+        [method, url, headers, data, params, kwargs] = api.requests.pop(0)
+        eq_('get', method)
+        eq_('https://enkilibrary.org/API/ItemAPI', url)
+        eq_('getRecentActivity', params['method'])
+        eq_(0, params['minutes'])
+
+        [method, url, headers, data, params, kwargs] = api.requests.pop(0)
+        eq_('get', method)
+        eq_('https://enkilibrary.org/API/ItemAPI', url)
+        eq_('getItem', params['method'])
+        eq_('34278', params['recordid'])
+
+        # We ended up with one Work, one LicensePool, and one Edition.
+        work = self._db.query(Work).one()
+        licensepool = self._db.query(LicensePool).one()
+        edition = self._db.query(Edition).one()
+        eq_([licensepool], work.license_pools)
+        eq_(edition, licensepool.presentation_edition)
+
+        identifier = licensepool.identifier
+        eq_(Identifier.ENKI_ID, identifier.type)
+        eq_(u"34278", identifier.identifier)
+
+        # The LicensePool and Edition take their data from the mock API
+        # requests.
+        eq_("A book", work.title)
+        eq_(1, licensepool.licenses_owned)
+        eq_(0, licensepool.licenses_available)
+
+        # An analytics event was sent out for the newly discovered book.
+        eq_(1, analytics.count)
+
+        # Now let's see what update_circulation does when the work
+        # already exists.
+        circ_data['result']['recentactivity'][0]['availability']['totalCopies'] = 10
+        api.queue_response(200, content=json.dumps(circ_data))
+        # We're not queuing up more bib data, but that's no problem --
+        # EnkiImport won't ask for it.
+
+        # Pump the monitor again.
+        monitor.update_circulation(since)
+
+        # We made a single request, to getRecentActivity.
+        [method, url, headers, data, params, kwargs] = api.requests.pop(0)
+        eq_('getRecentActivity', params['method'])
+
+        # The LicensePool was updated, but no new objects were created.
+        eq_(10, licensepool.licenses_owned)
+        for c in (LicensePool, Edition, Work):
+            eq_(1, self._db.query(c).count())
+
+    def test_process_book(self):
+        """This functionality is tested as part of
+        test_update_circulation.
+        """
+        pass
 
 class TestEnkiCollectionReaper(BaseEnkiTest):
 

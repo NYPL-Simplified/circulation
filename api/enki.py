@@ -222,7 +222,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         data = json.loads(response.content)
         parser = BibliographicParser()
         for element in data['result']['recentactivity']:
-            identifier = IdentifierData(Identifier.ENKI_ID, element['recordId'])
+            identifier = IdentifierData(Identifier.ENKI_ID, element['id'])
             yield parser.extract_circulation(
                 identifier, element['availability']
             )
@@ -432,7 +432,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def parse_patron_loans(self, checkout_data):
         # We should receive a list of JSON objects
-        enki_id = checkout_data['recordId']
+        enki_id = checkout_data['id']
         start_date = self._epoch_to_struct(checkout_data['checkoutdate'])
         end_date = self._epoch_to_struct(checkout_data['duedate'])
         return LoanInfo(
@@ -492,7 +492,7 @@ class MockEnkiAPI(EnkiAPI):
 
 
 class BibliographicParser(object):
-    """Parses Enki's representation of book information into 
+    """Parses Enki's representation of book information into
     Metadata and CirculationData objects.
     """
 
@@ -638,7 +638,7 @@ class EnkiImport(CollectionMonitor):
     FIVE_MINUTES = datetime.timedelta(minutes=5)
     DEFAULT_START_TIME = CollectionMonitor.NEVER
 
-    def __init__(self, _db, collection, api_class=EnkiAPI):
+    def __init__(self, _db, collection, api_class=EnkiAPI, analytics=None):
         """Constructor."""
         super(EnkiImport, self).__init__(_db, collection)
         self._db = _db
@@ -648,7 +648,7 @@ class EnkiImport(CollectionMonitor):
             api = api_class
         self.api = api
         self.collection_id = collection.id
-        self.analytics = Analytics(_db)
+        self.analytics = analytics or Analytics(_db)
 
     @property
     def collection(self):
@@ -718,6 +718,9 @@ class EnkiImport(CollectionMonitor):
 
         :param bibliographic: A Metadata object with attached
         CirculationData
+
+        :return: A 2-tuple (LicensePool, Edition). If possible, a
+        presentation-ready Work will be created for the LicensePool.
         """
         availability = bibliographic.circulation
         license_pool, new_license_pool = availability.license_pool(
@@ -738,6 +741,12 @@ class EnkiImport(CollectionMonitor):
             replace=policy,
         )
         bibliographic.apply(edition, self.collection, replace=policy)
+        if not license_pool.work:
+            work, is_new = license_pool.calculate_work(
+                even_if_no_author=True
+            )
+            if work:
+                work.set_presentation_ready()
 
         if new_license_pool or new_edition:
             for library in self.collection.libraries:
