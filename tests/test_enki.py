@@ -14,15 +14,17 @@ from core.model import (
     CirculationEvent,
     Contributor,
     DataSource,
+    DeliveryMechanism,
+    Edition,
     ExternalIntegration,
-    LicensePool,
-    Resource,
     Hyperlink,
     Identifier,
-    Edition,
-    Timestamp,
-    Subject,
+    LicensePool,
     Measurement,
+    Representation,
+    Resource,
+    Subject,
+    Timestamp,
     Work,
 )
 from . import DatabaseTest
@@ -409,8 +411,99 @@ class TestEnkiAPI(BaseEnkiTest):
         self.api.queue_response(200, content=json.dumps(msg))
         assert_raises(CirculationException, collect)
 
-class TestBibliographicParser(object):
-    """TODO"""
+class TestBibliographicParser(BaseEnkiTest):
+
+    def test_process_all(self):
+        class Mock(BibliographicParser):
+            inputs = []
+            def extract_bibliographic(self, element):
+                self.inputs.append(element)
+
+        parser = Mock()
+        def consume(*args):
+            """Consume a generator's output."""
+            list(parser.process_all(*args))
+
+        # First try various inputs that run successfully but don't
+        # extract any data.
+        consume("{}")
+        eq_([], parser.inputs)
+
+        consume(dict(result=dict()))
+        eq_([], parser.inputs)
+
+        consume(dict(result=dict(titles=[])))
+        eq_([], parser.inputs)
+
+        # Now try a list of books that is split up and each book
+        # processed separately.
+        data = self.get_data("get_update_titles.json")
+        consume(data)
+        eq_(6, len(parser.inputs))
+
+    def test_extract_bibliographic(self):
+        """Test the ability to turn an individual book data blob
+        into a Metadata.
+        """
+        data = json.loads(self.get_data("get_item_french_title.json"))
+        parser = BibliographicParser()
+        m = parser.extract_bibliographic(data['result'])
+        assert isinstance(m, Metadata)
+
+        eq_(u'Le But est le Seul Choix', m.title)
+        eq_(u'fre', m.language)
+        eq_(u'Law of Time Press', m.publisher)
+
+        # Two identifiers, Enki and ISBN, with Enki being primary.
+        enki, isbn = sorted(m.identifiers, key=lambda x: x.type)
+        eq_(Identifier.ENKI_ID, enki.type)
+        eq_("21135", enki.identifier)
+        eq_(enki, m.primary_identifier)
+
+        eq_(Identifier.ISBN, isbn.type)
+        eq_("9780988432727", isbn.identifier)
+
+        # One contributor
+        [contributor] = m.contributors
+        eq_("Hoffmeister, David", contributor.sort_name)
+        eq_([Contributor.AUTHOR_ROLE], contributor.roles)
+
+        # Two links -- full-sized image and description.
+        image, description = sorted(m.links, key=lambda x: x.rel)
+        eq_(Hyperlink.IMAGE, image.rel)
+        eq_("https://enkilibrary.org/bookcover.php?id=21135&isbn=9780988432727&category=EMedia&size=large", image.href)
+
+        eq_(Hyperlink.DESCRIPTION, description.rel)
+        eq_("text/html", description.media_type)
+        assert description.content.startswith("David Hoffmeister r&eacute;")
+
+        # Four subjects.
+        subjects = sorted(m.subjects, key=lambda x: x.identifier)
+
+        # All subjects are classified as tags, rather than BISAC, due
+        # to inconsistencies in the data presentation.
+        for i in subjects:
+            eq_(i.type, Subject.TAG)
+            eq_(None, i.name)
+        eq_([u'BODY MIND SPIRIT Spirituality General',
+             u'BODY, MIND & SPIRIT / Spirituality / General.',
+             u'Spirituality',
+             u'Spirituality.'],
+            [x.identifier for x in subjects]
+        )
+
+        # We also have information about the current availability.
+        circulation = m.circulation
+        assert isinstance(circulation, CirculationData)
+        eq_(1, circulation.licenses_owned)
+        eq_(1, circulation.licenses_available)
+        eq_(0, circulation.licenses_reserved)
+        eq_(0, circulation.patrons_in_hold_queue)
+
+        # The book is available as an ACS-encrypted EPUB.
+        [format] = circulation.formats
+        eq_(Representation.EPUB_MEDIA_TYPE, format.content_type)
+        eq_(DeliveryMechanism.ADOBE_DRM, format.drm_scheme)
 
 
 class TestEnkiImport(BaseEnkiTest):

@@ -492,25 +492,28 @@ class MockEnkiAPI(EnkiAPI):
 
 
 class BibliographicParser(object):
+    """Parses Enki's representation of book information into 
+    Metadata and CirculationData objects.
+    """
 
     log = logging.getLogger("Enki Bibliographic Parser")
 
-    """Helper function to parse JSON"""
+    # Convert the English names of languages given in the Enki API to
+    # the codes we use internally.
+    LANGUAGE_CODES = {
+        "English": u"eng",
+        "French" : u"fre",
+        "Spanish": u"spa",
+    }
+
     def process_all(self, json_data):
-        data = json.loads(json_data)
-        returned_titles = data.get("result", {}).get("titles", [])
+        if isinstance(json_data, basestring):
+            json_data = json.loads(json_data)
+        returned_titles = json_data.get("result", {}).get("titles", [])
 	for book in returned_titles:
             data = self.extract_bibliographic(book)
             if data:
                 yield data
-
-    # Convert the English names of languages given in the API to the
-    # codes we use internally.
-    LANGUAGE_CODES = {
-        "English": "eng",
-        "French" : "fre",
-        "Spanish" :"spa",
-    }
 
     def extract_bibliographic(self, element):
         """Extract Metadata and CirculationData from a dictionary
@@ -533,6 +536,13 @@ class BibliographicParser(object):
         contributors.append(ContributorData(sort_name=sort_name))
 
         links = []
+        description = element.get('description')
+        if description:
+            links.append(
+                LinkData(rel=Hyperlink.DESCRIPTION, content=description,
+                         media_type="text/html")
+            )
+
         # NOTE: When this method is called by, e.g. updated_titles(),
         # the large and small images are available separately. When
         # this method is called by get_item(), we only get a single
@@ -611,6 +621,7 @@ class BibliographicParser(object):
             formats=formats,
             licenses_owned = int(licenses_owned),
             licenses_available = int(licenses_available),
+            licenses_reserved = 0,
             patrons_in_hold_queue = int(hold)
         )
         return circulationdata
