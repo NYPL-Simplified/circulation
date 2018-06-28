@@ -547,6 +547,43 @@ class TestEnkiImport(BaseEnkiTest):
         # full_import was not called.
         eq_(False, importer.full_import_called)
 
+    def test_full_import(self):
+        """full_import calls get_all_titles over and over again until
+        it returns nothing, and processes every book it receives.
+        """
+        class MockAPI(object):
+            def __init__(self, pages):
+                """Act like an Enki API with predefined pages of results."""
+                self.pages = pages
+                self.get_all_titles_called_with = []
+
+            def get_all_titles(self, strt, qty):
+                self.get_all_titles_called_with.append((strt, qty))
+                if self.pages:
+                    return self.pages.pop(0)
+                return []
+
+        class Mock(EnkiImport):
+            processed = []
+            def process_book(self, data):
+                self.processed.append(data)
+
+        # Simulate an Enki site with two pages of results.
+        pages = [[1,2], [3]]
+        api = MockAPI(pages)
+
+        # Do the 'import'.
+        importer = Mock(self._db, self.collection, api_class=api)
+        importer.full_import()
+
+        # get_all_titles was called three times, once for the first two
+        # pages and a third time to verify that there are no more results.
+        eq_([(0, 10), (10, 10), (20, 10)],
+            api.get_all_titles_called_with)
+
+        # Every item on every 'page' of results was processed.
+        eq_([1,2,3], importer.processed)
+
 
 class TestEnkiCollectionReaper(BaseEnkiTest):
 
