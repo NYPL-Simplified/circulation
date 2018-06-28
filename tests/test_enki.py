@@ -80,16 +80,17 @@ class TestEnkiAPI(BaseEnkiTest):
         )
 
         # Without an external_account_id, an EnkiAPI cannot be instantiated.
+        bad_collection.protocol = ExternalIntegration.ENKI
         assert_raises_regexp(
             CannotLoadConfiguration,
             "Enki configuration is incomplete.",
             EnkiAPI,
             self._db,
-            self.collection
+            bad_collection
         )
 
-        self.collection.external_account_id = "1"
-        EnkiAPI(self._db, self.collection)
+        bad_collection.external_account_id = "1"
+        EnkiAPI(self._db, bad_collection)
 
     def test_external_integration(self):
         integration = self.api.external_integration(self._db)
@@ -314,7 +315,7 @@ class TestEnkiAPI(BaseEnkiTest):
         loan = self.api.parse_patron_loans(result['result']['checkedOutItems'][0])
         eq_(loan.data_source_name, DataSource.ENKI)
         eq_(loan.identifier_type, Identifier.ENKI_ID)
-        eq_(loan.identifier, "econtentRecord2")
+        eq_(loan.identifier, "2")
         eq_(loan.start_date, datetime.datetime(2017, 8, 23, 19, 31, 58, 0))
         eq_(loan.end_date, datetime.datetime(2017, 9, 13, 19, 31, 58, 0))
 
@@ -326,7 +327,7 @@ class TestEnkiAPI(BaseEnkiTest):
         loan = self.api.parse_patron_loans(result['result']['checkedOutItems'][0])
         eq_(loan.data_source_name, DataSource.ENKI)
         eq_(loan.identifier_type, Identifier.ENKI_ID)
-        eq_(loan.identifier, "econtentRecord3334")
+        eq_(loan.identifier, "3334")
         eq_(loan.start_date, datetime.datetime(2017, 8, 23, 19, 42, 35, 0))
         eq_(loan.end_date, datetime.datetime(2017, 9, 13, 19, 42, 35, 0))
 
@@ -392,7 +393,7 @@ class TestEnkiAPI(BaseEnkiTest):
 
         eq_(Identifier.ENKI_ID, loan.identifier_type)
         eq_(DataSource.ENKI, loan.data_source_name)
-        eq_("econtentRecord231", loan.identifier)
+        eq_("231", loan.identifier)
         eq_(self.collection, loan.collection(self._db))
         eq_(datetime.datetime(2017, 8, 15, 14, 56, 51), loan.start_date)
         eq_(datetime.datetime(2017, 9, 5, 14, 56, 51), loan.end_date)
