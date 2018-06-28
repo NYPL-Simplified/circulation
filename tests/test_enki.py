@@ -694,7 +694,11 @@ class TestEnkiImport(BaseEnkiTest):
         """
         pass
 
+
 class TestEnkiCollectionReaper(BaseEnkiTest):
+
+    def test_book_that_doesnt_need_reaping_is_left_alone(self):
+        pass
 
     def test_reaped_book_has_zero_licenses(self):
         # Create a LicensePool that needs updating.
