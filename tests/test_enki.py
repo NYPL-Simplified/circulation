@@ -507,12 +507,45 @@ class TestBibliographicParser(BaseEnkiTest):
 
 
 class TestEnkiImport(BaseEnkiTest):
-    """TODO starting here"""
 
     def test_import_instantiation(self):
         """Test that EnkiImport can be instantiated"""
         importer = EnkiImport(self._db, self.collection, api_class=self.api)
         eq_(self.api, importer.api)
+        eq_(self.collection, importer.collection)
+
+    def test_run_once(self):
+        dummy_value = object()
+        class Mock(EnkiImport):
+            incremental_import_called_with = dummy_value
+            def full_import(self):
+                self.full_import_called = True
+
+            def incremental_import(self, since):
+                self.incremental_import_called_with = since
+
+        importer = Mock(self._db, self.collection, api_class=self.api)
+
+        # If run_once() is called with no start time, as happens the first time
+        # the importer runs, it calls full_import().
+        importer.run_once(None, None)
+        eq_(True, importer.full_import_called)
+
+        # It doesn't call incremental_import().
+        eq_(dummy_value, importer.incremental_import_called_with)
+
+        # If run_once() is called with a start time, a time five
+        # minutes previous is passed into incremental_import()
+        importer.full_import_called = False
+        timestamp = datetime.datetime.utcnow()
+        five_minutes_earlier = timestamp - importer.FIVE_MINUTES
+        importer.run_once(timestamp, None)
+
+        passed_in = importer.incremental_import_called_with
+        assert abs((passed_in-five_minutes_earlier).total_seconds()) < 2
+
+        # full_import was not called.
+        eq_(False, importer.full_import_called)
 
 
 class TestEnkiCollectionReaper(BaseEnkiTest):

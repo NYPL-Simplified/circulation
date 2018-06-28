@@ -663,19 +663,12 @@ class EnkiImport(CollectionMonitor):
         else:
             # We've run the monitor before, so we just need to learn
             # about new titles and circulation changes since the last time.
-
+            #
             # Give us five minutes of overlap because it's very important
             # we don't miss anything.
             since = start-self.FIVE_MINUTES
 
-            # Take care of new titles and titles with updated metadata.
-            for metadata in self.api.updated_titles(since):
-                self.process_book(metadata)
-            self._db.commit()
-
-            # Take care of titles whose circulation status changed.
-            self.update_circulation(since)
-            self._db.commit()
+            self.incremental_import(since)
 
     def full_import(self):
         """Import the entire Enki collection, page by page."""
@@ -693,6 +686,16 @@ class EnkiImport(CollectionMonitor):
                 # When we get an empty page we know it's time to stop.
                 break
             id_start += self.DEFAULT_BATCH_SIZE
+
+    def incremental_import(self, since):
+        # Take care of new titles and titles with updated metadata.
+        for metadata in self.api.updated_titles(since):
+            self.process_book(metadata)
+        self._db.commit()
+
+        # Take care of titles whose circulation status changed.
+        self.update_circulation(since)
+        self._db.commit()
 
     def update_circulation(self, since):
         """Process circulation events that happened since `since`."""
