@@ -698,7 +698,34 @@ class TestEnkiImport(BaseEnkiTest):
 class TestEnkiCollectionReaper(BaseEnkiTest):
 
     def test_book_that_doesnt_need_reaping_is_left_alone(self):
-        pass
+        # We're happy with this book.
+        edition, pool = self._edition(
+            identifier_type=Identifier.ENKI_ID,
+            identifier_id="21135",
+            data_source_name=DataSource.ENKI,
+            with_license_pool=True,
+            collection=self.collection
+        )
+        pool.licenses_owned = 10
+        pool.licenses_available = 9
+        pool.patrons_in_hold_queue = 5
+
+        # Enki still considers this book to be in the library's
+        # collection.
+        data = self.get_data("get_item_french_title.json")
+        self.api.queue_response(200, content=data)
+
+        reaper = EnkiCollectionReaper(
+            self._db, self.collection, api_class=self.api
+        )
+
+        # Run the identifier through the reaper.
+        reaper.process_item(pool.identifier)
+
+        # The book was left alone.
+        eq_(10, pool.licenses_owned)
+        eq_(9, pool.licenses_available)
+        eq_(5, pool.patrons_in_hold_queue)
 
     def test_reaped_book_has_zero_licenses(self):
         # Create a LicensePool that needs updating.
