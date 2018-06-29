@@ -145,13 +145,13 @@ class Configuration(CoreConfiguration):
         },
         {
             "key": COPYRIGHT_DESIGNATED_AGENT_EMAIL,
-            "label": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support email address will be used."),
+            "label": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support address will be used."),
             "optional": True,
         },
         {
             "key": CONFIGURATION_CONTACT_EMAIL,
             "label": _("A point of contact for the organization reponsible for configuring this library."),
-            "description": _("This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of a library registry a way to contact you about problems with this library's configuration. "),
+            "description": _("This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library's use of that integration.<br/>If no value is specified here, the general patron support address will be used."),
             "optional": True,
         },
         {
@@ -414,15 +414,30 @@ class Configuration(CoreConfiguration):
             yield type, value
 
     @classmethod
-    def copyright_designated_agent_uri(cls, library):
-        for setting in [
-            Configuration.COPYRIGHT_DESIGNATED_AGENT_EMAIL,
-            Configuration.HELP_EMAIL
-        ]:
+    def _email_uri_with_fallback(cls, library, key):
+        """Try to find a certain email address configured for the given
+        purpose. If not available, use the general patron support
+        address.
+
+        :param key: The specific email address to look for.
+        """
+        for setting in [key, Configuration.HELP_EMAIL]:
             value = ConfigurationSetting.for_library(setting, library).value
             if not value:
                 continue
             return cls._as_mailto(value)
+
+    @classmethod
+    def copyright_designated_agent_uri(cls, library):
+        return self._email_uri_with_fallback(
+            Configuration.COPYRIGHT_DESIGNATED_AGENT_EMAIL
+        )
+
+    @classmethod
+    def configuration_contact_uri(cls, library):
+        return self._email_uri_with_fallback(
+            Configuration.CONFIGURATION_CONTACT_EMAIL
+        )
 
         
 @contextlib.contextmanager

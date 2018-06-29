@@ -3471,6 +3471,15 @@ class SettingsController(AdminCirculationManagerController):
         # OPDS Authentication document.
         self._db.commit()
 
+        payload = dict(url=auth_document_url)
+        # Find the email address the administrator should use if they notice
+        # a problem with the way the library is using an integration.
+        contact = Configuration.configuration_contact_uri(library)
+        if contact:
+            payload['contact'] = contact
+
+
+
         auth_document_url = self.url_for(
             "authentication_document",
             library_short_name=library.short_name
