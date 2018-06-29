@@ -478,6 +478,10 @@ class TestBibliographicParser(BaseEnkiTest):
         eq_("text/html", description.media_type)
         assert description.content.startswith("David Hoffmeister r&eacute;")
 
+        # The full-sized image has a thumbnail.
+        eq_(Hyperlink.THUMBNAIL_IMAGE, image.thumbnail.rel)
+        eq_("http://thumbnail/", image.thumbnail.href)
+
         # Four subjects.
         subjects = sorted(m.subjects, key=lambda x: x.identifier)
 

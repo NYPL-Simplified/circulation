@@ -168,8 +168,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         try:
             return self._request(
                 method, url, headers=headers, data=data,
-                params=params, timeout=90,
-                disallowed_response_codes=None,
+                params=params,
                 **kwargs
             )
         except RequestTimedOut, e:
@@ -549,6 +548,8 @@ class BibliographicParser(object):
         # image, in 'cover'. In get_item() we ask that that image be 'large',
         # which means we'll be filing it as a normal-sized image.
         #
+        full_image = None
+        thumbnail_image = None
         for key, rel in (
                 ('cover', Hyperlink.IMAGE),
                 ('small_image', Hyperlink.THUMBNAIL_IMAGE),
@@ -560,7 +561,24 @@ class BibliographicParser(object):
             link = LinkData(
                 rel=rel, href=url, media_type=Representation.PNG_MEDIA_TYPE
             )
-            links.append(link)
+            if rel == Hyperlink.THUMBNAIL_IMAGE:
+                # Don't add a thumbnail to the list of links -- wait
+                # until the end and then make it a thumbnail of the
+                # primary image.
+                thumbnail_image = link
+            else:
+                if rel == Hyperlink.IMAGE:
+                    full_image = link
+                links.append(link)
+
+        if thumbnail_image:
+            if full_image:
+                # Set the thumbnail as the thumbnail _of_ the full image.
+                full_image.thumbnail = thumbnail_image
+            else:
+                # Treat the thumbnail as the full image.
+                thumbnail_image.rel = Hyperlink.IMAGE
+                links.append(thumbnail_image)
 
         # We treat 'subject', 'topic', and 'genre' as interchangeable
         # sets of tags. This data is based on BISAC but it's not reliably
@@ -569,7 +587,7 @@ class BibliographicParser(object):
         seen_topics = set()
         for key in ('subject', 'topic', 'genre'):
             for topic in element.get(key, []):
-                if topic in seen_topics:
+                if not topic or topic in seen_topics:
                     continue
                 subjects.append(SubjectData(Subject.TAG, topic))
                 seen_topics.add(topic)
