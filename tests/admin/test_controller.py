@@ -5828,6 +5828,10 @@ class TestSettingsController(AdminControllerTest):
 
         library = self._default_library
 
+        ConfigurationSetting.for_library(
+            Configuration.CONFIGURATION_CONTACT_EMAIL, library
+        ).value = "configproblems@library.org"
+
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
@@ -5841,7 +5845,16 @@ class TestSettingsController(AdminControllerTest):
             response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
 
             eq_(200, response.status_code)
-            eq_(["registry url", "register url"], [x[0] for x in self.requests])
+            [req1, req2] = self.requests
+            eq_("registry url", req1[0])
+
+            url, [body], kwargs = req2
+            eq_("register url", url)
+
+            # When we sent the location of our authentication document to
+            # the 'registry', we provided an email address the registry can use
+            # to contact us if there are problems.
+            eq_("mailto:configproblems@library.org", body['contact'])
 
             # This registry doesn't support short client tokens and doesn't have a vendor id,
             # so no settings were added to it.
