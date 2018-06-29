@@ -51,6 +51,17 @@ class Configuration(CoreConfiguration):
     # address to use when notifying patrons of changes.
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = u"default_notification_email_address"
 
+    # The name of the per-library setting that sets the email address
+    # of the Designated Agent for copyright complaints
+    COPYRIGHT_DESIGNATED_AGENT_EMAIL = u"copyright_designated_agent_email_address"
+
+    # This is the link relation used to indicate
+    COPYRIGHT_DESIGNATED_AGENT_REL = "http://librarysimplified.org/rel/designated-agent/copyright"
+
+    # The name of the per-library setting that sets the contact address
+    # for problems with the library configuration itself.
+    CONFIGURATION_CONTACT_EMAIL = u"configuration_contact_email_address"
+
     # Name of the site-wide ConfigurationSetting containing the secret
     # used to sign bearer tokens.
     BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
@@ -130,6 +141,17 @@ class Configuration(CoreConfiguration):
         {
             "key": LIBRARY_DESCRIPTION,
             "label": _("A short description of this library, shown to people who aren't sure they've chosen the right library."),
+            "optional": True,
+        },
+        {
+            "key": COPYRIGHT_DESIGNATED_AGENT_EMAIL,
+            "label": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support email address will be used."),
+            "optional": True,
+        },
+        {
+            "key": CONFIGURATION_CONTACT_EMAIL,
+            "label": _("A point of contact for the organization reponsible for configuring this library."),
+            "description": _("This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of a library registry a way to contact you about problems with this library's configuration. "),
             "optional": True,
         },
         {
@@ -213,7 +235,7 @@ class Configuration(CoreConfiguration):
         {
             "key": HELP_EMAIL,
             "label": _("Patron support email address"),
-            "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@nypl.org'."),
+            "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
             "optional": True,
         },
         {
@@ -364,6 +386,15 @@ class Configuration(CoreConfiguration):
         return result        
         
     @classmethod
+    def _as_mailto(cls, value):
+        """Turn an email address into a mailto: URI."""
+        if not value:
+            return value
+        if value.startswith("mailto:"):
+            return value
+        return "mailto:%s" % value
+
+    @classmethod
     def help_uris(cls, library):
         """Find all the URIs that might help patrons get help from
         this library.
@@ -377,11 +408,22 @@ class Configuration(CoreConfiguration):
                 continue
             type = None
             if name == cls.HELP_EMAIL:
-                value = 'mailto:' + value
+                value = cls._as_mailto(value)
             if name == cls.HELP_WEB:
                 type = 'text/html'
             yield type, value
-            
+
+    @classmethod
+    def copyright_designated_agent_uri(cls, library):
+        for setting in [
+            Configuration.COPYRIGHT_DESIGNATED_AGENT_EMAIL,
+            Configuration.HELP_EMAIL
+        ]:
+            value = ConfigurationSetting.for_library(setting, library).value
+            if not value:
+                continue
+            return cls._as_mailto(value)
+
         
 @contextlib.contextmanager
 def empty_config():
