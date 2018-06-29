@@ -429,7 +429,7 @@ class Configuration(CoreConfiguration):
 
     @classmethod
     def copyright_designated_agent_uri(cls, library):
-        return self._email_uri_with_fallback(
+        return cls._email_uri_with_fallback(
             library, Configuration.COPYRIGHT_DESIGNATED_AGENT_EMAIL
         )
 
