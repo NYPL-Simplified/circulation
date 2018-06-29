@@ -188,11 +188,6 @@ class TestEnkiAPI(BaseEnkiTest):
         r1, r2 = api.called_with
         eq_(r1, r2)
 
-        # The timeout was 90 seconds.
-        args, kwargs = r1
-        eq_(90, kwargs['timeout'])
-        eq_(None, kwargs['disallowed_response_codes'])
-
         # In the end, we got our content.
         eq_(200, response.status_code)
         eq_("content", response.content)
