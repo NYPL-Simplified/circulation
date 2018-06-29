@@ -1,29 +1,18 @@
 from nose.tools import set_trace
-from collections import defaultdict
 import time
 import datetime
-import base64
 import os
 import json
 import logging
-import re
 from flask_babel import lazy_gettext as _
 
-from sqlalchemy.orm import contains_eager
-
-from lxml import etree
-
-from authenticator import Authenticator
-
 from config import (
-    Configuration,
-    temp_config,
+    CannotLoadConfiguration,
 )
 
 from circulation import (
     LoanInfo,
     FulfillmentInfo,
-    HoldInfo,
     BaseCirculationAPI
 )
 
@@ -34,45 +23,35 @@ from selftest import (
     SelfTestResult,
 )
 
-from core.util import LanguageCodes
 from core.util.http import (
     HTTP,
-    RemoteIntegrationException,
     RequestTimedOut,
 )
 
-from core.coverage import (
-    BibliographicCoverageProvider,
-    CoverageFailure,
-)
-
 from core.model import (
-    get_one_or_create,
-    Collection,
-    Contributor,
     CirculationEvent,
+    Collection,
     DataSource,
     DeliveryMechanism,
-    LicensePool,
     Edition,
-    Identifier,
-    Library,
-    Representation,
-    Subject,
     ExternalIntegration,
-    Session,
     Hyperlink,
+    Identifier,
+    LicensePool,
+    Representation,
+    Session,
+    Subject,
 )
 
 from core.metadata_layer import (
-    SubjectData,
+    CirculationData,
     ContributorData,
     FormatData,
     IdentifierData,
-    CirculationData,
+    LinkData,
     Metadata,
     ReplacementPolicy,
-    LinkData,
+    SubjectData,
 )
 
 from core.monitor import (
@@ -81,11 +60,9 @@ from core.monitor import (
     CollectionMonitor,
 )
 
-from core.opds_import import SimplifiedOPDSLookup
 from core.analytics import Analytics
 from core.testing import DatabaseTest
 
-#TODO: Remove unnecessary imports (once the classes are more or less complete)
 
 class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
@@ -97,7 +74,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         { "key": ExternalIntegration.URL, "label": _("URL"), "default": PRODUCTION_BASE_URL },
     ] + BaseCirculationAPI.SETTINGS
 
-    availability_endpoint = "ListAPI"
+    list_endpoint = "ListAPI"
     item_endpoint = "ItemAPI"
     user_endpoint = "UserAPI"
 
@@ -120,7 +97,6 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
     SET_DELIVERY_MECHANISM_AT = BaseCirculationAPI.FULFILL_STEP
     SERVICE_NAME = "Enki"
     log = logging.getLogger("Enki API")
-    log.setLevel(logging.DEBUG)
 
     def __init__(self, _db, collection):
         self._db = _db
@@ -129,19 +105,15 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 "Collection protocol is %s, but passed into EnkiAPI!" %
                 collection.protocol
             )
+
         self.collection_id = collection.id
-        self.library_id = collection.external_account_id.encode("utf8")
+        self.library_id = collection.external_account_id
         self.base_url = collection.external_integration.url or self.PRODUCTION_BASE_URL
 
         if not self.library_id or not self.base_url:
             raise CannotLoadConfiguration(
                 "Enki configuration is incomplete."
             )
-        self.enki_bibliographic_coverage_provider = (
-            EnkiBibliographicCoverageProvider(
-                collection, api_class=self
-            )
-        )
 
     def external_integration(self, _db):
         return self.collection.external_integration
@@ -190,39 +162,55 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             )
 
     def request(self, url, method='get', extra_headers={}, data=None,
-                params=None, exception_on_401=False):
-        """Make an HTTP request, acquiring/refreshing a bearer token
-        if necessary.
-        """
+                params=None, retry_on_timeout=True, **kwargs):
+        """Make an HTTP request to the Enki API."""
         headers = dict(extra_headers)
-        if exception_on_401:
-            disallowed_response_codes = ["401"]
-        else:
-            disallowed_response_codes = None
-            response = self._make_request(
-                url=url, method=method, headers=headers,
-                data=data, params=params,
-                disallowed_response_codes=disallowed_response_codes
+        try:
+            return self._request(
+                method, url, headers=headers, data=data,
+                params=params,
+                **kwargs
             )
-        if response.status_code == 401:
-            # This must be our first 401, since our second 401 will
-            # make _make_request raise a RemoteIntegrationException.
-            #
-            # The token has expired. Get a new token and try again.
-            self.token = None
+        except RequestTimedOut, e:
+            if not retry_on_timeout:
+                raise e
+            self.log.info(
+                "Request to %s timed out once. Trying a second time.", url
+            )
             return self.request(
-                url=url, method=method, extra_headers=extra_headers,
-                data=data, params=params, exception_on_401=True
+                url, method, extra_headers,
+                data, params, retry_on_timeout=False,
+                **kwargs
             )
-        else:
-            return response
 
+    def _request(self, method, url, headers, data, params, **kwargs):
+        """Actually make an HTTP request.
 
-    def recent_activity(self, minutes=5):
+        MockEnkiAPI overrides this method.
+        """
+        return HTTP.request_with_timeout(
+            method, url, headers=headers, data=data,
+            params=params, timeout=90, disallowed_response_codes=None,
+            **kwargs
+        )
+
+    @classmethod
+    def _minutes_since(cls, since):
+        """How many minutes have elapsed since `since`?
+
+        This is a helper method to create the `minutes` parameter to
+        the API.
+        """
+        now = datetime.datetime.utcnow()
+        return int((now - since).total_seconds() / 60)
+
+    def recent_activity(self, since):
         """Find recent circulation events that affected loans or holds.
 
+        :param since: A DateTime
         :yield: A sequence of CirculationData objects.
         """
+        minutes = self._minutes_since(since)
         url = self.base_url + self.item_endpoint
         args = dict(
             method='getRecentActivity',
@@ -233,17 +221,23 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         data = json.loads(response.content)
         parser = BibliographicParser()
         for element in data['result']['recentactivity']:
-            identifier = IdentifierData(Identifier.ISBN, element['isbn'])
+            identifier = IdentifierData(Identifier.ENKI_ID, element['id'])
             yield parser.extract_circulation(
                 identifier, element['availability']
             )
 
-    def updated_titles(self, minutes=5):
+    def updated_titles(self, since):
         """Find recent changes to book metadata.
 
+        NOTE: getUpdateTitles will return a maximum of 1000 items, so
+        in theory this may need to be paginated. This shouldn't be a
+        problem assuming the monitor is run regularly.
+
+        :param since: A DateTime
         :yield: A sequence of Metadata objects.
         """
-        url = self.base_url + self.availability_endpoint
+        minutes = self._minutes_since(since)
+        url = self.base_url + self.list_endpoint
         args = dict(
             method='getUpdateTitles',
             minutes=minutes,
@@ -251,21 +245,47 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             lib=self.library_id
         )
         response = self.request(url, params=args)
-        for metadata, availability in BibliographicParser().process_all(
-            response.content
-        ):
+        for metadata in BibliographicParser().process_all(response.content):
             yield metadata
 
+    def get_item(self, enki_id):
+        """Retrieve bibliographic and availability information for
+        a specific title.
 
-    def availability(self, patron_id=None, since=None, title_ids=[], strt=0, qty=2000):
-        """Get *all* titles in a paginated list.
-
-        This is a very expensive API call and should only be used
-        during initial data population.
+        :param enki_id: An Enki record ID.
+        :return: If the book is in the library's collection, a
+            Metadata object with attached CirculationData. Otherwise, None.
         """
-        qty = 10
+        url = self.base_url + self.item_endpoint
+        args = dict(
+            method="getItem",
+            recordid=enki_id,
+            lib=self.library_id,
+            size="large",
+        )
+        response = self.request(url, params=args)
+        try:
+            data = json.loads(response.content)
+        except ValueError, e:
+            # This is most likely a 'not found' error.
+            return None
+
+        book = data.get('result', {})
+        if book:
+            return BibliographicParser().extract_bibliographic(book)
+        return None
+
+    def get_all_titles(self, strt=0, qty=10):
+        """Retrieve a single page of items from the Enki collection.
+
+        Iterating over the entire collection is very expensive and
+        should only happen during initial data population.
+
+        :yield: A sequence of Metadata objects, each with a
+            CirculationData attached.
+        """
         self.log.debug ("requesting : "+ str(qty) + " books starting at econtentRecord" +  str(strt))
-        url = str(self.base_url) + str(self.availability_endpoint)
+        url = str(self.base_url) + str(self.list_endpoint)
         args = dict()
         args['method'] = "getAllTitles"
         args['id'] = "secontent"
@@ -273,86 +293,11 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
         args['qty'] = qty
         args['lib'] = self.library_id
         response = self.request(url, params=args)
-        return response
+        for metadata in BibliographicParser().process_all(response.content):
+            yield metadata
 
     @classmethod
-    def create_identifier_strings(cls, identifiers):
-        identifier_strings = []
-        for i in identifiers:
-            if isinstance(i, Identifier):
-                value = i.identifier
-            else:
-                value = i
-            identifier_strings.append(value)
-
-        return identifier_strings
-
-    @classmethod
-    def parse_token(cls, token):
-        data = json.loads(token)
-        return data['access_token']
-
-    def _make_request(self, url, method, headers, data=None, params=None,
-                      **kwargs):
-        """Actually make an HTTP request."""
-        try:
-            return HTTP.request_with_timeout(
-                method, url, headers=headers, data=data,
-                params=params, timeout=90, **kwargs
-            )
-        except RequestTimedOut, e:
-            self.log.info("Request to %s timed out once. Trying a second time.", url)
-            return HTTP.request_with_timeout(
-                method, url, headers=headers, data=data,
-                params=params, timeout=90, **kwargs
-            )
-
-    def reaper_request(self, identifier):
-        self.log.debug ("Checking availability for " + str(identifier.identifier))
-        now = datetime.datetime.utcnow()
-        url = str(self.base_url) + str(self.item_endpoint)
-        args = dict()
-        args['method'] = "getItem"
-        args['recordid'] = identifier.identifier
-        args['size'] = "small"
-        args['lib'] = self.library_id
-        response = self.request(url, method='get', params=args)
-
-        try:
-            # If a book doesn't exist in Enki, we'll just get an HTML page saying we did something wrong.
-            data = json.loads(response.content)
-            self.log.debug ("Keeping existing book: " + str(identifier))
-        except:
-            # Get this collection's license pool for this identifier.
-            pool = identifier.licensed_through_collection(self.collection)
-            if pool and (pool.licenses_owned > 0):
-                if pool.presentation_edition:
-                    self.log.warn("Removing %s (%s) from circulation",
-                                  pool.presentation_edition.title, pool.presentation_edition.author)
-                else:
-                    self.log.warn(
-                        "Removing unknown work %s from circulation.",
-                        identifier.identifier
-                    )
-
-            circulationdata = CirculationData(
-                data_source=DataSource.ENKI,
-                primary_identifier= IdentifierData(EnkiAPI.ENKI_ID, identifier.identifier),
-                licenses_owned = 0,
-                licenses_available = 0,
-                patrons_in_hold_queue = 0,
-                last_checked = now
-            )
-
-            circulationdata.apply(
-                self._db,
-                self.collection,
-                replace=ReplacementPolicy.from_license_source(self._db)
-            )
-
-            return circulationdata
-
-    def epoch_to_struct(self, epoch_string):
+    def _epoch_to_struct(cls, epoch_string):
         # This will turn the time string we get from Enki into a
         # struct that the Circulation Manager can make use of.
         time_format = "%Y-%m-%dT%H:%M:%S"
@@ -360,7 +305,6 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             time.strftime(time_format, time.gmtime(float(epoch_string))),
             time_format
         )
-
 
     def checkout(self, patron, pin, licensepool, internal_format):
         identifier = licensepool.identifier
@@ -379,7 +323,7 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                     % (patron.authorization_identifier, pin))
                 raise AuthorizationFailedException()
         due_date = result['checkedOutItems'][0]['duedate']
-        expires = self.epoch_to_struct(due_date)
+        expires = self._epoch_to_struct(due_date)
 
         # Create the loan info.
         loan = LoanInfo(
@@ -421,11 +365,18 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
                 self.log.error("User validation against Enki server with %s / %s was unsuccessful."
                     % (patron.authorization_identifier, pin))
                 raise AuthorizationFailedException()
-        drm_type = self.get_enki_drm_type(book_id)
-        url, item_type, expires = self.parse_fulfill_result(result)
 
-        if not drm_type and item_type == 'epub':
-            drm_type = self.no_drm
+        url, item_type, expires = self.parse_fulfill_result(result)
+        # We don't know for sure which DRM scheme is in use, (that is,
+        # whether the content link points to the actual book or an
+        # ACSM file) but since Enki titles only have a single delivery
+        # mechanism, it's easy to make a guess.
+        drm_type = self.no_drm
+        for lpdm in licensepool.delivery_mechanisms:
+            delivery_mechanism = lpdm.delivery_mechanism
+            if delivery_mechanism:
+                drm_type = delivery_mechanism.drm_scheme
+                break
 
         return FulfillmentInfo(
             licensepool.collection,
@@ -438,44 +389,29 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
             content_expires=expires
         )
 
-    def get_enki_drm_type(self, book_id):
-        url = str(self.base_url) + str(self.item_endpoint)
-        args = dict()
-        args['method'] = 'getItem'
-        args['recordid'] = book_id
-        args['lib'] = self.library_id
-        response = self.request(url, method='get', params=args)
-        if response.status_code != 200:
-            return None
-        drm_type = json.loads(response.content)['result']['availability']['accessType']
-        if drm_type == 'acs':
-            return self.adobe_drm
-        elif drm_type == 'free':
-            return self.no_drm
-        else:
-            return None
-
     def parse_fulfill_result(self, result):
         links = result['checkedOutItems'][0]['links'][0]
         url = links['url']
         item_type = links['item_type']
         due_date = result['checkedOutItems'][0]['duedate']
-        expires = self.epoch_to_struct(due_date)
+        expires = self._epoch_to_struct(due_date)
         return (url, item_type, expires)
 
     def patron_activity(self, patron, pin):
         response = self.patron_request(patron.authorization_identifier, pin)
         if response.status_code != 200:
             raise PatronNotFoundOnRemote(response.status_code)
-        result = json.loads(response.content)['result']
-        if not result['success']:
-            message = result['message']
+        result = json.loads(response.content).get('result', {})
+        if not result.get('success'):
+            message = result.get('message', '')
             if "Login unsuccessful" in message:
-                self.log.error("User validation against Enki server with %s / %s was unsuccessful." % (patron, pin))
                 raise AuthorizationFailedException()
             else:
-                self.log.error("Something happened in patron_activity.")
-                raise CirculationException()
+                self.log.error(
+                    "Unexpected error in patron_activity: %r",
+                    response.content
+                )
+                raise CirculationException(response.content)
         for loan in result['checkedOutItems']:
             yield self.parse_patron_loans(loan)
         for type, holds in result['holds'].items():
@@ -495,9 +431,9 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
 
     def parse_patron_loans(self, checkout_data):
         # We should receive a list of JSON objects
-        enki_id = checkout_data['recordId']
-        start_date = self.epoch_to_struct(checkout_data['checkoutdate'])
-        end_date = self.epoch_to_struct(checkout_data['duedate'])
+        enki_id = checkout_data['id']
+        start_date = self._epoch_to_struct(checkout_data['checkoutdate'])
+        end_date = self._epoch_to_struct(checkout_data['duedate'])
         return LoanInfo(
             self.collection,
             DataSource.ENKI,
@@ -517,18 +453,21 @@ class EnkiAPI(BaseCirculationAPI, HasSelfTests):
     def release_hold(self, patron, pin, licensepool):
         pass
 
+
 class MockEnkiAPI(EnkiAPI):
     def __init__(self, _db, collection=None, *args, **kwargs):
         self.responses = []
         self.requests = []
 
         library = DatabaseTest.make_default_library(_db)
-        collection, ignore = Collection.by_name_and_protocol(
-            _db, name="Test Enki Collection", protocol=EnkiAPI.ENKI
-        )
-        collection.protocol=EnkiAPI.ENKI
-        collection.external_account_id=u'c';
-        library.collections.append(collection)
+        if not collection:
+            collection, ignore = Collection.by_name_and_protocol(
+                _db, name="Test Enki Collection", protocol=EnkiAPI.ENKI
+            )
+            collection.protocol=EnkiAPI.ENKI
+            collection.external_account_id=u'c';
+        if collection not in library.collections:
+            library.collections.append(collection)
         super(MockEnkiAPI, self).__init__(
             _db, collection, *args, **kwargs
         )
@@ -539,152 +478,160 @@ class MockEnkiAPI(EnkiAPI):
             0, MockRequestsResponse(status_code, headers, content)
         )
 
-    def _make_request(self, url, *args, **kwargs):
-        self.requests.append([url, args, kwargs])
-        response = self.responses.pop()
-        return HTTP._process_response(
-            url, response, kwargs.get('allowed_response_codes'),
-            kwargs.get('disallowed_response_codes')
-        )
-
-    def _request_with_timeout(self, method, url, *args, **kwargs):
-        """Simulate HTTP.request_with_timeout."""
-        self.requests.append([method, url, args, kwargs])
-        response = self.responses.pop()
-        return HTTP._process_response(
-            url, response, kwargs.get('allowed_response_codes'),
-            kwargs.get('disallowed_response_codes')
-        )
-
-    def _simple_http_get(self, url, headers, *args, **kwargs):
-        """Simulate Representation.simple_http_get."""
-        response = self._request_with_timeout('GET', url, *args, **kwargs)
-        return response.status_code, response.headers, response.content
-
-class EnkiBibliographicCoverageProvider(BibliographicCoverageProvider):
-    """Fill in bibliographic metadata for Enki records.
-
-    Currently this is only used by BibliographicRefreshScript. It's
-    not normally necessary because the Enki API combines
-    bibliographic and availability data.
-    """
-
-    SERVICE_NAME = "Enki Bibliographic Coverage Provider"
-    DATA_SOURCE_NAME = DataSource.ENKI
-    PROTOCOL = EnkiAPI.ENKI
-    INPUT_IDENTIFIER_TYPES = EnkiAPI.ENKI_ID
-
-    def __init__(self, collection, api_class=EnkiAPI, **kwargs):
-        """Constructor.
-
-        :param collection: Provide bibliographic coverage to all
-            Enki books in the given Collection.
-        :param api_class: Instantiate this class with the given Collection,
-            rather than instantiating EnkiAPI.
+    def _request(self, method, url, headers, data, params, **kwargs):
+        """Override EnkiAPI._request to pull responses from a
+        queue instead of making real HTTP requests
         """
-        _db = Session.object_session(collection)
-        super(EnkiBibliographicCoverageProvider, self).__init__(
-            collection, **kwargs
+        self.requests.append([method, url, headers, data, params, kwargs])
+        response = self.responses.pop()
+        return HTTP._process_response(
+            url, response, kwargs.get('allowed_response_codes'),
+            kwargs.get('disallowed_response_codes'),
         )
-        if isinstance(api_class, EnkiAPI):
-            # We were given a specific EnkiAPI instance to use.
-            self.api = api_class
-        else:
-            self.api = api_class(_db, collection)
-        self.parser = BibliographicParser()
 
-    def process_batch(self, identifiers):
-        identifier_strings = self.api.create_identifier_strings(identifiers)
-        response = self.api.availability(title_ids=identifier_strings)
-        seen_identifiers = set()
-        batch_results = []
-        for metadata, availability in self.parser.process_all(response.content):
-            identifier, is_new = metadata.primary_identifier.load(self._db)
-            if not identifier in identifiers:
-                # Enki told us about a book we didn't ask
-                # for. This shouldn't happen, but if it does we should
-                # do nothing further.
-                continue
-            seen_identifiers.add(identifier.identifier)
-            result = self.set_metadata(identifier, metadata)
-            if not isinstance(result, CoverageFailure):
-                result = self.handle_success(identifier)
-            batch_results.append(result)
-
-        # Create a CoverageFailure object for each original identifier
-        # not mentioned in the results.
-        for identifier_string in identifier_strings:
-            if identifier_string not in seen_identifiers:
-                identifier, ignore = Identifier.for_foreign_id(
-                    self._db, api.ENKI_ID, identifier_string
-                )
-                result = CoverageFailure(
-                    identifier, "Book not found in Enki", data_source=self.output_source, transient=True
-                )
-                batch_results.append(result)
-        return batch_results
-
-    def process_item(self, identifier):
-        results = self.process_batch([identifier])
-        return results[0]
-
-    def handle_success(self, identifier):
-        return self.set_presentation_ready(identifier)
 
 class BibliographicParser(object):
+    """Parses Enki's representation of book information into
+    Metadata and CirculationData objects.
+    """
 
-    """Helper function to parse JSON"""
+    log = logging.getLogger("Enki Bibliographic Parser")
+
+    # Convert the English names of languages given in the Enki API to
+    # the codes we use internally.
+    LANGUAGE_CODES = {
+        "English": u"eng",
+        "French" : u"fre",
+        "Spanish": u"spa",
+    }
+
     def process_all(self, json_data):
-        data = json.loads(json_data)
-        returned_titles = data["result"]["titles"]
-	titles = returned_titles
+        if isinstance(json_data, basestring):
+            json_data = json.loads(json_data)
+        returned_titles = json_data.get("result", {}).get("titles", [])
 	for book in returned_titles:
-	    data = self.process_one(book)
+            data = self.extract_bibliographic(book)
             if data:
                 yield data
-    log = logging.getLogger("Enki Bibliographic Parser")
-    log.setLevel(logging.DEBUG)
-
-    def __init__(self, include_availability=True, include_bibliographic=True):
-        self.include_availability = include_availability
-        self.include_bibliographic = include_bibliographic
 
     def extract_bibliographic(self, element):
-        identifiers = []
-        contributors = []
-        identifiers.append(IdentifierData(Identifier.ISBN, element["isbn"]))
-        sort_name = element["author"]
-        if not sort_name:
-            sort_name = Edition.UNKNOWN_AUTHOR
-        contributors.append(ContributorData(sort_name=sort_name))
+        """Extract Metadata and CirculationData from a dictionary
+        of information from Enki.
+
+        :return: A Metadata with attached CirculationData.
+        """
+        # TODO: it's not clear what these are or whether we'd find them
+        # useful:
+        #  dateSaved
+        #  length
+        #  publishDate
         primary_identifier = IdentifierData(EnkiAPI.ENKI_ID, element["id"])
-        image_url = element["large_image"]
-        thumbnail_url = element["large_image"]
-        images = [LinkData(rel=Hyperlink.THUMBNAIL_IMAGE, href=thumbnail_url, media_type=Representation.PNG_MEDIA_TYPE), LinkData(rel=Hyperlink.IMAGE, href=image_url, media_type=Representation.PNG_MEDIA_TYPE)]
+
+        identifiers = []
+        identifiers.append(IdentifierData(Identifier.ISBN, element["isbn"]))
+
+        contributors = []
+        sort_name = element.get("author", None) or Edition.UNKNOWN_AUTHOR
+        contributors.append(ContributorData(sort_name=sort_name))
+
+        links = []
+        description = element.get('description')
+        if description:
+            links.append(
+                LinkData(rel=Hyperlink.DESCRIPTION, content=description,
+                         media_type="text/html")
+            )
+
+        # NOTE: When this method is called by, e.g. updated_titles(),
+        # the large and small images are available separately. When
+        # this method is called by get_item(), we only get a single
+        # image, in 'cover'. In get_item() we ask that that image be 'large',
+        # which means we'll be filing it as a normal-sized image.
+        #
+        full_image = None
+        thumbnail_image = None
+        for key, rel in (
+                ('cover', Hyperlink.IMAGE),
+                ('small_image', Hyperlink.THUMBNAIL_IMAGE),
+                ('large_image', Hyperlink.IMAGE)
+        ):
+            url = element.get(key)
+            if not url:
+                continue
+            link = LinkData(
+                rel=rel, href=url, media_type=Representation.PNG_MEDIA_TYPE
+            )
+            if rel == Hyperlink.THUMBNAIL_IMAGE:
+                # Don't add a thumbnail to the list of links -- wait
+                # until the end and then make it a thumbnail of the
+                # primary image.
+                thumbnail_image = link
+            else:
+                if rel == Hyperlink.IMAGE:
+                    full_image = link
+                links.append(link)
+
+        if thumbnail_image:
+            if full_image:
+                # Set the thumbnail as the thumbnail _of_ the full image.
+                full_image.thumbnail = thumbnail_image
+            else:
+                # Treat the thumbnail as the full image.
+                thumbnail_image.rel = Hyperlink.IMAGE
+                links.append(thumbnail_image)
+
+        # We treat 'subject', 'topic', and 'genre' as interchangeable
+        # sets of tags. This data is based on BISAC but it's not reliably
+        # presented in a form that can be parsed as BISAC.
+        subjects = []
+        seen_topics = set()
+        for key in ('subject', 'topic', 'genre'):
+            for topic in element.get(key, []):
+                if not topic or topic in seen_topics:
+                    continue
+                subjects.append(SubjectData(Subject.TAG, topic))
+                seen_topics.add(topic)
+
+        language_code = element.get("language", "English")
+        language = self.LANGUAGE_CODES.get(language_code, "eng")
+
         metadata = Metadata(
             data_source=DataSource.ENKI,
-            title=element["title"],
-            language="eng",
+            title=element.get("title"),
+            language=language,
             medium=Edition.BOOK_MEDIUM,
-            publisher=element["publisher"],
+            publisher=element.get("publisher"),
             primary_identifier=primary_identifier,
             identifiers=identifiers,
             contributors=contributors,
-            links=images,
+            links=links,
+            subjects=subjects,
         )
         circulationdata = self.extract_circulation(
-            primary_identifier, element['availability']
+            primary_identifier, element.get('availability', {})
         )
         metadata.circulation = circulationdata
         return metadata
 
     def extract_circulation(self, primary_identifier, availability):
-        licenses_owned=availability["totalCopies"]
-        licenses_available=availability["availableCopies"]
-        hold=availability["onHold"]
-        drm_type = EnkiAPI.adobe_drm if (availability["accessType"] == 'acs') else EnkiAPI.no_drm
+        """Turn the 'availability' portion of an Enki API response into
+        a CirculationData.
+        """
+        if not availability:
+            return None
+        licenses_owned=availability.get("totalCopies", 0)
+        licenses_available=availability.get("availableCopies", 0)
+        hold=availability.get("onHold", 0)
+        drm_type = EnkiAPI.no_drm
+        if availability.get('accessType') == 'acs':
+            drm_type = EnkiAPI.adobe_drm
         formats = []
-        formats.append(FormatData(content_type=Representation.EPUB_MEDIA_TYPE, drm_scheme=drm_type))
+        formats.append(
+            FormatData(
+                content_type=Representation.EPUB_MEDIA_TYPE,
+                drm_scheme=drm_type
+            )
+        )
 
         circulationdata = CirculationData(
             data_source=DataSource.ENKI,
@@ -692,73 +639,111 @@ class BibliographicParser(object):
             formats=formats,
             licenses_owned = int(licenses_owned),
             licenses_available = int(licenses_available),
+            licenses_reserved = 0,
             patrons_in_hold_queue = int(hold)
         )
         return circulationdata
 
-    def process_one(self, element):
-        if self.include_bibliographic:
-            bibliographic = self.extract_bibliographic(element)
-        else:
-            bibliographic = None
-
-        availability = None
-        if self.include_availability:
-            availability = bibliographic.circulation
-
-        return bibliographic, availability
 
 class EnkiImport(CollectionMonitor):
-    """Import content from Enki that we don't yet have in our collection
+    """Make sure our local collection is up-to-date with the remote
+    Enki collection.
     """
     SERVICE_NAME = "Enki Circulation Monitor"
     INTERVAL_SECONDS = 500
     PROTOCOL = EnkiAPI.ENKI_EXTERNAL
-    DEFAULT_BATCH_SIZE = 100 
+    DEFAULT_BATCH_SIZE = 10
     FIVE_MINUTES = datetime.timedelta(minutes=5)
-    
-    def __init__(self, _db, collection, api_class=EnkiAPI):
+    DEFAULT_START_TIME = CollectionMonitor.NEVER
+
+    def __init__(self, _db, collection, api_class=EnkiAPI, analytics=None):
         """Constructor."""
         super(EnkiImport, self).__init__(_db, collection)
         self._db = _db
-        self.api = api_class(_db, collection)
+        if callable(api_class):
+            api = api_class(_db, collection)
+        else:
+            api = api_class
+        self.api = api
         self.collection_id = collection.id
-        self.analytics = Analytics(_db)
-        self.bibliographic_coverage_provider = (
-            EnkiBibliographicCoverageProvider(collection, api_class=self.api)
-        )
+        self.analytics = analytics or Analytics(_db)
 
     @property
     def collection(self):
         return Collection.by_id(self._db, id=self.collection_id)
 
-    def recently_changed_ids(self, start, cutoff):
-        return self.api.recently_changed_ids(start, cutoff)
-
     def run_once(self, start, cutoff):
-        # Give us five minutes of overlap because it's very important
-        # we don't miss anything.
-        since = start-self.FIVE_MINUTES
+        if start is None:
+            # This is the first time the monitor has run, so it's
+            # important that we get the entire collection, even though that
+            # will take a long time.
+            self.full_import()
+        else:
+            # We've run the monitor before, so we just need to learn
+            # about new titles and circulation changes since the last time.
+            #
+            # Give us five minutes of overlap because it's very important
+            # we don't miss anything.
+            since = start-self.FIVE_MINUTES
+
+            self.incremental_import(since)
+
+    def full_import(self):
+        """Import the entire Enki collection, page by page."""
         id_start = 0
+        batch_size = self.DEFAULT_BATCH_SIZE
         while True:
-            availability = self.api.availability(since=since, strt=id_start, qty=self.DEFAULT_BATCH_SIZE)
-            if availability.status_code != 200:
-                self.log.error(
-                    "Could not contact Enki server for content availability. Status: %d",
-                    availability.status_code
-                )
-            content = availability.content
-            count = 0
-            for bibliographic, circulation in BibliographicParser().process_all(content):
-                self.process_book(bibliographic, circulation)
-                count += 1
-            if count == 0:
-                break
+            items_this_page = 0
+            for bibliographic in self.api.get_all_titles(
+                strt=id_start, qty=batch_size
+            ):
+                self.process_book(bibliographic)
+                items_this_page += 1
             self._db.commit()
+            if items_this_page == 0:
+                # When we get an empty page we know it's time to stop.
+                break
             id_start += self.DEFAULT_BATCH_SIZE
 
-    def process_book(self, bibliographic, availability):
-        license_pool, new_license_pool = availability.license_pool(self._db, self.collection)
+    def incremental_import(self, since):
+        # Take care of new titles and titles with updated metadata.
+        for metadata in self.api.updated_titles(since):
+            self.process_book(metadata)
+        self._db.commit()
+
+        # Take care of titles whose circulation status changed.
+        self.update_circulation(since)
+        self._db.commit()
+
+    def update_circulation(self, since):
+        """Process circulation events that happened since `since`."""
+        for circulation in self.api.recent_activity(since):
+            license_pool, made_changes = circulation.apply(
+                self._db, self.collection
+            )
+            if not license_pool.work:
+                # Either this is the first time we've heard about this
+                # title, or we never made a Work for this
+                # LicensePool. Look up its bibliographic data -- that
+                # should let us make a Work.
+                metadata = self.api.get_item(license_pool.identifier.identifier)
+                if metadata:
+                    self.process_book(metadata)
+
+    def process_book(self, bibliographic):
+        """Make the local database reflect the state of the remote Enki
+        collection for the given book.
+
+        :param bibliographic: A Metadata object with attached
+        CirculationData
+
+        :return: A 2-tuple (LicensePool, Edition). If possible, a
+        presentation-ready Work will be created for the LicensePool.
+        """
+        availability = bibliographic.circulation
+        license_pool, new_license_pool = availability.license_pool(
+            self._db, self.collection
+        )
         now = datetime.datetime.utcnow()
         edition, new_edition = bibliographic.edition(self._db)
         license_pool.edition = edition
@@ -773,22 +758,20 @@ class EnkiImport(CollectionMonitor):
             license_pool.collection,
             replace=policy,
         )
-        if new_edition:
-            bibliographic.apply(edition, self.collection, replace=policy)
+        bibliographic.apply(edition, self.collection, replace=policy)
+        if not license_pool.work:
+            work, is_new = license_pool.calculate_work(
+                even_if_no_author=True
+            )
+            if work:
+                work.set_presentation_ready()
 
         if new_license_pool or new_edition:
-            # At this point we have done work equivalent to that done by
-            # the EnkiBibliographicCoverageProvider. Register that the
-            # work has been done so we don't have to do it again.
-            identifier = edition.primary_identifier
-            self.bibliographic_coverage_provider.handle_success(identifier)
-            self.bibliographic_coverage_provider.add_coverage_record_for(
-                identifier
-            )
             for library in self.collection.libraries:
                 self.analytics.collect_event(library, license_pool, CirculationEvent.DISTRIBUTOR_TITLE_ADD, now)
 
         return edition, license_pool
+
 
 class EnkiCollectionReaper(IdentifierSweepMonitor):
     """Check for books that are in the local collection but have left the Enki collection."""
@@ -800,7 +783,55 @@ class EnkiCollectionReaper(IdentifierSweepMonitor):
     def __init__(self, _db, collection, api_class=EnkiAPI):
         self._db = _db
         super(EnkiCollectionReaper, self).__init__(self._db, collection)
-        self.api = api_class(self._db, collection)
+        if callable(api_class):
+            api = api_class(self._db, collection)
+        else:
+            api = api_class
+        self.api = api
 
     def process_item(self, identifier):
-        self.api.reaper_request(identifier)
+        self.log.debug(
+            "Seeing if %s needs reaping", identifier.identifier
+        )
+        metadata = self.api.get_item(identifier.identifier)
+        if metadata:
+            # This title is still in the collection. Do nothing.
+            return
+
+        # Get this collection's license pool for this identifier.
+        # We'll reap it by setting its licenses_owned to 0.
+        pool = identifier.licensed_through_collection(self.collection)
+
+        if not pool or pool.licenses_owned == 0:
+            # It's already been reaped.
+            return
+
+        if pool.presentation_edition:
+            self.log.warn(
+                "Removing %r from circulation",
+                pool.presentation_edition
+            )
+        else:
+            self.log.warn(
+                "Removing unknown title %s from circulation.",
+                identifier.identifier
+            )
+
+        now = datetime.datetime.utcnow()
+        circulationdata = CirculationData(
+            data_source=DataSource.ENKI,
+            primary_identifier= IdentifierData(
+                identifier.type, identifier.identifier
+            ),
+            licenses_owned = 0,
+            licenses_available = 0,
+            patrons_in_hold_queue = 0,
+            last_checked = now
+        )
+
+        circulationdata.apply(
+            self._db,
+            self.collection,
+            replace=ReplacementPolicy.from_license_source(self._db)
+        )
+        return circulationdata
