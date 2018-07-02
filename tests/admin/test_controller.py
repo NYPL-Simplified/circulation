@@ -5838,7 +5838,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
-                ("registration_state", controller.TESTING_REGISTRATION_STATE)
+                ("registration_stage", controller.TESTING_REGISTRATION_STAGE)
             ])
             self.responses.append(MockRequestsResponse(200, content='{}'))
             feed = '<feed><link rel="register" href="register url"/></feed>'
@@ -5859,9 +5859,9 @@ class TestSettingsController(AdminControllerTest):
             # to contact us if there are problems.
             eq_("mailto:configproblems@library.org", body['contact'])
 
-            # We also asked to be registered in a 'testing' state as opposed
+            # We also asked to be registered in a 'testing' stage as opposed
             # to immediately going into production.
-            eq_(controller.TESTING_REGISTRATION_STATE, body["state"])
+            eq_(controller.TESTING_REGISTRATION_STAGE, body["stage"])
 
             # This registry doesn't support short client tokens and doesn't have a vendor id,
             # so no settings were added to it.
@@ -5879,7 +5879,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
-                ("registration_state", controller.PRODUCTION_REGISTRATION_STATE)
+                ("registration_stage", controller.PRODUCTION_REGISTRATION_STAGE)
             ])
             # Generate a key in advance so we can mock the registry's encrypted response.
             key = RSA.generate(1024)
@@ -5904,9 +5904,10 @@ class TestSettingsController(AdminControllerTest):
 
             url, [body], kwargs = self.requests.pop(0)
             eq_("register url", url)
-            # This time we asked that the library be immediately
-            # registered in a production state.
-            eq_(controller.PRODUCTION_REGISTRATION_STATE, body['state'])
+
+            # This time we asked that the library go into production
+            # immediately.
+            eq_(controller.PRODUCTION_REGISTRATION_STAGE, body['stage'])
 
             # The vendor id and short client token settings were stored.
             eq_("vendorid", discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
