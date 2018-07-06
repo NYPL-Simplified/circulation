@@ -140,12 +140,6 @@ from api.adobe_vendor_id import AuthdataUtility
 
 from core.external_search import ExternalSearchIndex
 
-from api.circulation import CirculationAPI
-from api.selftest import (
-    HasSelfTests,
-    SelfTestResult,
-)
-
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
     if not manager.testing:
@@ -2314,14 +2308,6 @@ class SettingsController(AdminCirculationManagerController):
                                 value = c.external_integration.setting(key).value
                             collection["settings"][key] = value
 
-                    [protocolClass] = [p for p in provider_apis if p.NAME == c.protocol]
-                    self_test_results = None
-
-                    if issubclass(protocolClass, HasSelfTests):
-                        # value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, c)
-                        self_test_results = protocolClass.prior_test_results(self._db, protocolClass, self._db, c)
-
-                    collection["settings"]["self_test_results"] = self_test_results
                 collections.append(collection)
 
             return dict(
