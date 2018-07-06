@@ -1114,7 +1114,8 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             # We also need to test that the links got pulled in
             # from the configuration.
             (about, alternate, copyright, help_uri, help_web, help_email,
-             license, logo, privacy_policy, register, start, terms_of_service) = sorted(
+             copyright_agent, license, logo, privacy_policy, register, start,
+             terms_of_service) = sorted(
                  doc['links'], key=lambda x: (x['rel'], x['href'])
              )
             eq_("http://terms", terms_of_service['href'])
@@ -1149,6 +1150,12 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             eq_("text/html", help_web['type'])
             eq_("mailto:help@library", help_email['href'])
 
+            # Since no special address was given for the copyright
+            # designated agent, the help address was reused.
+            copyright_rel = "http://librarysimplified.org/rel/designated-agent/copyright"
+            eq_(copyright_rel, copyright_agent['rel'])
+            eq_("mailto:help@library", copyright_agent['href'])
+
             # The public key is correct.
             eq_("public key", doc['public_key']['value'])
             eq_("RSA", doc['public_key']['type'])
@@ -1166,6 +1173,16 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             features = doc['features']
             eq_([], features['disabled'])
             eq_([Configuration.RESERVATIONS_FEATURE], features['enabled'])
+
+            # If a separate copyright designated agent is configured,
+            # that email address is used instead of the default
+            # patron support address.
+            ConfigurationSetting.for_library(
+                Configuration.COPYRIGHT_DESIGNATED_AGENT_EMAIL, library).value = "mailto:dmca@library.org"
+            doc = json.loads(authenticator.create_authentication_document())
+            [agent] = [x for x in doc['links'] if x['rel'] == copyright_rel]
+            eq_("mailto:dmca@library.org", agent["href"])
+
             
             # While we're in this context, let's also test
             # create_authentication_headers.

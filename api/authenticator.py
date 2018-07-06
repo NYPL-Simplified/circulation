@@ -779,6 +779,18 @@ class LibraryAuthenticator(object):
             dict(rel="start", href=index_url, 
                  type=OPDSFeed.ACQUISITION_FEED_TYPE)
         )
+
+        # If there is a Designated Agent email address, add it as a
+        # link.
+        designated_agent_uri = Configuration.copyright_designated_agent_uri(
+            library
+        )
+        if designated_agent_uri:
+            links.append(
+                dict(rel=Configuration.COPYRIGHT_DESIGNATED_AGENT_REL,
+                     href=designated_agent_uri
+                )
+            )
                 
         # Add a rel="help" link for every type of URL scheme that
         # leads to library-specific help.

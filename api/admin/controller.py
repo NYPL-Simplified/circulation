@@ -3477,9 +3477,16 @@ class SettingsController(AdminCirculationManagerController):
             "authentication_document",
             library_short_name=library.short_name
         )
+        payload = dict(url=auth_document_url)
+
+        # Find the email address the administrator should use if they notice
+        # a problem with the way the library is using an integration.
+        contact = Configuration.configuration_contact_uri(library)
+        if contact:
+            payload['contact'] = contact
         # Allow 401 so we can provide a more useful error message.
         response = do_post(
-            register_url, dict(url=auth_document_url), timeout=60,
+            register_url, payload, timeout=60,
             allowed_response_codes=["2xx", "3xx", "401"],
         )
         if isinstance(response, ProblemDetail):
