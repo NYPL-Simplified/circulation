@@ -23,6 +23,7 @@ from util.xmlparser import XMLParser
 from config import (
     CannotLoadConfiguration,
     Configuration,
+    IntegrationException,
 )
 from metadata_layer import (
     CirculationData,
@@ -60,6 +61,7 @@ from util.opds_writer import (
     OPDSMessage,
 )
 from mirror import MirrorUploader
+from selftest import HasSelfTests
 
 
 class AccessNotAuthenticated(Exception):
@@ -465,6 +467,74 @@ class OPDSImporter(object):
             self._db, self.data_source_name, autocreate=True,
             offers_licenses = offers_licenses
         )
+
+    def assert_importable_content(self, feed, feed_url, max_get_attempts=5):
+        """Raise an exception if the given feed contains nothing that can,
+        even theoretically, be turned into a LicensePool.
+
+        By default, this means the feed must link to open-access content
+        that can actually be retrieved.
+        """
+        metadata, failures = self.extract_feed_data(feed, feed_url)
+        get_attempts = 0
+
+        # Find an open-access link, and try to GET it just to make
+        # sure OPDS feed isn't hiding non-open-access stuff behind an
+        # open-access link.
+        #
+        # To avoid taking forever or antagonizing API providers, we'll
+        # give up after `max_get_attempts` failures.
+        for link in self._open_access_links(metadata.values()):
+            url = link.href
+            success = self._is_open_access_link(url, link.media_type)
+            if success:
+                return success
+            get_attempts += 1
+            if get_attempts >= max_get_attempts:
+                error = "Was unable to GET supposedly open-access content such as %s (tried %s times)" % (
+                    url, get_attempts
+                )
+                explanation = "This might be an OPDS For Distributors feed, or it might require different authentication credentials."
+                raise IntegrationException(error, explanation)
+
+        raise IntegrationException(
+            "No open-access links were found in the OPDS feed.",
+            "This might be an OPDS for Distributors feed."
+        )
+
+    @classmethod
+    def _open_access_links(cls, metadatas):
+        """Find all open-access links in a list of Metadata objects.
+
+        :param metadatas: A list of Metadata objects.
+        :yield: A sequence of `LinkData` objects.
+        """
+        for item in metadatas:
+            if not item.circulation:
+                continue
+            for link in item.circulation.links:
+                if link.rel == Hyperlink.OPEN_ACCESS_DOWNLOAD:
+                    yield link
+
+    def _is_open_access_link(self, url, type):
+        """Is `url` really an open-access link?
+
+        That is, can we make a normal GET request and get something
+        that looks like a book?
+        """
+        headers = {}
+        if type:
+            headers["Accept"] = type
+        status, headers, body = self.http_get(url, headers=headers)
+        if status == 200 and len(body) > 1024 * 10:
+            # We could also check the media types, but this is good
+            # enough for now.
+            return "Found a book-like thing at %s" % url
+        self.log.error(
+            "Supposedly open-access link %s didn't give us a book. Status=%s, body length=%s",
+            url, status, len(body)
+        )
+        return False
         
     def import_from_feed(self, feed, even_if_no_author=False, 
                          immediately_presentation_ready=False,
@@ -1455,7 +1525,7 @@ class OPDSImporter(object):
         return series_name, series_position
 
 
-class OPDSImportMonitor(CollectionMonitor):
+class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
 
     """Periodically monitor a Collection's OPDS archive feed and import
     every title it mentions.
@@ -1493,6 +1563,7 @@ class OPDSImportMonitor(CollectionMonitor):
                 "Collection %s has no associated data source." % collection.name
             )
 
+        self.external_integration_id = collection.external_integration.id
         self.feed_url = self.opds_url(collection)
         self.force_reimport = force_reimport
         self.username = collection.external_integration.username
@@ -1501,7 +1572,32 @@ class OPDSImportMonitor(CollectionMonitor):
             _db, collection=collection, **import_class_kwargs
         )
         super(OPDSImportMonitor, self).__init__(_db, collection)
-    
+
+    def external_integration(self, _db):
+        return get_one(_db, ExternalIntegration,
+                       id=self.external_integration_id)
+
+    def _run_self_tests(self, _db):
+        """Retrieve the first page of the OPDS feed"""
+        first_page = self.run_test(
+            "Retrieve the first page of the OPDS feed (%s)" % self.feed_url,
+            self.follow_one_link, self.feed_url
+        )
+        yield first_page
+        if not first_page.result:
+            return
+
+        # We got a page, but does it have anything the importer can
+        # turn into a Work?
+        #
+        # By default, this means it must contain an open-access link.
+        url, content = first_page.result
+        yield self.run_test(
+            "Checking for importable content",
+            self.importer.assert_importable_content,
+            content, url
+        )
+
     def _get(self, url, headers):
         """Make the sort of HTTP request that's normal for an OPDS feed.
 
