@@ -653,10 +653,10 @@ class AcquisitionFeed(OPDSFeed):
         entrypoints = facets.selectable_entrypoints(lane)
         if entrypoints:
             def make_link(ep, is_default):
-                if is_default:
-                    # No need to clutter up the URL with the default
-                    # entry point.
-                    ep = None
+                # if is_default:
+                #     # No need to clutter up the URL with the default
+                #     # entry point.
+                #     ep = None
                 return annotator.groups_url(
                     lane, facets=facets.navigate(entrypoint=ep)
                 )
