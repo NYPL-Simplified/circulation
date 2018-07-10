@@ -77,6 +77,10 @@ class OverdriveAPITest(DatabaseTest):
 
 class TestOverdriveAPI(OverdriveAPITest):
 
+    def test_external_integration(self):
+        eq_(self.collection.external_integration,
+            self.api.external_integration(self._db))
+
     def test__run_self_tests(self):
         """Verify that OverdriveAPI._run_self_tests() calls the right
         methods.
