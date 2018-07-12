@@ -1473,7 +1473,7 @@ class TestAcquisitionFeed(DatabaseTest):
         l = m(g, AudiobooksEntryPoint, AudiobooksEntryPoint, True, "Grupe")
 
         # This may affect the URL generated for the facet link.
-        eq_(l['href'], g(AudiobooksEntryPoint, True))
+        eq_(l['href'], g(AudiobooksEntryPoint))
 
         # Here, the entry point for which we're generating the link is
         # not the selected one -- EbooksEntryPoint is.
