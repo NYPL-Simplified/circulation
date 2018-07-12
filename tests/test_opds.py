@@ -1462,7 +1462,7 @@ class TestAcquisitionFeed(DatabaseTest):
         eq_('true', l['{http://opds-spec.org/2010/catalog}activeFacet'])
 
         # The URL generator was invoked to create the href.
-        eq_(l['href'], g(AudiobooksEntryPoint, False))
+        eq_(l['href'], g(AudiobooksEntryPoint))
 
         # The facet title identifies it as a way to look at audiobooks.
         eq_(EntryPoint.DISPLAY_TITLES[AudiobooksEntryPoint], l['title'])
