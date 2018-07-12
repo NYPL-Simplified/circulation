@@ -47,6 +47,10 @@ class TestOPDSForDistributorsAPI(DatabaseTest):
         self.collection = MockOPDSForDistributorsAPI.mock_collection(self._db)
         self.api = MockOPDSForDistributorsAPI(self._db, self.collection)
 
+    def test_external_integration(self):
+        eq_(self.collection.external_integration,
+            self.api.external_integration(self._db))
+
     def test__run_self_tests(self):
         """The self-test for OPDSForDistributorsAPI just tries to negotiate
         a fulfillment token.

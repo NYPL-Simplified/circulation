@@ -57,9 +57,13 @@ from circulation import (
     BaseCirculationAPI
 )
 from circulation_exceptions import *
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 
 
-class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
+class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI, HasSelfTests):
 
     NAME = ExternalIntegration.AXIS_360
     SETTINGS = [
@@ -90,6 +94,43 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
         (pdf, no_drm): 'PDF',
         (pdf, adobe_drm): 'PDF',
     }
+
+    def external_integration(self, _db):
+        return self.collection.external_integration
+
+    def _run_self_tests(self, _db):
+        result = self.run_test(
+            "Refreshing bearer token", self.refresh_bearer_token
+        )
+        yield result
+        if not result.success:
+            # If we can't get a bearer token, there's no point running
+            # the rest of the tests.
+            return
+
+        def _count_events():
+            now = datetime.utcnow()
+            five_minutes_ago = now - timedelta(minutes=5)
+            count = len(list(self.recent_activity(since=five_minutes_ago)))
+            return "Found %d event(s)" % count
+
+        yield self.run_test(
+            "Asking for circulation events for the last five minutes",
+            _count_events
+        )
+
+        for result in self.default_patrons(self.collection):
+            if isinstance(result, SelfTestResult):
+                yield result
+                continue
+            library, patron, pin = result
+            def _count_activity():
+                result = self.patron_activity(patron, pin)
+                return "Found %d loans/holds" % len(result)
+            yield self.run_test(
+                "Checking activity for test patron for library %s" % library.name,
+                _count_activity
+            )
 
     def checkout(self, patron, pin, licensepool, internal_format):
 
@@ -254,6 +295,17 @@ class Axis360API(BaseAxis360API, Authenticator, BaseCirculationAPI):
             ReplacementPolicy.from_license_source(self._db)
         )
 
+    def recent_activity(self, since):
+        """Find books that have had recent activity.
+
+        :yield: A sequence of (Metadata, CirculationData) 2-tuples
+        """
+        availability = self.availability(since=since)
+        content = availability.content
+        for bibliographic, circulation in BibliographicParser(self.collection).process_all(
+                content):
+            yield bibliographic, circulation
+
 
 class Axis360CirculationMonitor(CollectionMonitor):
 
@@ -286,12 +338,8 @@ class Axis360CirculationMonitor(CollectionMonitor):
         # Give us five minutes of overlap because it's very important
         # we don't miss anything.
         since = start-self.FIVE_MINUTES
-        availability = self.api.availability(since=since)
-        status_code = availability.status_code
-        content = availability.content
         count = 0
-        for bibliographic, circulation in BibliographicParser(self.collection).process_all(
-                content):
+        for bibliographic, circulation in self.api.recent_activity(since):
             self.process_book(bibliographic, circulation)
             count += 1
             if count % self.batch_size == 0:

@@ -63,11 +63,16 @@ class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
 
     def __init__(self, _db, collection):
         self.collection_id = collection.id
+        self.external_integration_id = collection.external_integration.id
         self.data_source_name = collection.external_integration.setting(Collection.DATA_SOURCE_NAME_SETTING).value
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.feed_url = collection.external_account_id
         self.auth_url = None
+
+    def external_integration(self, _db):
+        return get_one(_db, ExternalIntegration,
+                       id=self.external_integration_id)
 
     def _run_self_tests(self, _db):
         """Try to get a token."""
