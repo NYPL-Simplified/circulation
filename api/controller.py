@@ -389,7 +389,7 @@ class CirculationManager(object):
         self.short_client_token_initialization_exceptions = short_client_token_initialization_exceptions
         return authdata
 
-    def annotator(self, lane, *args, **kwargs):
+    def annotator(self, lane, facets=None, *args, **kwargs):
         """Create an appropriate OPDS annotator for the given lane."""
         if lane and isinstance(lane, Lane):
             library = lane.library
@@ -405,6 +405,7 @@ class CirculationManager(object):
             self.circulation_apis[library.id], lane, library,
             top_level_title='All Books',
             library_identifies_patrons=authenticator.identifies_individuals,
+            facets=facets,
             *args, **kwargs
         )
 
@@ -653,7 +654,7 @@ class OPDSFeedController(CirculationManagerController):
             worklist=lane, base_class=FeaturedFacets,
             base_class_constructor_kwargs=facet_class_kwargs
         )
-        annotator = self.manager.annotator(lane)
+        annotator = self.manager.annotator(lane, facets)
         feed = AcquisitionFeed.groups(
             self._db, title, url, lane, annotator, facets=facets
         )
