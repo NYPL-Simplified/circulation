@@ -38,6 +38,7 @@ from core.util.http import (
 )
 from core.util.web_publication_manifest import AudiobookManifest
 
+from api.authenticator import BasicAuthenticationProvider
 from api.circulation import (
     CirculationAPI,
     FulfillmentInfo,
@@ -71,6 +72,77 @@ class BibliothecaAPITest(DatabaseTest):
         return sample_data(filename, 'bibliotheca')
 
 class TestBibliothecaAPI(BibliothecaAPITest):      
+
+    def test_external_integration(self):
+        eq_(
+            self.collection.external_integration,
+            self.api.external_integration(object())
+        )
+
+    def test__run_self_tests(self):
+        """Verify that BibliothecaAPI._run_self_tests() calls the right
+        methods.
+        """
+        class Mock(MockBibliothecaAPI):
+            "Mock every method used by BibliothecaAPI._run_self_tests."
+
+            # First we will count the circulation events that happened in the
+            # last five minutes.
+            def get_events_between(self, start, finish):
+                self.get_events_between_called_with = (start, finish)
+                return [1,2,3]
+
+            # Then we will count the loans and holds for the default
+            # patron.
+            def patron_activity(self, patron, pin):
+                self.patron_activity_called_with = (patron, pin)
+                return ["loan", "hold"]
+
+        # Now let's make sure two Libraries have access to this
+        # Collection -- one library with a default patron and one
+        # without.
+        no_default_patron = self._library()
+        self.collection.libraries.append(no_default_patron)
+
+        with_default_patron = self._default_library
+        integration = self._external_integration(
+            "api.simple_authentication",
+            ExternalIntegration.PATRON_AUTH_GOAL,
+            libraries=[with_default_patron]
+        )
+        p = BasicAuthenticationProvider
+        integration.setting(p.TEST_IDENTIFIER).value = "username1"
+        integration.setting(p.TEST_PASSWORD).value = "password1"
+
+        # Now that everything is set up, run the self-test.
+        api = Mock(self._db, self.collection)
+        now = datetime.datetime.utcnow()
+        [no_patron_credential, recent_circulation_events, patron_activity] = sorted(
+            api._run_self_tests(self._db), key=lambda x: x.name
+        )
+
+        eq_(
+            "Acquiring test patron credentials for library %s" % no_default_patron.name,
+            no_patron_credential.name
+        )
+        eq_(False, no_patron_credential.success)
+        eq_("Library has no test patron configured.",
+            no_patron_credential.exception.message)
+
+        eq_("Asking for circulation events for the last five minutes",
+            recent_circulation_events.name)
+        eq_(True, recent_circulation_events.success)
+        eq_("Found 3 event(s)", recent_circulation_events.result)
+        start, end = api.get_events_between_called_with
+        eq_(5*60, (end-start).total_seconds())
+        assert (end-now).total_seconds() < 2
+
+        eq_("Checking activity for test patron for library %s" % with_default_patron.name,
+            patron_activity.name)
+        eq_("Found 2 loans/holds", patron_activity.result)
+        patron, pin = api.patron_activity_called_with
+        eq_("username1", patron.authorization_identifier)
+        eq_("password1", pin)
 
     def test_get_events_between_success(self):
         data = self.sample_data("empty_end_date_event.xml")

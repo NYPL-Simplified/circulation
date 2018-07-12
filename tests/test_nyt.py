@@ -106,6 +106,10 @@ class TestNYTBestSellerAPI(NYTBestSellerAPITest):
         assert isinstance(api.metadata_client, MetadataWranglerOPDSLookup)
         assert api.metadata_client.base_url.startswith(mw.url)
 
+        # external_integration() finds the integration used to create
+        # the API object.
+        eq_(integration, api.external_integration(self._db))
+
     def test_run_self_tests(self):
         class Mock(NYTBestSellerAPI):
             def __init__(self):

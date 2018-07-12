@@ -1007,6 +1007,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             )
 
         self.library_id = library.id
+        self.external_integration_id = integration.id
         self.log = logging.getLogger(self.NAME)
         self.analytics = analytics
         # If there's a regular expression that maps authorization
@@ -1105,6 +1106,9 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     
     def library(self, _db):
         return Library.by_id(_db, self.library_id)
+
+    def external_integration(self, _db):
+        return get_one(_db, ExternalIntegration, id=self.external_integration_id)
     
     def authenticated_patron(self, _db, header):
         """Go from a WWW-Authenticate header (or equivalent) to a Patron object.
