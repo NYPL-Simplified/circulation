@@ -1441,9 +1441,9 @@ class TestAcquisitionFeed(DatabaseTest):
         attributes for <link> tags.
         """
         m = AcquisitionFeed._entrypoint_link
-        def g(entrypoint, is_default):
+        def g(entrypoint):
             """A mock URL generator."""
-            return "%s - %s" % (entrypoint.INTERNAL_NAME, is_default)
+            return "%s" % (entrypoint.INTERNAL_NAME)
 
         # If the entry point is not registered, None is returned.
         eq_(None, m(g, object(), object(), True, "group"))
@@ -2191,7 +2191,7 @@ class TestEntrypointLinkInsertion(DatabaseTest):
 
         # The make_link function that was passed in calls
         # TestAnnotator.groups_url() when passed an EntryPoint.
-        eq_("http://groups/?entrypoint=Book", make_link(EbooksEntryPoint, False))
+        eq_("http://groups/?entrypoint=Book", make_link(EbooksEntryPoint))
 
     def test_page(self):
         """When AcquisitionFeed.page() generates the first page of a paginated
