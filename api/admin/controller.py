@@ -1146,7 +1146,7 @@ class WorkController(AdminCirculationManagerController):
 
         if image_url and not image_file:
             image_file = StringIO(urllib.urlopen(image_url).read())
-        
+
         image = Image.open(image_file)
         result = self._validate_cover_image(image)
         if isinstance(result, ProblemDetail):
@@ -1200,7 +1200,7 @@ class WorkController(AdminCirculationManagerController):
 
         if image_url and not image_file:
             image_file = StringIO(urllib.urlopen(image_url).read())
-        
+
         image = Image.open(image_file)
         result = self._validate_cover_image(image)
         if isinstance(result, ProblemDetail):
@@ -1216,7 +1216,7 @@ class WorkController(AdminCirculationManagerController):
             original_content = original_buffer.getvalue()
             if not original_href:
                 original_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
-                
+
             image = self._process_cover_image(work, image, title_position)
 
             original_rights_explanation = None
@@ -2296,6 +2296,7 @@ class SettingsController(AdminCirculationManagerController):
                         libraries.append(self._get_integration_library_info(
                                 c.external_integration, library, protocol))
                     collection['libraries'] = libraries
+
                     for setting in protocol.get("settings"):
                         key = setting.get("key")
                         if key not in collection["settings"]:
@@ -2306,6 +2307,7 @@ class SettingsController(AdminCirculationManagerController):
                             else:
                                 value = c.external_integration.setting(key).value
                             collection["settings"][key] = value
+
                 collections.append(collection)
 
             return dict(
@@ -3475,9 +3477,16 @@ class SettingsController(AdminCirculationManagerController):
             "authentication_document",
             library_short_name=library.short_name
         )
+        payload = dict(url=auth_document_url)
+
+        # Find the email address the administrator should use if they notice
+        # a problem with the way the library is using an integration.
+        contact = Configuration.configuration_contact_uri(library)
+        if contact:
+            payload['contact'] = contact
         # Allow 401 so we can provide a more useful error message.
         response = do_post(
-            register_url, dict(url=auth_document_url), timeout=60,
+            register_url, payload, timeout=60,
             allowed_response_codes=["2xx", "3xx", "401"],
         )
         if isinstance(response, ProblemDetail):

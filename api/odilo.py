@@ -72,6 +72,9 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
             )
         )
 
+    def external_integration(self, _db):
+        return self.collection.external_integration
+
     def _run_self_tests(self, _db):
         result = self.run_test(
             "Obtaining a sitewide access token", self.check_creds,

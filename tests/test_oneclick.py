@@ -11,6 +11,7 @@ from nose.tools import (
 import os
 from StringIO import StringIO
 
+from api.authenticator import BasicAuthenticationProvider
 from api.config import (
     Configuration, 
     temp_config,
@@ -60,8 +61,6 @@ from . import (
     DatabaseTest,
 )
 
-
-
 class OneClickAPITest(DatabaseTest):
 
     def setup(self):
@@ -80,7 +79,105 @@ class OneClickAPITest(DatabaseTest):
 
 
 class TestOneClickAPI(OneClickAPITest):
-    
+
+    def test__run_self_tests(self):
+        class Mock(MockOneClickAPI):
+            """Mock the methods invoked by the self-test."""
+
+            # We're going to count the number of items in the
+            # eBook and eAudio collections.
+            def get_ebook_availability_info(self, media_type):
+                if media_type=='eBook':
+                    return []
+                elif media_type=='eAudio':
+                    # Three titles - one available, one unavailable, and
+                    # one with availability missing.
+                    return [
+                        dict(availability=False),
+                        dict(availability=True),
+                        dict(),
+                    ]
+
+            # Then for each collection with a default patron, we're
+            # going to see how many loans and holds the default patron
+            # has.
+            patron_activity_called_with = []
+            def patron_activity(self, patron, pin):
+                self.patron_activity_called_with.append(
+                    (patron.authorization_identifier, pin)
+                )
+                return [1,2,3]
+
+        # Now let's make sure two Libraries have access to this
+        # Collection -- one library with a default patron and one
+        # without.
+        no_default_patron = self._library()
+        self.collection.libraries.append(no_default_patron)
+
+        with_default_patron = self._default_library
+        integration = self._external_integration(
+            "api.simple_authentication",
+            ExternalIntegration.PATRON_AUTH_GOAL,
+            libraries=[with_default_patron]
+        )
+        p = BasicAuthenticationProvider
+        integration.setting(p.TEST_IDENTIFIER).value = "username1"
+        integration.setting(p.TEST_PASSWORD).value = "password1"
+
+        # Now that everything is set up, run the self-test.
+        api = Mock(self._db, self.collection)
+        results = sorted(
+            api._run_self_tests(self._db), key=lambda x: x.name
+        )
+        [no_patron_credential, patron_activity, audio_count, ebook_count] = results
+
+        # Verify that each test method was called and returned the
+        # expected SelfTestResult object.
+        eq_(
+            "Acquiring test patron credentials for library %s" % no_default_patron.name,
+            no_patron_credential.name
+        )
+        eq_(False, no_patron_credential.success)
+        eq_("Library has no test patron configured.",
+            no_patron_credential.exception.message)
+
+        eq_("Checking patron activity, using test patron for library %s" % with_default_patron.name,
+            patron_activity.name)
+        eq_(True, patron_activity.success)
+        eq_("Total loans and holds: 3", patron_activity.result)
+        eq_([("username1", "password1")], api.patron_activity_called_with)
+
+        eq_("Counting audiobooks in collection", audio_count.name)
+        eq_(True, audio_count.success)
+        eq_("Total items: 3 (1 currently loanable, 2 currently not loanable)",
+            audio_count.result)
+
+        eq_("Counting ebooks in collection", ebook_count.name)
+        eq_(True, ebook_count.success)
+        eq_("Total items: 0 (0 currently loanable, 0 currently not loanable)",
+            ebook_count.result)
+
+    def test__run_self_tests_short_circuit(self):
+        """Simulate a self-test run on an improperly configured
+        site.
+        """
+        error = dict(message='Invalid library id is provided or permission denied')
+        class Mock(MockOneClickAPI):
+            def get_ebook_availability_info(self, media_type):
+                return error
+
+        api = Mock(self._db, self.collection)
+        [result] = api._run_self_tests(self._db)
+
+        # We gave up after the first test failed.
+        eq_("Counting ebooks in collection", result.name)
+        eq_("Invalid library id is provided or permission denied", result.exception.message)
+        eq_(repr(error), result.exception.debug_message)
+
+    def test_external_integration(self):
+        eq_(self.collection.external_integration,
+            self.api.external_integration(self._db))
+
     def queue_initial_patron_id_lookup(self):
         """All the OneClickAPI methods that take a Patron object call
         self.patron_remote_identifier() immediately, to find the
@@ -476,7 +573,7 @@ class TestOneClickAPI(OneClickAPITest):
         # based on the RBdigital-specific identifier.
         eq_(self.api.library_id, form_data['libraryId'])
         eq_(remote, form_data['libraryCardNumber'])
-        eq_("username_" + remote, form_data['userName'])
+        eq_("username" + (remote.replace("-", '')), form_data['userName'])
         eq_("genericemail+rbdigital-%s@library.org" % remote, form_data['email'])
         eq_("Patron", form_data['firstName'])
         eq_("Reader", form_data['lastName'])

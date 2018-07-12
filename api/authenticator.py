@@ -779,6 +779,18 @@ class LibraryAuthenticator(object):
             dict(rel="start", href=index_url, 
                  type=OPDSFeed.ACQUISITION_FEED_TYPE)
         )
+
+        # If there is a Designated Agent email address, add it as a
+        # link.
+        designated_agent_uri = Configuration.copyright_designated_agent_uri(
+            library
+        )
+        if designated_agent_uri:
+            links.append(
+                dict(rel=Configuration.COPYRIGHT_DESIGNATED_AGENT_REL,
+                     href=designated_agent_uri
+                )
+            )
                 
         # Add a rel="help" link for every type of URL scheme that
         # leads to library-specific help.
@@ -995,6 +1007,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             )
 
         self.library_id = library.id
+        self.external_integration_id = integration.id
         self.log = logging.getLogger(self.NAME)
         self.analytics = analytics
         # If there's a regular expression that maps authorization
@@ -1093,6 +1106,9 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     
     def library(self, _db):
         return Library.by_id(_db, self.library_id)
+
+    def external_integration(self, _db):
+        return get_one(_db, ExternalIntegration, id=self.external_integration_id)
     
     def authenticated_patron(self, _db, header):
         """Go from a WWW-Authenticate header (or equivalent) to a Patron object.
