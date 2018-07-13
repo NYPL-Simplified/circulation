@@ -857,6 +857,12 @@ class OverdriveRepresentationExtractor(object):
                         type_key = Identifier.ISBN
                         if len(v) == 10:
                             v = isbnlib.to_isbn13(v)
+                        if not isbnlib.is_isbn13(v):
+                            # Overdrive sometimes uses invalid values
+                            # like "n/a" as placeholders. Ignore such
+                            # values to avoid a situation where hundreds of
+                            # books appear to have the same ISBN.
+                            continue
                     elif t == 'DOI':
                         type_key = Identifier.DOI
                     elif t == 'UPC':

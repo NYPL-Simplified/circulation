@@ -56,6 +56,10 @@
                 {
                     "type": "ASIN",
                     "value": ""
+                },
+                {
+                    "type": "ISBN",
+                    "value": "n/a"
                 }
             ],
             "name": "Kindle Book",

@@ -315,8 +315,8 @@ class TestOverdriveRepresentationExtractor(OverdriveTestWithAPI):
 
         ids = [(x.type, x.identifier) for x in metadata.identifiers]
 
-        # The original data contains a blank ASIN in addition to the
-        # actual ASIN, but it doesn't show up here.
+        # The original data contains a blank ASIN and an invalid ISBN
+        # in addition to the actual ASIN and ISBN, but they don't show up here.
         eq_(
             [
                 (Identifier.ASIN, "B000VI88N2"), 
