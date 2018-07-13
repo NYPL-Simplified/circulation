@@ -715,11 +715,7 @@ class AcquisitionFeed(OPDSFeed):
         if entrypoints:
             # A paginated feed may have multiple entry points into the
             # same dataset.
-            def make_link(ep, is_default):
-                if is_default:
-                    # No need to clutter up the URL with the default
-                    # entry point.
-                    ep = None
+            def make_link(ep):
                 return annotator.feed_url(
                     lane, facets=facets.navigate(entrypoint=ep)
                 )
@@ -889,9 +885,7 @@ class AcquisitionFeed(OPDSFeed):
         # into those results.
         entrypoints = facets.selectable_entrypoints(lane)
         if entrypoints:
-            def make_link(ep, is_default):
-                if is_default:
-                    ep = None
+            def make_link(ep):
                 return annotator.search_url(
                     lane, query, pagination=None,
                     facets=facets.navigate(entrypoint=ep)
