@@ -796,7 +796,7 @@ class OPDSFeedController(CirculationManagerController):
         kwargs['q'] = query.encode("utf8")
         this_url = make_url()
 
-        annotator = self.manager.annotator(lane)
+        annotator = self.manager.annotator(lane, facets)
         info = OpenSearchDocument.search_info(lane)
         opds_feed = AcquisitionFeed.search(
             _db=self._db, title=info['name'],
