@@ -1815,6 +1815,8 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
     def test_authentication_flow_document(self):
         """Test the default authentication provider document."""
         provider = self.mock_basic()
+        provider.identifier_maximum_length=22
+        provider.password_maximum_length=7
         doc = provider.authentication_flow_document(self._db)
         eq_(_(provider.DISPLAY_NAME), doc['description'])
         eq_(provider.FLOW_TYPE, doc['type'])
@@ -1828,6 +1830,12 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
             inputs['login']['keyboard'])
         eq_(provider.password_keyboard,
             inputs['password']['keyboard'])
+
+        eq_(provider.identifier_maximum_length,
+            inputs['login']['maximum_length'])
+        eq_(provider.password_maximum_length,
+            inputs['password']['maximum_length'])
+
         
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""

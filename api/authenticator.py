@@ -1753,7 +1753,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
         password_inputs = dict(keyboard=self.password_keyboard)
         if self.password_maximum_length:
-            login_inputs['maximum_length'] = self.password_maximum_length
+            password_inputs['maximum_length'] = self.password_maximum_length
 
         # Localize the labels if possible.
         localized_identifier_label = self.COMMON_IDENTIFIER_LABELS.get(
