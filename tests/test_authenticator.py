@@ -1689,6 +1689,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         integration.setting(b.PASSWORD_KEYBOARD).value = b.NUMBER_PAD
         integration.setting(b.IDENTIFIER_LABEL).value = "Your Library Card"
         integration.setting(b.PASSWORD_LABEL).value = 'Password'
+        integration.setting(b.IDENTIFIER_BARCODE_FORMAT).value = 'some barcode'
         
         provider = b(self._default_library, integration)
 
@@ -1696,6 +1697,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(b.NUMBER_PAD, provider.password_keyboard)
         eq_("Your Library Card", provider.identifier_label)
         eq_("Password", provider.password_label)
+        eq_("some barcode", provider.identifier_barcode_format)
         
     def test_server_side_validation(self):
         b = BasicAuthenticationProvider
@@ -1817,6 +1819,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         provider = self.mock_basic()
         provider.identifier_maximum_length=22
         provider.password_maximum_length=7
+        provider.identifier_barcode_format = provider.BARCODE_FORMAT_CODABAR
         doc = provider.authentication_flow_document(self._db)
         eq_(_(provider.DISPLAY_NAME), doc['description'])
         eq_(provider.FLOW_TYPE, doc['type'])
@@ -1830,6 +1833,8 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
             inputs['login']['keyboard'])
         eq_(provider.password_keyboard,
             inputs['password']['keyboard'])
+
+        eq_(provider.BARCODE_FORMAT_CODABAR, inputs['login']['barcode_format'])
 
         eq_(provider.identifier_maximum_length,
             inputs['login']['maximum_length'])

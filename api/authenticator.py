@@ -1327,6 +1327,10 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         u"Password": _("Password"),
         u"PIN": _("PIN"),
     }
+
+    IDENTIFIER_BARCODE_FORMAT = "identifier_barcode_format"
+    BARCODE_FORMAT_CODABAR = "Codabar" # Constant defined in the extension
+    BARCODE_FORMAT_NONE = None
     
     # These identifier and password are supposed to be valid
     # credentials.  If there's a problem using them, there's a problem
@@ -1340,6 +1344,17 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
           "description": _("A valid identifier that can be used to test that patron authentication is working."),
         },
         { "key": TEST_PASSWORD, "label": _("Test Password"), "description": _("The password for the test identifier."),
+          "optional": True,
+        },
+        { "key" : IDENTIFIER_BARCODE_FORMAT,
+          "label": _("Patron identifier barcode format"),
+          "description": _("Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons can scan their library cards instead of manually typing in their identifier."),
+          "type": "select",
+          "options": [
+              { "key": BARCODE_FORMAT_CODABAR, "label": _("Codabar") },
+              { "key": BARCODE_FORMAT_NONE, "label": _("Patron identifiers are not barcodes") },
+          ],
+          "default": BARCODE_FORMAT_NONE,
           "optional": True,
         },
         { "key": IDENTIFIER_REGULAR_EXPRESSION,
@@ -1442,6 +1457,10 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             self.IDENTIFIER_KEYBOARD).value or self.DEFAULT_KEYBOARD
         self.password_keyboard = integration.setting(
             self.PASSWORD_KEYBOARD).value or self.DEFAULT_KEYBOARD
+
+        self.identifier_barcode_format = integration.setting(
+            self.IDENTIFIER_BARCODE_FORMAT
+        ).value or self.BARCODE_FORMAT_NONE
         
         self.identifier_label = (
             integration.setting(self.IDENTIFIER_LABEL).value
@@ -1750,6 +1769,8 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         login_inputs = dict(keyboard=self.identifier_keyboard)
         if self.identifier_maximum_length:
             login_inputs['maximum_length'] = self.identifier_maximum_length
+        if self.identifier_barcode_format:
+            login_inputs['barcode_format'] = self.identifier_barcode_format
 
         password_inputs = dict(keyboard=self.password_keyboard)
         if self.password_maximum_length:
