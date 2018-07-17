@@ -509,10 +509,10 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # Only a basic auth provider.
         millenium = self._external_integration(
             "api.millenium_patron", ExternalIntegration.PATRON_AUTH_GOAL,
+            libraries=[self._default_library]
         )
         millenium.url = "http://url/"
         auth = LibraryAuthenticator.from_config(self._db, self._default_library)
-        self._default_library.integrations.append(millenium)
 
         assert auth.basic_auth_provider != None
         assert isinstance(auth.basic_auth_provider, MilleniumPatronAPI)
