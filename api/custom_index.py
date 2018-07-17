@@ -64,7 +64,7 @@ class CustomIndexView(object):
         protocol = integration.protocol
         if not protocol in cls.BY_PROTOCOL:
             raise CannotLoadConfiguration(
-                "Unregistered custom index protocol: %s" % name
+                "Unregistered custom index protocol: %s" % protocol
             )
         view_class = cls.BY_PROTOCOL[protocol]
         return view_class(library, integration)
@@ -80,6 +80,53 @@ class CustomIndexView(object):
         :param annoatator: An Annotator for annotating OPDS feeds.
         """
         raise NotImplementedError()
+
+    @classmethod
+    def _load_lane(cls, library, lane_id):
+        """Make sure the Lane with the given ID actually exists and is
+        associated with the given Library.
+        """
+        _db = Session.object_session(library)
+        lane = get_one(_db, Lane, id=lane_id)
+        if not lane:
+            raise CannotLoadConfiguration("No lane with ID: %s" % lane_id)
+        if lane.library != library:
+            raise CannotLoadConfiguration(
+                "Lane %d is for the wrong library (%s, I need %s)" %
+                (lane.id, lane.library.name, library.name)
+            )
+        return lane
+
+
+class LaneRedirect(CustomIndexView):
+    """Redirect the library root to a specific lane."""
+    PROTOCOL = "Lane Redirect"
+
+    LANE = "lane"
+
+    SETTINGS = [
+        { "key": LANE,
+          "label": _("Redirect everyone to the lane with this ID."),
+        },
+    ]
+
+    def __init__(self, library, integration):
+        _db = Session.object_session(library)
+        m = ConfigurationSetting.for_library_and_externalintegration
+        lane_id = m(_db, self.LANE, library, integration)
+
+        # We don't want to store the Lane objects long-term, but we do need
+        # to make sure the lane ID corresponds to a real lane for the
+        # right library.
+        self.lane_id = lane_id.int_value
+        lane = self._load_lane(library, self.lane_id)
+
+    def __call__(self, library, annotator, url_for=None):
+        """Redirect to the configured lane."""
+        location = url_for(
+            "acquisition_groups", library=library, lane_identifier=self.lane_id
+        )
+        return Response(u"", 302, { "Location": location })
 
 
 class COPPAGate(CustomIndexView):
@@ -117,21 +164,6 @@ class COPPAGate(CustomIndexView):
         self.no_lane_id = no_lane_id.int_value
         yes_lane = self._load_lane(library, self.yes_lane_id)
         no_lane = self._load_lane(library, self.no_lane_id)
-
-    def _load_lane(self, library, lane_id):
-        """Make sure the Lane with the given ID actually exists and is
-        associated with the given Library.
-        """
-        _db = Session.object_session(library)
-        lane = get_one(_db, Lane, id=lane_id)
-        if not lane:
-            raise CannotLoadConfiguration("No lane with ID: %s" % lane_id)
-        if lane.library != library:
-            raise CannotLoadConfiguration(
-                "Lane %d is for the wrong library (%s, I need %s)" %
-                (lane.id, lane.library.name, library.name)
-            )
-        return lane
 
     def __call__(self, library, annotator, url_for=None):
         """Render an OPDS navigation feed that lets the patron choose a root
@@ -215,3 +247,4 @@ class COPPAGate(CustomIndexView):
         return tag
 
 CustomIndexView.register(COPPAGate)
+CustomIndexView.register(LaneRedirect)
