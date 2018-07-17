@@ -44,7 +44,10 @@ class TestCustomIndexView(DatabaseTest):
     def test_default_registry(self):
         """Verify the default contents of the registry."""
         eq_(
-            {COPPAGate.PROTOCOL : COPPAGate},
+            {
+                COPPAGate.PROTOCOL : COPPAGate,
+                LaneRedirect.PROTOCOL : LaneRedirect,
+            },
             CustomIndexView.BY_PROTOCOL
         )
 
