@@ -108,7 +108,7 @@ class TestCustomPatronCatalog(DatabaseTest):
         ]
         doc = dict(ignoreme=True, links=links)
 
-        MockCustomPatronCatalog.replace_link(
+        CustomPatronCatalog.replace_link(
             doc, "replace-me", href="link4", type="text/html"
         )
 
@@ -164,7 +164,7 @@ class TestCustomRootLane(DatabaseTest):
 
         # url_for was called with the expected arguments, and it
         # returned 'new-root', seen above.
-        eq_(("acquisition_groups", library, custom_root.lane_id),
+        eq_(("acquisition_groups", library.name, custom_root.lane_id),
             custom_root.url_for_called_with)
 
         # replace_link was called with the result of calling url_for.

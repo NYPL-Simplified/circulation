@@ -216,7 +216,7 @@ class COPPAGate(CustomPatronCatalog):
         links = [
             dict(rel=self.AUTHENTICATION_YES_REL, href=yes_url,
                  type=feed),
-            dict(rel=self.AUTHENTICATION_NO_REL, href=yes_url,
+            dict(rel=self.AUTHENTICATION_NO_REL, href=no_url,
                  type=feed),
         ]
 
