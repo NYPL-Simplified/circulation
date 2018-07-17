@@ -15,6 +15,7 @@ from api.config import CannotLoadConfiguration
 from api.custom_index import (
     CustomIndexView,
     COPPAGate,
+    LaneRedirect,
 )
 
 from . import DatabaseTest
@@ -47,6 +48,24 @@ class TestCustomIndexView(DatabaseTest):
             CustomIndexView.BY_PROTOCOL
         )
 
+    def test__load_lane(self):
+        """Test the _load_lane helper method."""
+        library1 = self._library()
+        library2 = self._library()
+        lane = self._lane(library=library1)
+        m = CustomIndexView._load_lane
+
+        eq_(lane, m(library1, lane.id))
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "No lane with ID", m, library1, -2
+        )
+
+        assert_raises_regexp(
+            CannotLoadConfiguration,
+            "is for the wrong library", m, library2, lane.id
+        )
 
     def test_for_library(self):
         m = CustomIndexView.for_library
@@ -74,6 +93,38 @@ class TestCustomIndexView(DatabaseTest):
         view = m(self._default_library)
         assert isinstance(view, MockCustomIndexView)
         eq_((self._default_library, integration), view.instantiated_with)
+
+
+class TestLaneRedirect(DatabaseTest):
+    def setup(self):
+        super(TestLaneRedirect, self).setup()
+        # Configure a LaneRedirect for the default library.
+        self.integration = self._external_integration(
+            LaneRedirect.PROTOCOL, CustomIndexView.GOAL,
+            libraries=[self._default_library]
+        )
+        self.lane = self._lane()
+        m = ConfigurationSetting.for_library_and_externalintegration
+        m(
+            self._db, LaneRedirect.LANE, self._default_library,
+            self.integration
+        ).value = self.lane.id
+
+    def test_invocation(self):
+        """Test the ability of a LaneRedirect to act as a view."""
+
+        def url_for(redirect_view, library, lane_identifier):
+            return "http://%s/%s/%s" % (
+                redirect_view, library, lane_identifier
+            )
+        library = self._default_library
+        redirect = LaneRedirect(library, self.integration)
+        response = redirect(library, object(), url_for)
+
+        eq_(302, response.status_code)
+        expect_url = url_for("acquisition_groups", library, self.lane.id)
+        eq_(expect_url, response.headers['Location'])
+        eq_("", response.data)
 
 
 class TestCOPPAGate(DatabaseTest):
