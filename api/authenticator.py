@@ -1330,7 +1330,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
 
     IDENTIFIER_BARCODE_FORMAT = "identifier_barcode_format"
     BARCODE_FORMAT_CODABAR = "Codabar" # Constant defined in the extension
-    BARCODE_FORMAT_NONE = None
+    BARCODE_FORMAT_NONE = ""
     
     # These identifier and password are supposed to be valid
     # credentials.  If there's a problem using them, there's a problem
@@ -1348,14 +1348,13 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         },
         { "key" : IDENTIFIER_BARCODE_FORMAT,
           "label": _("Patron identifier barcode format"),
-          "description": _("Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons can scan their library cards instead of manually typing in their identifier."),
+          "description": _("Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers."),
           "type": "select",
           "options": [
-              { "key": BARCODE_FORMAT_CODABAR, "label": _("Codabar") },
-              { "key": BARCODE_FORMAT_NONE, "label": _("Patron identifiers are not barcodes") },
+              { "key": BARCODE_FORMAT_CODABAR, "label": _("Patron identifiers are are rendered as barcodes in Codabar format") },
+              { "key": BARCODE_FORMAT_NONE, "label": _("Patron identifiers are not rendered as barcodes") },
           ],
           "default": BARCODE_FORMAT_NONE,
-          "optional": True,
         },
         { "key": IDENTIFIER_REGULAR_EXPRESSION,
           "label": _("Identifier Regular Expression"),
