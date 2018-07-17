@@ -1355,6 +1355,7 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
               { "key": BARCODE_FORMAT_NONE, "label": _("Patron identifiers are not rendered as barcodes") },
           ],
           "default": BARCODE_FORMAT_NONE,
+          "optional": True,
         },
         { "key": IDENTIFIER_REGULAR_EXPRESSION,
           "label": _("Identifier Regular Expression"),
