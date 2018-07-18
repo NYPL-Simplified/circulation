@@ -3390,27 +3390,3 @@ class SettingsController(AdminCirculationManagerController):
             status.value = SUCCESS
 
         return Response(unicode(_("Success")), 200)
-
-
-
-
-class LibraryRegistrationScript(LibraryInputScript):
-
-    DEFAULT_REGISTRY = "https://libraryregistry.librarysimplified.org/"
-
-    @classmethod
-    def arg_parser(cls, _db):
-        parser = LibraryInputScript.arg_parser(_db)
-        parser.add_argument(
-            '--registry-url',
-            help="Register libraries with the given registry.",
-            default=cls.DEFAULT_REGISTRY
-        )
-        parser.add_argument(
-            '--production',
-            help="Flag libraries as ready for production.",
-            action='store_true'
-        )
-        return parser
-
-    

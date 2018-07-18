@@ -194,3 +194,28 @@ class Registration(object):
                 _("Could not decrypt shared secret %s") % shared_secret
             )
         return shared_secret
+
+
+
+
+
+class LibraryRegistrationScript(LibraryInputScript):
+
+    DEFAULT_REGISTRY = "https://libraryregistry.librarysimplified.org/"
+
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = LibraryInputScript.arg_parser(_db)
+        parser.add_argument(
+            '--registry-url',
+            help="Register libraries with the given registry.",
+            default=cls.DEFAULT_REGISTRY
+        )
+        parser.add_argument(
+            '--production',
+            help="Flag libraries as ready for production.",
+            action='store_true'
+        )
+        return parser
+
+    
