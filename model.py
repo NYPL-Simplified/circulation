@@ -10574,13 +10574,10 @@ class Admin(Base, HasFullTableCache):
         return False
 
     def can_see_collection(self, collection):
+        if self.is_system_admin():
+            return True
         for library in collection.libraries:
             if self.is_librarian(library):
-                return True
-        if not collection.libraries:
-            # If the collection's not associated with any libraries, only system
-            # admins can see it.
-            if self.is_system_admin():
                 return True
         return False
 
