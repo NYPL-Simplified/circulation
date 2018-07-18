@@ -10573,6 +10573,17 @@ class Admin(Base, HasFullTableCache):
             return True
         return False
 
+    def can_see_collection(self, collection):
+        for library in collection.libraries:
+            if self.is_librarian(library):
+                return True
+        if not collection.libraries:
+            # If the collection's not associated with any libraries, only system
+            # admins can see it.
+            if self.is_system_admin():
+                return True
+        return False
+
     def add_role(self, role, library=None):
         _db = Session.object_session(self)
         role, is_new = get_one_or_create(_db, AdminRole, admin=self, role=role, library=library)
