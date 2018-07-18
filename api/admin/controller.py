@@ -3295,12 +3295,7 @@ class SettingsController(AdminCirculationManagerController):
             registries = self._db.query(ExternalIntegration).filter(ExternalIntegration.goal==ExternalIntegration.DISCOVERY_GOAL)
             if registries.count() == 0:
                 # Set up the default library registry if one doesn't exist yet.
-                default, ignore = get_one_or_create(
-                    self._db, ExternalIntegration,
-                    goal=ExternalIntegration.DISCOVERY_GOAL,
-                    protocol=ExternalIntegration.OPDS_REGISTRATION,
-                    name="Library Simplified Registry")
-                default.url = "https://libraryregistry.librarysimplified.org"
+                default = LibraryRegistry.default(_db)
 
             services = self._get_integration_info(ExternalIntegration.DISCOVERY_GOAL, protocols)
             return dict(
@@ -3354,22 +3349,16 @@ class SettingsController(AdminCirculationManagerController):
 
     def discovery_service_library_registrations(self, do_get=HTTP.debuggable_get,
                               do_post=HTTP.debuggable_post, key=None):
-        LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
-        SUCCESS = u"success"
-        FAILURE = u"failure"
 
         self.require_system_admin()
 
         if flask.request.method == "GET":
             services = []
-            for service in self._db.query(ExternalIntegration).filter(
-                ExternalIntegration.goal==ExternalIntegration.DISCOVERY_GOAL):
-
+            for registry in LibraryRegistry.all():
                 libraries = []
-                for library in service.libraries:
+                for library in registry.libraries:
                     library_info = dict(short_name=library.short_name)
-                    status = ConfigurationSetting.for_library_and_externalintegration(
-                        self._db, LIBRARY_REGISTRATION_STATUS, library, service).value
+                    status = registry.registration_status(library)
                     if status:
                         library_info["status"] = status
                         libraries.append(library_info)
@@ -3389,155 +3378,16 @@ class SettingsController(AdminCirculationManagerController):
             library_short_name = flask.request.form.get("library_short_name")
             stage = flask.request.form.get("registration_stage")
 
-            integration = get_one(self._db, ExternalIntegration,
-                                  goal=ExternalIntegration.DISCOVERY_GOAL,
-                                  id=integration_id)
-            if not integration:
+            registry = LibraryRegistry.by_integration_id(integration_id)
+            if not registry:
                 return MISSING_SERVICE
 
             library = get_one(self._db, Library, short_name=library_short_name)
             if not library:
                 return NO_SUCH_LIBRARY
 
-            integration.libraries += [library]
-            status = ConfigurationSetting.for_library_and_externalintegration(
-                self._db, LIBRARY_REGISTRATION_STATUS, library, integration)
-            status.value = FAILURE
-            registered = self._register_library(integration.url, library, integration, stage=stage, do_get=do_get, do_post=do_post, key=key)
-            if isinstance(registered, ProblemDetail):
-                return registered
+            registered = registration.register(integration.url, library, integration, stage=stage, do_get=do_get, do_post=do_post, key=key)
             status.value = SUCCESS
 
         return Response(unicode(_("Success")), 200)
 
-    def _decrypt_shared_secret(self, encryptor, shared_secret):
-        """Attempt to decrypt an encrypted shared secret.
-
-        :return: The decrypted shared secret, or a ProblemDetail if
-        it could not be decrypted.
-        """
-        try:
-            shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
-        except ValueError, e:
-            return SHARED_SECRET_DECRYPTION_ERROR.detailed(
-                _("Could not decrypt shared secret %s") % shared_secret
-            )
-        return shared_secret
-
-    # A library may be registered in a 'testing' stage or a
-    # 'production' stage.
-    #
-    # TODO: For now, the default is 'production' because there is no
-    # UI for specifying which stage to use.  Once there is such a UI,
-    # the default registration stage should be changed to 'testing'.
-    TESTING_REGISTRATION_STAGE = "testing"
-    PRODUCTION_REGISTRATION_STAGE = "production"
-    DEFAULT_REGISTRATION_STAGE = PRODUCTION_REGISTRATION_STAGE
-    VALID_REGISTRATION_STAGES = [TESTING_REGISTRATION_STAGE,
-                                 PRODUCTION_REGISTRATION_STAGE]
-
-    def _register_library(self, catalog_url, library, integration,
-                          stage=None, do_get=HTTP.debuggable_get,
-                          do_post=HTTP.debuggable_post, key=None):
-        """Attempt to register a library with an external service,
-        such as a library registry or a shared collection on another
-        circulation manager.
-
-        Note: this method does a commit in order to set a public
-        key for the external service to request.
-        """
-        if stage not in self.VALID_REGISTRATION_STAGES:
-            stage = self.DEFAULT_REGISTRATION_STAGE
-        response = do_get(catalog_url)
-        if isinstance(response, ProblemDetail):
-            return response
-        type = response.headers.get("Content-Type")
-        if type and type.startswith('application/opds+json'):
-            # This is an OPDS 2 catalog.
-            catalog = json.loads(response.content)
-            links = catalog.get("links", [])
-            vendor_id = catalog.get("metadata", {}).get("adobe_vendor_id")
-        elif type and type.startswith("application/atom+xml;profile=opds-catalog"):
-            # This is an OPDS 1 feed.
-            feed = feedparser.parse(response.content)
-            links = feed.get("feed", {}).get("links", [])
-            vendor_id = None
-        else:
-            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not return OPDS.", url=catalog_url))
-
-        register_url = None
-        for link in links:
-            if link.get("rel") == "register":
-                register_url = link.get("href")
-                break
-        if not register_url:
-            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=catalog_url))
-
-        # Store the vendor id as a ConfigurationSetting on the registry.
-        if vendor_id:
-            ConfigurationSetting.for_externalintegration(
-                AuthdataUtility.VENDOR_ID_KEY, integration).value = vendor_id
-
-        # Generate a public key for the library.
-        if not key:
-            key = RSA.generate(2048)
-        public_key = key.publickey().exportKey()
-        encryptor = PKCS1_OAEP.new(key)
-
-        ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = public_key
-        # Commit so the public key will be there when the registry gets the
-        # OPDS Authentication document.
-        self._db.commit()
-
-        auth_document_url = self.url_for(
-            "authentication_document",
-            library_short_name=library.short_name
-        )
-        payload = dict(url=auth_document_url, stage=stage)
-
-        # Find the email address the administrator should use if they notice
-        # a problem with the way the library is using an integration.
-        contact = Configuration.configuration_contact_uri(library)
-        if contact:
-            payload['contact'] = contact
-        # Allow 401 so we can provide a more useful error message.
-        response = do_post(
-            register_url, payload, timeout=60,
-            allowed_response_codes=["2xx", "3xx", "401"],
-        )
-        if isinstance(response, ProblemDetail):
-            return response
-        if response.status_code == 401:
-            if response.headers.get("Content-Type") == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
-                problem = json.loads(response.content)
-                return INTEGRATION_ERROR.detailed(
-                    _("Remote service returned: \"%(problem)s\"", problem=problem.get("detail")))
-            else:
-                return INTEGRATION_ERROR.detailed(
-                    _("Remote service returned: \"%(problem)s\"", problem=response.content))
-
-        catalog = json.loads(response.content)
-
-        # Since we generated a public key, the catalog should provide credentials
-        # for future authenticated communication, e.g. through Short Client Tokens
-        # or authenticated API requests.
-        short_name = catalog.get("metadata", {}).get("short_name")
-        shared_secret = catalog.get("metadata", {}).get("shared_secret")
-
-        if short_name:
-            ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.USERNAME, library, integration
-            ).value = short_name
-        if shared_secret:
-            shared_secret = self._decrypt_shared_secret(encryptor, shared_secret)
-            if isinstance(shared_secret, ProblemDetail):
-                return shared_secret
-
-            ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.PASSWORD, library, integration
-            ).value = shared_secret
-        integration.libraries += [library]
-
-        # We're done with the key, so remove the setting.
-        ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = None
-        return True
