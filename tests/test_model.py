@@ -9229,6 +9229,46 @@ class TestAdmin(DatabaseTest):
         eq_(True, self.admin.is_librarian(self._default_library))
         eq_(True, self.admin.is_librarian(other_library))
 
+    def test_can_see_collection(self):
+        # This collection is only visible to system admins since it has no libraries.
+        c1 = self._collection()
+
+        # This collection is visible to libraries of its library.
+        c2 = self._collection()
+        c2.libraries += [self._default_library]
+
+        # The admin has no roles yet.
+        eq_(False, self.admin.can_see_collection(c1));
+        eq_(False, self.admin.can_see_collection(c2));
+
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+        eq_(True, self.admin.can_see_collection(c1))
+        eq_(True, self.admin.can_see_collection(c2))
+
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        self.admin.add_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
+        eq_(False, self.admin.can_see_collection(c1));
+        eq_(True, self.admin.can_see_collection(c2));
+
+        self.admin.remove_role(AdminRole.SITEWIDE_LIBRARY_MANAGER)
+        self.admin.add_role(AdminRole.SITEWIDE_LIBRARIAN)
+        eq_(False, self.admin.can_see_collection(c1));
+        eq_(True, self.admin.can_see_collection(c2));
+
+        self.admin.remove_role(AdminRole.SITEWIDE_LIBRARIAN)
+        self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+        eq_(False, self.admin.can_see_collection(c1));
+        eq_(True, self.admin.can_see_collection(c2));
+
+        self.admin.remove_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+        self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
+        eq_(False, self.admin.can_see_collection(c1));
+        eq_(True, self.admin.can_see_collection(c2));
+
+        self.admin.remove_role(AdminRole.LIBRARIAN, self._default_library)
+        eq_(False, self.admin.can_see_collection(c1));
+        eq_(False, self.admin.can_see_collection(c2));
+
 class TestTupleToNumericrange(object):
     """Test the tuple_to_numericrange helper function."""
 

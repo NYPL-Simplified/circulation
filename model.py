@@ -10573,6 +10573,14 @@ class Admin(Base, HasFullTableCache):
             return True
         return False
 
+    def can_see_collection(self, collection):
+        if self.is_system_admin():
+            return True
+        for library in collection.libraries:
+            if self.is_librarian(library):
+                return True
+        return False
+
     def add_role(self, role, library=None):
         _db = Session.object_session(self)
         role, is_new = get_one_or_create(_db, AdminRole, admin=self, role=role, library=library)
