@@ -1,3 +1,12 @@
+from nose.tools import set_trace
+import base64
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+import feedparser
+from flask_babel import lazy_gettext as _
+import json
+from sqlalchemy.orm.session import Session
+
 from core.model import (
     get_one,
     get_one_or_create,
@@ -6,6 +15,11 @@ from core.model import (
 )
 from core.scripts import LibraryInputScript
 from core.util.http import HTTP
+from core.util.problem_detail import ProblemDetail
+
+from api.adobe_vendor_id import AuthdataUtility
+from api.config import Configuration
+from api.problem_details import *
 
 
 class RemoteRegistry(object):
@@ -26,28 +40,7 @@ class RemoteRegistry(object):
         self.integration = integration
 
     @classmethod
-    def default(cls, _db, goal):
-        """Find or create the default RemoteRegistry for the given goal.
-
-        If any RemoteRegistry for this goal already exists, it will be
-        returned.  Otherwise, a new RemoteRegistry will be created
-        using the well-known URL for the goal.
-
-        :return: A 2-tuple (RemoteRegistry, is_new)
-
-        TODO: Not happy about this.
-        """
-        url, protocol = cls.DEFAULT_URL_AND_PROTOCOL_FOR_GOAL[goal]
-        integration, is_new = get_one_or_create(
-            _db, ExternalIntegration, protocol=protocol, goal=goal
-        )
-        set_trace()
-        if is_new:
-            integration.url = url
-        return cls(integration), is_new
-
-    @classmethod
-    def for_integration_id(self, _db, integration_id, goal):
+    def for_integration_id(cls, _db, integration_id, goal):
         """Create a LibraryRegistry object configured
         by the given ExternalIntegration ID.
 
@@ -61,7 +54,7 @@ class RemoteRegistry(object):
         return cls(integration)        
 
     @classmethod
-    def for_goal(self, _db, goal):
+    def for_goal(cls, _db, goal):
         """Find all LibraryRegistry objects with the given goal."""
         for i in _db.query(ExternalIntegration).filter(
                 ExternalIntegration.goal==goal
@@ -113,6 +106,7 @@ class Registration(object):
         self.registry = registry
         self.integration = self.registry.integration
         self.library = library
+        self._db = Session.object_session(self.integration)
 
         if not library in self.integration.libraries:
             self.integration.libraries.append(library)
@@ -120,26 +114,29 @@ class Registration(object):
         # Find or create all the ConfigurationSettings that configure
         # this relationship between library and registry.
         # Has the registration succeeded? (Initial value: no.)
-        self.status_field, is_new = self.setting(LIBRARY_REGISTRATION_STATUS)
-        if is_new:
-            self.status_field.value = self.FAILURE_STATUS
+        self.status_field = self.setting(
+            self.LIBRARY_REGISTRATION_STATUS, self.FAILURE_STATUS
+        )
 
         # Does the library want to be in the testing or production stage?
         # (Initial value: testing.)
-        self.stage_field, is_new = self.setting(LIBRARY_REGISTRATION_STAGE)
-        if is_new:
-            self.stage_field.value = self.TESTING_STAGE
+        self.stage_field = self.setting(
+            self.LIBRARY_REGISTRATION_STAGE, self.TESTING_STAGE
+        )
 
-    def setting(self, key):
+    def setting(self, key, default_value=None):
         """Find or create a ConfigurationSetting that configures this
         relationship between library and registry.
         
         :param key: Name of the ConfigurationSetting.
         :return: A 2-tuple (ConfigurationSetting, is_new)
         """
-        return ConfigurationSetting.for_library_and_externalintegration(
-            _db, name, self.library, self.integration
+        setting = ConfigurationSetting.for_library_and_externalintegration(
+            self._db, key, self.library, self.integration
         )
+        if setting.value is None and default_value is not None:
+            setting.value = default_value
+        return setting
 
     def push(self, stage, url_for, do_get=HTTP.debuggable_get,
              do_post=HTTP.debuggable_post, key=None):
@@ -199,18 +196,18 @@ class Registration(object):
         # Build the document we'll be sending to the registration URL.
         auth_document_url = url_for(
             "authentication_document",
-            library_short_name=library.short_name
+            library_short_name=self.library.short_name
         )
         payload = dict(url=auth_document_url, stage=stage)
 
         # Find the email address the administrator should use if they notice
         # a problem with the way the library is using an integration.
-        contact = Configuration.configuration_contact_uri(library)
+        contact = Configuration.configuration_contact_uri(self.library)
         if contact:
             payload['contact'] = contact
 
         response = self._send_registration_request(
-            do_post, register_url, payload
+            register_url, payload, do_post
         )
         if isinstance(response, ProblemDetail):
             return response
@@ -225,7 +222,7 @@ class Registration(object):
         shared_secret = metadata.get("shared_secret")
 
         if short_name:
-             setting, ignore = self.secret(ExternalIntegration.USERNAME)
+             setting = self.setting(ExternalIntegration.USERNAME)
              setting.value = short_name
         if shared_secret:
             shared_secret = self._decrypt_shared_secret(
@@ -234,7 +231,7 @@ class Registration(object):
             if isinstance(shared_secret, ProblemDetail):
                 return shared_secret
 
-            setting, ignore = self.setting(ExternalIntegration.PASSWORD)
+            setting = self.setting(ExternalIntegration.PASSWORD)
             setting.value = shared_secret
 
         # We have successfully completed the registration.
@@ -243,8 +240,12 @@ class Registration(object):
         # We're done with the library's public key, so remove the
         # setting.
         ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, library
+            Configuration.PUBLIC_KEY, self.library
         ).value = None
+
+        # Our opinion about the proper stage of this library was succesfully
+        # communicated to the registry.
+        self.stage_field.value = stage
         return True
 
     def _extract_catalog_information(self, response):
@@ -269,7 +270,7 @@ class Registration(object):
             links = feed.get("feed", {}).get("links", [])
             vendor_id = None
         else:
-            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not return OPDS.", url=catalog_url))
+            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not return OPDS.", url=response.url))
 
         register_url = None
         for link in links:
@@ -277,7 +278,7 @@ class Registration(object):
                 register_url = link.get("href")
                 break
         if not register_url:
-            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=catalog_url))
+            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=response.url))
         return register_url, vendor_id
 
     def _set_public_key(self, key):
@@ -301,6 +302,7 @@ class Registration(object):
         # Commit so the public key will be there when the registry gets the
         # OPDS Authentication document.
         self._db.commit()
+        return encryptor
 
     def _send_registration_request(self, register_url, payload, do_post):
         """Send the request that actually kicks off the OPDS Directory

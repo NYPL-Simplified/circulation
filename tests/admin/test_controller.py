@@ -83,6 +83,7 @@ from core.facets import FacetConstants
 from datetime import date, datetime, timedelta
 
 from api.authenticator import AuthenticationProvider, BasicAuthenticationProvider
+from api.registry import Registration
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
 from api.sip import SIP2AuthenticationProvider
@@ -2701,10 +2702,11 @@ class TestDashboardController(AdminControllerTest):
             eq_(1, vendor_data.get('bibliotheca'))
             eq_(1, vendor_data.get('axis360'))
 
-class TestSettingsController(AdminControllerTest):
+class SettingsControllerTest(AdminControllerTest):
+    """Test some part of the settings controller."""
 
     def setup(self):
-        super(TestSettingsController, self).setup()
+        super(SettingsControllerTest, self).setup()
         # Delete any existing patron auth services created by controller test setup.
         for auth_service in self._db.query(ExternalIntegration).filter(
             ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
@@ -2728,6 +2730,9 @@ class TestSettingsController(AdminControllerTest):
         self.requests.append((url, args, kwargs))
         response = self.responses.pop()
         return HTTP.process_debuggable_response(response)
+
+
+class TestSettingsController(SettingsControllerTest):
 
     def test_get_integration_protocols(self):
         """Test the _get_integration_protocols helper method."""
@@ -5571,6 +5576,13 @@ class TestSettingsController(AdminControllerTest):
             eq_((id, EI.SEARCH_GOAL),
                 controller.delete_called_with)
 
+
+class TestDiscoveryServices(SettingsControllerTest):
+
+    """Test the controller functions that list and create new discovery
+    services.
+    """
+
     def test_discovery_services_get_with_no_services_creates_default(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.discovery_services()
@@ -5711,6 +5723,11 @@ class TestSettingsController(AdminControllerTest):
         service = get_one(self._db, ExternalIntegration, id=discovery_service.id)
         eq_(None, service)
 
+
+class TestLibraryRegistration(SettingsControllerTest):
+    """Test the process of registering a library with a RemoteRegistry.
+    """
+
     def test_discovery_service_library_registrations_get(self):
         discovery_service, ignore = create(
             self._db, ExternalIntegration,
@@ -5732,7 +5749,7 @@ class TestSettingsController(AdminControllerTest):
         unregistered, ignore = create(
             self._db, Library, name="Library 3", short_name="L3",
         )
-        discovery_service.libraries = [succeeded, failed, unregistered]
+        discovery_service.libraries = [succeeded, failed]
 
         with self.request_context_with_admin("/", method="GET"):
             response = self.manager.admin_settings_controller.discovery_service_library_registrations()
@@ -5778,6 +5795,7 @@ class TestSettingsController(AdminControllerTest):
 
         library = self._default_library
 
+
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
@@ -5788,7 +5806,7 @@ class TestSettingsController(AdminControllerTest):
 
             response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at registry url did not return OPDS.", response.detail)
+            eq_("The service at http://url/ did not return OPDS.", response.detail)
             eq_([discovery_service.url], [x[0] for x in self.requests])
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
@@ -5804,7 +5822,7 @@ class TestSettingsController(AdminControllerTest):
 
             response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at registry url did not provide a register link.", response.detail)
+            eq_("The service at http://url/ did not provide a register link.", response.detail)
             eq_([discovery_service.url], [x[0] for x in self.requests[1:]])
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
@@ -5818,6 +5836,7 @@ class TestSettingsController(AdminControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.discovery_service_library_registrations,
                           do_get=self.do_request, do_post=self.do_request)
+
 
     def test_discovery_service_library_registrations_post_success(self):
         discovery_service, ignore = create(
@@ -5839,7 +5858,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
-                ("registration_stage", controller.TESTING_REGISTRATION_STAGE)
+                ("registration_stage", Registration.TESTING_STAGE)
             ])
             self.responses.append(MockRequestsResponse(200, content='{}'))
             feed = '<feed><link rel="register" href="register url"/></feed>'
@@ -5862,7 +5881,7 @@ class TestSettingsController(AdminControllerTest):
 
             # We also asked to be registered in a 'testing' stage as opposed
             # to immediately going into production.
-            eq_(controller.TESTING_REGISTRATION_STAGE, body["stage"])
+            eq_(Registration.TESTING_STAGE, body["stage"])
 
             # This registry doesn't support short client tokens and doesn't have a vendor id,
             # so no settings were added to it.
@@ -5880,7 +5899,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
-                ("registration_stage", controller.PRODUCTION_REGISTRATION_STAGE)
+                ("registration_stage", Registration.PRODUCTION_STAGE)
             ])
             # Generate a key in advance so we can mock the registry's encrypted response.
             key = RSA.generate(1024)
@@ -5908,7 +5927,7 @@ class TestSettingsController(AdminControllerTest):
 
             # This time we asked that the library go into production
             # immediately.
-            eq_(controller.PRODUCTION_REGISTRATION_STAGE, body['stage'])
+            eq_(Registration.PRODUCTION_STAGE, body['stage'])
 
             # The vendor id and short client token settings were stored.
             eq_("vendorid", discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
@@ -5920,6 +5939,12 @@ class TestSettingsController(AdminControllerTest):
             # The registration status is the same.
             eq_("success", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, discovery_service).value)
+
+
+class TestCollectionRegistration(SettingsControllerTest):
+    """Test the process of registering a specific collection with
+    a RemoteRegistry.
+    """
 
     def test_collection_library_registrations_get(self):
         collection = self._default_collection
@@ -6000,7 +6025,7 @@ class TestSettingsController(AdminControllerTest):
 
             response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at collection url did not return OPDS.", response.detail)
+            eq_("The service at http://url/ did not return OPDS.", response.detail)
             eq_([collection.external_account_id], [x[0] for x in self.requests])
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, collection.external_integration).value)
@@ -6016,7 +6041,7 @@ class TestSettingsController(AdminControllerTest):
 
             response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
             eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at collection url did not provide a register link.", response.detail)
+            eq_("The service at http://url/ did not provide a register link.", response.detail)
             eq_([collection.external_account_id], [x[0] for x in self.requests[1:]])
             eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
                     self._db, "library-registration-status", library, collection.external_integration).value)
@@ -6177,27 +6202,6 @@ class TestSettingsController(AdminControllerTest):
             )
         eq_(MULTIPLE_BASIC_AUTH_SERVICES, response)
 
-
-    def test__decrypt_shared_secret(self):
-        key = RSA.generate(2048)
-        encryptor = PKCS1_OAEP.new(key)
-
-        key2 = RSA.generate(2048)
-        encryptor2 = PKCS1_OAEP.new(key2)
-
-        shared_secret = os.urandom(24).encode('hex')
-        encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
-
-        # Success.
-        m = self.manager.admin_settings_controller._decrypt_shared_secret
-        eq_(shared_secret, m(encryptor, encrypted_secret))
-
-        # If we try to decrypt using the wrong key, a ProblemDetail is
-        # returned explaining the problem.
-        problem = m(encryptor2, encrypted_secret)
-        assert isinstance(problem, ProblemDetail)
-        eq_(SHARED_SECRET_DECRYPTION_ERROR.uri, problem.uri)
-        assert encrypted_secret in problem.detail
 
     def test_sitewide_registration_post_success(self):
 

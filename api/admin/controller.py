@@ -21,7 +21,6 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
-import feedparser
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
@@ -3303,10 +3302,14 @@ class SettingsController(AdminCirculationManagerController):
             if not registries:
                 # There are no registries at all. Set up the default
                 # library registry.
-                integration = get_one_or_create(
+                integration, is_new = get_one_or_create(
                     self._db, ExternalIntegration, protocol=opds_registration,
-                    goal=goal, url=RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL
+                    goal=goal
                 )
+                if is_new:
+                    integration.url = (
+                        RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL
+                    )
 
             services = self._get_integration_info(goal, protocols)
             return dict(
@@ -3326,33 +3329,35 @@ class SettingsController(AdminCirculationManagerController):
             registry = RemoteRegistry.for_integration_id(self._db, id, goal)
             if not registry:
                 return MISSING_SERVICE
-            if protocol != registry.integration.protocol:
+            integration = registry.integration
+            if protocol != integration.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            service, is_new = self._create_integration(
-                protocols, protocol, ExternalIntegration.DISCOVERY_GOAL
+            integration, is_new = self._create_integration(
+                protocols, protocol, goal
             )
-            if isinstance(service, ProblemDetail):
-                return service
+            if isinstance(integration, ProblemDetail):
+                return integration
 
         name = flask.request.form.get("name")
         if name:
-            if service.name != name:
+            if integration.name != name:
+                # Change the name if possible.
                 service_with_name = get_one(self._db, ExternalIntegration, name=name)
                 if service_with_name:
                     self._db.rollback()
                     return INTEGRATION_NAME_ALREADY_IN_USE
-            service.name = name
+            integration.name = name
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(service, protocol)
+        result = self._set_integration_settings_and_libraries(integration, protocol)
         if isinstance(result, ProblemDetail):
             return result
 
         if is_new:
-            return Response(unicode(service.id), 201)
+            return Response(unicode(integration.id), 201)
         else:
-            return Response(unicode(service.id), 200)
+            return Response(unicode(integration.id), 200)
 
     def discovery_service(self, service_id):
         """Delete a discover service."""
@@ -3376,7 +3381,7 @@ class SettingsController(AdminCirculationManagerController):
             # list of libraries registered with that service and the
             # status of the registration.
             services = []
-            for registry in RemoteRegistry.all(goal):
+            for registry in RemoteRegistry.for_goal(self._db, goal):
                 libraries = []
                 for registration in registry.registrations:
                     library = registration.library
@@ -3388,7 +3393,7 @@ class SettingsController(AdminCirculationManagerController):
 
                 services.append(
                     dict(
-                        id=service.id,
+                        id=registry.integration.id,
                         libraries=libraries,
                     )
                 )
@@ -3398,7 +3403,7 @@ class SettingsController(AdminCirculationManagerController):
             # Attempt to register a library with a RemoteRegistry.
             integration_id = flask.request.form.get("integration_id")
             library_short_name = flask.request.form.get("library_short_name")
-            stage = flask.request.form.get("registration_stage")
+            stage = flask.request.form.get("registration_stage") or Registration.TESTING_STAGE
 
             registry = RemoteRegistry.for_integration_id(
                 self._db, integration_id, goal
