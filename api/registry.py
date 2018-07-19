@@ -27,7 +27,7 @@ class RemoteRegistry(object):
     the OPDS Directory Registration Protocol:
 
     https://github.com/NYPL-Simplified/Simplified/wiki/OPDS-Directory-Registration-Protocol
-    
+
     In practical terms, this may be a library registry (which has
     DISCOVERY_GOAL and wants to help patrons find their libraries) or
     it may be a shared ODL collection (which has LICENSE_GOAL).
@@ -50,7 +50,7 @@ class RemoteRegistry(object):
                               id=integration_id)
         if not integration:
             return None
-        return cls(integration)        
+        return cls(integration)
 
     @classmethod
     def for_goal(cls, _db, goal):
@@ -68,7 +68,7 @@ class RemoteRegistry(object):
         :yield: A sequence of Registration objects.
         """
         for x in self.integration.libraries:
-            yield Registration(self, x) 
+            yield Registration(self, x)
 
 
 class Registration(object):
@@ -126,7 +126,7 @@ class Registration(object):
     def setting(self, key, default_value=None):
         """Find or create a ConfigurationSetting that configures this
         relationship between library and registry.
-        
+
         :param key: Name of the ConfigurationSetting.
         :return: A 2-tuple (ConfigurationSetting, is_new)
         """
@@ -149,7 +149,7 @@ class Registration(object):
         NOTE: This method is designed to be used in a
         controller. Other callers may use this method, but they must be
         able to render a ProblemDetail when there's a failure.
-        
+
         NOTE: The application server must be running when this method
         is called, because part of the OPDS Directory Registration
         Protocol is the remote server retrieving the library's
@@ -168,7 +168,7 @@ class Registration(object):
         if stage not in self.VALID_REGISTRATION_STAGES:
             return INVALID_INPUT.detailed(
                 _("%r is not a valid registration stage") % stage
-            ) 
+            )
 
         # Before we can start the registration protocol, we must fetch
         # the remote catalog's URL and extract the link to the
@@ -358,5 +358,3 @@ class LibraryRegistrationScript(LibraryInputScript):
             action='store_true'
         )
         return parser
-
-    

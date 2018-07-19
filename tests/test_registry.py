@@ -2,6 +2,8 @@ from nose.tools import (
     set_trace,
     eq_,
 )
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 from . import (
     DatabaseTest
 )
