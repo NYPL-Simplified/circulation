@@ -118,6 +118,7 @@ class TestCustomPatronCatalog(DatabaseTest):
             dict(rel="leave-me-alone", href="link2"),
             dict(rel="replace-me", href="link4", type="text/html"),
         ]
+        eq_(doc['links'], links)
 
 
 class TestCustomRootLane(DatabaseTest):
