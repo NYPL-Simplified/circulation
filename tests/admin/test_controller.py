@@ -5579,8 +5579,9 @@ class TestSettingsController(AdminControllerTest):
             assert ExternalIntegration.OPDS_REGISTRATION in [p.get("name") for p in protocols]
             assert "settings" in protocols[0]
             eq_(ExternalIntegration.OPDS_REGISTRATION, service.get("protocol"))
-            eq_("https://libraryregistry.librarysimplified.org", service.get("settings").get(ExternalIntegration.URL))
+            eq_("https://libraryregistry.librarysimplified.org/", service.get("settings").get(ExternalIntegration.URL))
 
+            # Only system admins can see the discovery services.
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
             assert_raises(AdminNotAuthorized,
