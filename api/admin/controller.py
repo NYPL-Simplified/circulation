@@ -3460,6 +3460,7 @@ class SettingsController(AdminCirculationManagerController):
 
             integration_id = flask.request.form.get("integration_id")
             library_short_name = flask.request.form.get("library_short_name")
+            stage = flask.request.form.get("registration_stage")
 
             integration = get_one(self._db, ExternalIntegration,
                                   goal=ExternalIntegration.DISCOVERY_GOAL,
@@ -3475,7 +3476,7 @@ class SettingsController(AdminCirculationManagerController):
             status = ConfigurationSetting.for_library_and_externalintegration(
                 self._db, LIBRARY_REGISTRATION_STATUS, library, integration)
             status.value = FAILURE
-            registered = self._register_library(integration.url, library, integration, do_get=do_get, do_post=do_post, key=key)
+            registered = self._register_library(integration.url, library, integration, stage=stage, do_get=do_get, do_post=do_post, key=key)
             if isinstance(registered, ProblemDetail):
                 return registered
             status.value = SUCCESS
@@ -3496,8 +3497,21 @@ class SettingsController(AdminCirculationManagerController):
             )
         return shared_secret
 
+    # A library may be registered in a 'testing' stage or a
+    # 'production' stage.
+    #
+    # TODO: For now, the default is 'production' because there is no
+    # UI for specifying which stage to use.  Once there is such a UI,
+    # the default registration stage should be changed to 'testing'.
+    TESTING_REGISTRATION_STAGE = "testing"
+    PRODUCTION_REGISTRATION_STAGE = "production"
+    DEFAULT_REGISTRATION_STAGE = PRODUCTION_REGISTRATION_STAGE
+    VALID_REGISTRATION_STAGES = [TESTING_REGISTRATION_STAGE,
+                                 PRODUCTION_REGISTRATION_STAGE]
+
     def _register_library(self, catalog_url, library, integration,
-                          do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, key=None):
+                          stage=None, do_get=HTTP.debuggable_get,
+                          do_post=HTTP.debuggable_post, key=None):
         """Attempt to register a library with an external service,
         such as a library registry or a shared collection on another
         circulation manager.
@@ -3505,6 +3519,8 @@ class SettingsController(AdminCirculationManagerController):
         Note: this method does a commit in order to set a public
         key for the external service to request.
         """
+        if stage not in self.VALID_REGISTRATION_STAGES:
+            stage = self.DEFAULT_REGISTRATION_STAGE
         response = do_get(catalog_url)
         if isinstance(response, ProblemDetail):
             return response
@@ -3550,7 +3566,7 @@ class SettingsController(AdminCirculationManagerController):
             "authentication_document",
             library_short_name=library.short_name
         )
-        payload = dict(url=auth_document_url)
+        payload = dict(url=auth_document_url, stage=stage)
 
         # Find the email address the administrator should use if they notice
         # a problem with the way the library is using an integration.

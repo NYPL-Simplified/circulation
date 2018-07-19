@@ -5961,29 +5961,36 @@ class TestSettingsController(AdminControllerTest):
             Configuration.CONFIGURATION_CONTACT_EMAIL, library
         ).value = "configproblems@library.org"
 
+        controller = self.manager.admin_settings_controller
+
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
+                ("registration_stage", controller.TESTING_REGISTRATION_STAGE)
             ])
             self.responses.append(MockRequestsResponse(200, content='{}'))
             feed = '<feed><link rel="register" href="register url"/></feed>'
             headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
+            response = controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
 
             eq_(200, response.status_code)
-            [req1, req2] = self.requests
-            eq_("registry url", req1[0])
+            url, body, kwargs = self.requests.pop(0)
+            eq_("registry url", url)
 
-            url, [body], kwargs = req2
+            url, [body], kwargs = self.requests.pop(0)
             eq_("register url", url)
 
             # When we sent the location of our authentication document to
             # the 'registry', we provided an email address the registry can use
             # to contact us if there are problems.
             eq_("mailto:configproblems@library.org", body['contact'])
+
+            # We also asked to be registered in a 'testing' stage as opposed
+            # to immediately going into production.
+            eq_(controller.TESTING_REGISTRATION_STAGE, body["stage"])
 
             # This registry doesn't support short client tokens and doesn't have a vendor id,
             # so no settings were added to it.
@@ -6001,6 +6008,7 @@ class TestSettingsController(AdminControllerTest):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", library.short_name),
+                ("registration_stage", controller.PRODUCTION_REGISTRATION_STAGE)
             ])
             # Generate a key in advance so we can mock the registry's encrypted response.
             key = RSA.generate(1024)
@@ -6017,10 +6025,18 @@ class TestSettingsController(AdminControllerTest):
             headers = { 'Content-Type': 'application/opds+json' }
             self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
+            response = controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
 
             eq_(200, response.status_code)
-            eq_(["registry url", "register url"], [x[0] for x in self.requests[2:]])
+            url, body, kwargs = self.requests.pop(0)
+            eq_("registry url", url)
+
+            url, [body], kwargs = self.requests.pop(0)
+            eq_("register url", url)
+
+            # This time we asked that the library go into production
+            # immediately.
+            eq_(controller.PRODUCTION_REGISTRATION_STAGE, body['stage'])
 
             # The vendor id and short client token settings were stored.
             eq_("vendorid", discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
