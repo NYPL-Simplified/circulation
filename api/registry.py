@@ -30,8 +30,7 @@ class RemoteRegistry(object):
     
     In practical terms, this may be a library registry (which has
     DISCOVERY_GOAL and wants to help patrons find their libraries) or
-    it may be a metadata wrangler (which has METADATA_GOAL and wants
-    libraries to tell it what's in their collections).
+    it may be a shared ODL collection (which has LICENSE_GOAL).
     """
     DEFAULT_LIBRARY_REGISTRY_URL = "https://libraryregistry.librarysimplified.org/"
 
@@ -41,10 +40,10 @@ class RemoteRegistry(object):
 
     @classmethod
     def for_integration_id(cls, _db, integration_id, goal):
-        """Create a LibraryRegistry object configured
+        """Find a LibraryRegistry object configured
         by the given ExternalIntegration ID.
 
-        :param goal: Either DISCOVERY_GOAL or METADATA_GOAL
+        :param goal: The ExternalIntegration's .goal must be this goal.
         """
         integration = get_one(_db, ExternalIntegration,
                               goal=goal,
@@ -138,7 +137,7 @@ class Registration(object):
             setting.value = default_value
         return setting
 
-    def push(self, stage, url_for, do_get=HTTP.debuggable_get,
+    def push(self, stage, url_for, catalog_url=None, do_get=HTTP.debuggable_get,
              do_post=HTTP.debuggable_post, key=None):
         """Attempt to register a library with a RemoteRegistry.
 
@@ -172,8 +171,9 @@ class Registration(object):
             ) 
 
         # Before we can start the registration protocol, we must fetch
-        # the catalog URL and extract the URL to use when registering.
-        catalog_url = self.integration.url
+        # the remote catalog's URL and extract the link to the
+        # registration resource that kicks off the protocol.
+        catalog_url = catalog_url or self.integration.url
         response = do_get(catalog_url)
         if isinstance(response, ProblemDetail):
             return response

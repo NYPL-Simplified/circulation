@@ -2479,8 +2479,13 @@ class SettingsController(AdminCirculationManagerController):
             status = ConfigurationSetting.for_library_and_externalintegration(
                 self._db, LIBRARY_REGISTRATION_STATUS, library, collection.external_integration)
             status.value = FAILURE
-            registered = self._register_library(collection.external_account_id, library, collection.external_integration,
-                                                do_get=do_get, do_post=do_post, key=key)
+            registry = RemoteRegistry(collection.external_integration)
+            registration = Registration(registry, library)
+            registered = registration.push(
+                Registration.PRODUCTION_STAGE, self.url_for,
+                catalog_url=collection.external_account_id,
+                do_get=do_get, do_post=do_post, key=key
+            )
             if isinstance(registered, ProblemDetail):
                 return registered
             status.value = SUCCESS
