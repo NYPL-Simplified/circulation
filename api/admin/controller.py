@@ -1693,120 +1693,202 @@ class LanesController(AdminCirculationManagerController):
 class DashboardController(AdminCirculationManagerController):
 
     def stats(self):
-        patron_count = self._db.query(Patron).count()
+        library_stats = {}
 
-        active_loans_patron_count = self._db.query(
-            distinct(Patron.id)
-        ).join(
-            Patron.loans
-        ).filter(
-            Loan.end >= datetime.now(),
-        ).count()
+        total_title_count = 0
+        total_license_count = 0
+        total_available_license_count = 0
 
-        active_patrons = select(
-            [Patron.id]
-        ).select_from(
-            join(
-                Loan,
-                Patron,
+        collection_counts = dict()
+        for collection in self._db.query(Collection):
+            if not flask.request.admin or not flask.request.admin.can_see_collection(collection):
+                continue
+
+            licensed_title_count = self._db.query(
+                LicensePool
+            ).filter(
+                LicensePool.collection_id == collection.id
+            ).filter(
                 and_(
-                    Patron.id == Loan.patron_id,
-                    Loan.id != None,
-                    Loan.end >= datetime.now()
+                    LicensePool.licenses_owned > 0,
+                    LicensePool.open_access == False,
                 )
+            ).count()
+
+            open_title_count = self._db.query(
+                LicensePool
+            ).filter(
+                LicensePool.collection_id == collection.id
+            ).filter(
+                LicensePool.open_access == True
+            ).count()
+
+            # The sum queries return None instead of 0 if there are
+            # no license pools in the db.
+
+            license_count = self._db.query(
+                func.sum(LicensePool.licenses_owned)
+            ).filter(
+                LicensePool.collection_id == collection.id
+            ).filter(
+                LicensePool.open_access == False,
+            ).all()[0][0] or 0
+
+            available_license_count = self._db.query(
+                func.sum(LicensePool.licenses_available)
+            ).filter(
+                LicensePool.collection_id == collection.id
+            ).filter(
+                LicensePool.open_access == False,
+            ).all()[0][0] or 0
+
+            total_title_count += licensed_title_count + open_title_count
+            total_license_count += license_count
+            total_available_license_count += available_license_count
+
+            collection_counts[collection.name] = dict(
+                licensed_titles=licensed_title_count,
+                open_access_titles=open_title_count,
+                licenses=license_count,
+                available_licenses=available_license_count,
             )
-        ).union(
-            select(
+
+        
+        for library in self._db.query(Library):
+            # Only include libraries this admin has librarian access to.
+            if not flask.request.admin or not flask.request.admin.is_librarian(library):
+                continue
+
+            patron_count = self._db.query(Patron).filter(Patron.library_id==library.id).count()
+
+            active_loans_patron_count = self._db.query(
+                distinct(Patron.id)
+            ).join(
+                Patron.loans
+            ).filter(
+                Loan.end >= datetime.now(),
+            ).filter(
+                Patron.library_id == library.id
+            ).count()
+
+            active_patrons = select(
                 [Patron.id]
             ).select_from(
                 join(
-                    Hold,
+                    Loan,
                     Patron,
-                    Patron.id == Hold.patron_id
+                    and_(
+                        Patron.id == Loan.patron_id,
+                        Patron.library_id == library.id,
+                        Loan.id != None,
+                        Loan.end >= datetime.now()
+                    )
                 )
+            ).union(
+                select(
+                    [Patron.id]
+                ).select_from(
+                    join(
+                        Hold,
+                        Patron,
+                        Patron.id == Hold.patron_id,
+                        Patron.library_id == library.id,
+                    )
+                )
+            ).alias()
+
+
+            active_loans_or_holds_patron_count_query = select(
+                [func.count(distinct(active_patrons.c.id))]
+            ).select_from(
+                active_patrons
             )
-        ).alias()
 
+            result = self._db.execute(active_loans_or_holds_patron_count_query)
+            active_loans_or_holds_patron_count = [r[0] for r in result][0]
 
-        active_loans_or_holds_patron_count_query = select(
-            [func.count(distinct(active_patrons.c.id))]
-        ).select_from(
-            active_patrons
-        )
-
-        result = self._db.execute(active_loans_or_holds_patron_count_query)
-        active_loans_or_holds_patron_count = [r[0] for r in result][0]
-
-        loan_count = self._db.query(
-            Loan
-        ).filter(
-            Loan.end >= datetime.now()
-        ).count()
-
-        hold_count = self._db.query(Hold).count()
-
-        data_sources = dict(
-            overdrive=DataSource.OVERDRIVE,
-            bibliotheca=DataSource.BIBLIOTHECA,
-            axis360=DataSource.AXIS_360,
-        )
-        vendor_counts = dict()
-
-        for key, data_source in data_sources.iteritems():
-            data_source_count = self._db.query(
-                LicensePool
+            loan_count = self._db.query(
+                Loan
             ).join(
-                DataSource
+                Loan.patron
             ).filter(
-                LicensePool.licenses_owned > 0
+                Patron.library_id == library.id
             ).filter(
-                DataSource.name == data_source
+                Loan.end >= datetime.now()
             ).count()
 
-            if data_source_count > 0:
-                vendor_counts[key] = data_source_count
+            hold_count = self._db.query(
+                Hold
+            ).join(
+                Hold.patron
+            ).filter(
+                Patron.library_id == library.id
+            ).count()
 
-        open_access_count = self._db.query(
-            LicensePool
-         ).filter(
-            LicensePool.open_access == True
-         ).count()
+            title_count = 0
+            license_count = 0
+            available_license_count = 0
 
-        if open_access_count > 0:
-            vendor_counts['open_access'] = open_access_count
+            library_collection_counts = dict()
+            for collection in library.all_collections:
+                counts = collection_counts[collection.name]
+                library_collection_counts[collection.name] = counts
+                title_count += counts.get("licensed_titles", 0) + counts.get("open_access_titles", 0)
+                license_count += counts.get("licenses", 0)
+                available_license_count += counts.get("available_licenses", 0)
 
-        title_count = self._db.query(LicensePool).count()
+            library_stats[library.short_name] = dict(
+                patrons=dict(
+                    total=patron_count,
+                    with_active_loans=active_loans_patron_count,
+                    with_active_loans_or_holds=active_loans_or_holds_patron_count,
+                    loans=loan_count,
+                    holds=hold_count,
+                ),
+                inventory=dict(
+                    titles=title_count,
+                    licenses=license_count,
+                    available_licenses=available_license_count,
+                ),
+                collections=library_collection_counts,
+            )
 
-        # The sum queries return None instead of 0 if there are
-        # no license pools in the db.
+        total_patrons = sum([
+            stats.get("patrons", {}).get("total", 0)
+            for stats in library_stats.values()])
+        total_with_active_loans = sum([
+            stats.get("patrons", {}).get("with_active_loans", 0)
+            for stats in library_stats.values()])
+        total_with_active_loans_or_holds = sum([
+            stats.get("patrons", {}).get("with_active_loans_or_holds", 0)
+            for stats in library_stats.values()])
 
-        license_count = self._db.query(
-            func.sum(LicensePool.licenses_owned)
-        ).filter(
-            LicensePool.open_access == False,
-        ).all()[0][0] or 0
+        # TODO: show shared collection loans and holds for libraries outside this
+        # circ manager?
+        total_loans = sum([
+            stats.get("patrons", {}).get("loans", 0)
+            for stats in library_stats.values()])
+        total_holds = sum([
+            stats.get("patrons", {}).get("holds", 0)
+            for stats in library_stats.values()])
 
-        available_license_count = self._db.query(
-            func.sum(LicensePool.licenses_available)
-        ).filter(
-            LicensePool.open_access == False,
-        ).all()[0][0] or 0
-
-        return dict(
+        library_stats["total"] = dict(
             patrons=dict(
-                total=patron_count,
-                with_active_loans=active_loans_patron_count,
-                with_active_loans_or_holds=active_loans_or_holds_patron_count,
-                loans=loan_count,
-                holds=hold_count,
+                total=total_patrons,
+                with_active_loans=total_with_active_loans,
+                with_active_loans_or_holds=total_with_active_loans_or_holds,
+                loans=total_loans,
+                holds=total_holds,
             ),
             inventory=dict(
-                titles=title_count,
-                licenses=license_count,
-                available_licenses=available_license_count,
+                titles=total_title_count,
+                licenses=total_license_count,
+                available_licenses=total_available_license_count,
             ),
-            vendors=vendor_counts,
+            collections=collection_counts,
         )
+
+        return library_stats
 
     def circulation_events(self):
         annotator = AdminAnnotator(self.circulation, flask.request.library)
@@ -2268,16 +2350,7 @@ class SettingsController(AdminCirculationManagerController):
         if flask.request.method == 'GET':
             collections = []
             for c in self._db.query(Collection).order_by(Collection.name).all():
-                visible = False
-                for library in c.libraries:
-                    if flask.request.admin and flask.request.admin.is_librarian(library):
-                        visible = True
-                # If the collection's not associated with any libraries, only system
-                # admins can see it.
-                if not c.libraries:
-                    if flask.request.admin and flask.request.admin.is_system_admin():
-                        visible = True
-                if not visible:
+                if not flask.request.admin or not flask.request.admin.can_see_collection(c):
                     continue
 
                 collection = dict(

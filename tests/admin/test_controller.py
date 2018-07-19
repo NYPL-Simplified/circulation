@@ -2591,16 +2591,20 @@ class TestDashboardController(AdminControllerTest):
         eq_(0, len(rows))
 
     def test_stats_patrons(self):
-        with self.app.test_request_context("/"):
+        with self.request_context_with_admin("/"):
+            self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
             # At first, there's one patron in the database.
             response = self.manager.admin_dashboard_controller.stats()
-            patron_data = response.get('patrons')
-            eq_(1, patron_data.get('total'))
-            eq_(0, patron_data.get('with_active_loans'))
-            eq_(0, patron_data.get('with_active_loans_or_holds'))
-            eq_(0, patron_data.get('loans'))
-            eq_(0, patron_data.get('holds'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                patron_data = data.get('patrons')
+                eq_(1, patron_data.get('total'))
+                eq_(0, patron_data.get('with_active_loans'))
+                eq_(0, patron_data.get('with_active_loans_or_holds'))
+                eq_(0, patron_data.get('loans'))
+                eq_(0, patron_data.get('holds'))
 
             edition, pool = self._edition(with_license_pool=True, with_open_access_download=False)
             edition2, open_access_pool = self._edition(with_open_access_download=True)
@@ -2619,24 +2623,53 @@ class TestDashboardController(AdminControllerTest):
             open_access_pool.loan_to(patron3)
 
             response = self.manager.admin_dashboard_controller.stats()
-            patron_data = response.get('patrons')
-            eq_(4, patron_data.get('total'))
-            eq_(1, patron_data.get('with_active_loans'))
-            eq_(2, patron_data.get('with_active_loans_or_holds'))
-            eq_(1, patron_data.get('loans'))
-            eq_(1, patron_data.get('holds'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                patron_data = data.get('patrons')
+                eq_(4, patron_data.get('total'))
+                eq_(1, patron_data.get('with_active_loans'))
+                eq_(2, patron_data.get('with_active_loans_or_holds'))
+                eq_(1, patron_data.get('loans'))
+                eq_(1, patron_data.get('holds'))
+
+            # This patron is in a different library.
+            l2 = self._library()
+            patron4 = self._patron(library=l2)
+
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            eq_(4, library_data.get('patrons').get('total'))
+            eq_(5, total_data.get('patrons').get('total'))
+
+            # If the admin only has access to some libraries, only those will be counted
+            # in the total stats.
+            self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
+
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            eq_(4, library_data.get('patrons').get('total'))
+            eq_(4, total_data.get('patrons').get('total'))
 
     def test_stats_inventory(self):
-        with self.app.test_request_context("/"):
+        with self.request_context_with_admin("/"):
+            self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
             # At first, there is 1 open access title in the database,
             # created in CirculationControllerTest.setup.
             response = self.manager.admin_dashboard_controller.stats()
-            inventory_data = response.get('inventory')
-            eq_(1, inventory_data.get('titles'))
-            eq_(0, inventory_data.get('licenses'))
-            eq_(0, inventory_data.get('available_licenses'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                inventory_data = data.get('inventory')
+                eq_(1, inventory_data.get('titles'))
+                eq_(0, inventory_data.get('licenses'))
+                eq_(0, inventory_data.get('available_licenses'))
 
+            # This edition has no licenses owned and isn't counted in the inventory.
             edition1, pool1 = self._edition(with_license_pool=True, with_open_access_download=False)
             pool1.open_access = False
             pool1.licenses_owned = 0
@@ -2653,53 +2686,149 @@ class TestDashboardController(AdminControllerTest):
             pool3.licenses_available = 4
 
             response = self.manager.admin_dashboard_controller.stats()
-            inventory_data = response.get('inventory')
-            eq_(4, inventory_data.get('titles'))
-            eq_(15, inventory_data.get('licenses'))
-            eq_(4, inventory_data.get('available_licenses'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                inventory_data = data.get('inventory')
+                eq_(3, inventory_data.get('titles'))
+                eq_(15, inventory_data.get('licenses'))
+                eq_(4, inventory_data.get('available_licenses'))
 
-    def test_stats_vendors(self):
-        with self.app.test_request_context("/"):
+            # This edition is in a different collection.
+            c2 = self._collection()
+            edition4, pool4 = self._edition(with_license_pool=True, with_open_access_download=False, collection=c2)
+            pool4.licenses_owned = 2
+            pool4.licenses_available = 2
+
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            eq_(3, library_data.get('inventory').get('titles'))
+            eq_(4, total_data.get('inventory').get('titles'))
+            eq_(15, library_data.get('inventory').get('licenses'))
+            eq_(17, total_data.get('inventory').get('licenses'))
+            eq_(4, library_data.get('inventory').get('available_licenses'))
+            eq_(6, total_data.get('inventory').get('available_licenses'))
+
+            self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
+
+            # The admin can no longer see the other collection, so it's not
+            # counted in the totals.
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                inventory_data = data.get('inventory')
+                eq_(3, inventory_data.get('titles'))
+                eq_(15, inventory_data.get('licenses'))
+                eq_(4, inventory_data.get('available_licenses'))
+
+    def test_stats_collections(self):
+        with self.request_context_with_admin("/"):
+            self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
             # At first, there is 1 open access title in the database,
             # created in CirculationControllerTest.setup.
             response = self.manager.admin_dashboard_controller.stats()
-            vendor_data = response.get('vendors')
-            eq_(1, vendor_data.get('open_access'))
-            eq_(None, vendor_data.get('overdrive'))
-            eq_(None, vendor_data.get('bibliotheca'))
-            eq_(None, vendor_data.get('axis360'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                collections_data = data.get('collections')
+                eq_(1, len(collections_data))
+                collection_data = collections_data.get(self._default_collection.name)
+                eq_(0, collection_data.get('licensed_titles'))
+                eq_(1, collection_data.get('open_access_titles'))
+                eq_(0, collection_data.get('licenses'))
+                eq_(0, collection_data.get('available_licenses'))
+
+            c2 = self._collection()
+            c3 = self._collection()
+            c3.libraries += [self._default_library]
 
             edition1, pool1 = self._edition(with_license_pool=True,
                                             with_open_access_download=False,
-                                            data_source_name=DataSource.OVERDRIVE)
+                                            data_source_name=DataSource.OVERDRIVE,
+                                            collection=c2)
             pool1.open_access = False
             pool1.licenses_owned = 10
+            pool1.licenses_available = 5
 
             edition2, pool2 = self._edition(with_license_pool=True,
                                             with_open_access_download=False,
-                                            data_source_name=DataSource.OVERDRIVE)
+                                            data_source_name=DataSource.OVERDRIVE,
+                                            collection=c3)
             pool2.open_access = False
             pool2.licenses_owned = 0
+            pool2.licenses_available = 0
 
             edition3, pool3 = self._edition(with_license_pool=True,
                                             with_open_access_download=False,
                                             data_source_name=DataSource.BIBLIOTHECA)
             pool3.open_access = False
             pool3.licenses_owned = 3
+            pool3.licenses_available = 0
 
             edition4, pool4 = self._edition(with_license_pool=True,
                                             with_open_access_download=False,
-                                            data_source_name=DataSource.AXIS_360)
+                                            data_source_name=DataSource.AXIS_360,
+                                            collection=c2)
             pool4.open_access = False
             pool4.licenses_owned = 5
+            pool4.licenses_available = 5
 
             response = self.manager.admin_dashboard_controller.stats()
-            vendor_data = response.get('vendors')
-            eq_(1, vendor_data.get('open_access'))
-            eq_(1, vendor_data.get('overdrive'))
-            eq_(1, vendor_data.get('bibliotheca'))
-            eq_(1, vendor_data.get('axis360'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            library_collections_data = library_data.get('collections')
+            total_collections_data = total_data.get('collections')
+            eq_(2, len(library_collections_data))
+            eq_(3, len(total_collections_data))
+            for data in [library_collections_data, total_collections_data]:
+                c1_data = data.get(self._default_collection.name)
+                eq_(1, c1_data.get('licensed_titles'))
+                eq_(1, c1_data.get('open_access_titles'))
+                eq_(3, c1_data.get('licenses'))
+                eq_(0, c1_data.get('available_licenses'))
+
+                c3_data = data.get(c3.name)
+                eq_(0, c3_data.get('licensed_titles'))
+                eq_(0, c3_data.get('open_access_titles'))
+                eq_(0, c3_data.get('licenses'))
+                eq_(0, c3_data.get('available_licenses'))
+
+            eq_(None, library_collections_data.get(c2.name))
+            c2_data = total_collections_data.get(c2.name)
+            eq_(2, c2_data.get('licensed_titles'))
+            eq_(0, c2_data.get('open_access_titles'))
+            eq_(15, c2_data.get('licenses'))
+            eq_(10, c2_data.get('available_licenses'))
+
+            self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+
+            # c2 is no longer included in the totals since the admin's library does
+            # not use it.
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                collections_data = data.get("collections")
+                eq_(2, len(collections_data))
+                eq_(None, collections_data.get(c2.name))
+
+                c1_data = collections_data.get(self._default_collection.name)
+                eq_(1, c1_data.get('licensed_titles'))
+                eq_(1, c1_data.get('open_access_titles'))
+                eq_(3, c1_data.get('licenses'))
+                eq_(0, c1_data.get('available_licenses'))
+
+                c3_data = collections_data.get(c3.name)
+                eq_(0, c3_data.get('licensed_titles'))
+                eq_(0, c3_data.get('open_access_titles'))
+                eq_(0, c3_data.get('licenses'))
+                eq_(0, c3_data.get('available_licenses'))
+
 
 class TestSettingsController(AdminControllerTest):
 
