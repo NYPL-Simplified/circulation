@@ -5771,13 +5771,23 @@ class TestLibraryRegistration(SettingsControllerTest):
                           self.manager.admin_settings_controller.discovery_service_library_registrations)
 
     def test_discovery_service_library_registrations_post_errors(self):
+        """Test the things that might go wrong POSTing to
+        discover_service_library_registrations.
+        """
+
+        m = self.manager.admin_settings_controller.discovery_service_library_registrations
+
+        # The integration ID might not correspond to a valid
+        # ExternalIntegration.
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", "1234"),
             ])
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations()
+            response = m()
             eq_(MISSING_SERVICE, response)
 
+        # Create an ExternalIntegration to avoid that problem in future
+        # tests.
         discovery_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.OPDS_REGISTRATION,
@@ -5785,48 +5795,34 @@ class TestLibraryRegistration(SettingsControllerTest):
         )
         discovery_service.url = "registry url"
 
+        # The library name might not correspond to a real library.
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", "not-a-library"),
             ])
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations()
+            response = m()
             eq_(NO_SUCH_LIBRARY, response)
 
+        # Take care of that problem.
         library = self._default_library
+        form = MultiDict([
+            ("integration_id", discovery_service.id),
+            ("library_short_name", library.short_name),
+        ])
 
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-            ])
-            feed = '<feed></feed>'
-            self.responses.append(MockRequestsResponse(200, content=feed))
-
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at http://url/ did not return OPDS.", response.detail)
-            eq_([discovery_service.url], [x[0] for x in self.requests])
-            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, discovery_service).value)
+        # Registration.push might return a ProblemDetail.
+        class Mock(Registration):
+            def push(self, *args, **kwargs):
+                return REMOTE_INTEGRATION_FAILED
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-            ])
-            feed = '<feed></feed>'
-            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
+            flask.request.form = form
+            response = m(registration_class=Mock)
+            eq_(REMOTE_INTEGRATION_FAILED, response)
 
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at http://url/ did not provide a register link.", response.detail)
-            eq_([discovery_service.url], [x[0] for x in self.requests[1:]])
-            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, discovery_service).value)
-
+        # Finally, the user might not have permission to start the
+        # registration process.
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([

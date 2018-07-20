@@ -3370,11 +3370,14 @@ class SettingsController(AdminCirculationManagerController):
 
     def discovery_service_library_registrations(
             self, do_get=HTTP.debuggable_get,
-            do_post=HTTP.debuggable_post, key=None
+            do_post=HTTP.debuggable_post, key=None,
+            registration_class=None
     ):
         """List the libraries that have been registered with a specific
         RemoteRegistry, and allow the admin to register a library with
         a RemoteRegistry.
+
+        :param registration_class: Mock class to use instead of Registration.
         """
 
         self.require_system_admin()
@@ -3420,7 +3423,7 @@ class SettingsController(AdminCirculationManagerController):
             if not library:
                 return NO_SUCH_LIBRARY
 
-            registration = Registration(registry, library)
+            registration = registration_class(registry, library)
             registered = registration.push(
                 stage, self.url_for, do_get=do_get, do_post=do_post, key=key
             )
