@@ -3319,7 +3319,8 @@ class SettingsController(AdminCirculationManagerController):
                 protocols=protocols,
             )
 
-        # Beyond this point the user wants to create a new discovery service.
+        # Beyond this point the user wants to create a new discovery service,
+        # or edit an existing one.
         id = flask.request.form.get("id")
 
         protocol = flask.request.form.get("protocol")
