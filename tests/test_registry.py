@@ -13,8 +13,10 @@ from . import (
 from core.testing import MockRequestsResponse
 from core.util.problem_detail import ProblemDetail
 from core.model import (
+    ConfigurationSetting,
     ExternalIntegration,
 )
+from api.adobe_vendor_id import AuthdataUtility
 from api.problem_details import *
 from api.registry import (
     RemoteRegistry,
@@ -181,6 +183,7 @@ class TestRegistration(DatabaseTest):
 
             def _set_public_key(self, key):
                 self._set_public_key_called_with = key
+                return "an encryptor"
             
             def _create_registration_payload(self, url_for, stage):
                 self.payload_ingredients = (url_for, stage)
@@ -229,29 +232,36 @@ class TestRegistration(DatabaseTest):
         eq_("A fake catalog", registration.initial_catalog_response)
 
         # _extract_catalog_information returned a registration URL and
-        # a vendor ID.
-
-        # The registration URL will be used later...        
-
+        # a vendor ID. The registration URL was used later on...
+        #
         # The vendor ID was set as a ConfigurationSetting on
         # the ExternalIntegration associated with this registry.
         eq_(
-            "vendor id",
+            "vendor_id",
             ConfigurationSetting.for_externalintegration(
                 AuthdataUtility.VENDOR_ID_KEY, self.integration
             ).value
         )
 
         # _set_public_key() was called to create an encryptor object.
+        # It returned an encryptor (here mocked as the string "an encryptor")
+        # to be used later.
+        eq_(key, registration._set_public_key_called_with)
 
         # _create_registration_payload was called to create the body
         # of the registration request.
+        eq_((url_for, stage), registration.payload_ingredients)
 
-        # Then _send_registration_request was called.
+        # Then _send_registration_request was called, POSTing the
+        # payload to "register_url", the registration URL we got earlier.
+        results = registration._send_registration_request_called_with
+        eq_("register_url", dict(payload="this is it"), do_post)
 
-        # The return value of that method was loaded as JSON
-        # and passed into _process_registration_result.
-        
+        # Finally, the return value of that method was loaded as JSON
+        # and passed into _process_registration_result, along with
+        # the encryptor obtained from _set_public_key()
+        results = registration._process_registration_result_called_with
+        eq_(("you did it!, "an encryptor", stage)
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
