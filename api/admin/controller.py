@@ -3303,7 +3303,11 @@ class SettingsController(AdminCirculationManagerController):
 
         goal = ExternalIntegration.DISCOVERY_GOAL
         if flask.request.method == 'GET':
-            registries = list(RemoteRegistry.for_goal(self._db, goal))
+            registries = list(
+                RemoteRegistry.for_protocol_and_goal(
+                    self._db, opds_registration, goal
+                )
+            )
             if not registries:
                 # There are no registries at all. Set up the default
                 # library registry.
@@ -3386,7 +3390,9 @@ class SettingsController(AdminCirculationManagerController):
             # list of libraries registered with that service and the
             # status of the registration.
             services = []
-            for registry in RemoteRegistry.for_goal(self._db, goal):
+            for registry in RemoteRegistry.for_protocol_and_goal(
+                    self._db, ExternalIntegration.OPDS_REGISTRATION, goal
+            ):
                 libraries = []
                 for registration in registry.registrations:
                     library = registration.library

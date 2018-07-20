@@ -53,10 +53,11 @@ class RemoteRegistry(object):
         return cls(integration)
 
     @classmethod
-    def for_goal(cls, _db, goal):
-        """Find all LibraryRegistry objects with the given goal."""
+    def for_protocol_and_goal(cls, _db, protocol, goal):
+        """Find all LibraryRegistry objects with the given protocol and goal."""
         for i in _db.query(ExternalIntegration).filter(
-                ExternalIntegration.goal==goal
+            ExternalIntegration.goal==goal,
+            ExternalIntegration.protocol==protocol,
         ):
             yield cls(i)
 
