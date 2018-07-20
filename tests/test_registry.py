@@ -506,4 +506,70 @@ class TestRegistration(DatabaseTest):
         assert encrypted_secret in problem.detail
 
     def test__process_registration_result(self):
-        pass
+        reg = self.registration
+        m = reg._process_registration_result
+
+        # Set up a public key just so it can be removed once
+        # registration is successful.
+        public_key = ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, reg.library
+        )
+        public_key.value = "a key"
+
+        # Result must be a dictionary.
+        result = m("not a dictionary", None, None)
+        eq_(INTEGRATION_ERROR.uri, result.uri)
+        eq_("Remote service served 'not a dictionary', which I can't make sense of as an OPDS document.", result.detail)
+
+        # Since there was an immediate failure, the public key has not been
+        # wiped.
+        eq_("a key", public_key.value)
+
+        # When the result is empty, the registration is marked as successful.
+        new_stage = "new stage"
+        encryptor = object()
+        result = m(dict(), encryptor, new_stage)
+        eq_(True, result)
+        eq_(reg.SUCCESS_STATUS, reg.status_field.value)
+
+        # The library's public key has been removed.
+        eq_(None, public_key.value)
+
+        # The stage field has been set to the requested value.
+        eq_(new_stage, reg.stage_field.value)
+
+        # Now try with a result that includes a short name and
+        # a shared secret.
+
+        class Mock(Registration):
+            def _decrypt_shared_secret(self, encryptor, shared_secret):
+                self._decrypt_shared_secret_called_with = (encryptor, shared_secret)
+                return "cleartext"
+
+        reg = Mock(self.registry, self._default_library)
+        catalog = dict(
+            metadata=dict(short_name="SHORT", shared_secret="ciphertext")
+        )
+        result = reg._process_registration_result(
+            catalog, encryptor, "another new stage"
+        )
+        eq_(True, result)
+
+        # Short name is set.
+        eq_("SHORT", reg.setting(ExternalIntegration.USERNAME).value)
+
+        # Shared secret was decrypted and is set.
+        eq_((encryptor, "ciphertext"), reg._decrypt_shared_secret_called_with)
+        eq_("cleartext", reg.setting(ExternalIntegration.PASSWORD).value)
+
+        eq_("another new stage", reg.stage_field.value)
+
+        # Now simulate a problem decrypting the shared secret.
+        class Mock(Registration):
+            def _decrypt_shared_secret(self, encryptor, shared_secret):
+                return SHARED_SECRET_DECRYPTION_ERROR
+        reg = Mock(self.registry, self._default_library)
+        result = reg._process_registration_result(
+            catalog, encryptor, "another new stage"
+        )
+        eq_(SHARED_SECRET_DECRYPTION_ERROR, result)

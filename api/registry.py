@@ -350,6 +350,10 @@ class Registration(object):
         # credentials for future authenticated communication,
         # e.g. through Short Client Tokens or authenticated API
         # requests.
+        if not isinstance(catalog, dict):
+            return INTEGRATION_ERROR.detailed(
+                _("Remote service served %(representation)r, which I can't make sense of as an OPDS document.", representation=catalog)
+            )
         metadata = catalog.get("metadata", {})
         short_name = metadata.get("short_name")
         shared_secret = metadata.get("shared_secret")
