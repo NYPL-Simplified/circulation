@@ -4,8 +4,15 @@ from nose.tools import (
 )
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
+import base64
+import os
+from core.util.problem_detail import ProblemDetail
 from . import (
     DatabaseTest
+)
+from api.problem_details import *
+from api.registry import (
+    Registration
 )
 
 class TestRegistry(DatabaseTest):
@@ -25,7 +32,7 @@ class TestRegistration(DatabaseTest):
         encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
 
         # Success.
-        m = self.manager.admin_settings_controller._decrypt_shared_secret
+        m = Registration._decrypt_shared_secret
         eq_(shared_secret, m(encryptor, encrypted_secret))
 
         # If we try to decrypt using the wrong key, a ProblemDetail is

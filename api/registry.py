@@ -325,7 +325,8 @@ class Registration(object):
                     _("Remote service returned: \"%(problem)s\"", problem=response.content))
         return response
 
-    def _decrypt_shared_secret(self, encryptor, shared_secret):
+    @classmethod
+    def _decrypt_shared_secret(cls, encryptor, shared_secret):
         """Attempt to decrypt an encrypted shared secret.
 
         :return: The decrypted shared secret, or a ProblemDetail if
