@@ -201,9 +201,13 @@ class Registration(object):
 
         # Set a public key for the library.
         encryptor = self._set_public_key(key)
+        if isinstance(encryptor, ProblemDetail):
+            return encryptor
 
         # Build the document we'll be sending to the registration URL.
         payload = self._create_registration_payload(url_for, stage)
+        if isinstance(payload, ProblemDetail):
+            return payload
 
         # Send the document.
         response = self._send_registration_request(

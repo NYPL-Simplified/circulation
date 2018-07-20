@@ -267,17 +267,54 @@ class TestRegistration(DatabaseTest):
         # that they return ProblemDetail documents. This tests that if
         # there is a failure at any stage, the ProblemDetail is
         # propagated.
+        def cause_problem():
+            """Try the same method call that worked before; it won't work
+            anymore.
+            """
+            return registration.push(
+                stage, url_for, catalog_url, registration.mock_do_get, do_post,
+                key
+            )
 
-        def could_not_process(*args, **kwargs):
+        def fail(*args, **kwargs):
             return INVALID_REGISTRATION.detailed(
                 "could not process registration result"
             )
-        registration._process_registration_result = could_not_process
-        result = registration.push(
-            stage, url_for, catalog_url, registration.mock_do_get, do_post, key
-        )
-        set_trace()
+        registration._process_registration_result = fail
+        problem = cause_problem()
+        eq_("could not process registration result", problem.detail)
+
+        def fail(*args, **kwargs):
+            return INVALID_REGISTRATION.detailed(
+                "could not send registration request"
+            )
+        registration._send_registration_request = fail
+        problem = cause_problem()
+        eq_("could not send registration request", problem.detail)
         
+        def fail(*args, **kwargs):
+            return INVALID_REGISTRATION.detailed(
+                "could not create registration payload"
+            )
+        registration._create_registration_payload = fail
+        problem = cause_problem()
+        eq_("could not create registration payload", problem.detail)
+
+        def fail(*args, **kwargs):
+            return INVALID_REGISTRATION.detailed(
+                "could not set public key"
+            )
+        registration._set_public_key = fail
+        problem = cause_problem()
+        eq_("could not set public key", problem.detail)
+
+        def fail(*args, **kwargs):
+            return INVALID_REGISTRATION.detailed(
+                "could not extract catalog information"
+            )
+        registration._extract_catalog_information = fail
+        problem = cause_problem()
+        eq_("could not extract catalog information", problem.detail)
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
