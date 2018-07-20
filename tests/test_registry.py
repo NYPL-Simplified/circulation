@@ -263,6 +263,15 @@ class TestRegistration(DatabaseTest):
         results = registration._process_registration_result_called_with
         eq_(("you did it!", "an encryptor", stage), results)
 
+        # If a nonexistent stage is provided a ProblemDetail is the result.
+        result = registration.push(
+            "no such stage", url_for, catalog_url, registration.mock_do_get,
+            do_post, key
+        )
+        eq_(INVALID_INPUT.uri, result.uri)
+        eq_('"no such stage" is not a valid registration stage',
+            result.detail)
+
         # Now in reverse order, let's replace the mocked methods so
         # that they return ProblemDetail documents. This tests that if
         # there is a failure at any stage, the ProblemDetail is
@@ -315,6 +324,8 @@ class TestRegistration(DatabaseTest):
         registration._extract_catalog_information = fail
         problem = cause_problem()
         eq_("could not extract catalog information", problem.detail)
+
+        # Lastly, test some other 
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
