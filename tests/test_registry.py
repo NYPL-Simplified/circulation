@@ -269,7 +269,7 @@ class TestRegistration(DatabaseTest):
             do_post, key
         )
         eq_(INVALID_INPUT.uri, result.uri)
-        eq_('"no such stage" is not a valid registration stage',
+        eq_("'no such stage' is not a valid registration stage",
             result.detail)
 
         # Now in reverse order, let's replace the mocked methods so
@@ -325,7 +325,62 @@ class TestRegistration(DatabaseTest):
         problem = cause_problem()
         eq_("could not extract catalog information", problem.detail)
 
-        # Lastly, test some other 
+    def test__extract_catalog_information(self):
+        """Test our ability to extract a registration link and an
+        Adobe Vendor ID from an OPDS 1 or OPDS 2 catalog.
+        """
+        def extract(document, type=Registration.OPDS_2_TYPE):
+            response = MockRequestsResponse(
+                200, { "Content-Type" : type }, document
+            )
+            return Registration._extract_catalog_information(response)
+
+        def assert_no_link(*args, **kwargs):
+            """Verify that calling _extract_catalog_information on the
+            given feed fails because there is no link with rel="register"
+            """
+            result = extract(*args, **kwargs)
+            eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
+            eq_("The service at http://url/ did not provide a register link.",
+                result.detail)
+
+        # OPDS 2 feed with link and Adobe Vendor ID.
+        link = { 'rel': 'register', 'href': 'register url' }
+        metadata = { 'adobe_vendor_id': 'vendorid' }
+        feed = json.dumps(dict(links=[link], metadata=metadata))
+        eq_(("register url", "vendorid"), extract(feed))
+
+        # OPDS 2 feed with link and no Adobe Vendor ID
+        feed = json.dumps(dict(links=[link]))
+        eq_(("register url", None), extract(feed))
+
+        # OPDS 2 feed with no link.
+        feed = json.dumps(dict(metadata=metadata))
+        assert_no_link(feed)
+
+        # OPDS 1 feed with link.
+        feed = '<feed><link rel="register" href="register url"/></feed>'
+        eq_(("register url", None),
+            extract(feed, Registration.OPDS_1_PREFIX + ";foo"))
+
+        # OPDS 1 feed with no link.
+        feed = '<feed></feed>'
+        assert_no_link(feed, Registration.OPDS_1_PREFIX + ";foo")
+
+        # Non-OPDS document.
+        result = extract("plain text here", "text/plain")
+        eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
+        eq_("The service at http://url/ did not return OPDS.",
+            result.detail)
+
+    def test__set_public_key(self):
+        pass
+
+    def test__create_registration_payload(self):
+        pass
+
+    def test__send_registration_request(self):
+        pass
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
@@ -347,3 +402,6 @@ class TestRegistration(DatabaseTest):
         assert isinstance(problem, ProblemDetail)
         eq_(SHARED_SECRET_DECRYPTION_ERROR.uri, problem.uri)
         assert encrypted_secret in problem.detail
+
+    def test__process_registration_result(self):
+        pass

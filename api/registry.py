@@ -220,7 +220,11 @@ class Registration(object):
         # Process the result.
         return self._process_registration_result(catalog, encryptor, stage)
 
-    def _extract_catalog_information(self, response):
+    OPDS_1_PREFIX = "application/atom+xml;profile=opds-catalog"
+    OPDS_2_TYPE = "application/opds+json"
+
+    @classmethod
+    def _extract_catalog_information(cls, response):
         """From an OPDS catalog, extract information that's essential to
         kickstarting the OPDS Directory Registration Protocol.
 
@@ -231,12 +235,12 @@ class Registration(object):
         """
         # The catalog URL must be either an OPDS 2 catalog or an OPDS 1 feed.
         type = response.headers.get("Content-Type")
-        if type and type.startswith('application/opds+json'):
+        if type and type.startswith(cls.OPDS_2_TYPE):
             # This is an OPDS 2 catalog.
             catalog = json.loads(response.content)
             links = catalog.get("links", [])
             vendor_id = catalog.get("metadata", {}).get("adobe_vendor_id")
-        elif type and type.startswith("application/atom+xml;profile=opds-catalog"):
+        elif type and type.startswith(cls.OPDS_1_PREFIX):
             # This is an OPDS 1 feed.
             feed = feedparser.parse(response.content)
             links = feed.get("feed", {}).get("links", [])
@@ -298,7 +302,8 @@ class Registration(object):
             payload['contact'] = contact
 
 
-    def _send_registration_request(self, register_url, payload, do_post):
+    @classmethod
+    def _send_registration_request(cls, register_url, payload, do_post):
         """Send the request that actually kicks off the OPDS Directory
         Registration Protocol.
 
