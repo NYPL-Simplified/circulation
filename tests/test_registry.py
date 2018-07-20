@@ -130,6 +130,43 @@ class TestRegistration(DatabaseTest):
         eq_("new status", reg2.status_field.value)
         eq_("new stage", reg2.stage_field.value)
 
+    def test_setting(self):
+        m = self.registration.setting
+
+        def _find(key):
+            """Find a ConfigurationSetting associated with the library.
+
+            This is necessary because ConfigurationSetting.value
+            creates _two_ ConfigurationSettings, one associated with
+            the library and one not associated with any library, to
+            store the default value.
+            """
+            values = [
+                x for x in self.registration.integration.settings
+                if x.library and x.key==key
+            ]
+            if len(values) == 1:
+                return values[0]
+            return None
+
+        # Calling setting() creates a ConfigurationSetting object
+        # associated with the library.
+        setting = m("key")
+        eq_("key", setting.key)
+        eq_(None, setting.value)
+        eq_(self._default_library, setting.library)
+        eq_(setting, _find("key"))
+
+        # You can specify a default value, which is used only if the
+        # current value is None.
+        setting2 = m("key", "default")
+        eq_(setting, setting2)
+        eq_("default", setting.value)
+
+        setting3 = m("key", "default2")
+        eq_(setting, setting3)
+        eq_("default", setting.value)
+
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
         encryptor = PKCS1_OAEP.new(key)
