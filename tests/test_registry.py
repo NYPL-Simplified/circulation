@@ -11,7 +11,10 @@ from . import (
     DatabaseTest
 )
 from core.testing import MockRequestsResponse
-from core.util.problem_detail import ProblemDetail
+from core.util.problem_detail import (
+    ProblemDetail,
+    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
+)
 from core.model import (
     ConfigurationSetting,
     ExternalIntegration,
@@ -429,7 +432,57 @@ class TestRegistration(DatabaseTest):
         eq_(expect_payload, m(url_for, stage))
 
     def test__send_registration_request(self):
-        pass
+        class Mock(object):
+            def __init__(self, response):
+                self.response = response
+
+            def do_post(self, url, payload, **kwargs):
+                self.called_with = (url, payload, kwargs)
+                return self.response
+
+        # If everything goes well, the return value of do_post is
+        # passed through.
+        mock = Mock(MockRequestsResponse(200, content="all good"))
+        url = object()
+        payload = object()
+        m = Registration._send_registration_request
+        result = m(url, payload, mock.do_post)
+        eq_(mock.response, result)
+        called_with = mock.called_with
+        eq_(called_with,
+            (url, payload,
+             dict(timeout=60, allowed_response_codes=["2xx", "3xx", "401"])
+            )
+        )
+
+        # Most error handling is expected to be handled by do_post
+        # raising an exception, but certain responses get special
+        # treatment:
+
+        # The remote sends a 401 response with a problem detail.
+        mock = Mock(
+            MockRequestsResponse(
+                401, { "Content-Type": PROBLEM_DETAIL_JSON_MEDIA_TYPE },
+                content=json.dumps(dict(detail="this is a problem detail"))
+            )
+        )
+        result = m(url, payload, mock.do_post)
+        assert isinstance(result, ProblemDetail)
+        eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
+        eq_('Remote service returned: "this is a problem detail"',
+            result.detail)
+
+        # The remote sends some other kind of 401 response.
+        mock = Mock(
+            MockRequestsResponse(
+                401, { "Content-Type": "text/html" },
+                content="log in why don't you"
+            )
+        )
+        result = m(url, payload, mock.do_post)
+        assert isinstance(result, ProblemDetail)
+        eq_(REMOTE_INTEGRATION_FAILED.uri, result.uri)
+        eq_('Remote service returned: "log in why don\'t you"', result.detail)
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)

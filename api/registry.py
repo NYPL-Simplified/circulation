@@ -15,7 +15,10 @@ from core.model import (
 )
 from core.scripts import LibraryInputScript
 from core.util.http import HTTP
-from core.util.problem_detail import ProblemDetail
+from core.util.problem_detail import (
+    ProblemDetail,
+    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
+)
 
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
