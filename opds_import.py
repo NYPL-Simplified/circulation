@@ -6,6 +6,7 @@ from collections import (
 )
 import base64
 import datetime
+import dateutil
 import feedparser
 import logging
 import traceback
@@ -1306,6 +1307,18 @@ class OPDSImporter(object):
         if series_tag:
             data['series'], data['series_position'] = cls.extract_series(series_tag[0])
 
+        issued_tag = parser._xpath(entry_tag, 'dcterms:issued')
+        if issued_tag:
+            date_string = issued_tag[0].text
+            # By default, the date for strings that only have a year will
+            # be set to January 1 rather than the current date.
+            default = datetime.datetime(datetime.datetime.now().year, 1, 1)
+            try:
+                data["published"] = dateutil.parser.parse(date_string, default=default)
+            except Exception, e:
+                # This entry had an issued tag, but it was in a format we couldn't parse.
+                pass
+
         return data
 
     @classmethod
@@ -1523,7 +1536,6 @@ class OPDSImporter(object):
         series_name = attr.get('{http://schema.org/}name', None)
         series_position = attr.get('{http://schema.org/}position', None)
         return series_name, series_position
-
 
 class OPDSImportMonitor(CollectionMonitor, HasSelfTests):
 

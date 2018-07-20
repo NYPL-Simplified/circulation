@@ -29,6 +29,7 @@
     <category term="7" scheme="http://schema.org/typicalAgeRange"/>
     <dcterms:language>en</dcterms:language>
     <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <dcterms:issued>1910</dcterms:issued>
     <link href="http://www.gutenberg.org/ebooks/10441.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry schema:additionalType="http://schema.org/EBook">
@@ -46,6 +47,7 @@
     <category term="PZ" scheme="http://purl.org/dc/terms/LCC"/>
     <dcterms:language>en</dcterms:language>
     <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <dcterms:issued>1907-07-07</dcterms:issued>
     <link href="http://www.gutenberg.org/ebooks/10557.epub.images" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry schema:additionalType="http://schema.org/EBook">
@@ -76,6 +78,7 @@
     <category term="PN" scheme="http://purl.org/dc/terms/LCC"/>
     <dcterms:language>en</dcterms:language>
     <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <dcterms:issued>Ignore me, but the rest of this entry should still parse</dcterms:issued>
     <link href="http://www.gutenberg.org/ebooks/10596.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry schema:additionalType="http://schema.org/EBook">
@@ -434,6 +437,7 @@
     <category term="PS" label="American Literature" scheme="http://purl.org/dc/terms/LCC" schema:ratingValue="10"/>
     <dcterms:language>en</dcterms:language>
     <dcterms:publisher>Project Gutenberg</dcterms:publisher>
+    <dcterms:issued>1862-06-01</dcterms:issued>
     <link href="http://www.gutenberg.org/ebooks/1022.epub.noimages" type="application/epub+zip" rel="http://opds-spec.org/acquisition/open-access"/>
   </entry>
   <entry schema:additionalType="http://schema.org/EBook">
