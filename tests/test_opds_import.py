@@ -431,6 +431,8 @@ class TestOPDSImporter(OPDSImporterTest):
 
         eq_([], book['measurements'])
 
+        eq_(datetime.datetime(1862, 6, 1), book["published"])
+
         [link] = book['links']
         eq_(Hyperlink.OPEN_ACCESS_DOWNLOAD, link.rel)
         eq_("http://www.gutenberg.org/ebooks/1022.epub.noimages", link.href)
@@ -468,6 +470,8 @@ class TestOPDSImporter(OPDSImporterTest):
 
         eq_('Animal Colors', periodical['series'])
         eq_('1', periodical['series_position'])
+
+        eq_(datetime.datetime(1910, 1, 1), periodical["published"])
 
     def test_extract_metadata_from_elementtree_treats_message_as_failure(self):
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
