@@ -103,6 +103,10 @@ from core.external_search import ExternalSearchIndex
 
 class AdminControllerTest(CirculationControllerTest):
 
+    # Automatically creating books before the test wastes time -- we
+    # don't need them.
+    BOOKS = []
+
     def setup(self):
         super(AdminControllerTest, self).setup()
         ConfigurationSetting.sitewide(self._db, Configuration.SECRET_KEY).value = "a secret"
@@ -311,6 +315,10 @@ class TestAdminCirculationManagerController(AdminControllerTest):
             self.manager.admin_work_controller.require_librarian(self._default_library)
 
 class TestWorkController(AdminControllerTest):
+
+    # Unlike most of these controllers, we do want to have a book
+    # automatically created as part of setup.
+    BOOKS = CirculationControllerTest.BOOKS
 
     def setup(self):
         super(TestWorkController, self).setup()
@@ -2508,6 +2516,10 @@ class TestLanesController(AdminControllerTest):
             assert 0 < self._db.query(Lane).filter(Lane.library==library).count()
 
 class TestDashboardController(AdminControllerTest):
+
+    # Unlike most of these controllers, we do want to have a book
+    # automatically created as part of setup.
+    BOOKS = CirculationControllerTest.BOOKS
 
     def test_circulation_events(self):
         [lp] = self.english_1.license_pools
