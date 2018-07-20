@@ -5809,9 +5809,11 @@ class TestLibraryRegistration(SettingsControllerTest):
         form = MultiDict([
             ("integration_id", discovery_service.id),
             ("library_short_name", library.short_name),
+            ("registration_stage", Registration.TESTING_STAGE),
         ])
 
-        # Registration.push might return a ProblemDetail.
+        # Registration.push might return a ProblemDetail for whatever
+        # reason.
         class Mock(Registration):
             def push(self, *args, **kwargs):
                 return REMOTE_INTEGRATION_FAILED
@@ -5821,120 +5823,45 @@ class TestLibraryRegistration(SettingsControllerTest):
             response = m(registration_class=Mock)
             eq_(REMOTE_INTEGRATION_FAILED, response)
 
-        # Finally, the user might not have permission to start the
+        # The user might not have permission to start the
         # registration process.
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-            ])
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_settings_controller.discovery_service_library_registrations,
+            flask.request.form = form
+            assert_raises(AdminNotAuthorized, m,
                           do_get=self.do_request, do_post=self.do_request)
 
-
-    def test_discovery_service_library_registrations_post_success(self):
-        discovery_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.OPDS_REGISTRATION,
-            goal=ExternalIntegration.DISCOVERY_GOAL,
-        )
-        discovery_service.url = "registry url"
-
-        library = self._default_library
-
-        ConfigurationSetting.for_library(
-            Configuration.CONFIGURATION_CONTACT_EMAIL, library
-        ).value = "configproblems@library.org"
+        # Now that we've tested all the failure conditions, test success.
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+        class Mock(Registration):
+            """When asked to push a registration, do nothing and say it
+            worked.
+            """
+            called_with = None
+            def push(self, *args, **kwargs):
+                Mock.called_with = (args, kwargs)
+                return True
 
         controller = self.manager.admin_settings_controller
-
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-                ("registration_stage", Registration.TESTING_STAGE)
-            ])
-            self.responses.append(MockRequestsResponse(200, content='{}'))
-            feed = '<feed><link rel="register" href="register url"/></feed>'
-            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
-
-            response = controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
-
+            flask.request.form = form
+            response = controller.discovery_service_library_registrations(
+                registration_class=Mock
+            )
+            # Success!
             eq_(200, response.status_code)
-            url, body, kwargs = self.requests.pop(0)
-            eq_("registry url", url)
 
-            url, [body], kwargs = self.requests.pop(0)
-            eq_("register url", url)
+            # push() was called with the arguments we would expect.
+            args, kwargs = Mock.called_with
+            eq_((Registration.TESTING_STAGE, self.manager.url_for), args)
 
-            # When we sent the location of our authentication document to
-            # the 'registry', we provided an email address the registry can use
-            # to contact us if there are problems.
-            eq_("mailto:configproblems@library.org", body['contact'])
+            # We would have made real HTTP requests.
+            eq_(HTTP.debuggable_post, kwargs['do_post'])
+            eq_(HTTP.debuggable_get, kwargs['do_get'])
 
-            # We also asked to be registered in a 'testing' stage as opposed
-            # to immediately going into production.
-            eq_(Registration.TESTING_STAGE, body["stage"])
-
-            # This registry doesn't support short client tokens and doesn't have a vendor id,
-            # so no settings were added to it.
-            eq_(None, discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
-            eq_(None, ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
-            eq_(None, ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)
-
-            # The registration status was recorded.
-            eq_("success", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, discovery_service).value)
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-                ("registration_stage", Registration.PRODUCTION_STAGE)
-            ])
-            # Generate a key in advance so we can mock the registry's encrypted response.
-            key = RSA.generate(1024)
-            encryptor = PKCS1_OAEP.new(key)
-            encrypted_secret = encryptor.encrypt("secret")
-
-            # This registry support short client tokens, and has a vendor id.
-            metadata = dict(short_name="SHORT", shared_secret=base64.b64encode(encrypted_secret))
-            catalog = dict(metadata=metadata)
-            self.responses.append(MockRequestsResponse(200, content=json.dumps(catalog)))
-            link = { 'rel': 'register', 'href': 'register url' }
-            metadata = { 'adobe_vendor_id': 'vendorid' }
-            feed = json.dumps(dict(links=[link], metadata=metadata))
-            headers = { 'Content-Type': 'application/opds+json' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
-
-            response = controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
-
-            eq_(200, response.status_code)
-            url, body, kwargs = self.requests.pop(0)
-            eq_("registry url", url)
-
-            url, [body], kwargs = self.requests.pop(0)
-            eq_("register url", url)
-
-            # This time we asked that the library go into production
-            # immediately.
-            eq_(Registration.PRODUCTION_STAGE, body['stage'])
-
-            # The vendor id and short client token settings were stored.
-            eq_("vendorid", discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
-            eq_("SHORT", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
-            eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)
-
-            # The registration status is the same.
-            eq_("success", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, discovery_service).value)
+            # We would have generated a fresh public key just for this
+            # transaction.
+            eq_(None, kwargs['key'])
 
 
 class TestCollectionRegistration(SettingsControllerTest):
