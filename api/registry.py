@@ -64,6 +64,29 @@ class RemoteRegistry(object):
         ):
             yield cls(i)
 
+    @classmethod
+    def for_protocol_goal_and_url(cls, _db, protocol, goal, url):
+        """Get a LibraryRegistry for the given protocol, goal, and
+        URL. Create the corresponding ExternalIntegration if necessary.
+        """
+        integration = _db.query(
+            ExternalIntegration
+        ).join(
+            ExternalIntegration.settings
+        ).filter(
+            ConfigurationSetting.key==ExternalIntegration.URL
+        ).filter(
+            ExternalIntegration.goal==goal
+        ).filter(
+            ExternalIntegration.protocol==protocol
+        ).one()
+        if not integration:
+            integration = create(
+                _db, ExternalIntegration, protocol=protocol, goal=goal
+            )
+            integration.setting(ExternalIntegration.URL).value = url
+        return cls(integration)
+
     @property
     def registrations(self):
         """Find all of this site's successful registrations with
@@ -384,3 +407,28 @@ class Registration(object):
         # communicated to the registry.
         self.stage_field.value = desired_stage
         return True
+
+
+class LibraryRegistrationScript(LibraryInputScript):
+
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = LibraryInputScript.arg_parser(_db)
+        parser.add_argument(
+            '--registry-url',
+            help="Register libraries with the given registry.",
+            default=cls.DEFAULT_REGISTRY
+        )
+        parser.add_argument(
+            '--production',
+            help="Flag libraries as ready for production.",
+            action='store_true'
+        )
+        return parser
+
+    def run(self):
+        registry = Registry.for_protocol_goal_and_uri(
+            ExternalIntegration.OPDS_REGISTRATION,
+            ExternalIntegration.DISCOVER_GOAL,
+        )
+                                 
