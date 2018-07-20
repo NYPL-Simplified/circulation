@@ -75,6 +75,21 @@ class TestRemoteRegistry(DatabaseTest):
         assert isinstance(registry, RemoteRegistry)
         eq_(self.integration, registry.integration)
 
+    def test_registrations(self):
+        registry = RemoteRegistry(self.integration)
+
+        # Associate the default library with the registry.
+        Registration(registry, self._default_library)
+
+        # Create another library not associated with the registry.
+        library2 = self._library()
+
+        # registrations() finds a single Registration.
+        [registration] = list(registry.registrations)
+        assert isinstance(registration, Registration)
+        eq_(registry, registration.registry)
+        eq_(self._default_library, registration.library)
+
 
 class TestRegistration(DatabaseTest):
 
