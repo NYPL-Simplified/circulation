@@ -89,9 +89,9 @@ class Registration(object):
 
     # A library may be registered in a 'testing' stage or a
     # 'production' stage. This represents the _library's_ opinion
-    # about whether it's ready for production. The library won't
-    # actually show up in production feeds until the _registry_ also
-    # thinks it should.
+    # about whether the integration is ready for production. The
+    # library won't actually be in production (whatever that means for
+    # a given integration) until the _remote_ also thinks it should.
     #
     # TODO: Registration through the admin interface always happens in
     # 'production' because there is no UI for specifying which stage

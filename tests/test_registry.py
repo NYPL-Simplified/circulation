@@ -93,6 +93,43 @@ class TestRemoteRegistry(DatabaseTest):
 
 class TestRegistration(DatabaseTest):
 
+    def setup(self):
+        super(TestRegistration, self).setup()
+
+        # Create a RemoteRegistry.
+        self.integration = self._external_integration(
+            protocol="some protocol", goal="some goal"
+        )
+        self.registry = RemoteRegistry(self.integration)
+        self.registration = Registration(self.registry, self._default_library)
+
+    def test_constructor(self):
+        # The Registration constructor was called during setup to create
+        # self.registration.
+        reg = self.registration
+        eq_(self.registry, reg.registry)
+        eq_(self._default_library, reg.library)
+
+        settings = [x for x in reg.integration.settings
+                    if x.library is not None]
+        eq_(set([reg.status_field, reg.stage_field]),
+            set(settings))
+        eq_(Registration.FAILURE_STATUS, reg.status_field.value)
+        eq_(Registration.TESTING_STAGE, reg.stage_field.value)
+
+        # The Library has been associated with the ExternalIntegration.
+        eq_([self._default_library], self.integration.libraries)
+
+        # Creating another Registration doesn't add the library to the
+        # ExternalIntegration again or override existing values for the
+        # settings.
+        reg.status_field.value = "new status"
+        reg.stage_field.value = "new stage"
+        reg2 = Registration(self.registry, self._default_library)
+        eq_([self._default_library], self.integration.libraries)
+        eq_("new status", reg2.status_field.value)
+        eq_("new stage", reg2.stage_field.value)
+
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
         encryptor = PKCS1_OAEP.new(key)
