@@ -35,6 +35,7 @@ from sqlalchemy.sql.expression import or_
 from problem_details import *
 from util.patron import PatronUtility
 from api.opds import LibraryAnnotator
+from api.custom_patron_catalog import CustomPatronCatalog
 
 import datetime
 import logging
@@ -430,12 +431,21 @@ class LibraryAuthenticator(object):
     """    
 
     @classmethod
-    def from_config(cls, _db, library, analytics=None):
+    def from_config(cls, _db, library, analytics=None, custom_catalog_source=CustomPatronCatalog):
         """Initialize an Authenticator for the given Library based on its
         configured ExternalIntegrations.
+
+        :param custom_catalog_source: The lookup class for CustomPatronCatalogs.
+        Intended for mocking during tests.
         """
+
+        custom_catalog = custom_catalog_source.for_library(library)
+
         # Start with an empty list of authenticators.
-        authenticator = cls(_db=_db, library=library)
+        authenticator = cls(
+            _db=_db, library=library,
+            authentication_document_annotator=custom_catalog
+        )
 
         # Find all of this library's ExternalIntegrations set up with
         # the goal of authenticating patrons.
@@ -470,7 +480,9 @@ class LibraryAuthenticator(object):
 
     def __init__(self, _db, library, basic_auth_provider=None,
                  oauth_providers=None,
-                 bearer_token_signing_secret=None):
+                 bearer_token_signing_secret=None,
+                 authentication_document_annotator=None,
+    ):
         """Initialize a LibraryAuthenticator from a list of AuthenticationProviders.
 
         :param _db: A database session (probably a scoped session, which is
@@ -494,6 +506,7 @@ class LibraryAuthenticator(object):
         self.library_uuid = library.uuid
         self.library_name = library.name
         self.library_short_name = library.short_name
+        self.authentication_document_annotator=authentication_document_annotator
 
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
@@ -848,6 +861,12 @@ class LibraryAuthenticator(object):
             bucket = disabled
         bucket.append(Configuration.RESERVATIONS_FEATURE)
         doc['features'] = dict(enabled=enabled, disabled=disabled)
+
+        if self.authentication_document_annotator:
+            doc = self.authentication_document_annotator.annotate_authentication_document(
+                library, doc, url_for
+            )
+
         return json.dumps(doc)
 
     def create_authentication_headers(self):
