@@ -2437,8 +2437,14 @@ class SettingsController(AdminCirculationManagerController):
             self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
             key=None, registration_class=Registration
     ):
+        """Use the ODPS Directory Registration Protocol to register a
+        Collection with its remote source of truth.
+
+        :param registration_class: Mock class to use instead of Registration.
+        """
         self.require_system_admin()
-        # TODO: This method might be able to share code with discovery_service_library_registrations.
+        # TODO: This method can share some code with
+        # discovery_service_library_registrations.
         shared_collection_provider_apis = [SharedODLAPI]
 
         if flask.request.method == "GET":
