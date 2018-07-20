@@ -257,7 +257,7 @@ class Registration(object):
             return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=response.url))
         return register_url, vendor_id
 
-    def _set_public_key(self, key):
+    def _set_public_key(self, key=None):
         """Set the public key for this library. This key will be published in
         the library's Authentication For OPDS document, allowing the
         remote registry to sign a shared secret for it.

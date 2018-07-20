@@ -17,6 +17,7 @@ from core.model import (
     ExternalIntegration,
 )
 from api.adobe_vendor_id import AuthdataUtility
+from api.config import Configuration
 from api.problem_details import *
 from api.registry import (
     RemoteRegistry,
@@ -374,7 +375,31 @@ class TestRegistration(DatabaseTest):
             result.detail)
 
     def test__set_public_key(self):
-        pass
+        """Test that _set_public_key creates a public key for a library."""
+
+        # First try with a specific key.
+        key = RSA.generate(1024)
+        public_key = key.publickey().exportKey()
+
+        # The return value is a PKCS1_OAEP encryptor made from the keypair.
+        encryptor = self.registration._set_public_key(key)
+        assert isinstance(encryptor, type(PKCS1_OAEP.new(key)))
+        eq_(key, encryptor._key)
+
+        # The key is stored in a setting on the library.
+        setting = ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, self.registration.library
+        )
+        eq_(key.publickey().exportKey(), setting.value)
+
+        # Now try again without specifying a key - a new one will
+        # be generated. This is what will happen outside of tests.
+        encryptor = self.registration._set_public_key()
+        assert encryptor._key != key
+        setting = ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, self.registration.library
+        )
+        eq_(encryptor._key.publickey().exportKey(), setting.value)
 
     def test__create_registration_payload(self):
         pass
