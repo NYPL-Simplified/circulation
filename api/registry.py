@@ -300,7 +300,7 @@ class Registration(object):
         contact = Configuration.configuration_contact_uri(self.library)
         if contact:
             payload['contact'] = contact
-
+        return payload
 
     @classmethod
     def _send_registration_request(cls, register_url, payload, do_post):

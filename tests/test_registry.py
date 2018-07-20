@@ -399,10 +399,34 @@ class TestRegistration(DatabaseTest):
         setting = ConfigurationSetting.for_library(
             Configuration.PUBLIC_KEY, self.registration.library
         )
+
+        # The library setting has been changed.
         eq_(encryptor._key.publickey().exportKey(), setting.value)
 
     def test__create_registration_payload(self):
-        pass
+        m = self.registration._create_registration_payload
+
+        # Mock url_for to create good-looking callback URLs.
+        def url_for(controller, library_short_name):
+            return "http://server/%s/%s" % (library_short_name, controller)
+
+        # First, test with no configuration contact configured for the
+        # library.
+        stage = object()
+        expect_url = url_for(
+            "authentication_document", self.registration.library.short_name
+        )
+        expect_payload = dict(url=expect_url, stage=stage)
+        eq_(expect_payload, m(url_for, stage))
+
+        # If a contact is configured, it shows up in the payload.
+        contact = "mailto:ohno@library.org"
+        ConfigurationSetting.for_library(
+            Configuration.CONFIGURATION_CONTACT_EMAIL,
+            self.registration.library,
+        ).value=contact
+        expect_payload['contact'] = contact
+        eq_(expect_payload, m(url_for, stage))
 
     def test__send_registration_request(self):
         pass
