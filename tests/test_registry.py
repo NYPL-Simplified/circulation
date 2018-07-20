@@ -255,13 +255,29 @@ class TestRegistration(DatabaseTest):
         # Then _send_registration_request was called, POSTing the
         # payload to "register_url", the registration URL we got earlier.
         results = registration._send_registration_request_called_with
-        eq_("register_url", dict(payload="this is it"), do_post)
+        eq_(("register_url", dict(payload="this is it"), do_post), results)
 
         # Finally, the return value of that method was loaded as JSON
         # and passed into _process_registration_result, along with
         # the encryptor obtained from _set_public_key()
         results = registration._process_registration_result_called_with
-        eq_(("you did it!, "an encryptor", stage)
+        eq_(("you did it!", "an encryptor", stage), results)
+
+        # Now in reverse order, let's replace the mocked methods so
+        # that they return ProblemDetail documents. This tests that if
+        # there is a failure at any stage, the ProblemDetail is
+        # propagated.
+
+        def could_not_process(*args, **kwargs):
+            return INVALID_REGISTRATION.detailed(
+                "could not process registration result"
+            )
+        registration._process_registration_result = could_not_process
+        result = registration.push(
+            stage, url_for, catalog_url, registration.mock_do_get, do_post, key
+        )
+        set_trace()
+        
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
