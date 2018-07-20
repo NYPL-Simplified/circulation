@@ -2433,8 +2433,10 @@ class SettingsController(AdminCirculationManagerController):
         else:
             return Response(unicode(collection.id), 200)
 
-    def collection_library_registrations(self, do_get=HTTP.debuggable_get,
-                                 do_post=HTTP.debuggable_post, key=None):
+    def collection_library_registrations(
+            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
+            key=None, registration_class=Registration
+    ):
         self.require_system_admin()
         # TODO: This method might be able to share code with discovery_service_library_registrations.
         shared_collection_provider_apis = [SharedODLAPI]
@@ -2474,7 +2476,7 @@ class SettingsController(AdminCirculationManagerController):
                 return NO_SUCH_LIBRARY
 
             registry = RemoteRegistry(collection.external_integration)
-            registration = Registration(registry, library)
+            registration = registration_class(registry, library)
             registered = registration.push(
                 Registration.PRODUCTION_STAGE, self.url_for,
                 catalog_url=collection.external_account_id,

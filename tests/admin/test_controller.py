@@ -5770,12 +5770,21 @@ class TestLibraryRegistration(SettingsControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.discovery_service_library_registrations)
 
-    def test_discovery_service_library_registrations_post_errors(self):
-        """Test the things that might go wrong POSTing to
+    def test_discovery_service_library_registrations_post(self):
+        """Test what might happen when you POST to
         discover_service_library_registrations.
         """
 
         m = self.manager.admin_settings_controller.discovery_service_library_registrations
+
+        # Here, the user doesn't have permission to start the
+        # registration process.
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = form
+            assert_raises(AdminNotAuthorized, m,
+                          do_get=self.do_request, do_post=self.do_request)
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
         # The integration ID might not correspond to a valid
         # ExternalIntegration.
@@ -5823,16 +5832,7 @@ class TestLibraryRegistration(SettingsControllerTest):
             response = m(registration_class=Mock)
             eq_(REMOTE_INTEGRATION_FAILED, response)
 
-        # The user might not have permission to start the
-        # registration process.
-        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = form
-            assert_raises(AdminNotAuthorized, m,
-                          do_get=self.do_request, do_post=self.do_request)
-
-        # Now that we've tested all the failure conditions, test success.
-        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+        # But if that doesn't happen, success!
         class Mock(Registration):
             """When asked to push a registration, do nothing and say it
             worked.
@@ -5848,7 +5848,6 @@ class TestLibraryRegistration(SettingsControllerTest):
             response = controller.discovery_service_library_registrations(
                 registration_class=Mock
             )
-            # Success!
             eq_(200, response.status_code)
 
             # push() was called with the arguments we would expect.
@@ -5907,113 +5906,91 @@ class TestCollectionRegistration(SettingsControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.collection_library_registrations)
 
-    def test_collection_library_registrations_post_errors(self):
+    def test_collection_library_registrations_post(self):
+        """Test what might happen POSTing to collection_library_registrations."""
+        # First test the failure cases.
+
+        m = self.manager.admin_settings_controller.collection_library_registrations
+
+        # Here, the user doesn't have permission to start the
+        # registration process.
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", "1234"),
-            ])
-            response = self.manager.admin_settings_controller.collection_library_registrations()
+            assert_raises(AdminNotAuthorized, m)
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+
+        # The collection ID doesn't correspond to any real collection.
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([("collection_id", "1234")])
+            response = m()
             eq_(MISSING_COLLECTION, response)
 
+        # Pass in a collection ID so that doesn't happen again.
         collection = self._collection()
         collection.external_account_id = "collection url"
 
+        # Oops, the collection doesn't actually support registration.
+        form = MultiDict([
+            ("collection_id", collection.id),
+            ("library_short_name", "not-a-library"),
+        ])
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", "not-a-library"),
-            ])
-            response = self.manager.admin_settings_controller.collection_library_registrations()
+            flask.request.form = form
+            response = m()
             eq_(COLLECTION_DOES_NOT_SUPPORT_REGISTRATION, response)
 
+        # Change the protocol to one that supports registration.
         collection.protocol = SharedODLAPI.NAME
 
+        # Now the problem is the library doesn't correspond to a real
+        # library.
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", "not-a-library"),
-            ])
-            response = self.manager.admin_settings_controller.collection_library_registrations()
+            flask.request.form = form
+            response = m()
             eq_(NO_SUCH_LIBRARY, response)
 
+        # The push() implementation might return a ProblemDetail for any
+        # number of reasons.
         library = self._default_library
+        form = MultiDict([
+            ("collection_id", collection.id),
+            ("library_short_name", library.short_name),
+        ])
+
+        class Mock(Registration):
+            def push(self, *args, **kwargs):
+                return REMOTE_INTEGRATION_FAILED
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", library.short_name),
-            ])
-            feed = '<feed></feed>'
-            self.responses.append(MockRequestsResponse(200, content=feed))
+            flask.request.form = form
+            eq_(REMOTE_INTEGRATION_FAILED, m(registration_class=Mock))
 
-            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at http://url/ did not return OPDS.", response.detail)
-            eq_([collection.external_account_id], [x[0] for x in self.requests])
-            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, collection.external_integration).value)
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", library.short_name),
-            ])
-            feed = '<feed></feed>'
-            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
-
-            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at http://url/ did not provide a register link.", response.detail)
-            eq_([collection.external_account_id], [x[0] for x in self.requests[1:]])
-            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, collection.external_integration).value)
-
-        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", self._default_library.short_name),
-            ])
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_settings_controller.collection_library_registrations,
-                          do_get=self.do_request, do_post=self.do_request)
-
-    def test_collection_library_registrations_post_success(self):
-        collection = self._collection(protocol=SharedODLAPI.NAME)
-        collection.external_account_id = "collection url"
-
-        library = self._default_library
+        # But if that doesn't happen, success!
+        class Mock(Registration):
+            """When asked to push a registration, do nothing and say it
+            worked.
+            """
+            called_with = None
+            def push(self, *args, **kwargs):
+                Mock.called_with = (args, kwargs)
+                return True
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", library.short_name),
-            ])
-            # Generate a key in advance so we can mock the collection's encrypted response.
-            key = RSA.generate(2048)
-            public_key = key.publickey().exportKey()
-            encryptor = PKCS1_OAEP.new(key)
+            flask.request.form = form
+            result = m(registration_class=Mock)
+            eq_(200, result.status_code)
 
-            secret = base64.b64encode(encryptor.encrypt("secret"))
-            registration = json.dumps(dict(metadata=dict(shared_secret=secret)))
-            self.responses.append(MockRequestsResponse(200, content=registration))
-            feed = '<feed><link rel="register" href="register url"/></feed>'
-            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
+            # push() was called with the arguments we would expect.
+            args, kwargs = Mock.called_with
+            eq_((Registration.PRODUCTION_STAGE, self.manager.url_for), args)
 
-            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
+            # We would have made real HTTP requests.
+            eq_(HTTP.debuggable_post, kwargs['do_post'])
+            eq_(HTTP.debuggable_get, kwargs['do_get'])
 
-            eq_(200, response.status_code)
-            eq_(["collection url", "register url"], [x[0] for x in self.requests])
-
-            # The shared secret was saved.
-            eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.PASSWORD, library, collection.external_integration).value)
-
-            # The registration status was recorded.
-            eq_("success", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, collection.external_integration).value)
+            # We would have generated a fresh public key just for this
+            # transaction.
+            eq_(None, kwargs['key'])
 
     def test_sitewide_registration_post_errors(self):
         def assert_remote_integration_error(response, message=None):
