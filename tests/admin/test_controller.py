@@ -5781,7 +5781,6 @@ class TestLibraryRegistration(SettingsControllerTest):
         # registration process.
         self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = form
             assert_raises(AdminNotAuthorized, m,
                           do_get=self.do_request, do_post=self.do_request)
         self.admin.add_role(AdminRole.SYSTEM_ADMIN)
