@@ -2438,9 +2438,6 @@ class SettingsController(AdminCirculationManagerController):
         self.require_system_admin()
         # TODO: This method might be able to share code with discovery_service_library_registrations.
         shared_collection_provider_apis = [SharedODLAPI]
-        LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
-        SUCCESS = u"success"
-        FAILURE = u"failure"
 
         if flask.request.method == "GET":
             collections = []
@@ -2449,7 +2446,7 @@ class SettingsController(AdminCirculationManagerController):
                 for library in collection.libraries:
                     library_info = dict(short_name=library.short_name)
                     status = ConfigurationSetting.for_library_and_externalintegration(
-                        self._db, LIBRARY_REGISTRATION_STATUS, library, collection.external_integration,
+                        self._db, Registration.LIBRARY_REGISTRATION_STATUS, library, collection.external_integration,
                     ).value
                     if status:
                         library_info["status"] = status
@@ -2476,9 +2473,6 @@ class SettingsController(AdminCirculationManagerController):
             if not library:
                 return NO_SUCH_LIBRARY
 
-            status = ConfigurationSetting.for_library_and_externalintegration(
-                self._db, LIBRARY_REGISTRATION_STATUS, library, collection.external_integration)
-            status.value = FAILURE
             registry = RemoteRegistry(collection.external_integration)
             registration = Registration(registry, library)
             registered = registration.push(
@@ -2488,7 +2482,6 @@ class SettingsController(AdminCirculationManagerController):
             )
             if isinstance(registered, ProblemDetail):
                 return registered
-            status.value = SUCCESS
         return Response(unicode(_("Success")), 200)
 
     def _mirror_integration_setting(self):

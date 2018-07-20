@@ -166,6 +166,14 @@ class Registration(object):
 
         :return: A ProblemDetail if there was a problem; otherwise True.
         """
+        # Assume that the registration will fail.
+        #
+        # TODO: If a registration has previously succeeded, failure to
+        # re-register probably means a maintenance of the status quo,
+        # not a change of success to failure. But we don't have any way
+        # of being sure.
+        self.status_field.value = self.FAILURE_STATUS
+
         if stage not in self.VALID_REGISTRATION_STAGES:
             return INVALID_INPUT.detailed(
                 _("%r is not a valid registration stage") % stage
