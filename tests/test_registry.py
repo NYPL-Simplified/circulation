@@ -2,6 +2,7 @@ from nose.tools import (
     set_trace,
     eq_,
 )
+import json
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 import base64
@@ -9,6 +10,7 @@ import os
 from . import (
     DatabaseTest
 )
+from core.testing import MockRequestsResponse
 from core.util.problem_detail import ProblemDetail
 from core.model import (
     ExternalIntegration,
@@ -166,6 +168,90 @@ class TestRegistration(DatabaseTest):
         setting3 = m("key", "default2")
         eq_(setting, setting3)
         eq_("default", setting.value)
+
+    def test_push(self):
+        """Test the other methods orchestrated by the push() method.
+        """
+
+        class Mock(Registration):
+
+            def _extract_catalog_information(self, response):
+                self.initial_catalog_response = response
+                return "register_url", "vendor_id"
+
+            def _set_public_key(self, key):
+                self._set_public_key_called_with = key
+            
+            def _create_registration_payload(self, url_for, stage):
+                self.payload_ingredients = (url_for, stage)
+                return dict(payload="this is it")
+
+            def _send_registration_request(
+                    self, register_url, payload, do_post
+            ):
+                self._send_registration_request_called_with = (
+                    register_url, payload, do_post
+                )
+                return MockRequestsResponse(
+                    200, content=json.dumps("you did it!")
+                )
+
+            def _process_registration_result(self, catalog, encryptor, stage):
+                self._process_registration_result_called_with = (
+                    catalog, encryptor, stage
+                )
+                return "all done!"
+
+            def mock_do_get(self, url):
+                self.do_get_called_with = url
+                return "A fake catalog"
+
+        # First of all, test success.
+        registration = Mock(self.registry, self._default_library)
+        stage = Registration.TESTING_STAGE
+        url_for = object()
+        catalog_url = "http://catalog/"
+        do_post = object()
+        key = object()
+        result = registration.push(
+            stage, url_for, catalog_url, registration.mock_do_get, do_post, key
+        )
+
+        # Ultimately the push succeeded.
+        eq_("all done!", result)
+
+        # But there were many steps towards this result.
+
+        # First, do_get was called on the catalog URL.
+        eq_(catalog_url, registration.do_get_called_with)
+
+        # Then, the catalog was passed into _extract_catalog_information.
+        eq_("A fake catalog", registration.initial_catalog_response)
+
+        # _extract_catalog_information returned a registration URL and
+        # a vendor ID.
+
+        # The registration URL will be used later...        
+
+        # The vendor ID was set as a ConfigurationSetting on
+        # the ExternalIntegration associated with this registry.
+        eq_(
+            "vendor id",
+            ConfigurationSetting.for_externalintegration(
+                AuthdataUtility.VENDOR_ID_KEY, self.integration
+            ).value
+        )
+
+        # _set_public_key() was called to create an encryptor object.
+
+        # _create_registration_payload was called to create the body
+        # of the registration request.
+
+        # Then _send_registration_request was called.
+
+        # The return value of that method was loaded as JSON
+        # and passed into _process_registration_result.
+        
 
     def test__decrypt_shared_secret(self):
         key = RSA.generate(2048)
