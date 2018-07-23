@@ -68,7 +68,7 @@ class CustomIndexView(object):
         protocol = integration.protocol
         if not protocol in cls.BY_PROTOCOL:
             raise CannotLoadConfiguration(
-                "Unregistered custom index protocol: %s" % name
+                "Unregistered custom index protocol: %s" % protocol
             )
         view_class = cls.BY_PROTOCOL[protocol]
         return view_class(library, integration)
