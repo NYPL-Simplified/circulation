@@ -10853,6 +10853,38 @@ class ExternalIntegration(Base, HasFullTableCache):
         return integrations[0]
 
     @classmethod
+    def with_setting_value(cls, _db, protocol, goal, key, value):
+        """Find ExternalIntegrations with the given protocol, goal, and with a
+        particular ConfigurationSetting key/value pair.
+
+        This is useful in a scenario where an ExternalIntegration is
+        made unique by a ConfigurationSetting, such as
+        ExternalIntegration.URL, rather than by anything in the
+        ExternalIntecation itself.
+
+        :param protocol: ExternalIntegrations must have this protocol.
+        :param goal: ExternalIntegrations must have this goal.
+        :param key: Look only at ExternalIntegrations with
+            a ConfigurationSetting for this key.
+        :param value: Find ExternalIntegrations whose ConfigurationSetting
+            has this value.
+        :return: A Query object.
+        """
+        return _db.query(
+            ExternalIntegration
+        ).join(
+            ExternalIntegration.settings
+        ).filter(
+            ExternalIntegration.goal==goal
+        ).filter(
+            ExternalIntegration.protocol==protocol
+        ).filter(
+            ConfigurationSetting.key==key
+        ).filter(
+            ConfigurationSetting.value==value
+        )
+
+    @classmethod
     def admin_authentication(cls, _db):
         admin_auth = get_one(_db, cls, goal=cls.ADMIN_AUTH_GOAL)
         return admin_auth

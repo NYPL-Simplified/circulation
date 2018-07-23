@@ -7842,6 +7842,49 @@ class TestExternalIntegration(DatabaseTest):
             get_one, self._db, self._default_library, goal
         )
 
+    def test_with_setting_value(self):
+        def results():
+            # Run the query and return all results.
+            return ExternalIntegration.with_setting_value(
+                self._db, "protocol", "goal", "key", "value"
+            ).all()
+
+        # We start off with no results.
+        eq_([], results())
+
+        # This ExternalIntegration will not match the result,
+        # even though protocol and goal match, because it
+        # doesn't have the 'key' ConfigurationSetting set.
+        integration = self._external_integration("protocol", "goal")
+        eq_([], results())
+
+        # Now 'key' is set, but set to the wrong value.
+        setting = integration.setting("key")
+        setting.value = "wrong"
+        eq_([], results())
+
+        # Now it's set to the right value, so we get a result.
+        setting.value = "value"
+        eq_([integration], results())
+
+        # Create another, identical integration.
+        integration2, is_new = create(
+            self._db, ExternalIntegration, protocol="protocol", goal="goal"
+        )
+        assert integration2 != integration
+        integration2.setting("key").value = "value"
+
+        # Both integrations show up.
+        eq_(set([integration, integration2]), set(results()))
+
+        # If the integration's goal doesn't match, it doesn't show up.
+        integration2.goal = "wrong"
+        eq_([integration], results())
+
+        # If the integration's protocol doesn't match, it doesn't show up.
+        integration.protocol = "wrong"
+        eq_([], results())
+
     def test_data_source(self):
         # For most collections, the protocol determines the
         # data source.
