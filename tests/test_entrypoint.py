@@ -26,7 +26,7 @@ class TestEntryPoint(DatabaseTest):
 
         display = EntryPoint.DISPLAY_TITLES
         eq_("eBooks", display[ebooks])
-        eq_("Audio Books", display[audiobooks])
+        eq_("Audiobooks", display[audiobooks])
 
         eq_(Edition.BOOK_MEDIUM, EbooksEntryPoint.INTERNAL_NAME)
         eq_(Edition.AUDIO_MEDIUM, AudiobooksEntryPoint.INTERNAL_NAME)

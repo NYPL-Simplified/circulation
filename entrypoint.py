@@ -146,4 +146,4 @@ EntryPoint.register(EbooksEntryPoint, "eBooks", default_enabled=True)
 class AudiobooksEntryPoint(MediumEntryPoint):
     INTERNAL_NAME = "Audio"
     URI = u"http://bib.schema.org/Audiobook"
-EntryPoint.register(AudiobooksEntryPoint, "Audio Books")
+EntryPoint.register(AudiobooksEntryPoint, "Audiobooks")
