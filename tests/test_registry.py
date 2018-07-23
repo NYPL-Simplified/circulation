@@ -619,7 +619,7 @@ class TestLibraryRegistrationScript(DatabaseTest):
         library = self._default_library
         library2 = self._library()
 
-        cmd_args = [library.short_name, "--testing",
+        cmd_args = [library.short_name, "--stage=testing",
                     "--registry-url=http://registry/"]
         app = script.do_run(cmd_args=cmd_args, in_unit_test=True)
 
@@ -638,8 +638,12 @@ class TestLibraryRegistrationScript(DatabaseTest):
         # process_library.
         eq_(url_for, app.manager.url_for)
 
-        # Now try again without specifying a particular library
-        # or the --testing argument.
+        # Let's say the other library was earlier registered in production.
+        registration_2 = Registration(registration.registry, library2)
+        registration_2.stage_field.value = Registration.PRODUCTION_STAGE
+
+        # Now run the script again without specifying a particular
+        # library or the --stage argument.
         app = script.do_run(cmd_args=[], in_unit_test=True)
 
         # Every library was processed.
@@ -647,9 +651,9 @@ class TestLibraryRegistrationScript(DatabaseTest):
             set([x[0].library for x in script.processed]))
 
         for i in script.processed:
-            # Every library was registered as though the client is ready
-            # for it to go into production.
-            eq_(Registration.PRODUCTION_STAGE, i[1])
+            # Since no stage was provided, each library was registered
+            # using the stage already associated with it.
+            eq_(i[0].stage_field.value, i[1])
 
             # Every library was registered with the default
             # library registry.

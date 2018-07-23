@@ -423,9 +423,9 @@ class LibraryRegistrationScript(LibraryInputScript):
             default=RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL
         )
         parser.add_argument(
-            '--testing',
-            help="Tell the registry that you do not consider these libraries ready for production.",
-            action='store_true'
+            '--stage',
+            help="Register these libraries in the 'testing' stage or the 'production' stage.",
+            choices=(Registration.TESTING_STAGE, Registration.PRODUCTION_STAGE)
         )
         return parser
 
@@ -437,10 +437,7 @@ class LibraryRegistrationScript(LibraryInputScript):
         registry = RemoteRegistry.for_protocol_goal_and_url(
             self._db, self.PROTOCOL, self.GOAL, url
         )
-        if parsed.testing:
-            stage = Registration.TESTING_STAGE
-        else:
-            stage = Registration.PRODUCTION_STAGE
+        stage = parsed.stage
 
         # Set up an application context so we have access to url_for.
         from api.app import app
@@ -452,7 +449,10 @@ class LibraryRegistrationScript(LibraryInputScript):
         ctx.push()
         for library in parsed.libraries:
             registration = Registration(registry, library)
-            self.process_library(registration, stage, app.manager.url_for)
+            library_stage = stage or registration.stage_field.value
+            self.process_library(
+                registration, library_stage, app.manager.url_for
+            )
         ctx.pop()
 
         # For testing purposes, return the application object that was
@@ -461,6 +461,7 @@ class LibraryRegistrationScript(LibraryInputScript):
 
     def process_library(self, registration, stage, url_for):
         """Push one Library's registration to the given RemoteRegistry."""
+
         logger = logging.getLogger(
             "Registration of library %r" % registration.library.short_name
         )
