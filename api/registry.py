@@ -15,7 +15,10 @@ from core.model import (
 )
 from core.scripts import LibraryInputScript
 from core.util.http import HTTP
-from core.util.problem_detail import ProblemDetail
+from core.util.problem_detail import (
+    ProblemDetail,
+    JSON_MEDIA_TYPE as PROBLEM_DETAIL_JSON_MEDIA_TYPE,
+)
 
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
@@ -89,9 +92,9 @@ class Registration(object):
 
     # A library may be registered in a 'testing' stage or a
     # 'production' stage. This represents the _library's_ opinion
-    # about whether it's ready for production. The library won't
-    # actually show up in production feeds until the _registry_ also
-    # thinks it should.
+    # about whether the integration is ready for production. The
+    # library won't actually be in production (whatever that means for
+    # a given integration) until the _remote_ also thinks it should.
     #
     # TODO: Registration through the admin interface always happens in
     # 'production' because there is no UI for specifying which stage
@@ -192,8 +195,8 @@ class Registration(object):
             return result
         register_url, vendor_id = result
 
-        # Store the vendor id as a ConfigurationSetting on the registry
-        # -- it's the same value for all libraries.
+        # Store the vendor id as a ConfigurationSetting on the integration
+        # -- it'll be the same value for all libraries.
         if vendor_id:
             ConfigurationSetting.for_externalintegration(
                 AuthdataUtility.VENDOR_ID_KEY, self.integration
@@ -201,20 +204,15 @@ class Registration(object):
 
         # Set a public key for the library.
         encryptor = self._set_public_key(key)
+        if isinstance(encryptor, ProblemDetail):
+            return encryptor
 
         # Build the document we'll be sending to the registration URL.
-        auth_document_url = url_for(
-            "authentication_document",
-            library_short_name=self.library.short_name
-        )
-        payload = dict(url=auth_document_url, stage=stage)
+        payload = self._create_registration_payload(url_for, stage)
+        if isinstance(payload, ProblemDetail):
+            return payload
 
-        # Find the email address the administrator should use if they notice
-        # a problem with the way the library is using an integration.
-        contact = Configuration.configuration_contact_uri(self.library)
-        if contact:
-            payload['contact'] = contact
-
+        # Send the document.
         response = self._send_registration_request(
             register_url, payload, do_post
         )
@@ -222,42 +220,14 @@ class Registration(object):
             return response
         catalog = json.loads(response.content)
 
-        # Since we generated a public key, the catalog should have provided
-        # credentials for future authenticated communication,
-        # e.g. through Short Client Tokens or authenticated API
-        # requests.
-        metadata = catalog.get("metadata", {})
-        short_name = metadata.get("short_name")
-        shared_secret = metadata.get("shared_secret")
+        # Process the result.
+        return self._process_registration_result(catalog, encryptor, stage)
 
-        if short_name:
-             setting = self.setting(ExternalIntegration.USERNAME)
-             setting.value = short_name
-        if shared_secret:
-            shared_secret = self._decrypt_shared_secret(
-                encryptor, shared_secret
-            )
-            if isinstance(shared_secret, ProblemDetail):
-                return shared_secret
+    OPDS_1_PREFIX = "application/atom+xml;profile=opds-catalog"
+    OPDS_2_TYPE = "application/opds+json"
 
-            setting = self.setting(ExternalIntegration.PASSWORD)
-            setting.value = shared_secret
-
-        # We have successfully completed the registration.
-        self.status_field.value = self.SUCCESS_STATUS
-
-        # We're done with the library's public key, so remove the
-        # setting.
-        ConfigurationSetting.for_library(
-            Configuration.PUBLIC_KEY, self.library
-        ).value = None
-
-        # Our opinion about the proper stage of this library was succesfully
-        # communicated to the registry.
-        self.stage_field.value = stage
-        return True
-
-    def _extract_catalog_information(self, response):
+    @classmethod
+    def _extract_catalog_information(cls, response):
         """From an OPDS catalog, extract information that's essential to
         kickstarting the OPDS Directory Registration Protocol.
 
@@ -268,12 +238,12 @@ class Registration(object):
         """
         # The catalog URL must be either an OPDS 2 catalog or an OPDS 1 feed.
         type = response.headers.get("Content-Type")
-        if type and type.startswith('application/opds+json'):
+        if type and type.startswith(cls.OPDS_2_TYPE):
             # This is an OPDS 2 catalog.
             catalog = json.loads(response.content)
             links = catalog.get("links", [])
             vendor_id = catalog.get("metadata", {}).get("adobe_vendor_id")
-        elif type and type.startswith("application/atom+xml;profile=opds-catalog"):
+        elif type and type.startswith(cls.OPDS_1_PREFIX):
             # This is an OPDS 1 feed.
             feed = feedparser.parse(response.content)
             links = feed.get("feed", {}).get("links", [])
@@ -290,7 +260,7 @@ class Registration(object):
             return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=response.url))
         return register_url, vendor_id
 
-    def _set_public_key(self, key):
+    def _set_public_key(self, key=None):
         """Set the public key for this library. This key will be published in
         the library's Authentication For OPDS document, allowing the
         remote registry to sign a shared secret for it.
@@ -313,7 +283,30 @@ class Registration(object):
         self._db.commit()
         return encryptor
 
-    def _send_registration_request(self, register_url, payload, do_post):
+    def _create_registration_payload(self, url_for, stage):
+        """Collect the key-value pairs to be sent when kicking off the
+        registration protocol.
+
+        :param url_for: An implementation of Flask url_for.
+        :param state: The registrant's opinion about what stage this 
+           registration should be in.
+        :return: A dictionary suitable for passing into requests.post.
+        """
+        auth_document_url = url_for(
+            "authentication_document",
+            library_short_name=self.library.short_name
+        )
+        payload = dict(url=auth_document_url, stage=stage)
+
+        # Find the email address the administrator should use if they notice
+        # a problem with the way the library is using an integration.
+        contact = Configuration.configuration_contact_uri(self.library)
+        if contact:
+            payload['contact'] = contact
+        return payload
+
+    @classmethod
+    def _send_registration_request(cls, register_url, payload, do_post):
         """Send the request that actually kicks off the OPDS Directory
         Registration Protocol.
 
@@ -348,3 +341,46 @@ class Registration(object):
                 _("Could not decrypt shared secret %s") % shared_secret
             )
         return shared_secret
+
+    def _process_registration_result(self, catalog, encryptor, desired_stage):
+        """We just sent out a registration request and got an OPDS catalog
+        in return. Process that catalog.
+        """
+        # Since we generated a public key, the catalog should have provided
+        # credentials for future authenticated communication,
+        # e.g. through Short Client Tokens or authenticated API
+        # requests.
+        if not isinstance(catalog, dict):
+            return INTEGRATION_ERROR.detailed(
+                _("Remote service served %(representation)r, which I can't make sense of as an OPDS document.", representation=catalog)
+            )
+        metadata = catalog.get("metadata", {})
+        short_name = metadata.get("short_name")
+        shared_secret = metadata.get("shared_secret")
+
+        if short_name:
+             setting = self.setting(ExternalIntegration.USERNAME)
+             setting.value = short_name
+        if shared_secret:
+            shared_secret = self._decrypt_shared_secret(
+                encryptor, shared_secret
+            )
+            if isinstance(shared_secret, ProblemDetail):
+                return shared_secret
+
+            setting = self.setting(ExternalIntegration.PASSWORD)
+            setting.value = shared_secret
+
+        # We have successfully completed the registration.
+        self.status_field.value = self.SUCCESS_STATUS
+
+        # We're done with the library's public key, so remove the
+        # setting.
+        ConfigurationSetting.for_library(
+            Configuration.PUBLIC_KEY, self.library
+        ).value = None
+
+        # Our opinion about the proper stage of this library was succesfully
+        # communicated to the registry.
+        self.stage_field.value = desired_stage
+        return True
