@@ -100,7 +100,7 @@ class Manifest(JSONable):
                    for author in edition.author_contributors
                    if author.display_name or author.sort_name]
         if authors:
-            self.metadata['authors'] = authors
+            self.metadata['author'] = authors
 
         if edition.cover_thumbnail_url:
             self.add_link(edition.cover_thumbnail_url, 'cover')
