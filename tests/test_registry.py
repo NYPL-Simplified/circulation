@@ -25,6 +25,7 @@ from api.problem_details import *
 from api.registry import (
     RemoteRegistry,
     Registration,
+    LibraryRegistrationScript,
 )
 
 class TestRemoteRegistry(DatabaseTest):
@@ -82,6 +83,26 @@ class TestRemoteRegistry(DatabaseTest):
         )
         assert isinstance(registry, RemoteRegistry)
         eq_(self.integration, registry.integration)
+
+    def test_for_protocol_goal_and_url(self):
+        protocol = self._str
+        goal = self._str
+        url = self._url
+        m = RemoteRegistry.for_protocol_goal_and_url
+
+        registry = m(self._db, protocol, goal, url)
+        assert isinstance(registry, RemoteRegistry)
+
+        # A new ExternalIntegration was created.
+        integration = registry.integration
+        eq_(protocol, integration.protocol)
+        eq_(goal, integration.goal)
+        eq_(url, integration.url)
+
+        # Calling the method again doesn't create a second
+        # ExternalIntegration.
+        registry2 = m(self._db, protocol, goal, url)
+        eq_(registry2.integration, integration)
 
     def test_registrations(self):
         registry = RemoteRegistry(self.integration)
@@ -188,7 +209,7 @@ class TestRegistration(DatabaseTest):
             def _set_public_key(self, key):
                 self._set_public_key_called_with = key
                 return "an encryptor"
-            
+
             def _create_registration_payload(self, url_for, stage):
                 self.payload_ingredients = (url_for, stage)
                 return dict(payload="this is it")
@@ -304,7 +325,7 @@ class TestRegistration(DatabaseTest):
         registration._send_registration_request = fail
         problem = cause_problem()
         eq_("could not send registration request", problem.detail)
-        
+
         def fail(*args, **kwargs):
             return INVALID_REGISTRATION.detailed(
                 "could not create registration payload"
@@ -573,3 +594,117 @@ class TestRegistration(DatabaseTest):
             catalog, encryptor, "another new stage"
         )
         eq_(SHARED_SECRET_DECRYPTION_ERROR, result)
+
+
+class TestLibraryRegistrationScript(DatabaseTest):
+
+    def setup(self):
+        """Make sure there's a base URL for url_for to use."""
+        super(TestLibraryRegistrationScript, self).setup()
+
+    def test_do_run(self):
+
+        class Mock(LibraryRegistrationScript):
+            processed = []
+            def process_library(self, *args):
+                self.processed.append(args)
+
+        script = Mock(self._db)
+
+        base_url_setting = ConfigurationSetting.sitewide(
+            self._db, Configuration.BASE_URL_KEY
+        )
+        base_url_setting.value = u'http://test-circulation-manager/'
+
+        library = self._default_library
+        library2 = self._library()
+
+        cmd_args = [library.short_name, "--testing",
+                    "--registry-url=http://registry/"]
+        app = script.do_run(cmd_args=cmd_args, in_unit_test=True)
+
+        # One library was processed.
+        (registration, stage, url_for) = script.processed.pop()
+        eq_([], script.processed)
+        eq_(library, registration.library)
+        eq_(Registration.TESTING_STAGE, stage)
+
+        # A new ExternalIntegration was created for the newly defined
+        # registry at http://registry/.
+        eq_("http://registry/", registration.integration.url)
+
+        # An application environment was created and the url_for
+        # implementation for that environment was passed into
+        # process_library.
+        eq_(url_for, app.manager.url_for)
+
+        # Now try again without specifying a particular library
+        # or the --testing argument.
+        app = script.do_run(cmd_args=[], in_unit_test=True)
+
+        # Every library was processed.
+        eq_(set([library, library2]),
+            set([x[0].library for x in script.processed]))
+
+        for i in script.processed:
+            # Every library was registered as though the client is ready
+            # for it to go into production.
+            eq_(Registration.PRODUCTION_STAGE, i[1])
+
+            # Every library was registered with the default
+            # library registry.
+            eq_(
+                RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL,
+                x[0].integration.url
+            )
+
+    def test_process_library(self):
+        """Test the things that might happen when process_library is called."""
+        script = LibraryRegistrationScript(self._db)
+        library = self._default_library
+        integration = self._external_integration(
+            protocol="some protocol", goal=ExternalIntegration.DISCOVERY_GOAL
+        )
+        registry = RemoteRegistry(integration)
+
+        # First, simulate success.
+        class Success(Registration):
+            def push(self, stage, url_for):
+                self.pushed = (stage, url_for)
+                return True
+        registration = Success(registry, library)
+
+        stage = object()
+        url_for = object()
+        eq_(True, script.process_library(registration, stage, url_for))
+
+        # The stage and url_for values were passed into
+        # Registration.push()
+        eq_((stage, url_for), registration.pushed)
+
+        # Next, simulate an exception raised during push()
+        # This can happen in real situations, though the next case
+        # we'll test is more common.
+        class FailsWithException(Registration):
+            def push(self, stage, url_for):
+                raise Exception("boo")
+
+        registration = FailsWithException(registry, library)
+        # We get False rather than the exception being propagated.
+        # Useful information about the exception is added to the logs,
+        # where someone actually running the script will see it.
+        eq_(False, script.process_library(registration, stage, url_for))
+
+        # Next, simulate push() returning a problem detail document.
+        class FailsWithProblemDetail(Registration):
+            def push(self, stage, url_for):
+                return INVALID_INPUT.detailed("oops")
+        registration = FailsWithProblemDetail(registry, library)
+        result = script.process_library(registration, stage, url_for)
+
+        # The problem document is returned. Useful information about
+        # the exception is also added to the logs, where someone
+        # actually running the script will see it.
+        eq_(INVALID_INPUT.uri, result.uri)
+        eq_("oops", result.detail)
+

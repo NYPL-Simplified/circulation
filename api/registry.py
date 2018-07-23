@@ -5,9 +5,12 @@ from Crypto.Cipher import PKCS1_OAEP
 import feedparser
 from flask_babel import lazy_gettext as _
 import json
+import logging
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.session import Session
 
 from core.model import (
+    create,
     get_one,
     get_one_or_create,
     ConfigurationSetting,
@@ -22,6 +25,7 @@ from core.util.problem_detail import (
 
 from api.adobe_vendor_id import AuthdataUtility
 from api.config import Configuration
+from api.controller import CirculationManager
 from api.problem_details import *
 
 
@@ -69,19 +73,14 @@ class RemoteRegistry(object):
         """Get a LibraryRegistry for the given protocol, goal, and
         URL. Create the corresponding ExternalIntegration if necessary.
         """
-        integration = _db.query(
-            ExternalIntegration
-        ).join(
-            ExternalIntegration.settings
-        ).filter(
-            ConfigurationSetting.key==ExternalIntegration.URL
-        ).filter(
-            ExternalIntegration.goal==goal
-        ).filter(
-            ExternalIntegration.protocol==protocol
-        ).one()
+        try:
+            integration = ExternalIntegration.with_setting_value(
+                _db, protocol, goal, ExternalIntegration.URL, url
+            ).one()
+        except NoResultFound:
+            integration = None
         if not integration:
-            integration = create(
+            integration, is_new = create(
                 _db, ExternalIntegration, protocol=protocol, goal=goal
             )
             integration.setting(ExternalIntegration.URL).value = url
@@ -311,7 +310,7 @@ class Registration(object):
         registration protocol.
 
         :param url_for: An implementation of Flask url_for.
-        :param state: The registrant's opinion about what stage this 
+        :param state: The registrant's opinion about what stage this
            registration should be in.
         :return: A dictionary suitable for passing into requests.post.
         """
@@ -410,6 +409,10 @@ class Registration(object):
 
 
 class LibraryRegistrationScript(LibraryInputScript):
+    """Register local libraries with a remote library registry."""
+
+    PROTOCOL = ExternalIntegration.OPDS_REGISTRATION
+    GOAL = ExternalIntegration.DISCOVERY_GOAL
 
     @classmethod
     def arg_parser(cls, _db):
@@ -417,18 +420,65 @@ class LibraryRegistrationScript(LibraryInputScript):
         parser.add_argument(
             '--registry-url',
             help="Register libraries with the given registry.",
-            default=cls.DEFAULT_REGISTRY
+            default=RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL
         )
         parser.add_argument(
-            '--production',
-            help="Flag libraries as ready for production.",
+            '--testing',
+            help="Tell the registry that you do not consider these libraries ready for production.",
             action='store_true'
         )
         return parser
 
-    def run(self):
-        registry = Registry.for_protocol_goal_and_uri(
-            ExternalIntegration.OPDS_REGISTRATION,
-            ExternalIntegration.DISCOVER_GOAL,
+    def do_run(self, cmd_args=None, in_unit_test=False):
+        parser = self.arg_parser(self._db)
+        parsed = self.parse_command_line(self._db, cmd_args)
+
+        url = parsed.registry_url
+        registry = RemoteRegistry.for_protocol_goal_and_url(
+            self._db, self.PROTOCOL, self.GOAL, url
         )
-                                 
+        if parsed.testing:
+            stage = Registration.TESTING_STAGE
+        else:
+            stage = Registration.PRODUCTION_STAGE
+
+        # Set up an application context so we have access to url_for.
+        from api.app import app
+        app.manager = CirculationManager(self._db, testing=in_unit_test)
+        base_url = ConfigurationSetting.sitewide(
+            self._db, Configuration.BASE_URL_KEY
+        ).value
+        ctx = app.test_request_context(base_url=base_url)
+        ctx.push()
+        for library in parsed.libraries:
+            registration = Registration(registry, library)
+            self.process_library(registration, stage, app.manager.url_for)
+        ctx.pop()
+
+        # For testing purposes, return the application object that was
+        # created.
+        return app
+
+    def process_library(self, registration, stage, url_for):
+        """Push one Library's registration to the given RemoteRegistry."""
+        logger = logging.getLogger(
+            "Registration of library %r" % registration.library.short_name
+        )
+        logger.info(
+            "Registering with %s as %s",
+            registration.registry.integration.url, stage
+        )
+        try:
+            result = registration.push(stage, url_for)
+        except Exception, e:
+            logger.error("Exception during registration", exc_info=e)
+            return False
+        if isinstance(result, ProblemDetail):
+            data, status_code, headers = result.response
+            logger.error(
+                "Could not complete registration. Problem detail document: %r" % data
+            )
+            return result
+        else:
+            logger.info("Success.")
+        return result
