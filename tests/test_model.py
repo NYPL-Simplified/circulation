@@ -3505,6 +3505,25 @@ class TestWork(DatabaseTest):
         work.target_age = NumericRange(None, 8, '[]')
         eq_("8", work.target_age_string)
 
+        work.target_age = NumericRange(7, 8, '[)')
+        eq_("7", work.target_age_string)
+
+        work.target_age = NumericRange(0, 8, '[)')
+        eq_("0-7", work.target_age_string)
+
+        work.target_age = NumericRange(7, 8, '(]')
+        eq_("8", work.target_age_string)
+
+        work.target_age = NumericRange(0, 8, '(]')
+        eq_("1-8", work.target_age_string)
+
+        work.target_age = NumericRange(7, 9, '()')
+        eq_("8", work.target_age_string)
+
+        work.target_age = NumericRange(0, 8, '()')
+        eq_("1-7", work.target_age_string)
+
+
     def test_reindex_on_availability_change(self):
         """A change in a LicensePool's availability creates a 
         WorkCoverageRecord indicating that the work needs to be
