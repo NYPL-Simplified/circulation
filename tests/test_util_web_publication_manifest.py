@@ -91,7 +91,7 @@ class TestUpdateBibliographicMetadata(DatabaseTest):
 
         # The author's sort name is used because they have no display
         # name.
-        eq_([author.sort_name], metadata['authors'])
+        eq_([author.sort_name], metadata['author'])
 
         # The language has been converted from ISO-3166-1-alpha-3 to
         # ISO-3166-1-alpha-2.
@@ -106,7 +106,7 @@ class TestUpdateBibliographicMetadata(DatabaseTest):
         author.display_name = "a display name"
         manifest = Manifest()
         manifest.update_bibliographic_metadata(pool)
-        eq_(["a display name"], manifest.metadata['authors'])
+        eq_(["a display name"], manifest.metadata['author'])
 
         # If the pool has no presentation edition, the only information
         # we get is the identifier.
@@ -114,7 +114,7 @@ class TestUpdateBibliographicMetadata(DatabaseTest):
         manifest = Manifest()
         manifest.update_bibliographic_metadata(pool)
         eq_(pool.identifier.urn, metadata['identifier'])
-        for missing in ['title', 'language', 'authors']:
+        for missing in ['title', 'language', 'author']:
             assert missing not in manifest.metadata
         eq_([], manifest.links)
 
