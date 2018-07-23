@@ -4025,8 +4025,6 @@ class Work(Base):
 
     @property
     def target_age_string(self):
-        if not self.target_age:
-            return ""
         return numericrange_to_string(self.target_age)
 
     @property
@@ -12065,6 +12063,8 @@ def tuple_to_numericrange(t):
 
 def numericrange_to_string(r):
     """Helper method to convert a NumericRange to a human-readable string."""
+    if not r:
+        return ""
     lower = r.lower
     upper = r.upper
     if lower and upper is None:
