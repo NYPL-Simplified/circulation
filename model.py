@@ -7024,11 +7024,6 @@ class LicensePool(Base):
         if not self.identifier:
             return False
 
-        # A suppressed license pool should never be used, even if there is
-        # no alternative.
-        if self.suppressed:
-            return False
-
         # A non-open-access license pool is not eligible for consideration.
         if not self.open_access:
             return False
@@ -7036,6 +7031,16 @@ class LicensePool(Base):
         # At this point we have a LicensePool that is at least
         # better than nothing.
         if not champion:
+            return True
+
+        # A suppressed license pool should never be used unless there is
+        # no alternative.
+        if self.suppressed:
+            return False
+
+        # If the previous champion is suppressed but we have a license pool
+        # that's not, it's definitely better.
+        if champion.suppressed:
             return True
 
         challenger_resource = self.best_open_access_link
