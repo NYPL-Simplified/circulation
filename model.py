@@ -7038,6 +7038,11 @@ class LicensePool(Base):
         if self.suppressed:
             return False
 
+        # If the previous champion is suppressed but we have a license pool
+        # that's not, it's definitely better.
+        if champion.suppressed:
+            return True
+
         challenger_resource = self.best_open_access_link
         if not challenger_resource:
             # This LicensePool is supposedly open-access but we don't
