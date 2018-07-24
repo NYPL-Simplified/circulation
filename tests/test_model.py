@@ -3065,6 +3065,16 @@ class TestWork(DatabaseTest):
         eq_(gitenberg1.superceded, True)
         eq_(gitenberg2.superceded, False)
 
+        # A suppressed pool won't be superceded if it's the only pool for a work.
+        only_pool = self._licensepool(
+            None, open_access=True, with_open_access_download=True
+        )
+        work, ignore = only_pool.calculate_work()
+        only_pool.suppressed = True
+        work.mark_licensepools_as_superceded()
+        eq_(False, only_pool.superceded)
+        
+
     def test_work_remains_viable_on_pools_suppressed(self):
         """ If a work has all of its pools suppressed, the work's author, title, 
         and subtitle still have the last best-known info in them.
