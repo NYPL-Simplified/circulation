@@ -762,7 +762,7 @@ class TestOPDS(DatabaseTest):
         work.audience = "Young Adult"
         work2 = self._work(with_open_access_download=True)
         work2.audience = "Children"
-        work2.target_age = NumericRange(7,9)
+        work2.target_age = NumericRange(7, 9, '[]')
         work3 = self._work(with_open_access_download=True)
         work3.audience = None
         work4 = self._work(with_open_access_download=True)

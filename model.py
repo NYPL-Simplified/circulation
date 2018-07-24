@@ -4025,17 +4025,7 @@ class Work(Base):
 
     @property
     def target_age_string(self):
-        if not self.target_age:
-            return ""
-        lower = self.target_age.lower
-        upper = self.target_age.upper
-        if not upper and not lower:
-            return ""
-        if lower and upper is None:
-            return str(lower)
-        if upper and lower is None:
-            return str(upper)
-        return "%s-%s" % (lower,upper)
+        return numericrange_to_string(self.target_age)
 
     @property
     def has_open_access_license(self):
@@ -6342,17 +6332,7 @@ class Subject(Base):
 
     @property
     def target_age_string(self):
-        lower = self.target_age.lower
-        upper = self.target_age.upper
-        if lower and upper is None:
-            return str(lower)
-        if upper and lower is None:
-            return str(upper)
-        if not self.target_age.upper_inc:
-            upper -= 1
-        if not self.target_age.lower_inc:
-            lower += 1
-        return "%s-%s" % (lower,upper)
+        return numericrange_to_string(self.target_age)
 
     @property
     def describes_format(self):
@@ -12080,6 +12060,24 @@ def tuple_to_numericrange(t):
     if not t:
         return None
     return NumericRange(t[0], t[1], '[]')
+
+def numericrange_to_string(r):
+    """Helper method to convert a NumericRange to a human-readable string."""
+    if not r:
+        return ""
+    lower = r.lower
+    upper = r.upper
+    if lower and upper is None:
+        return str(lower)
+    if upper and lower is None:
+        return str(upper)
+    if not r.upper_inc:
+        upper -= 1
+    if not r.lower_inc:
+        lower += 1
+    if upper == lower:
+        return str(lower)
+    return "%s-%s" % (lower,upper)
 
 site_configuration_has_changed_lock = RLock()
 def site_configuration_has_changed(_db, timeout=1):
