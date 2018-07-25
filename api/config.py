@@ -51,6 +51,17 @@ class Configuration(CoreConfiguration):
     # address to use when notifying patrons of changes.
     DEFAULT_NOTIFICATION_EMAIL_ADDRESS = u"default_notification_email_address"
 
+    # The name of the per-library setting that sets the email address
+    # of the Designated Agent for copyright complaints
+    COPYRIGHT_DESIGNATED_AGENT_EMAIL = u"copyright_designated_agent_email_address"
+
+    # This is the link relation used to indicate
+    COPYRIGHT_DESIGNATED_AGENT_REL = "http://librarysimplified.org/rel/designated-agent/copyright"
+
+    # The name of the per-library setting that sets the contact address
+    # for problems with the library configuration itself.
+    CONFIGURATION_CONTACT_EMAIL = u"configuration_contact_email_address"
+
     # Name of the site-wide ConfigurationSetting containing the secret
     # used to sign bearer tokens.
     BEARER_TOKEN_SIGNING_SECRET = "bearer_token_signing_secret"
@@ -133,6 +144,17 @@ class Configuration(CoreConfiguration):
             "optional": True,
         },
         {
+            "key": COPYRIGHT_DESIGNATED_AGENT_EMAIL,
+            "label": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support address will be used."),
+            "optional": True,
+        },
+        {
+            "key": CONFIGURATION_CONTACT_EMAIL,
+            "label": _("A point of contact for the organization reponsible for configuring this library."),
+            "description": _("This email address will be shared as part of integrations that you set up through this interface. It will not be shared with the general public. This gives the administrator of the remote integration a way to contact you about problems with this library's use of that integration.<br/>If no value is specified here, the general patron support address will be used."),
+            "optional": True,
+        },
+        {
             "key": DEFAULT_NOTIFICATION_EMAIL_ADDRESS,
             "label": _("Default email address to use when notifying patrons of changes."),
             "description": _("This should be an address that the library controls, but no emails will (currently) be sent to this address. If this address is not specified, no holds can be placed on Overdrive, Bibliotheca, or Axis 360 titles, and no RBdigital titles can be put on loan.")
@@ -140,15 +162,25 @@ class Configuration(CoreConfiguration):
         {
             "key": COLOR_SCHEME,
             "label": _("Color scheme"),
-            "description": _("This tells clients what colors to use when rendering this library's OPDS feed."),
+            "description": _("This tells clients what color scheme to use when rendering this library's OPDS feed."),
             "options": [
-                { "key": "blue", "label": _("Blue") },
-                { "key": "red", "label": _("Red") },
-                { "key": "gray", "label": _("Gray") },
-                { "key": "gold", "label": _("Gold") },
-                { "key": "green", "label": _("Green") },
-                { "key": "teal", "label": _("Teal") },
-                { "key": "purple", "label": _("Purple") },
+                dict(key="amber", label=_("Amber")),
+                dict(key="black", label=_("Black")),
+                dict(key="blue", label=_("Blue")),
+                dict(key="bluegray", label=_("Blue Gray")),
+                dict(key="brown", label=_("Brown")),
+                dict(key="cyan", label=_("Cyan")),
+                dict(key="darkorange", label=_("Dark Orange")),
+                dict(key="darkpurple", label=_("Dark Purple")),
+                dict(key="green", label=_("Green")),
+                dict(key="gray", label=_("Gray")),
+                dict(key="indigo", label=_("Indigo")),
+                dict(key="lightblue", label=_("Light Blue")),
+                dict(key="orange", label=_("Orange")),
+                dict(key="pink", label=_("Pink")),
+                dict(key="purple", label=_("Purple")),
+                dict(key="red", label=_("Red")),
+                dict(key="teal", label=_("Teal")),
             ],
             "type": "select",
             "default": DEFAULT_COLOR_SCHEME,
@@ -213,7 +245,7 @@ class Configuration(CoreConfiguration):
         {
             "key": HELP_EMAIL,
             "label": _("Patron support email address"),
-            "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@nypl.org'."),
+            "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
             "optional": True,
         },
         {
@@ -364,6 +396,15 @@ class Configuration(CoreConfiguration):
         return result        
         
     @classmethod
+    def _as_mailto(cls, value):
+        """Turn an email address into a mailto: URI."""
+        if not value:
+            return value
+        if value.startswith("mailto:"):
+            return value
+        return "mailto:%s" % value
+
+    @classmethod
     def help_uris(cls, library):
         """Find all the URIs that might help patrons get help from
         this library.
@@ -377,11 +418,37 @@ class Configuration(CoreConfiguration):
                 continue
             type = None
             if name == cls.HELP_EMAIL:
-                value = 'mailto:' + value
+                value = cls._as_mailto(value)
             if name == cls.HELP_WEB:
                 type = 'text/html'
             yield type, value
-            
+
+    @classmethod
+    def _email_uri_with_fallback(cls, library, key):
+        """Try to find a certain email address configured for the given
+        purpose. If not available, use the general patron support
+        address.
+
+        :param key: The specific email address to look for.
+        """
+        for setting in [key, Configuration.HELP_EMAIL]:
+            value = ConfigurationSetting.for_library(setting, library).value
+            if not value:
+                continue
+            return cls._as_mailto(value)
+
+    @classmethod
+    def copyright_designated_agent_uri(cls, library):
+        return cls._email_uri_with_fallback(
+            library, Configuration.COPYRIGHT_DESIGNATED_AGENT_EMAIL
+        )
+
+    @classmethod
+    def configuration_contact_uri(cls, library):
+        return cls._email_uri_with_fallback(
+            library, Configuration.CONFIGURATION_CONTACT_EMAIL
+        )
+
         
 @contextlib.contextmanager
 def empty_config():

@@ -35,6 +35,7 @@ from sqlalchemy.sql.expression import or_
 from problem_details import *
 from util.patron import PatronUtility
 from api.opds import LibraryAnnotator
+from api.custom_patron_catalog import CustomPatronCatalog
 
 import datetime
 import logging
@@ -430,12 +431,21 @@ class LibraryAuthenticator(object):
     """    
 
     @classmethod
-    def from_config(cls, _db, library, analytics=None):
+    def from_config(cls, _db, library, analytics=None, custom_catalog_source=CustomPatronCatalog):
         """Initialize an Authenticator for the given Library based on its
         configured ExternalIntegrations.
+
+        :param custom_catalog_source: The lookup class for CustomPatronCatalogs.
+        Intended for mocking during tests.
         """
+
+        custom_catalog = custom_catalog_source.for_library(library)
+
         # Start with an empty list of authenticators.
-        authenticator = cls(_db=_db, library=library)
+        authenticator = cls(
+            _db=_db, library=library,
+            authentication_document_annotator=custom_catalog
+        )
 
         # Find all of this library's ExternalIntegrations set up with
         # the goal of authenticating patrons.
@@ -470,7 +480,9 @@ class LibraryAuthenticator(object):
 
     def __init__(self, _db, library, basic_auth_provider=None,
                  oauth_providers=None,
-                 bearer_token_signing_secret=None):
+                 bearer_token_signing_secret=None,
+                 authentication_document_annotator=None,
+    ):
         """Initialize a LibraryAuthenticator from a list of AuthenticationProviders.
 
         :param _db: A database session (probably a scoped session, which is
@@ -494,6 +506,7 @@ class LibraryAuthenticator(object):
         self.library_uuid = library.uuid
         self.library_name = library.name
         self.library_short_name = library.short_name
+        self.authentication_document_annotator=authentication_document_annotator
 
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
@@ -779,6 +792,18 @@ class LibraryAuthenticator(object):
             dict(rel="start", href=index_url, 
                  type=OPDSFeed.ACQUISITION_FEED_TYPE)
         )
+
+        # If there is a Designated Agent email address, add it as a
+        # link.
+        designated_agent_uri = Configuration.copyright_designated_agent_uri(
+            library
+        )
+        if designated_agent_uri:
+            links.append(
+                dict(rel=Configuration.COPYRIGHT_DESIGNATED_AGENT_REL,
+                     href=designated_agent_uri
+                )
+            )
                 
         # Add a rel="help" link for every type of URL scheme that
         # leads to library-specific help.
@@ -836,6 +861,12 @@ class LibraryAuthenticator(object):
             bucket = disabled
         bucket.append(Configuration.RESERVATIONS_FEATURE)
         doc['features'] = dict(enabled=enabled, disabled=disabled)
+
+        if self.authentication_document_annotator:
+            doc = self.authentication_document_annotator.annotate_authentication_document(
+                library, doc, url_for
+            )
+
         return json.dumps(doc)
 
     def create_authentication_headers(self):
@@ -1315,6 +1346,10 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         u"Password": _("Password"),
         u"PIN": _("PIN"),
     }
+
+    IDENTIFIER_BARCODE_FORMAT = "identifier_barcode_format"
+    BARCODE_FORMAT_CODABAR = "Codabar" # Constant defined in the extension
+    BARCODE_FORMAT_NONE = ""
     
     # These identifier and password are supposed to be valid
     # credentials.  If there's a problem using them, there's a problem
@@ -1328,6 +1363,17 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
           "description": _("A valid identifier that can be used to test that patron authentication is working."),
         },
         { "key": TEST_PASSWORD, "label": _("Test Password"), "description": _("The password for the test identifier."),
+          "optional": True,
+        },
+        { "key" : IDENTIFIER_BARCODE_FORMAT,
+          "label": _("Patron identifier barcode format"),
+          "description": _("Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers."),
+          "type": "select",
+          "options": [
+              { "key": BARCODE_FORMAT_CODABAR, "label": _("Patron identifiers are are rendered as barcodes in Codabar format") },
+              { "key": BARCODE_FORMAT_NONE, "label": _("Patron identifiers are not rendered as barcodes") },
+          ],
+          "default": BARCODE_FORMAT_NONE,
           "optional": True,
         },
         { "key": IDENTIFIER_REGULAR_EXPRESSION,
@@ -1430,6 +1476,10 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
             self.IDENTIFIER_KEYBOARD).value or self.DEFAULT_KEYBOARD
         self.password_keyboard = integration.setting(
             self.PASSWORD_KEYBOARD).value or self.DEFAULT_KEYBOARD
+
+        self.identifier_barcode_format = integration.setting(
+            self.IDENTIFIER_BARCODE_FORMAT
+        ).value or self.BARCODE_FORMAT_NONE
         
         self.identifier_label = (
             integration.setting(self.IDENTIFIER_LABEL).value
@@ -1738,10 +1788,12 @@ class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
         login_inputs = dict(keyboard=self.identifier_keyboard)
         if self.identifier_maximum_length:
             login_inputs['maximum_length'] = self.identifier_maximum_length
+        if self.identifier_barcode_format:
+            login_inputs['barcode_format'] = self.identifier_barcode_format
 
         password_inputs = dict(keyboard=self.password_keyboard)
         if self.password_maximum_length:
-            login_inputs['maximum_length'] = self.password_maximum_length
+            password_inputs['maximum_length'] = self.password_maximum_length
 
         # Localize the labels if possible.
         localized_identifier_label = self.COMMON_IDENTIFIER_LABELS.get(
