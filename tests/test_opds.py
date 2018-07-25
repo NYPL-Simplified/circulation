@@ -266,11 +266,21 @@ class TestLibraryAnnotator(VendorIDTest):
         default_lane_url = self.annotator.lane_url(None)
         eq_(default_lane_url, self.annotator.default_lane_url())
 
+        facets = dict(entrypoint="Book")
+        default_lane_url = self.annotator.lane_url(None, facets=facets)
+        eq_(default_lane_url, self.annotator.default_lane_url(facets=facets))
+
         groups_url = self.annotator.lane_url(fantasy_lane_with_sublanes)
         eq_(groups_url, self.annotator.groups_url(fantasy_lane_with_sublanes))
 
+        groups_url = self.annotator.lane_url(fantasy_lane_with_sublanes, facets=facets)
+        eq_(groups_url, self.annotator.groups_url(fantasy_lane_with_sublanes, facets=facets))
+
         feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes)
         eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes))
+
+        feed_url = self.annotator.lane_url(fantasy_lane_without_sublanes, facets=facets)
+        eq_(feed_url, self.annotator.feed_url(fantasy_lane_without_sublanes, facets=facets))
 
     def test_fulfill_link_issues_only_open_access_links_when_library_does_not_identify_patrons(self):
 
@@ -394,6 +404,10 @@ class TestLibraryAnnotator(VendorIDTest):
         default_lane_url = self.annotator.default_lane_url()
         assert "groups" in default_lane_url
         assert str(self.lane.id) not in default_lane_url
+
+        facets = dict(entrypoint="Book")
+        default_lane_url = self.annotator.default_lane_url(facets=facets)
+        assert "entrypoint=Book" in default_lane_url
 
     def test_groups_url(self):
         groups_url_no_lane = self.annotator.groups_url(None)

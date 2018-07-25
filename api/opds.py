@@ -397,7 +397,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
                  facet_view='feed',
                  test_mode=False,
                  top_level_title="All Books",
-                 library_identifies_patrons = True
+                 library_identifies_patrons = True,
+                 facets=None
     ):
         """Constructor.
 
@@ -425,6 +426,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
         self._adobe_id_tags = {}
         self._top_level_title = top_level_title
         self.identifies_patrons = library_identifies_patrons
+        self.facets = facets or None
 
     def top_level_title(self):
         return self._top_level_title
@@ -442,7 +444,7 @@ class LibraryAnnotator(CirculationManagerAnnotator):
     def groups_url(self, lane, facets=None):
         lane_identifier = self._lane_identifier(lane)
         if facets:
-            kwargs =  dict(facets.items())
+            kwargs = dict(facets.items())
         else:
             kwargs = {}
 
@@ -454,11 +456,8 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             **kwargs
         )
 
-    def default_lane_url(self):
-        return self.groups_url(None)
-
-    def lane_url(self, lane):
-        return self.groups_url(lane)
+    def default_lane_url(self, facets=None):
+        return self.groups_url(None, facets=facets)
 
     def feed_url(self, lane, facets=None, pagination=None, default_route='feed'):
         extra_kwargs = dict(library_short_name=self.library.short_name)
@@ -506,28 +505,28 @@ class LibraryAnnotator(CirculationManagerAnnotator):
             title = lane.display_name
 
         if show_feed:
-            return self.feed_url(lane), title
+            return self.feed_url(lane, self.facets), title
 
-        return self.lane_url(lane), title
+        return self.lane_url(lane, self.facets), title
 
-    def lane_url(self, lane):
+    def lane_url(self, lane, facets=None):
         # If the lane has sublanes, the URL identifying the group will
         # take the user to another set of groups for the
         # sublanes. Otherwise it will take the user to a list of the
         # books in the lane by author.
 
         if lane and isinstance(lane, Lane) and lane.sublanes:
-            url = self.groups_url(lane)
+            url = self.groups_url(lane, facets=facets)
         elif lane and (
             isinstance(lane, Lane)
             or isinstance(lane, DynamicLane)
             ):
-            url = self.feed_url(lane)
+            url = self.feed_url(lane, facets)
         else:
             # This lane isn't part of our lane hierarchy. It's probably
             # a WorkList created to represent the top-level. Use the top-level
             # url for it.
-            url = self.default_lane_url()
+            url = self.default_lane_url(facets=facets)
         return url
 
     def annotate_work_entry(self, work, active_license_pool, edition, identifier, feed, entry):
