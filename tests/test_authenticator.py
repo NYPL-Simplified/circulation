@@ -509,10 +509,9 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         # Only a basic auth provider.
         millenium = self._external_integration(
             "api.millenium_patron", ExternalIntegration.PATRON_AUTH_GOAL,
+            libraries=[self._default_library]
         )
         millenium.url = "http://url/"
-        self._default_library.integrations.append(millenium)
-
         auth = LibraryAuthenticator.from_config(self._db, self._default_library)
 
         assert auth.basic_auth_provider != None
@@ -551,6 +550,27 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         assert isinstance(clever, CleverAuthenticationAPI)
         eq_(analytics, clever.analytics)
             
+    def test_with_custom_patron_catalog(self):
+        """Instantiation of a LibraryAuthenticator may
+        include instantiation of a CustomPatronCatalog.
+        """
+        mock_catalog = object()
+        class MockCustomPatronCatalog(object):
+            @classmethod
+            def for_library(self, library):
+                self.called_with = library
+                return mock_catalog
+
+        authenticator = LibraryAuthenticator.from_config(
+            self._db, self._default_library,
+            custom_catalog_source=MockCustomPatronCatalog
+        )
+        eq_(self._default_library, MockCustomPatronCatalog.called_with)
+
+        # The custom patron catalog is stored as
+        # authentication_document_annotator.
+        eq_(mock_catalog, authenticator.authentication_document_annotator)
+
     def test_config_succeeds_when_no_providers_configured(self):
         """You can call from_config even when there are no authentication
         providers configured.
@@ -1035,6 +1055,17 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             bearer_token_signing_secret='secret'
         )
 
+        class MockAuthenticationDocumentAnnotator(object):
+            def annotate_authentication_document(
+                self, library, doc, url_for
+            ):
+                self.called_with = library, doc, url_for
+                doc['modified'] = 'Kilroy was here'
+                return doc
+
+        annotator = MockAuthenticationDocumentAnnotator()
+        authenticator.authentication_document_annotator = annotator
+
         # We're about to call url_for, so we must create an
         # application context.
         os.environ['AUTOINITIALIZE'] = "False"
@@ -1183,6 +1214,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             [agent] = [x for x in doc['links'] if x['rel'] == copyright_rel]
             eq_("mailto:dmca@library.org", agent["href"])
 
+            # The annotator's annotate_authentication_document method
+            # was called and successfully modified the authentication
+            # document.
+            eq_((library, doc, url_for), annotator.called_with)
+            eq_('Kilroy was here', doc['modified'])
             
             # While we're in this context, let's also test
             # create_authentication_headers.
@@ -1689,6 +1725,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         integration.setting(b.PASSWORD_KEYBOARD).value = b.NUMBER_PAD
         integration.setting(b.IDENTIFIER_LABEL).value = "Your Library Card"
         integration.setting(b.PASSWORD_LABEL).value = 'Password'
+        integration.setting(b.IDENTIFIER_BARCODE_FORMAT).value = 'some barcode'
         
         provider = b(self._default_library, integration)
 
@@ -1696,6 +1733,7 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
         eq_(b.NUMBER_PAD, provider.password_keyboard)
         eq_("Your Library Card", provider.identifier_label)
         eq_("Password", provider.password_label)
+        eq_("some barcode", provider.identifier_barcode_format)
         
     def test_server_side_validation(self):
         b = BasicAuthenticationProvider
@@ -1815,6 +1853,9 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
     def test_authentication_flow_document(self):
         """Test the default authentication provider document."""
         provider = self.mock_basic()
+        provider.identifier_maximum_length=22
+        provider.password_maximum_length=7
+        provider.identifier_barcode_format = provider.BARCODE_FORMAT_CODABAR
         doc = provider.authentication_flow_document(self._db)
         eq_(_(provider.DISPLAY_NAME), doc['description'])
         eq_(provider.FLOW_TYPE, doc['type'])
@@ -1828,6 +1869,14 @@ class TestBasicAuthenticationProvider(AuthenticatorTest):
             inputs['login']['keyboard'])
         eq_(provider.password_keyboard,
             inputs['password']['keyboard'])
+
+        eq_(provider.BARCODE_FORMAT_CODABAR, inputs['login']['barcode_format'])
+
+        eq_(provider.identifier_maximum_length,
+            inputs['login']['maximum_length'])
+        eq_(provider.password_maximum_length,
+            inputs['password']['maximum_length'])
+
         
 class TestBasicAuthenticationProviderAuthenticate(AuthenticatorTest):
     """Test the complex BasicAuthenticationProvider.authenticate method."""

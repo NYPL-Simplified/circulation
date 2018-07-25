@@ -316,3 +316,10 @@ INVALID_REGISTRATION = pd(
     title=_("Invalid registration"),
     detail=_("You did not submit enough information to register with the collection."),
 )
+
+SHARED_SECRET_DECRYPTION_ERROR = pd(
+    "http://librarysimplified.org/terms/problem/decryption-error",
+    status_code=502,
+    title=_("Decryption error"),
+    detail=_("Failed to decrypt a shared secret retrieved from another computer.")
+)
