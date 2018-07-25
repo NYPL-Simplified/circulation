@@ -143,6 +143,8 @@ from api.adobe_vendor_id import AuthdataUtility
 
 from core.external_search import ExternalSearchIndex
 
+from api.selftest import HasSelfTests
+
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
     if not manager.testing:
