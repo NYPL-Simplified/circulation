@@ -55,7 +55,7 @@ class EntryPoint(object):
         if display_title in cls.DISPLAY_TITLES.values():
             raise ValueError(
                 "Duplicate entry point display name: %s" % display_title
-            )            
+            )
         cls.DISPLAY_TITLES[entrypoint_class] = display_title
         cls.BY_INTERNAL_NAME[value] = entrypoint_class
         cls.ENTRY_POINTS.append(entrypoint_class)
@@ -141,9 +141,9 @@ class MediumEntryPoint(EntryPoint):
 class EbooksEntryPoint(MediumEntryPoint):
     INTERNAL_NAME = "Book"
     URI = u"http://schema.org/EBook"
-EntryPoint.register(EbooksEntryPoint, "Books", default_enabled=True)
+EntryPoint.register(EbooksEntryPoint, "eBooks", default_enabled=True)
 
 class AudiobooksEntryPoint(MediumEntryPoint):
     INTERNAL_NAME = "Audio"
     URI = u"http://bib.schema.org/Audiobook"
-EntryPoint.register(AudiobooksEntryPoint, "Audio")
+EntryPoint.register(AudiobooksEntryPoint, "Audiobooks")
