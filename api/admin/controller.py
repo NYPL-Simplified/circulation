@@ -2321,7 +2321,7 @@ class SettingsController(AdminCirculationManagerController):
                         # value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, c)
                         self_test_results = protocolClass.prior_test_results(self._db, protocolClass, self._db, c)
 
-                    collection["settings"]["self_test_results"] = self_test_results
+                    collection["self_test_results"] = self_test_results
                 collections.append(collection)
 
             return dict(
