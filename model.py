@@ -12072,7 +12072,7 @@ def numericrange_to_string(r):
         return ""
     lower = r.lower
     upper = r.upper
-    if not upper and not lower:
+    if upper is None and lower is None:
         return ""
     if lower and upper is None:
         return str(lower)
