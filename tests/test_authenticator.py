@@ -1042,13 +1042,22 @@ class TestLibraryAuthenticator(AuthenticatorTest):
         eq_(token_value, decoded)
 
     def test_create_authentication_document(self):
+
+        class MockAuthenticator(LibraryAuthenticator):
+            """Mock the _geographic_areas method."""
+            AREAS = ["focus area", "service area"]
+
+            @classmethod
+            def _geographic_areas(cls, library):
+                return cls.AREAS
+
         integration = self._external_integration(self._str)
         library = self._default_library
         basic = MockBasicAuthenticationProvider(library, integration)
         oauth = MockOAuthAuthenticationProvider(library, "oauth")
         oauth.URI = "http://example.org/"
         library.name = "A Fabulous Library"
-        authenticator = LibraryAuthenticator(
+        authenticator = MockAuthenticator(
             _db=self._db,
             library = library,
             basic_auth_provider=basic, oauth_providers=[oauth],
@@ -1141,6 +1150,11 @@ class TestLibraryAuthenticator(AuthenticatorTest):
 
             # The color scheme is correctly reported.
             eq_("plaid", doc['color_scheme'])
+
+            # _geographic_areas was called and provided the library's
+            # focus area and service area.
+            eq_("focus area", doc["focus_area"])
+            eq_("service area", doc["service_area"])
             
             # We also need to test that the links got pulled in
             # from the configuration.
@@ -1214,6 +1228,13 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             [agent] = [x for x in doc['links'] if x['rel'] == copyright_rel]
             eq_("mailto:dmca@library.org", agent["href"])
 
+            # If no focus area or service area are provided, those fields
+            # are not added to the document.
+            MockAuthenticator.AREAS = [None, None]
+            doc = json.loads(authenticator.create_authentication_document())
+            for key in ('focus_area', 'service_area'):
+                assert key not in doc
+
             # The annotator's annotate_authentication_document method
             # was called and successfully modified the authentication
             # document.
@@ -1249,6 +1270,62 @@ class TestLibraryAuthenticator(AuthenticatorTest):
             )
             headers = authenticator.create_authentication_headers()
             assert 'WWW-Authenticate' not in headers
+
+    def test__geographic_areas(self):
+        """Test the _geographic_areas helper method."""
+        class Mock(LibraryAuthenticator):
+            values = {
+                Configuration.LIBRARY_FOCUS_AREA : "focus",
+                Configuration.LIBRARY_SERVICE_AREA : "service",
+            }
+            @classmethod
+            def _geographic_area(cls, key, library):
+                cls.called_with = library
+                return cls.values.get(key)
+
+        # _geographic_areas calls _geographic_area twice and
+        # reutrns the results in a 2-tuple.
+        m = Mock._geographic_areas
+        library = object()
+        eq_(("focus", "service"), m(library))
+        eq_(library, Mock.called_with)
+
+        # If only one value is provided, the same value is given for both
+        # areas.
+        del Mock.values[Configuration.LIBRARY_FOCUS_AREA]
+        eq_(("service", "service"), m(library))
+
+        Mock.values[Configuration.LIBRARY_FOCUS_AREA] = "focus"
+        del Mock.values[Configuration.LIBRARY_SERVICE_AREA]
+        eq_(("focus", "focus"), m(library))
+
+    def test__geographic_area(self):
+        """Test the _geographic_area helper method."""
+        library = self._default_library
+        key = "a key"
+        setting = ConfigurationSetting.for_library(key, library)
+
+        def m():
+            return LibraryAuthenticator._geographic_area(key, library)
+
+        # A missing value is returned as None.
+        eq_(None, m())
+
+        # The literal string "everywhere" is returned as is.
+        setting.value = "everywhere"
+        eq_("everywhere", m())
+
+        # A string that makes sense as JSON is returned as its JSON
+        # equivalent.
+        two_states = ["NY", "NJ"]
+        setting.value = json.dumps(two_states)
+        eq_(two_states, m())
+
+        # A string that does not make sense as JSON is put in a
+        # single-element list.
+        setting.value = "Arvin, CA"
+        eq_(["Arvin, CA"], m())
+
 
 class TestAuthenticationProvider(AuthenticatorTest):
 
@@ -1576,7 +1653,6 @@ class TestAuthenticationProvider(AuthenticatorTest):
         string_setting.value = "abc"
         provider = MockProvider(library, integration)
         eq_(None, provider.library_identifier_restriction)
-
 
 
 class TestBasicAuthenticationProvider(AuthenticatorTest):
