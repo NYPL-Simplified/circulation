@@ -845,6 +845,14 @@ class LibraryAuthenticator(object):
         if description:
             doc['service_description'] = description
 
+        # Add the library's focus area and service area, if either is
+        # specified.
+        focus_area, service_area = self._geographic_areas(library)
+        if focus_area:
+            doc['focus_area'] = focus_area
+        if service_area:
+            doc['service_area'] = service_area
+
         # Add the library's public key, if it has one.
         public_key = ConfigurationSetting.for_library(
             Configuration.PUBLIC_KEY, library).value
@@ -868,6 +876,51 @@ class LibraryAuthenticator(object):
             )
 
         return json.dumps(doc)
+
+    @classmethod
+    def _geographic_areas(cls, library):
+        """Determine the library's focus area and service area.
+
+        :param library: A Library
+        :return: A 2-tuple (focus_area, service_area)
+        """
+        focus_area = cls._geographic_area(
+            Configuration.LIBRARY_FOCUS_AREA, library
+        )
+        service_area = cls._geographic_area(
+            Configuration.LIBRARY_SERVICE_AREA, library
+        )
+
+        # If only one value is provided, both values are considered to
+        # be the same.
+        if focus_area and not service_area:
+            service_area = focus_area
+        if service_area and not focus_area:
+            focus_area = service_area
+        return focus_area, service_area
+
+    @classmethod
+    def _geographic_area(cls, key, library):
+        """Extract a geographic area from a ConfigurationSetting
+        for the given `library`.
+
+        See https://github.com/NYPL-Simplified/Simplified/wiki/Authentication-For-OPDS-Extensions#service_area and #focus_area
+        """
+        setting = ConfigurationSetting.for_library(key, library).value
+        if not setting:
+            return setting
+        if setting == 'everywhere':
+            # This literal string may be served as is.
+            return setting
+        try:
+            # If we can load the setting as JSON, it is either a list
+            # of place names or a GeoJSON object.
+            setting = json.loads(setting)
+        except (ValueError, TypeError), e:
+            # The most common outcome -- treat the value as a single place
+            # name by turning it into a list.
+            setting = [setting]
+        return setting
 
     def create_authentication_headers(self):
         """Create the HTTP headers to return with the OPDS
