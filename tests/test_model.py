@@ -3533,6 +3533,12 @@ class TestWork(DatabaseTest):
         work.target_age = NumericRange(0, 8, '()')
         eq_("1-7", work.target_age_string)
 
+        work.target_age = NumericRange(None, None, '()')
+        eq_("", work.target_age_string)
+
+        work.target_age = None
+        eq_("", work.target_age_string)
+
 
     def test_reindex_on_availability_change(self):
         """A change in a LicensePool's availability creates a 
