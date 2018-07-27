@@ -121,7 +121,7 @@ from api.sip import SIP2AuthenticationProvider
 from api.firstbook import FirstBookAuthenticationAPI
 from api.clever import CleverAuthenticationAPI
 
-from core.opds_import import OPDSImporter
+from core.opds_import import (OPDSImporter, OPDSImportMonitor)
 from api.feedbooks import FeedbooksOPDSImporter
 from api.opds_for_distributors import OPDSForDistributorsAPI
 from api.overdrive import OverdriveAPI
@@ -2243,6 +2243,78 @@ class SettingsController(AdminCirculationManagerController):
         setting.value = value
         return Response(unicode(setting.key), 200)
 
+    def collections_self_tests(self, identifier):
+        provider_apis = [OPDSImporter,
+                         OPDSForDistributorsAPI,
+                         OverdriveAPI,
+                         OdiloAPI,
+                         BibliothecaAPI,
+                         Axis360API,
+                         OneClickAPI,
+                         EnkiAPI,
+                         ODLWithConsolidatedCopiesAPI,
+                         SharedODLAPI,
+                         FeedbooksOPDSImporter,
+                        ]
+
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+        protocols.append(dict(name=ExternalIntegration.MANUAL,
+                              label=_("Manual import"),
+                              description=_("Books will be manually added to the circulation manager, not imported automatically through a protocol."),
+                              settings=[],
+                              ))
+
+        if not identifier:
+            return Response("No Identifier", 200)
+
+        collection = dict(self_test_results=None)
+        collectionFound = None
+        for col in self._db.query(Collection).order_by(Collection.name).all():
+            if col.id == int(identifier):
+                collectionFound = col
+                collection = dict(
+                    id=col.id,
+                    name=col.name,
+                    protocol=col.protocol,
+                    parent_id=col.parent_id,
+                    settings=dict(external_account_id=col.external_account_id),
+                    protocolClass=None,
+                )
+                if col.protocol in [p.get("name") for p in protocols]:
+                    [protocol] = [p for p in protocols if p.get("name") == col.protocol]
+
+                    [protocolClass] = [p for p in provider_apis if p.NAME == col.protocol]
+
+                    collection["protocolClass"] = protocolClass
+                self_test_results = None
+
+                if not collection["protocolClass"]:
+                    if col.protocol == OPDSImportMonitor.PROTOCOL:
+                        collection["protocolClass"] = OPDSImportMonitor
+
+                if issubclass(collection["protocolClass"], HasSelfTests):
+                    self_test_results = collection["protocolClass"].prior_test_results(self._db, collection["protocolClass"], self._db, col)
+
+                collection["self_test_results"] = self_test_results
+
+        if flask.request.method == 'GET':
+            del collection["protocolClass"]
+            return dict(
+                collection=collection
+            )
+
+        if flask.request.method == "POST":
+            if collection["protocolClass"]:
+                value, results = collection["protocolClass"].run_self_tests(self._db, collection["protocolClass"], self._db, collectionFound)
+
+                if (value):
+                    return Response("Successfully ran new self tests", 200)
+                else:
+                    return Response("Failed to run self tests", 200)
+
+            return Response("Nothing", 200)
+
+
     def collections(self):
         provider_apis = [OPDSImporter,
                          OPDSForDistributorsAPI,
@@ -2317,7 +2389,6 @@ class SettingsController(AdminCirculationManagerController):
                     self_test_results = None
 
                     if issubclass(protocolClass, HasSelfTests):
-                        # value, results = protocolClass.run_self_tests(self._db, protocolClass, self._db, c)
                         self_test_results = protocolClass.prior_test_results(self._db, protocolClass, self._db, c)
 
                     collection["self_test_results"] = self_test_results
