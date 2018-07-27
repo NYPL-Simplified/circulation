@@ -21,7 +21,6 @@ from sqlalchemy.exc import ProgrammingError
 from PIL import Image, ImageDraw, ImageFont
 import textwrap
 from StringIO import StringIO
-import feedparser
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 
@@ -83,6 +82,10 @@ from api.config import (
     CannotLoadConfiguration
 )
 from api.lanes import create_default_lanes
+from api.registry import (
+    RemoteRegistry,
+    Registration,
+)
 
 from google_oauth_admin_authentication_provider import GoogleOAuthAdminAuthenticationProvider
 from password_admin_authentication_provider import PasswordAdminAuthenticationProvider
@@ -1146,7 +1149,7 @@ class WorkController(AdminCirculationManagerController):
 
         if image_url and not image_file:
             image_file = StringIO(urllib.urlopen(image_url).read())
-        
+
         image = Image.open(image_file)
         result = self._validate_cover_image(image)
         if isinstance(result, ProblemDetail):
@@ -1200,7 +1203,7 @@ class WorkController(AdminCirculationManagerController):
 
         if image_url and not image_file:
             image_file = StringIO(urllib.urlopen(image_url).read())
-        
+
         image = Image.open(image_file)
         result = self._validate_cover_image(image)
         if isinstance(result, ProblemDetail):
@@ -1216,7 +1219,7 @@ class WorkController(AdminCirculationManagerController):
             original_content = original_buffer.getvalue()
             if not original_href:
                 original_href = Hyperlink.generic_uri(data_source, work.presentation_edition.primary_identifier, Hyperlink.IMAGE, content=original_content)
-                
+
             image = self._process_cover_image(work, image, title_position)
 
             original_rights_explanation = None
@@ -1693,120 +1696,202 @@ class LanesController(AdminCirculationManagerController):
 class DashboardController(AdminCirculationManagerController):
 
     def stats(self):
-        patron_count = self._db.query(Patron).count()
+        library_stats = {}
 
-        active_loans_patron_count = self._db.query(
-            distinct(Patron.id)
-        ).join(
-            Patron.loans
-        ).filter(
-            Loan.end >= datetime.now(),
-        ).count()
+        total_title_count = 0
+        total_license_count = 0
+        total_available_license_count = 0
 
-        active_patrons = select(
-            [Patron.id]
-        ).select_from(
-            join(
-                Loan,
-                Patron,
+        collection_counts = dict()
+        for collection in self._db.query(Collection):
+            if not flask.request.admin or not flask.request.admin.can_see_collection(collection):
+                continue
+
+            licensed_title_count = self._db.query(
+                LicensePool
+            ).filter(
+                LicensePool.collection_id == collection.id
+            ).filter(
                 and_(
-                    Patron.id == Loan.patron_id,
-                    Loan.id != None,
-                    Loan.end >= datetime.now()
+                    LicensePool.licenses_owned > 0,
+                    LicensePool.open_access == False,
                 )
+            ).count()
+
+            open_title_count = self._db.query(
+                LicensePool
+            ).filter(
+                LicensePool.collection_id == collection.id
+            ).filter(
+                LicensePool.open_access == True
+            ).count()
+
+            # The sum queries return None instead of 0 if there are
+            # no license pools in the db.
+
+            license_count = self._db.query(
+                func.sum(LicensePool.licenses_owned)
+            ).filter(
+                LicensePool.collection_id == collection.id
+            ).filter(
+                LicensePool.open_access == False,
+            ).all()[0][0] or 0
+
+            available_license_count = self._db.query(
+                func.sum(LicensePool.licenses_available)
+            ).filter(
+                LicensePool.collection_id == collection.id
+            ).filter(
+                LicensePool.open_access == False,
+            ).all()[0][0] or 0
+
+            total_title_count += licensed_title_count + open_title_count
+            total_license_count += license_count
+            total_available_license_count += available_license_count
+
+            collection_counts[collection.name] = dict(
+                licensed_titles=licensed_title_count,
+                open_access_titles=open_title_count,
+                licenses=license_count,
+                available_licenses=available_license_count,
             )
-        ).union(
-            select(
+
+        
+        for library in self._db.query(Library):
+            # Only include libraries this admin has librarian access to.
+            if not flask.request.admin or not flask.request.admin.is_librarian(library):
+                continue
+
+            patron_count = self._db.query(Patron).filter(Patron.library_id==library.id).count()
+
+            active_loans_patron_count = self._db.query(
+                distinct(Patron.id)
+            ).join(
+                Patron.loans
+            ).filter(
+                Loan.end >= datetime.now(),
+            ).filter(
+                Patron.library_id == library.id
+            ).count()
+
+            active_patrons = select(
                 [Patron.id]
             ).select_from(
                 join(
-                    Hold,
+                    Loan,
                     Patron,
-                    Patron.id == Hold.patron_id
+                    and_(
+                        Patron.id == Loan.patron_id,
+                        Patron.library_id == library.id,
+                        Loan.id != None,
+                        Loan.end >= datetime.now()
+                    )
                 )
+            ).union(
+                select(
+                    [Patron.id]
+                ).select_from(
+                    join(
+                        Hold,
+                        Patron,
+                        Patron.id == Hold.patron_id,
+                        Patron.library_id == library.id,
+                    )
+                )
+            ).alias()
+
+
+            active_loans_or_holds_patron_count_query = select(
+                [func.count(distinct(active_patrons.c.id))]
+            ).select_from(
+                active_patrons
             )
-        ).alias()
 
+            result = self._db.execute(active_loans_or_holds_patron_count_query)
+            active_loans_or_holds_patron_count = [r[0] for r in result][0]
 
-        active_loans_or_holds_patron_count_query = select(
-            [func.count(distinct(active_patrons.c.id))]
-        ).select_from(
-            active_patrons
-        )
-
-        result = self._db.execute(active_loans_or_holds_patron_count_query)
-        active_loans_or_holds_patron_count = [r[0] for r in result][0]
-
-        loan_count = self._db.query(
-            Loan
-        ).filter(
-            Loan.end >= datetime.now()
-        ).count()
-
-        hold_count = self._db.query(Hold).count()
-
-        data_sources = dict(
-            overdrive=DataSource.OVERDRIVE,
-            bibliotheca=DataSource.BIBLIOTHECA,
-            axis360=DataSource.AXIS_360,
-        )
-        vendor_counts = dict()
-
-        for key, data_source in data_sources.iteritems():
-            data_source_count = self._db.query(
-                LicensePool
+            loan_count = self._db.query(
+                Loan
             ).join(
-                DataSource
+                Loan.patron
             ).filter(
-                LicensePool.licenses_owned > 0
+                Patron.library_id == library.id
             ).filter(
-                DataSource.name == data_source
+                Loan.end >= datetime.now()
             ).count()
 
-            if data_source_count > 0:
-                vendor_counts[key] = data_source_count
+            hold_count = self._db.query(
+                Hold
+            ).join(
+                Hold.patron
+            ).filter(
+                Patron.library_id == library.id
+            ).count()
 
-        open_access_count = self._db.query(
-            LicensePool
-         ).filter(
-            LicensePool.open_access == True
-         ).count()
+            title_count = 0
+            license_count = 0
+            available_license_count = 0
 
-        if open_access_count > 0:
-            vendor_counts['open_access'] = open_access_count
+            library_collection_counts = dict()
+            for collection in library.all_collections:
+                counts = collection_counts[collection.name]
+                library_collection_counts[collection.name] = counts
+                title_count += counts.get("licensed_titles", 0) + counts.get("open_access_titles", 0)
+                license_count += counts.get("licenses", 0)
+                available_license_count += counts.get("available_licenses", 0)
 
-        title_count = self._db.query(LicensePool).count()
+            library_stats[library.short_name] = dict(
+                patrons=dict(
+                    total=patron_count,
+                    with_active_loans=active_loans_patron_count,
+                    with_active_loans_or_holds=active_loans_or_holds_patron_count,
+                    loans=loan_count,
+                    holds=hold_count,
+                ),
+                inventory=dict(
+                    titles=title_count,
+                    licenses=license_count,
+                    available_licenses=available_license_count,
+                ),
+                collections=library_collection_counts,
+            )
 
-        # The sum queries return None instead of 0 if there are
-        # no license pools in the db.
+        total_patrons = sum([
+            stats.get("patrons", {}).get("total", 0)
+            for stats in library_stats.values()])
+        total_with_active_loans = sum([
+            stats.get("patrons", {}).get("with_active_loans", 0)
+            for stats in library_stats.values()])
+        total_with_active_loans_or_holds = sum([
+            stats.get("patrons", {}).get("with_active_loans_or_holds", 0)
+            for stats in library_stats.values()])
 
-        license_count = self._db.query(
-            func.sum(LicensePool.licenses_owned)
-        ).filter(
-            LicensePool.open_access == False,
-        ).all()[0][0] or 0
+        # TODO: show shared collection loans and holds for libraries outside this
+        # circ manager?
+        total_loans = sum([
+            stats.get("patrons", {}).get("loans", 0)
+            for stats in library_stats.values()])
+        total_holds = sum([
+            stats.get("patrons", {}).get("holds", 0)
+            for stats in library_stats.values()])
 
-        available_license_count = self._db.query(
-            func.sum(LicensePool.licenses_available)
-        ).filter(
-            LicensePool.open_access == False,
-        ).all()[0][0] or 0
-
-        return dict(
+        library_stats["total"] = dict(
             patrons=dict(
-                total=patron_count,
-                with_active_loans=active_loans_patron_count,
-                with_active_loans_or_holds=active_loans_or_holds_patron_count,
-                loans=loan_count,
-                holds=hold_count,
+                total=total_patrons,
+                with_active_loans=total_with_active_loans,
+                with_active_loans_or_holds=total_with_active_loans_or_holds,
+                loans=total_loans,
+                holds=total_holds,
             ),
             inventory=dict(
-                titles=title_count,
-                licenses=license_count,
-                available_licenses=available_license_count,
+                titles=total_title_count,
+                licenses=total_license_count,
+                available_licenses=total_available_license_count,
             ),
-            vendors=vendor_counts,
+            collections=collection_counts,
         )
+
+        return library_stats
 
     def circulation_events(self):
         annotator = AdminAnnotator(self.circulation, flask.request.library)
@@ -2268,16 +2353,7 @@ class SettingsController(AdminCirculationManagerController):
         if flask.request.method == 'GET':
             collections = []
             for c in self._db.query(Collection).order_by(Collection.name).all():
-                visible = False
-                for library in c.libraries:
-                    if flask.request.admin and flask.request.admin.is_librarian(library):
-                        visible = True
-                # If the collection's not associated with any libraries, only system
-                # admins can see it.
-                if not c.libraries:
-                    if flask.request.admin and flask.request.admin.is_system_admin():
-                        visible = True
-                if not visible:
+                if not flask.request.admin or not flask.request.admin.can_see_collection(c):
                     continue
 
                 collection = dict(
@@ -2296,6 +2372,7 @@ class SettingsController(AdminCirculationManagerController):
                         libraries.append(self._get_integration_library_info(
                                 c.external_integration, library, protocol))
                     collection['libraries'] = libraries
+
                     for setting in protocol.get("settings"):
                         key = setting.get("key")
                         if key not in collection["settings"]:
@@ -2306,6 +2383,7 @@ class SettingsController(AdminCirculationManagerController):
                             else:
                                 value = c.external_integration.setting(key).value
                             collection["settings"][key] = value
+
                 collections.append(collection)
 
             return dict(
@@ -2428,14 +2506,19 @@ class SettingsController(AdminCirculationManagerController):
         else:
             return Response(unicode(collection.id), 200)
 
-    def collection_library_registrations(self, do_get=HTTP.debuggable_get,
-                                 do_post=HTTP.debuggable_post, key=None):
+    def collection_library_registrations(
+            self, do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post,
+            key=None, registration_class=Registration
+    ):
+        """Use the ODPS Directory Registration Protocol to register a
+        Collection with its remote source of truth.
+
+        :param registration_class: Mock class to use instead of Registration.
+        """
         self.require_system_admin()
-        # TODO: This method might be able to share code with discovery_service_library_registrations.
+        # TODO: This method can share some code with
+        # discovery_service_library_registrations.
         shared_collection_provider_apis = [SharedODLAPI]
-        LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
-        SUCCESS = u"success"
-        FAILURE = u"failure"
 
         if flask.request.method == "GET":
             collections = []
@@ -2444,7 +2527,7 @@ class SettingsController(AdminCirculationManagerController):
                 for library in collection.libraries:
                     library_info = dict(short_name=library.short_name)
                     status = ConfigurationSetting.for_library_and_externalintegration(
-                        self._db, LIBRARY_REGISTRATION_STATUS, library, collection.external_integration,
+                        self._db, Registration.LIBRARY_REGISTRATION_STATUS, library, collection.external_integration,
                     ).value
                     if status:
                         library_info["status"] = status
@@ -2471,14 +2554,15 @@ class SettingsController(AdminCirculationManagerController):
             if not library:
                 return NO_SUCH_LIBRARY
 
-            status = ConfigurationSetting.for_library_and_externalintegration(
-                self._db, LIBRARY_REGISTRATION_STATUS, library, collection.external_integration)
-            status.value = FAILURE
-            registered = self._register_library(collection.external_account_id, library, collection.external_integration,
-                                                do_get=do_get, do_post=do_post, key=key)
+            registry = RemoteRegistry(collection.external_integration)
+            registration = registration_class(registry, library)
+            registered = registration.push(
+                Registration.PRODUCTION_STAGE, self.url_for,
+                catalog_url=collection.external_account_id,
+                do_get=do_get, do_post=do_post, key=key
+            )
             if isinstance(registered, ProblemDetail):
                 return registered
-            status.value = SUCCESS
         return Response(unicode(_("Success")), 200)
 
     def _mirror_integration_setting(self):
@@ -3277,10 +3361,12 @@ class SettingsController(AdminCirculationManagerController):
         )
 
     def discovery_services(self):
+        """List discovery services, and allow the admin to create new ones."""
         self.require_system_admin()
+        opds_registration = ExternalIntegration.OPDS_REGISTRATION
         protocols = [
             {
-                "name": ExternalIntegration.OPDS_REGISTRATION,
+                "name": opds_registration,
                 "sitewide": True,
                 "settings": [
                     { "key": ExternalIntegration.URL, "label": _("URL") },
@@ -3289,23 +3375,33 @@ class SettingsController(AdminCirculationManagerController):
             }
         ]
 
+        goal = ExternalIntegration.DISCOVERY_GOAL
         if flask.request.method == 'GET':
-            registries = self._db.query(ExternalIntegration).filter(ExternalIntegration.goal==ExternalIntegration.DISCOVERY_GOAL)
-            if registries.count() == 0:
-                # Set up the default library registry if one doesn't exist yet.
-                default, ignore = get_one_or_create(
-                    self._db, ExternalIntegration,
-                    goal=ExternalIntegration.DISCOVERY_GOAL,
-                    protocol=ExternalIntegration.OPDS_REGISTRATION,
-                    name="Library Simplified Registry")
-                default.url = "https://libraryregistry.librarysimplified.org"
+            registries = list(
+                RemoteRegistry.for_protocol_and_goal(
+                    self._db, opds_registration, goal
+                )
+            )
+            if not registries:
+                # There are no registries at all. Set up the default
+                # library registry.
+                integration, is_new = get_one_or_create(
+                    self._db, ExternalIntegration, protocol=opds_registration,
+                    goal=goal
+                )
+                if is_new:
+                    integration.url = (
+                        RemoteRegistry.DEFAULT_LIBRARY_REGISTRY_URL
+                    )
 
-            services = self._get_integration_info(ExternalIntegration.DISCOVERY_GOAL, protocols)
+            services = self._get_integration_info(goal, protocols)
             return dict(
                 discovery_services=services,
                 protocols=protocols,
             )
 
+        # Beyond this point the user wants to create a new discovery service,
+        # or edit an existing one.
         id = flask.request.form.get("id")
 
         protocol = flask.request.form.get("protocol")
@@ -3314,205 +3410,104 @@ class SettingsController(AdminCirculationManagerController):
 
         is_new = False
         if id:
-            service = get_one(self._db, ExternalIntegration, id=id, goal=ExternalIntegration.DISCOVERY_GOAL)
-            if not service:
+            registry = RemoteRegistry.for_integration_id(self._db, id, goal)
+            if not registry:
                 return MISSING_SERVICE
-            if protocol != service.protocol:
+            integration = registry.integration
+            if protocol != integration.protocol:
                 return CANNOT_CHANGE_PROTOCOL
         else:
-            service, is_new = self._create_integration(
-                protocols, protocol, ExternalIntegration.DISCOVERY_GOAL
+            integration, is_new = self._create_integration(
+                protocols, protocol, goal
             )
-            if isinstance(service, ProblemDetail):
-                return service
+            if isinstance(integration, ProblemDetail):
+                return integration
 
         name = flask.request.form.get("name")
         if name:
-            if service.name != name:
+            if integration.name != name:
+                # Change the name if possible.
                 service_with_name = get_one(self._db, ExternalIntegration, name=name)
                 if service_with_name:
                     self._db.rollback()
                     return INTEGRATION_NAME_ALREADY_IN_USE
-            service.name = name
+            integration.name = name
 
         [protocol] = [p for p in protocols if p.get("name") == protocol]
-        result = self._set_integration_settings_and_libraries(service, protocol)
+        result = self._set_integration_settings_and_libraries(integration, protocol)
         if isinstance(result, ProblemDetail):
             return result
 
         if is_new:
-            return Response(unicode(service.id), 201)
+            return Response(unicode(integration.id), 201)
         else:
-            return Response(unicode(service.id), 200)
+            return Response(unicode(integration.id), 200)
 
     def discovery_service(self, service_id):
+        """Delete a discover service."""
         return self._delete_integration(
             service_id, ExternalIntegration.DISCOVERY_GOAL
         )
 
-    def discovery_service_library_registrations(self, do_get=HTTP.debuggable_get,
-                              do_post=HTTP.debuggable_post, key=None):
-        LIBRARY_REGISTRATION_STATUS = u"library-registration-status"
-        SUCCESS = u"success"
-        FAILURE = u"failure"
+    def discovery_service_library_registrations(
+            self, do_get=HTTP.debuggable_get,
+            do_post=HTTP.debuggable_post, key=None,
+            registration_class=None
+    ):
+        """List the libraries that have been registered with a specific
+        RemoteRegistry, and allow the admin to register a library with
+        a RemoteRegistry.
+
+        :param registration_class: Mock class to use instead of Registration.
+        """
 
         self.require_system_admin()
-
+        goal = ExternalIntegration.DISCOVERY_GOAL
         if flask.request.method == "GET":
+            # Make a list of all discovery services, each with the
+            # list of libraries registered with that service and the
+            # status of the registration.
             services = []
-            for service in self._db.query(ExternalIntegration).filter(
-                ExternalIntegration.goal==ExternalIntegration.DISCOVERY_GOAL):
-
+            for registry in RemoteRegistry.for_protocol_and_goal(
+                    self._db, ExternalIntegration.OPDS_REGISTRATION, goal
+            ):
                 libraries = []
-                for library in service.libraries:
+                for registration in registry.registrations:
+                    library = registration.library
                     library_info = dict(short_name=library.short_name)
-                    status = ConfigurationSetting.for_library_and_externalintegration(
-                        self._db, LIBRARY_REGISTRATION_STATUS, library, service).value
+                    status = registration.status_field.value
                     if status:
                         library_info["status"] = status
                         libraries.append(library_info)
 
                 services.append(
                     dict(
-                        id=service.id,
+                        id=registry.integration.id,
                         libraries=libraries,
                     )
                 )
-
             return dict(library_registrations=services)
 
         if flask.request.method == "POST":
-
+            # Attempt to register a library with a RemoteRegistry.
             integration_id = flask.request.form.get("integration_id")
             library_short_name = flask.request.form.get("library_short_name")
+            stage = flask.request.form.get("registration_stage") or Registration.TESTING_STAGE
 
-            integration = get_one(self._db, ExternalIntegration,
-                                  goal=ExternalIntegration.DISCOVERY_GOAL,
-                                  id=integration_id)
-            if not integration:
+            registry = RemoteRegistry.for_integration_id(
+                self._db, integration_id, goal
+            )
+            if not registry:
                 return MISSING_SERVICE
 
             library = get_one(self._db, Library, short_name=library_short_name)
             if not library:
                 return NO_SUCH_LIBRARY
 
-            integration.libraries += [library]
-            status = ConfigurationSetting.for_library_and_externalintegration(
-                self._db, LIBRARY_REGISTRATION_STATUS, library, integration)
-            status.value = FAILURE
-            registered = self._register_library(integration.url, library, integration, do_get=do_get, do_post=do_post, key=key)
+            registration = registration_class(registry, library)
+            registered = registration.push(
+                stage, self.url_for, do_get=do_get, do_post=do_post, key=key
+            )
             if isinstance(registered, ProblemDetail):
                 return registered
-            status.value = SUCCESS
-
-        return Response(unicode(_("Success")), 200)
-
-    def _decrypt_shared_secret(self, encryptor, shared_secret):
-        """Attempt to decrypt an encrypted shared secret.
-
-        :return: The decrypted shared secret, or a ProblemDetail if
-        it could not be decrypted.
-        """
-        try:
-            shared_secret = encryptor.decrypt(base64.b64decode(shared_secret))
-        except ValueError, e:
-            return SHARED_SECRET_DECRYPTION_ERROR.detailed(
-                _("Could not decrypt shared secret %s") % shared_secret
-            )
-        return shared_secret
-
-    def _register_library(self, catalog_url, library, integration,
-                          do_get=HTTP.debuggable_get, do_post=HTTP.debuggable_post, key=None):
-        """Attempt to register a library with an external service,
-        such as a library registry or a shared collection on another
-        circulation manager.
-
-        Note: this method does a commit in order to set a public
-        key for the external service to request.
-        """
-        response = do_get(catalog_url)
-        if isinstance(response, ProblemDetail):
-            return response
-        type = response.headers.get("Content-Type")
-        if type and type.startswith('application/opds+json'):
-            # This is an OPDS 2 catalog.
-            catalog = json.loads(response.content)
-            links = catalog.get("links", [])
-            vendor_id = catalog.get("metadata", {}).get("adobe_vendor_id")
-        elif type and type.startswith("application/atom+xml;profile=opds-catalog"):
-            # This is an OPDS 1 feed.
-            feed = feedparser.parse(response.content)
-            links = feed.get("feed", {}).get("links", [])
-            vendor_id = None
-        else:
-            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not return OPDS.", url=catalog_url))
-
-        register_url = None
-        for link in links:
-            if link.get("rel") == "register":
-                register_url = link.get("href")
-                break
-        if not register_url:
-            return REMOTE_INTEGRATION_FAILED.detailed(_("The service at %(url)s did not provide a register link.", url=catalog_url))
-
-        # Store the vendor id as a ConfigurationSetting on the registry.
-        if vendor_id:
-            ConfigurationSetting.for_externalintegration(
-                AuthdataUtility.VENDOR_ID_KEY, integration).value = vendor_id
-
-        # Generate a public key for the library.
-        if not key:
-            key = RSA.generate(2048)
-        public_key = key.publickey().exportKey()
-        encryptor = PKCS1_OAEP.new(key)
-
-        ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = public_key
-        # Commit so the public key will be there when the registry gets the
-        # OPDS Authentication document.
-        self._db.commit()
-
-        auth_document_url = self.url_for(
-            "authentication_document",
-            library_short_name=library.short_name
-        )
-        # Allow 401 so we can provide a more useful error message.
-        response = do_post(
-            register_url, dict(url=auth_document_url), timeout=60,
-            allowed_response_codes=["2xx", "3xx", "401"],
-        )
-        if isinstance(response, ProblemDetail):
-            return response
-        if response.status_code == 401:
-            if response.headers.get("Content-Type") == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
-                problem = json.loads(response.content)
-                return INTEGRATION_ERROR.detailed(
-                    _("Remote service returned: \"%(problem)s\"", problem=problem.get("detail")))
-            else:
-                return INTEGRATION_ERROR.detailed(
-                    _("Remote service returned: \"%(problem)s\"", problem=response.content))
-
-        catalog = json.loads(response.content)
-
-        # Since we generated a public key, the catalog should provide credentials
-        # for future authenticated communication, e.g. through Short Client Tokens
-        # or authenticated API requests.
-        short_name = catalog.get("metadata", {}).get("short_name")
-        shared_secret = catalog.get("metadata", {}).get("shared_secret")
-
-        if short_name:
-            ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.USERNAME, library, integration
-            ).value = short_name
-        if shared_secret:
-            shared_secret = self._decrypt_shared_secret(encryptor, shared_secret)
-            if isinstance(shared_secret, ProblemDetail):
-                return shared_secret
-
-            ConfigurationSetting.for_library_and_externalintegration(
-                self._db, ExternalIntegration.PASSWORD, library, integration
-            ).value = shared_secret
-        integration.libraries += [library]
-
-        # We're done with the key, so remove the setting.
-        ConfigurationSetting.for_library(Configuration.PUBLIC_KEY, library).value = None
-        return True
+            return Response(unicode(_("Success")), 200)

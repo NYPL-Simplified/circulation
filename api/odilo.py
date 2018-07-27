@@ -24,6 +24,10 @@ from core.model import (
     Identifier
 )
 
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
 from core.monitor import (
     CollectionMonitor,
 )
@@ -32,7 +36,7 @@ from core.util.http import HTTP
 from circulation_exceptions import *
 
 
-class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
+class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI, HasSelfTests):
     NAME = ExternalIntegration.ODILO
     DESCRIPTION = _("Integrate an Odilo library collection.")
     SETTINGS = [
@@ -67,6 +71,31 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
                 collection, api_class=self
             )
         )
+
+    def external_integration(self, _db):
+        return self.collection.external_integration
+
+    def _run_self_tests(self, _db):
+        result = self.run_test(
+            "Obtaining a sitewide access token", self.check_creds,
+            force_refresh=True
+        )
+        yield result
+        if not result.success:
+            # We couldn't get a sitewide token, so there is no
+            # point in continuing.
+            return
+
+        for result in self.default_patrons(self.collection):
+            if isinstance(result, SelfTestResult):
+                yield result
+                continue
+
+            library, patron, pin = result
+            task = "Viewing the active loans for the test patron for library %s" % library.name
+            yield self.run_test(
+                task, self.get_patron_checkouts, patron, pin
+            )
 
     def patron_request(self, patron, pin, url, extra_headers={}, data=None, exception_on_401=False, method=None):
         """Make an HTTP request on behalf of a patron.
@@ -111,16 +140,23 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
         return url
 
     def get_patron_credential(self, patron, pin):
-        """Create an OAuth token for the given patron."""
+        """Create an OAuth token for the given patron.
+
+        TODO: This code does nothing and should be removed.
+        """
 
         def refresh(credential):
             return self.get_patron_access_token(credential, patron, pin)
+        return self._patron_credential_lookup(patron, refresh)
 
+    def _patron_credential_lookup(self, patron, refresh):
         return Credential.lookup(self._db, DataSource.ODILO, "OAuth Token", patron, refresh)
 
     def get_patron_access_token(self, credential, patron, pin):
         """Request an OAuth bearer token that allows us to act on
         behalf of a specific patron.
+
+        TODO: This code does nothing and should be removed.
         """
 
         self.client_key = patron
@@ -157,7 +193,6 @@ class OdiloAPI(BaseOdiloAPI, BaseCirculationAPI):
             patron, pin, self.CHECKOUT_ENDPOINT.format(recordId=record_id),
             extra_headers={'Content-Type': 'application/x-www-form-urlencoded'},
             data=payload)
-
         if response.content:
             response_json = response.json()
             if response.status_code == 404:

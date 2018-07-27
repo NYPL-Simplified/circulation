@@ -12,8 +12,14 @@ from sqlalchemy.orm.exc import (
 )
 from flask_babel import lazy_gettext as _
 
-from config import CannotLoadConfiguration
+from config import (
+    CannotLoadConfiguration,
+    IntegrationException,
+)
 
+from core.selftest import (
+    HasSelfTests,
+)
 from core.opds_import import MetadataWranglerOPDSLookup
 from core.metadata_layer import (
     Metadata,
@@ -43,9 +49,10 @@ class NYTAPI(object):
         return d.strftime(self.DATE_FORMAT)
 
 
-class NYTBestSellerAPI(NYTAPI):
+class NYTBestSellerAPI(NYTAPI, HasSelfTests):
     
     PROTOCOL = ExternalIntegration.NYT
+    GOAL = ExternalIntegration.METADATA_GOAL
     NAME = _("NYT Best Seller API")
     CARDINALITY = 1
 
@@ -67,28 +74,43 @@ class NYTBestSellerAPI(NYTAPI):
 
     @classmethod
     def from_config(cls, _db, **kwargs):
-        integration = ExternalIntegration.lookup(
-            _db, ExternalIntegration.NYT,
-            ExternalIntegration.METADATA_GOAL
-        )
+        integration = cls.external_integration(_db)
 
         if not integration:
             message = "No ExternalIntegration found for the NYT."
             raise CannotLoadConfiguration(message)
 
-        if not integration.password:
-            message = "NYT integration improperly configured."
-            raise CannotLoadConfiguration(message)
-
         return cls(_db, api_key=integration.password, **kwargs)
 
     def __init__(self, _db, api_key=None, do_get=None, metadata_client=None):
+        self.log = logging.getLogger("NYT API")
         self._db = _db
+        if not api_key:
+            raise CannotLoadConfiguration("No NYT API key is specified")
         self.api_key = api_key
         self.do_get = do_get or Representation.simple_http_get
         if not metadata_client:
-            metadata_client = MetadataWranglerOPDSLookup.from_config(self._db)
+            try:
+                metadata_client = MetadataWranglerOPDSLookup.from_config(
+                    self._db
+                )
+            except CannotLoadConfiguration, e:
+                self.log.error(
+                    "Metadata wrangler integration is not configured, proceeding without one."
+                )
         self.metadata_client = metadata_client
+
+    @classmethod
+    def external_integration(cls, _db):
+        return ExternalIntegration.lookup(
+            _db, ExternalIntegration.NYT,
+            ExternalIntegration.METADATA_GOAL
+        )
+
+    def _run_self_tests(self, _db):
+        yield self.run_test(
+            "Getting list of best-seller lists", self.list_of_lists
+        )
 
     @property
     def source(self):
@@ -108,8 +130,25 @@ class NYTBestSellerAPI(NYTAPI):
         representation, cached = Representation.get(
             self._db, url, do_get=self.do_get, max_age=max_age, debug=True,
             pause_before=0.1)
-        content = json.loads(representation.content)
-        return content
+        status = representation.status_code
+        if status == 200:
+            # Everything's fine.
+            content = json.loads(representation.content)
+            return content
+
+        diagnostic = "Response from %s was: %r" % (
+            url, representation.content
+        )
+
+        if status == 403:
+            raise IntegrationException(
+                "API authentication failed",
+                "API key is most likely wrong. %s" % diagnostic
+            )
+        else:
+            raise IntegrationException(
+                "Unknown API error (status %s)" % status, diagnostic
+            )
 
     def list_of_lists(self, max_age=LIST_OF_LISTS_MAX_AGE):
         return self.request(self.LIST_NAMES_URL, max_age=max_age)
@@ -144,6 +183,7 @@ class NYTBestSellerAPI(NYTAPI):
             self.update(list, date, self.HISTORICAL_LIST_MAX_AGE)
             self._db.commit()
 
+
 class NYTBestSellerList(list):
 
     def __init__(self, list_info, metadata_client):
@@ -158,6 +198,7 @@ class NYTBestSellerList(list):
         self.frequency = timedelta(frequency)
         self.items_by_isbn = dict()
         self.metadata_client = metadata_client
+        self.log = logging.getLogger("NYT Best-seller list %s" % self.name)
 
     @property
     def all_dates(self):
@@ -183,16 +224,16 @@ class NYTBestSellerList(list):
                     book.get('primary_isbn13') or book.get('primary_isbn10'))
                 if key in self.items_by_isbn:
                     item = self.items_by_isbn[key]
-                    logging.debug("Previously seen ISBN: %r", key)
+                    self.log.debug("Previously seen ISBN: %r", key)
                 else:
                     item = NYTBestSellerListTitle(li_data)
                     self.items_by_isbn[key] = item
                     self.append(item)
-                    # logging.debug("Newly seen ISBN: %r, %s", key, len(self))
+                    # self.log.debug("Newly seen ISBN: %r, %s", key, len(self))
             except ValueError, e:
                 # Should only happen when the book has no identifier, which...
                 # should never happen.
-                logging.error("No identifier for %r", li_data)
+                self.log.error("No identifier for %r", li_data)
                 item = None
                 continue              
 

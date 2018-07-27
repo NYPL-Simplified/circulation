@@ -212,7 +212,7 @@ class TestCirculationAPI(DatabaseTest):
         # This is the expected behavior in most cases--you tried to
         # renew the loan and failed because it's not time yet.
         self.remote.queue_checkout(CannotRenew())
-        assert_raises_regexp(CannotRenew, '^$', self.borrow)
+        assert_raises_regexp(CannotRenew, 'CannotRenew', self.borrow)
 
     def test_attempt_renew_with_local_loan_and_no_available_copies(self):
         """We have a local loan and a remote loan but the patron tried to

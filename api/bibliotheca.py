@@ -19,6 +19,11 @@ from circulation import (
     LoanInfo,
     BaseCirculationAPI,
 )
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
+
 from core.model import (
     CirculationEvent,
     Collection,
@@ -55,7 +60,7 @@ from core.bibliotheca import (
 from circulation_exceptions import *
 from core.analytics import Analytics
 
-class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
+class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI, HasSelfTests):
 
     NAME = ExternalIntegration.BIBLIOTHECA
     SETTINGS = [
@@ -86,6 +91,34 @@ class BibliothecaAPI(BaseBibliothecaAPI, BaseCirculationAPI):
     internal_format_to_delivery_mechanism = dict(
         [v,k] for k, v in delivery_mechanism_to_internal_format.items()
     )
+
+    def external_integration(self, _db):
+        return self.collection.external_integration
+
+    def _run_self_tests(self, _db):
+        def _count_events():
+            now = datetime.datetime.utcnow()
+            five_minutes_ago = now - datetime.timedelta(minutes=5)
+            count = len(list(self.get_events_between(five_minutes_ago, now)))
+            return "Found %d event(s)" % count
+
+        yield self.run_test(
+            "Asking for circulation events for the last five minutes",
+            _count_events
+        )
+
+        for result in self.default_patrons(self.collection):
+            if isinstance(result, SelfTestResult):
+                yield result
+                continue
+            library, patron, pin = result
+            def _count_activity():
+                result = self.patron_activity(patron, pin)
+                return "Found %d loans/holds" % len(result)
+            yield self.run_test(
+                "Checking activity for test patron for library %s" % library.name,
+                _count_activity
+            )
 
     def get_events_between(self, start, end, cache_result=False):
         """Return event objects for events between the given times."""

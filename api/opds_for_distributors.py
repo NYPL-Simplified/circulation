@@ -26,6 +26,7 @@ from core.model import (
     get_one_or_create,
 )
 from core.metadata_layer import FormatData
+from core.selftest import HasSelfTests
 from circulation import (
     BaseCirculationAPI,
     LoanInfo,
@@ -36,9 +37,10 @@ from core.testing import (
     DatabaseTest,
     MockRequestsResponse,
 )
+from config import IntegrationException
 from circulation_exceptions import *
 
-class OPDSForDistributorsAPI(BaseCirculationAPI):
+class OPDSForDistributorsAPI(BaseCirculationAPI, HasSelfTests):
     NAME = "OPDS for Distributors"
     DESCRIPTION = _("Import books from a distributor that requires authentication to get the OPDS feed and download books.")
 
@@ -61,11 +63,22 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
 
     def __init__(self, _db, collection):
         self.collection_id = collection.id
+        self.external_integration_id = collection.external_integration.id
         self.data_source_name = collection.external_integration.setting(Collection.DATA_SOURCE_NAME_SETTING).value
         self.username = collection.external_integration.username
         self.password = collection.external_integration.password
         self.feed_url = collection.external_account_id
         self.auth_url = None
+
+    def external_integration(self, _db):
+        return get_one(_db, ExternalIntegration,
+                       id=self.external_integration_id)
+
+    def _run_self_tests(self, _db):
+        """Try to get a token."""
+        yield self.run_test(
+            "Negotiate a fulfillment token", self._get_token, _db
+        )
 
     def _request_with_timeout(self, method, url, *args, **kwargs):
         """Wrapper around HTTP.request_with_timeout to be overridden for tests."""
@@ -180,9 +193,7 @@ class OPDSForDistributorsAPI(BaseCirculationAPI):
         )
 
     def fulfill(self, patron, pin, licensepool, internal_format):
-        # Download the book from the appropriate acquisition link and return its content.
-        # TODO: Implement https://github.com/NYPL-Simplified/Simplified/wiki/BearerTokenPropagation#advertising-bearer-token-propagation
-        # instead.
+        """Retrieve a bearer token that can be used to download the book."""
 
         links = licensepool.identifier.links
         # Find the acquisition link with the right media type.
