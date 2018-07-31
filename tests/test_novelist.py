@@ -368,11 +368,11 @@ class TestNoveListAPI(DatabaseTest):
         items = self.novelist.get_items_from_query(self._default_library)
 
         item = dict(
-            Author=contributor[0]._sort_name,
-            Title=edition.title,
-            MediaType=self.novelist.medium_to_book_format_type_values.get(edition.medium, ""),
-            ISBN=edition.primary_identifier.identifier,
-            Narrator=""
+            author=contributor[0]._sort_name,
+            title=edition.title,
+            mediaType=self.novelist.medium_to_book_format_type_values.get(edition.medium, ""),
+            isbn=edition.primary_identifier.identifier,
+            narrator=""
         )
 
         eq_(items, [item])
@@ -403,12 +403,12 @@ class TestNoveListAPI(DatabaseTest):
         eq_(existingItem, None)
         eq_(
             newItem,
-            {"ISBN": "23456",
-            "MediaType": "EBook",
-            "Title": "Title 1",
-            "Role": "Author",
-            "Author": "Author 1",
-            "Narrator": ""}
+            {"isbn": "23456",
+            "mediaType": "EBook",
+            "title": "Title 1",
+            "role": "Author",
+            "author": "Author 1",
+            "narrator": ""}
         )
         eq_(addItem, True)
 
@@ -417,12 +417,12 @@ class TestNoveListAPI(DatabaseTest):
         )
         eq_(currentIdentifier, item_from_query[2])
         eq_(existingItem,
-            {"ISBN": "23456",
-            "MediaType": "EBook",
-            "Title": "Title 1",
-            "Author": "Author 2",
-            "Role": "Primary Author",
-            "Narrator": ""}
+            {"isbn": "23456",
+            "mediaType": "EBook",
+            "title": "Title 1",
+            "author": "Author 2",
+            "role": "Primary Author",
+            "narrator": ""}
         )
         eq_(newItem, None)
         eq_(addItem, False)
@@ -453,19 +453,19 @@ class TestNoveListAPI(DatabaseTest):
         result = self.novelist.make_novelist_data_object(bad_data)
 
         eq_(result, {
-            "Customer": "library:yep",
-            "Records": []
+            "customer": "library:yep",
+            "records": []
         })
 
         data = [
-            {"ISBN":"12345", "MediaType": "http://schema.org/EBook", "Title": "Book 1", "Author": "Author 1" },
-            {"ISBN":"12346", "MediaType": "http://schema.org/EBook", "Title": "Book 2", "Author": "Author 2" },
+            {"isbn":"12345", "mediaType": "http://schema.org/EBook", "title": "Book 1", "author": "Author 1" },
+            {"isbn":"12346", "mediaType": "http://schema.org/EBook", "title": "Book 2", "author": "Author 2" },
         ]
         result = self.novelist.make_novelist_data_object(data)
 
         eq_(result, {
-            "Customer": "library:yep",
-            "Records": data
+            "customer": "library:yep",
+            "records": data
         })
 
     def mockHTTPPut(self, *args, **kwargs):
