@@ -87,7 +87,7 @@ class NoveListAPI(object):
 
     medium_to_book_format_type_values = {
         Edition.BOOK_MEDIUM : u"EBook",
-        Edition.AUDIO_MEDIUM : u"AudiobookFormat",
+        Edition.AUDIO_MEDIUM : u"Audiobook",
     }
 
     @classmethod
@@ -477,7 +477,9 @@ class NoveListAPI(object):
         i1 = aliased(Identifier)
         i2 = aliased(Identifier)
         roles = list(Contributor.AUTHOR_ROLES)
-        roles.append(Contributor.NARRATOR_ROLE)
+        # TODO: We should handle the Narrator role properly, by
+        # setting the 'narrator' field in the NoveList API document.
+        # roles.append(Contributor.NARRATOR_ROLE)
 
         isbnQuery = select(
             [i1.identifier, i1.type, i2.identifier,
@@ -516,12 +518,12 @@ class NoveListAPI(object):
 
             if addItem and existingItem:
                 # The Role property isn't needed in the actual request.
-                del existingItem['Role']
+                del existingItem['role']
                 items.append(existingItem)
 
         # For the case when there's only one item in `result`
         if newItem:
-            del newItem['Role']
+            del newItem['role']
             items.append(newItem)
 
         return items
@@ -539,31 +541,34 @@ class NoveListAPI(object):
             isbn = object[0]
         elif object[2] is not None:
             isbn = object[2]
+        else:
+            # We cannot find an ISBN for this work -- probably due to
+            # a data error.
+            return (None, None, None, False)
 
         role = object[5]
         author = object[6] if role in Contributor.AUTHOR_ROLES else ""
 
         # If we encounter an existing ISBN and its role is "Primary Author",
         # then that value overrides the existing Author property.
+        #
+        # TODO: add 'narrator' field when we encounter a Narrator role.
         if isbn == currentIdentifier and existingItem:
             if role == Contributor.PRIMARY_AUTHOR_ROLE:
-                existingItem['Author'] = author
-                existingItem['Role'] = role
+                existingItem['author'] = author
+                existingItem['role'] = role
             return (currentIdentifier, existingItem, None, False)
         else:
             # If we encounter a new ISBN, we take whatever author value is
             # initially given to us.
             title = object[3]
             mediaType = self.medium_to_book_format_type_values.get(object[4], "")
-            narrator = object[6] if role == Contributor.NARRATOR_ROLE else ""
-
             newItem = dict(
-                ISBN=isbn,
-                Title=title,
-                MediaType=mediaType,
-                Author=author,
-                Role=role,
-                Narrator=narrator
+                isbn=isbn,
+                title=title,
+                mediaType=mediaType,
+                author=author,
+                role=role,
             )
             return (isbn, existingItem, newItem, True)
 
@@ -572,24 +577,33 @@ class NoveListAPI(object):
 
         content = None
         if items:
+            data=json.dumps(self.make_novelist_data_object(items))
             response = self.put(
                 self.COLLECTION_DATA_API,
                 {
                     "AuthorizedIdentifier": self.AUTHORIZED_IDENTIFIER,
                     "Content-Type": "application/json; charset=utf-8"
                 },
-                data=json.dumps(self.make_novelist_data_object(items))
+                data=data
             )
-
             if (response.status_code == 200):
                 content = json.loads(response.content)
+                logging.info(
+                    "Success from NoveList: %r", response.content
+                )
+            else:
+                logging.error("Data sent was: %r", data)
+                logging.error(
+                    "Error %s from NoveList: %r", response.status_code,
+                    response.content
+                )
 
         return content
 
     def make_novelist_data_object(self, items):
         return {
-            "Customer": "%s:%s" % (self.profile, self.password),
-            "Records": items,
+            "customer": "%s:%s" % (self.profile, self.password),
+            "records": items,
         }
 
     def put(self, url, headers, **kwargs):
