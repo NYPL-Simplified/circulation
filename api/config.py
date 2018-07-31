@@ -80,6 +80,10 @@ class Configuration(CoreConfiguration):
 
     # The library-wide logo setting.
     LOGO = "logo"
+
+    # Settings for geographic areas associated with the library.
+    LIBRARY_FOCUS_AREA = "focus_area"
+    LIBRARY_SERVICE_AREA = "service_area"
    
     # Names of the library-wide link settings.
     TERMS_OF_SERVICE = 'terms-of-service'
@@ -140,12 +144,32 @@ class Configuration(CoreConfiguration):
     LIBRARY_SETTINGS = CoreConfiguration.LIBRARY_SETTINGS + [
         {
             "key": LIBRARY_DESCRIPTION,
-            "label": _("A short description of this library, shown to people who aren't sure they've chosen the right library."),
+            "label": _("A short description of this library."),
+            "description": _("This will be shown to people who aren't sure they've chosen the right library."),
+            "optional": True,
+        },
+        {
+            "key": HELP_EMAIL,
+            "label": _("Patron support email address"),
+            "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
+            "optional": True,
+        },
+        {
+            "key": HELP_WEB,
+            "label": _("Patron support web site"),
+            "description": _("A URL for patrons to get help."),
+            "optional": True,
+        },
+        {
+            "key": HELP_URI,
+            "label": _("Patron support custom integration URI"),
+            "description": _("A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'."),
             "optional": True,
         },
         {
             "key": COPYRIGHT_DESIGNATED_AGENT_EMAIL,
-            "label": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support address will be used."),
+            "label": _("Copyright designated agent email"),
+            "description": _("Patrons of this library should use this email address to send a DMCA notification (or other copyright complaint) to the library.<br/>If no value is specified here, the general patron support address will be used."),
             "optional": True,
         },
         {
@@ -191,6 +215,20 @@ class Configuration(CoreConfiguration):
             "type": "image",
             "optional": True,
             "description": _("The image must be in GIF, PNG, or JPG format, approximately square, no larger than 135x135 pixels, and look good on a white background."),
+        },
+        {
+            "key": LIBRARY_FOCUS_AREA,
+            "label": _("Focus area"),
+            "type": "text",
+            "optional": True,
+            "description": _("The library focuses on serving patrons in this geographic area. In most cases this will be a city name like <code>Springfield, OR</code>."),
+        },
+        {
+            "key": LIBRARY_SERVICE_AREA,
+            "label": _("Service area"),
+            "type": "text",
+            "optional": True,
+            "description": _("The full geographic area served by this library. In most cases this is the same as the focus area and can be left blank, but it may be a larger area such as a US state (which should be indicated by its abbreviation, like <code>OR</code>)."),
         },
         {
             "key": MAX_OUTSTANDING_FINES,
@@ -240,24 +278,6 @@ class Configuration(CoreConfiguration):
             "key": REGISTER,
             "label": _("Patron registration URL"),
             "description": _("A URL where someone who doesn't have a library card yet can sign up for one."),
-            "optional": True,
-        },
-        {
-            "key": HELP_EMAIL,
-            "label": _("Patron support email address"),
-            "description": _("An email address a patron can use if they need help, e.g. 'simplyehelp@yourlibrary.org'."),
-            "optional": True,
-        },
-        {
-            "key": HELP_WEB,
-            "label": _("Patron support web site"),
-            "description": _("A URL for patrons to get help."),
-            "optional": True,
-        },
-        {
-            "key": HELP_URI,
-            "label": _("Patron support custom integration URI"),
-            "description": _("A custom help integration like Helpstack, e.g. 'helpstack:nypl.desk.com'."),
             "optional": True,
         },
         {
