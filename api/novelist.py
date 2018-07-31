@@ -477,6 +477,8 @@ class NoveListAPI(object):
         i1 = aliased(Identifier)
         i2 = aliased(Identifier)
         roles = list(Contributor.AUTHOR_ROLES)
+        # TODO: We should handle the Narrator role properly, by
+        # setting the 'narrator' field in the NoveList API document.
         # roles.append(Contributor.NARRATOR_ROLE)
 
         isbnQuery = select(
