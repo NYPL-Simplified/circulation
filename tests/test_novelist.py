@@ -372,7 +372,6 @@ class TestNoveListAPI(DatabaseTest):
             title=edition.title,
             mediaType=self.novelist.medium_to_book_format_type_values.get(edition.medium, ""),
             isbn=edition.primary_identifier.identifier,
-            narrator=""
         )
 
         eq_(items, [item])
@@ -408,7 +407,7 @@ class TestNoveListAPI(DatabaseTest):
             "title": "Title 1",
             "role": "Author",
             "author": "Author 1",
-            "narrator": ""}
+            }
         )
         eq_(addItem, True)
 
@@ -422,7 +421,7 @@ class TestNoveListAPI(DatabaseTest):
             "title": "Title 1",
             "author": "Author 2",
             "role": "Primary Author",
-            "narrator": ""}
+            }
         )
         eq_(newItem, None)
         eq_(addItem, False)

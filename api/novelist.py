@@ -549,6 +549,8 @@ class NoveListAPI(object):
 
         # If we encounter an existing ISBN and its role is "Primary Author",
         # then that value overrides the existing Author property.
+        #
+        # TODO: add 'narrator' field when we encounter a Narrator role.
         if isbn == currentIdentifier and existingItem:
             if role == Contributor.PRIMARY_AUTHOR_ROLE:
                 existingItem['author'] = author
@@ -559,15 +561,12 @@ class NoveListAPI(object):
             # initially given to us.
             title = object[3]
             mediaType = self.medium_to_book_format_type_values.get(object[4], "")
-            narrator = object[6] if role == Contributor.NARRATOR_ROLE else ""
-
             newItem = dict(
                 isbn=isbn,
                 title=title,
                 mediaType=mediaType,
                 author=author,
                 role=role,
-                narrator=narrator
             )
             return (isbn, existingItem, newItem, True)
 
