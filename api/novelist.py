@@ -87,7 +87,7 @@ class NoveListAPI(object):
 
     medium_to_book_format_type_values = {
         Edition.BOOK_MEDIUM : u"EBook",
-        Edition.AUDIO_MEDIUM : u"AudiobookFormat",
+        Edition.AUDIO_MEDIUM : u"Audiobook",
     }
 
     @classmethod
@@ -477,7 +477,7 @@ class NoveListAPI(object):
         i1 = aliased(Identifier)
         i2 = aliased(Identifier)
         roles = list(Contributor.AUTHOR_ROLES)
-        roles.append(Contributor.NARRATOR_ROLE)
+        # roles.append(Contributor.NARRATOR_ROLE)
 
         isbnQuery = select(
             [i1.identifier, i1.type, i2.identifier,
