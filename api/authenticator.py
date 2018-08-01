@@ -2,6 +2,10 @@ from nose.tools import set_trace
 from config import (
     Configuration,
     CannotLoadConfiguration,
+    IntegrationException,
+)
+from core.selftest import (
+    HasSelfTests,
 )
 from core.opds import OPDSFeed
 from core.model import (
@@ -31,6 +35,7 @@ from sqlalchemy.sql.expression import or_
 from problem_details import *
 from util.patron import PatronUtility
 from api.opds import LibraryAnnotator
+from api.custom_patron_catalog import CustomPatronCatalog
 
 import datetime
 import logging
@@ -426,12 +431,21 @@ class LibraryAuthenticator(object):
     """    
 
     @classmethod
-    def from_config(cls, _db, library, analytics=None):
+    def from_config(cls, _db, library, analytics=None, custom_catalog_source=CustomPatronCatalog):
         """Initialize an Authenticator for the given Library based on its
         configured ExternalIntegrations.
+
+        :param custom_catalog_source: The lookup class for CustomPatronCatalogs.
+        Intended for mocking during tests.
         """
+
+        custom_catalog = custom_catalog_source.for_library(library)
+
         # Start with an empty list of authenticators.
-        authenticator = cls(_db=_db, library=library)
+        authenticator = cls(
+            _db=_db, library=library,
+            authentication_document_annotator=custom_catalog
+        )
 
         # Find all of this library's ExternalIntegrations set up with
         # the goal of authenticating patrons.
@@ -466,7 +480,9 @@ class LibraryAuthenticator(object):
 
     def __init__(self, _db, library, basic_auth_provider=None,
                  oauth_providers=None,
-                 bearer_token_signing_secret=None):
+                 bearer_token_signing_secret=None,
+                 authentication_document_annotator=None,
+    ):
         """Initialize a LibraryAuthenticator from a list of AuthenticationProviders.
 
         :param _db: A database session (probably a scoped session, which is
@@ -490,6 +506,7 @@ class LibraryAuthenticator(object):
         self.library_uuid = library.uuid
         self.library_name = library.name
         self.library_short_name = library.short_name
+        self.authentication_document_annotator=authentication_document_annotator
 
         self.basic_auth_provider = basic_auth_provider
         self.oauth_providers_by_name = dict()
@@ -775,6 +792,18 @@ class LibraryAuthenticator(object):
             dict(rel="start", href=index_url, 
                  type=OPDSFeed.ACQUISITION_FEED_TYPE)
         )
+
+        # If there is a Designated Agent email address, add it as a
+        # link.
+        designated_agent_uri = Configuration.copyright_designated_agent_uri(
+            library
+        )
+        if designated_agent_uri:
+            links.append(
+                dict(rel=Configuration.COPYRIGHT_DESIGNATED_AGENT_REL,
+                     href=designated_agent_uri
+                )
+            )
                 
         # Add a rel="help" link for every type of URL scheme that
         # leads to library-specific help.
@@ -816,6 +845,14 @@ class LibraryAuthenticator(object):
         if description:
             doc['service_description'] = description
 
+        # Add the library's focus area and service area, if either is
+        # specified.
+        focus_area, service_area = self._geographic_areas(library)
+        if focus_area:
+            doc['focus_area'] = focus_area
+        if service_area:
+            doc['service_area'] = service_area
+
         # Add the library's public key, if it has one.
         public_key = ConfigurationSetting.for_library(
             Configuration.PUBLIC_KEY, library).value
@@ -832,7 +869,58 @@ class LibraryAuthenticator(object):
             bucket = disabled
         bucket.append(Configuration.RESERVATIONS_FEATURE)
         doc['features'] = dict(enabled=enabled, disabled=disabled)
+
+        if self.authentication_document_annotator:
+            doc = self.authentication_document_annotator.annotate_authentication_document(
+                library, doc, url_for
+            )
+
         return json.dumps(doc)
+
+    @classmethod
+    def _geographic_areas(cls, library):
+        """Determine the library's focus area and service area.
+
+        :param library: A Library
+        :return: A 2-tuple (focus_area, service_area)
+        """
+        focus_area = cls._geographic_area(
+            Configuration.LIBRARY_FOCUS_AREA, library
+        )
+        service_area = cls._geographic_area(
+            Configuration.LIBRARY_SERVICE_AREA, library
+        )
+
+        # If only one value is provided, both values are considered to
+        # be the same.
+        if focus_area and not service_area:
+            service_area = focus_area
+        if service_area and not focus_area:
+            focus_area = service_area
+        return focus_area, service_area
+
+    @classmethod
+    def _geographic_area(cls, key, library):
+        """Extract a geographic area from a ConfigurationSetting
+        for the given `library`.
+
+        See https://github.com/NYPL-Simplified/Simplified/wiki/Authentication-For-OPDS-Extensions#service_area and #focus_area
+        """
+        setting = ConfigurationSetting.for_library(key, library).value
+        if not setting:
+            return setting
+        if setting == 'everywhere':
+            # This literal string may be served as is.
+            return setting
+        try:
+            # If we can load the setting as JSON, it is either a list
+            # of place names or a GeoJSON object.
+            setting = json.loads(setting)
+        except (ValueError, TypeError), e:
+            # The most common outcome -- treat the value as a single place
+            # name by turning it into a list.
+            setting = [setting]
+        return setting
 
     def create_authentication_headers(self):
         """Create the HTTP headers to return with the OPDS
@@ -991,6 +1079,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
             )
 
         self.library_id = library.id
+        self.external_integration_id = integration.id
         self.log = logging.getLogger(self.NAME)
         self.analytics = analytics
         # If there's a regular expression that maps authorization
@@ -1089,6 +1178,9 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
     
     def library(self, _db):
         return Library.by_id(_db, self.library_id)
+
+    def external_integration(self, _db):
+        return get_one(_db, ExternalIntegration, id=self.external_integration_id)
     
     def authenticated_patron(self, _db, header):
         """Go from a WWW-Authenticate header (or equivalent) to a Patron object.
@@ -1213,7 +1305,7 @@ class AuthenticationProvider(OPDSAuthenticationFlow):
         raise NotImplementedError()
 
 
-class BasicAuthenticationProvider(AuthenticationProvider):
+class BasicAuthenticationProvider(AuthenticationProvider, HasSelfTests):
     """Verify a username/password, obtained through HTTP Basic Auth, with
     a remote source of truth.
     """
@@ -1307,6 +1399,10 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         u"Password": _("Password"),
         u"PIN": _("PIN"),
     }
+
+    IDENTIFIER_BARCODE_FORMAT = "identifier_barcode_format"
+    BARCODE_FORMAT_CODABAR = "Codabar" # Constant defined in the extension
+    BARCODE_FORMAT_NONE = ""
     
     # These identifier and password are supposed to be valid
     # credentials.  If there's a problem using them, there's a problem
@@ -1320,6 +1416,17 @@ class BasicAuthenticationProvider(AuthenticationProvider):
           "description": _("A valid identifier that can be used to test that patron authentication is working."),
         },
         { "key": TEST_PASSWORD, "label": _("Test Password"), "description": _("The password for the test identifier."),
+          "optional": True,
+        },
+        { "key" : IDENTIFIER_BARCODE_FORMAT,
+          "label": _("Patron identifier barcode format"),
+          "description": _("Many libraries render patron identifiers as barcodes on physical library cards. If you specify the barcode format, patrons will be able to scan their library cards with a camera instead of manually typing in their identifiers."),
+          "type": "select",
+          "options": [
+              { "key": BARCODE_FORMAT_CODABAR, "label": _("Patron identifiers are are rendered as barcodes in Codabar format") },
+              { "key": BARCODE_FORMAT_NONE, "label": _("Patron identifiers are not rendered as barcodes") },
+          ],
+          "default": BARCODE_FORMAT_NONE,
           "optional": True,
         },
         { "key": IDENTIFIER_REGULAR_EXPRESSION,
@@ -1422,6 +1529,10 @@ class BasicAuthenticationProvider(AuthenticationProvider):
             self.IDENTIFIER_KEYBOARD).value or self.DEFAULT_KEYBOARD
         self.password_keyboard = integration.setting(
             self.PASSWORD_KEYBOARD).value or self.DEFAULT_KEYBOARD
+
+        self.identifier_barcode_format = integration.setting(
+            self.IDENTIFIER_BARCODE_FORMAT
+        ).value or self.BARCODE_FORMAT_NONE
         
         self.identifier_label = (
             integration.setting(self.IDENTIFIER_LABEL).value
@@ -1444,10 +1555,47 @@ class BasicAuthenticationProvider(AuthenticationProvider):
 
         :return: A 2-tuple (Patron, password)
         """
-        if self.test_username is None or self.test_password is None:
-            return None, None
+        if self.test_username is None:
+            return self.test_username, self.test_password
         header = dict(username=self.test_username, password=self.test_password)
         return self.authenticated_patron(_db, header), self.test_password
+
+    def testing_patron_or_bust(self, _db):
+        """Look up the Patron object reserved for testing purposes,
+        raising CannotLoadConfiguration if none is configured.
+        """
+        if self.test_username is None:
+            raise CannotLoadConfiguration(
+                "No test patron identifier is configured."
+            )
+
+        patron, password = self.testing_patron(_db)
+        if not patron:
+            # We ran to completion but ended up with no patron.
+            raise IntegrationException(
+                "Remote declined to authenticate the test patron.",
+                "The patron may not exist or its password may be wrong."
+            )
+        return patron, password
+
+    def _run_self_tests(self, _db):
+        """Verify the credentials of the test patron for this integration,
+        and update its metadata.
+        """
+        patron_test = self.run_test(
+            "Authenticating test patron", self.testing_patron_or_bust, _db
+        )
+        yield patron_test
+
+        if not patron_test.success:
+            # We can't run the rest of the tests.
+            return
+
+        patron, password = patron_test.result
+        yield self.run_test(
+            "Syncing patron metadata", self.update_patron_metadata,
+            patron
+        )
     
     def authenticate(self, _db, credentials):
         """Turn a set of credentials into a Patron object.
@@ -1693,10 +1841,12 @@ class BasicAuthenticationProvider(AuthenticationProvider):
         login_inputs = dict(keyboard=self.identifier_keyboard)
         if self.identifier_maximum_length:
             login_inputs['maximum_length'] = self.identifier_maximum_length
+        if self.identifier_barcode_format:
+            login_inputs['barcode_format'] = self.identifier_barcode_format
 
         password_inputs = dict(keyboard=self.password_keyboard)
         if self.password_maximum_length:
-            login_inputs['maximum_length'] = self.password_maximum_length
+            password_inputs['maximum_length'] = self.password_maximum_length
 
         # Localize the labels if possible.
         localized_identifier_label = self.COMMON_IDENTIFIER_LABELS.get(

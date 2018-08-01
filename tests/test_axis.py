@@ -28,6 +28,7 @@ from core.metadata_layer import (
     SubjectData,
 )
 
+from api.authenticator import BasicAuthenticationProvider
 from api.axis import (
     AxisCollectionReaper,
     Axis360CirculationMonitor,
@@ -74,6 +75,102 @@ class Axis360Test(DatabaseTest):
 
         
 class TestAxis360API(Axis360Test):
+
+    def test_external_integration(self):
+        eq_(
+            self.collection.external_integration,
+            self.api.external_integration(object())
+        )
+
+    def test__run_self_tests(self):
+        """Verify that BibliothecaAPI._run_self_tests() calls the right
+        methods.
+        """
+        class Mock(MockAxis360API):
+            "Mock every method used by Axis360API._run_self_tests."
+
+            # First we will refresh the bearer token.
+            def refresh_bearer_token(self):
+                return "the new token"
+
+            # Then we will count the number of events in the past
+            # give minutes.
+            def recent_activity(self, since):
+                self.recent_activity_called_with = since
+                return [(1,"a"),(2, "b"), (3, "c")]
+
+            # Then we will count the loans and holds for the default
+            # patron.
+            def patron_activity(self, patron, pin):
+                self.patron_activity_called_with = (patron, pin)
+                return ["loan", "hold"]
+
+        # Now let's make sure two Libraries have access to this
+        # Collection -- one library with a default patron and one
+        # without.
+        no_default_patron = self._library()
+        self.collection.libraries.append(no_default_patron)
+
+        with_default_patron = self._default_library
+        integration = self._external_integration(
+            "api.simple_authentication",
+            ExternalIntegration.PATRON_AUTH_GOAL,
+            libraries=[with_default_patron]
+        )
+        p = BasicAuthenticationProvider
+        integration.setting(p.TEST_IDENTIFIER).value = "username1"
+        integration.setting(p.TEST_PASSWORD).value = "password1"
+
+        # Now that everything is set up, run the self-test.
+        api = Mock(self._db, self.collection)
+        now = datetime.datetime.utcnow()
+        [no_patron_credential, recent_circulation_events, patron_activity,
+         refresh_bearer_token] = sorted(
+            api._run_self_tests(self._db), key=lambda x: x.name
+        )
+        eq_("Refreshing bearer token", refresh_bearer_token.name)
+        eq_(True, refresh_bearer_token.success)
+        eq_("the new token", refresh_bearer_token.result)
+
+        eq_(
+            "Acquiring test patron credentials for library %s" % no_default_patron.name,
+            no_patron_credential.name
+        )
+        eq_(False, no_patron_credential.success)
+        eq_("Library has no test patron configured.",
+            no_patron_credential.exception.message)
+
+        eq_("Asking for circulation events for the last five minutes",
+            recent_circulation_events.name)
+        eq_(True, recent_circulation_events.success)
+        eq_("Found 3 event(s)", recent_circulation_events.result)
+        since = api.recent_activity_called_with
+        five_minutes_ago = datetime.datetime.utcnow() - datetime.timedelta(minutes=5)
+        assert (five_minutes_ago-since).total_seconds() < 2
+
+        eq_("Checking activity for test patron for library %s" % with_default_patron.name,
+            patron_activity.name)
+        eq_(True, patron_activity.success)
+        eq_("Found 2 loans/holds", patron_activity.result)
+        patron, pin = api.patron_activity_called_with
+        eq_("username1", patron.authorization_identifier)
+        eq_("password1", pin)
+
+    def test__run_self_tests_short_circuit(self):
+        """If we can't refresh the bearer token, the rest of the
+        self-tests aren't even run.
+        """
+        class Mock(MockAxis360API):
+            def refresh_bearer_token(self):
+                raise Exception("no way")
+
+        # Now that everything is set up, run the self-test. Only one
+        # test will be run.
+        api = Mock(self._db, self.collection)
+        [failure] = api._run_self_tests(self._db)
+        eq_("Refreshing bearer token", failure.name)
+        eq_(False, failure.success)
+        eq_("no way", failure.exception.message)
 
     def test_update_availability(self):
         """Test the Axis 360 implementation of the update_availability method

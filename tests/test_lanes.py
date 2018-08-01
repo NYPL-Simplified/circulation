@@ -71,8 +71,9 @@ class TestLaneCreation(DatabaseTest):
             # They all are restricted to English and Spanish.
             eq_(x.languages, languages)
 
-            # They only contain books.
-            eq_([Edition.BOOK_MEDIUM], x.media)
+            # They have no restrictions on media type -- that's handled
+            # with entry points.
+            eq_(None, x.media)
 
         eq_(
             ['Fiction', 'Nonfiction', 'Young Adult Fiction',

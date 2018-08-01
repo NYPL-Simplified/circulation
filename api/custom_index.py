@@ -1,5 +1,9 @@
 """A custom index view customizes a library's 'front page' to serve
 something other than the default.
+
+This code is DEPRECATED; you probably want a CustomPatronCatalog instead.
+We're keeping it around because existing iOS versions of SimplyE need the
+OPDS navigation feed it generates.
 """
 
 import datetime
@@ -64,7 +68,7 @@ class CustomIndexView(object):
         protocol = integration.protocol
         if not protocol in cls.BY_PROTOCOL:
             raise CannotLoadConfiguration(
-                "Unregistered custom index protocol: %s" % name
+                "Unregistered custom index protocol: %s" % protocol
             )
         view_class = cls.BY_PROTOCOL[protocol]
         return view_class(library, integration)

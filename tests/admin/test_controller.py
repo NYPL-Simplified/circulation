@@ -83,6 +83,7 @@ from core.facets import FacetConstants
 from datetime import date, datetime, timedelta
 
 from api.authenticator import AuthenticationProvider, BasicAuthenticationProvider
+from api.registry import Registration
 from api.simple_authentication import SimpleAuthenticationProvider
 from api.millenium_patron import MilleniumPatronAPI
 from api.sip import SIP2AuthenticationProvider
@@ -101,6 +102,10 @@ from api.adobe_vendor_id import AuthdataUtility
 from core.external_search import ExternalSearchIndex
 
 class AdminControllerTest(CirculationControllerTest):
+
+    # Automatically creating books before the test wastes time -- we
+    # don't need them.
+    BOOKS = []
 
     def setup(self):
         super(AdminControllerTest, self).setup()
@@ -310,6 +315,10 @@ class TestAdminCirculationManagerController(AdminControllerTest):
             self.manager.admin_work_controller.require_librarian(self._default_library)
 
 class TestWorkController(AdminControllerTest):
+
+    # Unlike most of these controllers, we do want to have a book
+    # automatically created as part of setup.
+    BOOKS = CirculationControllerTest.BOOKS
 
     def setup(self):
         super(TestWorkController, self).setup()
@@ -2508,6 +2517,10 @@ class TestLanesController(AdminControllerTest):
 
 class TestDashboardController(AdminControllerTest):
 
+    # Unlike most of these controllers, we do want to have a book
+    # automatically created as part of setup.
+    BOOKS = CirculationControllerTest.BOOKS
+
     def test_circulation_events(self):
         [lp] = self.english_1.license_pools
         patron_id = "patronid"
@@ -2591,16 +2604,20 @@ class TestDashboardController(AdminControllerTest):
         eq_(0, len(rows))
 
     def test_stats_patrons(self):
-        with self.app.test_request_context("/"):
+        with self.request_context_with_admin("/"):
+            self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
             # At first, there's one patron in the database.
             response = self.manager.admin_dashboard_controller.stats()
-            patron_data = response.get('patrons')
-            eq_(1, patron_data.get('total'))
-            eq_(0, patron_data.get('with_active_loans'))
-            eq_(0, patron_data.get('with_active_loans_or_holds'))
-            eq_(0, patron_data.get('loans'))
-            eq_(0, patron_data.get('holds'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                patron_data = data.get('patrons')
+                eq_(1, patron_data.get('total'))
+                eq_(0, patron_data.get('with_active_loans'))
+                eq_(0, patron_data.get('with_active_loans_or_holds'))
+                eq_(0, patron_data.get('loans'))
+                eq_(0, patron_data.get('holds'))
 
             edition, pool = self._edition(with_license_pool=True, with_open_access_download=False)
             edition2, open_access_pool = self._edition(with_open_access_download=True)
@@ -2619,24 +2636,53 @@ class TestDashboardController(AdminControllerTest):
             open_access_pool.loan_to(patron3)
 
             response = self.manager.admin_dashboard_controller.stats()
-            patron_data = response.get('patrons')
-            eq_(4, patron_data.get('total'))
-            eq_(1, patron_data.get('with_active_loans'))
-            eq_(2, patron_data.get('with_active_loans_or_holds'))
-            eq_(1, patron_data.get('loans'))
-            eq_(1, patron_data.get('holds'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                patron_data = data.get('patrons')
+                eq_(4, patron_data.get('total'))
+                eq_(1, patron_data.get('with_active_loans'))
+                eq_(2, patron_data.get('with_active_loans_or_holds'))
+                eq_(1, patron_data.get('loans'))
+                eq_(1, patron_data.get('holds'))
+
+            # This patron is in a different library.
+            l2 = self._library()
+            patron4 = self._patron(library=l2)
+
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            eq_(4, library_data.get('patrons').get('total'))
+            eq_(5, total_data.get('patrons').get('total'))
+
+            # If the admin only has access to some libraries, only those will be counted
+            # in the total stats.
+            self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
+
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            eq_(4, library_data.get('patrons').get('total'))
+            eq_(4, total_data.get('patrons').get('total'))
 
     def test_stats_inventory(self):
-        with self.app.test_request_context("/"):
+        with self.request_context_with_admin("/"):
+            self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
             # At first, there is 1 open access title in the database,
             # created in CirculationControllerTest.setup.
             response = self.manager.admin_dashboard_controller.stats()
-            inventory_data = response.get('inventory')
-            eq_(1, inventory_data.get('titles'))
-            eq_(0, inventory_data.get('licenses'))
-            eq_(0, inventory_data.get('available_licenses'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                inventory_data = data.get('inventory')
+                eq_(1, inventory_data.get('titles'))
+                eq_(0, inventory_data.get('licenses'))
+                eq_(0, inventory_data.get('available_licenses'))
 
+            # This edition has no licenses owned and isn't counted in the inventory.
             edition1, pool1 = self._edition(with_license_pool=True, with_open_access_download=False)
             pool1.open_access = False
             pool1.licenses_owned = 0
@@ -2653,58 +2699,155 @@ class TestDashboardController(AdminControllerTest):
             pool3.licenses_available = 4
 
             response = self.manager.admin_dashboard_controller.stats()
-            inventory_data = response.get('inventory')
-            eq_(4, inventory_data.get('titles'))
-            eq_(15, inventory_data.get('licenses'))
-            eq_(4, inventory_data.get('available_licenses'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                inventory_data = data.get('inventory')
+                eq_(3, inventory_data.get('titles'))
+                eq_(15, inventory_data.get('licenses'))
+                eq_(4, inventory_data.get('available_licenses'))
 
-    def test_stats_vendors(self):
-        with self.app.test_request_context("/"):
+            # This edition is in a different collection.
+            c2 = self._collection()
+            edition4, pool4 = self._edition(with_license_pool=True, with_open_access_download=False, collection=c2)
+            pool4.licenses_owned = 2
+            pool4.licenses_available = 2
+
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            eq_(3, library_data.get('inventory').get('titles'))
+            eq_(4, total_data.get('inventory').get('titles'))
+            eq_(15, library_data.get('inventory').get('licenses'))
+            eq_(17, total_data.get('inventory').get('licenses'))
+            eq_(4, library_data.get('inventory').get('available_licenses'))
+            eq_(6, total_data.get('inventory').get('available_licenses'))
+
+            self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self.admin.add_role(AdminRole.LIBRARIAN, self._default_library)
+
+            # The admin can no longer see the other collection, so it's not
+            # counted in the totals.
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                inventory_data = data.get('inventory')
+                eq_(3, inventory_data.get('titles'))
+                eq_(15, inventory_data.get('licenses'))
+                eq_(4, inventory_data.get('available_licenses'))
+
+    def test_stats_collections(self):
+        with self.request_context_with_admin("/"):
+            self.admin.add_role(AdminRole.SYSTEM_ADMIN)
 
             # At first, there is 1 open access title in the database,
             # created in CirculationControllerTest.setup.
             response = self.manager.admin_dashboard_controller.stats()
-            vendor_data = response.get('vendors')
-            eq_(1, vendor_data.get('open_access'))
-            eq_(None, vendor_data.get('overdrive'))
-            eq_(None, vendor_data.get('bibliotheca'))
-            eq_(None, vendor_data.get('axis360'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                collections_data = data.get('collections')
+                eq_(1, len(collections_data))
+                collection_data = collections_data.get(self._default_collection.name)
+                eq_(0, collection_data.get('licensed_titles'))
+                eq_(1, collection_data.get('open_access_titles'))
+                eq_(0, collection_data.get('licenses'))
+                eq_(0, collection_data.get('available_licenses'))
+
+            c2 = self._collection()
+            c3 = self._collection()
+            c3.libraries += [self._default_library]
 
             edition1, pool1 = self._edition(with_license_pool=True,
                                             with_open_access_download=False,
-                                            data_source_name=DataSource.OVERDRIVE)
+                                            data_source_name=DataSource.OVERDRIVE,
+                                            collection=c2)
             pool1.open_access = False
             pool1.licenses_owned = 10
+            pool1.licenses_available = 5
 
             edition2, pool2 = self._edition(with_license_pool=True,
                                             with_open_access_download=False,
-                                            data_source_name=DataSource.OVERDRIVE)
+                                            data_source_name=DataSource.OVERDRIVE,
+                                            collection=c3)
             pool2.open_access = False
             pool2.licenses_owned = 0
+            pool2.licenses_available = 0
 
             edition3, pool3 = self._edition(with_license_pool=True,
                                             with_open_access_download=False,
                                             data_source_name=DataSource.BIBLIOTHECA)
             pool3.open_access = False
             pool3.licenses_owned = 3
+            pool3.licenses_available = 0
 
             edition4, pool4 = self._edition(with_license_pool=True,
                                             with_open_access_download=False,
-                                            data_source_name=DataSource.AXIS_360)
+                                            data_source_name=DataSource.AXIS_360,
+                                            collection=c2)
             pool4.open_access = False
             pool4.licenses_owned = 5
+            pool4.licenses_available = 5
 
             response = self.manager.admin_dashboard_controller.stats()
-            vendor_data = response.get('vendors')
-            eq_(1, vendor_data.get('open_access'))
-            eq_(1, vendor_data.get('overdrive'))
-            eq_(1, vendor_data.get('bibliotheca'))
-            eq_(1, vendor_data.get('axis360'))
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            library_collections_data = library_data.get('collections')
+            total_collections_data = total_data.get('collections')
+            eq_(2, len(library_collections_data))
+            eq_(3, len(total_collections_data))
+            for data in [library_collections_data, total_collections_data]:
+                c1_data = data.get(self._default_collection.name)
+                eq_(1, c1_data.get('licensed_titles'))
+                eq_(1, c1_data.get('open_access_titles'))
+                eq_(3, c1_data.get('licenses'))
+                eq_(0, c1_data.get('available_licenses'))
 
-class TestSettingsController(AdminControllerTest):
+                c3_data = data.get(c3.name)
+                eq_(0, c3_data.get('licensed_titles'))
+                eq_(0, c3_data.get('open_access_titles'))
+                eq_(0, c3_data.get('licenses'))
+                eq_(0, c3_data.get('available_licenses'))
+
+            eq_(None, library_collections_data.get(c2.name))
+            c2_data = total_collections_data.get(c2.name)
+            eq_(2, c2_data.get('licensed_titles'))
+            eq_(0, c2_data.get('open_access_titles'))
+            eq_(15, c2_data.get('licenses'))
+            eq_(10, c2_data.get('available_licenses'))
+
+            self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+            self.admin.add_role(AdminRole.LIBRARY_MANAGER, self._default_library)
+
+            # c2 is no longer included in the totals since the admin's library does
+            # not use it.
+            response = self.manager.admin_dashboard_controller.stats()
+            library_data = response.get(self._default_library.short_name)
+            total_data = response.get("total")
+            for data in [library_data, total_data]:
+                collections_data = data.get("collections")
+                eq_(2, len(collections_data))
+                eq_(None, collections_data.get(c2.name))
+
+                c1_data = collections_data.get(self._default_collection.name)
+                eq_(1, c1_data.get('licensed_titles'))
+                eq_(1, c1_data.get('open_access_titles'))
+                eq_(3, c1_data.get('licenses'))
+                eq_(0, c1_data.get('available_licenses'))
+
+                c3_data = collections_data.get(c3.name)
+                eq_(0, c3_data.get('licensed_titles'))
+                eq_(0, c3_data.get('open_access_titles'))
+                eq_(0, c3_data.get('licenses'))
+                eq_(0, c3_data.get('available_licenses'))
+
+
+class SettingsControllerTest(AdminControllerTest):
+    """Test some part of the settings controller."""
 
     def setup(self):
-        super(TestSettingsController, self).setup()
+        super(SettingsControllerTest, self).setup()
         # Delete any existing patron auth services created by controller test setup.
         for auth_service in self._db.query(ExternalIntegration).filter(
             ExternalIntegration.goal==ExternalIntegration.PATRON_AUTH_GOAL
@@ -2728,6 +2871,9 @@ class TestSettingsController(AdminControllerTest):
         self.requests.append((url, args, kwargs))
         response = self.responses.pop()
         return HTTP.process_debuggable_response(response)
+
+
+class TestSettingsController(SettingsControllerTest):
 
     def test_get_integration_protocols(self):
         """Test the _get_integration_protocols helper method."""
@@ -3924,55 +4070,55 @@ class TestSettingsController(AdminControllerTest):
             # A system admin can see all other admins' roles.
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
-                 {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
-                 {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
-                 {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
-                 {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}],
-                admins)
+            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+                        {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
+                        {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
+                        {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
+                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]),
+                sorted(admins))
 
         with self.request_context_with_admin("/", admin=admin2):
             # A sitewide librarian or library manager can also see all admins' roles.
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
-                 {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
-                 {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
-                 {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
-                 {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}],
-                admins)
+            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+                        {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
+                        {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
+                        {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
+                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]),
+                sorted(admins))
 
         with self.request_context_with_admin("/", admin=admin3):
             # A librarian or library manager of a specific library can see all admins, but only
             # roles that affect their libraries.
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
-                 {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
-                 {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
-                 {"email": "admin4@l2.org", "roles": []},
-                 {"email": "admin5@l2.org", "roles": []}],
-                admins)
+            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+                        {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": self._default_library.short_name }, { "role": AdminRole.SITEWIDE_LIBRARIAN }]},
+                        {"email": "admin3@nypl.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": self._default_library.short_name }]},
+                        {"email": "admin4@l2.org", "roles": []},
+                        {"email": "admin5@l2.org", "roles": []}]),
+                sorted(admins))
 
         with self.request_context_with_admin("/", admin=admin4):
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
-                 {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.SITEWIDE_LIBRARIAN }]},
-                 {"email": "admin3@nypl.org", "roles": []},
-                 {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
-                 {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}],
-                admins)
+            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+                        {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.SITEWIDE_LIBRARIAN }]},
+                        {"email": "admin3@nypl.org", "roles": []},
+                        {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
+                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]),
+                sorted(admins))
 
         with self.request_context_with_admin("/", admin=admin5):
             response = self.manager.admin_settings_controller.individual_admins()
             admins = response.get("individualAdmins")
-            eq_([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
-                 {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.SITEWIDE_LIBRARIAN }]},
-                 {"email": "admin3@nypl.org", "roles": []},
-                 {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
-                 {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}],
-                admins)
+            eq_(sorted([{"email": "admin1@nypl.org", "roles": [{ "role": AdminRole.SYSTEM_ADMIN }]},
+                        {"email": "admin2@nypl.org", "roles": [{ "role": AdminRole.SITEWIDE_LIBRARIAN }]},
+                        {"email": "admin3@nypl.org", "roles": []},
+                        {"email": "admin4@l2.org", "roles": [{ "role": AdminRole.LIBRARY_MANAGER, "library": library2.short_name }]},
+                        {"email": "admin5@l2.org", "roles": [{ "role": AdminRole.LIBRARIAN, "library": library2.short_name }]}]),
+                sorted(admins))
 
     def test_individual_admins_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):
@@ -5571,6 +5717,13 @@ class TestSettingsController(AdminControllerTest):
             eq_((id, EI.SEARCH_GOAL),
                 controller.delete_called_with)
 
+
+class TestDiscoveryServices(SettingsControllerTest):
+
+    """Test the controller functions that list and create new discovery
+    services.
+    """
+
     def test_discovery_services_get_with_no_services_creates_default(self):
         with self.request_context_with_admin("/"):
             response = self.manager.admin_settings_controller.discovery_services()
@@ -5579,8 +5732,9 @@ class TestSettingsController(AdminControllerTest):
             assert ExternalIntegration.OPDS_REGISTRATION in [p.get("name") for p in protocols]
             assert "settings" in protocols[0]
             eq_(ExternalIntegration.OPDS_REGISTRATION, service.get("protocol"))
-            eq_("https://libraryregistry.librarysimplified.org", service.get("settings").get(ExternalIntegration.URL))
+            eq_("https://libraryregistry.librarysimplified.org/", service.get("settings").get(ExternalIntegration.URL))
 
+            # Only system admins can see the discovery services.
             self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
             self._db.flush()
             assert_raises(AdminNotAuthorized,
@@ -5710,6 +5864,11 @@ class TestSettingsController(AdminControllerTest):
         service = get_one(self._db, ExternalIntegration, id=discovery_service.id)
         eq_(None, service)
 
+
+class TestLibraryRegistration(SettingsControllerTest):
+    """Test the process of registering a library with a RemoteRegistry.
+    """
+
     def test_discovery_service_library_registrations_get(self):
         discovery_service, ignore = create(
             self._db, ExternalIntegration,
@@ -5731,7 +5890,7 @@ class TestSettingsController(AdminControllerTest):
         unregistered, ignore = create(
             self._db, Library, name="Library 3", short_name="L3",
         )
-        discovery_service.libraries = [succeeded, failed, unregistered]
+        discovery_service.libraries = [succeeded, failed]
 
         with self.request_context_with_admin("/", method="GET"):
             response = self.manager.admin_settings_controller.discovery_service_library_registrations()
@@ -5752,14 +5911,32 @@ class TestSettingsController(AdminControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.discovery_service_library_registrations)
 
-    def test_discovery_service_library_registrations_post_errors(self):
+    def test_discovery_service_library_registrations_post(self):
+        """Test what might happen when you POST to
+        discover_service_library_registrations.
+        """
+
+        m = self.manager.admin_settings_controller.discovery_service_library_registrations
+
+        # Here, the user doesn't have permission to start the
+        # registration process.
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
+        with self.request_context_with_admin("/", method="POST"):
+            assert_raises(AdminNotAuthorized, m,
+                          do_get=self.do_request, do_post=self.do_request)
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+
+        # The integration ID might not correspond to a valid
+        # ExternalIntegration.
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", "1234"),
             ])
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations()
+            response = m()
             eq_(MISSING_SERVICE, response)
 
+        # Create an ExternalIntegration to avoid that problem in future
+        # tests.
         discovery_service, ignore = create(
             self._db, ExternalIntegration,
             protocol=ExternalIntegration.OPDS_REGISTRATION,
@@ -5767,129 +5944,69 @@ class TestSettingsController(AdminControllerTest):
         )
         discovery_service.url = "registry url"
 
+        # The library name might not correspond to a real library.
         with self.request_context_with_admin("/", method="POST"):
             flask.request.form = MultiDict([
                 ("integration_id", discovery_service.id),
                 ("library_short_name", "not-a-library"),
             ])
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations()
+            response = m()
             eq_(NO_SUCH_LIBRARY, response)
 
+        # Take care of that problem.
         library = self._default_library
+        form = MultiDict([
+            ("integration_id", discovery_service.id),
+            ("library_short_name", library.short_name),
+            ("registration_stage", Registration.TESTING_STAGE),
+        ])
+
+        # Registration.push might return a ProblemDetail for whatever
+        # reason.
+        class Mock(Registration):
+            def push(self, *args, **kwargs):
+                return REMOTE_INTEGRATION_FAILED
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-            ])
-            feed = '<feed></feed>'
-            self.responses.append(MockRequestsResponse(200, content=feed))
+            flask.request.form = form
+            response = m(registration_class=Mock)
+            eq_(REMOTE_INTEGRATION_FAILED, response)
 
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at registry url did not return OPDS.", response.detail)
-            eq_([discovery_service.url], [x[0] for x in self.requests])
-            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, discovery_service).value)
+        # But if that doesn't happen, success!
+        class Mock(Registration):
+            """When asked to push a registration, do nothing and say it
+            worked.
+            """
+            called_with = None
+            def push(self, *args, **kwargs):
+                Mock.called_with = (args, kwargs)
+                return True
 
+        controller = self.manager.admin_settings_controller
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-            ])
-            feed = '<feed></feed>'
-            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
-
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at registry url did not provide a register link.", response.detail)
-            eq_([discovery_service.url], [x[0] for x in self.requests[1:]])
-            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, discovery_service).value)
-
-        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-            ])
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_settings_controller.discovery_service_library_registrations,
-                          do_get=self.do_request, do_post=self.do_request)
-
-    def test_discovery_service_library_registrations_post_success(self):
-        discovery_service, ignore = create(
-            self._db, ExternalIntegration,
-            protocol=ExternalIntegration.OPDS_REGISTRATION,
-            goal=ExternalIntegration.DISCOVERY_GOAL,
-        )
-        discovery_service.url = "registry url"
-
-        library = self._default_library
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-            ])
-            self.responses.append(MockRequestsResponse(200, content='{}'))
-            feed = '<feed><link rel="register" href="register url"/></feed>'
-            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
-
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request)
-
+            flask.request.form = form
+            response = controller.discovery_service_library_registrations(
+                registration_class=Mock
+            )
             eq_(200, response.status_code)
-            eq_(["registry url", "register url"], [x[0] for x in self.requests])
 
-            # This registry doesn't support short client tokens and doesn't have a vendor id,
-            # so no settings were added to it.
-            eq_(None, discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
-            eq_(None, ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
-            eq_(None, ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)
+            # push() was called with the arguments we would expect.
+            args, kwargs = Mock.called_with
+            eq_((Registration.TESTING_STAGE, self.manager.url_for), args)
 
-            # The registration status was recorded.
-            eq_("success", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, discovery_service).value)
+            # We would have made real HTTP requests.
+            eq_(HTTP.debuggable_post, kwargs['do_post'])
+            eq_(HTTP.debuggable_get, kwargs['do_get'])
 
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("integration_id", discovery_service.id),
-                ("library_short_name", library.short_name),
-            ])
-            # Generate a key in advance so we can mock the registry's encrypted response.
-            key = RSA.generate(1024)
-            encryptor = PKCS1_OAEP.new(key)
-            encrypted_secret = encryptor.encrypt("secret")
+            # We would have generated a fresh public key just for this
+            # transaction.
+            eq_(None, kwargs['key'])
 
-            # This registry support short client tokens, and has a vendor id.
-            metadata = dict(short_name="SHORT", shared_secret=base64.b64encode(encrypted_secret))
-            catalog = dict(metadata=metadata)
-            self.responses.append(MockRequestsResponse(200, content=json.dumps(catalog)))
-            link = { 'rel': 'register', 'href': 'register url' }
-            metadata = { 'adobe_vendor_id': 'vendorid' }
-            feed = json.dumps(dict(links=[link], metadata=metadata))
-            headers = { 'Content-Type': 'application/opds+json' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
 
-            response = self.manager.admin_settings_controller.discovery_service_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
-
-            eq_(200, response.status_code)
-            eq_(["registry url", "register url"], [x[0] for x in self.requests[2:]])
-
-            # The vendor id and short client token settings were stored.
-            eq_("vendorid", discovery_service.setting(AuthdataUtility.VENDOR_ID_KEY).value)
-            eq_("SHORT", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.USERNAME, library, discovery_service).value)
-            eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.PASSWORD, library, discovery_service).value)
-
-            # The registration status is the same.
-            eq_("success", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, discovery_service).value)
+class TestCollectionRegistration(SettingsControllerTest):
+    """Test the process of registering a specific collection with
+    a RemoteRegistry.
+    """
 
     def test_collection_library_registrations_get(self):
         collection = self._default_collection
@@ -5929,113 +6046,91 @@ class TestSettingsController(AdminControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_settings_controller.collection_library_registrations)
 
-    def test_collection_library_registrations_post_errors(self):
+    def test_collection_library_registrations_post(self):
+        """Test what might happen POSTing to collection_library_registrations."""
+        # First test the failure cases.
+
+        m = self.manager.admin_settings_controller.collection_library_registrations
+
+        # Here, the user doesn't have permission to start the
+        # registration process.
+        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", "1234"),
-            ])
-            response = self.manager.admin_settings_controller.collection_library_registrations()
+            assert_raises(AdminNotAuthorized, m)
+        self.admin.add_role(AdminRole.SYSTEM_ADMIN)
+
+        # The collection ID doesn't correspond to any real collection.
+        with self.request_context_with_admin("/", method="POST"):
+            flask.request.form = MultiDict([("collection_id", "1234")])
+            response = m()
             eq_(MISSING_COLLECTION, response)
 
+        # Pass in a collection ID so that doesn't happen again.
         collection = self._collection()
         collection.external_account_id = "collection url"
 
+        # Oops, the collection doesn't actually support registration.
+        form = MultiDict([
+            ("collection_id", collection.id),
+            ("library_short_name", "not-a-library"),
+        ])
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", "not-a-library"),
-            ])
-            response = self.manager.admin_settings_controller.collection_library_registrations()
+            flask.request.form = form
+            response = m()
             eq_(COLLECTION_DOES_NOT_SUPPORT_REGISTRATION, response)
 
+        # Change the protocol to one that supports registration.
         collection.protocol = SharedODLAPI.NAME
 
+        # Now the problem is the library doesn't correspond to a real
+        # library.
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", "not-a-library"),
-            ])
-            response = self.manager.admin_settings_controller.collection_library_registrations()
+            flask.request.form = form
+            response = m()
             eq_(NO_SUCH_LIBRARY, response)
 
+        # The push() implementation might return a ProblemDetail for any
+        # number of reasons.
         library = self._default_library
+        form = MultiDict([
+            ("collection_id", collection.id),
+            ("library_short_name", library.short_name),
+        ])
+
+        class Mock(Registration):
+            def push(self, *args, **kwargs):
+                return REMOTE_INTEGRATION_FAILED
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", library.short_name),
-            ])
-            feed = '<feed></feed>'
-            self.responses.append(MockRequestsResponse(200, content=feed))
+            flask.request.form = form
+            eq_(REMOTE_INTEGRATION_FAILED, m(registration_class=Mock))
 
-            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at collection url did not return OPDS.", response.detail)
-            eq_([collection.external_account_id], [x[0] for x in self.requests])
-            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, collection.external_integration).value)
-
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", library.short_name),
-            ])
-            feed = '<feed></feed>'
-            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
-
-            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request)
-            eq_(REMOTE_INTEGRATION_FAILED.uri, response.uri)
-            eq_("The service at collection url did not provide a register link.", response.detail)
-            eq_([collection.external_account_id], [x[0] for x in self.requests[1:]])
-            eq_("failure", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, collection.external_integration).value)
-
-        self.admin.remove_role(AdminRole.SYSTEM_ADMIN)
-        with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", self._default_library.short_name),
-            ])
-            assert_raises(AdminNotAuthorized,
-                          self.manager.admin_settings_controller.collection_library_registrations,
-                          do_get=self.do_request, do_post=self.do_request)
-
-    def test_collection_library_registrations_post_success(self):
-        collection = self._collection(protocol=SharedODLAPI.NAME)
-        collection.external_account_id = "collection url"
-
-        library = self._default_library
+        # But if that doesn't happen, success!
+        class Mock(Registration):
+            """When asked to push a registration, do nothing and say it
+            worked.
+            """
+            called_with = None
+            def push(self, *args, **kwargs):
+                Mock.called_with = (args, kwargs)
+                return True
 
         with self.request_context_with_admin("/", method="POST"):
-            flask.request.form = MultiDict([
-                ("collection_id", collection.id),
-                ("library_short_name", library.short_name),
-            ])
-            # Generate a key in advance so we can mock the collection's encrypted response.
-            key = RSA.generate(2048)
-            public_key = key.publickey().exportKey()
-            encryptor = PKCS1_OAEP.new(key)
+            flask.request.form = form
+            result = m(registration_class=Mock)
+            eq_(200, result.status_code)
 
-            secret = base64.b64encode(encryptor.encrypt("secret"))
-            registration = json.dumps(dict(metadata=dict(shared_secret=secret)))
-            self.responses.append(MockRequestsResponse(200, content=registration))
-            feed = '<feed><link rel="register" href="register url"/></feed>'
-            headers = { 'Content-Type': 'application/atom+xml;profile=opds-catalog;kind=navigation' }
-            self.responses.append(MockRequestsResponse(200, content=feed, headers=headers))
+            # push() was called with the arguments we would expect.
+            args, kwargs = Mock.called_with
+            eq_((Registration.PRODUCTION_STAGE, self.manager.url_for), args)
 
-            response = self.manager.admin_settings_controller.collection_library_registrations(do_get=self.do_request, do_post=self.do_request, key=key)
+            # We would have made real HTTP requests.
+            eq_(HTTP.debuggable_post, kwargs['do_post'])
+            eq_(HTTP.debuggable_get, kwargs['do_get'])
 
-            eq_(200, response.status_code)
-            eq_(["collection url", "register url"], [x[0] for x in self.requests])
-
-            # The shared secret was saved.
-            eq_("secret", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, ExternalIntegration.PASSWORD, library, collection.external_integration).value)
-
-            # The registration status was recorded.
-            eq_("success", ConfigurationSetting.for_library_and_externalintegration(
-                    self._db, "library-registration-status", library, collection.external_integration).value)
+            # We would have generated a fresh public key just for this
+            # transaction.
+            eq_(None, kwargs['key'])
 
     def test_sitewide_registration_post_errors(self):
         def assert_remote_integration_error(response, message=None):
@@ -6147,27 +6242,6 @@ class TestSettingsController(AdminControllerTest):
             )
         eq_(MULTIPLE_BASIC_AUTH_SERVICES, response)
 
-
-    def test__decrypt_shared_secret(self):
-        key = RSA.generate(2048)
-        encryptor = PKCS1_OAEP.new(key)
-
-        key2 = RSA.generate(2048)
-        encryptor2 = PKCS1_OAEP.new(key2)
-
-        shared_secret = os.urandom(24).encode('hex')
-        encrypted_secret = base64.b64encode(encryptor.encrypt(shared_secret))
-
-        # Success.
-        m = self.manager.admin_settings_controller._decrypt_shared_secret
-        eq_(shared_secret, m(encryptor, encrypted_secret))
-
-        # If we try to decrypt using the wrong key, a ProblemDetail is
-        # returned explaining the problem.
-        problem = m(encryptor2, encrypted_secret)
-        assert isinstance(problem, ProblemDetail)
-        eq_(SHARED_SECRET_DECRYPTION_ERROR.uri, problem.uri)
-        assert encrypted_secret in problem.detail
 
     def test_sitewide_registration_post_success(self):
 

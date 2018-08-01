@@ -18,6 +18,11 @@ from circulation_exceptions import *
 
 from config import Configuration
 
+from selftest import (
+    HasSelfTests,
+    SelfTestResult,
+)
+
 from core.analytics import Analytics
 
 from core.oneclick import (
@@ -63,7 +68,7 @@ from core.util.web_publication_manifest import (
 )
 
 
-class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
+class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI, HasSelfTests):
 
     NAME = ExternalIntegration.RB_DIGITAL
 
@@ -107,6 +112,61 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             )
         )
 
+    def external_integration(self, _db):
+        return self.collection.external_integration
+
+    def _run_self_tests(self, _db):
+        def count(media_type):
+            # Call get_ebook_availability_info and count how many titles
+            # are available/unavailable. If our credentials are bad,
+            # we'll get an error message.
+            result = self.get_ebook_availability_info(media_type)
+
+            available = 0
+            unavailable = 0
+            if isinstance(result, dict):
+                # This is most likely an error condition.
+                message = result.get(
+                    'message', 'Unexpected response from server'
+                )
+                raise IntegrationException(message, repr(result))
+
+            for i in result:
+                if i.get('availability', False):
+                    available += 1
+                else:
+                    unavailable += 1
+            msg = "Total items: %d (%d currently loanable, %d currently not loanable)"
+            return msg % (len(result), available, unavailable)
+
+        response = self.run_test(
+            "Counting ebooks in collection",
+            count, 'eBook'
+        )
+        yield response
+        if not response.success:
+            # If we can't even see the collection properly, something is
+            # wrong and we should not continue.
+            return
+
+        yield self.run_test(
+            "Counting audiobooks in collection",
+            count, 'eAudio'
+        )
+
+        for result in self.default_patrons(self.collection):
+            if isinstance(result, SelfTestResult):
+                yield result
+                continue
+            library, patron, pin = result
+            task = "Checking patron activity, using test patron for library %s" % library.name
+            def count_loans_and_holds(patron, pin):
+                activity = self.patron_activity(patron, pin)
+                return "Total loans and holds: %s" % len(activity)
+            yield self.run_test(
+                task, count_loans_and_holds, patron, pin
+            )
+
     def remote_email_address(self, patron):
         """The fake email address to send to RBdigital when
         signing up this patron.
@@ -143,8 +203,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             return True
 
         # should never happen
-        raise CirculationException("Unknown error %s/%s checking in %s.", patron.authorization_identifier, 
-            patron_oneclick_id, item_oneclick_id)
+        raise CirculationException(
+            "Unknown error %s/%s checking in %s." % (
+                patron.authorization_identifier, patron_oneclick_id,
+                item_oneclick_id
+            )
+        )
 
 
     def checkout(self, patron, pin, licensepool, internal_format):
@@ -263,8 +327,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
                 found_checkout = checkout
                 break
         if not found_checkout:
-            raise NoActiveLoan("Cannot fulfill %s - patron %s/%s has no such checkout.", item_oneclick_id, 
-                patron.authorization_identifier, patron_oneclick_id)
+            raise NoActiveLoan(
+                "Cannot fulfill %s - patron %s/%s has no such checkout." % (
+                    item_oneclick_id, patron.authorization_identifier,
+                    patron_oneclick_id
+                )
+            )
 
         return found_checkout.fulfillment_info
 
@@ -337,8 +405,12 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             return True
 
         # should never happen
-        raise CirculationException("Unknown error %s/%s releasing %s.", patron.authorization_identifier, 
-            patron_oneclick_id, item_oneclick_id)
+        raise CirculationException(
+            "Unknown error %s/%s releasing %s." % (
+                patron.authorization_identifier, patron_oneclick_id,
+                item_oneclick_id
+            )
+        )
 
     @property
     def default_circulation_replacement_policy(self):
@@ -511,7 +583,7 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         # Generate meaningless values for account fields that are not
         # relevant to our usage of the API.
-        post_args['userName'] = 'username_' + patron_identifier
+        post_args['userName'] = 'username' + patron_identifier.replace("-", "")
         post_args['email'] = self.remote_email_address(patron)
         post_args['firstName'] = 'Patron'
         post_args['lastName'] = 'Reader'
@@ -534,13 +606,16 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
             response=response, message=message, action=action
         )
 
-        # double-make sure specifically
-        if response.status_code != 201 or 'patronId' not in resp_dict:
+        # Extract the patron's OneClick ID from the response document.
+        patron_oneclick_id = None
+        if response.status_code == 201:
+            patron_info = resp_dict.get('patron')
+            if patron_info:
+                patron_oneclick_id = patron_info.get('patronId')
+
+        if not patron_oneclick_id:
             raise RemotePatronCreationFailedException(action + 
                 ": http=" + str(response.status_code) + ", response=" + response.text)
-
-        patron_oneclick_id = resp_dict['patronId']
-
         return patron_oneclick_id
 
     def patron_remote_identifier_lookup(self, patron):
@@ -571,7 +646,6 @@ class OneClickAPI(BaseOneClickAPI, BaseCirculationAPI):
 
         internal_patron_id = resp_dict.get('patronId', None)
         return internal_patron_id
-
 
     def get_patron_checkouts(self, patron_id):
         """
