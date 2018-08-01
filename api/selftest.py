@@ -1,8 +1,22 @@
 from nose.tools import set_trace
+import sys
 from sqlalchemy.orm.session import Session
 
 from authenticator import LibraryAuthenticator
+from circulation import CirculationAPI
+from feedbooks import (
+    FeedbooksOPDSImporter,
+    FeedbooksImportMonitor,
+)
 from core.config import IntegrationException
+from core.model import (
+    ExternalIntegration,
+)
+from core.opds_import import (
+    OPDSImporter,
+    OPDSImportMonitor,
+)
+from core.scripts import LibraryInputScript
 from core.selftest import (
     HasSelfTests as CoreHasSelfTests,
     SelfTestResult,
@@ -63,3 +77,63 @@ class HasSelfTests(CoreHasSelfTests):
                 )
 
 
+class RunSelfTestsScript(LibraryInputScript):
+    """Run the self-tests for every collection in the given library
+    where that's possible.
+    """
+
+    def __init__(self, _db=None, output=sys.stdout):
+        super(RunSelfTestsScript, self).__init__(_db)
+        self.out = output
+
+    def do_run(self, *args, **kwargs):
+        parsed = self.parse_command_line(self._db, *args, **kwargs)
+        for library in parsed.libraries:
+            api_map = CirculationAPI(self._db, library).default_api_map
+            api_map[ExternalIntegration.OPDS_IMPORT] = OPDSImportMonitor
+            api_map[ExternalIntegration.FEEDBOOKS] = FeedbooksImportMonitor
+            self.out.write("Testing %s\n" % library.name)
+            for collection in library.collections:
+                try:
+                    self.test_collection(collection, api_map)
+                except Exception, e:
+                    self.out.write("  Exception while running self-test: %r\n" % e)
+
+    def test_collection(self, collection, api_map, extra_args=None):
+        tester = api_map.get(collection.protocol)
+        if not tester:
+            self.out.write(
+                " Cannot find a self-test for %s, ignoring.\n" % collection.name
+            )
+            return
+
+        self.out.write(" Running self-test for %s.\n" % collection.name)
+        # Some HasSelfTests classes require extra arguments to their
+        # constructors.
+        extra_args = extra_args or {
+            OPDSImportMonitor: [OPDSImporter],
+            FeedbooksImportMonitor: [FeedbooksOPDSImporter],
+        }
+        extra = extra_args.get(tester, [])
+        constructor_args = [self._db, collection] + list(extra)
+        results_dict, results_list = tester.run_self_tests(
+            self._db, None, *constructor_args
+        )
+        for result in results_list:
+            self.process_result(result)
+
+    def process_result(self, result):
+        """Process a single TestResult object."""
+        if result.success:
+            success = "SUCCESS"
+        else:
+            success = "FAILURE"
+        self.out.write(
+            "  %s %s (%.1fsec)\n" % (
+                success, result.name, result.duration
+            )
+        )
+        if isinstance(result.result, basestring):
+            self.out.write("   Result: %s\n" % result.result)
+        if result.exception:
+            self.out.write("   Exception: %r\n" % result.exception)
