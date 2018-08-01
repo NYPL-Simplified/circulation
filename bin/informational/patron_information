@@ -40,19 +40,25 @@ class PatronInformationScript(Script):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
         library = Library.lookup(self._db, short_name=args.library_id)
-        auth = LibraryAuthenticator.from_config(_db, library).basic_auth_provider
-        patron_data = auth.remote_authenticate(args.barcode, args.pin)
-        self.explain(patron_data)
+        if library is None:
+            print "Library does not exist."
+        else:
+            auth = LibraryAuthenticator.from_config(_db, library).basic_auth_provider
+            patron_data = auth.remote_authenticate(args.barcode, args.pin)
+            self.explain(patron_data)
 
     def explain(self, patron_data):
-        print "Permanent ID: %s" % patron_data.permanent_id
-        print "Authorization Identifier: %s" % patron_data.authorization_identifier
-        print "Username: %s" % patron_data.username
-        print "Personal Name: %s" % patron_data.personal_name
-        print "Authorization Expires: %s" % patron_data.authorization_expires
-        print "External Type: %s" % patron_data.external_type
-        print "Fines: $%s" % patron_data.fines
-        print "Block Reason: %s" % patron_data.block_reason
-        print "Library Identifier: %s" % patron_data.library_identifier
+        if patron_data is None:
+            print "Account does not exist."
+        else:
+            print "Permanent ID: %s" % patron_data.permanent_id
+            print "Authorization Identifier: %s" % patron_data.authorization_identifier
+            print "Username: %s" % patron_data.username
+            print "Personal Name: %s" % patron_data.personal_name
+            print "Authorization Expires: %s" % patron_data.authorization_expires
+            print "External Type: %s" % patron_data.external_type
+            print "Fines: $%s" % patron_data.fines
+            print "Block Reason: %s" % patron_data.block_reason
+            print "Library Identifier: %s" % patron_data.library_identifier
 
 PatronInformationScript().run()
