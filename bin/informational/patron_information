@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+"""Find information about a particular patron based on barcode and pin.
+"""
+
+import os
+import sys
+
+bin_dir = os.path.split(__file__)[0]
+package_dir = os.path.join(bin_dir, "..", "..")
+sys.path.append(os.path.abspath(package_dir))
+
+from core.scripts import Script
+import argparse
+from core.model import Library
+from api.authenticator import LibraryAuthenticator
+
+class PatronInformationScript(Script):
+    @classmethod
+    def arg_parser(cls):
+        parser = argparse.ArgumentParser()
+        parser.add_argument(
+            '--library-id',
+            help="ID of the library the patron belongs to.",
+            required=True,
+        )
+        parser.add_argument(
+            '--barcode',
+            help="The barcode to lookup.",
+            required=True,
+        )
+        parser.add_argument(
+            '--pin',
+            help="The pin for barcode.",
+            default=None,
+        )
+
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        library = Library.lookup(self._db, short_name=args.library_id)
+        auth = LibraryAuthenticator.from_config(_db, library).basic_auth_provider
+        patron_data = auth.remote_authenticate(args.barcode, args.pin)
+        self.explain(patron_data)
+
+    def explain(self, patron_data):
+        print "Permanent ID: %s" % patron_data.permanent_id
+        print "Authorization Identifier: %s" % patron_data.authorization_identifier
+        print "Username: %s" % patron_data.username
+        print "Personal Name: %s" % patron_data.personal_name
+        print "Authorization Expires: %s" % patron_data.authorization_expires
+        print "External Type: %s" % patron_data.external_type
+        print "Fines: $%s" % patron_data.fines
+        print "Block Reason: %s" % patron_data.block_reason
+        print "Library Identifier: %s" % patron_data.library_identifier
+
+PatronInformationScript().run()
