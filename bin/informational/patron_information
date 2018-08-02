@@ -9,20 +9,14 @@ bin_dir = os.path.split(__file__)[0]
 package_dir = os.path.join(bin_dir, "..", "..")
 sys.path.append(os.path.abspath(package_dir))
 
-from core.scripts import Script
-import argparse
+from core.scripts import LibraryInputScript
 from core.model import Library
 from api.authenticator import LibraryAuthenticator, PatronData
 
-class PatronInformationScript(Script):
+class PatronInformationScript(LibraryInputScript):
     @classmethod
-    def arg_parser(cls):
-        parser = argparse.ArgumentParser()
-        parser.add_argument(
-            '--library-id',
-            help="ID of the library the patron belongs to.",
-            required=True,
-        )
+    def arg_parser(cls, _db):
+        parser = super(PatronInformationScript, cls).arg_parser(_db)
         parser.add_argument(
             '--barcode',
             help="The barcode to lookup.",
@@ -33,19 +27,14 @@ class PatronInformationScript(Script):
             help="The pin for barcode.",
             default=None,
         )
-
         return parser
 
     def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
         _db = _db or self._db
         args = self.parse_command_line(_db, cmd_args=cmd_args)
-        library = Library.lookup(self._db, short_name=args.library_id)
-        if library is None:
-            print "Library does not exist."
-        else:
-            auth = LibraryAuthenticator.from_config(_db, library).basic_auth_provider
-            patron_data = auth.remote_authenticate(args.barcode, args.pin)
-            self.explain(patron_data)
+        auth = LibraryAuthenticator.from_config(_db, args.libraries[0]).basic_auth_provider
+        patron_data = auth.remote_authenticate(args.barcode, args.pin)
+        self.explain(patron_data)
 
     def explain(self, patron_data):
         if patron_data is None or patron_data is False:
