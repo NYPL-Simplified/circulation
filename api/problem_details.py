@@ -33,7 +33,7 @@ EXPIRED_CREDENTIALS = pd(
 BLOCKED_CREDENTIALS = pd(
       "http://librarysimplified.org/terms/problem/credentials-suspended",
       403,
-      _("Expired credentials."),
+      _("Suspended credentials."),
       _("Your library card has been suspended. Contact your branch library."),
 )
 
