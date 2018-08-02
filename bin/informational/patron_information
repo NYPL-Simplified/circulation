@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+"""Find information about a particular patron based on barcode and pin.
+"""
+
+import os
+import sys
+
+bin_dir = os.path.split(__file__)[0]
+package_dir = os.path.join(bin_dir, "..", "..")
+sys.path.append(os.path.abspath(package_dir))
+
+from core.scripts import LibraryInputScript
+from core.model import Library
+from api.authenticator import LibraryAuthenticator, PatronData
+
+class PatronInformationScript(LibraryInputScript):
+    @classmethod
+    def arg_parser(cls, _db):
+        parser = super(PatronInformationScript, cls).arg_parser(_db)
+        parser.add_argument(
+            '--barcode',
+            help="The barcode to lookup.",
+            required=True,
+        )
+        parser.add_argument(
+            '--pin',
+            help="The pin for barcode.",
+            default=None,
+        )
+        return parser
+
+    def do_run(self, _db=None, cmd_args=None, output=sys.stdout):
+        _db = _db or self._db
+        args = self.parse_command_line(_db, cmd_args=cmd_args)
+        auth = LibraryAuthenticator.from_config(_db, args.libraries[0]).basic_auth_provider
+        patron_data = auth.remote_authenticate(args.barcode, args.pin)
+        self.explain(patron_data)
+
+    def explain(self, patron_data):
+        if patron_data is None or patron_data is False:
+            print "Account does not exist."
+        else:
+            print "Permanent ID: %s" % self.print_data(patron_data.permanent_id)
+            print "Authorization Identifier: %s" % self.print_data(patron_data.authorization_identifier)
+            print "Username: %s" % self.print_data(patron_data.username)
+            print "Personal Name: %s" % self.print_data(patron_data.personal_name)
+            print "Authorization Expires: %s" % self.print_data(patron_data.authorization_expires)
+            print "External Type: %s" % self.print_data(patron_data.external_type)
+            print "Fines: $%s" % self.print_data(patron_data.fines)
+            print "Block Reason: %s" % self.print_data(patron_data.block_reason)
+            print "Library Identifier: %s" % self.print_data(patron_data.library_identifier)
+
+    def print_data(self, data):
+        if data == PatronData.NO_VALUE:
+            return "- No Value -"
+        elif data is None:
+            return "- None -"
+        else:
+            return data
+
+PatronInformationScript().run()
