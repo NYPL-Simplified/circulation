@@ -3,16 +3,25 @@ from nose.tools import (
     eq_,
     set_trace,
 )
+import datetime
+from StringIO import StringIO
 
 from core.testing import DatabaseTest
 from core.model import (
     ExternalIntegration,
 )
-
+from core.opds_import import (
+    OPDSImportMonitor,
+)
 from api.authenticator import BasicAuthenticationProvider
+from api.circulation import CirculationAPI
 from api.selftest import (
     HasSelfTests,
+    RunSelfTestsScript,
     SelfTestResult,
+)
+from api.feedbooks import (
+    FeedbooksImportMonitor,
 )
 
 class TestHasSelfTests(DatabaseTest):
@@ -79,3 +88,127 @@ class TestHasSelfTests(DatabaseTest):
         eq_("username1", patron.authorization_identifier)
         eq_("password1", password)
 
+
+class TestRunSelfTestsScript(DatabaseTest):
+
+    def test_do_run(self):
+        library1 = self._default_library
+        library2 = self._library(name="library2")
+        out = StringIO()
+
+        class MockParsed(object):
+            pass
+
+        class MockScript(RunSelfTestsScript):
+            tested = []
+            def parse_command_line(self, *args, **kwargs):
+                parsed = MockParsed()
+                parsed.libraries = [library1, library2]
+                return parsed
+
+            def test_collection(self, collection, api_map):
+                self.tested.append((collection, api_map))
+
+        script = MockScript(self._db, out)
+        script.do_run()
+        # Both libraries were tested.
+        eq_(out.getvalue(),
+            "Testing %s\nTesting %s\n" % (library1.name, library2.name))
+
+        # The default library is the only one with a collection;
+        # test_collection() was called on that collection.
+        [(collection, api_map)] = script.tested
+        eq_([collection], library1.collections)
+
+        # The API lookup map passed into test_collection() is based on
+        # CirculationAPI's default API map.
+        default_api_map = CirculationAPI(
+            self._db, self._default_library
+        ).default_api_map
+        for k, v in default_api_map.items():
+            eq_(api_map[k], v)
+
+        # But a couple things were added to the map that are not in
+        # CirculationAPI.
+        eq_(api_map[ExternalIntegration.OPDS_IMPORT], OPDSImportMonitor)
+        eq_(api_map[ExternalIntegration.FEEDBOOKS], FeedbooksImportMonitor)
+
+        # If test_collection raises an exception, the exception is recorded,
+        # and we move on.
+        class MockScript2(MockScript):
+            def test_collection(self, collection, api_map):
+                raise Exception("blah")
+        out = StringIO()
+        script = MockScript2(self._db, out)
+        script.do_run()
+        eq_(out.getvalue(),
+            "Testing %s\n  Exception while running self-test: Exception('blah',)\nTesting %s\n" % (library1.name, library2.name)
+        )
+
+    def test_test_collection(self):
+        class MockScript(RunSelfTestsScript):
+            processed = []
+            def process_result(self, result):
+                self.processed.append(result)
+
+        collection = self._default_collection
+
+        # If the api_map does not map the collection's protocol to a
+        # HasSelfTests class, nothing happens.
+        out = StringIO()
+        script = MockScript(self._db, out)
+        script.test_collection(collection, api_map={})
+        eq_(out.getvalue(),
+            ' Cannot find a self-test for %s, ignoring.\n' % collection.name)
+
+        # If the api_map does map the colelction's protocol to a
+        # HasSelfTests class, the class's run_self_tests class method
+        # is invoked. Any extra arguments found in the extra_args dictionary
+        # are passed in to run_self_tests.
+        class MockHasSelfTests(object):
+            @classmethod
+            def run_self_tests(cls, _db, constructor_method, *constructor_args):
+                cls.run_self_tests_called_with = (_db, constructor_method)
+                cls.run_self_tests_constructor_args = constructor_args
+                return {}, ["result 1", "result 2"]
+
+        out = StringIO()
+        script = MockScript(self._db, out)
+        protocol = self._default_collection.protocol
+        script.test_collection(
+            collection, api_map={protocol:MockHasSelfTests},
+            extra_args={MockHasSelfTests:["an extra arg"]}
+        )
+
+        # run_self_tests() was called with the correct arguments,
+        # including the extra one.
+        eq_((self._db, None), MockHasSelfTests.run_self_tests_called_with)
+        eq_((self._db, collection, "an extra arg"),
+            MockHasSelfTests.run_self_tests_constructor_args)
+
+        # Each result was run through process_result().
+        eq_(["result 1", "result 2"], script.processed)
+
+    def test_process_result(self):
+
+        # Test a successful test that returned a result.
+        success = SelfTestResult("i succeeded")
+        success.success = True
+        success.end = success.start + datetime.timedelta(seconds=1.5)
+        success.result = "a result"
+        out = StringIO()
+        script = RunSelfTestsScript(self._db, out)
+        script.process_result(success)
+        eq_(out.getvalue(),
+            '  SUCCESS i succeeded (1.5sec)\n   Result: a result\n',)
+
+        # Test a failed test that raised an exception.
+        failure = SelfTestResult("i failed")
+        failure.end = failure.start
+        failure.exception = Exception("bah")
+        out = StringIO()
+        script = RunSelfTestsScript(self._db, out)
+        script.process_result(failure)
+        eq_(out.getvalue(),
+            "  FAILURE i failed (0.0sec)\n   Exception: Exception('bah',)\n"
+        )
