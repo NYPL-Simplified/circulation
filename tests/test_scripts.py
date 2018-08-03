@@ -395,28 +395,40 @@ class TestPatronInputScript(DatabaseTest):
 
     def test_parse_patron_list(self):
         """Test that patrons can be identified with any unique identifier."""
+        l1 = self._library()
+        l2 = self._library()
         p1 = self._patron()
         p1.authorization_identifier = self._str
+        p1.library_id = l1.id
         p2 = self._patron()
         p2.username = self._str
+        p2.library_id = l1.id
         p3 = self._patron()
         p3.external_identifier = self._str
+        p3.library_id = l1.id
+        p4 = self._patron()
+        p4.external_identifier = self._str
+        p4.library_id = l2.id
         args = [p1.authorization_identifier, 'no-such-patron',
                 '', p2.username, p3.external_identifier]
         patrons = PatronInputScript.parse_patron_list(
-            self._db, args
+            self._db, l1, args
         )
         eq_([p1, p2, p3], patrons)
-
-        eq_([], PatronInputScript.parse_patron_list(self._db, []))
+        eq_([], PatronInputScript.parse_patron_list(self._db, l1, []))
+        eq_([p1], PatronInputScript.parse_patron_list(self._db, l1, [p1.external_identifier, p4.external_identifier]))
+        eq_([p4], PatronInputScript.parse_patron_list(self._db, l2, [p1.external_identifier, p4.external_identifier]))
 
     def test_parse_command_line(self):
+        l1 = self._library()
         p1 = self._patron()
         p2 = self._patron()
         p1.authorization_identifier = self._str
         p2.authorization_identifier = self._str
+        p1.library_id = l1.id
+        p2.library_id = l1.id
         # We pass in one patron identifier on the command line...
-        cmd_args = [p1.authorization_identifier]
+        cmd_args = [l1.short_name, p1.authorization_identifier]
         # ...and another one into standard input.
         stdin = MockStdin(p2.authorization_identifier)
         parsed = PatronInputScript.parse_command_line(
@@ -424,12 +436,21 @@ class TestPatronInputScript(DatabaseTest):
         )
         eq_([p1, p2], parsed.patrons)
 
-    def test_parse_command_line_no_identifiers(self):
-        parsed = PatronInputScript.parse_command_line(
-            self._db, [], MockStdin()
-        )
-        eq_([], parsed.patrons)
-
+    def test_patron_different_library(self):
+        l1 = self._library()
+        l2 = self._library()
+        p1 = self._patron()
+        p2 = self._patron()
+        p1.authorization_identifier = self._str
+        p2.authorization_identifier = p1.authorization_identifier
+        p1.library_id = l1.id
+        p2.library_id = l2.id
+        cmd_args = [l1.short_name, p1.authorization_identifier]
+        parsed = PatronInputScript.parse_command_line(self._db, cmd_args, None)
+        eq_([p1], parsed.patrons)
+        cmd_args = [l2.short_name, p2.authorization_identifier]
+        parsed = PatronInputScript.parse_command_line(self._db, cmd_args, None)
+        eq_([p2], parsed.patrons)
 
     def test_do_run(self):
         """Test that PatronInputScript.do_run() calls process_patron()
@@ -438,13 +459,19 @@ class TestPatronInputScript(DatabaseTest):
         class MockPatronInputScript(PatronInputScript):
             def process_patron(self, patron):
                 patron.processed = True
+        l1 = self._library()
         p1 = self._patron()
         p2 = self._patron()
         p3 = self._patron()
+        p1.library_id = l1.id
+        p2.library_id = l1.id
+        p3.library_id = l1.id
+        p1.processed = False
+        p2.processed = False
         p3.processed = False
         p1.authorization_identifier = self._str
         p2.authorization_identifier = self._str
-        cmd_args = [p1.authorization_identifier]
+        cmd_args = [l1.short_name, p1.authorization_identifier]
         stdin = MockStdin(p2.authorization_identifier)
         script = MockPatronInputScript(self._db)
         script.do_run(cmd_args=cmd_args, stdin=stdin)
