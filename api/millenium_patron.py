@@ -301,6 +301,11 @@ class MilleniumPatronAPI(BasicAuthenticationProvider, XMLParser):
                 # We'll figure out which barcode is the 'right' one
                 # later.
                 potential_identifiers.append(v)
+                # The millenium API doesn't care about spaces, so we add
+                # a version of the barcode without spaces to our identifers
+                # list as well.
+                if " " in v:
+                    potential_identifiers.append(v.replace(" ", ""))
             elif k == self.RECORD_NUMBER_FIELD:
                 permanent_id = v
             elif k == self.USERNAME_FIELD:

@@ -99,6 +99,13 @@ class TestMilleniumPatronAPI(DatabaseTest):
         eq_("alice@sheldon.com", patrondata.email_address)
         eq_(PatronData.NO_VALUE, patrondata.block_reason)
 
+    def test_remote_patron_lookup_barcode_spaces(self):
+        self.api.enqueue("dump.success_barcode_spaces.html")
+        patrondata = PatronData(authorization_identifier="44444444444447")
+        patrondata = self.api.remote_patron_lookup(patrondata)
+        eq_("44444444444447", patrondata.authorization_identifier)
+        eq_(["44444444444447", "4 444 4444 44444 7"], patrondata.authorization_identifiers)
+
     def test_remote_patron_lookup_block_rules(self):
         """This patron has a value of "m" in MBLOCK[56], which generally
         means they are blocked.
