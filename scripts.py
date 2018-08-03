@@ -547,23 +547,23 @@ class IdentifierInputScript(InputScript):
 
 class LibraryInputScript(InputScript):
     """A script that operates on one or more Libraries."""
-
     @classmethod
-    def parse_command_line(cls, _db=None, cmd_args=None, 
+    def parse_command_line(cls, _db=None, cmd_args=None,
                            *args, **kwargs):
         parser = cls.arg_parser(_db)
         parsed = parser.parse_args(cmd_args)
         return cls.look_up_libraries(_db, parsed, *args, **kwargs)
 
     @classmethod
-    def arg_parser(cls, _db):
+    def arg_parser(cls, _db, multiple_libraries = True):
         parser = argparse.ArgumentParser()
         library_names = sorted(l.short_name for l in _db.query(Library))
         library_names = '"' + '", "'.join(library_names) + '"'
         parser.add_argument(
             'libraries',
             help='Name of a specific library to process. Libraries on this system: %s' % library_names,
-            metavar='SHORT_NAME', nargs='*'
+            metavar='SHORT_NAME',
+            nargs='*' if multiple_libraries else 1
         )
         return parser
 
@@ -630,25 +630,26 @@ class LibraryInputScript(InputScript):
         raise NotImplementedError()
 
 
-class PatronInputScript(InputScript):
+class PatronInputScript(LibraryInputScript):
     """A script that operates on one or more Patrons."""
 
     @classmethod
     def parse_command_line(cls, _db=None, cmd_args=None, stdin=sys.stdin,
                            *args, **kwargs):
-        parser = cls.arg_parser()
+        parser = cls.arg_parser(_db)
         parsed = parser.parse_args(cmd_args)
         if stdin:
             stdin = cls.read_stdin_lines(stdin)
+        parsed = super(PatronInputScript, cls).look_up_libraries(_db, parsed, *args, **kwargs)
         return cls.look_up_patrons(_db, parsed, stdin, *args, **kwargs)
 
     @classmethod
-    def arg_parser(cls):
-        parser = argparse.ArgumentParser()
+    def arg_parser(cls, _db):
+        parser = super(PatronInputScript, cls).arg_parser(_db, multiple_libraries=False)
         parser.add_argument(
             'identifiers',
             help='A specific patron identifier to process.',
-            metavar='IDENTIFIER', nargs='*'
+            metavar='IDENTIFIER', nargs='+'
         )
         return parser
 
@@ -659,12 +660,13 @@ class PatronInputScript(InputScript):
         """
         if _db:
             patron_strings = parsed.identifiers
+            library = parsed.libraries[0]
             if stdin_patron_strings:
                 patron_strings = (
                     patron_strings + stdin_patron_strings
                 )
             parsed.patrons = cls.parse_patron_list(
-                _db, patron_strings, *args, **kwargs
+                _db, library, patron_strings, *args, **kwargs
             )
         else:
             # Database is not active yet. The script can call
@@ -673,7 +675,7 @@ class PatronInputScript(InputScript):
         return parsed
 
     @classmethod
-    def parse_patron_list(cls, _db, arguments):
+    def parse_patron_list(cls, _db, library, arguments):
         """Turn a list of patron identifiers into a list of Patron objects.
 
         The list of arguments is probably derived from a command-line
@@ -689,7 +691,10 @@ class PatronInputScript(InputScript):
             for field in (Patron.authorization_identifier, Patron.username,
                           Patron.external_identifier):
                 try:
-                    patron = _db.query(Patron).filter(field==arg).one()
+                    patron = _db.query(Patron)\
+                        .filter(field==arg)\
+                        .filter(Patron.library_id==library.id)\
+                        .one()
                 except NoResultFound:
                     continue
                 except MultipleResultsFound:
