@@ -3461,6 +3461,7 @@ class SettingsController(AdminCirculationManagerController):
         :param registration_class: Mock class to use instead of Registration.
         """
 
+        registration_class = registration_class or Registration
         self.require_system_admin()
         goal = ExternalIntegration.DISCOVERY_GOAL
         if flask.request.method == "GET":
