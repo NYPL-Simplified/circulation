@@ -36,7 +36,7 @@ from lxml import etree
 
 from config import (
     CannotLoadConfiguration,
-    Configuration, 
+    Configuration,
     temp_config,
 )
 
@@ -125,7 +125,7 @@ from mock_analytics_provider import MockAnalyticsProvider
 class TestSessionManager(DatabaseTest):
 
     def test_refresh_materialized_views(self):
-        work = self._work(fiction=True, with_license_pool=True, 
+        work = self._work(fiction=True, with_license_pool=True,
                           genre="Science Fiction")
         romance, ignore = Genre.lookup(self._db, "Romance")
         work.genres.append(romance)
@@ -189,10 +189,10 @@ class TestDatabaseInterface(DatabaseTest):
     def test_initialize_data_does_not_reset_timestamp(self):
         # initialize_data() has already been called, so the database is
         # initialized and the 'site configuration changed' Timestamp has
-        # been set. Calling initialize_data() again won't change the 
+        # been set. Calling initialize_data() again won't change the
         # date on the timestamp.
         timestamp = get_one(self._db, Timestamp,
-                            collection=None, 
+                            collection=None,
                             service=Configuration.SITE_CONFIGURATION_CHANGED)
         old_timestamp = timestamp.timestamp
         SessionManager.initialize_data(self._db)
@@ -208,7 +208,7 @@ class TestDataSource(DatabaseTest):
         # out empty. It's populated with all known values at the start
         # of the test. Let's reset the cache.
         DataSource.reset_cache()
-        
+
         gutenberg = DataSource.lookup(self._db, DataSource.GUTENBERG)
         eq_(key, gutenberg.name)
         eq_(True, gutenberg.offers_licenses)
@@ -235,12 +235,12 @@ class TestDataSource(DatabaseTest):
         eq_(HasFullTableCache.RESET, DataSource._cache)
 
         eq_((new_source, False), DataSource.by_cache_key(self._db, key, None))
-        
+
     def test_lookup_by_deprecated_name(self):
         threem = DataSource.lookup(self._db, "3M")
         eq_(DataSource.BIBLIOTHECA, threem.name)
         assert DataSource.BIBLIOTHECA != "3M"
-        
+
     def test_lookup_returns_none_for_nonexistent_source(self):
         eq_(None, DataSource.lookup(
             self._db, "No such data source " + self._str))
@@ -250,13 +250,13 @@ class TestDataSource(DatabaseTest):
         new_source = DataSource.lookup(self._db, name, autocreate=True)
         eq_(name, new_source.name)
         eq_(False, new_source.offers_licenses)
-        
+
         name = "New data source with licenses" + self._str
         new_source = DataSource.lookup(
             self._db, name, autocreate=True, offers_licenses=True
         )
         eq_(True, new_source.offers_licenses)
-        
+
     def test_metadata_sources_for(self):
         content_cafe = DataSource.lookup(self._db, DataSource.CONTENT_CAFE)
         isbn_metadata_sources = DataSource.metadata_sources_for(
@@ -280,7 +280,7 @@ class TestDataSource(DatabaseTest):
         identifier = self._identifier(DataSource.MANUAL)
         assert_raises(
             NoResultFound, DataSource.license_source_for, self._db, identifier)
-            
+
 
 class TestIdentifier(DatabaseTest):
 
@@ -328,7 +328,7 @@ class TestIdentifier(DatabaseTest):
 
         eq_(True, m(Identifier.BIBLIOTHECA_ID, "0015142259"))
         eq_(False, m(Identifier.BIBLIOTHECA_ID, "0015142259,0015187940"))
-            
+
     def test_for_foreign_id_without_autocreate(self):
         identifier_type = Identifier.ISBN
         isbn = self._str
@@ -344,7 +344,7 @@ class TestIdentifier(DatabaseTest):
         isbn10 = '1449358063'
         isbn13 = '9781449358068'
         asin = 'B0088IYM3C'
-        isbn13_with_dashes = '978-144-935-8068'        
+        isbn13_with_dashes = '978-144-935-8068'
 
         i_isbn10, new1 = Identifier.from_asin(self._db, isbn10)
         i_isbn13, new2 = Identifier.from_asin(self._db, isbn13)
@@ -503,15 +503,15 @@ class TestIdentifier(DatabaseTest):
 
         # Pass in None and you get None.
         eq_(None, Identifier.parse_urn(self._db, None))
-        
+
     def parse_urn_must_support_license_pools(self):
         # We have no way of associating ISBNs with license pools.
         # If we try to parse an ISBN URN in a context that only accepts
         # URNs that can have associated license pools, we get an exception.
         isbn_urn = "urn:isbn:1449358063"
         assert_raises(
-            Identifier.UnresolvableIdentifierException, 
-            Identifier.parse_urn, self._db, isbn_urn, 
+            Identifier.UnresolvableIdentifierException,
+            Identifier.parse_urn, self._db, isbn_urn,
             must_support_license_pools=True)
 
     def test_recursively_equivalent_identifier_ids(self):
@@ -605,14 +605,14 @@ class TestIdentifier(DatabaseTest):
                  level_3_equivalent.id,
                  level_4_equivalent.id]),
             set(equivs[level_4_equivalent.id]))
-        
+
         equivs = Identifier.recursively_equivalent_identifier_ids(
             self._db, [level_4_equivalent.id], levels=5, threshold=0.5)
         eq_(set([level_2_equivalent.id,
                  level_3_equivalent.id,
                  level_4_equivalent.id]),
             set(equivs[level_4_equivalent.id]))
-        
+
         # A chain of very strong equivalents can keep a high strength
         # even at deep levels. This wouldn't work if we changed the strength
         # threshold by level instead of accumulating a strength product.
@@ -743,7 +743,7 @@ class TestIdentifier(DatabaseTest):
         self._coverage_record(identifier, gutenberg, collection=collection1)
 
         # The Identifier has coverage in collection 1.
-        eq_([], 
+        eq_([],
             Identifier.missing_coverage_from(
                 self._db, [identifier.type], gutenberg, collection=collection1
             ).all()
@@ -759,7 +759,7 @@ class TestIdentifier(DatabaseTest):
         # If no collection is specified, we look for a CoverageRecord
         # that also has no collection specified, and the Identifier is
         # not treated as covered.
-        eq_([identifier], 
+        eq_([identifier],
             Identifier.missing_coverage_from(
                 self._db, [identifier.type], gutenberg
             ).all()
@@ -780,13 +780,13 @@ class TestIdentifier(DatabaseTest):
 
         # The CoverageRecord knows when the coverage was provided.
         timestamp = coverage.timestamp
-        
+
         # If we ask for Identifiers that are missing coverage records
         # as of that time, we see nothing.
         eq_(
-            [], 
+            [],
             Identifier.missing_coverage_from(
-                self._db, [identifier.type], oclc, 
+                self._db, [identifier.type], oclc,
                 count_as_missing_before=timestamp
             ).all()
         )
@@ -794,9 +794,9 @@ class TestIdentifier(DatabaseTest):
         # But if we give a time one second later, the Identifier is
         # missing coverage.
         eq_(
-            [identifier], 
+            [identifier],
             Identifier.missing_coverage_from(
-                self._db, [identifier.type], oclc, 
+                self._db, [identifier.type], oclc,
                 count_as_missing_before=timestamp+datetime.timedelta(seconds=1)
             ).all()
         )
@@ -910,7 +910,7 @@ class TestGenre(DatabaseTest):
 
         # Get a genre to test with.
         drama = get_one(self._db, Genre, name="Drama")
-        
+
         # Since we went right to the database, that didn't change the
         # fact that the ID cache is uninitialized.
         eq_(Genre.RESET, Genre._id_cache)
@@ -921,7 +921,7 @@ class TestGenre(DatabaseTest):
         # ... and the ID cache is fully initialized.
         eq_(drama, Genre._id_cache[drama.id])
         assert len(Genre._id_cache) > 1
-        
+
     def test_by_cache_key_miss_triggers_create_function(self):
         _db = self._db
         class Factory(object):
@@ -933,7 +933,7 @@ class TestGenre(DatabaseTest):
                 self.called = True
                 genre, is_new = get_one_or_create(_db, Genre, name="Drama")
                 return genre, is_new
-                
+
         factory = Factory()
         Genre._cache = {}
         Genre._id_cache = {}
@@ -1003,7 +1003,7 @@ class TestGenre(DatabaseTest):
         # We don't know its default fiction status.
         eq_(None, genre.default_fiction)
 
-        
+
 class TestSubject(DatabaseTest):
 
     def test_lookup_errors(self):
@@ -1054,7 +1054,7 @@ class TestSubject(DatabaseTest):
         subject, is_new = Subject.lookup(self._db, Subject.TAG, None, "A tag")
         assert subject in [s1, s2]
         eq_(False, is_new)
-        
+
     def test_assign_to_genre_can_remove_genre(self):
         # Here's a Subject that identifies children's books.
         subject, was_new = Subject.lookup(self._db, Subject.TAG, "Children's books", None)
@@ -1108,7 +1108,7 @@ class TestContributor(DatabaseTest):
         eq_((bob1, False), Contributor.lookup(self._db, lc="foo"))
 
     def test_lookup_by_viaf_interchangeable(self):
-        # Two contributors with the same lc. This shouldn't happen, but 
+        # Two contributors with the same lc. This shouldn't happen, but
         # the reason it shouldn't happen is these two people are the same
         # person, so lookup() should just pick one and go with it.
         bob1, new = self._contributor(sort_name="Bob", lc="foo")
@@ -1147,7 +1147,7 @@ class TestContributor(DatabaseTest):
 
         # Here's Robert.
         [robert], ignore = Contributor.lookup(self._db, sort_name=u"Robert")
-        
+
         # Here's Bob.
         [bob], ignore = Contributor.lookup(self._db, sort_name=u"Jones, Bob")
         bob.extra[u'foo'] = u'bar'
@@ -1191,7 +1191,7 @@ class TestContributor(DatabaseTest):
 
         # The standalone 'Bob' record has been removed from the database.
         eq_(
-            [], 
+            [],
             self._db.query(Contributor).filter(Contributor.sort_name=="Bob").all())
 
         # Bob's book is now associated with 'Robert', not the standalone
@@ -1238,7 +1238,7 @@ class TestContributor(DatabaseTest):
         self._names("Hormel, Bob 1950?-", "Hormel", "Bob Hormel")
         self._names("Holland, Henry 1583-1650? Monumenta sepulchraria Sancti Pauli",
                     "Holland", "Henry Holland")
-        
+
 
         # Suffixes stay on the end, except for "Mrs.", which goes
         # to the front.
@@ -1278,13 +1278,13 @@ class TestEdition(DatabaseTest):
         # Here are two collections that provide access to the same book.
         c1 = self._collection()
         c2 = self._collection()
-        
+
         edition, lp1 = self._edition(with_license_pool=True)
         lp2 = self._licensepool(edition=edition, collection=c2)
 
         # Two LicensePools for the same work.
         eq_(lp1.identifier, lp2.identifier)
-        
+
         # Edition.license_pools contains both.
         eq_(set([lp1, lp2]), set(edition.license_pools))
 
@@ -1451,11 +1451,11 @@ class TestEdition(DatabaseTest):
             oclc_classify, oclc_number, 1)
         open_library.primary_identifier.equivalent_to(
             oclc_linked_data, oclc_number, 1)
-       
+
         # Here's a Edition for a Recovering the Classics cover.
         web_source = DataSource.lookup(self._db, DataSource.WEB)
         recovering, ignore = Edition.for_foreign_id(
-            self._db, web_source, Identifier.URI, 
+            self._db, web_source, Identifier.URI,
             "http://recoveringtheclassics.com/pride-and-prejudice.jpg")
         recovering.title = "Recovering the Classics cover"
 
@@ -1552,7 +1552,7 @@ class TestEdition(DatabaseTest):
 
         # Remove the summary.
         work.set_summary(None)
-        
+
         eq_(None, work.summary)
         eq_("", work.summary_text)
 
@@ -1604,7 +1604,7 @@ class TestEdition(DatabaseTest):
         eq_(overdrive_resource, champ4)
 
         # Even an empty string wins if it's from the most privileged data source.
-        # This is not a silly example.  The librarian may choose to set the description 
+        # This is not a silly example.  The librarian may choose to set the description
         # to an empty string in the admin inteface, to override a bad overdrive/etc. description.
         staff = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         l3, new = pool.add_link(Hyperlink.SHORT_DESCRIPTION, None, staff, "text/plain", "")
@@ -1702,7 +1702,7 @@ class TestEdition(DatabaseTest):
         # CoverageRecord's DataSource is set to this Edition's
         # DataSource.
         eq_(
-            [edition.data_source, edition.data_source], 
+            [edition.data_source, edition.data_source],
             [x.data_source for x in records]
         )
 
@@ -1747,7 +1747,7 @@ class TestEdition(DatabaseTest):
         )
         thumbnail_2.resource.representation.thumbnail_of = main_image.resource.representation
         edition.choose_cover()
-        
+
         # ...That thumbnail will be chosen in preference to the
         # possibly unrelated thumbnail.
         eq_(main_image.resource.url, edition.cover_full_url)
@@ -1757,7 +1757,7 @@ class TestEdition(DatabaseTest):
 class TestLicensePool(DatabaseTest):
 
     def test_for_foreign_id(self):
-        """Verify we can get a LicensePool for a data source, an 
+        """Verify we can get a LicensePool for a data source, an
         appropriate work identifier, and a Collection."""
         now = datetime.datetime.utcnow()
         pool, was_new = LicensePool.for_foreign_id(
@@ -1768,7 +1768,7 @@ class TestLicensePool(DatabaseTest):
         eq_(True, was_new)
         eq_(DataSource.GUTENBERG, pool.data_source.name)
         eq_(Identifier.GUTENBERG_ID, pool.identifier.type)
-        eq_("541", pool.identifier.identifier)        
+        eq_("541", pool.identifier.identifier)
         eq_(0, pool.licenses_owned)
         eq_(0, pool.licenses_available)
         eq_(0, pool.licenses_reserved)
@@ -1792,7 +1792,7 @@ class TestLicensePool(DatabaseTest):
         """
         collection = self._collection()
         assert_raises_regexp(
-            ValueError, 
+            ValueError,
             "License pools for data source 'Overdrive' are keyed to identifier type 'Overdrive ID' \(not 'ISBN', which was provided\)",
             LicensePool.for_foreign_id,
             self._db, DataSource.OVERDRIVE, Identifier.ISBN, "{1-2-3}",
@@ -1815,7 +1815,7 @@ class TestLicensePool(DatabaseTest):
         pool1.set_presentation_edition()
         pool2.set_presentation_edition()
         eq_(pool1.presentation_edition, pool2.presentation_edition)
-        
+
     def test_collection_datasource_identifier_must_be_unique(self):
         """You can't have two LicensePools with the same Collection,
         DataSource, and Identifier.
@@ -1839,8 +1839,8 @@ class TestLicensePool(DatabaseTest):
             data_source=data_source,
             identifier=identifier,
             collection=collection
-        )        
-        
+        )
+
     def test_with_no_work(self):
         p1, ignore = LicensePool.for_foreign_id(
             self._db, DataSource.GUTENBERG, Identifier.GUTENBERG_ID, "1",
@@ -1854,7 +1854,7 @@ class TestLicensePool(DatabaseTest):
 
         work = self._work(title="Foo")
         p1.work = work
-        
+
         assert p1 in work.license_pools
 
         eq_([p2], LicensePool.with_no_work(self._db))
@@ -1963,7 +1963,7 @@ class TestLicensePool(DatabaseTest):
             None, open_access=True, data_source_name=DataSource.GUTENBERG,
             with_open_access_download=True,
         )
-        
+
         assert int(gutenberg_1.identifier.identifier) < int(gutenberg_2.identifier.identifier)
 
         standard_ebooks = self._licensepool(
@@ -1980,7 +1980,7 @@ class TestLicensePool(DatabaseTest):
             None, open_access=True, data_source_name=DataSource.FEEDBOOKS,
             with_open_access_download=True
         )
-        
+
         overdrive = self._licensepool(
             None, open_access=False, data_source_name=DataSource.OVERDRIVE
         )
@@ -2008,7 +2008,7 @@ class TestLicensePool(DatabaseTest):
         eq_(True, better(standard_ebooks, gutenberg_1))
         eq_(True, better(feedbooks, gutenberg_1))
         eq_(False, better(gutenberg_1, standard_ebooks))
-        
+
         # A high Gutenberg number beats a low Gutenberg number.
         eq_(True, better(gutenberg_2, gutenberg_1))
         eq_(False, better(gutenberg_1, gutenberg_2))
@@ -2017,7 +2017,7 @@ class TestLicensePool(DatabaseTest):
         # open-access download resource, it will only be considered if
         # there is no other alternative.
         no_resource = self._licensepool(
-            None, open_access=True, 
+            None, open_access=True,
             data_source_name=DataSource.STANDARD_EBOOKS,
             with_open_access_download=False,
         )
@@ -2077,7 +2077,7 @@ class TestLicensePool(DatabaseTest):
             "work2 resolved complaint source",
             "work2 resolved complaint detail",
             datetime.datetime.now())
-        
+
         work3 = self._work(
             "fiction work without complaint",
             language="eng",
@@ -2122,7 +2122,7 @@ class TestLicensePool(DatabaseTest):
             library, resolved=True).all()
         lp_ids = set([result[0].id for result in resolved_results])
         counts = set([result[1] for result in resolved_results])
-        
+
         eq_(3, len(resolved_results))
         eq_(lp_ids, set([lp1.id, lp2.id, lp3.id]))
         eq_(counts, set([1]))
@@ -2139,7 +2139,7 @@ class TestLicensePool(DatabaseTest):
 
     def test_set_presentation_edition(self):
         """
-        Make sure composite edition creation makes good choices when combining 
+        Make sure composite edition creation makes good choices when combining
         field data from provider, metadata wrangler, admin interface, etc. editions.
         """
         # create different types of editions, all with the same identifier
@@ -2191,7 +2191,7 @@ class TestLicensePool(DatabaseTest):
         eq_(set([jane]), edition_composite.contributors)
 
     def test_circulation_changelog(self):
-        
+
         edition, pool = self._edition(with_license_pool=True)
         pool.licenses_owned = 10
         pool.licenses_available = 9
@@ -2208,7 +2208,7 @@ class TestLicensePool(DatabaseTest):
         )
         eq_(
             args,
-            (edition.medium, edition.title, edition.author, 
+            (edition.medium, edition.title, edition.author,
              pool.identifier.type, pool.identifier.identifier,
              'OWN', 1, 10, 'AVAIL', 2, 9, 'RSRV', 3, 8, 'HOLD', 4, 7)
         )
@@ -2221,7 +2221,7 @@ class TestLicensePool(DatabaseTest):
         )
         eq_(
             args,
-            (edition.medium, edition.title, edition.author, 
+            (edition.medium, edition.title, edition.author,
              pool.identifier.type, pool.identifier.identifier,
              'HOLD', 15, 7)
         )
@@ -2230,7 +2230,7 @@ class TestLicensePool(DatabaseTest):
         # bibliographic data is missing.
         edition.title = None
         edition.author = None
-        
+
         msg, args = pool.circulation_changelog(10, 9, 8, 15)
         eq_("[NO TITLE]", args[1])
         eq_("[NO AUTHOR]", args[2])
@@ -2357,7 +2357,7 @@ class TestLicensePool(DatabaseTest):
         pool.licenses_owned = 5
         pool.licenses_available = 0
         pool.licenses_reserved = 1
-        pool.patrons_in_hold_queue = 3        
+        pool.patrons_in_hold_queue = 3
         eq_((5,0,1,3), calc(CE.DISTRIBUTOR_HOLD_PLACE, 0))
 
         # When you signal a hold on a book that already has holds, it
@@ -2423,14 +2423,14 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
             data_source, identifier, content_type, drm_scheme,
             RightsStatus.GENERIC_OPEN_ACCESS, link.resource
         )
-        
+
         # Now it's open access.
         eq_(True, pool.open_access)
 
         # Delete the open-access LPDM, and it stops being open access.
         oa_lpdm.delete()
         eq_(False, pool.open_access)
-        
+
     def test_set_rights_status(self):
         # Here's a non-open-access book.
         edition, pool = self._edition(with_license_pool=True)
@@ -2491,7 +2491,7 @@ class TestLicensePoolDeliveryMechanism(DatabaseTest):
         edition, pool = self._edition(with_license_pool=True,
                                       with_open_access_download=True)
         [lpdm] = pool.delivery_mechanisms
-        
+
         # We can create a second LPDM with the same data type and DRM status,
         # so long as the resource is different.
         link, new = pool.identifier.add_link(
@@ -2721,26 +2721,26 @@ class TestWork(DatabaseTest):
     def test_calculate_presentation(self):
         # Test that:
         # - work coverage records are made on work creation and primary edition selection.
-        # - work's presentation information (author, title, etc. fields) does a proper job 
+        # - work's presentation information (author, title, etc. fields) does a proper job
         #   of combining fields from underlying editions.
         # - work's presentation information keeps in sync with work's presentation edition.
         # - there can be only one edition that thinks it's the presentation edition for this work.
         # - time stamps are stamped.
         # - higher-standard sources (library staff) can replace, but not delete, authors.
-        
+
         gutenberg_source = DataSource.GUTENBERG
         gitenberg_source = DataSource.PROJECT_GITENBERG
 
         [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
         bob.family_name, bob.display_name = bob.default_names()
 
-        edition1, pool1 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID, 
+        edition1, pool1 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
         edition1.title = u"The 1st Title"
         edition1.subtitle = u"The 1st Subtitle"
         edition1.add_contributor(bob, Contributor.AUTHOR_ROLE)
 
-        edition2, pool2 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID, 
+        edition2, pool2 = self._edition(gitenberg_source, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
         edition2.title = u"The 2nd Title"
         edition2.subtitle = u"The 2nd Subtitle"
@@ -2749,7 +2749,7 @@ class TestWork(DatabaseTest):
         alice.family_name, alice.display_name = alice.default_names()
         edition2.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        edition3, pool3 = self._edition(gutenberg_source, Identifier.GUTENBERG_ID, 
+        edition3, pool3 = self._edition(gutenberg_source, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
         edition3.title = u"The 2nd Title"
         edition3.subtitle = u"The 2nd Subtitle"
@@ -2766,7 +2766,7 @@ class TestWork(DatabaseTest):
         eq_("Alice Adder, Bob Bitshifter", work.author)
 
         # This Work starts out with a single CoverageRecord reflecting the
-        # work done to generate its initial OPDS entry, and then it adds choose-edition 
+        # work done to generate its initial OPDS entry, and then it adds choose-edition
         # as a primary edition is set.
         [choose_edition, generate_opds] = sorted(work.coverage_records, key=lambda x: x.operation)
         assert (generate_opds.operation == WorkCoverageRecord.GENERATE_OPDS_OPERATION)
@@ -2837,13 +2837,13 @@ class TestWork(DatabaseTest):
         eq_(expect, set([(x.operation, x.status) for x in records]))
 
         # Now mark the pool with the presentation edition as suppressed.
-        # work.calculate_presentation() will call work.mark_licensepools_as_superceded(), 
+        # work.calculate_presentation() will call work.mark_licensepools_as_superceded(),
         # which will mark the suppressed pool as superceded and take its edition out of the running.
-        # Make sure that work's presentation edition and work's author, etc. 
-        # fields are updated accordingly, and that the superceded pool's edition 
+        # Make sure that work's presentation edition and work's author, etc.
+        # fields are updated accordingly, and that the superceded pool's edition
         # knows it's no longer the champ.
         pool2.suppressed = True
-        
+
         work.calculate_presentation(search_index_client=index)
 
         # The title of the Work is the title of its new primary work record.
@@ -2871,11 +2871,11 @@ class TestWork(DatabaseTest):
         # except when it has no contributors, and they do.
         pool2.suppressed = False
 
-        staff_edition = self._edition(data_source_name=DataSource.LIBRARY_STAFF, 
+        staff_edition = self._edition(data_source_name=DataSource.LIBRARY_STAFF,
             with_license_pool=False, authors=[])
         staff_edition.title = u"The Staff Title"
         staff_edition.primary_identifier = pool2.identifier
-        # set edition's authorship to "nope", and make sure the lower-priority 
+        # set edition's authorship to "nope", and make sure the lower-priority
         # editions' authors don't get clobbered
         staff_edition.contributions = []
         staff_edition.author = Edition.UNKNOWN_AUTHOR
@@ -2897,7 +2897,7 @@ class TestWork(DatabaseTest):
         search = DummyExternalSearchIndex()
         # This is how the work will be represented in the dummy search
         # index.
-        index_key = (search.works_index, 
+        index_key = (search.works_index,
                      DummyExternalSearchIndex.work_document_type,
                      work.id)
 
@@ -2911,11 +2911,11 @@ class TestWork(DatabaseTest):
         # But the work of adding it to the search engine has been
         # registered.
         [record] = [
-            x for x in work.coverage_records 
+            x for x in work.coverage_records
             if x.operation==WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
         ]
         eq_(WorkCoverageRecord.REGISTERED, record.status)
-        
+
         # This work is presentation ready because it has a title
         # and a fiction status.
 
@@ -2923,7 +2923,7 @@ class TestWork(DatabaseTest):
         # ready.
         presentation.title = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(False, work.presentation_ready)        
+        eq_(False, work.presentation_ready)
 
         # The work has been removed from the search index.
         eq_([], search.docs.keys())
@@ -2931,13 +2931,13 @@ class TestWork(DatabaseTest):
         # Restore the title, and everything is fixed.
         presentation.title = u"foo"
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(True, work.presentation_ready)        
+        eq_(True, work.presentation_ready)
 
         # Remove the fiction status, and the work stops being
         # presentation ready.
         work.fiction = None
         work.set_presentation_ready_based_on_content(search_index_client=search)
-        eq_(False, work.presentation_ready)        
+        eq_(False, work.presentation_ready)
 
         # Restore the fiction status, and everything is fixed.
         work.fiction = False
@@ -2948,7 +2948,7 @@ class TestWork(DatabaseTest):
     def test_assign_genres_from_weights(self):
         work = self._work()
 
-        # This work was once classified under Fantasy and Romance.        
+        # This work was once classified under Fantasy and Romance.
         work.assign_genres_from_weights({Romance : 1000, Fantasy : 1000})
         self._db.commit()
         before = sorted((x.genre.name, x.affinity) for x in work.work_genres)
@@ -2970,19 +2970,19 @@ class TestWork(DatabaseTest):
         subject2.genre = genres[1]
         subject3 = self._subject(type="type2", identifier="subject3")
         subject3.genre = None
-        source = DataSource.lookup(self._db, DataSource.AXIS_360)        
+        source = DataSource.lookup(self._db, DataSource.AXIS_360)
         classification1 = self._classification(
-            identifier=identifier, subject=subject1, 
+            identifier=identifier, subject=subject1,
             data_source=source, weight=1)
         classification2 = self._classification(
-            identifier=identifier, subject=subject2, 
+            identifier=identifier, subject=subject2,
             data_source=source, weight=2)
         classification3 = self._classification(
-            identifier=identifier, subject=subject3, 
+            identifier=identifier, subject=subject3,
             data_source=source, weight=2)
 
         results = work.classifications_with_genre().all()
-        
+
         eq_([classification2, classification1], results)
 
     def test_mark_licensepools_as_superceded(self):
@@ -3022,15 +3022,15 @@ class TestWork(DatabaseTest):
         eq_(False, standard_ebooks.superceded)
 
         # Of three open-access pools, 1 and only 1 will be chosen as non-superceded.
-        gitenberg1 = self._licensepool(edition=None, open_access=True, 
+        gitenberg1 = self._licensepool(edition=None, open_access=True,
             data_source_name=DataSource.PROJECT_GITENBERG, with_open_access_download=True
         )
 
-        gitenberg2 = self._licensepool(edition=None, open_access=True, 
+        gitenberg2 = self._licensepool(edition=None, open_access=True,
             data_source_name=DataSource.PROJECT_GITENBERG, with_open_access_download=True
         )
 
-        gutenberg1 = self._licensepool(edition=None, open_access=True, 
+        gutenberg1 = self._licensepool(edition=None, open_access=True,
             data_source_name=DataSource.GUTENBERG, with_open_access_download=True
         )
 
@@ -3048,8 +3048,8 @@ class TestWork(DatabaseTest):
         work_multipool.mark_licensepools_as_superceded()
 
         eq_(gutenberg1.superceded, True)
-        # There's no way to choose between the two gitenberg pools, 
-        # so making sure only one has been chosen is enough. 
+        # There's no way to choose between the two gitenberg pools,
+        # so making sure only one has been chosen is enough.
         chosen_count = 0
         for chosen_pool in gutenberg1, gitenberg1, gitenberg2:
             if chosen_pool.superceded is False:
@@ -3073,13 +3073,13 @@ class TestWork(DatabaseTest):
         only_pool.suppressed = True
         work.mark_licensepools_as_superceded()
         eq_(False, only_pool.superceded)
-        
+
 
     def test_work_remains_viable_on_pools_suppressed(self):
-        """ If a work has all of its pools suppressed, the work's author, title, 
+        """ If a work has all of its pools suppressed, the work's author, title,
         and subtitle still have the last best-known info in them.
         """
-        (work, pool_std_ebooks, pool_git, pool_gut, 
+        (work, pool_std_ebooks, pool_git, pool_gut,
             edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
 
         # make sure the setup is what we expect
@@ -3130,11 +3130,11 @@ class TestWork(DatabaseTest):
         eq_("Adder, Alice", work.sort_author)
 
     def test_work_updates_info_on_pool_suppressed(self):
-        """ If the provider of the work's presentation edition gets suppressed, 
-        the work will choose another child license pool's presentation edition as 
+        """ If the provider of the work's presentation edition gets suppressed,
+        the work will choose another child license pool's presentation edition as
         its presentation edition.
         """
-        (work, pool_std_ebooks, pool_git, pool_gut, 
+        (work, pool_std_ebooks, pool_git, pool_gut,
             edition_std_ebooks, edition_git, edition_gut, alice, bob) = self._sample_ecosystem()
 
         # make sure the setup is what we expect
@@ -3307,7 +3307,7 @@ class TestWork(DatabaseTest):
         # It no longer needs coverage!
         eq_([], Work.missing_coverage_from(self._db, operation).all())
 
-        # But if we disqualify coverage records created before a 
+        # But if we disqualify coverage records created before a
         # certain time, it might need coverage again.
         cutoff = record.timestamp + datetime.timedelta(seconds=1)
 
@@ -3362,7 +3362,7 @@ class TestWork(DatabaseTest):
         [contributor2] = [c.contributor for c in edition.contributions if c.role == Contributor.AUTHOR_ROLE]
 
         data_source = DataSource.lookup(self._db, DataSource.THREEM)
-        
+
         # This identifier is strongly equivalent to the edition's.
         identifier = self._identifier()
         identifier.equivalent_to(data_source, edition.primary_identifier, 0.9)
@@ -3461,7 +3461,7 @@ class TestWork(DatabaseTest):
         eq_(float(2)/(6 + 1 + 2 + 7), classification2_doc['weight'])
         eq_("Sea Stories", classification3_doc['term'])
         eq_(float(7)/(6 + 1 + 2 + 7), classification3_doc['weight'])
-        
+
         genres = search_doc['genres']
         eq_(2, len(genres))
         [genre1_doc] = [g for g in genres if g['name'] == genre1.name]
@@ -3541,18 +3541,18 @@ class TestWork(DatabaseTest):
 
 
     def test_reindex_on_availability_change(self):
-        """A change in a LicensePool's availability creates a 
+        """A change in a LicensePool's availability creates a
         WorkCoverageRecord indicating that the work needs to be
         re-indexed.
         """
         work = self._work(with_open_access_download=True)
         [pool] = work.license_pools
         def find_record(work):
-            """Find the Work's 'update search index operation' 
+            """Find the Work's 'update search index operation'
             WorkCoverageRecord.
             """
             records = [
-                x for x in work.coverage_records 
+                x for x in work.coverage_records
                 if x.operation.startswith(
                         WorkCoverageRecord.UPDATE_SEARCH_INDEX_OPERATION
                 )
@@ -3635,7 +3635,7 @@ class TestWork(DatabaseTest):
         # The work was not added to the search index -- that happens
         # later, when the WorkCoverageRecord is processed.
         eq_([], index.docs.values())
-      
+
 
     def test_for_unchecked_subjects(self):
 
@@ -3728,7 +3728,7 @@ class TestCirculationEvent(DatabaseTest):
         foreign_id = data['id']
         identifier_type = source.primary_identifier_type
         collection = data['collection']
-        
+
         license_pool, was_new = LicensePool.for_foreign_id(
             _db, source, identifier_type, foreign_id, collection=collection
         )
@@ -3765,7 +3765,7 @@ class TestCirculationEvent(DatabaseTest):
             delta=2,
             new_value=2,
         )
-        
+
         # Turn it into an event and see what happens.
         event, ignore = self.from_dict(data)
 
@@ -3884,7 +3884,7 @@ class TestWorkConsolidation(DatabaseTest):
 
 
     def test_calculate_work_matches_based_on_permanent_work_id(self):
-        # Here are two Editions with the same permanent work ID, 
+        # Here are two Editions with the same permanent work ID,
         # since they have the same title/author.
         edition1, ignore = self._edition(with_license_pool=True)
         edition2, ignore = self._edition(
@@ -3897,7 +3897,7 @@ class TestWorkConsolidation(DatabaseTest):
         for e in [edition1, edition2]:
             for license_pool in e.license_pools:
                 license_pool.open_access = True
-        
+
         # Calling calculate_work() on the first edition creates a Work.
         work1, created = edition1.license_pools[0].calculate_work()
         eq_(created, True)
@@ -3914,7 +3914,7 @@ class TestWorkConsolidation(DatabaseTest):
 
 
     def test_calculate_work_for_licensepool_creates_new_work(self):
-        edition1, ignore = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
+        edition1, ignore = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID,
             title=self._str, authors=[self._str], with_license_pool=True)
 
         # This edition is unique to the existing work.
@@ -3922,7 +3922,7 @@ class TestWorkConsolidation(DatabaseTest):
         preexisting_work.set_presentation_edition(edition1)
 
         # This edition is unique to the new LicensePool
-        edition2, pool = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID, 
+        edition2, pool = self._edition(data_source_name=DataSource.GUTENBERG, identifier_type=Identifier.GUTENBERG_ID,
             title=self._str, authors=[self._str], with_license_pool=True)
 
         # Call calculate_work(), and a new Work is created.
@@ -3985,7 +3985,7 @@ class TestWorkConsolidation(DatabaseTest):
         edition1, pool = self._edition(
             data_source_name=DataSource.GUTENBERG, with_license_pool=True
         )
-        
+
         # Here's a second Edition that's talking about a different Identifier
         # altogether, and has no LicensePool.
         edition2 = self._edition()
@@ -3995,7 +3995,7 @@ class TestWorkConsolidation(DatabaseTest):
         # LicensePool.
         edition3, pool2 = self._edition(with_license_pool=True)
         assert edition1.primary_identifier != edition3.primary_identifier
-        
+
         # When we calculate a Work for a LicensePool, we can pass in
         # any Edition as the presentation edition, so long as that
         # Edition's primary identifier matches the LicensePool's
@@ -4011,7 +4011,7 @@ class TestWorkConsolidation(DatabaseTest):
                 pool.calculate_work,
                 known_edition=edition
             )
-        
+
     def test_open_access_pools_grouped_together(self):
 
         # We have four editions with exactly the same title and author.
@@ -4057,7 +4057,7 @@ class TestWorkConsolidation(DatabaseTest):
         # Each restricted-access pool is completely isolated.
         assert restricted3.work != restricted4.work
         assert restricted3.work != open1.work
-       
+
     def test_all_licensepools_with_same_identifier_get_same_work(self):
 
         # Here are two LicensePools for the same Identifier and
@@ -4091,7 +4091,7 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(True, is_new_1)
         eq_(False, is_new_2)
         eq_(edition1, work1.presentation_edition)
-        
+
     def test_calculate_work_fixes_work_in_invalid_state(self):
         # Here's a Work with a commercial edition of "abcd".
         work = self._work(with_license_pool=True)
@@ -4186,7 +4186,7 @@ class TestWorkConsolidation(DatabaseTest):
         [book] = work.license_pools
         book.open_access = True
         book.presentation_edition.permanent_work_id = "abcd"
-        
+
         # Due to a earlier error, the Work also contains an
         # open-access _audiobook_ of "abcd".
         edition, audiobook = self._edition(with_license_pool=True)
@@ -4380,8 +4380,8 @@ class TestWorkConsolidation(DatabaseTest):
 
         w2 = self._work(with_license_pool=True, with_open_access_download=True)
 
-        [lp1] = w1.license_pools 
-        [lp2] = w2.license_pools 
+        [lp1] = w1.license_pools
+        [lp2] = w2.license_pools
 
         # Work #2 has two different license pools grouped
         # together. Work #1 only has one.
@@ -4418,7 +4418,7 @@ class TestWorkConsolidation(DatabaseTest):
         eq_(work, lp1.work)
         eq_(work, lp2.work)
         eq_(work, lp3.work)
-        
+
         # Because work #2 had two license pools, and work #1 only had
         # one, work #1 was merged into work #2, rather than the other
         # way around.
@@ -4575,7 +4575,7 @@ class TestWorkConsolidation(DatabaseTest):
     def test_make_exclusive_open_access_for_permanent_work_id(self):
         # Here's a work containing an open-access LicensePool for
         # literary work "abcd".
-        work1 = self._work(with_license_pool=True, 
+        work1 = self._work(with_license_pool=True,
                           with_open_access_download=True)
         [abcd_oa] = work1.license_pools
         abcd_oa.presentation_edition.permanent_work_id="abcd"
@@ -4591,7 +4591,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Here's another Work containing an open-access LicensePool
         # for literary work "efgh".
-        work2 = self._work(with_license_pool=True, 
+        work2 = self._work(with_license_pool=True,
                           with_open_access_download=True)
         [efgh_1] = work2.license_pools
         efgh_1.presentation_edition.permanent_work_id="efgh"
@@ -4623,13 +4623,13 @@ class TestWorkConsolidation(DatabaseTest):
     def test_make_exclusive_open_access_for_null_permanent_work_id(self):
         # Here's a LicensePool that, due to a previous error, has
         # a null PWID in its presentation edition.
-        work = self._work(with_license_pool=True, 
+        work = self._work(with_license_pool=True,
                           with_open_access_download=True)
         [null1] = work.license_pools
         null1.presentation_edition.title = None
         null1.presentation_edition.sort_author = None
         null1.presentation_edition.permanent_work_id = None
-        
+
         # Here's another LicensePool associated with the same work and
         # with the same problem.
         edition, null2 = self._edition(
@@ -4655,7 +4655,7 @@ class TestWorkConsolidation(DatabaseTest):
 
     def test_merge_into_success(self):
         # Here's a work with an open-access LicensePool.
-        work1 = self._work(with_license_pool=True, 
+        work1 = self._work(with_license_pool=True,
                            with_open_access_download=True)
         [lp1] = work1.license_pools
         lp1.presentation_edition.permanent_work_id="abcd"
@@ -4669,7 +4669,7 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Here's another work with an open-access LicensePool for the
         # same book.
-        work2 = self._work(with_license_pool=True, 
+        work2 = self._work(with_license_pool=True,
                            with_open_access_download=True)
         [lp2] = work2.license_pools
         lp2.presentation_edition.permanent_work_id="abcd"
@@ -4688,7 +4688,7 @@ class TestWorkConsolidation(DatabaseTest):
     def test_open_access_for_permanent_work_id_fixes_mismatched_works_incidentally(self):
 
         # Here's a work with two open-access LicensePools for the book "abcd".
-        work1 = self._work(with_license_pool=True, 
+        work1 = self._work(with_license_pool=True,
                            with_open_access_download=True)
         [abcd_1] = work1.license_pools
         edition, abcd_2 = self._edition(
@@ -4706,11 +4706,11 @@ class TestWorkConsolidation(DatabaseTest):
 
         # Here's another work with an open-access LicensePool for the
         # book "abcd".
-        work2 = self._work(with_license_pool=True, 
+        work2 = self._work(with_license_pool=True,
                            with_open_access_download=True)
         [abcd_3] = work2.license_pools
 
-        # Unfortunately, this work also contains an open-access Licensepool 
+        # Unfortunately, this work also contains an open-access Licensepool
         # for the totally separate book, 'ijkl".
         edition, ijkl = self._edition(
             with_license_pool=True, with_open_access_download=True
@@ -4776,11 +4776,11 @@ class TestWorkConsolidation(DatabaseTest):
     def test_open_access_for_permanent_work_untangles_tangled_works(self):
 
         # Here are three works for the books "abcd", "efgh", and "ijkl".
-        abcd_work = self._work(with_license_pool=True, 
+        abcd_work = self._work(with_license_pool=True,
                                with_open_access_download=True)
         [abcd_1] = abcd_work.license_pools
 
-        efgh_work = self._work(with_license_pool=True, 
+        efgh_work = self._work(with_license_pool=True,
                                with_open_access_download=True)
         [efgh_1] = efgh_work.license_pools
 
@@ -4853,14 +4853,14 @@ class TestWorkConsolidation(DatabaseTest):
 
     def test_merge_into_raises_exception_if_grouping_rules_violated(self):
         # Here's a work with an open-access LicensePool.
-        work1 = self._work(with_license_pool=True, 
+        work1 = self._work(with_license_pool=True,
                            with_open_access_download=True)
         [lp1] = work1.license_pools
         lp1.presentation_edition.permanent_work_id="abcd"
 
         # Here's another work with a commercial LicensePool for the
         # same book.
-        work2 = self._work(with_license_pool=True, 
+        work2 = self._work(with_license_pool=True,
                            with_open_access_download=True)
         [lp2] = work2.license_pools
         lp2.open_access = False
@@ -4868,18 +4868,18 @@ class TestWorkConsolidation(DatabaseTest):
 
         # The works cannot be merged.
         assert_raises_regexp(
-            ValueError, 
+            ValueError,
             "Refusing to merge .* into .* because it would put an open-access LicensePool into the same work as a non-open-access LicensePool.",
             work1.merge_into, work2,
         )
 
     def test_merge_into_raises_exception_if_pwids_differ(self):
-        work1 = self._work(with_license_pool=True, 
+        work1 = self._work(with_license_pool=True,
                            with_open_access_download=True)
         [abcd_oa] = work1.license_pools
         abcd_oa.presentation_edition.permanent_work_id="abcd"
 
-        work2 = self._work(with_license_pool=True, 
+        work2 = self._work(with_license_pool=True,
                            with_open_access_download=True)
         [efgh_oa] = work2.license_pools
         efgh_oa.presentation_edition.permanent_work_id="efgh"
@@ -4887,7 +4887,7 @@ class TestWorkConsolidation(DatabaseTest):
         assert_raises_regexp(
             ValueError,
             "Refusing to merge .* into .* because permanent work IDs don't match: abcd vs. efgh",
-            work1.merge_into, 
+            work1.merge_into,
             work2
         )
 
@@ -4904,7 +4904,7 @@ class TestWorkConsolidation(DatabaseTest):
         work = self._work(with_license_pool=True)
         [lp] = work.license_pools
 
-        # This LicensePool has no presentation edition and no way of 
+        # This LicensePool has no presentation edition and no way of
         # getting one.
         lp.presentation_edition = None
         lp.identifier.primarily_identifies = []
@@ -4978,8 +4978,8 @@ class TestLoans(DatabaseTest):
         # If pool.work is None but pool.edition.work is valid, we use that.
         loan.license_pool = pool
         pool.work = None
-        # Presentation_edition is not representing a lendable object, 
-        # but it is on a license pool, and a pool has lending capacity.  
+        # Presentation_edition is not representing a lendable object,
+        # but it is on a license pool, and a pool has lending capacity.
         eq_(pool.presentation_edition.work, loan.work)
 
         # If that's also None, we're helpless.
@@ -5057,7 +5057,7 @@ class TestHold(DatabaseTest):
             "Holds are disabled for this library.",
             pool.on_hold_to, patron, datetime.datetime.now(), 4
         )
-        
+
     def test_work(self):
         # We don't need to test the functionality--that's tested in
         # Loan--just that Hold also has access to .work.
@@ -5073,7 +5073,7 @@ class TestHold(DatabaseTest):
         # The cycle time is one week.
         default_loan = datetime.timedelta(days=6)
         default_reservation = datetime.timedelta(days=1)
-        
+
         # I'm 20th in line for 4 books.
         #
         # After 6 days, four copies are released and I am 16th in line.
@@ -5126,7 +5126,7 @@ class TestHold(DatabaseTest):
         hold, is_new = pool.on_hold_to(patron)
         hold.position = 1
         hold.end = tomorrow
-        
+
         default_loan = datetime.timedelta(days=1)
         default_reservation = datetime.timedelta(days=2)
         eq_(tomorrow, hold.until(default_loan, default_reservation))
@@ -5197,7 +5197,7 @@ class TestAnnotation(DatabaseTest):
         eq_(2, len(patron.annotations))
         eq_(annotation2, patron.annotations[0])
         eq_(annotation1, patron.annotations[1])
-    
+
 
 class TestHyperlink(DatabaseTest):
 
@@ -5207,7 +5207,7 @@ class TestHyperlink(DatabaseTest):
         data_source = pool.data_source
         original, ignore = create(self._db, Resource, url="http://bar.com")
         hyperlink, is_new = pool.add_link(
-            Hyperlink.DESCRIPTION, "http://foo.com/", data_source, 
+            Hyperlink.DESCRIPTION, "http://foo.com/", data_source,
             "text/plain", "The content", None, RightsStatus.CC_BY,
             "The rights explanation", original,
             transformation_settings=dict(setting="a setting"))
@@ -5297,7 +5297,7 @@ class TestResource(DatabaseTest):
         [lpdm] = pool.delivery_mechanisms
         eq_(lpdm, lpdm.resource.as_delivery_mechanism_for(pool))
 
-        # If there's no relationship between the Resource and 
+        # If there's no relationship between the Resource and
         # the LicensePoolDeliveryMechanism, as_delivery_mechanism_for
         # returns None.
         w2 = self._work(with_license_pool=True)
@@ -5335,7 +5335,7 @@ class TestRepresentation(DatabaseTest):
         # Except when the content-type header is so generic as to be uselses.
         eq_("text/plain", m(
             None,
-            {"content-type": "application/octet-stream;profile=foo"}, 
+            {"content-type": "application/octet-stream;profile=foo"},
             "text/plain")
         )
 
@@ -5425,13 +5425,10 @@ class TestRepresentation(DatabaseTest):
         )
         eq_(Representation.EPUB_MEDIA_TYPE, representation.external_media_type)
         eq_(".epub.images", representation.extension())
-        
 
-        # SVG representations are always converted to PNG on the way out.
-        # This affects the media type.
         representation, ignore = self._representation(self._url + ".svg", "image/svg+xml")
-        eq_("image/png", representation.external_media_type)
-        eq_(".png", representation.extension())
+        eq_("image/svg+xml", representation.external_media_type)
+        eq_(".svg", representation.extension())
 
     def test_set_fetched_content(self):
         representation, ignore = self._representation(self._url, "text/plain")
@@ -5462,7 +5459,7 @@ class TestRepresentation(DatabaseTest):
         representation.set_fetched_content(unicode_content, None)
         eq_(utf8_content, representation.content)
 
-        # By trying to interpret the content as UTF-8 before falling back to 
+        # By trying to interpret the content as UTF-8 before falling back to
         # Windows-1252, we get the right answer.
         eq_(unicode_content, representation.unicode_content)
 
@@ -5574,7 +5571,7 @@ class TestRepresentation(DatabaseTest):
         def oops(*args, **kwargs):
             raise Exception("oops!")
 
-        # By default exceptions raised during get() are 
+        # By default exceptions raised during get() are
         # recorded along with the (empty) Representation objects
         representation, cached = Representation.get(
             self._db, self._url, do_get=oops,
@@ -5672,51 +5669,6 @@ class TestRepresentation(DatabaseTest):
         eq_('cover', filename)
         filename = representation.default_filename(link=link, destination_type="image/png")
         eq_('cover.png', filename)
-
-    def test_automatic_conversion_svg_to_png(self):
-        svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
-  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-
-<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50">
-    <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
-</svg>"""
-        edition = self._edition()
-        pool = self._licensepool(edition)
-        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
-        hyperlink, ignore = pool.add_link(
-            Hyperlink.IMAGE, None, source, Representation.SVG_MEDIA_TYPE,
-            content=svg)
-        representation = hyperlink.resource.representation
-
-        eq_(Representation.SVG_MEDIA_TYPE, representation.media_type)
-        eq_(Representation.PNG_MEDIA_TYPE, representation.external_media_type)
-
-        # If we get the Representation as a PIL image, it's automatically
-        # converted to PNG.
-        image = representation.as_image()
-        eq_("PNG", image.format)
-        expect = StringIO()
-        image.save(expect, format='PNG')
-
-        # When we prepare to mirror the Representation to an external
-        # file store, it's automatically converted to PNG.
-        external_fh = representation.external_content()
-        eq_(expect.getvalue(), external_fh.read())
-        eq_(Representation.PNG_MEDIA_TYPE, representation.external_media_type)
-        
-        # Verify that the conversion happened correctly.
-
-        # Even though the SVG image is smaller than the thumbnail
-        # size, thumbnailing it will create a separate PNG-format
-        # Representation, because we want all the thumbnails to be
-        # bitmaps.
-        thumbnail, is_new = representation.scale(
-            Edition.MAX_THUMBNAIL_HEIGHT, Edition.MAX_THUMBNAIL_WIDTH,
-            self._url, Representation.PNG_MEDIA_TYPE
-        )
-        eq_(True, is_new)
-        assert thumbnail != hyperlink.resource.representation
-        eq_(Representation.PNG_MEDIA_TYPE, thumbnail.media_type)
 
     def test_cautious_http_get(self):
 
@@ -5862,11 +5814,11 @@ class TestRepresentation(DatabaseTest):
         t2, ignore = self._representation()
         for i in t1, t2:
             representation.thumbnails.append(i)
-        
+
         # There's no distinction between the thumbnails, so the first one
         # is selected as 'best'.
         eq_(t1, representation.best_thumbnail)
-        
+
         # If one of the thumbnails is mirrored, it becomes the 'best'
         # thumbnail.
         t2.set_as_mirrored(self._url)
@@ -5924,7 +5876,7 @@ class TestCoverResource(DatabaseTest):
         full_rep = hyperlink.resource.representation
         full_rep.set_as_mirrored(mirror)
 
-        # For purposes of this test, pretend that the full-sized image is 
+        # For purposes of this test, pretend that the full-sized image is
         # larger than a thumbnail, but not terribly large.
         hyperlink.resource.representation.image_height = Edition.MAX_FALLBACK_THUMBNAIL_HEIGHT
 
@@ -5946,11 +5898,11 @@ class TestCoverResource(DatabaseTest):
         expect = "ValueError: Cannot load non-image representation as image: type text/plain"
         assert scaled == rep
         assert expect in rep.scale_exception
-        
+
     def test_cannot_scale_to_non_image(self):
         rep, ignore = self._representation(media_type="image/png", content="foo")
         assert_raises_regexp(
-            ValueError, 
+            ValueError,
             "Unsupported destination media type: text/plain",
             rep.scale, 300, 600, self._url, "text/plain")
 
@@ -6039,7 +5991,7 @@ class TestCoverResource(DatabaseTest):
         assert png < jpeg
         assert jpeg < gif
         assert gif < svg
-        
+
     def test_best_covers_among(self):
         # Here's a book with a thumbnail image.
         edition, pool = self._edition(with_license_pool=True)
@@ -6056,7 +6008,7 @@ class TestCoverResource(DatabaseTest):
         # Here's an abysmally bad cover.
         lousy_cover = self.sample_cover_representation("tiny-image-cover.png")
         lousy_cover.image_height=1
-        lousy_cover.image_width=10000 
+        lousy_cover.image_width=10000
         link2, ignore = pool.add_link(
             Hyperlink.THUMBNAIL_IMAGE, self._url, pool.data_source
         )
@@ -6078,7 +6030,7 @@ class TestCoverResource(DatabaseTest):
         # This cover is at least good enough to pass muster if there
         # is no other option.
         eq_(
-            [resource_with_decent_cover], 
+            [resource_with_decent_cover],
             Resource.best_covers_among([resource_with_decent_cover])
         )
 
@@ -6101,7 +6053,7 @@ class TestCoverResource(DatabaseTest):
         # is a JPEG, we prefer the PNG.
         resource_with_decent_cover.representation.media_type = Representation.JPEG_MEDIA_TYPE
         eq_([resource_with_decent_cover_2], Resource.best_covers_among(l))
-        
+
         # But if the metadata wrangler said to use the JPEG, we use the JPEG.
         metadata_wrangler = DataSource.lookup(
             self._db, DataSource.METADATA_WRANGLER
@@ -6190,7 +6142,7 @@ class TestCoverResource(DatabaseTest):
             Hyperlink.THUMBNAIL_IMAGE, self._url, overdrive
         )
         resource = hyperlink.resource
-        
+
         # Without a representation, the thumbnail image is useless.
         eq_(0, resource.quality_as_thumbnail_image)
 
@@ -6206,7 +6158,7 @@ class TestCoverResource(DatabaseTest):
         cover.image_height = ideal_height * 2
         cover.image_width = ideal_width
         eq_(0.5, resource.quality_as_thumbnail_image)
-        
+
         # Changing the data source also affects the quality. Gutenberg
         # covers are penalized heavily...
         cover.image_height = ideal_height
@@ -6245,7 +6197,7 @@ class TestCoverResource(DatabaseTest):
         # An image that is the perfect aspect ratio, but too large,
         # has no penalty.
         eq_(1, f(ideal_width*2, ideal_height*2))
-        
+
         # An image that is the perfect aspect ratio, but is too small,
         # is penalised.
         eq_(1/4.0, f(ideal_width*0.5, ideal_height*0.5))
@@ -6299,14 +6251,14 @@ class TestDeliveryMechanism(DatabaseTest):
 
     def test_default_fulfillable(self):
         mechanism, is_new = DeliveryMechanism.lookup(
-            self._db, Representation.EPUB_MEDIA_TYPE, 
+            self._db, Representation.EPUB_MEDIA_TYPE,
             DeliveryMechanism.ADOBE_DRM
         )
         eq_(False, is_new)
         eq_(True, mechanism.default_client_can_fulfill)
 
         mechanism, is_new = DeliveryMechanism.lookup(
-            self._db, Representation.PDF_MEDIA_TYPE, 
+            self._db, Representation.PDF_MEDIA_TYPE,
             DeliveryMechanism.STREAMING_DRM
         )
         eq_(True, is_new)
@@ -6376,11 +6328,11 @@ class TestRightsStatus(DatabaseTest):
         status = RightsStatus.lookup(self._db, RightsStatus.IN_COPYRIGHT)
         eq_(RightsStatus.IN_COPYRIGHT, status.uri)
         eq_(RightsStatus.NAMES.get(RightsStatus.IN_COPYRIGHT), status.name)
-        
+
         status = RightsStatus.lookup(self._db, RightsStatus.CC0)
         eq_(RightsStatus.CC0, status.uri)
         eq_(RightsStatus.NAMES.get(RightsStatus.CC0), status.name)
-        
+
         status = RightsStatus.lookup(self._db, "not a known rights uri")
         eq_(RightsStatus.UNKNOWN, status.uri)
         eq_(RightsStatus.NAMES.get(RightsStatus.UNKNOWN), status.name)
@@ -6398,14 +6350,14 @@ class TestRightsStatus(DatabaseTest):
 
 
 class TestCredentials(DatabaseTest):
-    
+
     def test_temporary_token(self):
 
         # Create a temporary token good for one hour.
         duration = datetime.timedelta(hours=1)
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
         patron = self._patron()
-        now = datetime.datetime.utcnow() 
+        now = datetime.datetime.utcnow()
         expect_expires = now + duration
         token, is_new = Credential.temporary_token_create(
             self._db, data_source, "some random type", patron, duration)
@@ -6424,7 +6376,7 @@ class TestCredentials(DatabaseTest):
         # expired and we cannot use it anymore.
         new_token = Credential.lookup_and_expire_temporary_token(
             self._db, data_source, token.type, token.credential)
-        eq_(new_token, token)        
+        eq_(new_token, token)
         assert new_token.expires < now
 
         new_token = Credential.lookup_by_token(
@@ -6434,7 +6386,7 @@ class TestCredentials(DatabaseTest):
         new_token = Credential.lookup_and_expire_temporary_token(
             self._db, data_source, token.type, token.credential)
         eq_(None, new_token)
- 
+
         # A token with no expiration date is treated as expired...
         token.expires = None
         self._db.commit()
@@ -6444,7 +6396,7 @@ class TestCredentials(DatabaseTest):
 
         # ...unless we specifically say we're looking for a persistent token.
         no_expiration_token = Credential.lookup_by_token(
-            self._db, data_source, token.type, token.credential, 
+            self._db, data_source, token.type, token.credential,
             allow_persistent_token=True
         )
         eq_(token, no_expiration_token)
@@ -6462,7 +6414,7 @@ class TestCredentials(DatabaseTest):
             "Some random value"
         )
         eq_("Some random value", token.credential)
-        
+
     def test_temporary_token_overwrites_old_token(self):
         duration = datetime.timedelta(hours=1)
         data_source = DataSource.lookup(self._db, DataSource.ADOBE)
@@ -6493,7 +6445,7 @@ class TestCredentials(DatabaseTest):
 
         # Now try to look up the credential based solely on the UUID.
         new_token = Credential.lookup_by_token(
-            self._db, data_source, token.type, token.credential, 
+            self._db, data_source, token.type, token.credential,
             allow_persistent_token=True
         )
         eq_(new_token, token)
@@ -6503,7 +6455,7 @@ class TestCredentials(DatabaseTest):
         # Credential object with the same .credential -- it doesn't
         # expire.
         again_token = Credential.lookup_by_token(
-            self._db, data_source, token.type, token.credential, 
+            self._db, data_source, token.type, token.credential,
             allow_persistent_token=True
         )
         eq_(again_token, new_token)
@@ -6556,7 +6508,7 @@ class TestDRMDeviceIdentifier(DatabaseTest):
         self.patron = self._patron()
         self.credential, ignore = Credential.persistent_token_create(
             self._db, self.data_source, "Some Credential", self.patron)
-        
+
     def test_devices_for_credential(self):
         device_id_1, new = self.credential.register_drm_device_identifier("foo")
         eq_("foo", device_id_1.device_identifier)
@@ -6566,7 +6518,7 @@ class TestDRMDeviceIdentifier(DatabaseTest):
         device_id_2, new = self.credential.register_drm_device_identifier("foo")
         eq_(device_id_1, device_id_2)
         eq_(False, new)
-        
+
         device_id_3, new = self.credential.register_drm_device_identifier("bar")
 
         eq_(set([device_id_1, device_id_3]), set(self.credential.drm_device_identifiers))
@@ -6576,7 +6528,7 @@ class TestDRMDeviceIdentifier(DatabaseTest):
         self.credential.deregister_drm_device_identifier("foo")
         eq_([], self.credential.drm_device_identifiers)
         eq_([], self._db.query(DRMDeviceIdentifier).all())
-        
+
 class TestPatron(DatabaseTest):
 
     def test_identifier_to_remote_service(self):
@@ -6609,17 +6561,17 @@ class TestPatron(DatabaseTest):
         def fake_generator():
             return "fake string"
         bib = DataSource.BIBLIOTHECA
-        eq_("fake string", 
+        eq_("fake string",
             patron.identifier_to_remote_service(bib, fake_generator)
         )
 
         # Once the identifier is created, specifying a different generator
         # does nothing.
-        eq_("fake string", 
+        eq_("fake string",
             patron.identifier_to_remote_service(bib)
         )
         eq_(
-            axis_identifier, 
+            axis_identifier,
             patron.identifier_to_remote_service(axis, fake_generator)
         )
 
@@ -6627,9 +6579,9 @@ class TestPatron(DatabaseTest):
         # Two patrons.
         p1 = self._patron()
         p2 = self._patron()
-        
+
         identifier = self._identifier()
-        
+
         for patron in [p1, p2]:
             # Each patron decides they want to synchronize annotations
             # to a library server.
@@ -6646,7 +6598,7 @@ class TestPatron(DatabaseTest):
             annotation.content="The content for %s" % patron.id,
 
             eq_(1, len(patron.annotations))
-            
+
         # Patron #1 decides they don't want their annotations stored
         # on a library server after all. This deletes their
         # annotation.
@@ -6660,7 +6612,7 @@ class TestPatron(DatabaseTest):
             self._db, patron=p1, identifier=identifier,
             motivation=Annotation.IDLING,
         )
-        
+
         # Patron #2's annotation is unaffected.
         eq_(1, len(p2.annotations))
 
@@ -6684,7 +6636,7 @@ class TestPatronProfileStorage(DatabaseTest):
         super(TestPatronProfileStorage, self).setup()
         self.patron = self._patron()
         self.store = PatronProfileStorage(self.patron)
-        
+
     def test_writable_setting_names(self):
         """Only one setting is currently writable."""
         eq_(set([self.store.SYNCHRONIZE_ANNOTATIONS]),
@@ -6717,7 +6669,7 @@ class TestPatronProfileStorage(DatabaseTest):
         self.store.update({self.store.SYNCHRONIZE_ANNOTATIONS : True}, {})
         eq_(True, self.patron.synchronize_annotations)
 
-        
+
 class TestBaseCoverageRecord(DatabaseTest):
 
     def test_not_covered(self):
@@ -6747,7 +6699,7 @@ class TestBaseCoverageRecord(DatabaseTest):
             persistent, source, status = BaseCoverageRecord.PERSISTENT_FAILURE
         )
         eq_(CoverageRecord.PERSISTENT_FAILURE, persistent_record.status)
-        
+
         # Here's a query that finds all four.
         qu = self._db.query(Identifier).outerjoin(CoverageRecord)
         eq_(4, qu.count())
@@ -6765,7 +6717,7 @@ class TestBaseCoverageRecord(DatabaseTest):
         # to count as 'coverage'.
         check_not_covered(
             [no_coverage],
-            count_as_covered=[CoverageRecord.PERSISTENT_FAILURE, 
+            count_as_covered=[CoverageRecord.PERSISTENT_FAILURE,
                               CoverageRecord.TRANSIENT_FAILURE,
                               CoverageRecord.SUCCESS]
         )
@@ -6792,7 +6744,7 @@ class TestBaseCoverageRecord(DatabaseTest):
         check_not_covered(
             [success, no_coverage, transient],
             count_as_not_covered_if_covered_before=one_second_after
-        )        
+        )
 
 
 class TestCoverageRecord(DatabaseTest):
@@ -6802,20 +6754,20 @@ class TestCoverageRecord(DatabaseTest):
         edition = self._edition()
         operation = 'foo'
         collection = self._default_collection
-        record = self._coverage_record(edition, source, operation, 
+        record = self._coverage_record(edition, source, operation,
                                        collection=collection)
 
 
         # To find the CoverageRecord, edition, source, operation,
         # and collection must all match.
-        result = CoverageRecord.lookup(edition, source, operation, 
+        result = CoverageRecord.lookup(edition, source, operation,
                                        collection=collection)
         eq_(record, result)
 
         # You can substitute the Edition's primary identifier for the
         # Edition iteslf.
         lookup = CoverageRecord.lookup(
-            edition.primary_identifier, source, operation, 
+            edition.primary_identifier, source, operation,
             collection=self._default_collection
         )
         eq_(lookup, record)
@@ -6870,7 +6822,7 @@ class TestCoverageRecord(DatabaseTest):
 
         # We can change the status.
         record5, is_new = CoverageRecord.add_for(
-            edition, source, operation, 
+            edition, source, operation,
             status=CoverageRecord.PERSISTENT_FAILURE
         )
         eq_(record5, record)
@@ -7056,7 +7008,7 @@ class TestWorkCoverageRecord(DatabaseTest):
         # for an irrelevant operation.
         not_already_covered = self._work()
         irrelevant_record, ignore = WorkCoverageRecord.add_for(
-            not_already_covered, irrelevant_operation, 
+            not_already_covered, irrelevant_operation,
             status=WorkCoverageRecord.SUCCESS
         )
 
@@ -7064,7 +7016,7 @@ class TestWorkCoverageRecord(DatabaseTest):
         # updated.
         already_covered = self._work()
         previously_failed, ignore = WorkCoverageRecord.add_for(
-            already_covered, operation, 
+            already_covered, operation,
             status=WorkCoverageRecord.TRANSIENT_FAILURE,
         )
         previously_failed.exception="Some exception"
@@ -7073,7 +7025,7 @@ class TestWorkCoverageRecord(DatabaseTest):
         # we're not passing it in to the method.
         not_affected = self._work()
         WorkCoverageRecord.add_for(
-            not_affected, irrelevant_operation, 
+            not_affected, irrelevant_operation,
             status=WorkCoverageRecord.SUCCESS
         )
 
@@ -7190,7 +7142,7 @@ class TestComplaint(DatabaseTest):
         assert_raises(
             ValueError, Complaint.register, self.pool, type, None, None
         )
-        
+
     def test_register_resolved(self):
         complaint, is_new = Complaint.register(
             self.pool, self.type, "foo", "bar", resolved=datetime.datetime.utcnow()
@@ -7458,7 +7410,7 @@ class TestCustomListEntry(DatabaseTest):
 
         # Here's another edition, with a license pool.
         other_edition, lp = self._edition(with_open_access_download=True)
-       
+
         # And its identifier is equivalent to the entry's edition's identifier.
         data_source = DataSource.lookup(self._db, DataSource.OCLC)
         lp.identifier.equivalent_to(data_source, edition.primary_identifier, 1)
@@ -7471,7 +7423,7 @@ class TestCustomListEntry(DatabaseTest):
         work, ignore = lp.calculate_work()
         entry.set_work()
         eq_(work, other_edition.work)
-        
+
         # set_work() traces the line from the CustomListEntry to its
         # Edition to the equivalent Edition to its Work, and associates
         # that Work with the CustomListEntry.
@@ -7694,7 +7646,7 @@ class TestLibrary(DatabaseTest):
 
         # Cache is populated.
         eq_(library, Library._cache[name])
-            
+
     def test_default(self):
         # We start off with no libraries.
         eq_(None, Library.default(self._db))
@@ -7746,7 +7698,7 @@ class TestLibrary(DatabaseTest):
 
     def test_estimated_holdings_by_language(self):
         library = self._default_library
-        
+
         # Here's an open-access English book.
         english = self._work(language="eng", with_open_access_download=True)
 
@@ -7758,12 +7710,12 @@ class TestLibrary(DatabaseTest):
         # Here's an open-access book that improperly has no language set.
         no_language = self._work(with_open_access_download=True)
         no_language.presentation_edition.language = None
-        
+
         # estimated_holdings_by_language counts the English and the
         # Tagalog works. The work with no language is ignored.
         estimate = library.estimated_holdings_by_language()
         eq_(dict(eng=1, tgl=1), estimate)
-        
+
         # If we disqualify open-access works, it only counts the Tagalog.
         estimate = library.estimated_holdings_by_language(
             include_open_access=False)
@@ -7774,8 +7726,8 @@ class TestLibrary(DatabaseTest):
         self._default_library.collections = []
         estimate = library.estimated_holdings_by_language(
             include_open_access=False)
-        eq_(dict(), estimate)        
-        
+        eq_(dict(), estimate)
+
     def test_explain(self):
         """Test that Library.explain gives all relevant information
         about a Library.
@@ -7799,14 +7751,14 @@ class TestLibrary(DatabaseTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library-specific", library, integration
         ).value = "value for library1"
-        
+
         library2 = self._library()
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library-specific", library2, integration
         ).value = "value for library2"
-        
+
         library.integrations.append(integration)
-        
+
         expect = """Library UUID: "uuid"
 Name: "The Library"
 Short name: "Short"
@@ -7823,7 +7775,7 @@ username='someuser'
 """ % integration.id
         actual = library.explain()
         eq_(expect, "\n".join(actual))
-        
+
         with_secrets = library.explain(True)
         assert 'Shared secret (for library registry): "secret"' in with_secrets
         assert "password='somepass'" in with_secrets
@@ -7935,7 +7887,7 @@ class TestExternalIntegration(DatabaseTest):
             Collection.DATA_SOURCE_NAME_SETTING
         ).value = "New Data Source"
         eq_("New Data Source", self._default_collection.data_source.name)
-        
+
     def test_set_key_value_pair(self):
         """Test the ability to associate extra key-value pairs with
         an ExternalIntegration.
@@ -7971,7 +7923,7 @@ class TestExternalIntegration(DatabaseTest):
         ConfigurationSetting.for_library_and_externalintegration(
             self._db, "library-specific", self._default_library, integration
         ).value = "value1"
-        
+
         library2 = self._library()
         library2.name = "Second Library"
         library2.integrations.append(integration)
@@ -7998,16 +7950,16 @@ username='someuser'""" % integration.id
         for_library_2 = "\n".join(integration.explain(library=library2))
         assert "applies only to First Library" not in for_library_2
         assert "applies only to Second Library" in for_library_2
-        
+
         # If we pass in True for include_secrets, we see the passwords.
         with_secrets = integration.explain(include_secrets=True)
         assert "password='somepass'" in with_secrets
-        
+
 
 class TestConfigurationSetting(DatabaseTest):
 
     def test_is_secret(self):
-        """Some configuration settings are considered secrets, 
+        """Some configuration settings are considered secrets,
         and some are not.
         """
         m = ConfigurationSetting._is_secret
@@ -8029,7 +7981,7 @@ class TestConfigurationSetting(DatabaseTest):
         )
         setting = integration.setting("key")
         eq_(None, setting.value)
-        
+
         # If the setting has no value, value_or_default sets the value to
         # the default, and returns the default.
         eq_("default value", setting.value_or_default("default value"))
@@ -8037,7 +7989,7 @@ class TestConfigurationSetting(DatabaseTest):
 
         # Once the value is set, value_or_default returns the value.
         eq_("default value", setting.value_or_default("new default"))
-        
+
         # If the setting has any value at all, even the empty string,
         # it's returned instead of the default.
         setting.value = ""
@@ -8056,7 +8008,7 @@ class TestConfigurationSetting(DatabaseTest):
         # Set it.
         sitewide_conf.value = "Sitewide value"
         eq_("Sitewide value", sitewide_conf.value)
-        
+
         # Here's an integration, let's say the SIP2 authentication mechanism
         sip, ignore = create(
             self._db, ExternalIntegration,
@@ -8072,12 +8024,12 @@ class TestConfigurationSetting(DatabaseTest):
         # inherit the sitewide value for the key.
         eq_(None, sip_conf.value)
         sip_conf.value = "SIP2 value"
-        
+
         # Here's a library which has a ConfigurationSetting for the same
         # key used in the sitewide configuration.
         library = self._default_library
         library_conf = ConfigurationSetting.for_library(key, library)
-        
+
         # Since all libraries use a given ConfigurationSetting to mean
         # the same thing, a library _does_ inherit the sitewide value
         # for a configuration setting.
@@ -8091,7 +8043,7 @@ class TestConfigurationSetting(DatabaseTest):
         # value.
         library_conf.value = "Per-library value"
         eq_("Per-library value", library_conf.value)
-        
+
         # Now let's consider a setting like the patron identifier
         # prefix.  This is set on the combination of a library and a
         # SIP2 integration.
@@ -8120,7 +8072,7 @@ class TestConfigurationSetting(DatabaseTest):
         # integration setting.
         library_patron_prefix_conf.value = "Library-specific value"
         eq_("Library-specific value", library_patron_prefix_conf.value)
-        
+
     def test_duplicate(self):
         """You can't have two ConfigurationSettings for the same key,
         library, and external integration.
@@ -8146,16 +8098,16 @@ class TestConfigurationSetting(DatabaseTest):
             key=key,
             library=library, external_integration=integration
         )
-    
+
     def test_relationships(self):
         integration, ignore = create(
             self._db, ExternalIntegration, goal=self._str, protocol=self._str
         )
         eq_([], integration.settings)
-        
+
         library = self._default_library
         eq_([], library.settings)
-        
+
         # Create four different ConfigurationSettings with the same key.
         cs = ConfigurationSetting
         key = self._str
@@ -8163,7 +8115,7 @@ class TestConfigurationSetting(DatabaseTest):
         for_neither = cs.sitewide(self._db, key)
         eq_(None, for_neither.library)
         eq_(None, for_neither.external_integration)
-        
+
         for_library = cs.for_library(key, library)
         eq_(library, for_library.library)
         eq_(None, for_library.external_integration)
@@ -8177,7 +8129,7 @@ class TestConfigurationSetting(DatabaseTest):
         )
         eq_(library, for_both.library)
         eq_(integration, for_both.external_integration)
-        
+
         # We got four distinct objects with the same key.
         objs = [for_neither, for_library, for_integration, for_both]
         eq_(4, len(set(objs)))
@@ -8188,7 +8140,7 @@ class TestConfigurationSetting(DatabaseTest):
         eq_([for_integration, for_both], integration.settings)
         eq_(library, for_both.library)
         eq_(integration, for_both.external_integration)
-        
+
         # If we delete the integration, all configuration settings
         # associated with it are deleted, even the one that's also
         # associated with the library.
@@ -8199,7 +8151,7 @@ class TestConfigurationSetting(DatabaseTest):
     def test_int_value(self):
         number = ConfigurationSetting.sitewide(self._db, "number")
         eq_(None, number.int_value)
-        
+
         number.value = "1234"
         eq_(1234, number.int_value)
 
@@ -8209,13 +8161,13 @@ class TestConfigurationSetting(DatabaseTest):
     def test_float_value(self):
         number = ConfigurationSetting.sitewide(self._db, "number")
         eq_(None, number.int_value)
-        
+
         number.value = "1234.5"
         eq_(1234.5, number.float_value)
 
         number.value = "tra la la"
         assert_raises(ValueError, lambda: number.float_value)
-        
+
     def test_json_value(self):
         jsondata = ConfigurationSetting.sitewide(self._db, "json")
         eq_(None, jsondata.int_value)
@@ -8225,7 +8177,7 @@ class TestConfigurationSetting(DatabaseTest):
 
         jsondata.value = "tra la la"
         assert_raises(ValueError, lambda: jsondata.json_value)
-        
+
     def test_explain(self):
         """Test that ConfigurationSetting.explain gives information
         about all site-wide configuration settings.
@@ -8234,14 +8186,14 @@ class TestConfigurationSetting(DatabaseTest):
         ConfigurationSetting.sitewide(self._db, "nonsecret_setting").value = "2"
 
         integration = self._external_integration("a protocol", "a goal")
-        
+
         actual = ConfigurationSetting.explain(self._db, include_secrets=True)
         expect = """Site-wide configuration settings:
 ---------------------------------
 a_secret='1'
 nonsecret_setting='2'"""
         eq_(expect, "\n".join(actual))
-        
+
         without_secrets = "\n".join(ConfigurationSetting.explain(
             self._db, include_secrets=False
         ))
@@ -8250,7 +8202,7 @@ nonsecret_setting='2'"""
 
 
 
-        
+
 class TestSiteConfigurationHasChanged(DatabaseTest):
 
     class MockSiteConfigurationHasChanged(object):
@@ -8271,7 +8223,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
         def assert_was_not_called(self):
             assert not self.was_called
-            
+
     def setup(self):
         super(TestSiteConfigurationHasChanged, self).setup()
 
@@ -8285,7 +8237,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         super(TestSiteConfigurationHasChanged, self).teardown()
         for module in model, lane:
             module.site_configuration_has_changed = self.old_site_configuration_has_changed
-        
+
     def test_site_configuration_has_changed(self):
         """Test the site_configuration_has_changed() function and its
         effects on the Configuration object.
@@ -8294,29 +8246,29 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # of the default data. In that case, it happened during the
         # package_setup() for this test run.
         last_update = Configuration.site_configuration_last_update(self._db)
-        
+
         timestamp_value = Timestamp.value(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
         eq_(timestamp_value, last_update)
-        
+
         # Now let's call site_configuration_has_changed().
         time_of_update = datetime.datetime.utcnow()
         site_configuration_has_changed(self._db, timeout=0)
-        
+
         # The Timestamp has changed in the database.
         new_timestamp_value = Timestamp.value(
             self._db, Configuration.SITE_CONFIGURATION_CHANGED, None
         )
         assert new_timestamp_value > timestamp_value
-        
+
         # The locally-stored last update value has been updated.
         new_last_update_time = Configuration.site_configuration_last_update(
             self._db, timeout=0
         )
         assert new_last_update_time > last_update
         assert (new_last_update_time - time_of_update).total_seconds() < 1
-                
+
         # Let's be sneaky and update the timestamp directly,
         # without calling site_configuration_has_changed(). This
         # simulates another process on a different machine calling
@@ -8338,7 +8290,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
             self._db, timeout=0
         )
         assert newer_update > last_update
-        
+
         # It's also possible to change the timeout value through a
         # site-wide ConfigurationSetting
         ConfigurationSetting.sitewide(
@@ -8356,7 +8308,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # If ConfigurationSettings are updated twice within the
         # timeout period (default 1 second), the last update time is
         # only set once, to avoid spamming the Timestamp with updates.
-        
+
         # The high site-wide value for 'timeout' saves this code. If we decided
         # that the timeout had expired and tried to check the
         # Timestamp, the code would crash because we're not passing
@@ -8365,17 +8317,17 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
 
         # Nothing has changed -- how could it, with no database connection
         # to modify anything?
-        eq_(even_newer_update, 
+        eq_(even_newer_update,
             Configuration.site_configuration_last_update(self._db))
 
     # We don't test every event listener, but we do test one of each type.
     def test_configuration_relevant_lifecycle_event_updates_configuration(self):
         """When you create or modify a relevant item such as a
         ConfigurationSetting, site_configuration_has_changed is called.
-        """                
+        """
         ConfigurationSetting.sitewide(self._db, "setting").value = "value"
         self.mock.assert_was_called()
-        
+
         ConfigurationSetting.sitewide(self._db, "setting").value = "value2"
         self.mock.assert_was_called()
 
@@ -8385,7 +8337,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         """
         lane = self._lane()
         self.mock.assert_was_called()
-        
+
         lane.add_genre("Science Fiction")
         self.mock.assert_was_called()
 
@@ -8393,7 +8345,7 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         """When you add a relevant item to a SQLAlchemy collection, such as
         adding a Collection to library.collections,
         site_configuration_has_changed is called.
-        """                
+        """
 
         # Creating a collection calls the method via an 'after_insert'
         # event on Collection.
@@ -8411,11 +8363,11 @@ class TestSiteConfigurationHasChanged(DatabaseTest):
         # Associating a CachedFeed with the library does _not_ call
         # the method, because nothing changed on the Library object and
         # we don't listen for 'append' events on Library.cachedfeeds.
-        create(self._db, CachedFeed, type='page', pagination='', 
+        create(self._db, CachedFeed, type='page', pagination='',
                facets='', library=library)
         self._db.commit()
         self.mock.assert_was_not_called()
-    
+
 class TestCollection(DatabaseTest):
 
     def setup(self):
@@ -8428,10 +8380,10 @@ class TestCollection(DatabaseTest):
         name = "A name"
         protocol = ExternalIntegration.OVERDRIVE
         key = (name, protocol)
-        
+
         # Cache is empty.
         eq_(HasFullTableCache.RESET, Collection._cache)
-        
+
         collection1, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
@@ -8440,7 +8392,7 @@ class TestCollection(DatabaseTest):
         # Cache was populated and then reset because we created a new
         # Collection.
         eq_(HasFullTableCache.RESET, Collection._cache)
-        
+
         collection2, is_new = Collection.by_name_and_protocol(
             self._db, name, ExternalIntegration.OVERDRIVE
         )
@@ -8449,7 +8401,7 @@ class TestCollection(DatabaseTest):
 
         # This time the cache was not reset after being populated.
         eq_(collection1, Collection._cache[key])
-        
+
         # You'll get an exception if you look up an existing name
         # but the protocol doesn't match.
         assert_raises_regexp(
@@ -8513,7 +8465,7 @@ class TestCollection(DatabaseTest):
             "No known external integration for collection",
             getattr, collection, 'external_integration'
         )
-        
+
         # We can create one with create_external_integration().
         overdrive = ExternalIntegration.OVERDRIVE
         integration = collection.create_external_integration(protocol=overdrive)
@@ -8524,8 +8476,8 @@ class TestCollection(DatabaseTest):
         # ExternalIntegration as before.
         integration2 = collection.create_external_integration(protocol=overdrive)
         eq_(integration, integration2)
-        
-        
+
+
         # If we try to initialize an ExternalIntegration with a different
         # protocol, we get an error.
         assert_raises_regexp(
@@ -8534,7 +8486,7 @@ class TestCollection(DatabaseTest):
             collection.create_external_integration,
             protocol="blah"
         )
-        
+
     def test_change_protocol(self):
         overdrive = ExternalIntegration.OVERDRIVE
         bibliotheca = ExternalIntegration.BIBLIOTHECA
@@ -8595,12 +8547,12 @@ class TestCollection(DatabaseTest):
 
         # The default when no value is set.
         eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
             self.collection.default_loan_period(library, ebook)
         )
 
         eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
             self.collection.default_loan_period(library, audio)
         )
 
@@ -8608,7 +8560,7 @@ class TestCollection(DatabaseTest):
         self.collection.default_loan_period_setting(library, ebook).value = 604
         eq_(604, self.collection.default_loan_period(library))
         eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
             self.collection.default_loan_period(library, audio)
         )
 
@@ -8622,12 +8574,12 @@ class TestCollection(DatabaseTest):
 
         # The default when no value is set.
         eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
             self.collection.default_loan_period(client, ebook)
         )
 
         eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
             self.collection.default_loan_period(client, audio)
         )
 
@@ -8635,7 +8587,7 @@ class TestCollection(DatabaseTest):
         self.collection.default_loan_period_setting(client, ebook).value = 347
         eq_(347, self.collection.default_loan_period(client))
         eq_(
-            Collection.STANDARD_DEFAULT_LOAN_PERIOD, 
+            Collection.STANDARD_DEFAULT_LOAN_PERIOD,
             self.collection.default_loan_period(client, audio)
         )
 
@@ -8651,7 +8603,7 @@ class TestCollection(DatabaseTest):
         library = self._default_library
         # The default when no value is set.
         eq_(
-            Collection.STANDARD_DEFAULT_RESERVATION_PERIOD, 
+            Collection.STANDARD_DEFAULT_RESERVATION_PERIOD,
             self.collection.default_reservation_period
         )
 
@@ -8673,7 +8625,7 @@ class TestCollection(DatabaseTest):
         library.name="The only library"
         library.short_name = "only one"
         library.collections.append(self.collection)
-        
+
         self.collection.external_account_id = "id"
         self.collection.external_integration.url = "url"
         self.collection.external_integration.username = "username"
@@ -9119,8 +9071,8 @@ class TestMaterializedViews(DatabaseTest):
 
         identifier = pool.identifier
         staff_edition = self._edition(
-            data_source_name=DataSource.LIBRARY_STAFF, 
-            identifier_type=identifier.type, 
+            data_source_name=DataSource.LIBRARY_STAFF,
+            identifier_type=identifier.type,
             identifier_id=identifier.identifier
         )
         staff_edition.title = u"staff chose this title"
@@ -9133,7 +9085,7 @@ class TestMaterializedViews(DatabaseTest):
         # generator.
         presentation_edition = pool.presentation_edition
         eq_("staff chose this title", presentation_edition.title)
-        eq_(DataSource.PRESENTATION_EDITION, 
+        eq_(DataSource.PRESENTATION_EDITION,
             presentation_edition.data_source.name
         )
 
@@ -9379,7 +9331,7 @@ class MockHasTableCache(HasFullTableCache):
     """A simple HasFullTableCache that returns the same cache key
     for every object.
     """
-    
+
     _cache = HasFullTableCache.RESET
     _id_cache = HasFullTableCache.RESET
 
@@ -9389,11 +9341,11 @@ class MockHasTableCache(HasFullTableCache):
     @property
     def id(self):
         return self.ID
-    
+
     def cache_key(self):
         return self.KEY
-    
-        
+
+
 class TestHasFullTableCache(DatabaseTest):
 
     def setup(self):
@@ -9419,6 +9371,3 @@ class TestHasFullTableCache(DatabaseTest):
     # populate_cache(), by_cache_key(), and by_id() are tested in
     # TestGenre since those methods must be backed by a real database
     # table.
-
-
-    

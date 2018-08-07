@@ -15,7 +15,6 @@ elasticsearch==2.1.0
 python-dateutil
 uwsgi
 loggly-python-handler
-cairosvg==1.0.22
 mock
 py-bcrypt
 Flask-Babel
@@ -25,4 +24,3 @@ pymarc
 # for author name manipulations
 nameparser>=0.5.1
 fuzzywuzzy
-
