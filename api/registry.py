@@ -334,12 +334,12 @@ class Registration(object):
 
         :return: Either a ProblemDetail or a requests-like Response object.
         """
-        # Allow 401 so we can provide a more useful error message.
+        # Allow 400 and 401 so we can provide a more useful error message.
         response = do_post(
             register_url, payload, timeout=60,
-            allowed_response_codes=["2xx", "3xx", "401"],
+            allowed_response_codes=["2xx", "3xx", "400", "401"],
         )
-        if response.status_code == 401:
+        if response.status_code in [400, 401]:
             if response.headers.get("Content-Type") == PROBLEM_DETAIL_JSON_MEDIA_TYPE:
                 problem = json.loads(response.content)
                 return INTEGRATION_ERROR.detailed(
