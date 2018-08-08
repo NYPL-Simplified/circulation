@@ -2254,7 +2254,8 @@ class SettingsController(AdminCirculationManagerController):
         return protocols
 
     def collection_self_tests(self, identifier):
-        provider_apis = [OPDSForDistributorsAPI,
+        provider_apis = [OPDSImporter,
+                         OPDSForDistributorsAPI,
                          OverdriveAPI,
                          OdiloAPI,
                          BibliothecaAPI,
@@ -2313,9 +2314,8 @@ class SettingsController(AdminCirculationManagerController):
 
     def _get_prior_test_results(self, collection, newCollection):
         self_test_results = None
-        if not newCollection["protocolClass"]:
-            if collection.protocol == OPDSImportMonitor.PROTOCOL:
-                newCollection["protocolClass"] = OPDSImportMonitor
+        if collection.protocol == OPDSImportMonitor.PROTOCOL:
+            newCollection["protocolClass"] = OPDSImportMonitor
 
         if issubclass(newCollection["protocolClass"], HasSelfTests):
             if (collection.protocol == OPDSImportMonitor.PROTOCOL):
@@ -2326,7 +2326,8 @@ class SettingsController(AdminCirculationManagerController):
         return self_test_results
 
     def collections(self):
-        provider_apis = [OPDSForDistributorsAPI,
+        provider_apis = [OPDSImporter,
+                         OPDSForDistributorsAPI,
                          OverdriveAPI,
                          OdiloAPI,
                          BibliothecaAPI,
