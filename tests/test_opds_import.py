@@ -739,15 +739,19 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(Representation.PNG_MEDIA_TYPE, thumbnail_rep.media_type)
         eq_(image_rep, thumbnail_rep.thumbnail_of)
 
-        # One link was added to the identifier of the 'crow' edition.
-        [image] = crow.primary_identifier.links
+        # Two links were added to the identifier of the 'crow' edition.
+        [broken_image, working_image] = sorted(
+            crow.primary_identifier.links, key=lambda x: x.resource.url
+        )
 
-        # Because this image did not have a specified media type or a
-        # distinctive extension, and we have not actually retrieves
-        # the URL yet, we were not able to determine its media type,
-        # so it has no associated Representation.
-        assert image.resource.url.endswith('/full-cover-image')
-        eq_(None, image.resource.representation)
+        # Because these images did not have a specified media type or a
+        # distinctive extension, and we have not actually retrieved
+        # the URLs yet, we were not able to determine their media type,
+        # so they have no associated Representation.
+        assert broken_image.resource.url.endswith('/broken-cover-image')
+        assert working_image.resource.url.endswith('/working-cover-image')
+        eq_(None, broken_image.resource.representation)
+        eq_(None, working_image.resource.representation)
 
         # Three measurements have been added to the 'mouse' edition.
         popularity, quality, rating = sorted(
@@ -1701,7 +1705,7 @@ class TestMirroring(OPDSImporterTest):
 </svg>"""
 
         http = DummyHTTPClient()
-        # The request to http://root/full-cover-image
+        # The request to http://root/broken-cover-image
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
         http.queue_response(
@@ -1731,7 +1735,8 @@ class TestMirroring(OPDSImporterTest):
         # were going to make our own thumbnail anyway.
         eq_(http.requests, [
             'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png',
-            'http://root/full-cover-image',
+            'http://root/broken-cover-image',
+            'http://root/working-cover-image'
         ])
 
 
@@ -1998,12 +2003,15 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         eq_(CoverageRecord.SUCCESS, record.status)
         eq_(None, record.exception)
 
-        # The edition's primary identifier has a cover link whose
-        # relative URL has been resolved relative to the Collection's
+        # The edition's primary identifier has some cover links whose
+        # relative URL have been resolved relative to the Collection's
         # external_account_id.
-        [cover]  = [x.resource.url for x in editions[0].primary_identifier.links
-                    if x.rel==Hyperlink.IMAGE]
-        eq_("http://root-url/full-cover-image", cover)
+        covers  = set([x.resource.url for x in editions[0].primary_identifier.links
+                    if x.rel==Hyperlink.IMAGE])
+        eq_(covers, set(["http://root-url/broken-cover-image",
+                        "http://root-url/working-cover-image"]
+                    )
+        )
 
         # The 202 status message in the feed caused a transient failure.
         # The exception caused a persistent failure.
