@@ -599,8 +599,8 @@ class CacheOPDSGroupFeedPerLane(CacheRepresentationPerLane):
 class AdobeAccountIDResetScript(PatronInputScript):
 
     @classmethod
-    def arg_parser(cls):
-        parser = PatronInputScript.arg_parser()
+    def arg_parser(cls, _db):
+        parser = super(AdobeAccountIDResetScript, cls).arg_parser(_db)
         parser.add_argument(
             '--delete',
             help="Actually delete credentials as opposed to showing what would happen.",
