@@ -500,12 +500,6 @@ def odl_notify(loan_id):
 def heartbeat():
     return app.manager.heartbeat.heartbeat()
 
-@library_route("/service_status")
-@has_library
-@returns_problem_detail
-def service_status():
-    return app.manager.service_status()
-
 @app.route('/loadstorm-<code>.html')
 @returns_problem_detail
 def loadstorm_verify(code):
