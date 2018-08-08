@@ -9,7 +9,7 @@
 # SQL to find commonly used DDC classifications
 # select count(editions.id) as c, subjects.identifier from editions join identifiers on workrecords.primary_identifier_id=workidentifiers.id join classifications on workidentifiers.id=classifications.work_identifier_id join subjects on classifications.subject_id=subjects.id where subjects.type = 'DDC' and not subjects.identifier like '8%' group by subjects.identifier order by c desc;
 
-# SQL to find commonly used classifications not assigned to a genre 
+# SQL to find commonly used classifications not assigned to a genre
 # select count(identifiers.id) as c, subjects.type, substr(subjects.identifier, 0, 20) as i, substr(subjects.name, 0, 20) as n from workidentifiers join classifications on workidentifiers.id=classifications.work_identifier_id join subjects on classifications.subject_id=subjects.id where subjects.genre_id is null and subjects.fiction is null group by subjects.type, i, n order by c desc;
 
 import logging
@@ -47,8 +47,8 @@ class Classifier(object):
     BISAC = "BISAC"
     BIC = "BIC"
     TAG = "tag"   # Folksonomic tags.
-    
-    # Appeal controlled vocabulary developed by NYPL 
+
+    # Appeal controlled vocabulary developed by NYPL
     NYPL_APPEAL = "NYPL Appeal"
 
     GRADE_LEVEL = "Grade level" # "1-2", "Grade 4", "Kindergarten", etc.
@@ -124,7 +124,7 @@ class Classifier(object):
         fiction = cls.is_fiction(identifier, name)
         audience = cls.audience(identifier, name)
 
-        target_age = cls.target_age(identifier, name) 
+        target_age = cls.target_age(identifier, name)
         if target_age == cls.range_tuple(None, None):
             target_age = cls.default_target_age_for_audience(audience)
 
@@ -139,7 +139,7 @@ class Classifier(object):
         """Prepare identifier and name from within a call to classify()."""
         identifier = cls.scrub_identifier(identifier)
         if isinstance(identifier, tuple):
-            # scrub_identifier returned a canonical value for name as 
+            # scrub_identifier returned a canonical value for name as
             # well. Use it in preference to any name associated with
             # the subject.
             identifier, name = identifier
@@ -151,7 +151,7 @@ class Classifier(object):
     @classmethod
     def scrub_identifier(cls, identifier):
         """Prepare an identifier from within a call to classify().
-        
+
         This may involve data normalization, conversion to lowercase,
         etc.
         """
@@ -275,7 +275,7 @@ class Classifier(object):
         if young is None:
             return None
         if not any(
-                [keyword.endswith(x) for x in 
+                [keyword.endswith(x) for x in
                  ("and up", "and up.", "+", "+.")
              ]
         ):
@@ -338,12 +338,12 @@ class GradeLevelClassifier(Classifier):
     # levels.
     grade_res = [
         re.compile(x, re.I) for x in [
-            "grades? ([kp0-9]+) to ([kp0-9]+)?", 
-            "grades? ([kp0-9]+) ?-? ?([kp0-9]+)?", 
-            "gr\.? ([kp0-9]+) ?-? ?([kp0-9]+)?", 
-            "grades?: ([kp0-9]+) to ([kp0-9]+)", 
-            "grades?: ([kp0-9]+) ?-? ?([kp0-9]+)?", 
-            "gr\.? ([kp0-9]+)", 
+            "grades? ([kp0-9]+) to ([kp0-9]+)?",
+            "grades? ([kp0-9]+) ?-? ?([kp0-9]+)?",
+            "gr\.? ([kp0-9]+) ?-? ?([kp0-9]+)?",
+            "grades?: ([kp0-9]+) to ([kp0-9]+)",
+            "grades?: ([kp0-9]+) ?-? ?([kp0-9]+)?",
+            "gr\.? ([kp0-9]+)",
             "([0-9]+)[tnsr][hdt] grade",
             "([a-z]+) grade",
             r'\b(kindergarten|preschool)\b',
@@ -361,7 +361,7 @@ class GradeLevelClassifier(Classifier):
     def audience(cls, identifier, name, require_explicit_age_marker=False):
         target_age = cls.target_age(identifier, name, require_explicit_age_marker)
         return cls.default_audience_for_target_age(target_age)
-        
+
 
     @classmethod
     def target_age(cls, identifier, name, require_explicit_grade_marker=False):
@@ -589,9 +589,9 @@ fiction_genres = [
     u"Drama",
     dict(name=u"Erotica", audiences=Classifier.AUDIENCE_ADULTS_ONLY),
     dict(name=u"Fantasy", subgenres=[
-        u"Epic Fantasy", 
+        u"Epic Fantasy",
         u"Historical Fantasy",
-        u"Urban Fantasy", 
+        u"Urban Fantasy",
     ]),
     u"Folklore",
     u"Historical Fiction",
@@ -919,7 +919,7 @@ class DeweyDecimalClassifier(Classifier):
         Judaism : [296],
         Latin_American_History : range(981, 990),
         Law : range(340, 350) + [364],
-        Management_Leadership : [658],        
+        Management_Leadership : [658],
         Mathematics : range(510, 520),
         Medical : range(610, 620),
         Military_History : range(355, 360),
@@ -933,7 +933,7 @@ class DeweyDecimalClassifier(Classifier):
         Foreign_Language_Study : range(430,500),
         Reference_Study_Aids : range(10, 20) + range(30, 40) + [103, 203, 303, 403, 503, 603, 703, 803, 903] + range(410, 430),
         Religion_Spirituality : range(200, 220) + [290, 292, 293, 294, 295, 299],
-        Science : ([500, 501, 502] + range(506, 510) + range(520, 530) 
+        Science : ([500, 501, 502] + range(506, 510) + range(520, 530)
                    + range(530, 540) + range(540, 550) + range(550, 560)
                    + range(560, 570) + range(570, 580) + range(580, 590)
                    + range(590, 600)),
@@ -1033,11 +1033,11 @@ class DeweyDecimalClassifier(Classifier):
     def genre(cls, identifier, name, fiction=None, audience=None):
         for genre, identifiers in cls.GENRES.items():
             if identifier == identifiers or (
-                    isinstance(identifiers, list) 
+                    isinstance(identifiers, list)
                     and identifier in identifiers):
                 return genre
         return None
-    
+
 
 class LCCClassifier(Classifier):
 
@@ -1068,7 +1068,7 @@ class LCCClassifier(Classifier):
         Art_Criticism_Theory : ["BH"],
         Asian_History : ["DS", "DU"],
         Biography_Memoir : ["CT"],
-        Business : ["HC", "HF", "HJ"],      
+        Business : ["HC", "HF", "HJ"],
         Christianity : ["BR", "BS", "BT", "BV", "BX"],
         Cooking : ["TX"],
         Crafts_Hobbies : ["TT"],
@@ -1221,7 +1221,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
     LEVEL_1_NONFICTION_INDICATORS = match_kw(
         "non-fiction", "non fiction"
     )
-    
+
     LEVEL_2_FICTION_INDICATORS = match_kw(
         "fiction", Eg("stories"), Eg("tales"), Eg("literature"),
         Eg("bildungsromans"), "fictitious",
@@ -1235,10 +1235,10 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         "for children", "children's", "juvenile",
         Eg("nursery rhymes"), Eg("9-12"))
     YOUNG_ADULT_INDICATORS = match_kw(
-        "young adult", 
-        "ya", 
-        "12-Up", 
-        "teenage .*fiction", 
+        "young adult",
+        "ya",
+        "12-Up",
+        "teenage .*fiction",
         "teens .*fiction",
         "teen books",
         Eg("teenage romance"),
@@ -1251,7 +1251,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         "love & romance",
         "romance",
         "romantic",
-    ])        
+    ])
 
     # These identifiers indicate that the string "children" or
     # "juvenile" in the identifier does not actually mean the work is
@@ -1266,43 +1266,43 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         "missing children",
     ])
 
-    CATCHALL_KEYWORDS = { 
+    CATCHALL_KEYWORDS = {
         Adventure : match_kw(
             "adventure",
             "adventurers",
             "adventure stories",
-            "adventure fiction", 
+            "adventure fiction",
             "adventurers",
             Eg("sea stories"),
-            Eg("war stories"), 
+            Eg("war stories"),
             Eg("men's adventure"),
-        ), 
-               
+        ),
+
         African_History: match_kw(
             "african history",
             "history.*africa",
         ),
-               
+
         Ancient_History: match_kw(
             "ancient.*history",
             "history.*ancient",
             "civilization, classical",
         ),
-               
+
         Antiques_Collectibles: match_kw(
             "antiques",
             "collectibles",
             "collectors",
             "collecting",
         ),
-               
+
         Architecture: match_kw(
             "architecture",
             "architectural",
             "architect",
             "architects",
         ),
-               
+
         Art: match_kw(
             "art",
             "arts",
@@ -1315,17 +1315,17 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "art criticism",
             "art / criticism & theory",
         ),
-               
+
         Art_History: match_kw(
             "art.*history",
         ),
-               
+
         Asian_History: match_kw(
             "asian history",
             "history.*asia",
             "australasian & pacific history",
         ),
-               
+
         Bartending_Cocktails: match_kw(
             "cocktail",
             "cocktails",
@@ -1336,7 +1336,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             Eg("wine & spirits"),
             "spirits & cocktails",
         ),
-               
+
                Biography_Memoir : match_kw(
                    "autobiographies",
                    "autobiography",
@@ -1345,17 +1345,17 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "biographical",
                    "personal memoirs",
                ),
-               
+
                Body_Mind_Spirit: match_kw(
                    "body, mind & spirit",
                ),
-               
+
                Buddhism: match_kw(
                    "buddhism",
                    "buddhist",
                    "buddha",
                ),
-               
+
                Business: match_kw(
                    "business",
                    "businesspeople",
@@ -1369,7 +1369,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "sales & selling",
                    Eg("nonprofit"),
                ),
-               
+
                Christianity : match_kw(
                    Eg("schema:creativework:bible"),
                    Eg("baptist"),
@@ -1388,17 +1388,17 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("church"),
                    Eg("christmas & advent"),
                ),
-               
+
                Civil_War_History: match_kw(
                    "american civil war",
                    "1861-1865",
                    "civil war period",
                ),
-               
+
                Classics: match_kw(
                    'classics',
                ),
-                             
+
                Computers : match_kw(
                    "computer",
                    "computer science",
@@ -1414,14 +1414,14 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("web"),
                    Eg("world wide web"),
                ),
-               
+
                Contemporary_Romance: match_kw(
                    "contemporary romance",
                    "romance--contemporary",
                    "romance / contemporary",
                    "romance - contemporary",
                ),
-               
+
                Cooking : match_kw(
                    Eg("non-alcoholic"),
                    Eg("baking"),
@@ -1432,7 +1432,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "home economics",
                    "cuisine",
                ),
-                             
+
                Crafts_Hobbies: match_kw(
                    "arts & crafts",
                    "arts, crafts",
@@ -1481,12 +1481,12 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("graphic design"),
                    Eg("typography")
                ),
-               
+
                Dictionaries: match_kw(
                    "dictionaries",
                    "dictionary",
-               ),              
-               
+               ),
+
                Drama : match_kw(
                    Eg("comedies"),
                    "drama",
@@ -1498,7 +1498,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("tragedies"),
                    Eg("tragedy"),
                ),
-               
+
                Economics: match_kw(
                    Eg("banking"),
                    "economy",
@@ -1506,7 +1506,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "economic",
                    "economics",
                ),
-               
+
                Education: match_kw(
                    # TODO: a lot of these don't work well because of
                    # the huge amount of fiction about students. This
@@ -1529,7 +1529,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("university"),
                    Eg("universities"),
                ),
-               
+
                Epic_Fantasy: match_kw(
                    "epic fantasy",
                    "fantasy - epic",
@@ -1537,7 +1537,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "fantasy--epic",
                    "fantasy/epic",
                ),
-               
+
                Espionage: match_kw(
                    "espionage",
                    "intrigue",
@@ -1547,12 +1547,12 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "spy fiction",
                    "spy thriller",
                ),
-               
+
                Erotica : match_kw(
                    'erotic',
                    'erotica',
                ),
-               
+
                # TODO: history _plus_ a place
         European_History: match_kw(
             "europe.*history",
@@ -1567,15 +1567,15 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             Eg("history.*germany"),
             # etc. etc. etc.
         ),
-               
+
                Family_Relationships: match_kw(
-                   "family & relationships",                   
+                   "family & relationships",
                    "relationships",
                    "family relationships",
                    "human sexuality",
                    "sexuality",
                ),
-               
+
                Fantasy : match_kw(
                    "fantasy",
                    Eg("magic"),
@@ -1588,13 +1588,13 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("wizardry"),
                    Eg("unicorns"),
                ),
-               
+
                Fashion: match_kw(
                    "fashion",
                    "fashion design",
                    "fashion designers",
                ),
-               
+
                Film_TV: match_kw(
                    Eg("director"),
                    Eg("directors"),
@@ -1612,7 +1612,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "tv",
                    "video",
                ),
-               
+
                Foreign_Language_Study: match_kw(
                    Eg("english as a foreign language"),
                    Eg("english as a second language"),
@@ -1627,12 +1627,12 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "gaming",
                    Eg("gambling"),
                ),
-               
+
                Gardening: match_kw(
                    "gardening",
                    "horticulture",
                ),
-               
+
                Comics_Graphic_Novels: match_kw(
                    "comics",
                    "comic strip",
@@ -1653,12 +1653,12 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("yaoi"),
 
                ),
-               
+
                Hard_Boiled_Mystery: match_kw(
                    "hard-boiled",
                    "noir",
                ),
-               
+
                Health_Diet: match_kw(
                    # ! "health services" ?
                    "fitness",
@@ -1671,25 +1671,25 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "diets",
                    "weight loss",
                ),
-               
+
                Hinduism: match_kw(
                    "hinduism",
                    "hindu",
                    "hindus",
                ),
-               
+
                Historical_Fiction : match_kw(
                    "historical fiction",
                    "fiction.*historical",
                    "^historical$",
                ),
-               
+
                Historical_Romance: match_kw(
                    "historical romance",
                    Eg("regency romance"),
                    Eg("romance.*regency"),
                ),
-               
+
                History : match_kw(
                    "histories",
                    "history",
@@ -1697,7 +1697,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "historical period",
                    Eg("pre-confederation"),
                ),
-               
+
                Horror : match_kw(
                    "horror",
                    Eg("occult"),
@@ -1709,7 +1709,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("supernatural"),
                    "scary",
                ),
-               
+
                House_Home: match_kw(
                    "house and home",
                    "house & home",
@@ -1718,7 +1718,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("caretaking"),
                    Eg("interior decorating"),
                ),
-               
+
         Humorous_Fiction : match_kw(
             "comedy",
             "funny",
@@ -1740,22 +1740,22 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
         ),
 
                Entertainment: match_kw(
-                   # Almost a pure top-level category 
+                   # Almost a pure top-level category
                    "entertainment",
                ),
-               
+
                # These might be a problem because they might pick up
         # hateful books. Not sure if this will be a problem.
         Islam : match_kw(
             'islam', 'islamic', 'muslim', 'muslims', Eg('halal'),
             'islamic studies',
         ),
-               
+
                Judaism: match_kw(
                    'judaism', 'jewish', Eg('kosher'), 'jews',
                    'jewish studies',
                ),
-               
+
                LGBTQ_Fiction: match_kw(
                    'lgbt',
                    'lgbtq',
@@ -1771,10 +1771,10 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    'homosexuality',
                    'queer',
                ),
-               
+
                Latin_American_History: match_kw(
                ),
-               
+
                Law: match_kw(
                    "court",
                    "judicial",
@@ -1783,16 +1783,16 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "legislation",
                    "legal",
                ),
-               
+
                Legal_Thriller: match_kw(
                    "legal thriller",
                    "legal thrillers",
                ),
-                             
+
                Literary_Criticism: match_kw(
                    "criticism, interpretation",
                ),
-               
+
                Literary_Fiction: match_kw(
                    "literary",
                    "literary fiction",
@@ -1800,14 +1800,14 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "fiction[^a-z]+general",
                    "fiction[^a-z]+literary",
                ),
-               
+
                Management_Leadership: match_kw(
                    "management",
                    "business & economics / leadership",
                    "business & economics -- leadership",
                    "management science",
                ),
-               
+
                Mathematics : match_kw(
                    Eg("algebra"),
                    Eg("arithmetic"),
@@ -1827,7 +1827,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("statistics"),
                    Eg("trigonometry"),
                ),
-               
+
                Medical : match_kw(
                    Eg("anatomy"),
                    Eg("disease"),
@@ -1837,26 +1837,26 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("illness"),
                    Eg("illnesses"),
                    "medical",
-                   "medicine", 
+                   "medicine",
                    Eg("neuroscience"),
                    Eg("ophthalmology"),
                    Eg("physiology"),
                    Eg("vaccines"),
                    Eg("virus"),
                ),
-               
+
                Medieval_History: match_kw(
                    "civilization, medieval",
                    "medieval period",
                    "history.*medieval",
                ),
-               
+
                Middle_East_History: match_kw(
                    "middle east.*history",
                    "history.*middle east",
                ),
 
-               
+
                Military_History : match_kw(
                    "military science",
                    "warfare",
@@ -1865,7 +1865,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("1939-1945"),
                    Eg("world war"),
                ),
-                             
+
                Modern_History: match_kw(
                    Eg("1900 - 1999"),
                    Eg("2000-2099"),
@@ -1876,7 +1876,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("history.*20th century"),
                    Eg("history.*21st century"),
                ),
-               
+
                # This is SF movie tie-ins, not movies & gaming per se.
         # This one is difficult because it takes effect if book
         # has subject "media tie-in" *and* "science fiction" or
@@ -1887,7 +1887,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             Eg("star wars"),
             Eg("jedi"),
         ),
-               
+
                Music: match_kw(
                    "music",
                    "musician",
@@ -1902,7 +1902,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("rock music"),
                    Eg("punk rock"),
                ),
-               
+
                Mystery : match_kw(
                    Eg("crime"),
                    Eg("detective"),
@@ -1914,21 +1914,21 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("poirot, hercule"),
                    Eg("schema:person:holmes, sherlock"),
                ),
-               
+
                Nature : match_kw(
                    # TODO: not sure about this one
                    "nature",
                ),
-               
+
                Body_Mind_Spirit: match_kw(
                    "new age",
                ),
-               
+
                Paranormal_Romance : match_kw(
                    "paranormal romance",
                    "romance.*paranormal",
                ),
-               
+
                Parenting : match_kw(
                    # "children" isn't here because the vast majority of
                    # "children" tags indicate books _for_ children.
@@ -1943,11 +1943,11 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("motherhood"),
                    Eg("fatherhood"),
                ),
-               
+
                Parenting_Family: match_kw(
                    # Pure top-level category
                ),
-               
+
                Performing_Arts: match_kw(
                    "theatre",
                    "theatrical",
@@ -1956,12 +1956,12 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("farce"),
                    Eg("tragicomedy"),
                ),
-               
+
                Periodicals : match_kw(
                    "periodicals",
                    "periodical",
                ),
-               
+
                Personal_Finance_Investing: match_kw(
                    "personal finance",
                    "financial planning",
@@ -1969,13 +1969,13 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("retirement planning"),
                    "money management",
                ),
-               
+
                Pets: match_kw(
                    "pets",
                    Eg("dogs"),
                    Eg("cats"),
                ),
-               
+
                Philosophy : match_kw(
                    "philosophy",
                    "philosophical",
@@ -1984,19 +1984,19 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("epistemology"),
                    Eg("metaphysics"),
                ),
-               
+
                Photography: match_kw(
                    "photography",
                    "photographer",
                    "photographers",
                    "photographic",
                ),
-               
+
                Police_Procedural: match_kw(
                    "police[^a-z]+procedural",
                    "police[^a-z]+procedurals",
                ),
-               
+
                Poetry : match_kw(
                    "poetry",
                    "poet",
@@ -2006,7 +2006,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("sonnet"),
                    Eg("sonnets"),
                ),
-               
+
                Political_Science : match_kw(
                    Eg("american government"),
                    Eg("anarchism"),
@@ -2031,7 +2031,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "political",
                    Eg("current events"),
                ),
-               
+
                Psychology: match_kw(
                    "psychology",
                    Eg("psychiatry"),
@@ -2039,11 +2039,11 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("psychiatric"),
                    Eg("psychoanalysis"),
                ),
-               
+
                Real_Estate: match_kw(
                    "real estate",
                ),
-               
+
                Reference_Study_Aids : match_kw(
                    Eg("catalogs"),
                    Eg("handbooks"),
@@ -2054,7 +2054,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("encyclopaedias"),
                    Eg("encyclopaedia"),
                    Eg("encyclopedias"),
-                   Eg("encyclopedia"),            
+                   Eg("encyclopedia"),
 
                    # Formerly in 'Language Arts & Disciplines'
                    Eg("alphabets"),
@@ -2078,7 +2078,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("vocabulary"),
                    Eg("writing systems"),
                ),
-               
+
                Religion_Spirituality : match_kw(
                    "religion",
                    "religious",
@@ -2087,7 +2087,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("confucianism"),
                    Eg("inspirational nonfiction"),
                ),
-               
+
                Renaissance_Early_Modern_History: match_kw(
                    "early modern period",
                    "early modern history",
@@ -2096,20 +2096,20 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "renaissance.*history",
                    "history.*renaissance",
                ),
-               
+
                Romance : match_kw(
                    "love stories",
                    "romance",
                    "love & romance",
                    "romances",
                ),
-               
+
                Science : match_kw(
                    Eg("aeronautics"),
                    Eg("astronomy"),
                    Eg("biology"),
                    Eg("biophysics"),
-                   Eg("biochemistry"), 
+                   Eg("biochemistry"),
                    Eg("botany"),
                    Eg("chemistry"),
                    Eg("earth sciences"),
@@ -2121,7 +2121,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("genetic engineering"),
                    Eg("genomics"),
                    Eg("ichthyology"),
-                   Eg("herpetology"), 
+                   Eg("herpetology"),
                    Eg("life sciences"),
                    Eg("microbiology"),
                    Eg("microscopy"),
@@ -2137,18 +2137,18 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("virology"),
                    Eg("cytology"),
                ),
-               
+
                Science_Fiction : match_kw(
                    "speculative fiction",
                    "sci-fi",
                    "sci fi",
                    Eg("time travel"),
                ),
-               
+
                #Science_Fiction_Fantasy: match_kw(
         #    "science fiction.*fantasy",
         #),
-               
+
                Self_Help: match_kw(
                    "self help",
                    "self-help",
@@ -2188,8 +2188,8 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("african-american studies"),
                    Eg("customs & traditions"),
                    Eg("criminology"),
-               ),               
-               
+               ),
+
                Sports: match_kw(
                    # Ton of specific sports here since 'players'
                    # doesn't work. TODO: Why? I don't remember.
@@ -2200,7 +2200,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("soccer"),
                    Eg("skating"),
                ),
-               
+
                Study_Aids: match_kw(
                    Eg("act"),
                    Eg("advanced placement"),
@@ -2227,7 +2227,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("toefl"),
                    "workbooks",
                ),
-                            
+
                Romantic_Suspense : match_kw(
                    "romantic.*suspense",
                    "suspense.*romance",
@@ -2236,7 +2236,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "romance.*thriller",
                    "thriller.*romance",
                ),
-               
+
                Technology: match_kw(
                    "technology",
                    Eg("engineering"),
@@ -2251,7 +2251,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("ships & shipbuilding"),
                    Eg("cars & trucks"),
                ),
-               
+
                Suspense_Thriller: match_kw(
                    "thriller",
                    "thrillers",
@@ -2274,7 +2274,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "travelers",
                    "description.*travel",
                ),
-                              
+
                United_States_History: match_kw(
                    "united states history",
                    "u.s. history",
@@ -2282,17 +2282,17 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    Eg("1775-1783"),
                    Eg("revolutionary period"),
                ),
-               
+
                Urban_Fantasy: match_kw(
                    "urban fantasy",
                    "fantasy.*urban",
                ),
-               
+
                Urban_Fiction: match_kw(
                    "urban fiction",
                    Eg("fiction.*african american.*urban"),
                ),
-               
+
                Vegetarian_Vegan: match_kw(
                    "vegetarian",
                    Eg("vegan"),
@@ -2304,7 +2304,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "western stories",
                    "westerns",
                ),
-               
+
                Women_Detectives : match_kw(
                    "women detectives",
                    "women detective",
@@ -2320,11 +2320,11 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                    "womens fiction",
                    "women's fiction",
                ),
-               
+
                World_History: match_kw(
                    "world history",
                    "history[^a-z]*world",
-               ),              
+               ),
     }
 
     LEVEL_2_KEYWORDS = {
@@ -2403,7 +2403,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "romance.*thriller",
             "thriller.*romance",
         ),
-        
+
         # Stop from showing up as 'science'
         Social_Sciences : match_kw(
             "social sciences",
@@ -2421,7 +2421,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "supernatural.*thriller",
         ),
 
-        # Stop from going into Mystery due to 'crime' 
+        # Stop from going into Mystery due to 'crime'
         True_Crime: match_kw(
             "true crime",
         ),
@@ -2442,7 +2442,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
             "space opera",
         ),
     }
-    
+
 
     @classmethod
     def is_fiction(cls, identifier, name, exclude_examples=False):
@@ -2535,7 +2535,7 @@ class KeywordBasedClassifier(AgeOrGradeClassifier):
                         genre_words = match.group()
                         break
         return (genre, genre_words)
-        
+
 
 class LCSHClassifier(KeywordBasedClassifier):
     pass
@@ -2648,7 +2648,7 @@ class GutenbergBookshelfClassifier(Classifier):
             "Birds, Illustrated by Color Photography",
         ],
         Periodicals : [
-            "Ainslee's", 
+            "Ainslee's",
             "Prairie Farmer",
             "Blackwood's Edinburgh Magazine",
             u"Barnavännen",
@@ -2773,7 +2773,7 @@ class GutenbergBookshelfClassifier(Classifier):
             "Thriller",
         ],
         Technology : [
-            "Engineering", 
+            "Engineering",
             "Technology",
             "Transportation",
         ],
@@ -2982,7 +2982,7 @@ class WorkClassifier(object):
         # if staff classification is fiction or nonfiction, ignore all other fictions
         if not self.using_staff_fiction_status:
             if from_staff and subject.type == Subject.SIMPLIFIED_FICTION_STATUS:
-                # encountering first staff fiction status, 
+                # encountering first staff fiction status,
                 # so throw out existing fiction weights
                 self.using_staff_fiction_status = True
                 self.fiction_weights = Counter()
@@ -3057,7 +3057,7 @@ class WorkClassifier(object):
         """
         if self.work.title and ('Star Trek:' in self.work.title
             or 'Star Wars:' in self.work.title
-            or ('Jedi' in self.work.title 
+            or ('Jedi' in self.work.title
                 and self.work.imprint=='Del Rey')
         ):
             self.weigh_genre(Media_Tie_in_SF, 100)
@@ -3080,8 +3080,8 @@ class WorkClassifier(object):
             self.audience_weights[self.audience_imprints[imprint]] += 100
         elif (publisher in self.not_adult_publishers
               or imprint in self.not_adult_imprints):
-            for audience in [Classifier.AUDIENCE_ADULT, 
-                             Classifier.AUDIENCE_ADULTS_ONLY]: 
+            for audience in [Classifier.AUDIENCE_ADULT,
+                             Classifier.AUDIENCE_ADULTS_ONLY]:
                 self.audience_weights[audience] -= 100
 
     def prepare_to_classify(self):
@@ -3101,7 +3101,7 @@ class WorkClassifier(object):
         if (self.direct_from_license_source
             and not self.using_staff_audience
             and not any(
-                audience in explicitly_indicated_audiences 
+                audience in explicitly_indicated_audiences
                 for audience in audiences_from_license_source
         )):
             # If this was erotica, or a book for children or young
@@ -3116,7 +3116,7 @@ class WorkClassifier(object):
             # classifications.
             self.audience_weights[Classifier.AUDIENCE_ADULT] += 500
 
-        if (self.overdrive_juvenile_generic 
+        if (self.overdrive_juvenile_generic
             and not self.overdrive_juvenile_with_target_age):
             # This book is classified under 'Juvenile Fiction' but not
             # under 'Picture Books' or 'Beginning Readers'. The
@@ -3264,7 +3264,7 @@ class WorkClassifier(object):
             return Classifier.default_target_age_for_audience(audience)
 
         # Only consider the most reliable classifications.
-        
+
         # Try to reach consensus on the lower and upper bounds of the
         # age range.
         if self.debug:
@@ -3375,7 +3375,7 @@ class WorkClassifier(object):
         for genre, weight in consolidated.items():
             for parent in genre.parents:
                 if parent in consolidated:
-                    if ((not parent in heaviest_child) 
+                    if ((not parent in heaviest_child)
                         or weight > heaviest_child[parent][1]):
                         heaviest_child[parent] = (genre, weight)
         #print "Heaviest child:"

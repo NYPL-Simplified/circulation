@@ -22,7 +22,7 @@ class TestProfileController(object):
         """
         eq_({'key': 'value', 'settings': {'writable_key': 'old_value'}},
             self.storage.profile_document)
-        
+
     def test_get_success(self):
         """Test that sending a GET request to the controller results in the
         expected profile_document.
@@ -34,7 +34,7 @@ class TestProfileController(object):
 
     def test_put_success(self):
         """Test that sending a new dictionary of key-value pairs
-        leads to changes in the writable part of the store, but not in 
+        leads to changes in the writable part of the store, but not in
         the read-only part.
         """
         headers = {"Content-Type" : ProfileController.MEDIA_TYPE}
@@ -57,12 +57,12 @@ class TestProfileController(object):
         )
         eq_(200, status_code)
         eq_(expected_new_state, self.storage.writable_settings)
-        
+
     def test_get_exception_during_profile_document(self):
         """Test what happens if an exception is raised during the
         creation of a profile_document.
         """
-        
+
         class BadStorage(MockProfileStorage):
             @property
             def profile_document(self):
@@ -72,11 +72,11 @@ class TestProfileController(object):
         problem = self.controller.get()
         eq_(500, problem.status_code)
         eq_(u"Oh no", problem.debug_message)
-        
+
     def test_get_non_dictionary_profile_document(self):
         """Test what happens if the profile_document is not a dictionary.
         """
-        
+
         class BadStorage(MockProfileStorage):
             @property
             def profile_document(self):
@@ -87,11 +87,11 @@ class TestProfileController(object):
         eq_(500, problem.status_code)
         eq_(u"Profile profile_document is not a JSON object: u'Here it is!'.",
             problem.debug_message)
-        
+
     def test_get_non_dictionary_profile_document(self):
         """Test what happens if the profile_document cannot be converted to JSON.
         """
-        
+
         class BadStorage(MockProfileStorage):
             @property
             def profile_document(self):
@@ -127,7 +127,7 @@ class TestProfileController(object):
         eq_(400, problem.status_code)
         eq_(u'Submitted profile document was not a JSON object.',
             problem.detail)
-        
+
     def test_attempt_to_set_read_only_setting(self):
         """You can't change the value of a setting that's not
         writable.

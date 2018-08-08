@@ -1814,9 +1814,9 @@ class TestLane(DatabaseTest):
 
         eq_(
             "%s / %s / %s / %s" % (
-                lane.library.short_name, lane.display_name, 
+                lane.library.short_name, lane.display_name,
                 child_lane.display_name, grandchild_lane.display_name
-            ), 
+            ),
             grandchild_lane.full_identifier
         )
 

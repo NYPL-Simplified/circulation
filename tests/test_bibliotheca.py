@@ -1,6 +1,6 @@
 from nose.tools import (
     assert_raises_regexp,
-    set_trace, 
+    set_trace,
     eq_,
 )
 import datetime
@@ -49,7 +49,7 @@ class TestBibliothecaAPI(DatabaseTest, BaseBibliothecaTest):
         id = self.api.library_id
         eq_("/cirrus/library/%s/foo" % id, self.api.full_path("foo"))
         eq_("/cirrus/library/%s/foo" % id, self.api.full_path("/foo"))
-        eq_("/cirrus/library/%s/foo" % id, 
+        eq_("/cirrus/library/%s/foo" % id,
             self.api.full_path("/cirrus/library/%s/foo" % id)
         )
 
@@ -57,7 +57,7 @@ class TestBibliothecaAPI(DatabaseTest, BaseBibliothecaTest):
         id = self.api.library_id
         eq_("http://bibliotheca.test/cirrus/library/%s/foo" % id,
             self.api.full_url("foo"))
-        eq_("http://bibliotheca.test/cirrus/library/%s/foo" % id, 
+        eq_("http://bibliotheca.test/cirrus/library/%s/foo" % id,
             self.api.full_url("/foo"))
 
     def test_request_signing(self):
@@ -72,7 +72,7 @@ class TestBibliothecaAPI(DatabaseTest, BaseBibliothecaTest):
         eq_('2.0', headers['3mcl-Version'])
         expect = '3MCLAUTH a:HZHNGfn6WVceakGrwXaJQ9zIY0Ai5opGct38j9/bHrE='
         eq_(expect, headers['3mcl-Authorization'])
-        
+
         # Tweak one of the variables that go into the signature, and
         # the signature changes.
         self.api.library_id = self.api.library_id + "1"
@@ -94,7 +94,7 @@ class TestBibliothecaAPI(DatabaseTest, BaseBibliothecaTest):
         self.api.queue_response(500, content="oops")
         identifier = self._identifier()
         assert_raises_regexp(
-            BadResponseException, 
+            BadResponseException,
             ".*Got status code 500.*",
             self.api.bibliographic_lookup, identifier
         )
@@ -124,7 +124,7 @@ class TestItemListParser(BaseBibliothecaTest):
     def test_contributors_for_string(cls):
         authors = list(ItemListParser.contributors_from_string(
             "Walsh, Jill Paton; Sayers, Dorothy L."))
-        eq_([x.sort_name for x in authors], 
+        eq_([x.sort_name for x in authors],
             ["Walsh, Jill Paton", "Sayers, Dorothy L."]
         )
         eq_([x.roles for x in authors],
@@ -154,15 +154,15 @@ class TestItemListParser(BaseBibliothecaTest):
             assert all([x.type == Subject.BISAC for x in genres])
             return [x.name for x in genres]
 
-        eq_(["Children's Health", "Health"], 
+        eq_(["Children's Health", "Health"],
             f("Children&amp;#39;s Health,Health,"))
-        
+
         eq_(["Action & Adventure", "Science Fiction", "Fantasy", "Magic",
-             "Renaissance"], 
+             "Renaissance"],
             f("Action &amp;amp; Adventure,Science Fiction, Fantasy, Magic,Renaissance,"))
 
     def test_item_list(cls):
-        data = cls.get_data("item_metadata_list_mini.xml")        
+        data = cls.get_data("item_metadata_list_mini.xml")
         data = list(ItemListParser().parse(data))
 
         # There should be 2 items in the list.
@@ -174,7 +174,7 @@ class TestItemListParser(BaseBibliothecaTest):
         eq_("A Novel of Feudal Japan", cooked.subtitle)
         eq_("eng", cooked.language)
         eq_("St. Martin's Press", cooked.publisher)
-        eq_(datetime.datetime(year=2012, month=9, day=17), 
+        eq_(datetime.datetime(year=2012, month=9, day=17),
             cooked.published
         )
 
@@ -185,7 +185,7 @@ class TestItemListParser(BaseBibliothecaTest):
         identifiers = sorted(
             cooked.identifiers, key=lambda x: x.identifier
         )
-        eq_([u'9781250015280', u'9781250031112', u'ddf4gr9'], 
+        eq_([u'9781250015280', u'9781250031112', u'ddf4gr9'],
             [x.identifier for x in identifiers])
 
         [author] = cooked.contributors
@@ -230,7 +230,7 @@ class TestItemListParser(BaseBibliothecaTest):
 class TestBibliographicCoverageProvider(TestBibliothecaAPI):
 
     """Test the code that looks up bibliographic information from 3M."""
-    
+
     def test_script_instantiation(self):
         """Test that RunCollectionCoverageProviderScript can instantiate
         this coverage provider.
@@ -275,14 +275,14 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
         eq_(0, pool.licenses_owned)
         [lpdm] = pool.delivery_mechanisms
         eq_(
-            'application/epub+zip (application/vnd.adobe.adept+xml)', 
+            'application/epub+zip (application/vnd.adobe.adept+xml)',
             lpdm.delivery_mechanism.name
         )
 
         # A Work was created and made presentation ready.
         eq_("The Incense Game", pool.work.title)
         eq_(True, pool.work.presentation_ready)
-       
+
     def test_internal_formats(self):
 
         m = ItemListParser.internal_formats
@@ -307,7 +307,7 @@ class TestBibliographicCoverageProvider(TestBibliothecaAPI):
 
         # Now Try a string we don't recognize from Bibliotheca.
         medium, formats = m("Unknown")
-        
+
         # We assume it's a book.
         eq_(Edition.BOOK_MEDIUM, medium)
 

@@ -11,7 +11,7 @@ class ProfileController(object):
 
     MEDIA_TYPE = "vnd.librarysimplified/user-profile+json"
     LINK_RELATION = "http://librarysimplified.org/terms/rel/user-profile"
-    
+
     def __init__(self, storage):
         """Constructor.
 
@@ -48,9 +48,9 @@ class ProfileController(object):
                     profile_document
                 )
             )
-            
+
         return body, 200, {"Content-Type": self.MEDIA_TYPE}
-        
+
     def put(self, headers, body):
         """Update the profile storage object with new settings
         from a Profile document sent with a PUT request.
@@ -112,16 +112,16 @@ class ProfileStorage(object):
     AUTHORIZATION_EXPIRES = NS + "authorization_expires"
     SYNCHRONIZE_ANNOTATIONS = NS + 'synchronize_annotations'
     SETTINGS_KEY = 'settings'
-    
+
     @property
     def profile_document(self):
-        """Create a Profile document representing the current state of 
+        """Create a Profile document representing the current state of
         the user's profile.
 
         :return: A dictionary that can be serialized as JSON.
         """
         raise NotImplementedError()
-    
+
     def update(self, new_values, profile_document):
         """(Try to) change the user's profile so it looks like the provided
         Profile document.
@@ -141,7 +141,7 @@ class ProfileStorage(object):
     @property
     def writable_setting_names(self):
         """Return the subset of settings that are considered writable.
-    
+
         An attempt to modify a setting that's not in this list will fail
         before update() is called.
 
@@ -155,7 +155,7 @@ class MockProfileStorage(ProfileStorage):
 
     Keeps information in in-memory dictionaries rather than in a database.
     """
-    
+
     def __init__(self, read_only_settings=None, writable_settings=None):
         """Create a profile for a simulated user.
 
@@ -180,7 +180,7 @@ class MockProfileStorage(ProfileStorage):
         """
         for k, v in new_values.items():
             self.writable_settings[k] = v
-    
+
     @property
     def writable_setting_names(self):
         """Return the subset of fields that are considered writable."""

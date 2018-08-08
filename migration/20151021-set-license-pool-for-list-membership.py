@@ -20,5 +20,5 @@ _db = production_session()
 qu = _db.query(CustomListEntry).filter(CustomListEntry.license_pool==None)
 print "Fixing %d custom list entries with no licensepool." % qu.count()
 
-for cle in qu: 
+for cle in qu:
     cle.set_license_pool()

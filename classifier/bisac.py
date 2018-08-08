@@ -20,7 +20,7 @@ class RE(CustomMatchToken):
     """A CustomMatchToken that performs a regular expression search."""
     def __init__(self, pattern):
         self.re = re.compile(pattern, re.I)
-    
+
     def matches(self, subject_token):
         return self.re.search(subject_token)
 
@@ -50,7 +50,7 @@ psychology = Interchangeable("Psychology", "Psychology & Psychiatry")
 technology = Interchangeable("Technology & Engineering", "Technology")
 social_topics = Interchangeable("Social Situations", "Social Topics")
 
-# This name change is _not_ cosmetic. The category was split into 
+# This name change is _not_ cosmetic. The category was split into
 # two, and we're putting everything that was in the old category into
 # one of the two.
 literary_criticism = Interchangeable(
@@ -81,7 +81,7 @@ class MatchingRule(object):
         # Track the subjects that were 'caught' by this rule,
         # for debugging purposes.
         self.caught = []
-        
+
         for i, rule in enumerate(ruleset):
             if i > 0 and rule in special_variables:
                 raise ValueError(
@@ -136,7 +136,7 @@ class MatchingRule(object):
 
         new_rules contains the tokens in the ruleset that have yet to
         be activated.
-        
+
         new_subject contains the tokens in the subject that have yet
         to be checked.
         """
@@ -197,7 +197,7 @@ class MatchingRule(object):
             if match and subject_token not in (
                     'juvenile nonfiction', 'young adult nonfiction'
             ):
-                # The implicit top-level lane is 'nonfiction', 
+                # The implicit top-level lane is 'nonfiction',
                 # which means we popped a token like 'History' that
                 # needs to go back on the stack.
                 subject.insert(0, subject_token)
@@ -214,7 +214,7 @@ def m(result, *ruleset):
 
 class BISACClassifier(Classifier):
     """Handle real, genuine, according-to-Hoyle BISAC classifications.
-    
+
     Subclasses of this method can use the same basic classification logic
     to classify classifications that are based on BISAC but have cosmetic
     differences.
@@ -306,7 +306,7 @@ class BISACClassifier(Classifier):
         m(Short_Stories, fiction, anything, RE('^Short Stories')),
         m(Short_Stories, 'Literary Collections'),
         m(Short_Stories, fiction, anything, 'Collections & Anthologies'),
-        
+
         # Classify top-level fiction categories into fiction genres.
         #
         # First, handle large overarching genres that have subgenres
@@ -660,7 +660,7 @@ class BISACClassifier(Classifier):
 
         # All of our comparisons are case-insensitive.
         name = Lowercased(name)
-        
+
         # Take corrective action to finame a number of common problems
         # seen in the wild.
         #
@@ -674,8 +674,8 @@ class BISACClassifier(Classifier):
                 name = name[1:]
             if name.endswith(quote):
                 name = name[:-1]
-            
-        # The name may end with an extraneous marker character or 
+
+        # The name may end with an extraneous marker character or
         # (if it was copied from the BISAC website) an asterisk.
         for separator in '|/*':
             if name.endswith(separator):
@@ -689,7 +689,7 @@ class BISACClassifier(Classifier):
         # has also been used.
         for separator in '|/':
             if separator in name:
-                parts = [name.strip() for name in name.split(separator) 
+                parts = [name.strip() for name in name.split(separator)
                          if name.strip()]
                 break
         else:

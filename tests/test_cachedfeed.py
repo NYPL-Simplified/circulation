@@ -6,7 +6,7 @@ from nose.tools import (
 )
 
 from config import (
-    Configuration, 
+    Configuration,
     temp_config,
 )
 
@@ -39,7 +39,7 @@ class TestCachedFeed(DatabaseTest):
         # Fetch a cached feed from the database--it's empty.
         args = (self._db, lane, CachedFeed.PAGE_TYPE, facets, pagination, None)
         feed, fresh = CachedFeed.fetch(*args, max_age=0)
-            
+
         eq_(False, fresh)
         eq_(None, feed.content)
 
@@ -72,7 +72,7 @@ class TestCachedFeed(DatabaseTest):
         # Fetch a cached feed from the database--it's empty.
         args = (self._db, lane, CachedFeed.PAGE_TYPE, facets, pagination, None)
         feed, fresh = CachedFeed.fetch(*args, max_age=0)
-            
+
         eq_(False, fresh)
         eq_(None, feed.content)
 
@@ -123,7 +123,7 @@ class TestCachedFeed(DatabaseTest):
         eq_(feed, result)
 
     def test_refusal_to_create_expensive_feed(self):
-        
+
         facets = Facets.default(self._default_library)
         pagination = Pagination.default()
         lane = self._lane(u"My Lane", languages=['eng', 'chi'])
@@ -137,11 +137,11 @@ class TestCachedFeed(DatabaseTest):
             *args, max_age=AcquisitionFeed.CACHE_FOREVER
         )
         eq_(CachedFeed.PAGE_TYPE, feed.type)
-      
+
         # If we ask for the same feed, but we don't say it must be cached
         # forever, it'll be created.
         feed, fresh = CachedFeed.fetch(*args, max_age=0)
-        
+
         # Or if we explicitly demand that the feed be created, it will
         # be created.
         feed, fresh = CachedFeed.fetch(

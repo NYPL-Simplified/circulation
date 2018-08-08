@@ -1,5 +1,5 @@
 # encoding: utf-8
-import datetime 
+import datetime
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
@@ -60,7 +60,7 @@ class TestCustomListFromCSV(DatabaseTest):
         for key in l.subject_fields.keys():
             row[key] = ", ".join([self._str, self._str])
 
-        for timekey in (l.first_appearance_field, 
+        for timekey in (l.first_appearance_field,
                         l.published_field):
             if isinstance(timekey, list):
                 timekey = timekey[0]
@@ -234,7 +234,7 @@ class TestMembershipManager(DatabaseTest):
         update_time = datetime.datetime(2015, 1, 1)
 
 
-        # To create necessary mocked objects, 
+        # To create necessary mocked objects,
         # _customlist calls _work
         #    which calls _edition, which makes an edition and a pool (through _licensepool)
         #    then makes work through get_one_or_create
@@ -242,9 +242,9 @@ class TestMembershipManager(DatabaseTest):
         manager = BooksInSeries(custom_list)
         manager.update(update_time)
 
-        [entry1] = [x for x in custom_list.entries if x.edition.series == "Series 1"] 
-        [entry2] = [x for x in custom_list.entries if x.edition.series == "Series Two"] 
-        
+        [entry1] = [x for x in custom_list.entries if x.edition.series == "Series 1"]
+        [entry2] = [x for x in custom_list.entries if x.edition.series == "Series Two"]
+
         eq_(update_time, entry1.first_appearance)
         eq_(update_time, entry1.most_recent_appearance)
 
@@ -260,13 +260,13 @@ class TestMembershipManager(DatabaseTest):
         manager.update(new_update_time)
 
         # Entry #2 has been removed from the list, and a new entry added.
-        [old_entry] = [x for x in custom_list.entries if x.edition.series == "Series 1"] 
-        [new_entry] = [x for x in custom_list.entries if x.edition.series == "Actually I do have a series."] 
+        [old_entry] = [x for x in custom_list.entries if x.edition.series == "Series 1"]
+        [new_entry] = [x for x in custom_list.entries if x.edition.series == "Actually I do have a series."]
         eq_(update_time, old_entry.first_appearance)
         eq_(new_update_time, old_entry.most_recent_appearance)
         eq_(new_update_time, new_entry.first_appearance)
         eq_(new_update_time, new_entry.most_recent_appearance)
-        
+
     def test_classification_based_membership_manager(self):
         e1 = self._edition()
         e2 = self._edition()
@@ -284,7 +284,7 @@ class TestMembershipManager(DatabaseTest):
 
         # e1 is a member of the list because its primary identifier is
         # classified under a subject that matches %foo%.
-        # 
+        #
         # e2 is a member of the list because its primary identifier is
         # classified under a subject that matches %bar%.
         #

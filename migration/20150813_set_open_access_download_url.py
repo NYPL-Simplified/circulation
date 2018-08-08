@@ -44,5 +44,5 @@ class OpenAccessDownloadSetMonitor(EditionSweepMonitor):
         else:
             print edition.id, edition.title, "[no link]"
         return True
-    
+
 RunMonitorScript(OpenAccessDownloadSetMonitor).run()

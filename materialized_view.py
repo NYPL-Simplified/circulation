@@ -18,7 +18,7 @@ class MaterializedWorkLaneFeed(WorkFeed):
         "author" : MaterializedWork.sort_author,
     }
     default_sort_order = [
-        MaterializedWork.sort_title, MaterializedWork.sort_author, 
+        MaterializedWork.sort_title, MaterializedWork.sort_author,
         MaterializedWork.license_pool_id
     ]
 

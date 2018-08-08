@@ -19,7 +19,7 @@ class OPDSAuthenticationFlow(object):
                 "Authentication flow document for %r does not include required field 'type'" % self
             )
         return data
-            
+
     def _authentication_flow_document(self, _db):
         raise NotImplementedError()
 
@@ -28,7 +28,7 @@ class AuthenticationForOPDSDocument(object):
     """A data structure that can become an Authentication For OPDS
     document.
     """
-    
+
     MEDIA_TYPE = "application/vnd.opds.authentication.v1.0+json"
     LINK_RELATION = "http://opds-spec.org/auth/document"
 
@@ -48,7 +48,7 @@ class AuthenticationForOPDSDocument(object):
         self.title = title
         self.authentication_flows = authentication_flows
         self.links = links
-        
+
     def to_dict(self, _db):
         """Convert this data structure to a dictionary that becomes an
         Authentication For OPDS document when serialized to JSON.
@@ -68,7 +68,7 @@ class AuthenticationForOPDSDocument(object):
         ]:
             if not isinstance(value, list):
                 raise ValueError("'%s' must be a list." % key)
-            
+
         document = dict(id=self.id, title=self.title)
         flow_documents = document.setdefault('authentication', [])
         for flow in self.authentication_flows:

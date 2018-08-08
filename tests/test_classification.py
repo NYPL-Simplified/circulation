@@ -76,19 +76,19 @@ class TestClassifier(object):
     def test_default_target_age_for_audience(self):
 
         eq_(
-            (None, None), 
+            (None, None),
             Classifier.default_target_age_for_audience(Classifier.AUDIENCE_CHILDREN)
         )
         eq_(
-            (14, 17), 
+            (14, 17),
             Classifier.default_target_age_for_audience(Classifier.AUDIENCE_YOUNG_ADULT)
         )
         eq_(
-            (18, None), 
+            (18, None),
             Classifier.default_target_age_for_audience(Classifier.AUDIENCE_ADULT)
         )
         eq_(
-            (18, None), 
+            (18, None),
             Classifier.default_target_age_for_audience(Classifier.AUDIENCE_ADULTS_ONLY)
         )
 
@@ -212,7 +212,7 @@ class TestTargetAge(object):
         def f(t):
             return GradeLevelClassifier.target_age(t, None)
         eq_(
-            Classifier.range_tuple(5,6), 
+            Classifier.range_tuple(5,6),
             GradeLevelClassifier.target_age(None, "grades 0-1")
         )
         eq_((4,7), f("pk - 2"))
@@ -495,10 +495,10 @@ class TestKeyword(object):
         eq_(classifier.Romance, self.genre("Regency romances"))
 
     def test_audience(self):
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
             Keyword.audience(None, "Teens / Fiction"))
 
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
             Keyword.audience(None, "teen books"))
 
     def test_subgenre_wins_over_genre(self):
@@ -516,12 +516,12 @@ class TestKeyword(object):
         eq_(None, self.genre("Children's Books"))
 
     def test_young_adult_wins_over_children(self):
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
             Keyword.audience(None, "children's books - young adult fiction")
         )
 
     def test_juvenile_romance_means_young_adult(self):
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
             Keyword.audience(None, "juvenile fiction / love & romance")
         )
 
@@ -548,7 +548,7 @@ class TestKeyword(object):
         eq_(None, genre)
 
     def test_improvements(self):
-        """A place to put tests for miscellaneous improvements added 
+        """A place to put tests for miscellaneous improvements added
         since the original work.
         """
         # was Literary Fiction
@@ -560,7 +560,7 @@ class TestKeyword(object):
         eq_(classifier.Science_Fiction,
             Keyword.genre(None, "Science Fiction")
         )
-        
+
         eq_(classifier.Science_Fiction,
             Keyword.genre(None, "Speculative Fiction")
         )
@@ -572,7 +572,7 @@ class TestKeyword(object):
         eq_(classifier.Social_Sciences,
             Keyword.genre(None, "Social Science")
         )
-        
+
         eq_(classifier.Social_Sciences,
             Keyword.genre(None, "Human Science")
         )
@@ -581,7 +581,7 @@ class TestKeyword(object):
         eq_(classifier.Short_Stories,
             Keyword.genre(None, "Short Stories")
         )
-        
+
         # was Military History
         eq_(classifier.Military_SF,
             Keyword.genre(None, "Interstellar Warfare")
@@ -612,7 +612,7 @@ class TestKeyword(object):
         eq_(None, Keyword.genre(None, "Fiction/Urban"))
 
         eq_(classifier.Folklore, Keyword.genre(None, "fables"))
-        
+
 
 class TestBIC(object):
 
@@ -630,7 +630,7 @@ class TestBIC(object):
         adult = Classifier.AUDIENCE_ADULT
         def aud(bic):
             return BIC.audience(BIC.scrub_identifier(bic), None)
-            
+
         eq_(adult, aud("DD"))
         eq_(young_adult, aud("YFA"))
 
@@ -659,7 +659,7 @@ class TestAxis360Classifier(object):
     def test_audience(self):
         def f(t):
             return Axis360AudienceClassifier.audience(t, None)
-        eq_(Classifier.AUDIENCE_CHILDREN, 
+        eq_(Classifier.AUDIENCE_CHILDREN,
             f("Children's - Kindergarten, Age 5-6"))
         eq_(Classifier.AUDIENCE_CHILDREN,
             f("Children's - Grade 2-3, Age 7-8"))
@@ -667,7 +667,7 @@ class TestAxis360Classifier(object):
             f("Children's - Grade 4-6, Age 9-11"))
         eq_(Classifier.AUDIENCE_YOUNG_ADULT,
             f("Teen - Grade 7-9, Age 12-14"))
-        eq_(Classifier.AUDIENCE_YOUNG_ADULT, 
+        eq_(Classifier.AUDIENCE_YOUNG_ADULT,
             f("Teen - Grade 10-12, Age 15-18"))
         eq_(Classifier.AUDIENCE_ADULT, f("General Adult"))
         eq_(None, f(""))
@@ -699,7 +699,7 @@ class TestNestedSubgenres(object):
         #  - Historical Fantasy
         #  - Urban Fantasy
         eq_(
-            set([classifier.Fantasy, classifier.Epic_Fantasy, 
+            set([classifier.Fantasy, classifier.Epic_Fantasy,
                  classifier.Historical_Fantasy, classifier.Urban_Fantasy,
              ]),
             set(list(classifier.Fantasy.self_and_subgenres)))
@@ -850,7 +850,7 @@ class TestWorkClassifier(DatabaseTest):
         eq_(100, self.classifier.genre_weights[expected_genre])
 
     def test_metadata_implies_audience_and_genre(self):
-        # Genre and audience publisher 
+        # Genre and audience publisher
         self.work.presentation_edition.publisher = u"Harlequin"
         self.work.presentation_edition.imprint = u"Harlequin Teen"
         expected_genre = self._genre(classifier.Romance)
@@ -922,7 +922,7 @@ class TestWorkClassifier(DatabaseTest):
         # more reliable than their actual weight, as per
         # Classification.scaled_weight
         eq_(50, self.classifier.audience_weights[Classifier.AUDIENCE_ADULTS_ONLY])
-        
+
         # No boost was given to AUDIENCE_ADULT, because a distributor
         # classification implied AUDIENCE_ADULTS_ONLY.
         eq_(0, self.classifier.audience_weights[Classifier.AUDIENCE_ADULT])
@@ -961,7 +961,7 @@ class TestWorkClassifier(DatabaseTest):
         # (This classification has no bearing on audience and its
         # weight will be ignored.)
         c2 = i.classify(
-            source, Subject.TAG, "Pets", 
+            source, Subject.TAG, "Pets",
             weight=1000
         )
         self.classifier.add(c2)
@@ -1000,7 +1000,7 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_CHILDREN : 22,
         }
         eq_(Classifier.AUDIENCE_ADULT, self.classifier.audience())
-        
+
         # Now it's overwhelming. (the 'children' weight is more than twice
         # the combined 'adult' + 'adults only' weight.
         self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 23
@@ -1042,7 +1042,7 @@ class TestWorkClassifier(DatabaseTest):
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience(genres))
 
     def test_format_classification_from_license_source_is_used(self):
-        # This book will be classified as a comic book, because 
+        # This book will be classified as a comic book, because
         # the "comic books" classification comes from its license source.
         source = self.work.license_pools[0].data_source
         self.identifier.classify(source, Subject.TAG, "Comic Books", weight=100)
@@ -1082,7 +1082,7 @@ class TestWorkClassifier(DatabaseTest):
             Classifier.AUDIENCE_CHILDREN : 4,
         }
         eq_(Classifier.AUDIENCE_ADULTS_ONLY, self.classifier.audience())
-        
+
     def test_target_age_is_default_for_adult_books(self):
         # Target age data can't override an independently determined
         # audience.
@@ -1186,7 +1186,7 @@ class TestWorkClassifier(DatabaseTest):
         # eliminated by the low-pass filter.
         self.classifier.genre_weights[romantic_suspense] = 4
 
-        [genre] = self.classifier.genres(True).items()        
+        [genre] = self.classifier.genres(True).items()
         eq_((historical_romance.genredata, 105), genre)
 
         # TODO: This behavior is a little random. As in, it's
@@ -1201,7 +1201,7 @@ class TestWorkClassifier(DatabaseTest):
         # not under any more specific category is believed to have a
         # target age range of 9-12.
         i = self.identifier
-        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)        
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         c = i.classify(source, Subject.OVERDRIVE, "Juvenile Fiction",
                        weight=1)
         self.classifier.add(c)
@@ -1215,7 +1215,7 @@ class TestWorkClassifier(DatabaseTest):
         # the target age range associated with that more specific
         # category.
         i = self.identifier
-        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)        
+        source = DataSource.lookup(self._db, DataSource.OVERDRIVE)
         for subject in ("Juvenile Fiction", "Picture Books"):
             c = i.classify(source, Subject.OVERDRIVE, subject, weight=1)
         self.classifier.add(c)
@@ -1251,7 +1251,7 @@ class TestWorkClassifier(DatabaseTest):
         self.classifier.audience_weights[Classifier.AUDIENCE_CHILDREN] = 1
         self.classifier.target_age_lower_weights[10] = 1
         self.classifier.target_age_upper_weights[4] = 1
-        
+
         # We set the low end equal to the high end, erring on the side
         # of making the book available to fewer people.
         genres, fiction, audience, target_age = self.classifier.classify()

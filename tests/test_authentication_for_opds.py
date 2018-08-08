@@ -13,21 +13,21 @@ class MockFlow(Flow):
     """A mock OPDSAuthenticationFlow that sets `type` in to_dict()"""
     def __init__(self, description):
         self.description=description
-    
+
     def _authentication_flow_document(self, argument):
         return { "description": self.description,
                  "arg": argument,
                  "type" : "http://mock1/"}
 
-    
+
 class MockFlowWithURI(Flow):
     """A mock OPDSAuthenticationFlow that sets URI."""
     FLOW_TYPE = "http://mock2/"
-    
+
     def _authentication_flow_document(self, argument):
         return {}
-    
-    
+
+
 class MockFlowWithoutType(Flow):
     """A mock OPDSAuthenticationFlow that has no type.
 
@@ -35,7 +35,7 @@ class MockFlowWithoutType(Flow):
     """
     def _authentication_flow_document(self, argument):
         return {}
-    
+
 
 class TestOPDSAuthenticationFlow(object):
 
@@ -58,7 +58,7 @@ class TestOPDSAuthenticationFlow(object):
         flow = MockFlowWithURI()
         doc = flow.authentication_flow_document("argument")
         eq_({'type': 'http://mock2/'}, doc)
-        
+
     def test_flow_must_define_type(self):
         """An OPDSAuthenticationFlow object must get a value for `type`
         _somehow_, or authentication_flow_document() will fail.
@@ -68,7 +68,7 @@ class TestOPDSAuthenticationFlow(object):
             ValueError, flow.authentication_flow_document, 'argument'
         )
 
-    
+
 class TestAuthenticationForOPDSDocument(object):
 
     def test_good_document(self):
@@ -87,8 +87,8 @@ class TestAuthenticationForOPDSDocument(object):
         eq_(
             {'id': 'id',
              'title': 'title',
-             'authentication': [ 
-                 {'arg': 'argument',       
+             'authentication': [
+                 {'arg': 'argument',
                   'description': 'hello',
                   'type': 'http://mock1/'}
              ],
@@ -96,7 +96,7 @@ class TestAuthenticationForOPDSDocument(object):
             },
             doc
         )
-    
+
     def test_bad_document(self):
         """Test that to_dict() raises ValueError when something is
         wrong with the data.
@@ -118,7 +118,7 @@ class TestAuthenticationForOPDSDocument(object):
         # A link must be a dict.
         cannot_make(Doc(id="id", title="title",
                         authentication_flows=[],
-                        links=["not a dict"]))            
+                        links=["not a dict"]))
 
         # A link must have a rel and an href.
         cannot_make(Doc(id="id", title="title",
@@ -128,4 +128,4 @@ class TestAuthenticationForOPDSDocument(object):
                         authentication_flows=[],
                         links=[{"href": "no rel"}]))
 
-            
+

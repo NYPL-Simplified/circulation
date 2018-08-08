@@ -70,7 +70,7 @@ class CustomListFromCSV(CSVMetadataImporter):
 
         # Find or create the CustomList object itself.
         custom_list, was_new = get_one_or_create(
-            _db, 
+            _db,
             CustomList,
             data_source=data_source,
             foreign_identifier=self.foreign_identifier,
@@ -103,11 +103,11 @@ class CustomListFromCSV(CSVMetadataImporter):
             q = _db.query(Work).join(Work.presentation_edition).filter(
                 Edition.permanent_work_id==e.permanent_work_id)
             if q.count() > 0:
-                self.log.info("Found matching work in collection for %s", 
+                self.log.info("Found matching work in collection for %s",
                               metadata.title
                 )
             else:
-                self.log.info("No matching work found for %s", 
+                self.log.info("No matching work found for %s",
                               metadata.title
                 )
         return list_entry
@@ -151,7 +151,7 @@ class TitleFromExternalList(object):
     Edition and CustomListEntry objects.
     """
 
-    def __init__(self, metadata, first_appearance, most_recent_appearance, 
+    def __init__(self, metadata, first_appearance, most_recent_appearance,
                  annotation):
         self.log = logging.getLogger("Title from external list")
         self.metadata = metadata
@@ -171,26 +171,26 @@ class TitleFromExternalList(object):
             _db, CustomListEntry, edition=edition, customlist=custom_list
         )
 
-        if (not list_entry.first_appearance 
+        if (not list_entry.first_appearance
             or list_entry.first_appearance > self.first_appearance):
             if list_entry.first_appearance:
                 self.log.info(
                     "I thought %s first showed up at %s, but then I saw it earlier, at %s!",
-                    self.metadata.title, list_entry.first_appearance, 
+                    self.metadata.title, list_entry.first_appearance,
                     self.first_appearance
                 )
             list_entry.first_appearance = self.first_appearance
 
-        if (not list_entry.most_recent_appearance 
+        if (not list_entry.most_recent_appearance
             or list_entry.most_recent_appearance < self.most_recent_appearance):
             if list_entry.most_recent_appearance:
                 self.log.info(
                     "I thought %s most recently showed up at %s, but then I saw it later, at %s!",
-                    self.metadata.title, list_entry.most_recent_appearance, 
+                    self.metadata.title, list_entry.most_recent_appearance,
                     self.most_recent_appearance
                 )
             list_entry.most_recent_appearance = self.most_recent_appearance
-            
+
         list_entry.annotation = self.annotation
 
         list_entry.set_work(self.metadata, metadata_client)
@@ -219,7 +219,7 @@ class TitleFromExternalList(object):
         Edition's primary identifier may be associated with the other
         Editions' primary identifiers. (p=0.85)
         """
-        self.log.info("Converting %s to an Edition object.", 
+        self.log.info("Converting %s to an Edition object.",
                       self.metadata.title)
 
         # Make sure the Metadata object's view of the book is present
@@ -242,7 +242,7 @@ class TitleFromExternalList(object):
                 even_if_not_apparently_updated=True
             )
         self.metadata.apply(
-            edition=edition, 
+            edition=edition,
             collection=None,
             metadata_client=metadata_client,
             replace=policy,

@@ -5,7 +5,7 @@ from money import Money
 from nose.tools import (
     assert_raises,
     assert_raises_regexp,
-    eq_, 
+    eq_,
     set_trace,
 )
 
@@ -297,7 +297,7 @@ class TestMetadataSimilarity(object):
         # An edition of Huckleberry Finn with a different title.
         huck2 = self._arrange_by_confidence_level(
             "Adventures of Huckleberry Finn",
-           
+
             "The adventures of Huckleberry Finn",
             "Huckleberry Finn",
             "Mississippi writings",
@@ -319,7 +319,7 @@ class TestMetadataSimilarity(object):
         eq_([
             'Huckleberry Finn',
             'The adventures of Tom Sawyer',
-            'The adventures of Tom Sawyer and the adventures of Huckleberry Finn', 
+            'The adventures of Tom Sawyer and the adventures of Huckleberry Finn',
             'The annotated Huckleberry Finn : Adventures of Huckleberry Finn',
             "The annotated Huckleberry Finn : Adventures of Huckleberry Finn (Tom Sawyer's comrade)",
             'Tom Sawyer. Huckleberry Finn.',
@@ -327,7 +327,7 @@ class TestMetadataSimilarity(object):
             sorted(huck2[0.5]))
 
         eq_([
-            'Adventures of Huckleberry Finn : a case study in critical controversy', 
+            'Adventures of Huckleberry Finn : a case study in critical controversy',
             'Adventures of Huckleberry Finn : an authoritative text, contexts and sources, criticism', 'Tom Sawyer and Huckleberry Finn'
         ],
             sorted(huck2[0.25]))
@@ -350,8 +350,8 @@ class TestMetadataSimilarity(object):
         )
 
         eq_([], alice[0.8])
-        eq_(['Alice in Wonderland', 
-             "Alice in Wonderland : comprising the two books, Alice's adventures in Wonderland and Through the looking-glass", 
+        eq_(['Alice in Wonderland',
+             "Alice in Wonderland : comprising the two books, Alice's adventures in Wonderland and Through the looking-glass",
              "Alice's adventures under ground",
              "Michael Foreman's Alice's adventures in Wonderland"],
             sorted(alice[0.5]))
@@ -369,7 +369,7 @@ class TestMetadataSimilarity(object):
 
 
 class TestTitleProcessor(object):
-    
+
     def test_title_processor(self):
         p = TitleProcessor.sort_title_for
         eq_(None, p(None))

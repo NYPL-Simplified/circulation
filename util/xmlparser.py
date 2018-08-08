@@ -33,7 +33,7 @@ class XMLParser(object):
             return None
         else:
             return unicode(tag.text)
-      
+
     def text_of_subtag(self, tag, name, namespaces=None):
         return unicode(tag.xpath(name, namespaces=namespaces)[0].text)
 

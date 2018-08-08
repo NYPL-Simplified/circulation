@@ -156,7 +156,7 @@ class TestURNLookupController(DatabaseTest):
         self.assert_one_message(
             identifier.urn, 202, self.controller.WORK_NOT_PRESENTATION_READY
         )
-        
+
     def test_process_identifier_work_is_presentation_ready(self):
         work = self._work(with_license_pool=True)
         identifier = work.license_pools[0].identifier
@@ -205,10 +205,10 @@ class TestURNLookupController(DatabaseTest):
                 response.headers['Content-Type'])
             assert identifier.urn in response.data
             assert work.title in response.data
-        
-        
+
+
 class TestComplaintController(DatabaseTest):
-    
+
     def setup(self):
         super(TestComplaintController, self).setup()
         self.controller = ComplaintController()

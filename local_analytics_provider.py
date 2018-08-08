@@ -16,7 +16,7 @@ class LocalAnalyticsProvider(object):
         else:
             self.library_id = None
 
-    def collect_event(self, library, license_pool, event_type, time, 
+    def collect_event(self, library, license_pool, event_type, time,
         old_value=None, new_value=None, **kwargs):
         if not library and not license_pool:
             raise ValueError("Either library or license_pool must be provided.")
@@ -26,7 +26,7 @@ class LocalAnalyticsProvider(object):
             _db = Session.object_session(license_pool)
         if library and self.library_id and library.id != self.library_id:
             return
-        
+
         CirculationEvent.log(
           _db, license_pool, event_type, old_value, new_value, start=time)
 

@@ -19,7 +19,7 @@ class ClassifierTest(object):
 
     def _subject(self, identifier, name):
         subject = MockSubject(identifier, name)
-        (subject.genre, subject.audience, subject.target_age, 
+        (subject.genre, subject.audience, subject.target_age,
          subject.fiction) = self.CLASSIFIER.classify(subject)
         return subject
 

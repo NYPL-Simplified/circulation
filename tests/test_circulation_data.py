@@ -22,7 +22,7 @@ from model import (
     Collection,
     DataSource,
     DeliveryMechanism,
-    Hyperlink, 
+    Hyperlink,
     Identifier,
     Representation,
     RightsStatus,
@@ -79,7 +79,7 @@ class TestCirculationData(DatabaseTest):
             self._db,
             collection=None
         )
-        
+
     def test_circulationdata_can_be_deepcopied(self):
         # Check that we didn't put something in the CirculationData that
         # will prevent it from being copied. (e.g., self.log)
@@ -149,12 +149,12 @@ class TestCirculationData(DatabaseTest):
 
         circulation_data = CirculationData(
             formats=[drm_format],
-            data_source=edition.data_source, 
+            data_source=edition.data_source,
             primary_identifier=edition.primary_identifier,
         )
         circulation_data.apply(self._db, pool.collection)
 
-        [epub, pdf] = sorted(pool.delivery_mechanisms, 
+        [epub, pdf] = sorted(pool.delivery_mechanisms,
                              key=lambda x: x.delivery_mechanism.content_type)
         eq_(epub.resource, pool.best_open_access_resource)
 
@@ -201,7 +201,7 @@ class TestCirculationData(DatabaseTest):
         # we'll add the new format, but keep the old one as well.
         replacement_policy = ReplacementPolicy(formats=False)
         circulation_data.apply(self._db, pool.collection, replacement_policy)
-        
+
         eq_(2, len(pool.delivery_mechanisms))
         eq_(set([Representation.PDF_MEDIA_TYPE, Representation.EPUB_MEDIA_TYPE]),
             set([lpdm.delivery_mechanism.content_type for lpdm in pool.delivery_mechanisms]))
@@ -215,7 +215,7 @@ class TestCirculationData(DatabaseTest):
         eq_(1, len(pool.delivery_mechanisms))
         eq_(Representation.EPUB_MEDIA_TYPE, pool.delivery_mechanisms[0].delivery_mechanism.content_type)
         eq_(None, loan.fulfillment)
-        
+
 
     def test_license_pool_sets_default_license_values(self):
         """We have no information about how many copies of the book we've
@@ -247,10 +247,10 @@ class TestCirculationData(DatabaseTest):
         eq_(0, pool.patrons_in_hold_queue)
 
     def test_implicit_format_for_open_access_link(self):
-        # A format is a delivery mechanism.  We handle delivery on open access 
-        # pools from our mirrored content in S3.  
+        # A format is a delivery mechanism.  We handle delivery on open access
+        # pools from our mirrored content in S3.
         # Tests that when a link is open access, a pool can be delivered.
-        
+
         edition, pool = self._edition(with_license_pool=True)
 
         # This is the delivery mechanism created by default when you
@@ -266,9 +266,9 @@ class TestCirculationData(DatabaseTest):
             href=self._url
         )
         circulation_data = CirculationData(
-            data_source=DataSource.GUTENBERG, 
+            data_source=DataSource.GUTENBERG,
             primary_identifier=edition.primary_identifier,
-            links=[link], 
+            links=[link],
         )
 
         replace = ReplacementPolicy(
@@ -283,7 +283,7 @@ class TestCirculationData(DatabaseTest):
         eq_(DeliveryMechanism.NO_DRM, pdf.delivery_mechanism.drm_scheme)
 
         circulation_data = CirculationData(
-            data_source=DataSource.GUTENBERG, 
+            data_source=DataSource.GUTENBERG,
             primary_identifier=edition.primary_identifier,
             links=[]
         )
@@ -429,7 +429,7 @@ class TestCirculationData(DatabaseTest):
             pool.delivery_mechanisms[0].rights_status.uri)
 
         eq_(False, pool.open_access)
-       
+
     def test_rights_status_open_access_link_with_rights(self):
         identifier = IdentifierData(
             Identifier.OVERDRIVE_ID,
@@ -548,15 +548,15 @@ class TestCirculationData(DatabaseTest):
 class TestMetaToModelUtility(DatabaseTest):
 
     def test_open_access_content_mirrored(self):
-        # Make sure that open access material links are translated to our S3 buckets, and that 
+        # Make sure that open access material links are translated to our S3 buckets, and that
         # commercial material links are left as is.
-        # Note: Mirroring tests passing does not guarantee that all code now 
+        # Note: Mirroring tests passing does not guarantee that all code now
         # correctly calls on CirculationData, as well as Metadata.  This is a risk.
 
         mirror = MockS3Uploader()
         # Here's a book.
         edition, pool = self._edition(with_license_pool=True)
-        
+
         # Here's a link to the content of the book, which will be mirrored.
         link_mirrored = LinkData(
             rel=Hyperlink.OPEN_ACCESS_DOWNLOAD, href="http://example.com/",
@@ -574,7 +574,7 @@ class TestMetaToModelUtility(DatabaseTest):
         # Apply the metadata.
         policy = ReplacementPolicy(mirror=mirror)
 
-        metadata = Metadata(data_source=edition.data_source, 
+        metadata = Metadata(data_source=edition.data_source,
         	links=[link_mirrored, link_unmirrored],
     	)
         metadata.apply(edition, pool.collection, replace=policy)
@@ -583,13 +583,13 @@ class TestMetaToModelUtility(DatabaseTest):
 
 
         circulation_data = CirculationData(
-            data_source=edition.data_source, 
+            data_source=edition.data_source,
             primary_identifier=edition.primary_identifier,
             links=[link_mirrored, link_unmirrored],
         )
         circulation_data.apply(self._db, pool.collection, replace=policy)
-        
-        # make sure the refactor is done right, and circulation does upload 
+
+        # make sure the refactor is done right, and circulation does upload
         eq_(1, len(mirror.uploaded))
 
         # Only the open-access link has been 'mirrored'.
@@ -597,7 +597,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
         # It's remained an open-access link.
         eq_(
-            [Hyperlink.OPEN_ACCESS_DOWNLOAD], 
+            [Hyperlink.OPEN_ACCESS_DOWNLOAD],
             [x.rel for x in book.resource.links]
         )
 
@@ -630,7 +630,7 @@ class TestMetaToModelUtility(DatabaseTest):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
         circulation_data = CirculationData(
-            data_source=edition.data_source, 
+            data_source=edition.data_source,
             primary_identifier=edition.primary_identifier,
         )
 
@@ -646,7 +646,7 @@ class TestMetaToModelUtility(DatabaseTest):
         )
 
         h.queue_response(403)
-        
+
         circulation_data.mirror_link(pool, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
@@ -674,7 +674,7 @@ class TestMetaToModelUtility(DatabaseTest):
         policy = ReplacementPolicy(mirror=mirror, http_get=h.do_get)
 
         circulation_data = CirculationData(
-            data_source=edition.data_source, 
+            data_source=edition.data_source,
             primary_identifier=edition.primary_identifier,
         )
 
@@ -690,7 +690,7 @@ class TestMetaToModelUtility(DatabaseTest):
         )
 
         h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
-        
+
         circulation_data.mirror_link(pool, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
@@ -717,7 +717,7 @@ class TestMetaToModelUtility(DatabaseTest):
 
     def test_has_open_access_link(self):
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
-        
+
         circulationdata = CirculationData(
             DataSource.GUTENBERG,
             identifier,
@@ -731,7 +731,7 @@ class TestMetaToModelUtility(DatabaseTest):
             href=self._url,
         )
         circulationdata.links = [linkdata]
-        
+
         # Open-access link with no explicit rights URI.
         eq_(True, circulationdata.has_open_access_link)
 
@@ -749,7 +749,7 @@ class TestMetaToModelUtility(DatabaseTest):
         """
         identifier = IdentifierData(Identifier.GUTENBERG_ID, "1")
         now = datetime.datetime.utcnow()
-        yesterday = now - datetime.timedelta(days=1)        
+        yesterday = now - datetime.timedelta(days=1)
         recent_data = CirculationData(DataSource.GUTENBERG, identifier)
         # CirculationData.last_checked defaults to the current time.
         assert (recent_data.last_checked - now).total_seconds() < 10
@@ -769,4 +769,4 @@ class TestMetaToModelUtility(DatabaseTest):
         pool.last_checked = now
         eq_(True, recent_data._availability_needs_update(pool))
         eq_(False, old_data._availability_needs_update(pool))
-        
+

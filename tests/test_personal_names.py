@@ -41,7 +41,7 @@ from mock_analytics_provider import MockAnalyticsProvider
 class TestNameConversions(DatabaseTest):
 
     def test_display_name_to_sort_name(self):
-        # Make sure the sort name algorithm processes the messy reality of contributor 
+        # Make sure the sort name algorithm processes the messy reality of contributor
         # names in a way we expect.
 
         # no input means don't do anything
@@ -86,13 +86,13 @@ class TestNameConversions(DatabaseTest):
         eq_(u"Doe, John PhD", sort_name)
         sort_name = display_name_to_sort_name(u"John Doe, PHD")
         eq_(u"Doe, John PhD", sort_name)
-        
+
         sort_name = display_name_to_sort_name(u"John Doe, M.D.")
         eq_(u"Doe, John MD", sort_name)
 
         # corporate name is unchanged
         sort_name = display_name_to_sort_name(u"Church of Jesus Christ of Latter-day Saints")
-        eq_(u"Church of Jesus Christ of Latter-day Saints", sort_name)        
+        eq_(u"Church of Jesus Christ of Latter-day Saints", sort_name)
 
 
     def test_name_tidy(self):

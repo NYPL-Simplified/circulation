@@ -106,7 +106,7 @@ class BaseCoverageProvider(object):
     # (You may also override the operation method, if you need
     # database access to determine which operation to use.)
     OPERATION = None
-    
+
     # The database session will be committed each time the
     # BaseCoverageProvider has (attempted to) provide coverage to this
     # number of Identifiers. You may change this in your subclass.
@@ -152,7 +152,7 @@ class BaseCoverageProvider(object):
     def log(self):
         if not hasattr(self, '_log'):
             self._log = logging.getLogger(self.service_name)
-        return self._log        
+        return self._log
 
     @property
     def collection(self):
@@ -170,7 +170,7 @@ class BaseCoverageProvider(object):
         source?
         """
         return self.OPERATION
-    
+
     def run(self):
         self.run_once_and_update_timestamp()
 
@@ -230,11 +230,11 @@ class BaseCoverageProvider(object):
             # increase the offset to ignore them, or they will
             # just show up again the next time we run this batch.
             offset += persistent_failures
-        
+
         return offset
 
     def process_batch_and_handle_results(self, batch):
-        """:return: A 2-tuple (counts, records). 
+        """:return: A 2-tuple (counts, records).
 
         `counts` is a 3-tuple (successes, transient failures,
         persistent_failures).
@@ -266,14 +266,14 @@ class BaseCoverageProvider(object):
                 record = self.record_failure_as_coverage_record(item)
                 if item.transient:
                     self.log.warn(
-                        "Transient failure covering %r: %s", 
+                        "Transient failure covering %r: %s",
                         item.obj, item.exception
                     )
                     record.status = BaseCoverageRecord.TRANSIENT_FAILURE
                     transient_failures += 1
                 else:
                     self.log.error(
-                        "Persistent failure covering %r: %s", 
+                        "Persistent failure covering %r: %s",
                         item.obj, item.exception
                     )
                     record.status = BaseCoverageRecord.PERSISTENT_FAILURE
@@ -313,7 +313,7 @@ class BaseCoverageProvider(object):
         # For all purposes outside this method, treat an ignored identifier
         # as a transient failure.
         transient_failures += num_ignored
-        
+
         return (successes, transient_failures, persistent_failures), records
 
     def process_batch(self, batch):
@@ -366,7 +366,7 @@ class BaseCoverageProvider(object):
     def finalize_batch(self):
         """Do whatever is necessary to complete this batch before moving on to
         the next one.
-        
+
         e.g. committing the database session or uploading a bunch of
         assets to S3.
         """
@@ -387,14 +387,14 @@ class BaseCoverageProvider(object):
         Implemented in CoverageProvider and WorkCoverageProvider.
         """
         raise NotImplementedError()
-    
+
     def add_coverage_record_for(self, item):
         """Add a coverage record for the given item.
 
         Implemented in IdentifierCoverageProvider and WorkCoverageProvider.
         """
         raise NotImplementedError()
-        
+
     def record_failure_as_coverage_record(self, failure):
         """Convert the given CoverageFailure to a coverage record.
 
@@ -453,7 +453,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
     # it's run through this CoverageProvider, no matter how many
     # Collections the Identifier belongs to.
     COVERAGE_COUNTS_FOR_EVERY_COLLECTION = True
-    
+
     def __init__(self, _db, collection=None, input_identifiers=None,
                  replacement_policy=None, **kwargs
     ):
@@ -490,7 +490,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
             raise ValueError(
                 "%s must define DATA_SOURCE_NAME" % self.__class__.__name__
             )
-        
+
         # Get this information immediately so that an error happens immediately
         # if INPUT_IDENTIFIER_TYPES is not set properly.
         self.input_identifier_types = self._input_identifier_types()
@@ -510,7 +510,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         if self.COVERAGE_COUNTS_FOR_EVERY_COLLECTION:
             return None
         return self.collection
-        
+
     @classmethod
     def _input_identifier_types(cls):
         """Create a normalized value for `input_identifier_types`
@@ -670,7 +670,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         """
         return (not self.input_identifier_types
                 or identifier.type in self.input_identifier_types)
-    
+
     def run_on_specific_identifiers(self, identifiers):
         """Split a specific set of Identifiers into batches and process one
         batch at a time.
@@ -759,7 +759,7 @@ class IdentifierCoverageProvider(BaseCoverageProvider):
         else:
             coverage_record = None
         return coverage_record
-    
+
     def edition(self, identifier):
         """Finds or creates an Edition representing this coverage provider's
         view of a given Identifier.
@@ -903,7 +903,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
     # By default, this type of CoverageProvider will provide coverage to
     # all Identifiers in the given Collection, regardless of their type.
     INPUT_IDENTIFIER_TYPES = None
-    
+
     DEFAULT_BATCH_SIZE = 10
 
     # Set this to the name of the protocol managed by this type of
@@ -1036,7 +1036,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
         If the given Identifier already has a Work associated with it,
         that Work will always be used, since an Identifier can only have one
         Work associated with it.
-        
+
         However, if there is no current Work, a Work will only be
         created if the given Identifier already has a LicensePool in
         the Collection associated with this CoverageProvider (or if a
@@ -1063,7 +1063,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
                 identifier.identifier, collection=self.collection,
                 autocreate=False
             )
-            
+
         if license_pool:
             for (v, default) in (
                 ('even_if_no_author', True),
@@ -1078,13 +1078,13 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
                 error = "Work could not be calculated"
         else:
             error = "Cannot locate LicensePool"
-                
+
         if error:
             return self.failure(identifier, error, transient=True)
         return work
-    
+
     def set_metadata_and_circulation_data(
-            self, identifier, metadata, circulationdata, 
+            self, identifier, metadata, circulationdata,
     ):
         """Makes sure that the given Identifier has a Work, Edition (in the
         context of this Collection), and LicensePool (ditto), and that
@@ -1134,7 +1134,7 @@ class CollectionCoverageProvider(IdentifierCoverageProvider):
 
         if error:
             return self.failure(identifier, error, transient=True)
-                                
+
         try:
             circulationdata.apply(
                 self._db, self.collection, replace=self.replacement_policy
@@ -1197,7 +1197,7 @@ class CatalogCoverageProvider(CollectionCoverageProvider):
         )
         return qu
 
-    
+
 class BibliographicCoverageProvider(CollectionCoverageProvider):
     """Fill in bibliographic metadata for all books in a Collection.
 
@@ -1282,7 +1282,7 @@ class WorkCoverageProvider(BaseCoverageProvider):
     def failure(self, work, error, transient=True):
         """Create a CoverageFailure object."""
         return CoverageFailure(work, error, transient=transient)
-   
+
     def failure_for_ignored_item(self, work):
         """Create a CoverageFailure recording the WorkCoverageProvider's
         failure to even try to process a Work.

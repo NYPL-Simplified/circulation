@@ -92,7 +92,7 @@ class TestEquivalency(DatabaseTest):
         gutenberg2.title = "Unrelated Gutenberg record."
 
         levels = [
-            record.equivalent_identifiers(i) 
+            record.equivalent_identifiers(i)
             for i in range(0,5)]
 
         # At level 0, the only identifier found is the Gutenberg ID.

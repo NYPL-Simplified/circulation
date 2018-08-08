@@ -87,7 +87,7 @@ def package_setup():
 
     # Initialize basic database data needed by the application.
     _db = Session(connection)
-    SessionManager.initialize_data(_db)    
+    SessionManager.initialize_data(_db)
     _db.commit()
     connection.close()
     engine.dispose()
@@ -119,7 +119,7 @@ class DatabaseTest(object):
         Configuration.instance[Configuration.INTEGRATIONS][ExternalIntegration.CDN] = {}
 
         os.environ['TESTING'] = 'true'
-        
+
     @classmethod
     def teardown_class(cls):
         # Destroy the database connection and engine.
@@ -141,7 +141,7 @@ class DatabaseTest(object):
         # Create a new connection to the database.
         self._db = Session(self.connection)
         self.transaction = self.connection.begin_nested()
-        
+
         # Start with a high number so it won't interfere with tests that search for an age or grade
         self.counter = 2000
 
@@ -155,8 +155,8 @@ class DatabaseTest(object):
         else:
             self.search_mock = None
 
-        # TODO:  keeping this for now, but need to fix it bc it hits _isbn, 
-        # which pops an isbn off the list and messes tests up.  so exclude 
+        # TODO:  keeping this for now, but need to fix it bc it hits _isbn,
+        # which pops an isbn off the list and messes tests up.  so exclude
         # _ functions from participating.
         # also attempt to stop nosetest showing docstrings instead of function names.
         #for name, obj in inspect.getmembers(self):
@@ -182,7 +182,7 @@ class DatabaseTest(object):
         ExternalIntegration.reset_cache()
         Genre.reset_cache()
         Library.reset_cache()
-        
+
         # Also roll back any record of those changes in the
         # Configuration instance.
         for key in [
@@ -209,7 +209,7 @@ class DatabaseTest(object):
 
     @property
     def _time(self):
-        v = self.time_counter 
+        v = self.time_counter
         self.time_counter = self.time_counter + timedelta(days=1)
         return v
 
@@ -279,7 +279,7 @@ class DatabaseTest(object):
         return wr
 
     def _work(self, title=None, authors=None, genre=None, language=None,
-              audience=None, fiction=True, with_license_pool=False, 
+              audience=None, fiction=True, with_license_pool=False,
               with_open_access_download=False, quality=0.5, series=None,
               presentation_edition=None, collection=None, data_source_name=None):
         """Create a Work.
@@ -336,7 +336,7 @@ class DatabaseTest(object):
         work.set_presentation_edition(presentation_edition)
 
         if pools:
-            # make sure the pool's presentation_edition is set, 
+            # make sure the pool's presentation_edition is set,
             # bc loan tests assume that.
             if not work.license_pools:
                 for pool in pools:
@@ -369,7 +369,7 @@ class DatabaseTest(object):
         self._db.commit()
         SessionManager.refresh_materialized_views(self._db)
 
-    def _lane(self, display_name=None, library=None, 
+    def _lane(self, display_name=None, library=None,
               parent=None, genres=None, languages=None,
               fiction=None
     ):
@@ -439,7 +439,7 @@ class DatabaseTest(object):
         )
         return record
 
-    def _work_coverage_record(self, work, operation=None, 
+    def _work_coverage_record(self, work, operation=None,
                               status=CoverageRecord.SUCCESS):
         record, ignore = get_one_or_create(
             self._db, WorkCoverageRecord,
@@ -452,9 +452,9 @@ class DatabaseTest(object):
         )
         return record
 
-    def _licensepool(self, edition, open_access=True, 
+    def _licensepool(self, edition, open_access=True,
                      data_source_name=DataSource.GUTENBERG,
-                     with_open_access_download=False, 
+                     with_open_access_download=False,
                      set_edition_as_presentation=False,
                      collection=None):
         source = DataSource.lookup(self._db, data_source_name)
@@ -518,10 +518,10 @@ class DatabaseTest(object):
             repr.fetched_at = datetime.utcnow()
             if mirrored:
                 repr.mirror_url = "http://foo.com/" + self._str
-                repr.mirrored_at = datetime.utcnow()            
+                repr.mirrored_at = datetime.utcnow()
         return repr, is_new
 
-    def _customlist(self, foreign_identifier=None, 
+    def _customlist(self, foreign_identifier=None,
                     name=None,
                     data_source_name=DataSource.NYT, num_entries=1,
                     entries_exist_as_works=True
@@ -574,7 +574,7 @@ class DatabaseTest(object):
             self._db, data_source, type, patron
         )
         return credential
-    
+
     def _external_integration(self, protocol, goal=None, settings=None,
                               libraries=None, **kwargs
     ):
@@ -636,8 +636,8 @@ class DatabaseTest(object):
         return patron
 
     def _sample_ecosystem(self):
-        """ Creates an ecosystem of some sample work, pool, edition, and author 
-        objects that all know each other. 
+        """ Creates an ecosystem of some sample work, pool, edition, and author
+        objects that all know each other.
         """
         # make some authors
         [bob], ignore = Contributor.lookup(self._db, u"Bitshifter, Bob")
@@ -645,20 +645,20 @@ class DatabaseTest(object):
         [alice], ignore = Contributor.lookup(self._db, u"Adder, Alice")
         alice.family_name, alice.display_name = alice.default_names()
 
-        edition_std_ebooks, pool_std_ebooks = self._edition(DataSource.STANDARD_EBOOKS, Identifier.URI, 
+        edition_std_ebooks, pool_std_ebooks = self._edition(DataSource.STANDARD_EBOOKS, Identifier.URI,
             with_license_pool=True, with_open_access_download=True, authors=[])
         edition_std_ebooks.title = u"The Standard Ebooks Title"
         edition_std_ebooks.subtitle = u"The Standard Ebooks Subtitle"
         edition_std_ebooks.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        edition_git, pool_git = self._edition(DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID, 
+        edition_git, pool_git = self._edition(DataSource.PROJECT_GITENBERG, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
         edition_git.title = u"The GItenberg Title"
         edition_git.subtitle = u"The GItenberg Subtitle"
         edition_git.add_contributor(bob, Contributor.AUTHOR_ROLE)
         edition_git.add_contributor(alice, Contributor.AUTHOR_ROLE)
 
-        edition_gut, pool_gut = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID, 
+        edition_gut, pool_gut = self._edition(DataSource.GUTENBERG, Identifier.GUTENBERG_ID,
             with_license_pool=True, with_open_access_download=True, authors=[])
         edition_gut.title = u"The GUtenberg Title"
         edition_gut.subtitle = u"The GUtenberg Subtitle"
@@ -671,16 +671,16 @@ class DatabaseTest(object):
 
         work.calculate_presentation()
 
-        return (work, pool_std_ebooks, pool_git, pool_gut, 
+        return (work, pool_std_ebooks, pool_git, pool_gut,
             edition_std_ebooks, edition_git, edition_gut, alice, bob)
 
 
     def print_database_instance(self):
         """
-        Calls the class method that examines the current state of the database model 
+        Calls the class method that examines the current state of the database model
         (whether it's been committed or not).
 
-        NOTE:  If you set_trace, and hit "continue", you'll start seeing console output right 
+        NOTE:  If you set_trace, and hit "continue", you'll start seeing console output right
         away, without waiting for the whole test to run and the standard output section to display.
         You can also use nosetest --nocapture.
         I use:
@@ -702,22 +702,22 @@ class DatabaseTest(object):
     @classmethod
     def print_database_class(cls, db_connection):
         """
-        Prints to the console the entire contents of the database, as the unit test sees it. 
-        Exists because unit tests don't persist db information, they create a memory 
+        Prints to the console the entire contents of the database, as the unit test sees it.
+        Exists because unit tests don't persist db information, they create a memory
         representation of the db state, and then roll the unit test-derived transactions back.
         So we cannot see what's going on by going into postgres and running selects.
         This is the in-test alternative to going into postgres.
 
         Can be called from model and metadata classes as well as tests.
 
-        NOTE: The purpose of this method is for debugging.  
-        Be careful of leaving it in code and potentially outputting 
+        NOTE: The purpose of this method is for debugging.
+        Be careful of leaving it in code and potentially outputting
         vast tracts of data into your output stream on production.
 
         Call like this:
         set_trace()
         from testing import (
-            DatabaseTest, 
+            DatabaseTest,
         )
         _db = Session.object_session(self)
         DatabaseTest.print_database_class(_db)  # TODO: remove before prod
@@ -752,7 +752,7 @@ class DatabaseTest(object):
             print "NO Identifier found"
         for iCount, identifier in enumerate(identifiers):
             print "Identifier[%s]=%s|" % (iCount, identifier)
-            print "    Identifier.licensed_through=%s|" % identifier.licensed_through           
+            print "    Identifier.licensed_through=%s|" % identifier.licensed_through
 
         print "__________________________________________________________________\n"
         if (not license_pools):
@@ -762,7 +762,7 @@ class DatabaseTest(object):
             print "    LicensePool.work_id=%s|" % license_pool.work_id
             print "    LicensePool.data_source_id=%s|" % license_pool.data_source_id
             print "    LicensePool.identifier_id=%s|" % license_pool.identifier_id
-            print "    LicensePool.presentation_edition_id=%s|" % license_pool.presentation_edition_id            
+            print "    LicensePool.presentation_edition_id=%s|" % license_pool.presentation_edition_id
             print "    LicensePool.superceded=%s|" % license_pool.superceded
             print "    LicensePool.suppressed=%s|" % license_pool.suppressed
 
@@ -799,7 +799,7 @@ class DatabaseTest(object):
             print "    DataSource.id=%s|" % data_source.id
             print "    DataSource.name=%s|" % data_source.name
             print "    DataSource.offers_licenses=%s|" % data_source.offers_licenses
-            print "    DataSource.editions=%s|" % data_source.editions            
+            print "    DataSource.editions=%s|" % data_source.editions
             print "    DataSource.license_pools=%s|" % data_source.license_pools
             print "    DataSource.links=%s|" % data_source.links
 
@@ -811,7 +811,7 @@ class DatabaseTest(object):
             print "    Representation.id=%s|" % representation.id
             print "    Representation.url=%s|" % representation.url
             print "    Representation.mirror_url=%s|" % representation.mirror_url
-            print "    Representation.fetch_exception=%s|" % representation.fetch_exception   
+            print "    Representation.fetch_exception=%s|" % representation.fetch_exception
             print "    Representation.mirror_exception=%s|" % representation.mirror_exception
 
         return
@@ -825,7 +825,7 @@ class DatabaseTest(object):
             create_method_kwargs=dict(uuid=str(uuid.uuid4())),
         )
         return library
-    
+
     def _collection(self, name=None, protocol=ExternalIntegration.OPDS_IMPORT,
                     external_account_id=None, url=None, username=None,
                     password=None, data_source_name=None):
@@ -843,7 +843,7 @@ class DatabaseTest(object):
         if data_source_name:
             collection.data_source = data_source_name
         return collection
-        
+
     @property
     def _default_library(self):
         """A Library that will only be created once throughout a given test.
@@ -854,7 +854,7 @@ class DatabaseTest(object):
         if not hasattr(self, '_default__library'):
             self._default__library = self.make_default_library(self._db)
         return self._default__library
-        
+
     @property
     def _default_collection(self):
         """A Collection that will only be created once throughout
@@ -892,10 +892,10 @@ class DatabaseTest(object):
         if collection not in library.collections:
             library.collections.append(collection)
         return library
-            
+
     def _catalog(self, name=u"Faketown Public Library"):
         source, ignore = get_one_or_create(self._db, DataSource, name=name)
-        
+
     def _integration_client(self, url=None, shared_secret=None):
         url = url or self._url
         secret = shared_secret or u"secret"
@@ -911,7 +911,7 @@ class DatabaseTest(object):
 
     def _classification(self, identifier, subject, data_source, weight=1):
         return get_one_or_create(
-            self._db, Classification, identifier=identifier, subject=subject, 
+            self._db, Classification, identifier=identifier, subject=subject,
             data_source=data_source, weight=weight
         )[0]
 
@@ -932,11 +932,11 @@ class DatabaseTest(object):
 class MockCoverageProvider(object):
     """Mixin class for mock CoverageProviders that defines common constants."""
     SERVICE_NAME = "Generic mock CoverageProvider"
-    
+
     # Whenever a CoverageRecord is created, the data_source of that
     # record will be Project Gutenberg.
     DATA_SOURCE_NAME = DataSource.GUTENBERG
-    
+
     # For testing purposes, this CoverageProvider will try to cover
     # every identifier in the database.
     INPUT_IDENTIFIER_TYPES = None
@@ -951,7 +951,7 @@ class InstrumentedCoverageProvider(MockCoverageProvider,
     """A CoverageProvider that keeps track of every item it tried
     to cover.
     """
-    
+
     def __init__(self, *args, **kwargs):
         super(InstrumentedCoverageProvider, self).__init__(*args, **kwargs)
         self.attempts = []
@@ -1002,7 +1002,7 @@ class AlwaysSuccessfulBibliographicCoverageProvider(
     during handle_success().
     """
     SERVICE_NAME = "Always successful (bibliographic)"
-    
+
     def process_item(self, identifier):
         return identifier
 
@@ -1010,7 +1010,7 @@ class AlwaysSuccessfulBibliographicCoverageProvider(
 class NeverSuccessfulCoverageProvider(InstrumentedCoverageProvider):
     """A CoverageProvider that does nothing and always fails."""
     SERVICE_NAME = "Never successful"
-    
+
     def __init__(self, *args, **kwargs):
         super(NeverSuccessfulCoverageProvider, self).__init__(
             *args, **kwargs
@@ -1032,11 +1032,11 @@ class NeverSuccessfulBibliographicCoverageProvider(
     """Simulates a BibliographicCoverageProvider that's never successful."""
 
     SERVICE_NAME = "Never successful (bibliographic)"
-    
+
     def process_item(self, identifier):
         return self.failure(identifier, "Bitter failure", transient=True)
 
-    
+
 class BrokenCoverageProvider(InstrumentedCoverageProvider):
     SERVICE_NAME = "Broken"
     def process_item(self, item):
@@ -1146,7 +1146,7 @@ class MockRequestsResponse(object):
         if isinstance(content, basestring):
             content = json.loads(self.content)
         return content
-        
+
     @property
     def text(self):
         return self.content.decode("utf8")

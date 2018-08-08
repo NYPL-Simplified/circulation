@@ -1,5 +1,5 @@
 from nose.tools import (
-    eq_, 
+    eq_,
     set_trace,
     assert_raises,
     assert_raises_regexp,
@@ -53,7 +53,7 @@ from monitor import (
 class MockMonitor(Monitor):
 
     SERVICE_NAME = "Dummy monitor for test"
-    
+
     def __init__(self, _db, collection=None):
         super(MockMonitor, self).__init__(_db, collection)
         self.run_records = []
@@ -86,10 +86,10 @@ class TestMonitor(DatabaseTest):
         eq_(self._default_collection, monitor.collection)
         monitor.collection_id = None
         eq_(None, monitor.collection)
-        
+
     def test_monitor_lifecycle(self):
         monitor = MockMonitor(self._db, self._default_collection)
-        
+
         # There is no timestamp for this monitor.
         eq_([], self._db.query(Timestamp).filter(
             Timestamp.service==monitor.service_name).all())
@@ -130,7 +130,7 @@ class TestMonitor(DatabaseTest):
         timestamp = m.timestamp().timestamp
         now = datetime.datetime.utcnow()
         assert timestamp < now
-        
+
     def test_same_monitor_different_collections(self):
         """A single Monitor has different Timestamps when run against
         different Collections.
@@ -145,10 +145,10 @@ class TestMonitor(DatabaseTest):
         eq_(m1.service_name, m2.service_name)
         eq_(c1, m1.collection)
         eq_(c2, m2.collection)
-        
+
         eq_([], c1.timestamps)
         eq_([], c2.timestamps)
-        
+
         # Run the first Monitor.
         m1.run()
         [t1] = c1.timestamps
@@ -159,7 +159,7 @@ class TestMonitor(DatabaseTest):
         # Running the first Monitor did not create a timestamp for the
         # second Monitor.
         eq_([], c2.timestamps)
-        
+
         # Run the second monitor.
         m2.run()
 
@@ -208,13 +208,13 @@ class TestCollectionMonitor(DatabaseTest):
             CollectionMissing,
             OverdriveMonitor, self._db, None
         )
-        
+
     def test_all(self):
         """Test that we can create a list of Monitors using all()."""
         class OPDSCollectionMonitor(CollectionMonitor):
             SERVICE_NAME = "Test Monitor"
             PROTOCOL = ExternalIntegration.OPDS_IMPORT
-        
+
         # Here we have three OPDS import Collections...
         o1 = self._collection()
         o2 = self._collection()
@@ -250,20 +250,20 @@ class MockSweepMonitor(SweepMonitor):
     MODEL_CLASS = Identifier
     SERVICE_NAME = "Sweep Monitor"
     DEFAULT_BATCH_SIZE = 2
-    
+
     def __init__(self, _db, **kwargs):
         super(MockSweepMonitor, self).__init__(_db, **kwargs)
         self.cleanup_called = []
         self.batches = []
         self.processed = []
-    
+
     def scope_to_collection(self, qu, collection):
         return qu
 
     def process_batch(self, batch):
         self.batches.append(batch)
         return super(MockSweepMonitor, self).process_batch(batch)
-            
+
     def process_item(self, item):
         self.processed.append(item)
 
@@ -288,7 +288,7 @@ class TestSweepMonitor(DatabaseTest):
 
     def test_batch_size(self):
         eq_(MockSweepMonitor.DEFAULT_BATCH_SIZE, self.monitor.batch_size)
-        
+
         monitor = MockSweepMonitor(self._db, batch_size=29)
         eq_(29, monitor.batch_size)
 
@@ -300,7 +300,7 @@ class TestSweepMonitor(DatabaseTest):
         # Three Identifiers -- the batch size is 2.
         i1, i2, i3 = [self._identifier() for i in range(3)]
         eq_(2, self.monitor.batch_size)
-        
+
         # Run the monitor.
         self.monitor.run()
 
@@ -318,14 +318,14 @@ class TestSweepMonitor(DatabaseTest):
     def test_run_starts_at_previous_counter(self):
         # Two Identifiers.
         i1, i2 = [self._identifier() for i in range(2)]
-        
+
         # The monitor was just run, but it was not able to proceed past
         # i1.
         timestamp = Timestamp.stamp(
             self._db, self.monitor.service_name, self.monitor.collection
         )
         timestamp.counter = i1.id
-        
+
         # Run the monitor.
         self.monitor.run()
 
@@ -360,7 +360,7 @@ class TestSweepMonitor(DatabaseTest):
         # I3 was processed, but the batch did not complete, so any
         # changes wouldn't have been written to the database.
         eq_([i1, i2, i3], monitor.processed)
-                
+
         # Running the monitor again will process I3 again, but the same error
         # will happen on i4 and the counter will not be updated.
         monitor.run()
@@ -390,19 +390,19 @@ class TestIdentifierSweepMonitor(DatabaseTest):
         # that collection.
         monitor = Mock(self._db, c1)
         eq_([p1.identifier], monitor.item_query().all())
-            
+
         # With no Collection, we process all items.
         monitor = Mock(self._db, None)
         eq_([p1.identifier, p2.identifier, i3], monitor.item_query().all())
 
 
 class TestSubjectSweepMonitor(DatabaseTest):
-    
+
     def test_item_query(self):
 
         class Mock(SubjectSweepMonitor):
             SERVICE_NAME = "Mock"
-        
+
         s1, ignore = Subject.lookup(self._db, Subject.DDC, "100", None)
         s2, ignore = Subject.lookup(
             self._db, Subject.TAG, None, "100 Years of Solitude"
@@ -443,11 +443,11 @@ class TestCustomListEntrySweepMonitor(DatabaseTest):
         [entry1] = list1.entries
         [entry2] = list2.entries
         [entry3] = list3.entries
-        
+
         # Two Collections, each with one book from one of the lists.
         c1 = self._collection()
         c1.licensepools.extend(edition1.license_pools)
-        
+
         c2 = self._collection()
         c2.licensepools.extend(edition2.license_pools)
 
@@ -478,10 +478,10 @@ class TestEditionSweepMonitor(DatabaseTest):
         # Two Collections, each with one book.
         c1 = self._collection()
         c1.licensepools.extend(e1.license_pools)
-        
+
         c2 = self._collection()
         c2.licensepools.extend(e2.license_pools)
-        
+
         # If we don't pass in a Collection to EditionSweepMonitor, we
         # get all three Editions, in their order of creation.
         monitor = Mock(self._db)
@@ -511,17 +511,17 @@ class TestWorkSweepMonitors(DatabaseTest):
         # LicensePool.
         w4 = self._work()
         w4.presentation_ready = True
-        
+
         w2.presentation_ready = False
         w3.presentation_ready = None
-        
+
         # Two Collections, each with one book.
         c1 = self._collection()
         c1.licensepools.append(w1.license_pools[0])
-        
+
         c2 = self._collection()
         c2.licensepools.append(w2.license_pools[0])
-        
+
         # If we don't pass in a Collection to WorkSweepMonitor, we
         # get all four Works, in their order of creation.
         monitor = Mock(self._db)
@@ -549,7 +549,7 @@ class TestWorkSweepMonitors(DatabaseTest):
         eq_([w2], Mock(self._db, collection=c2).item_query().all())
 
 
-        
+
 class TestOPDSEntryCacheMonitor(DatabaseTest):
 
     def test_process_item(self):
@@ -576,8 +576,8 @@ class TestPermanentWorkIDRefresh(DatabaseTest):
         eq_(None, edition.permanent_work_id)
         Mock(self._db).process_item(edition)
         assert edition.permanent_work_id != None
-        
-        
+
+
 class TestMakePresentationReadyMonitor(DatabaseTest):
 
     def setup(self):
@@ -588,16 +588,16 @@ class TestMakePresentationReadyMonitor(DatabaseTest):
             SERVICE_NAME = "Provider 1"
             INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
             DATA_SOURCE_NAME = DataSource.OCLC
-            
+
         # This CoverageProvider will always fail.
         class MockProvider2(NeverSuccessfulCoverageProvider):
             SERVICE_NAME = "Provider 2"
             INPUT_IDENTIFIER_TYPES = Identifier.GUTENBERG_ID
             DATA_SOURCE_NAME = DataSource.OVERDRIVE
-            
+
         self.success = MockProvider1(self._db)
         self.failure = MockProvider2(self._db)
-        
+
         self.work = self._work(
             DataSource.GUTENBERG, with_license_pool=True)
         # Don't fake that the work is presentation ready, as we usually do,
@@ -624,7 +624,7 @@ class TestMakePresentationReadyMonitor(DatabaseTest):
             self.work.presentation_ready_exception
         )
         eq_(False, self.work.presentation_ready)
-        
+
     def test_prepare_raises_exception_with_failing_providers(self):
         monitor = MakePresentationReadyMonitor(
             self._db, [self.success, self.failure]
@@ -634,9 +634,9 @@ class TestMakePresentationReadyMonitor(DatabaseTest):
             self.failure.service_name,
             monitor.prepare, self.work
         )
-        
+
     def test_prepare_does_not_call_irrelevant_provider(self):
-            
+
         monitor = MakePresentationReadyMonitor(self._db, [self.success])
         result = monitor.prepare(self.work)
 
@@ -683,7 +683,7 @@ class TestCustomListEntryWorkUpdateMonitor(DatabaseTest):
         # Create a CustomListEntry.
         list1, [edition1] = self._customlist(num_entries=1)
         [entry] = list1.entries
-        
+
         # Pretend that its CustomListEntry's work was never set.
         old_work = entry.work
         entry.work = None

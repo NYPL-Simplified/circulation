@@ -34,7 +34,7 @@ from model import (
     Identifier,
     Measurement,
     DeliveryMechanism,
-    Hyperlink, 
+    Hyperlink,
     Representation,
     RightsStatus,
     Subject,
@@ -101,11 +101,11 @@ class TestMetadataImporter(DatabaseTest):
             [
                 ('schema:typicalAgeRange', u'Adult', 100),
                 ('tag', u'Character Driven', 100),
-                ('tag', u'Historical', 100), 
+                ('tag', u'Historical', 100),
                 ('tag', u'Nail-Biters', 100),
                 ('tag', u'Setting Driven', 100)
             ],
-            [(x.type, x.identifier, x.weight) 
+            [(x.type, x.identifier, x.weight)
              for x in sorted(m2.subjects, key=lambda x: x.identifier)]
         )
 
@@ -137,7 +137,7 @@ class TestMetadataImporter(DatabaseTest):
         edition = self._edition()
         l1 = LinkData(rel=Hyperlink.IMAGE, href="http://example.com/")
         l2 = LinkData(rel=Hyperlink.DESCRIPTION, content="foo")
-        metadata = Metadata(links=[l1, l2], 
+        metadata = Metadata(links=[l1, l2],
                             data_source=edition.data_source)
         metadata.apply(edition, None)
         [image, description] = sorted(
@@ -199,7 +199,7 @@ class TestMetadataImporter(DatabaseTest):
         )
 
         # Even though we're only passing in the primary image link...
-        metadata = Metadata(links=[l1], 
+        metadata = Metadata(links=[l1],
                             data_source=edition.data_source)
         metadata.apply(edition, None)
 
@@ -219,12 +219,12 @@ class TestMetadataImporter(DatabaseTest):
             media_type=Representation.TEXT_PLAIN,
         )
         image = LinkData(
-            rel=Hyperlink.IMAGE, href="http://example.com/", 
+            rel=Hyperlink.IMAGE, href="http://example.com/",
             thumbnail=not_a_thumbnail,
             media_type=Representation.JPEG_MEDIA_TYPE,
         )
 
-        metadata = Metadata(links=[image], 
+        metadata = Metadata(links=[image],
                             data_source=edition.data_source)
         metadata.apply(edition, None)
 
@@ -236,7 +236,7 @@ class TestMetadataImporter(DatabaseTest):
 
         # If we pass in the 'thumbnail' separately, a Hyperlink is
         # created for it, but it's still not a thumbnail of anything.
-        metadata = Metadata(links=[image, not_a_thumbnail], 
+        metadata = Metadata(links=[image, not_a_thumbnail],
                             data_source=edition.data_source)
         metadata.apply(edition, None)
         [image, description] = sorted(
@@ -256,7 +256,7 @@ class TestMetadataImporter(DatabaseTest):
         l1 = LinkData(
             rel=Hyperlink.IMAGE, href=url, thumbnail=l2,
         )
-        metadata = Metadata(links=[l1, l2], 
+        metadata = Metadata(links=[l1, l2],
                             data_source=edition.data_source)
         metadata.apply(edition, None)
         [image, thumbnail] = sorted(
@@ -290,7 +290,7 @@ class TestMetadataImporter(DatabaseTest):
             rel=Hyperlink.IMAGE, href="http://largeimage.com/", thumbnail=l2,
             media_type=Representation.JPEG_MEDIA_TYPE,
         )
-        metadata = Metadata(links=[l1], 
+        metadata = Metadata(links=[l1],
                             data_source=edition.data_source)
         metadata.apply(edition, None)
 
@@ -321,11 +321,11 @@ class TestMetadataImporter(DatabaseTest):
 
 
     def test_image_scale_and_mirror(self):
-        # Make sure that open access material links are translated to our S3 buckets, and that 
+        # Make sure that open access material links are translated to our S3 buckets, and that
         # commercial material links are left as is.
-        # Note: mirroring links is now also CirculationData's job.  So the unit tests 
+        # Note: mirroring links is now also CirculationData's job.  So the unit tests
         # that test for that have been changed to call to mirror cover images.
-        # However, updated tests passing does not guarantee that all code now 
+        # However, updated tests passing does not guarantee that all code now
         # correctly calls on CirculationData, too.  This is a risk.
 
         mirror = MockS3Uploader()
@@ -425,7 +425,7 @@ class TestMetadataImporter(DatabaseTest):
             media_type=link.media_type, content=link.content
         )
         h.queue_response(403)
-        
+
         m.mirror_link(edition, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
@@ -438,7 +438,7 @@ class TestMetadataImporter(DatabaseTest):
         assert representation.fetched_at != None
         eq_(None, representation.mirrored_at)
 
-        # the edition's identifier-associated license pool should not be 
+        # the edition's identifier-associated license pool should not be
         # suppressed just because fetch failed on getting image.
         eq_(False, pool.suppressed)
 
@@ -468,7 +468,7 @@ class TestMetadataImporter(DatabaseTest):
         )
 
         m = Metadata(data_source=data_source)
-        
+
         m.mirror_link(edition, data_source, link, link_obj, policy)
 
         # Since we got a 404 error, the cover image was not mirrored.
@@ -501,7 +501,7 @@ class TestMetadataImporter(DatabaseTest):
         )
 
         h.queue_response(200, media_type=Representation.JPEG_MEDIA_TYPE)
-        
+
         m.mirror_link(edition, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
@@ -522,7 +522,7 @@ class TestMetadataImporter(DatabaseTest):
         # Book content is still there since it wasn't mirrored.
         assert representation.content != None
 
-        # the edition's identifier-associated license pool should not be 
+        # the edition's identifier-associated license pool should not be
         # suppressed just because fetch failed on getting image.
         eq_(False, pool.suppressed)
 
@@ -556,7 +556,7 @@ class TestMetadataImporter(DatabaseTest):
 
         # The remote server told us a generic media type.
         h.queue_response(200, media_type=Representation.OCTET_STREAM_MEDIA_TYPE, content=content)
-        
+
         m.mirror_link(edition, data_source, link, link_obj, policy)
         representation = link_obj.resource.representation
 
@@ -618,7 +618,7 @@ class TestMetadataImporter(DatabaseTest):
         eq_(link.href, representation.url)
         eq_(None, representation.mirror_url)
 
-    def test_non_open_access_book_not_mirrored(self):        
+    def test_non_open_access_book_not_mirrored(self):
         data_source = DataSource.lookup(self._db, DataSource.GUTENBERG)
         m = Metadata(data_source=data_source)
 
@@ -649,10 +649,10 @@ class TestMetadataImporter(DatabaseTest):
 
         # No HTTP requests were made.
         eq_([], h.requests)
-        
+
         # Nothing was uploaded.
         eq_([], mirror.uploaded)
-        
+
     def test_mirror_with_content_modifier(self):
         edition, pool = self._edition(with_license_pool=True)
 
@@ -679,7 +679,7 @@ class TestMetadataImporter(DatabaseTest):
         )
 
         h.queue_response(200, media_type=Representation.EPUB_MEDIA_TYPE)
-        
+
         m.mirror_link(edition, data_source, link, link_obj, policy)
 
         representation = link_obj.resource.representation
@@ -718,20 +718,20 @@ class TestMetadataImporter(DatabaseTest):
         # No preexisting coverage record
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(coverage, None)
-        
+
         last_update = datetime.datetime(2015, 1, 1)
 
         m = Metadata(data_source=data_source,
                      title=u"New title", data_source_last_updated=last_update)
         m.apply(edition, None)
-        
+
         coverage = CoverageRecord.lookup(edition, data_source)
         eq_(last_update, coverage.timestamp)
         eq_(u"New title", edition.title)
 
         older_last_update = datetime.datetime(2014, 1, 1)
         m = Metadata(data_source=data_source,
-                     title=u"Another new title", 
+                     title=u"Another new title",
                      data_source_last_updated=older_last_update
         )
         m.apply(edition, None)
@@ -750,11 +750,11 @@ class TestMetadataImporter(DatabaseTest):
 class TestContributorData(DatabaseTest):
     def test_from_contribution(self):
         # Makes sure ContributorData.from_contribution copies all the fields over.
-        
+
         # make author with that name, add author to list and pass to edition
         contributors = ["PrimaryAuthor"]
         edition, pool = self._edition(with_license_pool=True, authors=contributors)
-        
+
         contribution = edition.contributions[0]
         contributor = contribution.contributor
         contributor.lc = "1234567"
@@ -788,14 +788,14 @@ class TestContributorData(DatabaseTest):
 
         contributor_data = ContributorData(
             sort_name = "Doerr, John",
-            lc = "1234567", 
-            viaf = "ABC123", 
-            aliases = ["Primo"], 
-            display_name = "Test Author For The Win", 
-            family_name = "TestAuttie", 
-            wikipedia_name = "TestWikiAuth", 
-            biography = "He was born on Main Street.", 
-            extra = kwargs, 
+            lc = "1234567",
+            viaf = "ABC123",
+            aliases = ["Primo"],
+            display_name = "Test Author For The Win",
+            family_name = "TestAuttie",
+            wikipedia_name = "TestWikiAuth",
+            biography = "He was born on Main Street.",
+            extra = kwargs,
         )
 
         contributor_new, changed = contributor_data.apply(contributor_old)
@@ -836,7 +836,7 @@ class TestContributorData(DatabaseTest):
         contributor_data.sort_name = "Sort Name"
         eq_(True, contributor_data.find_sort_name(self._db, [], metadata_client))
         eq_("Sort Name", contributor_data.sort_name)
-        
+
         contributor_data.sort_name = "Sort Name"
         contributor_data.display_name = "Existing Author"
         eq_(True, contributor_data.find_sort_name(self._db, [], metadata_client))
@@ -882,9 +882,9 @@ class TestLinkData(DatabaseTest):
         jpeg = LinkData(rel, href="http://foo/bar.jpeg")
         eq_(Representation.JPEG_MEDIA_TYPE, jpeg.guessed_media_type)
 
-        # An explicitly known media type takes precedence over 
+        # An explicitly known media type takes precedence over
         # something we guess from the file extension.
-        png = LinkData(rel, href="http://foo/bar.jpeg", 
+        png = LinkData(rel, href="http://foo/bar.jpeg",
                        media_type=Representation.PNG_MEDIA_TYPE)
         eq_(Representation.PNG_MEDIA_TYPE, png.guessed_media_type)
 
@@ -901,7 +901,7 @@ class TestMetadata(DatabaseTest):
         edition.primary_identifier.add_link(Hyperlink.IMAGE, "image", edition.data_source)
         metadata = Metadata.from_edition(edition)
 
-        # make sure the metadata and the originating edition match 
+        # make sure the metadata and the originating edition match
         for field in Metadata.BASIC_EDITION_FIELDS:
             eq_(getattr(edition, field), getattr(metadata, field))
 
@@ -924,7 +924,7 @@ class TestMetadata(DatabaseTest):
         eq_(edition.series_position, metadata.series_position)
 
     def test_update(self):
-        # Tests that Metadata.update correctly prefers new fields to old, unless 
+        # Tests that Metadata.update correctly prefers new fields to old, unless
         # new fields aren't defined.
 
         edition_old, pool = self._edition(with_license_pool=True)
@@ -1119,7 +1119,7 @@ class TestMetadata(DatabaseTest):
         [old_contributor] = edition.contributors
 
         contributor = ContributorData(
-            display_name="Robert Jordan", 
+            display_name="Robert Jordan",
             sort_name="Jordan, Robert",
             wikipedia_name="Robert_Jordan",
             viaf="79096089",
@@ -1135,7 +1135,7 @@ class TestMetadata(DatabaseTest):
         [contributor] = edition.contributors
         assert contributor != old_contributor
 
-        # And the new one has all the information provided by 
+        # And the new one has all the information provided by
         # the Metadata object.
         eq_("Jordan, Robert", contributor.sort_name)
         eq_("Robert Jordan", contributor.display_name)
@@ -1176,10 +1176,10 @@ class TestMetadata(DatabaseTest):
         link = LinkData(Hyperlink.OPEN_ACCESS_DOWNLOAD, "example.epub")
         measurement = MeasurementData(Measurement.RATING, 5)
         circulation = CirculationData(data_source=DataSource.GUTENBERG,
-            primary_identifier=identifier, 
-            licenses_owned=0, 
-            licenses_available=0, 
-            licenses_reserved=0, 
+            primary_identifier=identifier,
+            licenses_owned=0,
+            licenses_available=0,
+            licenses_reserved=0,
             patrons_in_hold_queue=0)
         primary_as_data = IdentifierData(
             type=identifier.type, identifier=identifier.identifier
@@ -1280,7 +1280,7 @@ class TestAssociateWithIdentifiersBasedOnPermanentWorkID(DatabaseTest):
         # with the identifier of the audiobook
         equivalent_identifiers = [x.output for x in identifier.equivalencies]
         eq_([book.primary_identifier], equivalent_identifiers)
-    
+
 
 class TestMARCExtractor(DatabaseTest):
 

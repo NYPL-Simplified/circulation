@@ -37,7 +37,7 @@ from model import (
 
 from metadata_layer import (
     ContributorData,
-    CirculationData, 
+    CirculationData,
     Metadata,
     LinkData,
     IdentifierData,
@@ -69,9 +69,9 @@ class BibliothecaAPI(object):
 
     DEFAULT_VERSION = "2.0"
     DEFAULT_BASE_URL = "https://partner.yourcloudlibrary.com/"
-    
+
     def __init__(self, _db, collection):
-        
+
         if collection.protocol != ExternalIntegration.BIBLIOTHECA:
             raise ValueError(
                 "Collection protocol is %s, but passed into BibliothecaAPI!" %
@@ -86,7 +86,7 @@ class BibliothecaAPI(object):
         self.account_key = collection.external_integration.password
         self.library_id = collection.external_account_id
         self.base_url = collection.external_integration.url or self.DEFAULT_BASE_URL
-        
+
         if not self.account_id or not self.account_key or not self.library_id:
             raise CannotLoadConfiguration(
                 "Bibliotheca configuration is incomplete."
@@ -104,7 +104,7 @@ class BibliothecaAPI(object):
     @property
     def collection(self):
         return Collection.by_id(self._db, id=self.collection_id)
-        
+
     @property
     def source(self):
         return DataSource.lookup(self._db, DataSource.BIBLIOTHECA)
@@ -167,10 +167,10 @@ class BibliothecaAPI(object):
             return content
         else:
             return self._request_with_timeout(
-                method, url, data=body, headers=headers, 
+                method, url, data=body, headers=headers,
                 allow_redirects=False
             )
-      
+
     def get_bibliographic_info_for(self, editions, max_age=None):
         results = dict()
         for edition in editions:
@@ -225,7 +225,7 @@ class MockBibliothecaAPI(BibliothecaAPI):
         integration.url = "http://bibliotheca.test"
         library.collections.append(collection)
         return collection
-        
+
     def __init__(self, _db, collection, *args, **kwargs):
         self.responses = []
         self.requests = []
@@ -259,7 +259,7 @@ class MockBibliothecaAPI(BibliothecaAPI):
         response = self._request_with_timeout('GET', url, *args, **kwargs)
         return response.status_code, response.headers, response.content
 
-    
+
 
 
 class ItemListParser(XMLParser):
@@ -296,7 +296,7 @@ class ItemListParser(XMLParser):
         contributors = []
         if not string:
             return contributors
-        
+
         for sort_name in string.split(';'):
             sort_name = cls.parenthetical.sub("", sort_name.strip())
             contributors.append(
@@ -308,7 +308,7 @@ class ItemListParser(XMLParser):
         return contributors
 
     @classmethod
-    def parse_genre_string(self, s):           
+    def parse_genre_string(self, s):
         genres = []
         if not s:
             return genres
@@ -322,7 +322,7 @@ class ItemListParser(XMLParser):
 
 
     def process_one(self, tag, namespaces):
-        """Turn an <item> tag into a Metadata and an encompassed CirculationData 
+        """Turn an <item> tag into a Metadata and an encompassed CirculationData
         objects, and return the Metadata."""
 
         def value(bibliotheca_key):
@@ -413,7 +413,7 @@ class ItemListParser(XMLParser):
             links=links,
         )
 
-        # Also make a CirculationData so we can write the formats, 
+        # Also make a CirculationData so we can write the formats,
         circulationdata = CirculationData(
             data_source=DataSource.BIBLIOTHECA,
             primary_identifier=primary_identifier,
@@ -461,7 +461,7 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
 
     # 25 is the maximum batch size for the Bibliotheca API.
     DEFAULT_BATCH_SIZE = 25
-    
+
     def __init__(self, collection, api_class=BibliothecaAPI, **kwargs):
         """Constructor.
 
@@ -469,7 +469,7 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
             Bibliotheca books in the given Collection.
         :param api_class: Instantiate this class with the given Collection,
             rather than instantiating BibliothecaAPI.
-        :param input_identifiers: Passed in by RunCoverageProviderScript. 
+        :param input_identifiers: Passed in by RunCoverageProviderScript.
             A list of specific identifiers to get coverage for.
         """
         super(BibliothecaBibliographicCoverageProvider, self).__init__(
@@ -484,7 +484,7 @@ class BibliothecaBibliographicCoverageProvider(BibliographicCoverageProvider):
             # will put a non-scoped session in the mix.
             _db = Session.object_session(collection)
             self.api = api_class(_db, collection)
-        
+
     def process_item(self, identifier):
         # We don't accept a representation from the cache because
         # either this is being run for the first time (in which case
