@@ -8,7 +8,6 @@ from lxml import etree
 from nose.tools import set_trace
 import base64
 import bisect
-import cairosvg
 import datetime
 import isbnlib
 import json
@@ -2224,7 +2223,7 @@ class Identifier(Base):
             rights_status = RightsStatus.lookup(_db, rights_status_uri)
         resource, new_resource = get_one_or_create(
             _db, Resource, url=href,
-            create_method_kwargs=dict(data_source=data_source, 
+            create_method_kwargs=dict(data_source=data_source,
                                       rights_status=rights_status,
                                       rights_explanation=rights_explanation)
         )
@@ -7157,7 +7156,7 @@ class LicensePool(Base):
         )
 
     def add_link(self, rel, href, data_source, media_type=None,
-                 content=None, content_path=None, 
+                 content=None, content_path=None,
                  rights_status_uri=None, rights_explanation=None,
                  original_resource=None, transformation_settings=None,
                  ):
@@ -8886,9 +8885,10 @@ class Representation(Base):
         """
         if self.media_type and self.media_type.startswith('image/'):
             image = self.as_image()
-            self.image_width, self.image_height = image.size
-        else:
-            self.image_width = self.image_height = None
+            if image:
+                self.image_width, self.image_height = image.size
+                return
+        self.image_width = self.image_height = None
 
     @classmethod
     def normalize_content_path(cls, content_path, base=None):
@@ -9201,8 +9201,6 @@ class Representation(Base):
 
     @property
     def external_media_type(self):
-        if self.clean_media_type == self.SVG_MEDIA_TYPE:
-            return self.PNG_MEDIA_TYPE
         return self.media_type
 
     def external_content(self):
@@ -9210,17 +9208,7 @@ class Representation(Base):
         should be mirrored externally, and the media type to be used
         when mirroring.
         """
-        if not self.is_image or self.clean_media_type != self.SVG_MEDIA_TYPE:
-            # Passthrough
-            return self.content_fh()
-
-        # This representation is an SVG image. We want to mirror it as
-        # PNG.
-        image = self.as_image()
-        output = StringIO()
-        image.save(output, format='PNG')
-        output.seek(0)
-        return output
+        return self.content_fh()
 
     def content_fh(self):
         """Return an open filehandle to the representation's contents.
@@ -9246,12 +9234,8 @@ class Representation(Base):
             raise ValueError("Image representation has no content.")
 
         fh = self.content_fh()
-        if not fh:
+        if not fh or self.clean_media_type == self.SVG_MEDIA_TYPE:
             return None
-        if self.clean_media_type == self.SVG_MEDIA_TYPE:
-            # Transparently convert the SVG to a PNG.
-            png_data = cairosvg.svg2png(fh.read())
-            fh = StringIO(png_data)
         return Image.open(fh)
 
     pil_format_for_media_type = {
@@ -9279,6 +9263,7 @@ class Representation(Base):
         pil_format = self.pil_format_for_media_type[destination_media_type]
 
         # Make sure we actually have an image to scale.
+        image = None
         try:
             image = self.as_image()
         except Exception, e:
@@ -9289,6 +9274,8 @@ class Representation(Base):
             self.fetch_exception = "Error found while scaling: %s" % (
                 self.scale_exception)
             logging.error("Error found while scaling %r", self, exc_info=e)
+
+        if not image:
             return self, False
 
         # Now that we've loaded the image, take the opportunity to set

@@ -203,7 +203,7 @@ class OPDSImporterTest(DatabaseTest):
             goal=ExternalIntegration.METADATA_GOAL,
             url="http://localhost"
         )
-        
+
 
 class TestOPDSImporter(OPDSImporterTest):
 
@@ -319,7 +319,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # Most of the time, a link's rights URI is inherited from the entry.
         entry_rights = RightsStatus.PUBLIC_DOMAIN_USA
-        
+
         link_tag = AtomFeed.E.link(href="http://foo", rel="bar")
         link = OPDSImporter.extract_link(
             link_tag, entry_rights_uri=entry_rights
@@ -333,7 +333,7 @@ class TestOPDSImporter(OPDSImporterTest):
             link_tag, entry_rights_uri=entry_rights
         )
         eq_(RightsStatus.IN_COPYRIGHT, link.rights_uri)
-        
+
     def test_extract_data_from_feedparser(self):
 
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
@@ -397,7 +397,7 @@ class TestOPDSImporter(OPDSImporterTest):
         data, failures = OPDSImporter.extract_metadata_from_elementtree(
             self.content_server_feed, data_source
         )
-        
+
         # There are 76 entries in the feed, and we got metadata for
         # every one of them.
         eq_(76, len(data))
@@ -445,7 +445,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         subjects = periodical['subjects']
         eq_(
-            ['LCSH', 'LCSH', 'LCSH', 'LCSH', 'LCC', 'schema:audience', 'schema:typicalAgeRange'], 
+            ['LCSH', 'LCSH', 'LCSH', 'LCSH', 'LCC', 'schema:audience', 'schema:typicalAgeRange'],
             [x.type for x in subjects]
         )
         eq_(
@@ -453,7 +453,7 @@ class TestOPDSImporter(OPDSImporterTest):
             [x.identifier for x in subjects]
         )
         eq_([1, 1, 1, 1, 1, 100, 100], [x.weight for x in subjects])
-        
+
         r1, r2, r3 = periodical['measurements']
 
         eq_(Measurement.QUALITY, r1.quantity_measured)
@@ -478,7 +478,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         feed = open(
             os.path.join(self.resource_path, "unrecognized_identifier.opds")
-        ).read()        
+        ).read()
         values, failures = OPDSImporter.extract_metadata_from_elementtree(
             feed, data_source
         )
@@ -510,10 +510,10 @@ class TestOPDSImporter(OPDSImporterTest):
         axis_isbn = self._identifier(Identifier.ISBN, "9781453219539")
         identifier_mapping = {axis_isbn : axis_id}
         importer = OPDSImporter(
-            self._db, collection=None, 
+            self._db, collection=None,
             data_source_name=DataSource.OA_CONTENT_SERVER,
             identifier_mapping = identifier_mapping
-        )        
+        )
 
         # The simplest case -- an identifier associated with a
         # CoverageFailure. The Identifier and CoverageFailure are
@@ -536,7 +536,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
         eq_(expect_identifier, identifier)
         eq_(identifier, not_a_failure)
-        # Note that the 'failure' object retuned is the Identifier that 
+        # Note that the 'failure' object retuned is the Identifier that
         # was passed in, not the Identifier that substituted as the 'failure'.
         # (In real usage, though, they should be the same.)
 
@@ -556,8 +556,8 @@ class TestOPDSImporter(OPDSImporterTest):
         )
         eq_(axis_id, identifier)
         eq_(axis_id, not_a_failure)
-        
-        
+
+
     def test_coveragefailure_from_message(self):
         """Test all the different ways a <simplified:message> tag might
         become a CoverageFailure.
@@ -585,13 +585,13 @@ class TestOPDSImporter(OPDSImporterTest):
         description_and_status_code = f(identifier.urn, "404", "description")
         eq_("404: description", description_and_status_code.exception)
         eq_(identifier, description_and_status_code.obj)
-        
+
         description_only = f(identifier.urn, None, "description")
         eq_("description", description_only.exception)
-        
+
         status_code_only = f(identifier.urn, "404", None)
         eq_("404", status_code_only.exception)
-        
+
         no_information = f(identifier.urn, None, None)
         eq_("No detail provided.", no_information.exception)
 
@@ -633,7 +633,7 @@ class TestOPDSImporter(OPDSImporterTest):
             @classmethod
             def coveragefailures_from_messages(
                     cls, data_source, message, success_on_200=False):
-                """No matter what input we get, we act as though there were 
+                """No matter what input we get, we act as though there were
                 a single simplified:message tag in the OPDS feed, which we
                 decided to treat as success rather than failure.
                 """
@@ -645,8 +645,8 @@ class TestOPDSImporter(OPDSImporterTest):
             self.content_server_mini_feed, data_source
         )
         eq_({not_a_failure.urn: not_a_failure}, failures)
-                
-        
+
+
     def test_extract_metadata_from_elementtree_handles_exception(self):
         class DoomedElementtreeOPDSImporter(OPDSImporter):
             """An importer that can't extract metadata from elementttree."""
@@ -720,7 +720,7 @@ class TestOPDSImporter(OPDSImporterTest):
         image, thumbnail, description = sorted(
             mouse.primary_identifier.links, key=lambda x: x.rel
         )
-        
+
         # A Representation was imported for the summary with known
         # content.
         description_rep = description.resource.representation
@@ -739,15 +739,19 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(Representation.PNG_MEDIA_TYPE, thumbnail_rep.media_type)
         eq_(image_rep, thumbnail_rep.thumbnail_of)
 
-        # One link was added to the identifier of the 'crow' edition.
-        [image] = crow.primary_identifier.links
+        # Two links were added to the identifier of the 'crow' edition.
+        [broken_image, working_image] = sorted(
+            crow.primary_identifier.links, key=lambda x: x.resource.url
+        )
 
-        # Because this image did not have a specified media type or a
-        # distinctive extension, and we have not actually retrieves
-        # the URL yet, we were not able to determine its media type,
-        # so it has no associated Representation.
-        assert image.resource.url.endswith('/full-cover-image')
-        eq_(None, image.resource.representation)
+        # Because these images did not have a specified media type or a
+        # distinctive extension, and we have not actually retrieved
+        # the URLs yet, we were not able to determine their media type,
+        # so they have no associated Representation.
+        assert broken_image.resource.url.endswith('/broken-cover-image')
+        assert working_image.resource.url.endswith('/working-cover-image')
+        eq_(None, broken_image.resource.representation)
+        eq_(None, working_image.resource.representation)
 
         # Three measurements have been added to the 'mouse' edition.
         popularity, quality, rating = sorted(
@@ -808,7 +812,7 @@ class TestOPDSImporter(OPDSImporterTest):
         )
         eq_(self._default_collection, crow_pool.collection)
         eq_(self._default_collection, mouse_pool.collection)
-        
+
         # Work was created for both books.
         assert crow_pool.work is not None
         eq_(Edition.BOOK_MEDIUM, crow_pool.presentation_edition.medium)
@@ -826,7 +830,7 @@ class TestOPDSImporter(OPDSImporterTest):
         [mech] = mouse_pool.delivery_mechanisms
         eq_(Representation.EPUB_MEDIA_TYPE, mech.delivery_mechanism.content_type)
         eq_(DeliveryMechanism.NO_DRM, mech.delivery_mechanism.drm_scheme)
-        eq_('http://www.gutenberg.org/ebooks/10441.epub.images', 
+        eq_('http://www.gutenberg.org/ebooks/10441.epub.images',
             mech.resource.url)
 
     def test_import_with_lendability(self):
@@ -851,7 +855,7 @@ class TestOPDSImporter(OPDSImporterTest):
 
         # Both editions were imported, because they were new.
         eq_(2, len(imported_editions_mw))
-        
+
         # But pools and works weren't created, because there is no Collection.
         eq_(0, len(pools_mw))
         eq_(0, len(works_mw))
@@ -859,7 +863,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # 1 error message, corresponding to the <simplified:message> tag
         # at the end of content_server_mini.opds.
         eq_(1, len(failures_mw))
-                
+
         # Try again, with a Collection to contain the LicensePools.
         importer_g = OPDSImporter(
             self._db, collection=self._default_collection,
@@ -871,12 +875,12 @@ class TestOPDSImporter(OPDSImporterTest):
         # now pools and works are in, too
         eq_(1, len(failures_g))
         eq_(2, len(pools_g))
-        eq_(2, len(works_g))        
+        eq_(2, len(works_g))
 
         # The pools have presentation editions.
         eq_(set(["The Green Mouse", "Johnny Crow's Party"]),
             set([x.presentation_edition.title for x in pools_g]))
-        
+
         # The information used to create the first LicensePool said
         # that the licensing authority is Project Gutenberg, so that's used
         # as the DataSource for the first LicensePool. The information used
@@ -885,7 +889,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # was used.
         sources = [pool.data_source.name for pool in pools_g]
         eq_([DataSource.GUTENBERG, DataSource.OA_CONTENT_SERVER], sources)
-        
+
     def test_import_with_unrecognized_distributor_creates_distributor(self):
         """We get a book from a previously unknown data source, with a license
         that comes from a second previously unknown data source. The
@@ -904,7 +908,7 @@ class TestOPDSImporter(OPDSImporterTest):
             importer.import_from_feed(feed)
         )
         eq_({}, failures)
-       
+
         # We imported an Edition because there was metadata.
         [edition] = imported_editions
         new_data_source = edition.data_source
@@ -949,7 +953,7 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(new_edition, edition)
         eq_("The Green Mouse", new_edition.title)
         eq_(DataSource.OVERDRIVE, new_edition.data_source.name)
-        
+
         # But the license pools have not changed.
         eq_(edition.license_pools, [old_license_pool])
         eq_(work.license_pools, [old_license_pool])
@@ -963,7 +967,7 @@ class TestOPDSImporter(OPDSImporterTest):
             self._db,
             collection=self._default_collection,
         )
-        
+
         imported_editions, imported_pools, imported_works, failures = (
             importer.import_from_feed(feed)
         )
@@ -984,14 +988,14 @@ class TestOPDSImporter(OPDSImporterTest):
         # But the license pool's presentation edition has a data
         # source associated with the Library Simplified open-access
         # content server, since that's where the metadata comes from.
-        eq_(DataSource.OA_CONTENT_SERVER, 
+        eq_(DataSource.OA_CONTENT_SERVER,
             mouse_pool.presentation_edition.data_source.name
         )
 
         # Since the 'mouse' book came with an open-access link, the license
         # pool delivery mechanism has been marked as open access.
         eq_(True, mouse_pool.open_access)
-        eq_(RightsStatus.GENERIC_OPEN_ACCESS, 
+        eq_(RightsStatus.GENERIC_OPEN_ACCESS,
             mouse_pool.delivery_mechanisms[0].rights_status.uri)
 
         # The 'mouse' work has not been marked presentation-ready,
@@ -1000,8 +1004,8 @@ class TestOPDSImporter(OPDSImporterTest):
         eq_(False, mouse_pool.work.presentation_ready)
 
         # The OPDS feed didn't actually say where the 'crow' book
-        # comes from, but we did tell the importer to use the open access 
-        # content server as the data source, so both a Work and a LicensePool 
+        # comes from, but we did tell the importer to use the open access
+        # content server as the data source, so both a Work and a LicensePool
         # were created, and their data source is the open access content server,
         # not Project Gutenberg.
         eq_(DataSource.OA_CONTENT_SERVER, crow_pool.data_source.name)
@@ -1083,7 +1087,7 @@ class TestOPDSImporter(OPDSImporterTest):
         # One work was created, the other failed.
         eq_(1, len(works))
 
-        # There's an error message for the work that failed. 
+        # There's an error message for the work that failed.
         failure = failures['http://www.gutenberg.org/ebooks/10441']
         assert isinstance(failure, CoverageFailure)
         eq_(False, failure.transient)
@@ -1276,7 +1280,7 @@ class TestOPDSImporter(OPDSImporterTest):
             importer.assert_importable_content, "feed", "url",
             max_get_attempts=2
         )
-        
+
         # We called _is_open_access_link on the first and second links
         # found in the 'metadata', but failed both times.
         #
@@ -1383,7 +1387,7 @@ class TestCombine(object):
     """Test that OPDSImporter.combine combines dictionaries in sensible
     ways.
     """
-        
+
     def test_combine(self):
         """An overall test that duplicates a lot of functionality
         in the more specific tests.
@@ -1404,7 +1408,7 @@ class TestCombine(object):
 
         # Dictionaries get combined recursively.
         d = combined['a_dict']
-        
+
         # Normal scalar values can be overridden once set.
         eq_("new value", combined['a_scalar'])
 
@@ -1412,7 +1416,7 @@ class TestCombine(object):
         eq_('finally a value', d["key1"])
         eq_('value3', d['key3'])
         eq_('value4', d['key4'])
-        
+
         # Lists get extended.
         eq_([1, 2], combined['a_list'])
         eq_([2, 200], d['key2'])
@@ -1451,7 +1455,7 @@ class TestCombine(object):
         a_is_old = dict(a="old value")
         a_is_new = dict(a="new value")
         eq_("new value", c(a_is_old, a_is_new)['a'])
-        
+
     def test_combine_present_value_not_replaced_with_none(self):
 
         """When combining a dictionary where a key is set to None
@@ -1480,7 +1484,7 @@ class TestCombine(object):
         a_is_false = dict(a=dict(b=[False]))
         eq_(dict(a=dict(b=[True, False])),
             OPDSImporter.combine(a_is_true, a_is_false))
-        
+
 class TestMirroring(OPDSImporterTest):
 
     def test_importer_gets_appropriate_mirror_for_collection(self):
@@ -1516,6 +1520,8 @@ class TestMirroring(OPDSImporterTest):
     <ellipse cx="50" cy="25" rx="50" ry="25" style="fill:blue;"/>
 </svg>"""
 
+        open_png = open(self.sample_cover_path("test-book-cover.png")).read()
+
         http = DummyHTTPClient()
         http.queue_response(
         200, content='I am 10441.epub.images',
@@ -1528,9 +1534,13 @@ class TestMirroring(OPDSImporterTest):
         200, content='I am 10557.epub.images',
         media_type=Representation.EPUB_MEDIA_TYPE,
         )
-        # The request to http://root/full-cover-image
+        # The request to http://root/broken-cover-image
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
+        http.queue_response(
+        200, content=open_png,
+        media_type=Representation.PNG_MEDIA_TYPE
+        )
 
         s3 = MockS3Uploader()
 
@@ -1540,30 +1550,32 @@ class TestMirroring(OPDSImporterTest):
         )
 
         imported_editions, pools, works, failures = (
-            importer.import_from_feed(self.content_server_mini_feed, 
+            importer.import_from_feed(self.content_server_mini_feed,
                                       feed_url='http://root')
         )
         e1 = imported_editions[0]
         e2 = imported_editions[1]
 
         eq_(2, len(pools))
-        
+
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The thumbnail
-        # image was not requested, since we were going to make our own
-        # thumbnail anyway.
+        # image was not requested, since we never trust foreign thumbnails.
         eq_(http.requests, [
             'http://www.gutenberg.org/ebooks/10441.epub.images',
-            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
+            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png',
             'http://www.gutenberg.org/ebooks/10557.epub.images',
-            'http://root/full-cover-image',
+            'http://root/broken-cover-image',
+            'http://root/working-cover-image'
         ])
 
-        [e1_oa_link, e1_image_link, e1_thumbnail_link, 
+        [e1_oa_link, e1_image_link, e1_thumbnail_link,
          e1_description_link ] = sorted(
             e1.primary_identifier.links, key=lambda x: x.rel
         )
-        [e2_image_link, e2_oa_link] = e2.primary_identifier.links
+        [e2_broken_image_link, e2_working_image_link, e2_oa_link] = sorted(
+           e2.primary_identifier.links, key=lambda x: x.resource.url
+        )
 
         # The thumbnail image is associated with the Identifier, but
         # it's not used because it's associated with a representation
@@ -1572,31 +1584,37 @@ class TestMirroring(OPDSImporterTest):
         eq_(Hyperlink.THUMBNAIL_IMAGE, e1_thumbnail_link.rel)
         hypothetical_full_representation = e1_thumbnail_link.resource.representation.thumbnail_of
         eq_(None, hypothetical_full_representation.resource)
-        eq_(Representation.PNG_MEDIA_TYPE, 
+        eq_(Representation.PNG_MEDIA_TYPE,
             hypothetical_full_representation.media_type)
 
         # That's because when we actually got cover_10441_9.png,
         # it turned out to be an SVG file, not a PNG, so we created a new
         # Representation. TODO: Obviously we could do better here.
-        eq_(Representation.SVG_MEDIA_TYPE, 
+        eq_(Representation.SVG_MEDIA_TYPE,
             e1_image_link.resource.representation.media_type)
 
-        # The two open-access links were mirrored to S3, as was the
-        # original SVG image and the PNG thumbnail we generated. The
-        # PNG image was not mirrored because our attempt to download
+        # The two open-access links were mirrored to S3, as were the
+        # original SVG image, the working PNG image, and its thumbnail, which we generated. The
+        # The broken PNG image was not mirrored because our attempt to download
         # it resulted in a 404 error.
         imported_representations = [
             e1_oa_link.resource.representation,
             e1_image_link.resource.representation,
-            e1_image_link.resource.representation.thumbnails[0],
             e2_oa_link.resource.representation,
+            e2_working_image_link.resource.representation,
+            e2_working_image_link.resource.representation.thumbnails[0]
         ]
         eq_(imported_representations, s3.uploaded)
 
-        eq_(4, len(s3.uploaded))
+        eq_(5, len(s3.uploaded))
+
         eq_("I am 10441.epub.images", s3.content[0])
         eq_(svg, s3.content[1])
-        eq_("I am 10557.epub.images", s3.content[3])
+        eq_("I am 10557.epub.images", s3.content[2])
+        eq_(open_png, s3.content[3])
+        #We don't know what the thumbnail is, but we know it's smaller than the
+        #original cover image.
+        assert(len(s3.content[4]) < len(s3.content[3]))
 
         # Each resource was 'mirrored' to an Amazon S3 bucket.
         #
@@ -1610,12 +1628,13 @@ class TestMirroring(OPDSImporterTest):
         # The "crow" book was mirrored to a bucket corresponding to
         # the open-access content source, the default data source used
         # when no distributor was specified for a book.
-        url0 = 'https://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg+ID/10441/The+Green+Mouse.epub.images'
-        url1 = u'https://s3.amazonaws.com/test.cover.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.svg'
-        url2 = u'https://s3.amazonaws.com/test.cover.bucket/scaled/300/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.png'
-        url3 = 'https://s3.amazonaws.com/test.content.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/Johnny+Crow%27s+Party.epub.images'
+        book1_url = 'https://s3.amazonaws.com/test.content.bucket/Gutenberg/Gutenberg+ID/10441/The+Green+Mouse.epub.images'
+        book1_svg_cover = u'https://s3.amazonaws.com/test.cover.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10441/cover_10441_9.svg'
+        book2_url = 'https://s3.amazonaws.com/test.content.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/Johnny+Crow%27s+Party.epub.images'
+        book2_png_cover = 'https://s3.amazonaws.com/test.cover.bucket/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/working-cover-image.png'
+        book2_png_thumbnail = 'https://s3.amazonaws.com/test.cover.bucket/scaled/300/Library+Simplified+Open+Access+Content+Server/Gutenberg+ID/10557/working-cover-image.png'
         uploaded_urls = [x.mirror_url for x in s3.uploaded]
-        eq_([url0, url1, url2, url3], uploaded_urls)
+        eq_([book1_url, book1_svg_cover, book2_url, book2_png_cover, book2_png_thumbnail], uploaded_urls)
 
 
         # If we fetch the feed again, and the entries have been updated since the
@@ -1642,7 +1661,7 @@ class TestMirroring(OPDSImporterTest):
         eq_([e1, e2], imported_editions)
 
         # Nothing new has been uploaded
-        eq_(4, len(s3.uploaded))
+        eq_(5, len(s3.uploaded))
 
         # If the content has changed, it will be mirrored again.
         http.queue_response(
@@ -1666,8 +1685,8 @@ class TestMirroring(OPDSImporterTest):
 
         eq_([e1, e2], imported_editions)
         eq_(8, len(s3.uploaded))
-        eq_("I am a new version of 10441.epub.images", s3.content[4])
-        eq_(svg, s3.content[5])
+        eq_("I am a new version of 10441.epub.images", s3.content[5])
+        eq_(svg, s3.content[6])
         eq_("I am a new version of 10557.epub.images", s3.content[7])
 
 
@@ -1677,7 +1696,7 @@ class TestMirroring(OPDSImporterTest):
         (like EPUB editions of the book) are not mirrored. Only
         metadata resources (like the book cover) are mirrored.
         """
-        
+
         svg = """<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
   "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 
@@ -1686,7 +1705,7 @@ class TestMirroring(OPDSImporterTest):
 </svg>"""
 
         http = DummyHTTPClient()
-        # The request to http://root/full-cover-image
+        # The request to http://root/broken-cover-image
         # will result in a 404 error, and the image will not be mirrored.
         http.queue_response(404, media_type="text/plain")
         http.queue_response(
@@ -1701,22 +1720,23 @@ class TestMirroring(OPDSImporterTest):
         )
 
         imported_editions, pools, works, failures = (
-            importer.import_from_feed(self.content_server_mini_feed, 
+            importer.import_from_feed(self.content_server_mini_feed,
                                       feed_url='http://root')
         )
 
         # No LicensePools were created, since no Collection was
         # provided.
         eq_([], pools)
-        
+
         # The import process requested each remote resource in the
         # order they appeared in the OPDS feed. The EPUB resources
         # were not requested because no Collection was provided to the
         # importer. The thumbnail image was not requested, since we
         # were going to make our own thumbnail anyway.
         eq_(http.requests, [
-            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png', 
-            'http://root/full-cover-image',
+            'https://s3.amazonaws.com/book-covers.nypl.org/Gutenberg-Illustrated/10441/cover_10441_9.png',
+            'http://root/broken-cover-image',
+            'http://root/working-cover-image'
         ])
 
 
@@ -1799,7 +1819,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         eq_("looks good", found_content.result)
 
     def test_hook_methods(self):
-        """By default, the OPDS URL and data source used by the importer 
+        """By default, the OPDS URL and data source used by the importer
         come from the collection configuration.
         """
         monitor = OPDSImportMonitor(
@@ -1811,7 +1831,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
 
         eq_(self._default_collection.data_source,
             monitor.data_source(self._default_collection))
-        
+
     def test_feed_contains_new_data(self):
         feed = self.content_server_mini_feed
 
@@ -1824,11 +1844,11 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             import_class=OPDSImporter,
         )
         timestamp = monitor.timestamp()
-        
+
         # Nothing has been imported yet, so all data is new.
         eq_(True, monitor.feed_contains_new_data(feed))
         eq_(None, timestamp.timestamp)
-        
+
         # Now import the editions.
         monitor = MockOPDSImportMonitor(
             self._db,
@@ -1966,11 +1986,11 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         data_source = DataSource.lookup(self._db, DataSource.OA_CONTENT_SERVER)
 
         feed = self.content_server_mini_feed
-        
+
         monitor.import_one_feed(feed)
-        
+
         editions = self._db.query(Edition).all()
-        
+
         # One edition has been imported
         eq_(1, len(editions))
         [edition] = editions
@@ -1983,12 +2003,15 @@ class TestOPDSImportMonitor(OPDSImporterTest):
         eq_(CoverageRecord.SUCCESS, record.status)
         eq_(None, record.exception)
 
-        # The edition's primary identifier has a cover link whose
-        # relative URL has been resolved relative to the Collection's
+        # The edition's primary identifier has some cover links whose
+        # relative URL have been resolved relative to the Collection's
         # external_account_id.
-        [cover]  = [x.resource.url for x in editions[0].primary_identifier.links
-                    if x.rel==Hyperlink.IMAGE]
-        eq_("http://root-url/full-cover-image", cover)
+        covers  = set([x.resource.url for x in editions[0].primary_identifier.links
+                    if x.rel==Hyperlink.IMAGE])
+        eq_(covers, set(["http://root-url/broken-cover-image",
+                        "http://root-url/working-cover-image"]
+                    )
+        )
 
         # The 202 status message in the feed caused a transient failure.
         # The exception caused a persistent failure.
@@ -1998,11 +2021,11 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             CoverageRecord.status != CoverageRecord.SUCCESS
         )
         eq_(
-            sorted([CoverageRecord.TRANSIENT_FAILURE, 
+            sorted([CoverageRecord.TRANSIENT_FAILURE,
                     CoverageRecord.PERSISTENT_FAILURE]),
             sorted([x.status for x in coverage_records])
         )
-    
+
         identifier, ignore = Identifier.parse_urn(self._db, "urn:librarysimplified.org/terms/id/Gutenberg%20ID/10441")
         failure = CoverageRecord.lookup(
             identifier, data_source,
@@ -2031,7 +2054,7 @@ class TestOPDSImportMonitor(OPDSImporterTest):
             self._db, collection=self._default_collection,
             import_class=OPDSImporter
         )
-        
+
         monitor.queue_response([[], "last page"])
         monitor.queue_response([["second next link"], "second page"])
         monitor.queue_response([["next link"], "first page"])
