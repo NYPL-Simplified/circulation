@@ -143,7 +143,7 @@ from api.adobe_vendor_id import AuthdataUtility
 
 from core.external_search import ExternalSearchIndex
 
-from api.selftest import HasSelfTests
+from core.selftest import HasSelfTests
 
 def setup_admin_controllers(manager):
     """Set up all the controllers that will be used by the admin parts of the web app."""
@@ -2243,9 +2243,18 @@ class SettingsController(AdminCirculationManagerController):
         setting.value = value
         return Response(unicode(setting.key), 200)
 
-    def collections_self_tests(self, identifier):
-        provider_apis = [OPDSImporter,
-                         OPDSForDistributorsAPI,
+    def _get_protocols(self, provider_apis):
+        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
+        protocols.append(dict(name=ExternalIntegration.MANUAL,
+                              label=_("Manual import"),
+                              description=_("Books will be manually added to the circulation manager, not imported automatically through a protocol."),
+                              settings=[],
+                              ))
+
+        return protocols
+
+    def collection_self_tests(self, identifier):
+        provider_apis = [OPDSForDistributorsAPI,
                          OverdriveAPI,
                          OdiloAPI,
                          BibliothecaAPI,
@@ -2256,18 +2265,12 @@ class SettingsController(AdminCirculationManagerController):
                          SharedODLAPI,
                          FeedbooksOPDSImporter,
                         ]
-
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
-        protocols.append(dict(name=ExternalIntegration.MANUAL,
-                              label=_("Manual import"),
-                              description=_("Books will be manually added to the circulation manager, not imported automatically through a protocol."),
-                              settings=[],
-                              ))
+        protocols = self._get_protocols(provider_apis)
 
         if not identifier:
             return Response("No Identifier", 200)
 
-        collection = dict(self_test_results=None)
+        collection = dict()
         collectionFound = None
         for col in self._db.query(Collection).order_by(Collection.name).all():
             if col.id == int(identifier):
@@ -2280,44 +2283,50 @@ class SettingsController(AdminCirculationManagerController):
                     settings=dict(external_account_id=col.external_account_id),
                     protocolClass=None,
                 )
+
                 if col.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == col.protocol]
 
                     [protocolClass] = [p for p in provider_apis if p.NAME == col.protocol]
-
                     collection["protocolClass"] = protocolClass
-                self_test_results = None
 
-                if not collection["protocolClass"]:
-                    if col.protocol == OPDSImportMonitor.PROTOCOL:
-                        collection["protocolClass"] = OPDSImportMonitor
-
-                if issubclass(collection["protocolClass"], HasSelfTests):
-                    self_test_results = collection["protocolClass"].prior_test_results(self._db, collection["protocolClass"], self._db, col)
-
-                collection["self_test_results"] = self_test_results
+                collection["self_test_results"] = self._get_prior_test_results(col, collection)
 
         if flask.request.method == 'GET':
-            del collection["protocolClass"]
-            return dict(
-                collection=collection
-            )
+            if "protocolClass" in collection:
+                del collection["protocolClass"]
+            return dict(collection=collection)
 
         if flask.request.method == "POST":
             if collection["protocolClass"]:
-                value, results = collection["protocolClass"].run_self_tests(self._db, collection["protocolClass"], self._db, collectionFound)
+                if (collection["protocol"] == OPDSImportMonitor.PROTOCOL):
+                    value, results = collection["protocolClass"].run_self_tests(self._db, collection["protocolClass"], self._db, collectionFound, OPDSImporter)
+                else:
+                    value, results = collection["protocolClass"].run_self_tests(self._db, collection["protocolClass"], self._db, collectionFound)
 
                 if (value):
                     return Response("Successfully ran new self tests", 200)
                 else:
                     return Response("Failed to run self tests", 200)
 
-            return Response("Nothing", 200)
+            return Response("No collection to run self tests on", 200)
 
+    def _get_prior_test_results(self, collection, newCollection):
+        self_test_results = None
+        if not newCollection["protocolClass"]:
+            if collection.protocol == OPDSImportMonitor.PROTOCOL:
+                newCollection["protocolClass"] = OPDSImportMonitor
+
+        if issubclass(newCollection["protocolClass"], HasSelfTests):
+            if (collection.protocol == OPDSImportMonitor.PROTOCOL):
+                self_test_results = newCollection["protocolClass"].prior_test_results(self._db, newCollection["protocolClass"], self._db, collection, OPDSImporter)
+            else:
+                self_test_results = newCollection["protocolClass"].prior_test_results(self._db, newCollection["protocolClass"], self._db, collection)
+
+        return self_test_results
 
     def collections(self):
-        provider_apis = [OPDSImporter,
-                         OPDSForDistributorsAPI,
+        provider_apis = [OPDSForDistributorsAPI,
                          OverdriveAPI,
                          OdiloAPI,
                          BibliothecaAPI,
@@ -2328,12 +2337,7 @@ class SettingsController(AdminCirculationManagerController):
                          SharedODLAPI,
                          FeedbooksOPDSImporter,
                         ]
-        protocols = self._get_integration_protocols(provider_apis, protocol_name_attr="NAME")
-        protocols.append(dict(name=ExternalIntegration.MANUAL,
-                              label=_("Manual import"),
-                              description=_("Books will be manually added to the circulation manager, not imported automatically through a protocol."),
-                              settings=[],
-                              ))
+        protocols = self._get_protocols(provider_apis)
 
         # If there are storage integrations, add a mirror integration
         # setting to every protocol's 'settings' block.
@@ -2363,7 +2367,9 @@ class SettingsController(AdminCirculationManagerController):
                     protocol=c.protocol,
                     parent_id=c.parent_id,
                     settings=dict(external_account_id=c.external_account_id),
+                    protocolClass=None
                 )
+
                 if c.protocol in [p.get("name") for p in protocols]:
                     [protocol] = [p for p in protocols if p.get("name") == c.protocol]
                     libraries = []
@@ -2386,12 +2392,11 @@ class SettingsController(AdminCirculationManagerController):
                             collection["settings"][key] = value
 
                     [protocolClass] = [p for p in provider_apis if p.NAME == c.protocol]
-                    self_test_results = None
+                    collection["protocolClass"] = protocolClass
 
-                    if issubclass(protocolClass, HasSelfTests):
-                        self_test_results = protocolClass.prior_test_results(self._db, protocolClass, self._db, c)
+                collection["self_test_results"] = self._get_prior_test_results(c, collection)
 
-                    collection["self_test_results"] = self_test_results
+                del collection["protocolClass"]
                 collections.append(collection)
 
             return dict(
