@@ -971,35 +971,6 @@ class OdiloCirculationMonitor(CollectionMonitor):
 
         return url
 
-
-class FullOdiloCollectionMonitor(OdiloCirculationMonitor):
-    """Monitor every single book in the Odilo collection.
-
-    This tells us about books added to the Odilo collection that
-    are not found in our collection.
-    """
-    SERVICE_NAME = "Odilo Full Collection Overview"
-    INTERVAL_SECONDS = 3600 * 4
-
-    def run_once(self, start=None, cutoff=None):
-        """Ignore the dates and return all IDs."""
-        self.log.info("Starting recently_changed_ids, start: " + str(start) + ", cutoff: " + str(cutoff))
-
-        start_time = datetime.datetime.now()
-        self.all_ids(None)
-        finish_time = datetime.datetime.now()
-
-        time_elapsed = finish_time - start_time
-        self.log.info("recently_changed_ids finished in: " + str(time_elapsed))
-
-
-class RecentOdiloCollectionMonitor(OdiloCirculationMonitor):
-    """Monitor recently changed books in the Odilo collection."""
-
-    SERVICE_NAME = "Odilo Collection Recent Monitor"
-    INTERVAL_SECONDS = 60
-
-
 class MockOdiloAPI(OdiloAPI):
     def patron_request(self, patron, pin, *args, **kwargs):
         response = self._make_request(*args, **kwargs)

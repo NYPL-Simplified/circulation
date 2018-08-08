@@ -23,8 +23,7 @@ from api.odilo import (
     MockOdiloAPI,
     OdiloRepresentationExtractor,
     OdiloBibliographicCoverageProvider,
-    RecentOdiloCollectionMonitor,
-    FullOdiloCollectionMonitor
+    OdiloCirculationMonitor
 )
 
 from api.circulation import (
@@ -576,8 +575,8 @@ class TestOdiloCirculationAPI(OdiloAPITest):
 
 
 class TestOdiloDiscoveryAPI(OdiloAPITest):
-    def test_1_odilo_recent_circulation_monitor(self):
-        monitor = RecentOdiloCollectionMonitor(self._db, self.collection, api_class=MockOdiloAPI)
+    def test_1_odilo_circulation_monitor_with_date(self):
+        monitor = OdiloCirculationMonitor(self._db, self.collection, api_class=MockOdiloAPI)
         ok_(monitor, 'Monitor null !!')
         eq_(ExternalIntegration.ODILO, monitor.protocol, 'Wat??')
 
@@ -592,10 +591,10 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
 
         monitor.run_once(start="2017-09-01", cutoff=None)
 
-        self.api.log.info('RecentOdiloCollectionMonitor finished ok!!')
+        self.api.log.info('Odilo circulation monitor with date finished ok!!')
 
-    def test_2_odilo_full_circulation_monitor(self):
-        monitor = FullOdiloCollectionMonitor(self._db, self.collection, api_class=MockOdiloAPI)
+    def test_2_odilo_circulation_monitor_without_date(self):
+        monitor = OdiloCirculationMonitor(self._db, self.collection, api_class=MockOdiloAPI)
         ok_(monitor, 'Monitor null !!')
         eq_(ExternalIntegration.ODILO, monitor.protocol, 'Wat??')
 
@@ -608,9 +607,9 @@ class TestOdiloDiscoveryAPI(OdiloAPITest):
 
         monitor.api.queue_response(200, content='[]')  # No more resources retrieved
 
-        monitor.run_once()
+        monitor.all_ids()
 
-        self.api.log.info('FullOdiloCollectionMonitor finished ok!!')
+        self.api.log.info('Odilo circulation monitor without date finished ok!!')
 
 class TestOdiloBibliographicCoverageProvider(OdiloAPITest):
     def setup(self):
