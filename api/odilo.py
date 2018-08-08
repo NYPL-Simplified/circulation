@@ -531,26 +531,6 @@ class OdiloAPI(BaseCirculationAPI, HasSelfTests):
             url = self.library_api_base_url + url
         return url
 
-    def refresh(credential):
-        return self.get_patron_access_token(credential, patron, pin)
-        return self._patron_credential_lookup(patron, refresh)
-
-    def _patron_credential_lookup(self, patron, refresh):
-        return Credential.lookup(self._db, DataSource.ODILO, "OAuth Token", patron, refresh)
-
-    def get_patron_access_token(self, credential, patron, pin):
-        """Request an OAuth bearer token that allows us to act on
-        behalf of a specific patron.
-
-        TODO: This code does nothing and should be removed.
-        """
-
-        self.client_key = patron
-        self.client_secret = pin
-        self.refresh_creds(credential)
-
-        return credential
-
     def get(self, url, extra_headers={}, exception_on_401=False):
         """Make an HTTP GET request using the active Bearer Token."""
         if extra_headers is None:
