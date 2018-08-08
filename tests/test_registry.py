@@ -472,7 +472,7 @@ class TestRegistration(DatabaseTest):
         called_with = mock.called_with
         eq_(called_with,
             (url, payload,
-             dict(timeout=60, allowed_response_codes=["2xx", "3xx", "401"])
+             dict(timeout=60, allowed_response_codes=["2xx", "3xx", "400", "401"])
             )
         )
 
