@@ -101,6 +101,10 @@ from api.adobe_vendor_id import AuthdataUtility
 
 from core.external_search import ExternalSearchIndex
 
+from api.axis import (Axis360API, MockAxis360API)
+from core.selftest import HasSelfTests
+from core.opds_import import OPDSImportMonitor
+
 class AdminControllerTest(CirculationControllerTest):
 
     # Automatically creating books before the test wastes time -- we
@@ -1206,7 +1210,7 @@ class TestWorkController(AdminControllerTest):
             assert_raises(AdminNotAuthorized,
                           self.manager.admin_work_controller.preview_book_cover,
                           identifier.type, identifier.identifier)
-        
+
 
     def test_change_book_cover(self):
         # Mock image processing which has been tested in other methods.
@@ -1361,7 +1365,7 @@ class TestWorkController(AdminControllerTest):
                           identifier.type, identifier.identifier)
 
         self.manager.admin_work_controller._process_cover_image = old_process
-        
+
     def test_custom_lists_get(self):
         staff_data_source = DataSource.lookup(self._db, DataSource.LIBRARY_STAFF)
         list, ignore = create(self._db, CustomList, name=self._str, library=self._default_library, data_source=staff_data_source)
@@ -3092,6 +3096,54 @@ class TestSettingsController(SettingsControllerTest):
         library = get_one(self._db, Library, uuid=library.uuid)
         eq_(None, library)
 
+    def mock_prior_test_results(self, *args, **kwargs):
+        self.called_with = (args, kwargs)
+        self_test_results = dict(
+            duration=0.9,
+            start="2018-08-08T16:04:05Z",
+            end="2018-08-08T16:05:05Z",
+            results=[]
+        )
+        self.self_test_results = self_test_results
+
+        return self_test_results
+
+    def test_get_prior_test_results(self):
+        controller = SettingsController(self.manager)
+
+        emptyCollection = self._collection()
+        collection = MockAxis360API.mock_collection(self._db)
+        newCollection = dict(protocolClass=Axis360API)
+
+        OPDSCollection = self._collection()
+        newOPDSCollection = dict(protocolClass=OPDSImportMonitor)
+
+        old_prior_test_results = HasSelfTests.prior_test_results
+        HasSelfTests.prior_test_results = self.mock_prior_test_results
+
+        # No collection or collection with protocol passed
+        self_test_results = controller._get_prior_test_results({}, {})
+        eq_(None, self_test_results)
+        self_test_results = controller._get_prior_test_results(emptyCollection, {})
+        eq_(None, self_test_results)
+
+        # Test that a collection's protocol calls HasSelfTests.prior_test_results
+        self_test_results = controller._get_prior_test_results(collection, newCollection)
+        args = self.called_with[0]
+        eq_(args[1], Axis360API)
+        eq_(args[3], collection)
+
+        # If a collection's protocol is OPDSImporter, make sure that
+        # OPDSImportMonitor.prior_test_results is called
+        self_test_results = controller._get_prior_test_results(OPDSCollection, newOPDSCollection)
+        args = self.called_with[0]
+        eq_(args[1], OPDSImportMonitor)
+        eq_(args[3], OPDSCollection)
+
+        HasSelfTests.prior_test_results = old_prior_test_results
+
+
+
     def test_collections_get_with_no_collections(self):
         # Delete any existing collections created by the test setup.
         for collection in self._db.query(Collection):
@@ -3158,6 +3210,9 @@ class TestSettingsController(SettingsControllerTest):
 
     def test_collections_get_collections_with_multiple_collections(self):
 
+        old_prior_test_results = HasSelfTests.prior_test_results
+        HasSelfTests.prior_test_results = self.mock_prior_test_results
+
         [c1] = self._default_library.collections
 
         c2 = self._collection(
@@ -3169,6 +3224,8 @@ class TestSettingsController(SettingsControllerTest):
         )
         c2.external_account_id = "1234"
         c2.external_integration.password = "b"
+        c2.external_integration.username = "user"
+        c2.external_integration.setting('website_id').value = '100'
         c2.mirror_integration_id=c2_storage.id
 
         c3 = self._collection(
@@ -3204,6 +3261,10 @@ class TestSettingsController(SettingsControllerTest):
             eq_(c1.protocol, coll1.get("protocol"))
             eq_(c2.protocol, coll2.get("protocol"))
             eq_(c3.protocol, coll3.get("protocol"))
+
+            eq_(self.self_test_results, coll1.get("self_test_results"))
+            eq_(self.self_test_results, coll2.get("self_test_results"))
+            eq_(self.self_test_results, coll3.get("self_test_results"))
 
             settings1 = coll1.get("settings", {})
             settings2 = coll2.get("settings", {})
@@ -3241,6 +3302,8 @@ class TestSettingsController(SettingsControllerTest):
             eq_(1, len(coll3_libraries))
             eq_("L1", coll3_libraries[0].get("short_name"))
             eq_("14", coll3_libraries[0].get("ebook_loan_duration"))
+
+        HasSelfTests.prior_test_results = old_prior_test_results
 
     def test_collections_post_errors(self):
         with self.request_context_with_admin("/", method="POST"):

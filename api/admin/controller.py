@@ -2253,6 +2253,36 @@ class SettingsController(AdminCirculationManagerController):
 
         return protocols
 
+    def _get_prior_test_results(self, collection, newCollection):
+        provider_apis = [OPDSImportMonitor,
+                         OPDSForDistributorsAPI,
+                         OverdriveAPI,
+                         OdiloAPI,
+                         BibliothecaAPI,
+                         Axis360API,
+                         OneClickAPI,
+                         EnkiAPI,
+                         ODLWithConsolidatedCopiesAPI,
+                         SharedODLAPI,
+                         FeedbooksOPDSImporter,
+                        ]
+
+        self_test_results = None
+
+        if not collection or not collection.protocol:
+            return None
+
+        if collection.protocol == OPDSImportMonitor.PROTOCOL:
+            newCollection["protocolClass"] = OPDSImportMonitor
+
+        if newCollection["protocolClass"] in provider_apis and issubclass(newCollection["protocolClass"], HasSelfTests):
+            if (collection.protocol == OPDSImportMonitor.PROTOCOL):
+                self_test_results = newCollection["protocolClass"].prior_test_results(self._db, newCollection["protocolClass"], self._db, collection, OPDSImporter)
+            else:
+                self_test_results = newCollection["protocolClass"].prior_test_results(self._db, newCollection["protocolClass"], self._db, collection)
+
+        return self_test_results
+
     def collection_self_tests(self, identifier):
         provider_apis = [OPDSImporter,
                          OPDSForDistributorsAPI,
@@ -2311,19 +2341,6 @@ class SettingsController(AdminCirculationManagerController):
                     return Response("Failed to run self tests", 200)
 
             return Response("No collection to run self tests on", 200)
-
-    def _get_prior_test_results(self, collection, newCollection):
-        self_test_results = None
-        if collection.protocol == OPDSImportMonitor.PROTOCOL:
-            newCollection["protocolClass"] = OPDSImportMonitor
-
-        if issubclass(newCollection["protocolClass"], HasSelfTests):
-            if (collection.protocol == OPDSImportMonitor.PROTOCOL):
-                self_test_results = newCollection["protocolClass"].prior_test_results(self._db, newCollection["protocolClass"], self._db, collection, OPDSImporter)
-            else:
-                self_test_results = newCollection["protocolClass"].prior_test_results(self._db, newCollection["protocolClass"], self._db, collection)
-
-        return self_test_results
 
     def collections(self):
         provider_apis = [OPDSImporter,
