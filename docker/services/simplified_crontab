@@ -100,5 +100,4 @@ HOME=/var/www/circulation
 
 # Odilo
 #
-0 */4 * * * root core/bin/run odilo_monitor_full >> /var/log/cron.log 2>&1
 */15 * * * * root core/bin/run odilo_monitor_recent >> /var/log/cron.log 2>&1
