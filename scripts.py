@@ -1462,8 +1462,8 @@ class NovelistSnapshotScript(LibraryInputScript):
 
             if (response):
                 result = "NoveList Snapshot"
-                result += "\nRecords sent: " + str(response["RecordsReceived"])
-                result += "\nInvalid Records: " + str(response["InvalidRecords"]) + "\n"
+                result += "\nRecords sent: " + str(response.result["recordsReceived"])
+                result += "\nInvalid Records: " + str(response.result["invalidRecords"]) + "\n"
 
                 output.write(result)
 
