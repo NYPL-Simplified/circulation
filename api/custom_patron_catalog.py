@@ -144,7 +144,7 @@ class CustomRootLane(CustomPatronCatalog):
         """Replace the 'start' link with a link to the configured Lane."""
         root_url = url_for(
             "acquisition_groups", library_short_name=library.name,
-            lane_identifier=self.lane_id, _external="True"
+            lane_identifier=self.lane_id, _external=True
         )
         self.replace_link(
             doc, 'start', href=root_url, type=OPDSFeed.ACQUISITION_FEED_TYPE
